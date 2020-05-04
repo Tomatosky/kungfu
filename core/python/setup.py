@@ -16,6 +16,7 @@ setup(
     },
     include_package_data=True,
     install_requires=[
+        "pycryptodome==3.9.7",
         "click==7.1.1",
         "tabulate==0.8.6",
         "prompt_toolkit==1.0.14",
