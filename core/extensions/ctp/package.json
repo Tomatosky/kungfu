@@ -89,6 +89,13 @@
                     "required": true,
                     "default": false,
                     "tip": "若开启则同步用户在其他交易软件的订单"
+                },{
+                    "key": "account_code",
+                    "name": "account_code",
+                    "type": "str",
+                    "errMsg": "请填写账户授权码",
+                    "required": true,
+                    "tip": "请填写账户授权码，由证券/期货公司处获取"
                 }
             ],
             "md_config": [

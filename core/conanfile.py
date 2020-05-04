@@ -8,6 +8,7 @@ import getpass
 import platform
 import datetime
 import subprocess
+from pathlib import Path
 from conans import ConanFile
 from conans import tools
 
@@ -208,6 +209,15 @@ class KungfuCoreConan(ConanFile):
         shutil.copytree(os.path.join(os.pardir, 'python', 'kungfu'), os.path.join(self.build_python_dir, 'kungfu'))
         shutil.copytree(os.path.join(os.pardir, 'python', 'kungfu_extensions'), os.path.join(self.build_python_dir, 'kungfu_extensions'))
         shutil.copy2(os.path.join(os.pardir, 'python', 'setup.py'), self.build_python_dir)
+
+        keygen_py = os.path.join(self.build_python_dir, 'kungfu', 'command', 'keygen.py')
+        practice_py = os.path.join(self.build_python_dir, 'kungfu', 'practice', '__init__.py')
+        os.remove(keygen_py)
+        Path(keygen_py).touch()
+        os.remove(practice_py)
+        with open(practice_py, 'w+') as practice_mock:
+            practice_mock.writelines(['decode_text=lambda t: t',''])
+        shutil.rmtree(os.path.join(self.build_python_dir, 'kungfu', 'command', 'crypt'))
 
         with tools.chdir('python'):
             rc = psutil.Popen(['pipenv', 'run', 'python', 'setup.py', 'bdist_wheel']).wait()
