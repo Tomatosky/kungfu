@@ -7,5 +7,7 @@ from . import md
 from . import td
 from . import strategy
 from . import bar
+from . import keygen
 from kungfu.command.journal import __all__
 from kungfu.command.ext import __all__
+from kungfu.command.crypt import __all__
