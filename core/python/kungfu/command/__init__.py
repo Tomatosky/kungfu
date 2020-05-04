@@ -22,6 +22,7 @@ class SpecialHelpOrder(click.Group):
     def list_commands_for_help(self, ctx):
         """reorder the list of commands when listing the help"""
         commands = super(SpecialHelpOrder, self).list_commands(ctx)
+        commands = filter(lambda command: self.help_priorities[command] > 0, commands)
         return (c[1] for c in sorted(
             (self.help_priorities.get(command, DEFAULT_CMD_PRIORITY), command)
             for command in commands))
