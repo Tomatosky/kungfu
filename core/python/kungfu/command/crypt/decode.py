@@ -9,4 +9,8 @@ from kungfu.practice import decode_text
 @click.pass_context
 def decode(ctx, text):
     pass_ctx_from_parent(ctx)
-    click.echo(decode_text(ctx, text))
+    try:
+        expiry, dec_account_id = decode_text(ctx, text)
+        click.echo(f"{dec_account_id} expires at {expiry}")
+    except:
+        click.echo("invalid key/code")
