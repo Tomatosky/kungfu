@@ -21,10 +21,18 @@ def td(ctx, source, account, low_latency):
     ext = EXTENSION_REGISTRY_TD.get_extension(source)(low_latency, ctx.locator, account, config.value)
     td_config = json.loads(config.value)
     account_id = td_config['account_id']
-    if td_home.group == 'sim':
-        ext.run()
-    elif 'account_code' in td_config and account_id == decode_text(ctx, td_config['account_code']):
-        ext.run()
-    else:
-        logger = log.create_logger(account_id, ctx.log_level, td_home)
+    logger = log.create_logger(account_id, ctx.log_level, td_home)
+    try:
+        if td_home.group == 'sim':
+            ext.run()
+        elif 'account_code' in td_config:
+            expiry, dec_account_id = decode_text(ctx, td_config['account_code'])
+            if dec_account_id == account_id:
+                logger.warn(f'account code expires at {expiry}')
+                ext.run()
+                return
+        logger.error('invalid account code')
+    except OverflowError:
+        logger.error('account code expired')
+    except:
         logger.error('invalid account code')
