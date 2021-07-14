@@ -192,7 +192,7 @@ export default {
 
             //优化
             if (this.currentStrategyDetailTab === 'orderMap') {
-                const orderInputs = getOrderInputBySourceDest(ledgerData, 'source', this.currentLocationUID)
+                const orderInputs = getOrderInputBySourceDest(ledgerData.OrderInput, 'source', this.currentLocationUID)
                 this.orderInputs = Object.freeze(orderInputs);
             }
         })
