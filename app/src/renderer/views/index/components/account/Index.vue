@@ -251,9 +251,20 @@ export default {
             }
         },
 
+        currentId () {
+            //需要更新下单面板信息
+            this.$bus.$emit("update:make-order", {
+                currentId: this.currentId,
+                moduleType: this.moduleType,
+                orderInput: {}
+            })
+        },
+
         currentTaskId () {
             this.currentOrdesTabName = "taskDetail"
-        }
+        },
+
+        
     },
 
     mounted ( ) {
