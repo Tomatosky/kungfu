@@ -171,7 +171,7 @@ void TraderXTP::OnQueryPosition(XTPQueryStkPositionRsp *position, XTPRI *error_i
   stock_pos.update_time = time::now_in_nano();
   writer->close_data();
   if (is_last) {
-    PositionEnd &end = writer->open_data<PositionEnd>(0);
+    PositionEnd &end = writer->open_data<PositionEnd>(now());
     end.holder_uid = get_io_device()->get_home()->uid;
     writer->close_data();
   }
