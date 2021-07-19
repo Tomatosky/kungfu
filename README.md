@@ -52,6 +52,10 @@ npm config set npm_config_disturl=https://npm.taobao.org/mirrors/atom-shell
 
 :electron-builder-binaries 这个依赖因为众所周知的原因可能会出现下载失败，可以通过 https://my.oschina.net/u/1240907/blog/1926061 这篇文章中的方法解决
 
+windows 解决  unable to access 'https://github.com/Turbo87/deep-eql.git/': OpenSSL SSL_read: Connection was reset, errno 10054
+使用代理
+执行 ipconfig /flushdns
+
 #### MacOSX
 
 ```
