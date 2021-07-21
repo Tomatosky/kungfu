@@ -53,7 +53,10 @@ if (target) {
     if (target.includes('tora')) {
         baseConfig.extraResources.push({
             "from": path.join(__dirname, '..', '..', 'kfext_tora', 'build', 'dist'),
-            "to": "kfc/kungfu_extensions/tora"
+            "to": "kfc/kungfu_extensions/tora",
+            "filter": [
+                "!*.tgz"
+            ]
         })
     }
 
@@ -61,20 +64,29 @@ if (target) {
         baseConfig.extraResources.push({
             "from": path.join(__dirname, '..', '..', 'kfext_zhaos', 'build', 'dist'),
             "to": "kfc/kungfu_extensions/zhaos",
+            "filter": [
+                "!*.tgz"
+            ]
         })
     }
 
     if (target.includes('shengli')) {
         baseConfig.extraResources.push({
             "from": path.join(__dirname, '..', '..', 'kfext_shengli', 'build', 'dist'),
-            "to": "kfc/kungfu_extensions/shengli"
+            "to": "kfc/kungfu_extensions/shengli",
+            "filter": [
+                "!*.tgz"
+            ]
         })
     }
 
     if (target.includes('rongh')) {
         baseConfig.extraResources.push({
             "from": path.join(__dirname, '..', '..', 'kfext_rongh', 'build', 'dist'),
-            "to": "kfc/kungfu_extensions/rongh"
+            "to": "kfc/kungfu_extensions/rongh",
+            "filter": [
+                "!*.tgz"
+            ]
         })
     }
 }
