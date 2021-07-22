@@ -166,6 +166,7 @@ inline void to_json(nlohmann::json &j, const CThostFtdcInvestorPositionField &or
   j["PositionDate"] = std::string(1, ori.PositionDate);
   j["YdPosition"] = ori.YdPosition;
   j["Position"] = ori.Position;
+  j["TodayPosition"] = ori.TodayPosition;
   j["LongFrozen"] = ori.LongFrozen;
   j["ShortFrozen"] = ori.ShortFrozen;
   j["LongFrozenAmount"] = ori.LongFrozenAmount;
@@ -195,7 +196,6 @@ inline void to_json(nlohmann::json &j, const CThostFtdcInvestorPositionField &or
   j["CombShortFrozen"] = ori.CombShortFrozen;
   j["CloseProfitByDate"] = ori.CloseProfitByDate;
   j["CloseProfitByTrade"] = ori.CloseProfitByTrade;
-  j["TodayPosition"] = ori.TodayPosition;
   j["MarginRateByMoney"] = ori.MarginRateByMoney;
   j["MarginRateByVolume"] = ori.MarginRateByVolume;
   j["StrikeFrozen"] = ori.StrikeFrozen;

@@ -106,6 +106,8 @@ private:
   std::unordered_map<int, longfist::types::OrderAction> action_event_map_;
 
   std::string trading_day_;
+  
+  int instrument_count_ = 0;
 
   bool login();
 

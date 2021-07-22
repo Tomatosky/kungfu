@@ -334,10 +334,8 @@ void TraderCTP::OnRspQryInvestorPosition(CThostFtdcInvestorPositionField *pInves
     position.volume += pInvestorPosition->Position;
     position.margin += pInvestorPosition->ExchangeMargin;
     if (position.volume > 0 and inst_info.contract_multiplier > 0) {
-      double cost = inst_info.contract_multiplier * position.avg_open_price *
-                    double(position.volume - pInvestorPosition->Position);
-      position.avg_open_price =
-          (cost + pInvestorPosition->OpenCost) / double(inst_info.contract_multiplier * position.volume);
+      double cost = inst_info.contract_multiplier * position.avg_open_price * double(position.volume - pInvestorPosition->Position);
+      position.avg_open_price = (cost + pInvestorPosition->OpenCost) / double(inst_info.contract_multiplier * position.volume);
     }
     position.update_time = time::now_in_nano();
   }
@@ -408,10 +406,12 @@ void TraderCTP::OnRspQryInstrument(CThostFtdcInstrumentField *pInstrument, CThos
       from_ctp(*pInstrument, instrument);
       instrument_map_[pInstrument->InstrumentID] = instrument;
       writer->close_data();
+      instrument_count_++;
   }
 
   if (bIsLast) {
-    SPDLOG_INFO("INSTRUMENT RES bIsLast {}", bIsLast);
+    SPDLOG_INFO("INSTRUMENT RES bIsLast {}, instrument_count_ {}", bIsLast, instrument_count_);
+    instrument_count_ = 0;
     auto writer = get_writer(location::PUBLIC);
     writer->mark(now(), InstrumentEnd::tag);
     update_broker_state(BrokerState::Ready);
