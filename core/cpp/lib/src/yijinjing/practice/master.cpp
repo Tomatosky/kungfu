@@ -183,7 +183,16 @@ void master::feed(const event_ptr &event) {
   if (get_location(event->source())->category == category::MD) {
     return;
   }
+  //TO DO 
+  boost::hana::for_each(StateDataTypes, [&](auto it) {
+    using DataType = typename decltype(+boost::hana::second(it))::type;
+    if (DataType::tag == msg_type) {
+      SPDLOG_WARN("TEST WRITE DB", event->data<DataType>().to_string())
+    }
+  });
   feed_state_data(event, app_cache_shift_[event->source()]);
+  SPDLOG_WARN('---');
+  
   feed_profile_data(event, profile_);
 }
 
