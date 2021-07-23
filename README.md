@@ -166,13 +166,13 @@ $HOME/.local/share/virtualenvs      # pipenv(unix) 存储的 Python 依赖
 
 # Version 版本
 * 2.3.6:
-    * 支持柜台风控设置
     * 优化数据传输，提升交互性能
     * 行情模块与账户模块合并
     * 增加档位下单，优化添加标的以及下单体验
     * 修正了最大启动次数的bug
     * cli 增加导出全部
     * 修正cli机制，不再获取当前session之前的数据，避免了多条cli进程造成 database is locked 的问题
+    * 修正部分柜台bugs
     * 修正前端bugs
 * 2.3.5:
     * 增加数据通信进程，减小app渲染计算压力
