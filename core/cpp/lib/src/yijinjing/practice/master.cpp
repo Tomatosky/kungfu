@@ -187,12 +187,12 @@ void master::feed(const event_ptr &event) {
   boost::hana::for_each(StateDataTypes, [&](auto it) {
     using DataType = typename decltype(+boost::hana::second(it))::type;
     if (DataType::tag == msg_type) {
-      SPDLOG_WARN("TEST WRITE DB", event->data<DataType>().to_string())
+      SPDLOG_WARN("TEST WRITE DB OVERHEAD {}", event->data<DataType>().to_string())
     }
   });
   feed_state_data(event, app_cache_shift_[event->source()]);
-  SPDLOG_WARN('---');
-  
+  SPDLOG_WARN("============== TEST WRITE DB OVERHEAD DONE ============== ");
+
   feed_profile_data(event, profile_);
 }
 
