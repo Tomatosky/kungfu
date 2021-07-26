@@ -10,7 +10,7 @@
                 "key": "account_name",
                 "name": "account_name",
                 "type": "str",
-                "errMsg": "请填写账户",
+                "errMsg": "请填写账户别名",
                 "tip": "请填写账户别名"
               },{
                     "key": "account_id",
