@@ -153,22 +153,26 @@ export const describeProcess = (name: string): Promise<any> => {
 
 }
 
-function getRocketParams(ifRocket: Boolean, considerCup = false) {
+function getRocketParams(args: string, ifRocket: Boolean) {
     let rocket = ifRocket ? '-x' : '';
-    if (considerCup) {
-        if (numCPUs <= 4) {
-            rocket = '';
-        }
+    
+    if (numCPUs <= 4) {
+        rocket = '';
     }
+
+    if (args.includes('archive')) {
+        rocket = '';
+    }
+
     return rocket
 }
 
-function buildArgs (args: string, considerCup = false): string {
+function buildArgs (args: string): string {
     const kfConfig: any = fse.readJsonSync(KF_CONFIG_PATH) || {}
     const logLevel: string = ((kfConfig.log || {}).level) || '';
     const ifRocket = ((kfConfig.performance || {}).rocket) || false;
-    const rocket = getRocketParams(ifRocket, considerCup);
-    return [ logLevel, args, rocket ].join(' ')
+    const rocket = getRocketParams(args, ifRocket);
+    return [ logLevel, args, rocket ].join(' ');
 }
 
 export const startProcess = (options: Pm2Options, no_ext = false): Promise<object> => {
@@ -408,7 +412,7 @@ export const startMaster = async (force: boolean): Promise<any> => {
     }
     return startProcess({
         "name": processName,
-        "args": buildArgs('master', true)
+        "args": buildArgs('master')
     }, true).catch(err => logger.error('[startMaster]', err))
 }
 
@@ -421,7 +425,7 @@ export const startLedger = async (force: boolean): Promise<any> => {
     if (!force && ledgerStatus.length === ledger.length && ledger.length !== 0) throw new Error('kungfu ledger 正在运行！')
     return startProcess({
         'name': processName,
-        'args': buildArgs('ledger', true)
+        'args': buildArgs('ledger')
     }).catch(err => logger.error('[startLedger]', err))
 }
 
