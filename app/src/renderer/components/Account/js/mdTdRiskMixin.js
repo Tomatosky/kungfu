@@ -87,6 +87,15 @@ export default {
 
         },
 
+        handleRefresh () {
+            if (this.getTableList) {
+                this.getTableList()
+                    .then(() => {
+                        this.$message.success("操作成功！")
+                    })
+            }
+        },
+
         //添加账户，打开选择柜台弹窗
         handleAdd () {
             this.visiblity.selectSource = true;
@@ -98,6 +107,14 @@ export default {
             this.accountForm = JSON.parse(row.config) 
             this.selectedSource = row.source_name
             this.visiblity.setAccount = true
+        },
+
+        //risk
+        handleOpenUpdateRiskSettingDialog (row) {
+            this.method = 'update'
+            this.accountForm = JSON.parse(row.config) 
+            this.selectedSource = row.source_name
+            this.visiblity.setRisk = true
         },
         
         //选择柜台

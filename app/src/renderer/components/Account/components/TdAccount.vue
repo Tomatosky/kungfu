@@ -4,6 +4,9 @@
             <tr-dashboard-header-item>
                 <tr-search-input v-model.trim="searchKeyword"></tr-search-input>
             </tr-dashboard-header-item>
+            <tr-dashboard-header-item>
+                <i class="el-icon-refresh mouse-over" title="刷新" @click="handleRefresh"></i>
+            </tr-dashboard-header-item>
             <tr-dashboard-header-item v-if="!isAdmin">
                 <el-button size="mini" @click="handleToggleKeepAllProcessRunning" :title="allProcessBtnTxt">{{ allProcessBtnTxt }}</el-button>
             </tr-dashboard-header-item>

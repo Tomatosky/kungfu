@@ -4,6 +4,9 @@
         <tr-dashboard-header-item>
             <tr-search-input v-model.trim="searchKeyword"></tr-search-input>
         </tr-dashboard-header-item>
+        <tr-dashboard-header-item>
+            <i class="el-icon-refresh mouse-over" title="刷新" @click="handleRefresh"></i>
+        </tr-dashboard-header-item>
         <tr-dashboard-header-item v-if="!value && !isAdmin">
             <i class="el-icon-monitor mouse-over" title="打开监控" @click="handleMonitStrategies"></i>
         </tr-dashboard-header-item>
@@ -278,6 +281,13 @@ export default {
                 this.setStrategyForm.strategyPath = strategyPath[0];
                 this.$refs['setStrategyForm'].validate() //手动进行再次验证，因数据放在span中，改变数据后无法触发验证
             })
+        },
+
+        handleRefresh () {
+            this.getStrategyList()
+                .then(() => {
+                    this.$message.success("操作成功！")
+                })
         },
 
         //选中行的背景颜色

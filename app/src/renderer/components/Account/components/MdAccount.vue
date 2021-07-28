@@ -4,6 +4,9 @@
             <tr-dashboard-header-item>
                 <el-button size="mini" @click="handleToggleKeepAllProcessRunning" :title="allProcessBtnTxt">{{ allProcessBtnTxt }}</el-button>
             </tr-dashboard-header-item>
+             <tr-dashboard-header-item>
+                <i class="el-icon-refresh mouse-over" title="刷新" @click="handleRefresh"></i>
+            </tr-dashboard-header-item>
             <tr-dashboard-header-item>
                 <el-button size="mini" @click="handleAdd" title="添加" id="add-account-btn">添加</el-button>
             </tr-dashboard-header-item>
