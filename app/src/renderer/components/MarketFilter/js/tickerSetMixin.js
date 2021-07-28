@@ -181,7 +181,6 @@ export default {
         },
 
         subscribeTickers (tickers, slience = true) {
-            console.log("subscribeTickers", tickers.map(item => `${item.instrumentId}_${item.exchangeId}`))
             if (!watcher.isLive()) return;
             sendDataToDaemonByPm2('MAIN_RENDERER_SUBSCRIBED_TICKERS', tickers)
             tickers.forEach(ticker => {

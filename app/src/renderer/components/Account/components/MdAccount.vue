@@ -1,5 +1,5 @@
 <template>
-      <tr-dashboard title="">
+      <tr-dashboard :title="title">
         <div slot="dashboard-header">
             <tr-dashboard-header-item>
                 <el-button size="mini" @click="handleToggleKeepAllProcessRunning" :title="allProcessBtnTxt">{{ allProcessBtnTxt }}</el-button>
@@ -32,6 +32,7 @@
                 <el-table-column
                     label="状态"
                     show-overflow-tooltip
+                    v-if="!isAdmin"
                     >
                     <template slot-scope="props">
                         <tr-status 
@@ -46,6 +47,7 @@
                     
                 <el-table-column
                     label="进程"
+                    v-if="!isAdmin"
                     >
                     <template slot-scope="props">
                         <span @click.stop>
@@ -57,6 +59,7 @@
                     label=""
                     align="right"
                     min-width="120"
+                    class-name="kf-table-config-column"
                 >
                     <template slot-scope="props">
                         <span class="tr-oper" @click.stop="handleOpenLogFile(`md_${props.row.source_name}`)"><i class="el-icon-document mouse-over" title="打开日志"></i></span>
@@ -114,6 +117,7 @@ export default {
     data () {
         this.tdmdType = 'md';
         this.ifProcessRunning = ifProcessRunning;
+        this.isAdmin = process.env.RENDERER_TYPE === 'admin';
 
         return {
 

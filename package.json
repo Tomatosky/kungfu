@@ -11,7 +11,7 @@
     "kfext_task_timerTrader",
     "kfext_task_backwards",
     "cli2",
-    "app" 
+    "app"
   ],
   "scripts": {
     "license-sync": "git pull && git checkout license -- && git rebase dev/v2/v2.3 && git push -f origin license && git checkout dev/v2/v2.3",

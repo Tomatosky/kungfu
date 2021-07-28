@@ -180,7 +180,7 @@ export default {
 
             if(configItemList.length === 0) {
                 if(this.type === 'td') {
-                    this.$message.$error('账户配置出错！');
+                    this.$message.error('账户配置出错！');
                     this.close();
                 } else if(this.type === 'md') {
                     if(this.method === 'add') {

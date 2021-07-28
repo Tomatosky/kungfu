@@ -1,10 +1,10 @@
 <template>
-    <tr-dashboard title="">
+    <tr-dashboard :title="title">
         <div slot="dashboard-header">
             <tr-dashboard-header-item>
                 <tr-search-input v-model.trim="searchKeyword"></tr-search-input>
             </tr-dashboard-header-item>
-            <tr-dashboard-header-item>
+            <tr-dashboard-header-item v-if="!isAdmin">
                 <el-button size="mini" @click="handleToggleKeepAllProcessRunning" :title="allProcessBtnTxt">{{ allProcessBtnTxt }}</el-button>
             </tr-dashboard-header-item>
             <tr-dashboard-header-item>
@@ -58,6 +58,7 @@
                     label="状态"
                     show-overflow-tooltip
                     min-width="80"
+                    v-if="!isAdmin"
                     >
                     <template slot-scope="props">
                         <tr-status 
@@ -73,6 +74,7 @@
                 <el-table-column
                     label="进程"
                     min-width="60"
+                    v-if="!isAdmin"
                     >
                     <template slot-scope="props">
                         <span @click.stop>
@@ -88,6 +90,7 @@
                     show-overflow-tooltip
                     align="right"
                     min-width="100"
+                    v-if="!isAdmin"
                     >
                     <template slot-scope="props">
                         <tr-blink-num
@@ -102,6 +105,7 @@
                     show-overflow-tooltip
                     align="right"
                     min-width="110"
+                    v-if="!isAdmin"
                     >
                     <template slot-scope="props">
                         <tr-blink-num
@@ -116,6 +120,7 @@
                     show-overflow-tooltip
                     align="right"
                     min-width="120"
+                    v-if="!isAdmin"
                     >
                     <template slot-scope="props" >
                         <tr-blink-num
@@ -130,6 +135,7 @@
                     show-overflow-tooltip
                     align="right"
                     min-width="120"
+                    v-if="!isAdmin"
                     >
                     <template slot-scope="props" >
                         <tr-blink-num
@@ -144,6 +150,7 @@
                     show-overflow-tooltip
                     align="right"
                     min-width="120"
+                    v-if="!isAdmin"
                     >
                         <template slot-scope="props">
                             <tr-blink-num
@@ -156,10 +163,11 @@
                     label=""
                     align="right"
                     min-width="160"
+                    class-name="kf-table-config-column"
                 >
                     <template slot-scope="props">
                         <span class="tr-oper" @click.stop="handleOpenLogFile(`td_${props.row.account_id}`)"><i class="el-icon-document mouse-over" title="打开日志文件"></i></span>
-                        <span class="tr-oper" @click.stop="handleOpenUpdateRiskSettingDialog(props.row)" v-if="getRiskConfig(props.row)"><i class="el-icon-umbrella mouse-over" title="风控设置"></i></span>
+                        <span class="tr-oper" @click.stop="handleOpenUpdateRiskSettingDialog(props.row)" v-if="isAdmin && getRiskConfig(props.row)"><i class="el-icon-umbrella mouse-over" title="风控设置"></i></span>
                         <span class="tr-oper" @click.stop="handleOpenUpdateAccountDialog(props.row)"><i class="el-icon-setting mouse-over" title="账户设置"></i></span>
                         <span :class="['tr-oper-delete', `delete-${props.row.account_id}`] " @click.stop="handleDeleteTd(props.row)"><i class=" el-icon-delete mouse-over" title="删除账户"></i></span>
                     </template>
@@ -230,6 +238,7 @@ export default {
         this.searchFilterKey = 'account_id';
         this.ifProcessRunning = ifProcessRunning;
         this.accountSettingType = "td"
+        this.isAdmin = process.env.RENDERER_TYPE === 'admin';
 
         return {}
     },

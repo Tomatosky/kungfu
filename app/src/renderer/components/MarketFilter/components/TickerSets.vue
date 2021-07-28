@@ -63,6 +63,7 @@
                         label=""
                         align="right"
                         width="100px"
+                        class-name="kf-table-config-column"
                     >
                     <template slot-scope="props">
                         <span class="tr-oper-edit" v-if="props.row.name !== 'editing'" ><i class=" el-icon-edit mouse-over" title="重命名" @click.stop="handleChangeName(props.row)"></i></span>

@@ -1,11 +1,12 @@
 
 /* eslint-disable */
 import './errorCatch';
-import Vue from 'vue';
 import './setKungfuParamsOnWindow';
+import Vue from 'vue';
+import moment from 'moment';
 import store from '@/store';
 import router from './routers';
-import * as utils from '__gUtils/busiUtils';
+import { delayMiliSeconds, openVueWin } from '__gUtils/busiUtils';
 import { removeJournal } from '__gUtils/fileUtils';
 import { KF_HOME } from '__gConfig/pathConfig';
 import { watcher } from '__io/kungfu/watcher';
@@ -16,7 +17,6 @@ import App from './App.vue';
 import '@/assets/iconfont/iconfont.js';
 import '@/assets/iconfont/iconfont.css';
 import '@/assets/scss/makeOrder.scss';
-import moment from 'moment';
 import '__io/http/index';
 
 Vue.use(ElementUI)
@@ -52,7 +52,7 @@ beforeAll()
         Vue.store.dispatch('setProcessStatusWithDetail', processStatusWithDetail)
     });
 
-    utils.delayMiliSeconds(1000)
+    delayMiliSeconds(1000)
         .then(() => startLedger(false))
         .catch(err => console.error(err.message))
 
@@ -60,7 +60,7 @@ beforeAll()
     //保证ui watcher已经启动
     let timer = setInterval(() => {
         if (watcher.isLive() && watcher.isStarted() && watcher.isUsable()) {
-            utils.delayMiliSeconds(1000)
+            delayMiliSeconds(1000)
                 .then(() => startDaemon())
                 .catch(err => console.error(err.message))
             clearInterval(timer);
@@ -90,4 +90,29 @@ function beforeAll () {
     } else {
         return Promise.resolve(true);
     }
+}
+
+
+//admin manager
+import { remote } from 'electron';
+let adminWin = null;
+window.admin = () => {
+
+    //防止重开
+    if (adminWin) {
+        adminWin.focus && adminWin.focus();
+        return;
+    }
+    
+    openVueWin(
+        "admin",
+        "/",
+        remote
+    ).then(win => {
+        adminWin = win;
+
+        adminWin.on('close', () => {
+            adminWin = null;
+        })
+    })
 }

@@ -77,11 +77,8 @@ buildMarketDataPipe().subscribe((data: any) => {
     })
 })
 
-
-
-
+// other process to daemon
 const { _pm2 } = require('__gUtils/processUtils');
-
 _pm2.launchBus((err: Error, pm2_bus: any) => {
 
     if (err) {
@@ -120,7 +117,7 @@ _pm2.launchBus((err: Error, pm2_bus: any) => {
     })
 })
 
-
+// app -> daemon
 process.on('message', (packet) => {
     const { type, topic, data } = packet;        
     

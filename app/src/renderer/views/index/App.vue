@@ -109,7 +109,7 @@ export default {
     mounted(){
 
         //打开应用后报错，比如vs2019依赖, 在app启动后不显示
-        window.AFTER_APP_MOUNTED = true;
+        // window.AFTER_APP_MOUNTED = true;
 
         this.removeLoadingMask();
         this.removeKeyDownEvent();

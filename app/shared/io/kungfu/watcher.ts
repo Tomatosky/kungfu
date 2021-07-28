@@ -31,9 +31,12 @@ export const watcher: any = (() => {
         return kungfu.watcher(KF_RUNTIME_DIR, kungfu.formatStringToHashHex('kungfu_daemon'), false, false);
     }
 
+    if (process.env.RENDERER_TYPE === 'admin') {
+        return kungfu.watcher(KF_RUNTIME_DIR, kungfu.formatStringToHashHex("renderer_admin"), true, true);
+    }
 
     const id = [process.env.APP_TYPE, process.env.RENDERER_TYPE].join('');
-    return kungfu.watcher(KF_RUNTIME_DIR, kungfu.formatStringToHashHex(id), true, true);
+    return kungfu.watcher(KF_RUNTIME_DIR, kungfu.formatStringToHashHex(id), true, false);
 })()
 
 

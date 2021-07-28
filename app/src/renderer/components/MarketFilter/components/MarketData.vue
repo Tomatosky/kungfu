@@ -152,6 +152,7 @@
                     label=""
                     align="right"
                     min-width="80"
+                    class-name="kf-table-config-column"
                 >
                     <template slot-scope="props">
                         <span class="tr-oper-delete" @click.stop="handleDeleteTicker(props.row, currentTickerSet)"><i class=" el-icon-delete mouse-over" title="删除标的"></i></span>
