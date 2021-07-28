@@ -3,12 +3,14 @@
 import './errorCatch';
 import './setKungfuParamsOnWindow';
 import Vue from 'vue';
+import path from 'path';
+import fse from 'fs-extra';
 import moment from 'moment';
 import store from '@/store';
 import router from './routers';
 import { delayMiliSeconds, openVueWin } from '__gUtils/busiUtils';
 import { removeJournal } from '__gUtils/fileUtils';
-import { KF_HOME } from '__gConfig/pathConfig';
+import { KF_HOME, KUNGFU_RESOURCES_DIR } from '__gConfig/pathConfig';
 import { watcher } from '__io/kungfu/watcher';
 import ElementUI from 'element-ui';
 import Components from '@/assets/components';
@@ -95,8 +97,14 @@ function beforeAll () {
 
 //admin manager
 import { remote } from 'electron';
-let adminWin = null;
-window.admin = () => {
+var adminWin = null;
+window.admin = (password) => {
+    const rightPassword = fse.readJsonSync(path.resolve(`${KUNGFU_RESOURCES_DIR}/admin/password.json`));
+
+    if (password != rightPassword.password || '') {
+        console.error("管理员密码错误！")
+        return;
+    }
 
     //防止重开
     if (adminWin) {
@@ -115,4 +123,6 @@ window.admin = () => {
             adminWin = null;
         })
     })
+    console.log("管理员系统打开成功！")
+    return
 }
