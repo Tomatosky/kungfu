@@ -135,7 +135,7 @@ export default {
             if(this.method == 'add') { //添加账户
                 return addTd(accountId, JSON.stringify(formValue))
             } else{ //编辑账户
-                return updateTdConfig(accountId, JSON.stringify(formValue))
+                return updateTdConfig(accountId, JSON.stringify(formValue), 'td')
             }
         },
 
@@ -146,7 +146,7 @@ export default {
             if (this.method == 'add') {
                 return Promise.reject(new Error('risk setting no add set way!'))
             } else {
-                return updateTdConfig(accountId, JSON.stringify(formValue))
+                return updateTdConfig(accountId, JSON.stringify(formValue), 'risk')
             }
         },
 

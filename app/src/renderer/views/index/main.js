@@ -5,9 +5,11 @@ import './setKungfuParamsOnWindow';
 import Vue from 'vue';
 import path from 'path';
 import fse from 'fs-extra';
+import { remote } from 'electron';
 import moment from 'moment';
 import store from '@/store';
 import router from './routers';
+import { logger } from '__gUtils/logUtils';
 import { delayMiliSeconds, openVueWin } from '__gUtils/busiUtils';
 import { removeJournal } from '__gUtils/fileUtils';
 import { KF_HOME, KUNGFU_RESOURCES_DIR } from '__gConfig/pathConfig';
@@ -96,7 +98,6 @@ function beforeAll () {
 
 
 //admin manager
-import { remote } from 'electron';
 var adminWin = null;
 window.admin = (password) => {
     const rightPassword = fse.readJsonSync(path.resolve(`${KUNGFU_RESOURCES_DIR}/admin/password.json`));
@@ -117,9 +118,10 @@ window.admin = (password) => {
         "/",
         remote
     ).then(win => {
+        logger.info("Admin login")
         adminWin = win;
-
         adminWin.on('close', () => {
+            logger.info("Admin logout")
             adminWin = null;
         })
     })

@@ -63,10 +63,14 @@ export const addMd = (sourceName: string, config: string) => {
     })
 }
 
-export const updateTdConfig = (accountId: string, config: string) => {
+export const updateTdConfig = (accountId: string, config: string, type?: string) => {
     return new Promise(resolve => {
         const td = setKfConfig(accountId, 'td', config);
-        logger.info("Update Trade Account", USER, accountId, config);
+        if (type === 'risk') {
+            logger.info("Update Trade Account Risk", USER, accountId, config);
+        } else {
+            logger.info("Update Trade Account", USER, accountId, config);
+        }
         resolve(td)
     })
 }
