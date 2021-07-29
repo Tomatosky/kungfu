@@ -1,6 +1,8 @@
 import { getAllKfConfig, setKfConfig, removeKfConfig } from '__io/kungfu/kungfuUtils';
 import { logger } from '__gUtils/logUtils';
 
+const USER = process.env.RENDERER_TYPE === 'admin' ? "ADMIN" : "";
+
 export const getTdList = (): Promise<Td[]> => {
     return new Promise(resolve => {
         const kfConfigList = getAllKfConfig();
@@ -48,20 +50,23 @@ export const getMdList = (): Promise<Md[]> => {
 export const addTd = (accountId: string, config: string) => {
     return new Promise(resolve => {
         const td = setKfConfig(accountId, 'td', config);
+        logger.info("Add Trade Account", USER, accountId, config);
         resolve(td)
     })
 }
 
-export const addMd = (sourceId: string, config: string) => {
+export const addMd = (sourceName: string, config: string) => {
     return new Promise(resolve => {
-        const md = setKfConfig(sourceId, 'md', config);
+        const md = setKfConfig(sourceName, 'md', config);
+        logger.info("Add Market Source", USER, sourceName, config);
         resolve(md)
     })
 }
 
 export const updateTdConfig = (accountId: string, config: string) => {
     return new Promise(resolve => {
-        const td = setKfConfig(accountId, 'td', config)
+        const td = setKfConfig(accountId, 'td', config);
+        logger.info("Update Trade Account", USER, accountId, config);
         resolve(td)
     })
 }
@@ -69,6 +74,7 @@ export const updateTdConfig = (accountId: string, config: string) => {
 export const updateMdConfig = (sourceName: string, config: string) => {
     return new Promise(resolve => {
         const md = setKfConfig(sourceName, 'md', config)
+        logger.info("Update Market Source", USER, sourceName, config);
         resolve(md)
     })
 }
@@ -76,6 +82,7 @@ export const updateMdConfig = (sourceName: string, config: string) => {
 export const deleteTd = (accountId: string) => {
     return new Promise(resolve => {
         const td = removeKfConfig(accountId, 'td');
+        logger.info("Delete Trade Account", USER, accountId);
         resolve(td)
     })
 }
@@ -83,6 +90,7 @@ export const deleteTd = (accountId: string) => {
 export const deleteMd = (sourceName: string) => {
     return new Promise(resolve => {
         const md = removeKfConfig(sourceName, 'md');
+        logger.info("Delete Market Source", USER, sourceName);
         resolve(md)
     })
 }

@@ -4,8 +4,6 @@ import { setTimerPromiseTask, originOrderTradesFilterByDirection } from '__gUtil
 import { kungfu } from '__io/kungfu/kungfuUtils';
 import { toDecimal, ensureNum, ensureLedgerData, addTwoItemByKeyForReduce, avgTwoItemByKeyForReduce } from '__gUtils/busiUtils';
 import { OffsetName, OrderStatus, SideName, PosDirection, PriceType, HedgeFlag, InstrumentType, VolumeCondition, TimeCondition } from "kungfu-shared/config/tradingConfig";
-import { logger } from '__gUtils/logUtils';
-
 
 export const watcher: any = (() => {
     const kfSystemConfig: any = fse.readJsonSync(KF_CONFIG_PATH)

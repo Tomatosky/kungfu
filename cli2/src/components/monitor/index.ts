@@ -169,8 +169,6 @@ export class MonitorDashboard extends Dashboard {
         });
 
         t.screen.key(['C-c'], (ch: any, key: any) => {
-            logger.info('qqq', ch, key)
-
             const keyName = key.full;
             if (!keyName) return;            
             if ((keyName === 'escape') || (keyName === 'C-c') || (keyName === 'q')) {
@@ -186,9 +184,6 @@ export class MonitorDashboard extends Dashboard {
         })
 
         t.boards.processList.key(['up', 'down'], debounce((ch: string, key: any) => {
-
-            logger.info('up / down', ch, key)
-
             const selectedIndex: number = t.boards.processList.selected;
             const curProcessItem = t.globalData.processList[selectedIndex];
             t._getLogs(curProcessItem)

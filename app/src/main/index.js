@@ -72,12 +72,12 @@ function createWindow () {
 	})
 
 	mainWindow.on('crashed', () => {
-		logger.error('crashed', new Date())
+		logger.error('[MASTER] crashed', new Date())
 		mainWindow && mainWindow.reload()
 	})
 
 	mainWindow.on('unresponsive', () => {
-		logger.error('unresponsive', new Date())
+		logger.error('[MASTER] unresponsive', new Date())
 		mainWindow && mainWindow.reload()
 	})
 
@@ -205,8 +205,6 @@ function setMenu() {
 	
 	Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
-
-
 
 
 process.on('uncaughtException', err => {

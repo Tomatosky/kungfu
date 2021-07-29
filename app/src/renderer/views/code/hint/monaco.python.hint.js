@@ -1,5 +1,4 @@
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
-import { logger } from '__gUtils/logUtils'
 
 const fs = require('fs');
 const path = require('path');

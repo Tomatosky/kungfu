@@ -28,7 +28,7 @@ export const switchMaster = async (status: boolean): Promise<any> => {
    
 
 export const switchLedger = (status: boolean): Promise<any> => {
-    if(!status) return deleteProcess('ledger')   
+    if (!status) return deleteProcess('ledger')   
     return startLedger(false)
 }
 
@@ -38,7 +38,7 @@ export const switchDaemon = (status: boolean): Promise<any> => {
 }
 
 export const switchCustomProcess = (status: boolean, targetName: string) => {
-    if(!status) return deleteProcess(targetName)
+    if (!status) return deleteProcess(targetName)
 
     const customProcessConfig = buildCustomProcessConfig();
     const targetProcessConfig = customProcessConfig[targetName];
