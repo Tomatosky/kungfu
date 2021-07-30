@@ -184,6 +184,11 @@ void master::feed(const event_ptr &event) {
     return;
   }
 
+  //if Instrument return;
+  if (event->msg_type() == 209) {
+    return;
+  }
+
   feed_state_data(event, app_cache_shift_[event->source()]);
   feed_profile_data(event, profile_);
 }
