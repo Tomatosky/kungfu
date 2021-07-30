@@ -410,10 +410,17 @@ export const startMaster = async (force: boolean): Promise<any> => {
     if (!force && masterStatus.length === master.length && master.length !== 0) throw new Error('kungfu master 正在运行！')
     
     try {
-        await killKfc()
+        await killKfc();
     } catch (err) {
         logger.error('[PM2] killKfc in startMaster catch', err)
     }
+
+    try {
+        await deleteProcess("kungfuDaemon");
+    } catch (err) {
+        logger.error('[PM2] kill kungfuDaemon in startMaster catch', err)
+    }
+    
 
     const args = buildArgs('master');
     return startProcess({
@@ -517,18 +524,6 @@ function buildProcessStatus (pList: any[]): StringToStringObject {
         processStatus[name] = status
     })
     return processStatus
-}
-
-interface Pm2Detail {
-    status: string;
-    monit: boolean;
-    pid: number;
-    pm_id: number;
-    name: string;
-    created_at: string;
-    script: string;
-    cwd: string;
-    args: string[];
 }
 
 export function buildProcessStatusWidthDetail (pList: any[]): StringToProcessStatusDetail {

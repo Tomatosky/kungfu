@@ -14,6 +14,7 @@ import { delayMiliSeconds, openVueWin } from '__gUtils/busiUtils';
 import { removeJournal } from '__gUtils/fileUtils';
 import { KF_HOME, KUNGFU_RESOURCES_DIR } from '__gConfig/pathConfig';
 import { watcher } from '__io/kungfu/watcher';
+import { kungfu } from '__io/kungfu/kungfuUtils';
 import ElementUI from 'element-ui';
 import Components from '@/assets/components';
 
@@ -99,32 +100,55 @@ function beforeAll () {
 
 //admin manager
 var adminWin = null;
-window.admin = (password) => {
-    const rightPassword = fse.readJsonSync(path.resolve(`${KUNGFU_RESOURCES_DIR}/admin/password.json`));
-
-    if (password != rightPassword.password || '') {
-        console.error("管理员密码错误！")
-        return;
-    }
-
-    //防止重开
-    if (adminWin) {
-        adminWin.focus && adminWin.focus();
-        return;
-    }
+window.admin = {
+    login (password) {
+        const hashedPassword = kungfu.formatStringToHashHex(password.toString());
+        const rightPassword = fse.readJsonSync(path.resolve(`${KUNGFU_RESOURCES_DIR}/admin/password.json`));
     
-    openVueWin(
-        "admin",
-        "/",
-        remote
-    ).then(win => {
-        logger.info("Admin login")
-        adminWin = win;
-        adminWin.on('close', () => {
-            logger.info("Admin logout")
-            adminWin = null;
+        if (hashedPassword != rightPassword.password || '') {
+            console.error("管理员密码错误！")
+            return;
+        }
+    
+        //防止重开
+        if (adminWin) {
+            adminWin.focus && adminWin.focus();
+            return;
+        }
+        
+        openVueWin(
+            "admin",
+            "/",
+            remote
+        ).then(win => {
+            logger.info("Admin login")
+            adminWin = win;
+            adminWin.on('close', () => {
+                logger.info("Admin logout")
+                adminWin = null;
+            })
         })
-    })
-    console.log("管理员系统打开成功！")
-    return
-}
+        console.log("管理员系统打开成功！")
+        return
+    },
+
+    resetPassword (oldpassword, newpassword) {
+        const targetJSONPath = path.resolve(`${KUNGFU_RESOURCES_DIR}/admin/password.json`);
+        const oldHashedPassword = kungfu.formatStringToHashHex(oldpassword.toString());
+        const rightOldPassword = fse.readJsonSync(targetJSONPath);
+        
+        if (oldHashedPassword != rightOldPassword.password || '') {
+            console.error("管理员旧密码错误！")
+            console.error("更新密码失败！")
+            return;
+        }
+
+        const newHashedPassword = kungfu.formatStringToHashHex(newpassword.toString());
+        fse.writeJSONSync(targetJSONPath, {
+            password: newHashedPassword
+        })
+        console.log("管理员新密码设置成功！")
+        console.log("请通过login方法登录")
+        return;
+    }
+};

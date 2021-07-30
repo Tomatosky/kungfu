@@ -16,4 +16,3 @@ window.kungfuHistory = history;
 
 startGetKungfuWatcherStep();
 
-

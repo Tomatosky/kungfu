@@ -25,7 +25,8 @@ export const tradingDataObservale = (type: string, processId: string) => {
         dealOrderStat 
     } = require('__io/kungfu/watcher');
 
-    const sourceDest = getLocationUID(watcher, type, processId) 
+    const sourceDest = getLocationUID(watcher, type, processId);
+    
     return buildKungfuDataByAppPipe().pipe(
         map(() => {
             const ledgerData = watcher.ledger;

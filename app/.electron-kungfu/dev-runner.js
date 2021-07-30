@@ -142,7 +142,7 @@ function startDaemon () {
 }
 
 function startElectron () {
-  electronProcess = spawn(electron, ['--inspect=5858', '.'])
+  electronProcess = spawn(electron, ['--inspect=5858', "--enable-log", '.'])
 
   electronProcess.stdout.on('data', data => {
     electronLog(data, 'blue')
