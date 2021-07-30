@@ -1,4 +1,5 @@
 import { getAllKfConfig, setKfConfig, removeKfConfig } from '__io/kungfu/kungfuUtils';
+import { hidePasswordByLogger } from '__gUtils/busiUtils';
 import { logger } from '__gUtils/logUtils';
 
 const USER = process.env.RENDERER_TYPE === 'admin' ? "ADMIN" : "";
@@ -50,7 +51,9 @@ export const getMdList = (): Promise<Md[]> => {
 export const addTd = (accountId: string, config: string) => {
     return new Promise(resolve => {
         const td = setKfConfig(accountId, 'td', config);
-        logger.info("Add Trade Account", USER, accountId, config);
+        
+
+        logger.info("Add Trade Account", USER, accountId, hidePasswordByLogger(config));
         resolve(td)
     })
 }
@@ -58,7 +61,7 @@ export const addTd = (accountId: string, config: string) => {
 export const addMd = (sourceName: string, config: string) => {
     return new Promise(resolve => {
         const md = setKfConfig(sourceName, 'md', config);
-        logger.info("Add Market Source", USER, sourceName, config);
+        logger.info("Add Market Source", USER, sourceName, hidePasswordByLogger(config));
         resolve(md)
     })
 }
@@ -67,9 +70,9 @@ export const updateTdConfig = (accountId: string, config: string, type?: string)
     return new Promise(resolve => {
         const td = setKfConfig(accountId, 'td', config);
         if (type === 'risk') {
-            logger.info("Update Trade Account Risk", USER, accountId, config);
+            logger.info("Update Trade Account Risk", USER, accountId, hidePasswordByLogger(config));
         } else {
-            logger.info("Update Trade Account", USER, accountId, config);
+            logger.info("Update Trade Account", USER, accountId, hidePasswordByLogger(config));
         }
         resolve(td)
     })
@@ -78,7 +81,7 @@ export const updateTdConfig = (accountId: string, config: string, type?: string)
 export const updateMdConfig = (sourceName: string, config: string) => {
     return new Promise(resolve => {
         const md = setKfConfig(sourceName, 'md', config)
-        logger.info("Update Market Source", USER, sourceName, config);
+        logger.info("Update Market Source", USER, sourceName, hidePasswordByLogger(config));
         resolve(md)
     })
 }

@@ -148,7 +148,7 @@ window.admin = {
             password: newHashedPassword
         })
         console.log("管理员新密码设置成功！")
-        console.log("请通过login方法登录")
+        console.log("请通过admin.login方法登录")
         return;
     }
 };

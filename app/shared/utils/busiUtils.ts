@@ -783,3 +783,12 @@ export const avgTwoItemByKeyForReduce = (item1: any, item2: any, key: string) =>
     return addTwoItemByKeyForReduce(item1, item2, key) / 2;
 }
 
+export const hidePasswordByLogger = (config: string) => {
+    let configCopy = JSON.parse(config);
+    Object.keys(configCopy || {}).forEach((key: string) => {
+        if (key.includes('password')) {
+            configCopy[key] = "******";
+        }
+    })
+    return JSON.stringify(configCopy);
+}
