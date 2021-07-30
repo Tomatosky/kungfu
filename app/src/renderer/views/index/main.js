@@ -12,7 +12,7 @@ import router from './routers';
 import { logger } from '__gUtils/logUtils';
 import { delayMiliSeconds, openVueWin } from '__gUtils/busiUtils';
 import { removeJournal } from '__gUtils/fileUtils';
-import { KF_HOME, KUNGFU_RESOURCES_DIR } from '__gConfig/pathConfig';
+import { KF_HOME, KF_ADMIN_PASSWORD_CONFIG_PATH } from '__gConfig/pathConfig';
 import { watcher } from '__io/kungfu/watcher';
 import { kungfu } from '__io/kungfu/kungfuUtils';
 import ElementUI from 'element-ui';
@@ -103,7 +103,7 @@ var adminWin = null;
 window.admin = {
     login (password) {
         const hashedPassword = kungfu.formatStringToHashHex(password.toString());
-        const rightPassword = fse.readJsonSync(path.resolve(`${KUNGFU_RESOURCES_DIR}/admin/password.json`));
+        const rightPassword = fse.readJsonSync(KF_ADMIN_PASSWORD_CONFIG_PATH);
     
         if (hashedPassword != rightPassword.password || '') {
             console.error("管理员密码错误！")
@@ -133,7 +133,7 @@ window.admin = {
     },
 
     resetPassword (oldpassword, newpassword) {
-        const targetJSONPath = path.resolve(`${KUNGFU_RESOURCES_DIR}/admin/password.json`);
+        const targetJSONPath = path.resolve(KF_ADMIN_PASSWORD_CONFIG_PATH);
         const oldHashedPassword = kungfu.formatStringToHashHex(oldpassword.toString());
         const rightOldPassword = fse.readJsonSync(targetJSONPath);
         

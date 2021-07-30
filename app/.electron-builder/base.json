@@ -53,8 +53,7 @@
         "to": "kungfu-resources",
         "filter": [
           "config/*",
-          "key/*",
-          "admin/*"
+          "key/*"
         ]
       },
       {
