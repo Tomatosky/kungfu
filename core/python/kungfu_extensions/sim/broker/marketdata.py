@@ -7,7 +7,6 @@ from . import mdmaker
 
 MakerConfig = namedtuple("MakerConfig", ["base", "bound", "samples", "variation", "randseed"])
 
-
 class MarketDataSim(wc.MarketData):
     def __init__(self, low_latency, locator, config_json):
         wc.MarketData.__init__(self, low_latency, locator, "sim")
@@ -19,7 +18,7 @@ class MarketDataSim(wc.MarketData):
         self.add_time_interval(500 * 1000 * 1000, lambda e: self.update_orderbooks())
         self.update_broker_state(lf.enums.BrokerState.Ready)
         wc.MarketData.on_start(self)
-
+        
     def quote_from_orderbook(self, ob):
         quote = lf.types.Quote()
         instrument_id, exchange_id = ob.security.split(".")
@@ -52,7 +51,7 @@ class MarketDataSim(wc.MarketData):
                     instrument_id, exchange_id = order.secid.split(".")
                     if not wc.utils.get_instrument_type(exchange_id, instrument_id) == lf.enums.InstrumentType.Future:
                         order.qty *= 100
-                    trades = book.order(order)
+                    book.order(order)
             quote = self.quote_from_orderbook(book)
             self.get_writer(0).write(0, quote)
 

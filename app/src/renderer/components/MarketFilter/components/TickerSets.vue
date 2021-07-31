@@ -81,7 +81,6 @@
 import { findTargetFromArray } from '__gUtils/busiUtils';
 import baseMixin from '@/assets/mixins/baseMixin';
 import tickerSetMixin from '@/components/MarketFilter/js/tickerSetMixin';
-import { retry } from 'rxjs/operators';
 
 
 export default {
@@ -118,16 +117,18 @@ export default {
                         editingType: ''
                     }
                 });
+
             const editingTickerSetName = (this.editingTickerSet || {}).name || '';
-            
             if (!this.tableList.length) {
                 this.updateEditingTickerSet(null)
             } else if (!findTargetFromArray(this.tableList, 'name', editingTickerSetName)) {
-                //after deleted
+                //after deleted all this ticker set
                 if (this.tableList.length) {
                     this.updateEditingTickerSet(this.tableList[0])
                 }
-            } 
+            } else {
+                this.updateEditingTickerSet(findTargetFromArray(this.tableList, 'name', editingTickerSetName))
+            }
         },
     },
 

@@ -2,6 +2,7 @@ import json
 import os
 import sys
 import importlib
+import datetime
 
 from dotted_dict import DottedDict
 from collections import namedtuple
@@ -24,6 +25,32 @@ class MatchMode:
 
 
 OrderRecord = namedtuple("OrderRecord", ["source", "dest", "order"])
+
+SHFEIndexs = {
+    "exchange": "SHFE",
+    "indexs": ["CU", "AL", "ZN", "PB", "RU", "AU", "FU", "RB", "WR", "AG", "BU", "HC", "NI", "SN", "SP", "SS"]
+}
+DCEIndexs = {
+    "exchange": "DCE",
+    "indexs": ["a", "b", "m", 'y', 'c', 'cs', 'I', 'p', "v", 'J', 'jm', 'i', 'jd', 'FB', 'BB', "PP", "EG", 'RR', 'EB', 'PG']
+}
+CZCEIndexs = {
+    "exchange": "CZCE",
+    "indexs": ["WH", 'PM', "CF", "SR", "TA", "OI", "RS", "RM", 'RI', "FG", "ZC", "JR", "MA", "LR", "SF", "SM", "CY", "AP", "CJ", "AP", "CJ", "UR", "SA", "PF"]
+}
+CFFEXIndexs = {
+    "exchange": "CFFEX",
+    "indexs": ["IF", "TF", "T", "IH", "IC", "TS"]
+}
+INEIndexs = {
+    "exchange": "INE",
+    "indexs": ["SC", "NR", "LU", "BC"]
+}
+
+AllIndexs = [SHFEIndexs, DCEIndexs, CZCEIndexs, CFFEXIndexs, INEIndexs]
+
+Now = datetime.datetime.now()
+NowYear = str(Now.year)
 
 
 class TraderSim(wc.Trader):
@@ -50,6 +77,39 @@ class TraderSim(wc.Trader):
     def on_start(self):
         wc.Trader.on_start(self)
         self.update_broker_state(lf.enums.BrokerState.Ready)
+        self.init_instrument()
+
+    def init_instrument(self):
+        for indexs in AllIndexs:
+            exchange_id = indexs["exchange"]
+            for index in indexs["indexs"]:
+                for i in range(1, 13):
+                    m = "01"
+                    if i < 10:
+                        m = "0" + str(i)
+                    else:
+                        m = str(i)
+
+                    instrument_id = index + NowYear[2:4] + m
+                    if exchange_id == "CZCE":
+                        instrument_id = index + NowYear[3:4] + m
+                    
+                    instrument = lf.types.Instrument()
+                    instrument.instrument_id = instrument_id
+                    instrument.exchange_id = exchange_id
+                    instrument.instrument_type = wc.utils.get_instrument_type(exchange_id, instrument_id)
+                    instrument.product_id = ""
+                    instrument.contract_multiplier = 1
+                    instrument.price_tick = 1
+                    instrument.open_date = NowYear + "0101"
+                    instrument.create_date = NowYear + "0101"
+                    instrument.expire_date = NowYear + m + "28"
+                    instrument.delivery_year = int(NowYear)
+                    instrument.delivery_month = 12
+                    instrument.is_trading = True
+                    instrument.long_margin_ratio = 1
+                    instrument.short_margin_ratio = 1
+                    self.get_writer(0).write(0, instrument)
 
     def insert_order(self, event):
         if self.match_mode == MatchMode.Custom:
