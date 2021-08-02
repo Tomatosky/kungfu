@@ -11,7 +11,9 @@ export const switchMaster = async (status: boolean): Promise<any> => {
             await killKfc()
             await killExtra();
             await killGodDaemon();
-            await killKungfu();
+            if (process.env.NODE_ENV === "production") {
+                await killKungfu();
+            }
         } catch(err) {
             throw err
         }

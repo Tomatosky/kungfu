@@ -17,7 +17,9 @@
                         :value="buildState('master')"></tr-status>
                         <tr-status v-else></tr-status>
                     </span>
-                    <span class="core-process-item switch" v-if="NODE_ENV === 'development'"></span>
+                    <span class="core-process-item switch" v-if="NODE_ENV === 'development'">
+                        <el-switch  :value="ifProcessRunning('master', processStatus)" @change="handleMasterSwitch"></el-switch>
+                    </span>
                     <span class="core-process-item text-overflow monit">
                         CPU:{{ getMemCpu('master', processStatusWithDetail, 'cpu') }}
                     </span>
@@ -90,7 +92,7 @@
 import { mapState } from 'vuex';
 import { statusConfig } from '__gConfig/statusConfig';
 import { ifProcessRunning, getMemCpu } from '__gUtils/busiUtils';
-import { switchLedger, switchDaemon } from '__io/actions/base';
+import { switchMaster, switchLedger, switchDaemon } from '__io/actions/base';
 
 import openLogMixin from '@/assets/mixins/openLogMixin';
 
@@ -160,6 +162,10 @@ export default {
     methods: {
         buildState(processId) {
             return this.processStatus[processId]
+        },
+
+        handleMasterSwitch (e) {
+            switchMaster(e)
         },
 
         handleLedgerSwitch (e) {
