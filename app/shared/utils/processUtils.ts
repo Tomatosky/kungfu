@@ -370,30 +370,6 @@ export const startTask = (options: Pm2Options) => {
     })
 }
 
-export const startStrategyProcess = async (name: string, strategyPath: string, pythonPath: string): Promise<object> => {
-    const kfConfig: any = fse.readJsonSync(KF_CONFIG_PATH) || {}
-    const ifRocket = ((kfConfig.performance || {}).rocket) || false;
-    const logLevel: string = ((kfConfig.log || {}).level) || '';
-    const rocket = getRocketParams(ifRocket, false)
-    const args = ['-m', 'kungfu', logLevel, 'strategy', '-n', name, '-p', `'${strategyPath}'`, rocket].join(' ')
-
-    if (!pythonPath.trim()) {
-        return Promise.reject(new Error('No local python path!'))
-    }
-
-    const fullPythonPathList = pythonPath.split('/');
-    const pythonFolder = fullPythonPathList.slice(0, fullPythonPathList.length - 1).join('/')
-    const pythonFile = fullPythonPathList.slice(fullPythonPathList.length - 1).join('/')
-
-    return startProcess({
-        name,
-        args,
-        cwd: pythonFolder,
-        script: pythonFile
-    })
-}
-
-
 export function startArchiveMakeTask (cb?: Function) {
     return startProcessLoopGetStatus({
         "name": "archive",
@@ -467,6 +443,28 @@ export const startTd = (accountId: string): Promise<any> => {
     }).catch(err => logger.error('[PM2] startTd', `td_${accountId}`, args, err))
 }
 
+
+export const startStrategyProcess = async (name: string, strategyPath: string, pythonPath: string): Promise<object> => {
+    const baseArgs = ['strategy', '-n', name, '-p', `'${strategyPath}'`].join(" ");
+    const baseArgsResolved = buildArgs(baseArgs)
+    const args = ['-m', 'kungfu', baseArgsResolved].join(' ')
+
+    if (!pythonPath.trim()) {
+        return Promise.reject(new Error('No local python path!'))
+    }
+
+    const fullPythonPathList = pythonPath.split('/');
+    const pythonFolder = fullPythonPathList.slice(0, fullPythonPathList.length - 1).join('/')
+    const pythonFile = fullPythonPathList.slice(fullPythonPathList.length - 1).join('/')
+
+    return startProcess({
+        name,
+        args,
+        cwd: pythonFolder,
+        script: pythonFile
+    })
+}
+
 //启动strategy
 export const startStrategy = (strategyId: string, strategyPath: string): Promise<any> => {
     strategyPath = dealSpaceInPath(strategyPath)
@@ -477,7 +475,7 @@ export const startStrategy = (strategyId: string, strategyPath: string): Promise
     if (ifLocalPython) {
         return deleteProcess(strategyId)
             .then(() => delayMiliSeconds(2000))
-            .then(() => startStrategyProcess(strategyId, strategyPath, pythonPath))
+            .then(() => startStrategyProcess(strategyId, strategyPath, pythonPath));
     } else {
         const args = buildArgs(`strategy -n '${strategyId}' -p '${strategyPath}'`);
         return startProcess({
