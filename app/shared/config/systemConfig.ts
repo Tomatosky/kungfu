@@ -38,7 +38,8 @@ export interface SystemConfigChildNormalItem {
     default?: any;
     cli?: boolean;
     required?: boolean;
-    data?: SystemConfigChildSelectItemData[] // select'
+    data?: SystemConfigChildSelectItemData[] // select
+    options?: SystemConfigChildSelectItemData[] // select
     args?: SystemConfigChildArgsItemData[] // process
     target?: string; // process + table
     unique_key?: string; // table
