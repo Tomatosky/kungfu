@@ -453,9 +453,9 @@ export const dealOrderInput = (item: OrderInputOriginData): OrderInputData => {
         id: item.order_id.toString(),
         orderId: item.order_id.toString(),
         parentId: item.parent_id.toString(),
-        updateTime: kungfu.formatTime(insert_time || BigInt(0), '%H:%M:%S.%N').slice(0, 12),
-        updateTimeMMDD: kungfu.formatTime(insert_time || BigInt(0), '%m/%d %H:%M:%S.%N').slice(0, 18),
-        updateTimeNum: +Number(insert_time || BigInt(0)),
+        updateTime: kungfu.formatTime(insert_time, '%H:%M:%S.%N').slice(0, 12),
+        updateTimeMMDD: kungfu.formatTime(insert_time, '%m/%d %H:%M:%S.%N').slice(0, 18),
+        updateTimeNum: +Number(insert_time),
 
         instrumentId: item.instrument_id,
         exchangeId: item.exchange_id,
@@ -491,9 +491,9 @@ export const dealOrder = (item: OrderOriginData): OrderData => {
     return {
         id: item.order_id.toString(),
         //用订单写入时间
-        updateTime: kungfu.formatTime(update_time || insert_time || BigInt(0), '%H:%M:%S.%N').slice(0, 12),
-        updateTimeMMDD: kungfu.formatTime(update_time || insert_time || BigInt(0), '%m/%d %H:%M:%S.%N').slice(0, 18),
-        updateTimeNum: +Number(update_time || insert_time || BigInt(0)),
+        updateTime: kungfu.formatTime(update_time || insert_time, '%H:%M:%S.%N').slice(0, 12),
+        updateTimeMMDD: kungfu.formatTime(update_time || insert_time, '%m/%d %H:%M:%S.%N').slice(0, 18),
+        updateTimeNum: +Number(update_time || insert_time),
 
         orderId: item.order_id.toString(),
         parentId: item.parent_id.toString(),
@@ -546,9 +546,9 @@ export const dealTrade = (item: TradeOriginData): TradeData => {
 
     return {
         id: [item.account_id.toString(), item.trade_id.toString(), trade_time.toString()].join('_'),
-        updateTime: kungfu.formatTime(trade_time || BigInt(0), '%H:%M:%S.%N').slice(0, 12),
-        updateTimeMMDD: kungfu.formatTime(trade_time || BigInt(0), '%m/%d %H:%M:%S.%N').slice(0, 18),
-        updateTimeNum: +Number(trade_time || BigInt(0)),
+        updateTime: kungfu.formatTime(trade_time, '%H:%M:%S.%N').slice(0, 12),
+        updateTimeMMDD: kungfu.formatTime(trade_time, '%m/%d %H:%M:%S.%N').slice(0, 18),
+        updateTimeNum: +Number(trade_time),
         orderId: item.order_id.toString(),
         parentOrderId: parent_order_id.toString(),
 
@@ -586,9 +586,9 @@ export const dealPos = (item: PosOriginData): PosData => {
     const direction: string = PosDirection[item.direction] || '--';
     const avgPrice: number = item.avg_open_price || item.position_cost_price || 0;
     return {
-        updateTime: kungfu.formatTime(update_time || BigInt(0), '%H:%M:%S.%N').slice(0, 12),
-        updateTimeMMDD: kungfu.formatTime(update_time || BigInt(0), '%m/%d %H:%M:%S.%N').slice(0, 18),
-        updateTimeNum: +Number(update_time || BigInt(0)),
+        updateTime: kungfu.formatTime(update_time, '%H:%M:%S.%N').slice(0, 12),
+        updateTimeMMDD: kungfu.formatTime(update_time, '%m/%d %H:%M:%S.%N').slice(0, 18),
+        updateTimeNum: +Number(update_time),
 
         id: item.instrument_id + direction,
         instrumentId: item.instrument_id,
@@ -640,9 +640,9 @@ export const dealAsset = (item: AssetOriginData): AssetData => {
 export const dealSnapshot = (item: AssetSnapshotOriginData): AssetSnapshotData => {
     const { update_time } = item;
     return {
-        updateTime: kungfu.formatTime(update_time || BigInt(0), '%H:%M'),
-        updateTimeMMDD: kungfu.formatTime(update_time || BigInt(0), '%m/%d'),
-        updateTimeNum: +Number(update_time || BigInt(0)),
+        updateTime: kungfu.formatTime(update_time, '%H:%M'),
+        updateTimeMMDD: kungfu.formatTime(update_time, '%m/%d'),
+        updateTimeNum: +Number(update_time),
         tradingDay: item.trading_day,
         ledgerCategory: item.ledger_category,
 
@@ -674,20 +674,20 @@ export const dealOrderStat = (item: OrderStatOriginData | null): OrderStatData |
     if (!item) return {};
 
     const { insert_time, ack_time, md_time, trade_time } = item;
-    const latencyTrade = (trade_time && ack_time) ? +toDecimal(Number((trade_time || BigInt(0)) - (ack_time || BigInt(0))) / 1000) : 0;
-    const latencyNetwork = (ack_time && insert_time) ? +toDecimal(Number((ack_time || BigInt(0)) - (insert_time || BigInt(0))) / 1000) : 0;
-    const latencySystem = (insert_time && md_time) ? +toDecimal(Number((insert_time || BigInt(0)) - (md_time || BigInt(0))) / 1000) : 0;
+    const latencyTrade = (trade_time && ack_time) ? +toDecimal(Number(trade_time - ack_time ) / 1000) : 0;
+    const latencyNetwork = (ack_time && insert_time) ? +toDecimal(Number(ack_time - insert_time) / 1000) : 0;
+    const latencySystem = (insert_time && md_time) ? +toDecimal(Number(insert_time - md_time) / 1000) : 0;
 
     return {
-        ackTime: Number(ack_time || BigInt(0)),
-        insertTime: Number(insert_time || BigInt(0)),
-        mdTime: Number(md_time || BigInt(0)),
+        ackTime: Number(ack_time),
+        insertTime: Number(insert_time),
+        mdTime: Number(md_time),
         latencySystem: latencySystem > 0 ? latencySystem.toString() : '',
         latencyNetwork: latencyNetwork > 0 ? latencyNetwork.toString() : '',
         latencyTrade: latencyTrade > 0 ? latencyTrade.toString() : '',
-        tradeTime: kungfu.formatTime(trade_time || BigInt(0), '%H:%M:%S.%N').slice(0, 12),
-        tradeTimeMMDD: kungfu.formatTime(trade_time || BigInt(0), '%m/%d %H:%M:%S.%N').slice(0, 18),
-        tradeTimeNum: +Number(trade_time || BigInt(0)),
+        tradeTime: kungfu.formatTime(trade_time, '%H:%M:%S.%N').slice(0, 12),
+        tradeTimeMMDD: kungfu.formatTime(trade_time, '%m/%d %H:%M:%S.%N').slice(0, 18),
+        tradeTimeNum: +Number(trade_time),
 
         orderId: item.order_id.toString(),
         dest: item.dest,

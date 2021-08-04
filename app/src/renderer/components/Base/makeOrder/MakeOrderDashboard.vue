@@ -18,7 +18,7 @@
                     <el-select v-model.trim="makeOrderForm.name" @change="handleSelectAccount">
                         <el-option
                             v-for="account in tdList"
-                            :key="account.account_id.toAccountId()"
+                            :key="account.account_id"
                             :label="account.account_id.toAccountId()"
                             :value="account.account_id">
                             <span>

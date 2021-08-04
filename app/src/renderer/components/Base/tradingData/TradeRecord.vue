@@ -86,10 +86,10 @@ export default {
 
     watch: {
         kungfuData (trades) {
-            const tradesResolve = this.dealTradeList(trades, {
+            const tradesResolved = this.dealTradeList(trades, {
                 searchKeyword: this.searchKeyword
             })
-            this.tableData = tradesResolve
+            this.tableData = tradesResolved
         }
     },
 
