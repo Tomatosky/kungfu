@@ -276,7 +276,7 @@ function paresAccountQuestion({ source, idKey, configItem, updateModule, account
     let questions = {
         type: targetType,
         name: key,
-        choices: targetType === 'list' ? (configItem.data || []).map(item => item.value) : [],
+        choices: targetType === 'list' ? (configItem.options || configItem.data || []).map(item => item.value) : [],
         message: `${updateModule ? 'Update' : 'Enter'} ${key} ${renderSelect(configItem)}`,
         validate: async (value: string | number) => {
             let hasError: Error | null = null; 

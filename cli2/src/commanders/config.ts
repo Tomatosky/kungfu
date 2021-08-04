@@ -33,7 +33,7 @@ const buildChoices = async (configItem: SystemConfigChildNormalItem) => {
     const targetType = configItem.type || '';
     switch (targetType) {
         case 'select':
-            return (configItem.data || configItem.options || []).map((item: SystemConfigChildSelectItemData) => item.value)
+            return (configItem.options || configItem.data || []).map((item: SystemConfigChildSelectItemData) => item.value)
         case 'sources':
             const sourceList: SystemConfigChildSelectItemData[] = await getSourceList();
             return sourceList;

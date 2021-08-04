@@ -169,7 +169,7 @@ export const getQuestionInputType = (originType: string) => {
 }
 
 export const renderSelect = (configItem: AccountSettingItem) => {
-    if(configItem.type === 'select') return `(${(configItem.data || []).map(item => item.value || "").join('|')})`
+    if(configItem.type === 'select') return `(${(configItem.options || configItem.data || []).map(item => item.value || "").join('|')})`
     else return ''
 }
 

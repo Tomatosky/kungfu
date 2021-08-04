@@ -511,6 +511,7 @@ interface AccountSettingItem {
     validator?: any[];
     tip?: string;
     data?: any[];
+    options?: any[];
     default?: any;
     risk?: boolean;
 }
