@@ -30,6 +30,7 @@
         :data="tableData"
         :schema="schema"
         :renderCellClass="renderCellClass"
+        @rightClickRow="handleShowDetail"
     ></tr-table>
     <date-picker-dialog 
     @confirm="handleConfirmDateRangeForExport"
@@ -94,6 +95,36 @@ export default {
     },
 
     methods:{
+        handleShowDetail (row) {
+            let tradeData = JSON.parse(JSON.stringify(row));
+            let orderMessage = "";
+
+            delete tradeData.id;
+            delete tradeData.source;
+            delete tradeData.dest;
+            delete tradeData.updateTimeNum;
+            delete tradeData.updateTime;
+            delete tradeData.update;
+            delete tradeData.sourceId;
+            delete tradeData.hedgeFlagOrigin;
+            delete tradeData.localUpdateTimeNum;
+            delete tradeData.localUpdateTimeMMDD;
+            delete tradeData.sideOrigin;
+            delete tradeData.instrumentTypeOrigin;
+
+            Object.keys(tradeData || {}).forEach(key => {
+                const value = tradeData[key];
+                orderMessage += `${key}: ${value} </br>`
+            })
+
+            this.$alert(orderMessage, `成交详情 ${tradeData.orderId}`, {
+                confirmButtonText: '确定',
+                dangerouslyUseHTMLString: true,
+                closeOnPressEscape: true,
+                callback: () => {}
+            });
+        },
+
         dealTradeList (trades, { searchKeyword}) {
             let tradesAfterFilter = trades
                 .filter(item => {

@@ -194,6 +194,7 @@ export default {
             delete orderData.update;
             delete orderData.sourceId;
             delete orderData.status;
+            delete orderData.instrumentTypeOrigin
 
             orderData.accountId = orderData.accountId.split('手动').join(' ').split('任务').join(' ').trim()
             

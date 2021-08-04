@@ -416,10 +416,10 @@ export default {
             
             if (directionOrigin === 0) {
                 this.$set(this.makeOrderForm, 'side', 1);
-                this.$set(this.makeOrderForm, 'offset', 0);
+                this.$set(this.makeOrderForm, 'offset', 1);
             } else if (directionOrigin === 1) {
                 this.$set(this.makeOrderForm, 'side', 0);
-                this.$set(this.makeOrderForm, 'offset', 0);
+                this.$set(this.makeOrderForm, 'offset', 1);
             }
 
             if (side !== undefined && !Number.isNaN(+side)) {

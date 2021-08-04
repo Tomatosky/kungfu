@@ -252,12 +252,7 @@ export default {
         },
 
         currentId () {
-            //需要更新下单面板信息
-            this.$bus.$emit("update:make-order", {
-                currentId: this.currentId,
-                moduleType: this.moduleType,
-                orderInput: {}
-            })
+            this.updateMakeOrderDashboard();
         },
 
         currentTaskId () {
@@ -268,6 +263,9 @@ export default {
     },
 
     mounted ( ) {
+   
+        this.updateMakeOrderDashboard();
+   
         this.tradingDataPipe = buildTradingDataAccountPipeByDaemon().subscribe(data => {
             if (this.moduleType !== 'ticker') {
                 this.dealTradingData(data);
@@ -294,6 +292,14 @@ export default {
 
         handleAccountTabClick (tab) {
             this.$store.dispatch('setCurrentAccountTabName', tab.name)
+        },
+
+        updateMakeOrderDashboard () {
+            this.$bus.$emit("update:make-order", {
+                currentId: this.currentId,
+                moduleType: this.moduleType,
+                orderInput: {}
+            })
         },
 
         getCurrentAccountTabLabelName (name) {

@@ -122,7 +122,8 @@ export default {
                 this.$emit('makeOrder', itemResolved)
             } else {
                 this.$emit('makeOrder', item)
-            }
+            };
+
             this.$bus.$emit('orderbook-tickerId', {
                 instrumentId: item.instrumentId,
                 exchangeId: item.exchangeId
