@@ -76,25 +76,53 @@ export default {
 
         askPrices () {
             if (!this.quoteData) return [];
+            const volumes = this.quoteData.askVolumes || [];
             return (this.quoteData.askPrices || [])
+                .map((price, index) => {
+                    const volume = volumes[index] || 0;
+                    if (price < 0.1 || volume > 10000000 || volume <= 0) {
+                        return 0;
+                    }
+                    return price;
+                })
                 .reduce(this.resolveAskPrices)
         },
 
         askVolumes () {
             if (!this.quoteData) return [];
-            return this.quoteData.askVolumes || []
+            return (this.quoteData.askVolumes || [])
+                .map(volume => {
+                    if (volume  > 10000000 || volume <= 0) {
+                        return 0;
+                    }
+                    return volume;
+                })
         },
         
         bidPrices () {
             if (!this.quoteData) return [];
+            const volumes = this.quoteData.bidVolumes || [];
             return (this.quoteData.bidPrices || [])
+                .map((price, index) => {
+                    const volume = volumes[index] || 0;
+                    if (price < 0.1 || volume > 10000000 || volume <= 0) {
+                        return 0;
+                    }
+                    return price;
+                })
                 .reduce(this.resolveBidPrices)
         
         },
 
         bidVolumes () {
             if (!this.quoteData) return [];
-            return this.quoteData.bidVolumes || []
+            return (this.quoteData.bidVolumes || [])
+                .map(volume => {
+                    if (volume > 10000000 || volume <= 0) {
+                        return 0;
+                    }
+                    return volume;
+                })
         },
 
         lastPrice () {
