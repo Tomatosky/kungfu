@@ -39,7 +39,7 @@ inline bool GetBypassQuotes(const Napi::CallbackInfo &info) {
 
 inline bool GetBypassRestore(const Napi::CallbackInfo &info) {
   if (not IsValid(info, 3, &Napi::Value::IsBoolean)) {
-    throw Napi::Error::New(info.Env(), "Invalid bypassQuotes argument");
+    throw Napi::Error::New(info.Env(), "Invalid bypassRestore argument");
   }
   return info[3].As<Napi::Boolean>().Value();
 }

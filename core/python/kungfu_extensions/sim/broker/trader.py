@@ -77,7 +77,8 @@ class TraderSim(wc.Trader):
     def on_start(self):
         wc.Trader.on_start(self)
         self.update_broker_state(lf.enums.BrokerState.Ready)
-        self.init_instrument()
+        # init instrument only for test, to prevent instrument got dirty by these random number;
+        # self.init_instrument()
 
     def init_instrument(self):
         for indexs in AllIndexs:
