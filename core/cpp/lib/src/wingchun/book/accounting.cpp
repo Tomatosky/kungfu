@@ -24,7 +24,7 @@ void AccountingMethod::setup_defaults(Bookkeeper &bookkeeper) {
   bookkeeper.set_accounting_method(InstrumentType::Index, stock_accounting_method);
   bookkeeper.set_accounting_method(InstrumentType::Repo, repo_accounting_method);
 
-  bookkeeper.set_accounting_method(InstrumentType::Future, future_accounting_method);
+  bookkeeper.set_accounting_method(Type::Future, future_accounting_method);
 
   bookkeeper.set_accounting_method(InstrumentType::Unknown, stock_accounting_method);
 }
