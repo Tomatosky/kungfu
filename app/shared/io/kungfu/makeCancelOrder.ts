@@ -56,7 +56,7 @@ export const kungfuMakeOrder = (makeOrderData: MakeOrderData, accountId: string,
     if (strategyId) {
         const strategyLocation = encodeKungfuLocation(strategyId, 'strategy');
         //设置orderInput的parentid，来标记该order为策略手动下单
-        const parentId = BigInt(+new Date().getTime());
+        const parentId = BigInt(1024);
         
         return Promise.resolve(watcher.issueOrder({
             ...orderInput,
