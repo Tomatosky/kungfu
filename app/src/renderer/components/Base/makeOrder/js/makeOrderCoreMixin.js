@@ -1,4 +1,4 @@
-import { mapState, mapGetters } from 'vuex';
+import { mapState } from 'vuex';
 
 import { kungfuCancelOrder, kungfuMakeOrder, kungfuSubscribeInstrument } from '__io/kungfu/makeCancelOrder';
 import { decodeKungfuLocation } from '__io/kungfu/watcher';
