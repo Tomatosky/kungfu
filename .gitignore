@@ -24,6 +24,7 @@ Debug/
 # Build related
 cmake-build-debug/
 build/
+!*/vue-devtools/build/
 build-*/
 *.pyc
 
