@@ -24,5 +24,6 @@ app.on('ready', () => {
   BrowserWindow.addDevToolsExtension(extPath);
 })
 
+
 // Require `main` process to boot app
 require('./index')

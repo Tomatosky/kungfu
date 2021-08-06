@@ -39,8 +39,6 @@ export default {
         buildTaskProcessItem (key, pmData) {
             const argsConfig = minimist(pmData.args, this.taskExtMinimistConfig)
 
-            
-
             return {
                 processId: key,
                 processStatus: pmData.status,
