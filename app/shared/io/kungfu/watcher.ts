@@ -412,13 +412,13 @@ function resolveAccountId(source: number, dest: number, parent_id: bigint): stri
     const name = sourceGroup + '_' + sourceName;
     let mark = ''
     if (destGroup === 'node') {
-        if (+parent_id.toString()) {
+        if (Number(parent_id)) {
             mark = '任务'
         } else {
             mark = '手动'
         }
     } else {
-        if (+parent_id.toString()) {
+        if (Number(parent_id)) {
             mark = '手动'
         }
     }
@@ -429,14 +429,14 @@ function resolveClientId(dest: number, parent_id: bigint): string {
     const kungfuLocation: KungfuLocation = decodeKungfuLocation(+dest) || {};
     if (!kungfuLocation) return '';
     if (kungfuLocation.group === 'node') {
-        if (+parent_id.toString()) {
+        if (Number(parent_id)) {
             return '任务'
         } else {
             return '手动'
         }
     } else {
-        if (+parent_id.toString()) {
-            return `${kungfuLocation.name} 手动`
+        if (Number(parent_id)) {
+            return `${kungfuLocation.name} 手动` //是因为策略模块手动下单的时候刻意插入用于区分
         } else {
             return kungfuLocation.name
         }

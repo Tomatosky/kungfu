@@ -370,6 +370,7 @@ export default {
             this.orderStat = Object.freeze(orderStatResolved); 
       
             const positions = data['positions'][this.currentId];
+
             this.positions = Object.freeze(positions || []);
 
             const pnl = data['pnl'][this.currentId];
