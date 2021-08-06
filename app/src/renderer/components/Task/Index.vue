@@ -171,6 +171,7 @@ export default {
 
     watch: {
         taskList (taskList) {
+            console.log(taskList)
             this.tableList = taskList;
 
             if (!this.tableList.length) {
