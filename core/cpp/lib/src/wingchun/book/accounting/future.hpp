@@ -15,6 +15,9 @@ using namespace kungfu::yijinjing;
 using namespace kungfu::yijinjing::data;
 
 namespace kungfu::wingchun::book {
+
+#define DEFAULT_INSTRUMENT_CONTRACT_MULTIPLIER 10
+
 class FutureAccountingMethod : public AccountingMethod {
 public:
   FutureAccountingMethod() = default;
@@ -24,10 +27,12 @@ public:
       for (auto &pair : positions) {
         auto &position = pair.second;
         auto instrument_key = hash_instrument(position.exchange_id, position.instrument_id);
+
         if (book->instruments.find(instrument_key) == book->instruments.end()) {
-          SPDLOG_WARN("instrument information missing for {}@{}", position.instrument_id, position.exchange_id);
+          SPDLOG_WARN("instrument information missing for {}@{} apply_trading_day", position.instrument_id, position.exchange_id);
           continue;
         }
+
         auto &instrument = book->instruments.at(instrument_key);
         auto margin_pre = position.margin;
         if (not is_valid_price(position.settlement_price)) {
@@ -45,9 +50,11 @@ public:
         position.settlement_price = 0;
         position.yesterday_volume = position.volume;
         position.trading_day = time::strftime(trading_day, KUNGFU_TRADING_DAY_FORMAT).c_str();
+        
         update_position(book, position);
       }
     };
+
     apply(book->long_positions);
     apply(book->short_positions);
   }
@@ -55,10 +62,12 @@ public:
   void apply_quote(Book_ptr &book, const Quote &quote) override {
     auto apply = [&](Position &position) {
       auto instrument_key = hash_instrument(quote.exchange_id, quote.instrument_id);
+
       if (book->instruments.find(instrument_key) == book->instruments.end()) {
-        SPDLOG_WARN("instrument information missing for {}@{}", quote.instrument_id, quote.exchange_id);
+        SPDLOG_WARN("instrument information missing for {}@{} apply_quote", quote.instrument_id, quote.exchange_id);
         return;
       }
+
       auto &instrument = book->instruments.at(instrument_key);
       if (is_valid_price(quote.settlement_price)) {
         auto margin_pre = position.margin;
@@ -73,8 +82,10 @@ public:
       if (is_valid_price(quote.pre_settlement_price)) {
         position.pre_settlement_price = quote.pre_settlement_price;
       }
+
       update_position(book, position);
     };
+
     apply(book->get_position_for(Direction::Long, quote));
     apply(book->get_position_for(Direction::Short, quote));
   }
@@ -82,10 +93,12 @@ public:
   void apply_order_input(Book_ptr &book, const OrderInput &input) override {
     auto &position = book->get_position_for(input);
     auto instrument_key = hash_instrument(input.exchange_id, input.instrument_id);
+
     if (book->instruments.find(instrument_key) == book->instruments.end()) {
-      SPDLOG_WARN("instrument information missing for {}@{}", input.instrument_id, input.exchange_id);
+      SPDLOG_WARN("instrument information missing for {}@{} apply_order_input", input.instrument_id, input.exchange_id);
       return;
     }
+
     auto &instrument = book->instruments.at(instrument_key);
     if (input.offset == Offset::Open) {
       auto frozen_margin = instrument.contract_multiplier * input.frozen_price * input.volume * margin_ratio(instrument, position);
@@ -104,6 +117,7 @@ public:
     if (input.offset == Offset::CloseToday) {
       position.frozen_total += input.volume;
     }
+
     update_position(book, position);
   }
 
@@ -111,13 +125,16 @@ public:
     if (book->orders.find(order.order_id) == book->orders.end()) {
       book->orders.emplace(order.order_id, order);
     }
+
     if (is_final_status(order.status)) {
       auto &position = book->get_position_for(order);
       auto instrument_key = hash_instrument(order.exchange_id, order.instrument_id);
+
       if (book->instruments.find(instrument_key) == book->instruments.end()) {
-        SPDLOG_WARN("instrument information missing for {}@{}", order.instrument_id, order.exchange_id);
+        SPDLOG_WARN("instrument information missing for {}@{} apply_order", order.instrument_id, order.exchange_id);
         return;
       }
+
       auto &instrument = book->instruments.at(instrument_key);
       if (order.offset == Offset::Open) {
         auto frozen_margin = instrument.contract_multiplier * order.frozen_price * order.volume_left *
@@ -133,13 +150,14 @@ public:
       if (order.offset == Offset::CloseToday and position.frozen_total >= order.volume_left) {
         position.frozen_total -= order.volume_left;
       }
+      
       update_position(book, position);
     }
   }
 
   void apply_trade(Book_ptr &book, const Trade &trade) override {
     if (book->instruments.find(hash_instrument(trade.exchange_id, trade.instrument_id)) == book->instruments.end()) {
-      SPDLOG_WARN("instrument information missing for {}@{}", trade.instrument_id, trade.exchange_id);
+      SPDLOG_WARN("instrument information missing for {}@{} apply_trade", trade.instrument_id, trade.exchange_id);
       return;
     }
     if (trade.offset == Offset::Open) {
@@ -152,8 +170,16 @@ public:
 
   void update_position(Book_ptr &book, Position &position) override {
     if (position.last_price > 0) {
-      auto &instrument = book->instruments.at(hash_instrument(position.exchange_id, position.instrument_id));
-      auto product_key = yijinjing::util::hash_str_32(get_instrument_product(instrument.instrument_id));
+      auto instrument_key = hash_instrument(position.exchange_id, position.instrument_id);
+      
+      if (book->instruments.find(instrument_key) == book->instruments.end()) {
+        SPDLOG_WARN("instrument information missing for {}@{} update_position", position.instrument_id, position.exchange_id);
+        return;
+      } 
+
+      auto &instrument = book->instruments.at(instrument_key);
+      auto &contract_multiplier = instrument.contract_multiplier;
+      auto product_key = yijinjing::util::hash_str_32(get_instrument_product(position.instrument_id));
       double cost = 0;
       if (book->commissions.find(product_key) != book->commissions.end()) {
         auto &commission = book->commissions.at(product_key);
@@ -165,9 +191,9 @@ public:
           cost = (position.yesterday_volume * commission.close_ratio) +
                  (close_today_volume * commission.close_today_ratio);
         }
-        cost = cost * instrument.contract_multiplier;
+        cost = cost * contract_multiplier;
       }
-      auto multiplier = instrument.contract_multiplier * (position.direction == Direction::Long ? 1 : -1);
+      auto multiplier = contract_multiplier * (position.direction == Direction::Long ? 1 : -1);
       auto price_diff = position.last_price - position.avg_open_price;
       position.unrealized_pnl = (price_diff * position.volume) * multiplier - cost;
     }
@@ -176,6 +202,7 @@ public:
 private:
   void apply_open(Book_ptr &book, const Trade &trade) { 
     auto &position = book->get_position_for(trade);
+
     auto &instrument = book->instruments.at(hash_instrument(trade.exchange_id, trade.instrument_id));
     auto margin = instrument.contract_multiplier * trade.price * trade.volume * margin_ratio(instrument, position);
     auto commission = calculate_commission(book, trade, instrument, position, trade.close_today_volume);
