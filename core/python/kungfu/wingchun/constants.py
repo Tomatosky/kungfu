@@ -46,7 +46,8 @@ InstrumentTypeInStockAccount = [InstrumentType.Stock,
                                 InstrumentType.StockOption,
                                 InstrumentType.TechStock,
                                 InstrumentType.Index,
-                                InstrumentType.Repo]
+                                InstrumentType.Repo,
+                                InstrumentType.Crypto]
 
 ENUM_TYPES = [InstrumentType,
               ExecType,

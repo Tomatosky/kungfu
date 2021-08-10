@@ -23,6 +23,8 @@
 #define EXCHANGE_CZCE "CZCE"
 #define EXCHANGE_CFFEX "CFFEX"
 #define EXCHANGE_INE "INE"
+#define EXCHANGE_BINANCE "BINANCE"
+#define EXCHANGE_HB "HB"
 
 #define SOURCE_SIM "sim"
 #define SOURCE_CTP "ctp"
@@ -188,6 +190,9 @@ inline longfist::enums::InstrumentType get_instrument_type(const std::string &ex
              string_equals(exchange_id, EXCHANGE_INE)) {
     return longfist::enums::InstrumentType::Future;
   }
+  else if (string_equals(exchange_id, EXCHANGE_BINANCE) || string_equals(exchange_id, EXCHANGE_HB)) {
+      return longfist::enums::InstrumentType::Crypto;
+  }
   SPDLOG_ERROR("invalid instrument type for exchange {} and instrument {}", exchange_id, instrument_id);
   return longfist::enums::InstrumentType::Unknown;
 }
@@ -212,6 +217,8 @@ inline std::string str_from_instrument_type(longfist::enums::InstrumentType type
     return "Index";
   case longfist::enums::InstrumentType::Repo:
     return "Repo";
+  case longfist::enums::InstrumentType::Crypto:
+    return "Crypto";
   default:
     return "Unknown";
   }
