@@ -294,7 +294,9 @@ inline void from_ctp(const CThostFtdcTradeField &ori, Trade &des) {
   des.volume = ori.Volume;
   from_ctp_offset(ori.OffsetFlag, des.offset);
   from_ctp_direction(ori.Direction, des.side);
-  des.trade_time = nsec_from_ctp_time(ori.TradeDate, ori.TradeTime);
+  const auto today = kungfu::yijinjing::time::strfnow("%Y%m%d");
+  SPDLOG_INFO("DEAL TRADE instrument_id {}, exchange_id {}, tradeDate {}, TradeTime {}", ori.InstrumentID, ori.ExchangeId, ori.TradeDate, ori.TradeTime);
+  des.trade_time = nsec_from_ctp_time(today.c_str(), ori.TradeTime);
 }
 
 inline void from_ctp(const CThostFtdcInstrumentField &ori, Instrument &des) {
