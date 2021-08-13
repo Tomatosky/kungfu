@@ -394,7 +394,7 @@ KF_DEFINE_PACK_TYPE(                                                    //
 );
 
 KF_DEFINE_PACK_TYPE(                                  //
-    Order, 203, PK(order_id), TIMESTAMP(update_time), //
+    Order, 203, PK(order_id), TIMESTAMP(insert_time), //
     (uint64_t, parent_id),                            //母订单ID
     (uint64_t, order_id),                             //订单ID
 
