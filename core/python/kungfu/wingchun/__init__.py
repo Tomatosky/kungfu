@@ -8,7 +8,7 @@ default_commissions = pandas.DataFrame({
                    40: 'MA', 41: 'JR', 42: 'SF', 43: 'OI', 44: 'CF', 45: 'FG', 46: 'PM', 47: 'WH', 48: 'CY', 49: 'AP', 50: 'IF', 51: 'IC', 52: 'IH',
                    53: 'TF', 54: 'T', 55: 'TS'},
     'exchange_id': {0: 'SHFE', 1: 'SHFE', 2: 'SHFE', 3: 'SHFE', 4: 'SHFE', 5: 'SHFE', 6: 'SHFE', 7: 'SHFE', 8: 'SHFE', 9: 'SHFE', 10: 'SHFE',
-                    11: 'SHFE', 12: 'SHFE', 13: 'SHFE', 14: 'SHFE', 15: 'DCE', 16: 'DCE', 17: 'DCE', 18: 'DCE', 19: 'DCE', 20: 'DCE', 21: 'DCE',
+                    11: 'SHFE', 12: 'SHFE', 13: 'SHFE', 14: 'INE', 15: 'DCE', 16: 'DCE', 17: 'DCE', 18: 'DCE', 19: 'DCE', 20: 'DCE', 21: 'DCE',
                     22: 'DCE', 23: 'DCE', 24: 'DCE', 25: 'DCE', 26: 'DCE', 27: 'DCE', 28: 'DCE', 29: 'DCE', 30: 'DCE', 31: 'DCE', 32: 'ZCE',
                     33: 'ZCE', 34: 'ZCE', 35: 'ZCE', 36: 'ZCE', 37: 'ZCE', 38: 'ZCE', 39: 'ZCE', 40: 'ZCE', 41: 'ZCE', 42: 'ZCE', 43: 'ZCE',
                     44: 'ZCE', 45: 'ZCE', 46: 'ZCE', 47: 'ZCE', 48: 'ZCE', 49: 'ZCE', 50: 'CFFEX', 51: 'CFFEX', 52: 'CFFEX', 53: 'CFFEX', 54: 'CFFEX',
