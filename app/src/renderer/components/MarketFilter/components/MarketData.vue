@@ -268,6 +268,12 @@ export default {
         },
 
         handleRowClick (row) {
+            
+            if (!row || !row.instrumentId) {
+                this.$message.warning("请点击订阅")
+                return
+            }
+
             const quoteData = this.getMarketData(row);
             this.$bus.$emit('update:make-order', {
                 currentId: this.currentId,
