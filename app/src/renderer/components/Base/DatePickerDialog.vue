@@ -1,7 +1,7 @@
 <template>
      <el-dialog 
     width="300px" 
-    title="选择日期"  
+    title="选择交易日"  
     v-if="visible"
     :visible="visible" 
     :close-on-click-modal="false"
@@ -11,16 +11,16 @@
     >
         <el-form ref="date-range-form" label-width="90px" :model="form">
             <el-form-item
-            label="选择日期"
+            label="交易日"
             prop="date"
             :rules="[
-                { required: true, message: '日期范围不能为空！', trigger: 'blur' },
+                { required: true, message: '交易日不能为空！', trigger: 'blur' },
             ]">
                 <el-date-picker
                     v-model.trim="form.date"
                     size="mini"
                     type="date"
-                    placeholder="选择日期"
+                    placeholder="选择交易日"
                     >
                 </el-date-picker>      
             </el-form-item>

@@ -97,12 +97,32 @@ export function encodeKungfuLocation(key: string, type: string): KungfuLocation 
 
 
 export function getKungfuDataByDateRange (date: number | string) {
+    const tradingDay = moment(date).format("YYYYMMDD");
     const from = moment(date).format('YYYY-MM-DD');
     const to = moment(date).add(1, 'day').format('YYYY-MM-DD');
+    const yesFrom = moment(date).add(-1, 'day').format('YYYY-MM-DD');
+    const dataTypeForHistory = ["Order", "Trade", "OrderStat", "Position"];
     return new Promise(resolve => {
         let timer = setTimeout(() => {
-            const kungfuData = history.selectPeriod(from, to);
-            resolve(kungfuData)
+            const kungfuDataToday = history.selectPeriod(from, to);
+            const kungfuDataYesterday = history.selectPeriod(yesFrom, from);
+            let historyData: any = {};
+            dataTypeForHistory.forEach(key => {
+
+                if (key === "Order" || key === "Trade") {
+                    historyData[key] = Object.assign(
+                        kungfuDataToday[key].filter("trading_day", tradingDay),
+                        kungfuDataYesterday[key].filter("trading_day", tradingDay)
+                    )
+                } else {
+                    historyData[key] = Object.assign(
+                        kungfuDataToday[key],
+                        kungfuDataYesterday[key]
+                    )
+                }
+            })
+
+            resolve(historyData)
             clearTimeout(timer);
         }, 100)
     })
