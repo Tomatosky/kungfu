@@ -96,7 +96,7 @@ export function encodeKungfuLocation(key: string, type: string): KungfuLocation 
 }
 
 
-export function getKungfuDataByDateRange (date: number | string) {
+export function getKungfuDataByDateRange (date: number | string, dateType: number) {
     const tradingDay = moment(date).format("YYYYMMDD");
     const from = moment(date).format('YYYY-MM-DD');
     const to = moment(date).add(1, 'day').format('YYYY-MM-DD');
@@ -104,25 +104,33 @@ export function getKungfuDataByDateRange (date: number | string) {
     const dataTypeForHistory = ["Order", "Trade", "OrderStat", "Position"];
     return new Promise(resolve => {
         let timer = setTimeout(() => {
-            const kungfuDataToday = history.selectPeriod(from, to);
-            const kungfuDataYesterday = history.selectPeriod(yesFrom, from);
-            let historyData: any = {};
-            dataTypeForHistory.forEach(key => {
 
-                if (key === "Order" || key === "Trade") {
-                    historyData[key] = Object.assign(
-                        kungfuDataToday[key].filter("trading_day", tradingDay),
-                        kungfuDataYesterday[key].filter("trading_day", tradingDay)
-                    )
-                } else {
-                    historyData[key] = Object.assign(
-                        kungfuDataToday[key],
-                        kungfuDataYesterday[key]
-                    )
-                }
-            })
-
-            resolve(historyData)
+            //by trading date
+            if (dateType === 1) {
+                const kungfuDataToday = history.selectPeriod(from, to);
+                const kungfuDataYesterday = history.selectPeriod(yesFrom, from);
+                let historyData: any = {};
+                dataTypeForHistory.forEach(key => {
+    
+                    if (key === "Order" || key === "Trade") {
+                        historyData[key] = Object.assign(
+                            kungfuDataToday[key].filter("trading_day", tradingDay),
+                            kungfuDataYesterday[key].filter("trading_day", tradingDay)
+                        )
+                    } else {
+                        historyData[key] = Object.assign(
+                            kungfuDataToday[key],
+                            kungfuDataYesterday[key]
+                        )
+                    }
+                })
+    
+                resolve(historyData)
+            } else {
+                const kungfuDataToday = history.selectPeriod(from, to);
+                resolve(kungfuDataToday)
+            }
+            
             clearTimeout(timer);
         }, 100)
     })

@@ -53,9 +53,9 @@ export default {
 
     methods: {
 
-        handleConfirmDateRangeForExportAllTradingData (date) {
+        handleConfirmDateRangeForExportAllTradingData ({ date, dateType }) {
             this.exportAllTradingDataByDateDateRangeDialogLoading = true;
-            return getKungfuDataByDateRange(date)
+            return getKungfuDataByDateRange(date, dateType)
                 .then(kungfuData => {
 
                     if (!kungfuData) {

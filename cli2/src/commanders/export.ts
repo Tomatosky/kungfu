@@ -68,8 +68,8 @@ Please waiting...` // has to be in this indent way
     )
 
     
-
-    return getKungfuDataByDateRange(date)
+    //default by trading day
+    return getKungfuDataByDateRange(date, 1)
         .then((kungfuData: any) => {
             
             if (!kungfuData) {
