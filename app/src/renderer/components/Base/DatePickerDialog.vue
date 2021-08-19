@@ -29,16 +29,16 @@
             
             </el-form-item>
             <el-form-item
-            label="交易日"
+            label="选择日期"
             prop="date"
             :rules="[
-                { required: true, message: '交易日不能为空！', trigger: 'blur' },
+                { required: true, message: '日期不能为空！', trigger: 'blur' },
             ]">
                 <el-date-picker
                     v-model.trim="form.date"
                     size="mini"
                     type="date"
-                    placeholder="选择交易日"
+                    placeholder="选择日期"
                     >
                 </el-date-picker>      
             </el-form-item>

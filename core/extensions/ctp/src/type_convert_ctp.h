@@ -279,6 +279,7 @@ inline void from_ctp(const CThostFtdcOrderField &ori, Order &des) {
   from_ctp_direction(ori.Direction, des.side);
   from_ctp_price_type(ori.OrderPriceType, ori.VolumeCondition, ori.TimeCondition, des.price_type);
   des.limit_price = ori.LimitPrice;
+  SPDLOG_DEBUG("ON_RTN_ORDER tradingDay {}", ori.TradingDay);
   strcpy(des.trading_day, ori.TradingDay);
   des.volume = ori.VolumeTotalOriginal;
   des.volume_left = ori.VolumeTotal;
@@ -295,6 +296,7 @@ inline void from_ctp(const CThostFtdcTradeField &ori, Trade &des) {
   from_ctp_offset(ori.OffsetFlag, des.offset);
   from_ctp_direction(ori.Direction, des.side);
   const auto today = kungfu::yijinjing::time::strfnow("%Y%m%d");
+  SPDLOG_DEBUG("ON_RTN_TRADE today {}, tradeDate {}, tradeTime {}", today, ori.TradeDate, ori.TradeTime);
   des.trade_time = nsec_from_ctp_time(today.c_str(), ori.TradeTime);
 }
 
