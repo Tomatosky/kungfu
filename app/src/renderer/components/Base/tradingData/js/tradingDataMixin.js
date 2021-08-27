@@ -207,6 +207,11 @@ export default {
         },
 
         getHistoryTargetList (kungfuBoardType, kungfuData ) {
+
+            if (!kungfuData) {
+                return {}
+            }
+
             if (kungfuBoardType === 'order') {
                 return kungfuData.Order
             } else if (kungfuBoardType === 'trade') {
