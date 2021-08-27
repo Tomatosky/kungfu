@@ -3,6 +3,7 @@ import iconv from 'iconv-lite';
 import jschardet from 'jschardet';
 import path from 'path';
 import readline from 'readline';
+import moment from 'moment';
 
 import { EXTENSION_DIR } from '__gConfig/pathConfig';
 import { listDir } from '__gUtils/fileUtils';
@@ -781,6 +782,17 @@ export const addTwoItemByKeyForReduce = (item1: any, item2: any, key: string) =>
 
 export const avgTwoItemByKeyForReduce = (item1: any, item2: any, key: string) => {
     return addTwoItemByKeyForReduce(item1, item2, key) / 2;
+}
+
+export const getTradingDate = () => {
+    const currentTimestamp = moment().valueOf();
+    const tradingDayTimestamp = +moment().set("hours", 15).set("minutes", 30).valueOf();
+
+    if (currentTimestamp > tradingDayTimestamp) {
+        return moment().add(1, 'day').format("YYYY-MM-DD");
+    } else {
+        return moment().format("YYYY-MM-DD");
+    }
 }
 
 export const hidePasswordByLogger = (config: string) => {

@@ -10,7 +10,7 @@ import moment from 'moment';
 import store from '@/store';
 import router from './routers';
 import { logger } from '__gUtils/logUtils';
-import { delayMiliSeconds, openVueWin } from '__gUtils/busiUtils';
+import { delayMiliSeconds, openVueWin, getTradingDate } from '__gUtils/busiUtils';
 import { removeJournal } from '__gUtils/fileUtils';
 import { KF_HOME, KF_ADMIN_PASSWORD_CONFIG_PATH } from '__gConfig/pathConfig';
 import { watcher } from '__io/kungfu/watcher';
@@ -81,13 +81,13 @@ window.pm2 = _pm2;
 
 function beforeAll () {
     if (process.env.NODE_ENV !== 'development') {
-        const clearJournalDate = localStorage.getItem('clearJournalDate');
-        const today = moment().format('YYYY-MM-DD');
-        console.log( localStorage.getItem('clearJournalDate'), today)
-        
-        if (clearJournalDate !== today) {
-            localStorage.setItem('clearJournalDate', today);
-            console.log( localStorage.getItem('clearJournalDate'), today)
+        const clearJournalDateFromLocal = localStorage.getItem("clearJournalTradingDate");
+        const currentTradingDate = getTradingDate();
+        console.log("Lastest Clear Journal Trading Date: ", clearJournalDateFromLocal);
+
+        if (currentTradingDate !== clearJournalDateFromLocal) {
+            localStorage.setItem('clearJournalTradingDate', currentTradingDate);
+            console.log("Clear Journal Trading Date: ", currentTradingDate);
             return removeJournal(KF_HOME);
         } else {
             return Promise.resolve(true);

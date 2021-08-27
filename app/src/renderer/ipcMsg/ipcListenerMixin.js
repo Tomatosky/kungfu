@@ -195,7 +195,7 @@ export default {
                             })
                         break
                     case 'clear-journal':
-                        localStorage.setItem("clearJournalDate", "")
+                        localStorage.setItem("clearJournalTradingDate", "")
                         this.$message.success('清理 journal 完成，请重启应用！')
                         break
                     case "open-log":
