@@ -22,13 +22,11 @@ export default {
         },  
 
         isHistoryDataTrade (val) {
-            console.log('trade', val)
             if (!val) return;
             this.trades = this.getHistoryData("trade")
         },
 
         isHistoryDataOrder (val) {
-            console.log('order', val)
             if (!val) return;
             this.orders = this.getHistoryData("order")
         }
