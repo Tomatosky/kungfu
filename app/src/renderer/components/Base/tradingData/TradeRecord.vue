@@ -27,7 +27,7 @@
     </div>
     <tr-table
         v-if="rendererTable"
-        :data="tableData"
+        :data="tableDataResolved"
         :schema="schema"
         :renderCellClass="renderCellClass"
         @rightClickRow="handleShowDetail"
@@ -82,14 +82,25 @@ export default {
     computed:{
         schema(){
             return tradesHeader(this.dateForHistory, this.moduleType)
+        },
+
+        tableDataResolved () {
+            if (this.searchKeyword) {
+                return this.tableData.filter(item => {
+                    if (this.searchKeyword.trim() === '') return true;
+                    const { tradeId, clientId, accountId, sourceId, instrumentId, orderId } = item
+                    const strings = [ tradeId, clientId, accountId, sourceId, instrumentId, orderId ].join('')
+                    return strings.includes(this.searchKeyword) 
+                })
+            } else {
+                return this.tableData
+            }
         }
     },
 
     watch: {
         kungfuData (trades) {
-            const tradesResolved = this.dealTradeList(trades, {
-                searchKeyword: this.searchKeyword
-            })
+            const tradesResolved = this.dealTradeList(trades)
             this.tableData = tradesResolved
         }
     },
@@ -125,23 +136,17 @@ export default {
             });
         },
 
-        dealTradeList (trades, { searchKeyword}) {
-            let tradesAfterFilter = trades
-                .filter(item => {
-                    if (searchKeyword.trim() === '') return true;
-                    const { tradeId, clientId, accountId, sourceId, instrumentId, orderId } = item
-                    const strings = [ tradeId, clientId, accountId, sourceId, instrumentId, orderId ].join('')
-                    return strings.includes(searchKeyword) 
-                })
+        dealTradeList (trades) {
+            let tradesResolved = trades;
 
             if (this.moduleType === 'strategy') {
-                tradesAfterFilter = tradesAfterFilter
+                tradesResolved = tradesResolved
                     .filter(item => {
                         return Number(item.updateTimeNum) >= this.addTime 
                     })
             }
 
-            tradesAfterFilter = tradesAfterFilter
+            tradesResolved = tradesResolved
                 .map(item => {
                     let tradeData = { ...item };
                     let orderId = tradeData.orderId;
@@ -156,7 +161,7 @@ export default {
                 })
                 .sort((a, b) => (b.updateTimeNum - a.updateTimeNum))
 
-            return Object.freeze(tradesAfterFilter || [])
+            return Object.freeze(tradesResolved || [])
         }
     }
 }

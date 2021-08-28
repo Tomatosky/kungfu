@@ -190,6 +190,7 @@ interface OrderData {
     updateTimeNum: number;
     orderId: string;
     parentId: string;
+    tradingDay: string;
 
     instrumentId: string;
     instrumentType: string;
@@ -237,6 +238,7 @@ interface OrderData {
 interface OrderOriginData {    
     parent_id: bigint;
     order_id: bigint;
+    trading_day: string;
     update_time: bigint;
     insert_time: bigint;
 
@@ -282,6 +284,7 @@ interface TradeData {
     updateTimeNum: number;
     orderId: string;
     parentOrderId: string;
+    tradingDay: string;
 
     instrumentId: string;
     instrumentType: string;
@@ -314,6 +317,7 @@ interface TradeData {
 interface TradeOriginData {
     trade_id: bigint;
     order_id: bigint;
+    trading_day: string;
     parent_order_id: bigint;
     trade_time: bigint;
   

@@ -500,6 +500,7 @@ export const dealOrder = (item: OrderOriginData): OrderData => {
 
         orderId: item.order_id.toString(),
         parentId: item.parent_id.toString(),
+        tradingDay: item.trading_day.toString(),
         
         instrumentId: item.instrument_id,
         instrumentType: InstrumentType[instrument_type],
@@ -554,6 +555,7 @@ export const dealTrade = (item: TradeOriginData): TradeData => {
         updateTimeNum: +Number(trade_time),
         orderId: item.order_id.toString(),
         parentOrderId: parent_order_id.toString(),
+        tradingDay: item.trading_day.toString(),
 
         instrumentId: item.instrument_id,
         instrumentType: InstrumentType[instrument_type],
