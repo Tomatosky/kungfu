@@ -257,9 +257,7 @@ export default {
 
         currentTaskId () {
             this.currentOrdesTabName = "taskDetail"
-        },
-
-        
+        }
     },
 
     mounted ( ) {
@@ -267,6 +265,7 @@ export default {
         this.updateMakeOrderDashboard();
    
         this.tradingDataPipe = buildTradingDataAccountPipeByDaemon().subscribe(data => {
+
             if (this.moduleType !== 'ticker') {
                 this.dealTradingData(data);
             } else {
@@ -351,16 +350,12 @@ export default {
         dealTradingData (data) {
             const ledgerData = watcher.ledger;
 
-            if (this.isHistoryData('order')) {
-                this.orders = this.getHistoryData('order')
-            } else {
+            if (!this.isHistoryDataOrder) {
                 const orders = getOrdersBySourceDestInstrumentId(ledgerData.Order, 'source', this.currentLocationUID)
                 this.orders = Object.freeze(orders || []);
             }
 
-            if (this.isHistoryData('trade')) {
-                this.trades = this.getHistoryData('trade')
-            } else {
+            if (!this.isHistoryDataTrade) {
                 const trades = getTradesBySourceDestInstrumentId(ledgerData.Trade, 'source', this.currentLocationUID)
                 this.trades = Object.freeze(trades || []);
             }
@@ -392,16 +387,12 @@ export default {
             const ledgerData = watcher.ledger;
             const { instrumentId, directionOrigin } = this.currentTicker;
 
-            if (this.isHistoryData('order')) {
-                this.orders = this.getHistoryData('order');
-            } else {
+            if (!this.isHistoryDataOrder) {
                 const orders = getOrdersBySourceDestInstrumentId(ledgerData.Order, 'instrument', instrumentId, directionOrigin);
                 this.orders = Object.freeze(orders || []);
             }
 
-            if (this.isHistoryData('trade')) {
-                this.trades = this.getHistoryData('trade');
-            } else {
+            if (!this.isHistoryDataTrade) {
                 const trades = getTradesBySourceDestInstrumentId(ledgerData.Trade, 'instrument', instrumentId, directionOrigin);
                 this.trades = Object.freeze(trades || []);
             }

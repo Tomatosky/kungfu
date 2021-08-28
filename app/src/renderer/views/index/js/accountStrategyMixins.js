@@ -20,6 +20,18 @@ export default {
         currentIdInAccountStrategyResolved () {
             this.emitCurrentMakeOrderWinInfo();
         },  
+
+        isHistoryDataTrade (val) {
+            console.log('trade', val)
+            if (!val) return;
+            this.trades = this.getHistoryData("trade")
+        },
+
+        isHistoryDataOrder (val) {
+            console.log('order', val)
+            if (!val) return;
+            this.orders = this.getHistoryData("order")
+        }
     },
 
     computed: {
@@ -34,6 +46,14 @@ export default {
                 return ''
             }
         },
+
+        isHistoryDataOrder () {
+            return this.isHistoryData("order")
+        },
+
+        isHistoryDataTrade () {
+            return this.isHistoryData("trade")
+        }
     },
 
     methods: {
