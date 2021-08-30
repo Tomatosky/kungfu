@@ -784,7 +784,12 @@ export const avgTwoItemByKeyForReduce = (item1: any, item2: any, key: string) =>
     return addTwoItemByKeyForReduce(item1, item2, key) / 2;
 }
 
-export const getTradingDate = () => {
+export const getTradingDate = (today = true) => {
+
+    if (today) {
+        return moment().format("YYYY-MM-DD");
+    }
+
     const currentTimestamp = moment().valueOf();
     const tradingDayTimestamp = +moment().set("hours", 15).set("minutes", 30).valueOf();
 

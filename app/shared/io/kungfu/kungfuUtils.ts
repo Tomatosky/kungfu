@@ -101,6 +101,8 @@ export function getKungfuDataByDateRange (date: number | string, dateType: numbe
     const from = moment(date).format('YYYY-MM-DD');
     const to = moment(date).add(1, 'day').format('YYYY-MM-DD');
     const yesFrom = moment(date).add(-1, 'day').format('YYYY-MM-DD');
+    const fridayFrom = moment(date).add(-3, 'day').format('YYYY-MM-DD');
+    const fridayTo = moment(date).add(-2, 'day').format('YYYY-MM-DD');
     const dataTypeForHistory = ["Order", "Trade", "OrderStat", "Position"];
     return new Promise(resolve => {
         let timer = setTimeout(() => {
@@ -109,18 +111,21 @@ export function getKungfuDataByDateRange (date: number | string, dateType: numbe
             if (dateType === 1) {
                 const kungfuDataToday = history.selectPeriod(from, to);
                 const kungfuDataYesterday = history.selectPeriod(yesFrom, from);
+                const kungfuDatafriday = history.selectPeriod(fridayFrom, fridayTo);
                 let historyData: any = {};
                 dataTypeForHistory.forEach(key => {
     
                     if (key === "Order" || key === "Trade") {
                         historyData[key] = Object.assign(
                             kungfuDataToday[key].filter("trading_day", tradingDay),
-                            kungfuDataYesterday[key].filter("trading_day", tradingDay)
+                            kungfuDataYesterday[key].filter("trading_day", tradingDay),
+                            kungfuDatafriday[key].filter("trading_day", tradingDay)
                         )
                     } else {
                         historyData[key] = Object.assign(
+                            kungfuDatafriday[key],
+                            kungfuDataYesterday[key],
                             kungfuDataToday[key],
-                            kungfuDataYesterday[key]
                         )
                     }
                 })
