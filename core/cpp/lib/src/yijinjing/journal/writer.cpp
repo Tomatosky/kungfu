@@ -26,6 +26,8 @@ writer::writer(const data::location_ptr &location, uint32_t dest_id, bool lazy, 
     : frame_id_base_(uint64_t(location->uid xor dest_id) << 32u), journal_(location, dest_id, true, lazy),
       publisher_(std::move(publisher)), size_to_write_(0), writer_start_time_32int_((int32_t)(time::now_in_nano() / 1e9)) {
   journal_.seek_to_time(time::now_in_nano());
+
+  SPDLOG_INFO("WRITER INIT writer_start_time_32int_ {}", writer_start_time_32int_);
 }
 
 uint64_t writer::current_frame_uid() {

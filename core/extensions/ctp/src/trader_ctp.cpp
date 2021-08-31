@@ -65,6 +65,10 @@ bool TraderCTP::insert_order(const event_ptr &event) {
     order.status = OrderStatus::Error;
   }
 
+  if (orders_.find(order.uid()) != orders_.end()) {
+    SPDLOG_ERROR("THE ORDER_ID EXSITED order_id {}", order.uid());
+  }
+
   writer->close_data();
   orders_.emplace(order.uid(), state<Order>(event->dest(), event->source(), nano, order));
   return error_id == 0;
@@ -232,13 +236,21 @@ void TraderCTP::OnRspOrderAction(CThostFtdcInputOrderActionField *pInputOrderAct
 void TraderCTP::OnRtnOrder(CThostFtdcOrderField *pOrder) {
   SPDLOG_TRACE(to_string(*pOrder));
   auto order_id = inbound_order_refs_[pOrder->OrderRef];
+
   inbound_order_sysids_[pOrder->OrderSysID] = order_id;
   if (orders_.find(order_id) == orders_.end()) {
     SPDLOG_ERROR("can't find FrontID {} SessionID {} OrderRef {}", pOrder->FrontID, pOrder->SessionID,
                  pOrder->OrderRef);
     return;
   }
+
   auto &order_state = orders_.at(order_id);
+
+  //TODO 判断是否该 rtnOrder跟之前的instrumentId不同
+  if (order_state.data.instrument_id != pOrder->InstrumentID) {
+    SPDLOG_ERROR("RTN_ORDER same OrderRef but not same order, instrument_id {}", (std::string)(pOrder->InstrumentID));
+  }
+
   auto writer = get_writer(order_state.dest);
   Order &order = writer->open_data<Order>(0);
   memcpy(&order, &(order_state.data), sizeof(order));

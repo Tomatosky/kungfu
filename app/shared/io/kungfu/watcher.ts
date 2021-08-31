@@ -679,9 +679,9 @@ export const dealOrderStat = (item: OrderStatOriginData | null): OrderStatData |
     if (!item) return {};
 
     const { insert_time, ack_time, md_time, trade_time } = item;
-    const latencyTrade = (trade_time && ack_time) ? +toDecimal(Number(trade_time - ack_time ) / 1000) : 0;
-    const latencyNetwork = (ack_time && insert_time) ? +toDecimal(Number(ack_time - insert_time) / 1000) : 0;
-    const latencySystem = (insert_time && md_time) ? +toDecimal(Number(insert_time - md_time) / 1000) : 0;
+    const latencyTrade = (trade_time && ack_time) ? +toDecimal(Number(trade_time - ack_time ) / 1000, 0) : 0;
+    const latencyNetwork = (ack_time && insert_time) ? +toDecimal(Number(ack_time - insert_time) / 1000, 0) : 0;
+    const latencySystem = (insert_time && md_time) ? +toDecimal(Number(insert_time - md_time) / 1000, 0) : 0;
 
     return {
         ackTime: Number(ack_time),
