@@ -45,6 +45,16 @@ inline void from_json(const nlohmann::json &j, kungfu::wingchun::ctp::MDConfigur
   j.at("password").get_to(c.password);
 }
 
+inline uint32_t get_orderSysId_hashed_key(const char* exchangeId, const char* orderSysId) { 
+  uint32_t hashed_exchangeId = kungfu::hash_32((const unsigned char*)exchangeId, sizeof(exchangeId));
+  uint32_t hashed_orderSysId = kungfu::hash_32((const unsigned char*)orderSysId, sizeof(orderSysId));
+  return hashed_exchangeId xor hashed_orderSysId;
+}
+
+inline std::string get_OrderRef_key(int64_t nano_time) {
+  return std::to_string(yijinjing::time::nano_hashed(nano_time));
+}
+
 inline std::string disconnected_reason(int reason) {
   switch (reason) {
   case 0x1001:

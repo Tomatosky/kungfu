@@ -17,8 +17,8 @@ using namespace kungfu::yijinjing::data;
 namespace kungfu::wingchun::ctp {
 TraderCTP::TraderCTP(bool low_latency, locator_ptr locator, const std::string &account_id,
                      const std::string &json_config)
-    : Trader(low_latency, std::move(locator), SOURCE_CTP, account_id), front_id_(-1), session_id_(-1), order_ref_(-1),
-      request_id_(0), system_info_len_(0), api_(nullptr) {
+    : Trader(low_latency, std::move(locator), SOURCE_CTP, account_id), front_id_(-1), session_id_(-1),
+      request_id_(0), order_ref_(0), system_info_len_(0), api_(nullptr) {
     yijinjing::log::copy_log_settings(get_io_device()->get_home(), SOURCE_CTP);
     config_ = nlohmann::json::parse(json_config);
 }
@@ -37,18 +37,17 @@ void TraderCTP::on_trading_day(const event_ptr &event, int64_t daytime) {
 bool TraderCTP::insert_order(const event_ptr &event) {
   const OrderInput &input = event->data<OrderInput>();
 
+  order_ref_++;
+
   CThostFtdcInputOrderField ctp_input = {};
   memset(&ctp_input, 0, sizeof(ctp_input));
-
   to_ctp(ctp_input, input);
   strcpy(ctp_input.BrokerID, config_.broker_id.c_str());
   strcpy(ctp_input.InvestorID, config_.account_id.c_str());
-
-  order_ref_++;
   strcpy(ctp_input.OrderRef, std::to_string(order_ref_).c_str());
 
   int error_id = api_->ReqOrderInsert(&ctp_input, ++request_id_);
-
+  
   auto nano = time::now_in_nano();
   auto writer = get_writer(event->source());
   Order &order = writer->open_data<Order>(event->gen_time());
@@ -58,15 +57,11 @@ bool TraderCTP::insert_order(const event_ptr &event) {
   order.update_time = nano;
 
   if (error_id == 0) {
-    outbound_orders_[input.order_id] = order_ref_;
+    outbound_orders_[input.order_id] = ctp_input.OrderRef;
     inbound_order_refs_[ctp_input.OrderRef] = input.order_id;
   } else {
     order.error_id = error_id;
     order.status = OrderStatus::Error;
-  }
-
-  if (orders_.find(order.uid()) != orders_.end()) {
-    SPDLOG_ERROR("THE ORDER_ID EXSITED order_id {}", order.uid());
   }
 
   writer->close_data();
@@ -93,7 +88,7 @@ bool TraderCTP::cancel_order(const event_ptr &event) {
   CThostFtdcInputOrderActionField ctp_action = {};
   strcpy(ctp_action.BrokerID, config_.broker_id.c_str());
   strcpy(ctp_action.InvestorID, config_.account_id.c_str());
-  strcpy(ctp_action.OrderRef, std::to_string(ctp_order_ref).c_str());
+  strcpy(ctp_action.OrderRef, ctp_order_ref.c_str());
   ctp_action.FrontID = front_id_;
   ctp_action.SessionID = session_id_;
   ctp_action.ActionFlag = THOST_FTDC_AF_Delete;
@@ -203,6 +198,7 @@ void TraderCTP::OnRspOrderInsert(CThostFtdcInputOrderField *pInputOrder, CThostF
     SPDLOG_ERROR("failed to insert order, ErrorId: {} ErrorMsg: {}, InputOrder: {}", pRspInfo->ErrorID,
                  gbk2utf8(pRspInfo->ErrorMsg), pInputOrder == nullptr ? "" : to_string(*pInputOrder));
   }
+
   auto order_id = inbound_order_refs_[pInputOrder->OrderRef];
   if (orders_.find(order_id) != orders_.end()) {
     auto &order_state = orders_.at(order_id);
@@ -237,7 +233,7 @@ void TraderCTP::OnRtnOrder(CThostFtdcOrderField *pOrder) {
   SPDLOG_TRACE(to_string(*pOrder));
   auto order_id = inbound_order_refs_[pOrder->OrderRef];
 
-  inbound_order_sysids_[pOrder->OrderSysID] = order_id;
+  inbound_order_sysids_[get_orderSysId_hashed_key(pOrder->ExchangeID, pOrder->OrderSysID)] = order_id;
   if (orders_.find(order_id) == orders_.end()) {
     SPDLOG_ERROR("can't find FrontID {} SessionID {} OrderRef {}", pOrder->FrontID, pOrder->SessionID,
                  pOrder->OrderRef);
@@ -245,12 +241,6 @@ void TraderCTP::OnRtnOrder(CThostFtdcOrderField *pOrder) {
   }
 
   auto &order_state = orders_.at(order_id);
-
-  //TODO 判断是否该 rtnOrder跟之前的instrumentId不同
-  if (order_state.data.instrument_id != pOrder->InstrumentID) {
-    SPDLOG_ERROR("RTN_ORDER same OrderRef but not same order, instrument_id {}", (std::string)(pOrder->InstrumentID));
-  }
-
   auto writer = get_writer(order_state.dest);
   Order &order = writer->open_data<Order>(0);
   memcpy(&order, &(order_state.data), sizeof(order));
@@ -266,7 +256,7 @@ void TraderCTP::OnRtnTrade(CThostFtdcTradeField *pTrade) {
 
   }else{
     SPDLOG_TRACE(to_string(*pTrade));
-    auto order_id = inbound_order_sysids_[pTrade->OrderSysID];
+    auto order_id = inbound_order_sysids_[get_orderSysId_hashed_key(pTrade->ExchangeID, pTrade->OrderSysID)];
     if (orders_.find(order_id) == orders_.end()) {
       SPDLOG_ERROR("can't find order with OrderSysID: {}", pTrade->OrderSysID);
       return;
@@ -280,7 +270,6 @@ void TraderCTP::OnRtnTrade(CThostFtdcTradeField *pTrade) {
     trade.order_id = order_state.data.order_id;
     trade.parent_order_id = order_state.data.parent_id;
     trade.trading_day = order_state.data.trading_day;
-    inbound_trade_ids_[pTrade->TradeID] = trade.uid();
     trades_.emplace(trade.uid(), state<Trade>(order_state.source, order_state.dest, time::now_in_nano(), trade));
     writer->close_data();
   }
@@ -367,39 +356,6 @@ void TraderCTP::OnRspQryInvestorPosition(CThostFtdcInvestorPositionField *pInves
     writer->close_data();
     short_position_map_.clear();
     long_position_map_.clear();
-  }
-}
-
-void TraderCTP::OnRspQryInvestorPositionDetail(CThostFtdcInvestorPositionDetailField *pInvestorPositionDetail,
-                                               CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast) {
-  if (pRspInfo != nullptr && pRspInfo->ErrorID != 0) {
-    SPDLOG_ERROR("POS_DETAIL RES error_id {}, error_msg {}", pRspInfo->ErrorID, gbk2utf8(pRspInfo->ErrorMsg));
-    return;
-  } 
-  
-  if (pInvestorPositionDetail == nullptr) {
-    SPDLOG_INFO("POS_DETAIL RES pInvestorPositionDetail is nullptr, bIsLast {}", bIsLast);
-  } else {
-    SPDLOG_INFO("POS_DETAIL RES *pInvestorPositionDetail {}, bIsLast {}", to_string(*pInvestorPositionDetail), bIsLast);
-    auto writer = get_writer(location::PUBLIC);
-    if (pInvestorPositionDetail != nullptr) {
-      PositionDetail pos_detail = {};
-      from_ctp(*pInvestorPositionDetail, pos_detail);
-      pos_detail.update_time = time::now_in_nano();
-      if (inbound_trade_ids_.find(pInvestorPositionDetail->TradeID) != inbound_trade_ids_.end()) {
-        auto trade_id = inbound_trade_ids_.at(pInvestorPositionDetail->TradeID);
-        auto &trade = trades_.at(trade_id).data;
-        pos_detail.trade_id = trade.trade_id;
-        pos_detail.trade_time = trade.trade_time;
-      } else {
-        pos_detail.trade_id = writer->current_frame_uid();
-      }
-      writer->write(now(), pos_detail);
-    }
-  }
-
-  if (bIsLast) {
-    get_writer(location::PUBLIC)->mark(now(), PositionDetailEnd::tag);
   }
 }
 
