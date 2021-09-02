@@ -19,7 +19,7 @@ window.kungfuHistory = history;
 //dataType: 1 tradingday, 0 normalday
 window.checkIfDiffTradeWithSameOrderId = async (date, dateType = 0) => {
     const kungfuData = await getKungfuDataByDateRange(date, dateType);
-    const hist_trades = kungfuData.Trade;
+    const hist_trades = kungfuData.Trade.sort("trade_time");
 
     let dict_by_order_id = {};
     let error_pairs = [];
@@ -60,6 +60,12 @@ window.checkIfDiffTradeWithSameOrderId = async (date, dateType = 0) => {
     })
 
     return error_pairs;
+}
+
+window.checkStepOverhead = () => {
+    console.time("step");
+    watcher.step();
+    console.timeEnd("step");
 }
 
 startGetKungfuWatcherStep();
