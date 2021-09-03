@@ -244,7 +244,7 @@ export default {
                 cancelButtonText: '取 消',
             })
             .then(() => {
-                const orderDataList = this.tableData
+                const orderDataList = watcher.ledger.Order.list()
                     .filter(item => {
                             return aliveOrderStatusList.includes(+item.status)
                     })
