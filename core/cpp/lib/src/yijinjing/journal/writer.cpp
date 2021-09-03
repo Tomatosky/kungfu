@@ -26,13 +26,11 @@ writer::writer(const data::location_ptr &location, uint32_t dest_id, bool lazy, 
     : frame_id_base_(uint64_t(location->uid xor dest_id) << 32u), journal_(location, dest_id, true, lazy),
       publisher_(std::move(publisher)), size_to_write_(0), writer_start_time_32int_(time::nano_hashed(time::now_in_nano())) {
   journal_.seek_to_time(time::now_in_nano());
-  SPDLOG_TRACE("WRITER INIT writer_start_time_32int_ {}", writer_start_time_32int_);
 }
 
 uint64_t writer::current_frame_uid() {
   uint32_t page_part = (journal_.page_->page_id_ << 16u) & PAGE_ID_TRANC;
   uint32_t frame_part = journal_.page_frame_nb_ & FRAME_ID_TRANC;
-  SPDLOG_TRACE("frame_id_base_ {}, page_part {}, frame_part {}, page_part | frame_part {}, writer_start_time_32int_ {}, final {}", frame_id_base_, page_part, frame_part, page_part | frame_part, writer_start_time_32int_,  frame_id_base_ | ((page_part | frame_part) xor writer_start_time_32int_));
   return frame_id_base_ | ((page_part | frame_part) xor writer_start_time_32int_);
 }
 
