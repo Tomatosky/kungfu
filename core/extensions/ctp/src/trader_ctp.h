@@ -89,7 +89,7 @@ private:
   CThostFtdcTraderApi *api_;
 
   std::unordered_map<std::string, uint64_t> inbound_order_refs_;
-  std::unordered_map<uint32_t, uint64_t> inbound_order_sysids_;
+  std::unordered_map<std::string, uint64_t> inbound_order_sysids_;
   std::unordered_map<uint64_t, uint64_t> inbound_actions_;
   std::unordered_map<uint64_t, std::string> outbound_orders_;
 

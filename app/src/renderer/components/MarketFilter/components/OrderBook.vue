@@ -139,8 +139,10 @@ export default {
                 orderInput: {
                     ...this.quoteData,
                     side,
+                    offset: +side === 0 ? 0 : 1,
                     lastPrice: price,
-                    instrumentType: this.quoteData.instrumentTypeOrigin
+                    instrumentType: this.quoteData.instrumentTypeOrigin,
+                    volume: 0
                 }
             })
         },

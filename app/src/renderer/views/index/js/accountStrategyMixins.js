@@ -57,7 +57,13 @@ export default {
     methods: {
 
         handleMakeOrderByPos (orderInput) {
-            orderInput = Object.freeze(orderInput)
+            const { offset, side, volume } = this.getSideOffsetVolume(orderInput)
+            orderInput = Object.freeze({
+                ...orderInput,
+                side,
+                offset,
+                volume
+            })
             if (this.moduleType !== 'strategy') {
                 this.$bus.$emit('update:make-order', {
                     currentId: this.currentIdInAccountStrategyResolved || '',
@@ -67,7 +73,6 @@ export default {
             } else {
                 this.handleShowOrCloseMakeOrderDashboard(orderInput)
             }
-
         },
 
         handleShowOrCloseMakeOrderDashboard (orderInput) {
@@ -80,14 +85,27 @@ export default {
         },
         
         handleShowHistory ({ date, data, type }) {
-            this.$set(this.historyData, type, {
-                date,
-                data
-            })
+            this.$set(this.historyData, type, { date, data })
         },
 
-        handleMakeOrderByOrderBook (data) {
-            console.log(data)
+        getSideOffsetVolume (orderInput)  {
+            const { directionOrigin, totalVolume, yesterdayVolume } = orderInput;
+            let side, offset, volume;
+            if (directionOrigin == 0) {
+                side = 1;
+            } else {
+                side = 0;
+            }
+            
+            if (+yesterdayVolume) {
+                offset = 1;
+                volume = +yesterdayVolume;
+            } else {
+                offset = 2; //closeToday;
+                volume = +totalVolume || 0;
+            }
+
+            return { side, offset, volume };
         },
 
         isMakeOrderWinIsDestroyed () {

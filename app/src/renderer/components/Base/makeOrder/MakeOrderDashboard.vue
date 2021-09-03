@@ -147,6 +147,29 @@
                         </div>
                     </el-col>
                 </el-row>
+                <el-row class="make-order-line" v-else>
+                    <el-col :span="14">
+                        <el-form-item
+                        label="保护价格"
+                        prop="limit_price"
+                        :rules="[
+                            { validator: biggerThanZeroValidator, trigger: 'blur'}
+                        ]">
+                            <el-input-number
+                            :precision="3"
+                            :step="0.001"
+                            :controls="false"
+                            placeholder="请输入保护价格"
+                            v-model.trim="makeOrderForm.limit_price"></el-input-number>                
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="10">
+                        <div class="make-order-line-info">
+                            <span>可用金额</span>
+                            <span>{{ avaliableCash || '--' }}</span>
+                        </div>
+                    </el-col>
+                </el-row>
 
                 <el-form-item
                 label="方式"
@@ -399,31 +422,36 @@ export default {
             
             if (!Object.keys(newOrderInput || {}).length) return;
             
-            this.clearData(true);
+            const { instrumentId, exchangeId, accountIdResolved, lastPrice, volume, side, offset, instrumentType } = newOrderInput;
 
-            const { instrumentId, lastPrice, totalVolume, directionOrigin, side, exchangeId, accountIdResolved, instrumentType } = newOrderInput;
+            const isSameTicker = this.isSameTicker(exchangeId, instrumentId);
+            if (!isSameTicker) {
+                this.clearData(true);
+            }
+            
+            this.$set(this.makeOrderForm, 'instrument_id', instrumentId || '');
+            this.$set(this.makeOrderForm, 'exchange_id', exchangeId || '');
+            this.$set(this.makeOrderForm, 'limit_price', lastPrice || 0);
+            if (volume && !Number.isNaN(volume)) {
+                this.$set(this.makeOrderForm, 'volume', volume);
+            }
+            this.$set(this.makeOrderForm, 'instrument_type', instrumentType || 0);
 
-            this.$set(this.makeOrderForm, 'instrument_id', instrumentId);
-            this.$set(this.makeOrderForm, 'exchange_id', exchangeId);
-            this.$set(this.makeOrderForm, 'limit_price', lastPrice);
-            this.$set(this.makeOrderForm, 'volume', totalVolume);
-            this.$set(this.makeOrderForm, 'instrument_type', instrumentType);
+            if (side === undefined || Number.isNaN(+side)) {
+                console.log("OrderIput side is illegal", side);
+            } else {
+                this.$set(this.makeOrderForm, 'side', +side);
+            }
+
+            if (offset === undefined || Number.isNaN(+offset)) {
+                console.log("OrderIput offset is illegal", offset);
+            } else {
+                this.$set(this.makeOrderForm, 'offset', +offset);
+            }
 
             if (this.moduleType !== 'strategy') {
                 this.$set(this.makeOrderForm, 'name', accountIdResolved);
                 this.currentAccount = accountIdResolved
-            }
-            
-            if (directionOrigin === 0) {
-                this.$set(this.makeOrderForm, 'side', 1);
-                this.$set(this.makeOrderForm, 'offset', 1);
-            } else if (directionOrigin === 1) {
-                this.$set(this.makeOrderForm, 'side', 0);
-                this.$set(this.makeOrderForm, 'offset', 1);
-            }
-
-            if (side !== undefined && !Number.isNaN(+side)) {
-                this.$set(this.makeOrderForm, 'side', +side);
             }
 
             delayMiliSeconds(300)
@@ -590,6 +618,17 @@ export default {
             `
 
             return tips
+        },
+
+        isSameTicker (exchangeId, instrumentId) {
+            const { exchange_id, instrument_id } = this.makeOrderForm;
+            if (exchangeId === exchange_id) {
+                if (instrumentId === instrument_id) {
+                    return true;
+                }
+            }
+            
+            return false;
         },
 
         getInstrumentType (accountId) {
