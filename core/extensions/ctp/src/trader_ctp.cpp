@@ -247,7 +247,7 @@ void TraderCTP::OnRtnOrder(CThostFtdcOrderField *pOrder) {
   std::string orderRef_key = get_orderRef_key(pOrder->FrontID, pOrder->SessionID, pOrder->OrderRef);
 
   if (inbound_order_refs_.find(orderRef_key) == inbound_order_refs_.end()) {
-    SPDLOG_ERROR("CANNOT FIND orderRef_key {} in inbound_order_refs_ {}", orderRef_key);
+    SPDLOG_ERROR("CANNOT FIND orderRef_key {} in inbound_order_refs_", orderRef_key);
     return;
   }
 
