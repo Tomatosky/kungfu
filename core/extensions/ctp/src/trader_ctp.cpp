@@ -64,12 +64,6 @@ bool TraderCTP::insert_order(const event_ptr &event) {
     order.status = OrderStatus::Error;
   }
 
-  if (orders_.find(order.uid()) != orders_.end()) {
-    auto existed_order_state = orders_.at(order.uid());
-    auto existed_order = existed_order_state.data;
-    SPDLOG_ERROR("THE ORDER_ID EXSITED order_id {}, existed instrument_id {}, current instrument_id {}", order.uid(), existed_order.instrument_id);
-  }
-
   writer->close_data();
   orders_.emplace(order.uid(), state<Order>(event->dest(), event->source(), nano, order));
   return error_id == 0;
@@ -290,6 +284,7 @@ void TraderCTP::OnRtnTrade(CThostFtdcTradeField *pTrade) {
   auto orderSysId_key = get_orderSysId_key(pTrade->ExchangeID, pTrade->OrderSysID);
   if (inbound_order_sysids_.find(orderSysId_key) == inbound_order_sysids_.end()) {
     SPDLOG_ERROR("CANNOT FIND orderSysId_key {} in inbound_order_sysids_", orderSysId_key);
+    return;
   }
 
   auto order_id = inbound_order_sysids_.at(orderSysId_key);
