@@ -45,6 +45,18 @@ inline void from_json(const nlohmann::json &j, kungfu::wingchun::ctp::MDConfigur
   j.at("password").get_to(c.password);
 }
 
+inline std::string get_orderSysId_key(const char* exchangeId, const char* orderSysId) {
+  char* result = new char[std::strlen(exchangeId) + std::strlen(orderSysId) + 1];
+  std::sprintf(result, "%s%s", exchangeId, orderSysId);
+  return result;
+}
+
+inline std::string get_orderRef_key(const int frontId, const int sessionId, const char* orderRef) {
+    char* result = new char[sizeof(frontId) + sizeof(sessionId) + std::strlen(orderRef) + 1];
+    std::sprintf(result, "%d%d%s", frontId, sessionId, orderRef);
+    return result;
+}
+
 inline std::string disconnected_reason(int reason) {
   switch (reason) {
   case 0x1001:

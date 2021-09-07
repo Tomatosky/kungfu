@@ -64,9 +64,6 @@ public:
   virtual void OnRspQryInvestorPosition(CThostFtdcInvestorPositionField *pInvestorPosition,
                                         CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast);
 
-  virtual void OnRspQryInvestorPositionDetail(CThostFtdcInvestorPositionDetailField *pInvestorPositionDetail,
-                                              CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast);
-
   virtual void OnRspQryTradingAccount(CThostFtdcTradingAccountField *pTradingAccount, CThostFtdcRspInfoField *pRspInfo,
                                       int nRequestID, bool bIsLast);
 
@@ -84,9 +81,8 @@ private:
 
   int front_id_;
   int session_id_;
-
-  int order_ref_;
   int request_id_;
+  int order_ref_;
 
   char system_info_[344];
   int system_info_len_;
@@ -94,9 +90,8 @@ private:
 
   std::unordered_map<std::string, uint64_t> inbound_order_refs_;
   std::unordered_map<std::string, uint64_t> inbound_order_sysids_;
-  std::unordered_map<std::string, uint64_t> inbound_trade_ids_;
   std::unordered_map<uint64_t, uint64_t> inbound_actions_;
-  std::unordered_map<uint64_t, uint64_t> outbound_orders_;
+  std::unordered_map<uint64_t, std::string> outbound_orders_;
 
   PositionMap long_position_map_;
   PositionMap short_position_map_;

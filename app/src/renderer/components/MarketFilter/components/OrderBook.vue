@@ -30,7 +30,10 @@
 </template>
 
 <script>
-import { toDecimal } from '__gUtils/busiUtils'
+import { toDecimal } from '__gUtils/busiUtils';
+
+const MIN_PRICE = 0.001;
+const MAX_VOUME = 1000000000;
 
 export default {
 
@@ -80,7 +83,7 @@ export default {
             return (this.quoteData.askPrices || [])
                 .map((price, index) => {
                     const volume = volumes[index] || 0;
-                    if (price < 0.1 || volume > 10000000 || volume <= 0) {
+                    if (price < MIN_PRICE || volume > MAX_VOUME || volume <= 0) {
                         return 0;
                     }
                     return price;
@@ -92,7 +95,7 @@ export default {
             if (!this.quoteData) return [];
             return (this.quoteData.askVolumes || [])
                 .map(volume => {
-                    if (volume  > 10000000 || volume <= 0) {
+                    if (volume > MAX_VOUME || volume <= 0) {
                         return 0;
                     }
                     return volume;
@@ -105,7 +108,7 @@ export default {
             return (this.quoteData.bidPrices || [])
                 .map((price, index) => {
                     const volume = volumes[index] || 0;
-                    if (price < 0.1 || volume > 10000000 || volume <= 0) {
+                    if (price < MIN_PRICE || volume > MAX_VOUME || volume <= 0) {
                         return 0;
                     }
                     return price;
@@ -118,7 +121,7 @@ export default {
             if (!this.quoteData) return [];
             return (this.quoteData.bidVolumes || [])
                 .map(volume => {
-                    if (volume > 10000000 || volume <= 0) {
+                    if (volume > MAX_VOUME || volume <= 0) {
                         return 0;
                     }
                     return volume;
@@ -139,8 +142,10 @@ export default {
                 orderInput: {
                     ...this.quoteData,
                     side,
+                    offset: +side === 0 ? 0 : 1,
                     lastPrice: price,
-                    instrumentType: this.quoteData.instrumentTypeOrigin
+                    instrumentType: this.quoteData.instrumentTypeOrigin,
+                    volume: 0
                 }
             })
         },

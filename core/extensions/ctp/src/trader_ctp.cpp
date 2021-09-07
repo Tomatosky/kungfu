@@ -17,8 +17,8 @@ using namespace kungfu::yijinjing::data;
 namespace kungfu::wingchun::ctp {
 TraderCTP::TraderCTP(bool low_latency, locator_ptr locator, const std::string &account_id,
                      const std::string &json_config)
-    : Trader(low_latency, std::move(locator), SOURCE_CTP, account_id), front_id_(-1), session_id_(-1), order_ref_(-1),
-      request_id_(0), system_info_len_(0), api_(nullptr) {
+    : Trader(low_latency, std::move(locator), SOURCE_CTP, account_id), front_id_(-1), session_id_(-1),
+      request_id_(0), order_ref_(0), system_info_len_(0), api_(nullptr) {
     yijinjing::log::copy_log_settings(get_io_device()->get_home(), SOURCE_CTP);
     config_ = nlohmann::json::parse(json_config);
 }
@@ -37,18 +37,17 @@ void TraderCTP::on_trading_day(const event_ptr &event, int64_t daytime) {
 bool TraderCTP::insert_order(const event_ptr &event) {
   const OrderInput &input = event->data<OrderInput>();
 
+  order_ref_++;
+
   CThostFtdcInputOrderField ctp_input = {};
   memset(&ctp_input, 0, sizeof(ctp_input));
-
   to_ctp(ctp_input, input);
   strcpy(ctp_input.BrokerID, config_.broker_id.c_str());
   strcpy(ctp_input.InvestorID, config_.account_id.c_str());
-
-  order_ref_++;
   strcpy(ctp_input.OrderRef, std::to_string(order_ref_).c_str());
 
   int error_id = api_->ReqOrderInsert(&ctp_input, ++request_id_);
-
+  
   auto nano = time::now_in_nano();
   auto writer = get_writer(event->source());
   Order &order = writer->open_data<Order>(event->gen_time());
@@ -58,15 +57,11 @@ bool TraderCTP::insert_order(const event_ptr &event) {
   order.update_time = nano;
 
   if (error_id == 0) {
-    outbound_orders_[input.order_id] = order_ref_;
-    inbound_order_refs_[ctp_input.OrderRef] = input.order_id;
+    outbound_orders_[input.order_id] = ctp_input.OrderRef;
+    inbound_order_refs_[get_orderRef_key(front_id_, session_id_, ctp_input.OrderRef)] = input.order_id;
   } else {
     order.error_id = error_id;
     order.status = OrderStatus::Error;
-  }
-
-  if (orders_.find(order.uid()) != orders_.end()) {
-    SPDLOG_ERROR("THE ORDER_ID EXSITED order_id {}", order.uid());
   }
 
   writer->close_data();
@@ -77,11 +72,16 @@ bool TraderCTP::insert_order(const event_ptr &event) {
 bool TraderCTP::cancel_order(const event_ptr &event) {
   const OrderAction &action = event->data<OrderAction>();
   if (outbound_orders_.find(action.order_id) == outbound_orders_.end()) {
-    SPDLOG_ERROR("failed to cancel order {}, can't find related ctp order id", action.order_id);
+    SPDLOG_ERROR("FAILED TO CANCEL order {}, can't find related ctp order id", action.order_id);
     return false;
   }
 
-  auto ctp_order_ref = outbound_orders_[action.order_id];
+  if (outbound_orders_.find(action.order_id) == outbound_orders_.end()) {
+    SPDLOG_ERROR("CANNOT FIND order_id in outbound_orders_ {}", action.order_id);
+    return false;
+  }
+
+  auto ctp_order_ref = outbound_orders_.at(action.order_id);
   auto order_state = orders_.at(action.order_id);
   auto status = order_state.data.status;
 
@@ -93,7 +93,7 @@ bool TraderCTP::cancel_order(const event_ptr &event) {
   CThostFtdcInputOrderActionField ctp_action = {};
   strcpy(ctp_action.BrokerID, config_.broker_id.c_str());
   strcpy(ctp_action.InvestorID, config_.account_id.c_str());
-  strcpy(ctp_action.OrderRef, std::to_string(ctp_order_ref).c_str());
+  strcpy(ctp_action.OrderRef, ctp_order_ref.c_str());
   ctp_action.FrontID = front_id_;
   ctp_action.SessionID = session_id_;
   ctp_action.ActionFlag = THOST_FTDC_AF_Delete;
@@ -190,8 +190,17 @@ void TraderCTP::OnRspSettlementInfoConfirm(CThostFtdcSettlementInfoConfirmField 
 
 void TraderCTP::OnRspOrderInsert(CThostFtdcInputOrderField *pInputOrder, CThostFtdcRspInfoField *pRspInfo,
                                  int nRequestID, bool bIsLast) {
+
+  std::string orderRef_key = get_orderRef_key(front_id_, session_id_, pInputOrder->OrderRef);
+
+  if (inbound_order_refs_.find(orderRef_key) == inbound_order_refs_.end()) {
+      SPDLOG_ERROR("CANNOT FIND OrderRef in inbound_order_refs_ {}", orderRef_key);
+      return;
+  }
+
+  auto order_id = inbound_order_refs_.at(orderRef_key);
+
   if (pRspInfo != nullptr && pRspInfo->ErrorID != 0) {
-    auto order_id = inbound_order_refs_[pInputOrder->OrderRef];
     if (orders_.find(order_id) != orders_.end()) {
       auto &order_state = orders_.at(order_id);
       order_state.data.status = OrderStatus::Error;
@@ -200,10 +209,9 @@ void TraderCTP::OnRspOrderInsert(CThostFtdcInputOrderField *pInputOrder, CThostF
       strncpy(order_state.data.error_msg, gbk2utf8(pRspInfo->ErrorMsg).c_str(), ERROR_MSG_LEN);
       write_to(0, order_state.data, order_state.dest);
     }
-    SPDLOG_ERROR("failed to insert order, ErrorId: {} ErrorMsg: {}, InputOrder: {}", pRspInfo->ErrorID,
-                 gbk2utf8(pRspInfo->ErrorMsg), pInputOrder == nullptr ? "" : to_string(*pInputOrder));
+    SPDLOG_ERROR("failed to insert order, ErrorId: {} ErrorMsg: {}, InputOrder: {}", pRspInfo->ErrorID, gbk2utf8(pRspInfo->ErrorMsg), pInputOrder == nullptr ? "" : to_string(*pInputOrder));
   }
-  auto order_id = inbound_order_refs_[pInputOrder->OrderRef];
+
   if (orders_.find(order_id) != orders_.end()) {
     auto &order_state = orders_.at(order_id);
     order_state.data.status = OrderStatus::Pending;
@@ -235,22 +243,27 @@ void TraderCTP::OnRspOrderAction(CThostFtdcInputOrderActionField *pInputOrderAct
 
 void TraderCTP::OnRtnOrder(CThostFtdcOrderField *pOrder) {
   SPDLOG_TRACE(to_string(*pOrder));
-  auto order_id = inbound_order_refs_[pOrder->OrderRef];
 
-  inbound_order_sysids_[pOrder->OrderSysID] = order_id;
-  if (orders_.find(order_id) == orders_.end()) {
-    SPDLOG_ERROR("can't find FrontID {} SessionID {} OrderRef {}", pOrder->FrontID, pOrder->SessionID,
-                 pOrder->OrderRef);
+  std::string orderRef_key = get_orderRef_key(pOrder->FrontID, pOrder->SessionID, pOrder->OrderRef);
+
+  if (inbound_order_refs_.find(orderRef_key) == inbound_order_refs_.end()) {
+    SPDLOG_ERROR("CANNOT FIND orderRef_key {} in inbound_order_refs_", orderRef_key);
     return;
   }
 
-  auto &order_state = orders_.at(order_id);
+  auto order_id = inbound_order_refs_.at(orderRef_key);
 
-  //TODO 判断是否该 rtnOrder跟之前的instrumentId不同
-  if (order_state.data.instrument_id != pOrder->InstrumentID) {
-    SPDLOG_ERROR("RTN_ORDER same OrderRef but not same order, instrument_id {}", (std::string)(pOrder->InstrumentID));
+  if (orders_.find(order_id) == orders_.end()) {
+    SPDLOG_ERROR("CANNOT FIND ORDER order_id {} with orderRef_key {}", order_id, orderRef_key);
+    return;
   }
 
+  //该笔报单请求首次到达CTP，风控通过后返回的第1个OnRtnOrder回报，此时因为还没有报入到交易所，所以回报中OrderSysID为空
+  if (strlen(pOrder->OrderSysID) != 0) {
+    inbound_order_sysids_[get_orderSysId_key(pOrder->ExchangeID, pOrder->OrderSysID)] = order_id;
+  }
+
+  auto &order_state = orders_.at(order_id);
   auto writer = get_writer(order_state.dest);
   Order &order = writer->open_data<Order>(0);
   memcpy(&order, &(order_state.data), sizeof(order));
@@ -262,29 +275,35 @@ void TraderCTP::OnRtnOrder(CThostFtdcOrderField *pOrder) {
 
 void TraderCTP::OnRtnTrade(CThostFtdcTradeField *pTrade) {
   if(pTrade->Price < 1 || pTrade->Price == 2.2250738585072014e-308 || pTrade->Price == 1.7976931348623158e+308 || pTrade->Volume == -2147483648 || pTrade->Volume == 2147483647){
-    SPDLOG_ERROR("Order Price too low, Not True pTrade->Price {}, *pTrade {}",pTrade->Price,to_string(*pTrade));
-
-  }else{
-    SPDLOG_TRACE(to_string(*pTrade));
-    auto order_id = inbound_order_sysids_[pTrade->OrderSysID];
-    if (orders_.find(order_id) == orders_.end()) {
-      SPDLOG_ERROR("can't find order with OrderSysID: {}", pTrade->OrderSysID);
-      return;
-    }
-    auto &order_state = orders_.at(order_id);
-    auto writer = get_writer(order_state.dest);
-    Trade &trade = writer->open_data<Trade>(0);
-    from_ctp(*pTrade, trade);
-    uint64_t trade_id = writer->current_frame_uid();
-    trade.trade_id = trade_id;
-    trade.order_id = order_state.data.order_id;
-    trade.parent_order_id = order_state.data.parent_id;
-    trade.trading_day = order_state.data.trading_day;
-    inbound_trade_ids_[pTrade->TradeID] = trade.uid();
-    trades_.emplace(trade.uid(), state<Trade>(order_state.source, order_state.dest, time::now_in_nano(), trade));
-    writer->close_data();
+    SPDLOG_ERROR("Order Price too low, Not True pTrade->Price {}, *pTrade {}", pTrade->Price, to_string(*pTrade));
+    return;
   }
-  
+
+  SPDLOG_TRACE(to_string(*pTrade));
+
+  auto orderSysId_key = get_orderSysId_key(pTrade->ExchangeID, pTrade->OrderSysID);
+  if (inbound_order_sysids_.find(orderSysId_key) == inbound_order_sysids_.end()) {
+    SPDLOG_ERROR("CANNOT FIND orderSysId_key {} in inbound_order_sysids_", orderSysId_key);
+    return;
+  }
+
+  auto order_id = inbound_order_sysids_.at(orderSysId_key);
+  if (orders_.find(order_id) == orders_.end()) {
+    SPDLOG_ERROR("CANNOT FIND ORDER order_id {} with orderSysId_key {}", order_id, orderSysId_key);
+    return;
+  }
+
+  auto &order_state = orders_.at(order_id);
+  auto writer = get_writer(order_state.dest);
+  Trade &trade = writer->open_data<Trade>(0);
+  from_ctp(*pTrade, trade);
+  uint64_t trade_id = writer->current_frame_uid();
+  trade.trade_id = trade_id;
+  trade.order_id = order_state.data.order_id;
+  trade.parent_order_id = order_state.data.parent_id;
+  trade.trading_day = order_state.data.trading_day;
+  trades_.emplace(trade.uid(), state<Trade>(order_state.source, order_state.dest, time::now_in_nano(), trade));
+  writer->close_data();
 }
 
 void TraderCTP::OnRspQryTradingAccount(CThostFtdcTradingAccountField *pTradingAccount, CThostFtdcRspInfoField *pRspInfo,
@@ -367,39 +386,6 @@ void TraderCTP::OnRspQryInvestorPosition(CThostFtdcInvestorPositionField *pInves
     writer->close_data();
     short_position_map_.clear();
     long_position_map_.clear();
-  }
-}
-
-void TraderCTP::OnRspQryInvestorPositionDetail(CThostFtdcInvestorPositionDetailField *pInvestorPositionDetail,
-                                               CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast) {
-  if (pRspInfo != nullptr && pRspInfo->ErrorID != 0) {
-    SPDLOG_ERROR("POS_DETAIL RES error_id {}, error_msg {}", pRspInfo->ErrorID, gbk2utf8(pRspInfo->ErrorMsg));
-    return;
-  } 
-  
-  if (pInvestorPositionDetail == nullptr) {
-    SPDLOG_INFO("POS_DETAIL RES pInvestorPositionDetail is nullptr, bIsLast {}", bIsLast);
-  } else {
-    SPDLOG_INFO("POS_DETAIL RES *pInvestorPositionDetail {}, bIsLast {}", to_string(*pInvestorPositionDetail), bIsLast);
-    auto writer = get_writer(location::PUBLIC);
-    if (pInvestorPositionDetail != nullptr) {
-      PositionDetail pos_detail = {};
-      from_ctp(*pInvestorPositionDetail, pos_detail);
-      pos_detail.update_time = time::now_in_nano();
-      if (inbound_trade_ids_.find(pInvestorPositionDetail->TradeID) != inbound_trade_ids_.end()) {
-        auto trade_id = inbound_trade_ids_.at(pInvestorPositionDetail->TradeID);
-        auto &trade = trades_.at(trade_id).data;
-        pos_detail.trade_id = trade.trade_id;
-        pos_detail.trade_time = trade.trade_time;
-      } else {
-        pos_detail.trade_id = writer->current_frame_uid();
-      }
-      writer->write(now(), pos_detail);
-    }
-  }
-
-  if (bIsLast) {
-    get_writer(location::PUBLIC)->mark(now(), PositionDetailEnd::tag);
   }
 }
 

@@ -62,7 +62,7 @@ export const OrderStatus: NumberToStringObject = {
     8: isEnglish ? 'Lost' : '丢失',
 }
 
-export const aliveOrderStatusList = [1, 2, 7]
+export const aliveOrderStatusList = [1, 2, 7];
 
 export const SourceTypeConfig: SourceType = {
     'Stock': {

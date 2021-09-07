@@ -126,7 +126,9 @@ export default {
                     moduleType: this.moduleType,
                     orderInput: {
                         instrumentId: item.instrumentId,
-                        exchangeId: item.exchangeId
+                        exchangeId: item.exchangeId,
+                        side: 0,
+                        offset: 0,
                     }
                 })
             }

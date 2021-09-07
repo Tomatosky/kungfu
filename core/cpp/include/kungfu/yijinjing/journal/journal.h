@@ -202,7 +202,7 @@ private:
   std::mutex writer_mtx_ = {};
   publisher_ptr publisher_;
   size_t size_to_write_;
-  int32_t writer_start_time_32int_;
+  uint32_t writer_start_time_32int_;
 
   void close_page(int64_t trigger_time);  
 };

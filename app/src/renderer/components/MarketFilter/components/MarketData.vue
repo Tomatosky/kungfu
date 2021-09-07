@@ -280,7 +280,10 @@ export default {
                 moduleType: this.moduleType,
                 orderInput: {
                     ...quoteData,
-                    instrumentType: (quoteData || '').instrumentTypeOrigin || 0
+                    instrumentType: (quoteData || '').instrumentTypeOrigin || 0,
+                    offset: 0,
+                    side: 0,
+                    volume: 0
                 }
             })
 
