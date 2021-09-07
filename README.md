@@ -172,7 +172,7 @@ $HOME/.local/share/virtualenvs      # pipenv(unix) 存储的 Python 依赖
     * 修正了最大启动次数的bug
     * cli 增加导出全部
     * 修正cli机制，不再获取当前session之前的数据，避免了多条cli进程造成 database is locked 的问题
-    * 修正部分柜台bugs
+    * 修正ctp, 以及部分柜台bugs
     * 修正前端bugs
 * 2.3.5:
     * 增加数据通信进程，减小app渲染计算压力

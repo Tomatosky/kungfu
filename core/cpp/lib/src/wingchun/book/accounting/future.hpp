@@ -143,6 +143,7 @@ public:
         book->asset.frozen_cash -= frozen_margin;
         book->asset.frozen_margin -= frozen_margin;
       }
+      
       if (order.offset == Offset::Close or order.offset == Offset::CloseYesterday) {
         position.frozen_total = std::max(position.frozen_total - order.volume_left, VOLUME_ZERO);
         position.frozen_yesterday = std::max(position.frozen_yesterday - order.volume_left, VOLUME_ZERO);
