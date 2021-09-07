@@ -438,13 +438,13 @@ export default {
             this.$set(this.makeOrderForm, 'instrument_type', instrumentType || 0);
 
             if (side === undefined || Number.isNaN(+side)) {
-                console.log("OrderIput side is illegal", side);
+                console.error("OrderIput side is illegal", side);
             } else {
                 this.$set(this.makeOrderForm, 'side', +side);
             }
 
             if (offset === undefined || Number.isNaN(+offset)) {
-                console.log("OrderIput offset is illegal", offset);
+                console.error("OrderIput offset is illegal", offset);
             } else {
                 this.$set(this.makeOrderForm, 'offset', +offset);
             }

@@ -57,18 +57,18 @@ export default {
     methods: {
 
         handleMakeOrderByPos (orderInput) {
-            const { offset, side, volume } = this.getSideOffsetVolume(orderInput)
-            orderInput = Object.freeze({
-                ...orderInput,
-                side,
-                offset,
-                volume
-            })
+        
             if (this.moduleType !== 'strategy') {
+                const { offset, side, volume } = this.getSideOffsetVolume(orderInput)
                 this.$bus.$emit('update:make-order', {
                     currentId: this.currentIdInAccountStrategyResolved || '',
                     moduleType: this.moduleType,
-                    orderInput
+                    orderInput: Object.freeze({
+                        ...orderInput,
+                        side,
+                        offset,
+                        volume
+                    })
                 })
             } else {
                 this.handleShowOrCloseMakeOrderDashboard(orderInput)
@@ -89,6 +89,14 @@ export default {
         },
 
         getSideOffsetVolume (orderInput)  {
+            if (!orderInput) {
+                return {
+                    side: 0,
+                    offset: 0,
+                    volume: 0
+                }
+            }
+
             const { directionOrigin, totalVolume, yesterdayVolume } = orderInput;
             let side, offset, volume;
             if (directionOrigin == 0) {
@@ -134,16 +142,22 @@ export default {
 
         emitCurrentMakeOrderWinInfo (orderInput) {
             if (!window.makeOrderWin || this.isMakeOrderWinIsDestroyed()) return;
-
+            const { offset, side, volume } = this.getSideOffsetVolume(orderInput);
             window.makeOrderWin.webContents.send('init-make-order-win-info', {
                 moduleType: this.moduleType,
                 currentId: this.currentIdInAccountStrategyResolved,
-                orderInput,
+                orderInput: {
+                    ...orderInput,
+                    offset,
+                    side,
+                    volume
+
+                },
             })
         },
 
         bindMakeOrderWinEvent (orderInput) {
-            window.makeOrderWin.on('show', () => {
+            window.makeOrderWin.once('show', () => {
                 this.emitCurrentMakeOrderWinInfo(orderInput);
             })
         },
