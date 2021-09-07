@@ -133,7 +133,7 @@
                             { validator: biggerThanZeroValidator, trigger: 'blur'}
                         ]">
                             <el-input-number
-                            :precision="3"
+                            :precision="4"
                             :step="0.001"
                             :controls="false"
                             placeholder="请输入价格"
@@ -150,13 +150,13 @@
                 <el-row class="make-order-line" v-else>
                     <el-col :span="14">
                         <el-form-item
-                        label="保护价格"
+                        label="止损价格"
                         prop="limit_price"
                         :rules="[
                             { validator: biggerThanZeroValidator, trigger: 'blur'}
                         ]">
                             <el-input-number
-                            :precision="3"
+                            :precision="4"
                             :step="0.001"
                             :controls="false"
                             placeholder="请输入保护价格"

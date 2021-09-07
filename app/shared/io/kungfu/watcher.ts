@@ -466,8 +466,8 @@ export const dealOrderInput = (item: OrderInputOriginData): OrderInputData => {
         accountId: accountId,
         instrumentType: InstrumentType[instrument_type],
         instrumentTypeOrigin: instrument_type,
-        limitPrice: toDecimal(item.limit_price, 3) || '--',
-        frozenPrice: toDecimal(item.frozen_price, 3) || '--',
+        limitPrice: toDecimal(item.limit_price, 4) || '--',
+        frozenPrice: toDecimal(item.frozen_price, 4) || '--',
         volume: item.volume.toString(),
 
         side: SideName[side] ? SideName[side] : '--',
@@ -519,8 +519,8 @@ export const dealOrder = (item: OrderOriginData): OrderData => {
         volumeCondition: VolumeCondition[item.volume_condition],
         timeCondition: TimeCondition[item.time_condition],
 
-        limitPrice: toDecimal(item.limit_price, 3) || '--',
-        frozenPrice: toDecimal(item.frozen_price, 3) || '--',
+        limitPrice: toDecimal(item.limit_price, 4) || '--',
+        frozenPrice: toDecimal(item.frozen_price, 4) || '--',
         
         volume: item.volume.toString(),
         volumeTraded: item.volume_traded.toString() + "/" + item.volume.toString(),
@@ -569,7 +569,7 @@ export const dealTrade = (item: TradeOriginData): TradeData => {
         hedgeFlag: HedgeFlag[hedge_flag] ? HedgeFlag[hedge_flag] : '--',
         hedgeFlagOrigin: hedge_flag,
 
-        price: toDecimal(+item.price, 3) || '--',
+        price: toDecimal(+item.price, 4) || '--',
         volume: Number(item.volume),
 
         clientId: resolveClientId(+dest, parent_order_id),
@@ -579,8 +579,8 @@ export const dealTrade = (item: TradeOriginData): TradeData => {
         source: source,
         dest: dest,
 
-        tax: toDecimal(+item.tax, 3) || '--',
-        commission: toDecimal(+item.commission, 3) || '--'
+        tax: toDecimal(+item.tax, 4) || '--',
+        commission: toDecimal(+item.commission, 4) || '--'
     }
 }
 
@@ -739,26 +739,26 @@ export const dealQuote = (quote: QuoteOriginData): QuoteData => {
         instrumentType: InstrumentType[quote.instrument_type],
         instrumentTypeOrigin: quote.instrument_type,
 
-        highPrice: toDecimal(ensureNum(quote.high_price), 3),
-        closePrice: toDecimal(ensureNum(quote.close_price), 3),
-        lastPrice: toDecimal(ensureNum(quote.last_price), 3),
-        lowPrice: toDecimal(ensureNum(quote.low_price), 3),
-        lowerLimitPrice: toDecimal(ensureNum(quote.lower_limit_price), 3),
+        highPrice: toDecimal(ensureNum(quote.high_price), 4),
+        closePrice: toDecimal(ensureNum(quote.close_price), 4),
+        lastPrice: toDecimal(ensureNum(quote.last_price), 4),
+        lowPrice: toDecimal(ensureNum(quote.low_price), 4),
+        lowerLimitPrice: toDecimal(ensureNum(quote.lower_limit_price), 4),
         openInterest: ensureNum(quote.open_interest),
-        openPrice: toDecimal(ensureNum(quote.open_price), 3),
-        preClosePrice: toDecimal(ensureNum(quote.pre_close_price), 3),
+        openPrice: toDecimal(ensureNum(quote.open_price), 4),
+        preClosePrice: toDecimal(ensureNum(quote.pre_close_price), 4),
         preOpenInterest: ensureNum(quote.pre_open_interest),
-        preSettlementPrice: toDecimal(ensureNum(quote.pre_settlement_price), 3),
-        settlementPrice: toDecimal(ensureNum(quote.settlement_price), 3),
+        preSettlementPrice: toDecimal(ensureNum(quote.pre_settlement_price), 4),
+        settlementPrice: toDecimal(ensureNum(quote.settlement_price), 4),
  
 
         tradingDay: quote.trading_day,
         turnover: ensureNum(quote.turnover),
-        upperLimitPrice: toDecimal(ensureNum(quote.upper_limit_price), 3),
+        upperLimitPrice: toDecimal(ensureNum(quote.upper_limit_price), 4),
         volume: ensureNum(quote.volume),
-        askPrices: quote.ask_price.map((num: number) => toDecimal(ensureNum(num), 3)) || [],
+        askPrices: quote.ask_price.map((num: number) => toDecimal(ensureNum(num), 4)) || [],
         askVolumes: quote.ask_volume.map((num: BigInt) => num.toString()) || [],
-        bidPrices: quote.bid_price.map((num: number) => toDecimal(ensureNum(num), 3)) || [],
+        bidPrices: quote.bid_price.map((num: number) => toDecimal(ensureNum(num), 4)) || [],
         bidVolumes: quote.bid_volume.map((num: BigInt) => num.toString()) || [],
     }
        
