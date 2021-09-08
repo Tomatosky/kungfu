@@ -316,6 +316,11 @@ inline void from_ctp(const CThostFtdcInstrumentField &ori, Instrument &des) {
   des.price_tick = ori.PriceTick;
 }
 
+inline void from_ctp(const CThostFtdcInstrumentMarginRateField &ori, Instrument &des) {
+  des.long_margin_ratio = ori.LongMarginRatioByMoney;
+  des.short_margin_ratio = ori.ShortMarginRatioByMoney;
+}
+
 inline void from_ctp(const CThostFtdcInstrumentCommissionRateField &ori,
                      longfist::types::InstrumentCommissionRate &des) {
   strcpy(des.instrument_id, ori.InstrumentID);

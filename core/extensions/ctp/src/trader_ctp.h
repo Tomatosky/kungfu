@@ -70,6 +70,9 @@ public:
   virtual void OnRspQryInstrument(CThostFtdcInstrumentField *pInstrument, CThostFtdcRspInfoField *pRspInfo,
                                   int nRequestID, bool bIsLast);
 
+  virtual void OnRspQryInstrumentMarginRate(CThostFtdcInstrumentMarginRateField *pInstrumentMarginRate, CThostFtdcRspInfoField *pRspInfo,
+                                   int nRequestID, bool bIsLast);
+
   virtual void OnRspSettlementInfoConfirm(CThostFtdcSettlementInfoConfirmField *pSettlementInfoConfirm,
                                           CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast);
 
@@ -113,6 +116,11 @@ private:
   bool req_qry_instrument();
 
   bool req_position_detail();
+
+  void req_qry_instrumentMarginRate();
+
+  bool check_if_stored_instruments(const std::string& trading_day);
+
 };
 } // namespace kungfu::wingchun::ctp
 #endif // KUNGFU_CTP_EXT_TRADER_H

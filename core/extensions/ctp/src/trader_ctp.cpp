@@ -184,6 +184,14 @@ void TraderCTP::OnRspSettlementInfoConfirm(CThostFtdcSettlementInfoConfirmField 
   }
 
   if (bIsLast) {
+    if (check_if_stored_instruments(trading_day_)) {
+      SPDLOG_INFO("CHECK_IF_STORED_INSTRUMENTS TRUE");
+      update_broker_state(BrokerState::Ready);
+      SPDLOG_INFO("BrokerState::Ready");
+      return;
+    } 
+
+	  SPDLOG_INFO("CHECK_IF_STORED_INSTRUMENTS FALSE");
     req_qry_instrument();
   }
 }
@@ -399,23 +407,66 @@ void TraderCTP::OnRspQryInstrument(CThostFtdcInstrumentField *pInstrument, CThos
   if (pInstrument == nullptr) {
     SPDLOG_INFO("INSTRUMENT RES pInstrument is nullptr, bIsLast {}", bIsLast);
   } else if (pInstrument->ProductClass == THOST_FTDC_PC_Futures) {
-      auto writer = get_writer(location::PUBLIC);
-      Instrument &instrument = writer->open_data<Instrument>(0);
-      from_ctp(*pInstrument, instrument);
-      instrument_map_[pInstrument->InstrumentID] = instrument;
-      writer->close_data();
-      instrument_count_++;
+        //此处不写journal，需要等请求完margin ratio后再写入
+        Instrument instrument = {};
+        from_ctp(*pInstrument, instrument);
+        instrument_map_[pInstrument->InstrumentID] = instrument;
+  }
+ 
+  if (bIsLast) {
+    SPDLOG_INFO("INSTRUMENT RES bIsLast {}", bIsLast);
+    req_qry_instrumentMarginRate();
+  }
+}
+
+void TraderCTP::req_qry_instrumentMarginRate() {
+  int rtn = -1;
+  int instrument_cnt = 0;
+  CThostFtdcQryInstrumentMarginRateField req = {};
+  strncpy(req.BrokerID, config_.broker_id.c_str(), BROKER_ID_LEN);
+  strncpy(req.InvestorID, config_.account_id.c_str(), ACCOUNT_ID_LEN);
+  req.HedgeFlag[0] = THOST_FTDC_HF_Speculation;
+  for (auto iter = instrument_map_.begin(); iter != instrument_map_.end(); iter++) {
+    strncpy(req.InstrumentID, iter->first.c_str(), INSTRUMENT_ID_LEN);
+    rtn = api_->ReqQryInstrumentMarginRate(&req, ++request_id_);
+    instrument_cnt++;
+    SPDLOG_INFO("INSTRUMENT MARGIN RATE REQ rtn {}, total {}, Has been completed {} instrument", rtn, instrument_map_.size(), instrument_cnt);
   }
 
-  if (bIsLast) {
-    SPDLOG_INFO("INSTRUMENT RES bIsLast {}, instrument_count_ {}", bIsLast, instrument_count_);
-    instrument_count_ = 0;
+  if (rtn == 0) {
     auto writer = get_writer(location::PUBLIC);
     writer->mark(now(), InstrumentEnd::tag);
+    
+    TimeKeyValue instrument_stored_trading_day_tkv = {};
+    instrument_stored_trading_day_tkv.update_time = now();
+    instrument_stored_trading_day_tkv.key = "instrument_stored_trading_day";
+    instrument_stored_trading_day_tkv.value = trading_day_;
+    writer->write(now(), instrument_stored_trading_day_tkv);
+    SPDLOG_INFO("INSTRUMENT_STORED_TRADING_DAY {}", trading_day_);
+    
     update_broker_state(BrokerState::Ready);
     SPDLOG_INFO("BrokerState::Ready");
   }
 }
+
+void TraderCTP::OnRspQryInstrumentMarginRate(CThostFtdcInstrumentMarginRateField *pInstrumentMarginRate, CThostFtdcRspInfoField *pRspInfo,
+                                   int nRequestID, bool bIsLast) {
+  if (pRspInfo != nullptr && pRspInfo->ErrorID != 0) {
+    SPDLOG_ERROR("INSTRUMENT MARGIN RATE RES (error_id) {} (error_msg) {}", pRspInfo->ErrorID, gbk2utf8(pRspInfo->ErrorMsg));
+    return;
+  }
+
+  if (pInstrumentMarginRate == nullptr) {
+    SPDLOG_INFO("INSTRUMENT MARGIN RATE RES pInstrumentMarginRate is nullptr, bIsLast {}", bIsLast);
+  } else if (instrument_map_.find(pInstrumentMarginRate->InstrumentID) != instrument_map_.end()) {
+    auto writer = get_writer(location::PUBLIC);
+    auto& instrument = instrument_map_.at(pInstrumentMarginRate->InstrumentID);
+    from_ctp(*pInstrumentMarginRate, instrument);
+    SPDLOG_INFO("INSTRUMENT_MARGIN RATE instrument_id {}, lmr_money {}, smr_mony {}", pInstrumentMarginRate->InstrumentID, pInstrumentMarginRate->LongMarginRatioByMoney, pInstrumentMarginRate->ShortMarginRatioByMoney);
+    writer->write(now(), instrument);
+  }
+}
+
 
 void TraderCTP::on_start() {
   broker::Trader::on_start();
@@ -513,4 +564,23 @@ bool TraderCTP::req_position_detail() {
   SPDLOG_INFO("POS_DETAIL REQ rtn {}", rtn);
   return rtn == 0;
 }
+
+
+bool TraderCTP::check_if_stored_instruments(const std::string& trading_day) {
+
+  SPDLOG_INFO("CHECK_IF_STORED_INSTRUMENTS trading_day {}", trading_day);
+
+  const cache::bank& state_bank = get_state_bank();
+  std::unordered_map<std::string, bool> saved_instruments_trading_day_map;
+
+  for (auto &pair : state_bank[boost::hana::type_c<TimeKeyValue>]) {
+    const TimeKeyValue& timekeyValue = pair.second.data;
+    if (timekeyValue.key == "instrument_stored_trading_day") {
+      saved_instruments_trading_day_map[timekeyValue.value] = true;
+    }
+  }
+
+  return saved_instruments_trading_day_map.find(trading_day) != saved_instruments_trading_day_map.end();
+}
+
 } // namespace kungfu::wingchun::ctp
