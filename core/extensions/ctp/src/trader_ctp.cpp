@@ -428,6 +428,7 @@ void TraderCTP::req_qry_instrumentMarginRate() {
   req.HedgeFlag[0] = THOST_FTDC_HF_Speculation;
   for (auto iter = instrument_map_.begin(); iter != instrument_map_.end(); iter++) {
     strncpy(req.InstrumentID, iter->first.c_str(), INSTRUMENT_ID_LEN);
+    strncpy(req.ExchangeID, (iter->second).exchange_id.c_str(), EXCHANGE_ID_LEN);
     rtn = api_->ReqQryInstrumentMarginRate(&req, ++request_id_);
     instrument_cnt++;
     SPDLOG_INFO("INSTRUMENT MARGIN RATE REQ rtn {}, total {}, Has been completed {} instrument", rtn, instrument_map_.size(), instrument_cnt);
