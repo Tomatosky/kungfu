@@ -121,7 +121,7 @@ private:
 
   bool req_position_detail();
 
-  int req_qry_instrumentMarginRate(InstrumentMap::iterator iter);
+  int req_qry_instrumentMarginRate(InstrumentMap::iterator& iter);
 
   bool check_if_stored_instruments(const std::string& trading_day);
 
