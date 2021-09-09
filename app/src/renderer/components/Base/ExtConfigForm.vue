@@ -296,7 +296,7 @@ export default {
 
     labelWidth: {
       type: String,
-      default: "80px",
+      default: "90px",
     },
 
     uniKey: {

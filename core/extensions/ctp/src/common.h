@@ -8,7 +8,7 @@
 #include <nlohmann/json.hpp>
 #include <string>
 #include <iostream>
-
+#include "ThostFtdcUserApiStruct.h"
 
 namespace kungfu::wingchun::ctp {
 struct TDConfiguration {
@@ -19,6 +19,7 @@ struct TDConfiguration {
   std::string auth_code;
   std::string product_info;
   std::string app_id;
+  bool broker_margin_ratio;
 };
 
 inline void from_json(const nlohmann::json &j, kungfu::wingchun::ctp::TDConfiguration &c) {
@@ -28,6 +29,7 @@ inline void from_json(const nlohmann::json &j, kungfu::wingchun::ctp::TDConfigur
   j.at("password").get_to(c.password);
   j.at("auth_code").get_to(c.auth_code);
   j.at("app_id").get_to(c.app_id);
+  j.at("broker_margin_ratio").get_to(c.broker_margin_ratio);
   c.product_info = j.value("product_info", "");
 }
 
@@ -45,16 +47,16 @@ inline void from_json(const nlohmann::json &j, kungfu::wingchun::ctp::MDConfigur
   j.at("password").get_to(c.password);
 }
 
-inline std::string get_orderSysId_key(const char* exchangeId, const char* orderSysId) {
-  char* result = new char[std::strlen(exchangeId) + std::strlen(orderSysId) + 1];
-  std::sprintf(result, "%s%s", exchangeId, orderSysId);
-  return result;
+inline uint64_t get_orderSysId_key(const char* exchangeId, const char* orderSysId) {
+  uint32_t hashed_exchangeId = kungfu::hash_32((const unsigned char*)exchangeId, sizeof(TThostFtdcExchangeIDType));
+  uint32_t hashed_orderSysId = kungfu::hash_32((const unsigned char*)orderSysId, sizeof(TThostFtdcOrderSysIDType));
+  return ((uint64_t)hashed_exchangeId << 32u) | hashed_orderSysId;
 }
 
-inline std::string get_orderRef_key(const int frontId, const int sessionId, const char* orderRef) {
-    char* result = new char[sizeof(frontId) + sizeof(sessionId) + std::strlen(orderRef) + 1];
-    std::sprintf(result, "%d%d%s", frontId, sessionId, orderRef);
-    return result;
+inline uint64_t get_orderRef_key(const int frontId, const int sessionId, const char* orderRef) {
+    uint32_t front_session_id = ((uint32_t)frontId << 16u) | (uint16_t)sessionId;
+    uint32_t hashed_orderRef = kungfu::hash_32((const unsigned char*)orderRef, sizeof(TThostFtdcOrderRefType));
+    return ((uint64_t)front_session_id << 32u) | hashed_orderRef;
 }
 
 inline std::string disconnected_reason(int reason) {
@@ -74,5 +76,6 @@ inline std::string disconnected_reason(int reason) {
   }
 }
 } // namespace kungfu::wingchun::ctp
+
 
 #endif // KUNGFU_CTP_EXT_COMMON_H

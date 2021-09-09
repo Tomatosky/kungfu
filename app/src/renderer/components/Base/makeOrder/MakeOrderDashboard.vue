@@ -147,29 +147,6 @@
                         </div>
                     </el-col>
                 </el-row>
-                <el-row class="make-order-line" v-else>
-                    <el-col :span="14">
-                        <el-form-item
-                        label="止损价格"
-                        prop="limit_price"
-                        :rules="[
-                            { validator: biggerThanZeroValidator, trigger: 'blur'}
-                        ]">
-                            <el-input-number
-                            :precision="4"
-                            :step="0.001"
-                            :controls="false"
-                            placeholder="请输入保护价格"
-                            v-model.trim="makeOrderForm.limit_price"></el-input-number>                
-                        </el-form-item>
-                    </el-col>
-                    <el-col :span="10">
-                        <div class="make-order-line-info">
-                            <span>可用金额</span>
-                            <span>{{ avaliableCash || '--' }}</span>
-                        </div>
-                    </el-col>
-                </el-row>
 
                 <el-form-item
                 label="方式"
