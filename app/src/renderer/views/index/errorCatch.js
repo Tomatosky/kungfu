@@ -12,7 +12,7 @@ process
         logger.error('Uncaught Exception thrown', err);
 
         if (!window.AFTER_APP_MOUNTED) {
-            dialog.showErrorBox('错误', err)
+            dialog.showErrorBox('错误', err.message)
         } 
     });
 
