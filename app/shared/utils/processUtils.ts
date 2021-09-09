@@ -212,7 +212,6 @@ export const startProcess = (options: Pm2Options, no_ext = false): Promise<objec
                         console.error(err)
                         err = err.length ? err[0] : err;
                         logger.error('[PM2] startProcess', JSON.stringify(optionsResolved), err);
-                        reject(err);
                         return;
                     };
                     logger.info("[PM2] startProcess", optionsResolved.name);

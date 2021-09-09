@@ -82,7 +82,7 @@ const { _pm2 } = require('__gUtils/processUtils');
 _pm2.launchBus((err: Error, pm2_bus: any) => {
 
     if (err) {
-        console.error(err)
+        console.error("pm2 launchBus Error", err)
     }
 
     pm2_bus.on('process:msg', (packet: any) => {
