@@ -199,7 +199,7 @@ void TraderCTP::OnRspSettlementInfoConfirm(CThostFtdcSettlementInfoConfirmField 
 void TraderCTP::OnRspOrderInsert(CThostFtdcInputOrderField *pInputOrder, CThostFtdcRspInfoField *pRspInfo,
                                  int nRequestID, bool bIsLast) {
 
-  std::string orderRef_key = get_orderRef_key(front_id_, session_id_, pInputOrder->OrderRef);
+  uint64_t orderRef_key = get_orderRef_key(front_id_, session_id_, pInputOrder->OrderRef);
 
   if (inbound_order_refs_.find(orderRef_key) == inbound_order_refs_.end()) {
       SPDLOG_ERROR("CANNOT FIND OrderRef in inbound_order_refs_ {}", orderRef_key);
@@ -252,7 +252,7 @@ void TraderCTP::OnRspOrderAction(CThostFtdcInputOrderActionField *pInputOrderAct
 void TraderCTP::OnRtnOrder(CThostFtdcOrderField *pOrder) {
   SPDLOG_TRACE(to_string(*pOrder));
 
-  std::string orderRef_key = get_orderRef_key(pOrder->FrontID, pOrder->SessionID, pOrder->OrderRef);
+  uint64_t orderRef_key = get_orderRef_key(pOrder->FrontID, pOrder->SessionID, pOrder->OrderRef);
 
   if (inbound_order_refs_.find(orderRef_key) == inbound_order_refs_.end()) {
     SPDLOG_ERROR("CANNOT FIND orderRef_key {} in inbound_order_refs_", orderRef_key);
@@ -289,7 +289,7 @@ void TraderCTP::OnRtnTrade(CThostFtdcTradeField *pTrade) {
 
   SPDLOG_TRACE(to_string(*pTrade));
 
-  auto orderSysId_key = get_orderSysId_key(pTrade->ExchangeID, pTrade->OrderSysID);
+  uint64_t orderSysId_key = get_orderSysId_key(pTrade->ExchangeID, pTrade->OrderSysID);
   if (inbound_order_sysids_.find(orderSysId_key) == inbound_order_sysids_.end()) {
     SPDLOG_ERROR("CANNOT FIND orderSysId_key {} in inbound_order_sysids_", orderSysId_key);
     return;
@@ -407,47 +407,44 @@ void TraderCTP::OnRspQryInstrument(CThostFtdcInstrumentField *pInstrument, CThos
   if (pInstrument == nullptr) {
     SPDLOG_INFO("INSTRUMENT RES pInstrument is nullptr, bIsLast {}", bIsLast);
   } else if (pInstrument->ProductClass == THOST_FTDC_PC_Futures) {
-        //此处不写journal，需要等请求完margin ratio后再写入
-        Instrument instrument = {};
-        from_ctp(*pInstrument, instrument);
-        instrument_map_[pInstrument->InstrumentID] = instrument;
+    //此处不写journal，需要等请求完margin ratio后再写入
+    Instrument instrument = {};
+    from_ctp(*pInstrument, instrument);
+    instrument_map_[pInstrument->InstrumentID] = instrument;
+
+    if (!config_.broker_margin_ratio) {
+      auto writer = get_writer(location::PUBLIC);
+      writer->write(now(), instrument);
+    }
   }
  
   if (bIsLast) {
     SPDLOG_INFO("INSTRUMENT RES bIsLast {}", bIsLast);
-    req_qry_instrumentMarginRate();
+
+    if (config_.broker_margin_ratio) {
+      instrument_map_iter_ = instrument_map_.begin();
+      req_marginRatio_count_ = 1;
+      req_qry_instrumentMarginRate(instrument_map_iter_);
+    } else {
+      auto writer = get_writer(location::PUBLIC);
+      writer->mark(now(), InstrumentEnd::tag);
+      update_broker_state(BrokerState::Ready);
+      SPDLOG_INFO("BrokerState::Ready");
+    }
   }
 }
 
-void TraderCTP::req_qry_instrumentMarginRate() {
-  int rtn = -1;
-  int instrument_cnt = 0;
+int TraderCTP::req_qry_instrumentMarginRate(InstrumentMap::iterator& iter) {
   CThostFtdcQryInstrumentMarginRateField req = {};
-  strncpy(req.BrokerID, config_.broker_id.c_str(), BROKER_ID_LEN);
-  strncpy(req.InvestorID, config_.account_id.c_str(), ACCOUNT_ID_LEN);
-  req.HedgeFlag[0] = THOST_FTDC_HF_Speculation;
-  for (auto iter = instrument_map_.begin(); iter != instrument_map_.end(); iter++) {
-    strncpy(req.InstrumentID, iter->first.c_str(), INSTRUMENT_ID_LEN);
-    strncpy(req.ExchangeID, (iter->second).exchange_id.c_str(), EXCHANGE_ID_LEN);
-    rtn = api_->ReqQryInstrumentMarginRate(&req, ++request_id_);
-    instrument_cnt++;
-    SPDLOG_INFO("INSTRUMENT MARGIN RATE REQ rtn {}, total {}, Has been completed {} instrument", rtn, instrument_map_.size(), instrument_cnt);
-  }
-
-  if (rtn == 0) {
-    auto writer = get_writer(location::PUBLIC);
-    writer->mark(now(), InstrumentEnd::tag);
-    
-    TimeKeyValue instrument_stored_trading_day_tkv = {};
-    instrument_stored_trading_day_tkv.update_time = now();
-    instrument_stored_trading_day_tkv.key = "instrument_stored_trading_day";
-    instrument_stored_trading_day_tkv.value = trading_day_;
-    writer->write(now(), instrument_stored_trading_day_tkv);
-    SPDLOG_INFO("INSTRUMENT_STORED_TRADING_DAY {}", trading_day_);
-    
-    update_broker_state(BrokerState::Ready);
-    SPDLOG_INFO("BrokerState::Ready");
-  }
+  strncpy(req.BrokerID, config_.broker_id.c_str(), sizeof(req.BrokerID));
+  strncpy(req.InvestorID, config_.account_id.c_str(), sizeof(req.InvestorID));
+  strncpy(req.InstrumentID, iter->first.c_str(), sizeof(req.InstrumentID));
+  strncpy(req.ExchangeID, iter->second.exchange_id.to_string().c_str(), sizeof(req.ExchangeID));
+  req.HedgeFlag = THOST_FTDC_HF_Speculation;
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+  int rtn = api_->ReqQryInstrumentMarginRate(&req, ++request_id_);
+  SPDLOG_INFO("INSTRUMENT MARGIN RATE REQ rtn {}, req_marginRatio_count_ {}, total {}, req BrokerID {}, InvestorID {}, HedgeFlag {}, InstrumentID {}, ExchangeID {}", rtn, req_marginRatio_count_, instrument_map_.size(), req.BrokerID, req.InvestorID, req.HedgeFlag, req.InstrumentID, req.ExchangeID);
+  return rtn;
 }
 
 void TraderCTP::OnRspQryInstrumentMarginRate(CThostFtdcInstrumentMarginRateField *pInstrumentMarginRate, CThostFtdcRspInfoField *pRspInfo,
@@ -466,8 +463,20 @@ void TraderCTP::OnRspQryInstrumentMarginRate(CThostFtdcInstrumentMarginRateField
     SPDLOG_INFO("INSTRUMENT_MARGIN RATE instrument_id {}, lmr_money {}, smr_mony {}", pInstrumentMarginRate->InstrumentID, pInstrumentMarginRate->LongMarginRatioByMoney, pInstrumentMarginRate->ShortMarginRatioByMoney);
     writer->write(now(), instrument);
   }
-}
 
+  instrument_map_iter_++;
+  req_marginRatio_count_++;
+
+  if (instrument_map_iter_ != instrument_map_.end()) {
+    req_qry_instrumentMarginRate(instrument_map_iter_);
+  } else {
+    record_instruments_stored_trading_day();
+    auto writer = get_writer(location::PUBLIC);
+    writer->mark(now(), InstrumentEnd::tag);
+    update_broker_state(BrokerState::Ready);
+    SPDLOG_INFO("BrokerState::Ready");
+  }
+}
 
 void TraderCTP::on_start() {
   broker::Trader::on_start();
@@ -568,20 +577,26 @@ bool TraderCTP::req_position_detail() {
 
 
 bool TraderCTP::check_if_stored_instruments(const std::string& trading_day) {
-
   SPDLOG_INFO("CHECK_IF_STORED_INSTRUMENTS trading_day {}", trading_day);
-
   const cache::bank& state_bank = get_state_bank();
   std::unordered_map<std::string, bool> saved_instruments_trading_day_map;
-
   for (auto &pair : state_bank[boost::hana::type_c<TimeKeyValue>]) {
     const TimeKeyValue& timekeyValue = pair.second.data;
     if (timekeyValue.key == "instrument_stored_trading_day") {
       saved_instruments_trading_day_map[timekeyValue.value] = true;
     }
   }
-
   return saved_instruments_trading_day_map.find(trading_day) != saved_instruments_trading_day_map.end();
+}
+
+void TraderCTP::record_instruments_stored_trading_day() {
+  auto writer = get_writer(location::PUBLIC);
+  TimeKeyValue instrument_stored_trading_day_tkv = {};
+  instrument_stored_trading_day_tkv.update_time = now();
+  instrument_stored_trading_day_tkv.key = "instrument_stored_trading_day";
+  instrument_stored_trading_day_tkv.value = trading_day_;
+  writer->write(now(), instrument_stored_trading_day_tkv);
+  SPDLOG_INFO("INSTRUMENT_STORED_TRADING_DAY {}", trading_day_);
 }
 
 } // namespace kungfu::wingchun::ctp

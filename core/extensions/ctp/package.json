@@ -71,6 +71,15 @@
                     "required": true,
                     "validator": ["tcpUriValidator"],
                     "tip": "请填写交易地址，例如: tcp://180.168.146.187:10101"
+                },
+                {
+                    "key": "broker_margin_ratio",
+                    "name": "broker_marginRatio",
+                    "type": "bool",
+                    "errMsg": "是否需要保证金比例详情",
+                    "required": true,
+                    "default": false,
+                    "tip": "不同Broker的保证金比例不同，是否需要请求对应Broker的保证金比例，该操作因为ctp一秒内请求限制，会在一个交易日内首次开启时耗时10min左右，如不开启，则会用交易所默认的保证金比例进行功夫内部计算"
                 }
             ],
             "md_config": [

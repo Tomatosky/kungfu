@@ -91,8 +91,8 @@ private:
   int system_info_len_;
   CThostFtdcTraderApi *api_;
 
-  std::unordered_map<std::string, uint64_t> inbound_order_refs_;
-  std::unordered_map<std::string, uint64_t> inbound_order_sysids_;
+  std::unordered_map<uint64_t, uint64_t> inbound_order_refs_;
+  std::unordered_map<uint64_t, uint64_t> inbound_order_sysids_;
   std::unordered_map<uint64_t, uint64_t> inbound_actions_;
   std::unordered_map<uint64_t, std::string> outbound_orders_;
 
@@ -100,6 +100,8 @@ private:
   PositionMap short_position_map_;
 
   InstrumentMap instrument_map_;
+  InstrumentMap::iterator instrument_map_iter_;
+  int req_marginRatio_count_;
 
   std::unordered_map<int, longfist::types::OrderAction> action_event_map_;
 
@@ -114,13 +116,16 @@ private:
   bool req_auth();
 
   bool req_qry_instrument();
+  
+  void after_instrument();
 
   bool req_position_detail();
 
-  void req_qry_instrumentMarginRate();
+  int req_qry_instrumentMarginRate(InstrumentMap::iterator& iter);
 
   bool check_if_stored_instruments(const std::string& trading_day);
 
+  void record_instruments_stored_trading_day();
 };
 } // namespace kungfu::wingchun::ctp
 #endif // KUNGFU_CTP_EXT_TRADER_H
