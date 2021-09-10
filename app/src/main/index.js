@@ -12,7 +12,7 @@ import { KF_HOME, BASE_DB_DIR } from '__gConfig/pathConfig';
 import { openSettingDialog, clearJournal, openLogFile, exportAllTradingData } from "./events";
 
 const path = require('path');
-const { app, globalShortcut, BrowserWindow, Menu, shell } = electron
+const { app, globalShortcut, BrowserWindow, Menu, dialog, shell } = electron
 
 initConfig();
 copyKungfuKey();
@@ -72,19 +72,26 @@ function createWindow () {
 	})
 
 	mainWindow.on('crashed', () => {
-		logger.error('[MASTER] crashed', new Date())
+		logger.error('[mainWindow] crashed', new Date())
 		mainWindow && mainWindow.reload()
-	})
+	});
 
 	mainWindow.on('unresponsive', () => {
-		logger.error('[MASTER] unresponsive', new Date())
+		logger.error('[mainWindow] unresponsive', new Date())
 		mainWindow && mainWindow.reload()
+	});
+
+	mainWindow.webContents.on("crashed", (err) => {
+		logger.error("[mainWindow.webContents] crashed", new Date(), err);
+		dialog.showErrorBox('错误', "功夫渲染进程崩溃，需重新启动")
 	})
 
 	mainWindow.on('ready-to-show', function() {
 		mainWindow.show();
 		mainWindow.focus();
 	});
+
+	
 }
 
 

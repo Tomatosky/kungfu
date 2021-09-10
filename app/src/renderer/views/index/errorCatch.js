@@ -15,4 +15,3 @@ process
             dialog.showErrorBox('错误', err.message)
         } 
     });
-
