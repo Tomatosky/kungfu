@@ -579,14 +579,16 @@ bool TraderCTP::req_position_detail() {
 bool TraderCTP::check_if_stored_instruments(const std::string& trading_day) {
   SPDLOG_INFO("CHECK_IF_STORED_INSTRUMENTS trading_day {}", trading_day);
   const cache::bank& state_bank = get_state_bank();
-  std::unordered_map<std::string, bool> saved_instruments_trading_day_map;
   for (auto &pair : state_bank[boost::hana::type_c<TimeKeyValue>]) {
-    const TimeKeyValue& timekeyValue = pair.second.data;
-    if (timekeyValue.key == "instrument_stored_trading_day") {
-      saved_instruments_trading_day_map[timekeyValue.value] = true;
+    const TimeKeyValue& timeKeyValue = pair.second.data;
+    if (timeKeyValue.key == "instrument_stored_trading_day") {
+      SPDLOG_INFO("timeKeyValue.value {}, trading_day {}, == {}", timeKeyValue.value, trading_day, timeKeyValue.value == trading_day);
+      if (timeKeyValue.value == trading_day) {
+        return true;
+      }
     }
   }
-  return saved_instruments_trading_day_map.find(trading_day) != saved_instruments_trading_day_map.end();
+  return false;
 }
 
 void TraderCTP::record_instruments_stored_trading_day() {
