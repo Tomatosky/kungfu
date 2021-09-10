@@ -96,3 +96,24 @@ export function showQuitMessageBox (mainWindow) {
         })
     })
 }
+
+//崩溃提示
+export function showCrashMessageBox () {
+	return new Promise(resolve => {
+        dialog.showMessageBox({
+            type: 'question',
+            title: '提示',
+            defaultId: 0,
+            cancelId: 1,
+            message: "功夫图形进程中断，该中断不会影响交易，重新开启后出于安全考虑不会恢复之前交易数据，但可通过历史查询查看，是否重新开启界面？",
+            buttons: ['确认', '取消'],
+            icon: path.join(__resources, 'logo', 'icon.png')
+        }, (index) => {
+            if(index === 0){
+				resolve(true)
+            } else {
+                resolve(false)
+            }
+        })
+    })
+}

@@ -26,7 +26,7 @@ export const watcher: any = (() => {
     }
 
     if (process.env.APP_TYPE === "daemon") {
-        return kungfu.watcher(KF_RUNTIME_DIR, kungfu.formatStringToHashHex('kungfu_daemon'), false, false);
+        return kungfu.watcher(KF_RUNTIME_DIR, kungfu.formatStringToHashHex('kungfu_daemon'), false, true);
     }
 
     if (process.env.RENDERER_TYPE === 'admin') {
@@ -34,7 +34,8 @@ export const watcher: any = (() => {
     }
 
     const id = [process.env.APP_TYPE, process.env.RENDERER_TYPE].join('');
-    return kungfu.watcher(KF_RUNTIME_DIR, kungfu.formatStringToHashHex(id), true, false);
+    const bypassRestore = process.env.RELOAD_AFTER_CRASHED ? true : false;
+    return kungfu.watcher(KF_RUNTIME_DIR, kungfu.formatStringToHashHex(id), true, bypassRestore);
 })()
 
 

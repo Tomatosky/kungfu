@@ -6,7 +6,6 @@ import Vue from 'vue';
 import path from 'path';
 import fse from 'fs-extra';
 import { remote } from 'electron';
-import moment from 'moment';
 import store from '@/store';
 import router from './routers';
 import { logger } from '__gUtils/logUtils';
@@ -39,45 +38,51 @@ new Vue({
 }).$mount('#app', true)
 
 
-const { startGetProcessStatus, startMaster, startLedger, startDaemon, startArchiveMakeTask, _pm2 } = require('__gUtils/processUtils');
+const { startGetProcessStatus, startMaster, startLedger, startDaemon, startArchiveMakeTask } = require('__gUtils/processUtils');
 
-
-beforeAll()
-.then(() => {
-    return startArchiveMakeTask((archiveStatus) => {
-        window.archiveStatus = archiveStatus
+if (!+process.env.RELOAD_AFTER_CRASHED) {
+    beforeAll()
+    .then(() => {
+        return startArchiveMakeTask((archiveStatus) => {
+            window.archiveStatus = archiveStatus
+        })
     })
-})
-.then(() => startMaster(false))
-.catch(err => console.error(err.message))
-.finally(() => {
+    .then(() => startMaster(false))
+    .catch(err => console.error(err.message))
+    .finally(() => {
+        startGetProcessStatus(res => {
+            const { processStatus, processStatusWithDetail } = res;
+            Vue.store.dispatch('setProcessStatus', processStatus)
+            Vue.store.dispatch('setProcessStatusWithDetail', processStatusWithDetail)
+        });
+    
+        delayMiliSeconds(1000)
+            .then(() => startLedger(false))
+            .catch(err => console.error(err.message))
+    
+        
+        //保证ui watcher已经启动
+        let timer = setInterval(() => {
+            if (watcher.isLive() && watcher.isStarted() && watcher.isUsable()) {
+                delayMiliSeconds(1000)
+                    .then(() => { console.log("start daemon") })
+                    .then(() => startDaemon())
+                    .catch(err => console.error(err.message))
+                clearInterval(timer);
+            }
+    
+        }, 100)
+    
+    })
+} else {
+    // 崩溃后重开，跳过archive过程
+    window.archiveStatus = true;
     startGetProcessStatus(res => {
         const { processStatus, processStatusWithDetail } = res;
         Vue.store.dispatch('setProcessStatus', processStatus)
         Vue.store.dispatch('setProcessStatusWithDetail', processStatusWithDetail)
     });
-
-    delayMiliSeconds(1000)
-        .then(() => startLedger(false))
-        .catch(err => console.error(err.message))
-
-    
-    //保证ui watcher已经启动
-    let timer = setInterval(() => {
-        if (watcher.isLive() && watcher.isStarted() && watcher.isUsable()) {
-            delayMiliSeconds(1000)
-                .then(() => startDaemon())
-                .catch(err => console.error(err.message))
-            clearInterval(timer);
-        }
-
-    }, 100)
-
-})
-
-window.ELEC_WIN_MAP = new Set();
-window.pm2 = _pm2;
-
+}
 
 function beforeAll () {
     if (process.env.NODE_ENV !== 'development') {
@@ -152,3 +157,4 @@ window.admin = {
         return;
     }
 };
+

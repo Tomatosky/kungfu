@@ -7,7 +7,7 @@ import { initConfig, copyKungfuKey } from '__assets/base';
 import { killExtra } from '__gUtils/processUtils';
 import { logger } from '__gUtils/logUtils';
 import { platform } from '__gConfig/platformConfig';
-import { openUrl, showKungfuInfo, showQuitMessageBox } from './utils';
+import { openUrl, showKungfuInfo, showQuitMessageBox, showCrashMessageBox } from './utils';
 import { KF_HOME, BASE_DB_DIR } from '__gConfig/pathConfig';
 import { openSettingDialog, clearJournal, openLogFile, exportAllTradingData } from "./events";
 
@@ -20,14 +20,22 @@ setMenu();
 
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
-var mainWindow = null;
-var allowQuit = false;
-function createWindow () {
+var MainWindow = null;
+var AllowQuit = false;
+var CrashedReloading = false;
+
+function createWindow (reloadAfterCrashed = false) {
+
+	if (reloadAfterCrashed) {
+		MainWindow && MainWindow.destroy();
+		CrashedReloading = true;
+	}
+
 	// Create the browser window.
 	const electronScreen = electron.screen;    
 	const { width, height } = electronScreen.getPrimaryDisplay().size;
 
-	mainWindow = new BrowserWindow({
+	MainWindow = new BrowserWindow({
 		show: false,
 		width: width > 1920 ? 1920 : width,
 		height: height > 1200 ? 1200 : height,
@@ -35,32 +43,45 @@ function createWindow () {
 		webPreferences: {
 			webSecurity: false,
 			nodeIntegration: true,
-			nodeIntegrationInWorker: true
+			nodeIntegrationInWorker: true,
+			additionalArguments: [
+				reloadAfterCrashed ? "reloadAfterCrashed": ""
+			]
 		},
 		backgroundColor: '#161B2E',
 	})
 
+
+
 	const isDevelopment = process.env.NODE_ENV === "development" 
 	// and load the index.html of the app.
 	if(isDevelopment){
-		mainWindow.loadURL('http://localhost:9090/index.html')
+		MainWindow.loadURL('http://localhost:9090/index.html')
 	}else{
 		const filePath = path.join(__dirname, "index.html");
-		mainWindow.loadFile(filePath)
+		MainWindow.loadFile(filePath)
 	}
 
-	// // Emitted when the window is closed.
-	mainWindow.on('close', (e) => {
+	MainWindow.on('ready-to-show', function() {
+		MainWindow.show();
+		MainWindow.focus();
+		if (reloadAfterCrashed) {
+			CrashedReloading = false;
+		}
+	});
 
-	// Dereference the window object, usually you would store windows
-	// in an array if your app supports multi windows, this is the time
-	// when you should delete the corresponding element.
-		if (!allowQuit) {
+	MainWindow.on('close', (e) => {
+
+		if (CrashedReloading) {
+			return;
+		}
+
+		if (!AllowQuit) {
 			e.preventDefault();
-			showQuitMessageBox(mainWindow)
+			showQuitMessageBox(MainWindow)
 				.then(res => {
 					if (res) {
-						allowQuit = true;
+						AllowQuit = true;
 					}
 				})	
 				.catch(err => {
@@ -71,40 +92,44 @@ function createWindow () {
 		}
 	})
 
-	mainWindow.on('crashed', () => {
-		logger.error('[mainWindow] crashed', new Date())
-		mainWindow && mainWindow.reload()
+
+
+	MainWindow.on('crashed', () => {
+		logger.error('[MainWindow] crashed', new Date())
+		showCrashMessageBox().then((confirm) => {
+			if (!confirm) return;
+			createWindow(true);
+		})
 	});
 
-	mainWindow.on('unresponsive', () => {
-		logger.error('[mainWindow] unresponsive', new Date())
-		mainWindow && mainWindow.reload()
+	MainWindow.on('unresponsive', () => {
+		logger.error('[MainWindow] unresponsive', new Date())
+		showCrashMessageBox().then((confirm) => {
+			if (!confirm) return;
+			createWindow(true);
+		})
 	});
 
-	mainWindow.webContents.on("crashed", (err) => {
-		logger.error("[mainWindow.webContents] crashed", new Date(), err);
-		dialog.showErrorBox('错误', "功夫渲染进程崩溃，需重新启动")
+	MainWindow.webContents.on("crashed", (err) => {
+		logger.error("[MainWindow.webContents] crashed", new Date(), err);
+		showCrashMessageBox().then((confirm) => {
+			if (!confirm) return;
+			createWindow(true);
+		})
 	})
-
-	mainWindow.on('ready-to-show', function() {
-		mainWindow.show();
-		mainWindow.focus();
-	});
-
-	
 }
 
 
 //防止重开逻辑
 const gotTheLock = app.requestSingleInstanceLock()
 if(!gotTheLock) {
-	allowQuit = true;
+	AllowQuit = true;
 	app.quit()
 } else {
 	app.on('second-instance', () => {
-		if(mainWindow) {
-			if(mainWindow.isMinimized()) mainWindow.restore()
-			mainWindow.focus()
+		if(MainWindow) {
+			if(MainWindow.isMinimized()) MainWindow.restore()
+			MainWindow.focus()
 		}
 	})
 }
@@ -128,7 +153,7 @@ killExtra()
 	.finally(() => {
 		console.timeEnd('init clean')
 		killExtraFinished = true;
-		if(appReady && killExtraFinished) createWindow(true)
+		if(appReady && killExtraFinished) createWindow()
 	})
 
 
@@ -142,13 +167,13 @@ app.on('window-all-closed', function (e) {
 app.on('activate', function () {
 // On macOS it's common to re-create a window in the app when the
 // dock icon is clicked and there are no other windows open.
-    if (mainWindow && mainWindow.isDestroyed()) createWindow()
-    else if(mainWindow && mainWindow.isVisible()) mainWindow.focus()
-    else mainWindow && mainWindow.show()
+    if (MainWindow && MainWindow.isDestroyed()) createWindow()
+    else if(MainWindow && MainWindow.isVisible()) MainWindow.focus()
+    else MainWindow && MainWindow.show()
 })
 
 app.on('will-quit', (e) => {
-	if (allowQuit) {
+	if (AllowQuit) {
 		globalShortcut.unregisterAll()
 		return
 	};	
@@ -163,7 +188,7 @@ function setMenu() {
     //添加快捷键
 	let applicationOptions = [
 		{ label: "关于功夫交易", click: () => showKungfuInfo()},
-		{ label: "设置", accelerator: "CommandOrControl+,", click: () => openSettingDialog(mainWindow)},
+		{ label: "设置", accelerator: "CommandOrControl+,", click: () => openSettingDialog(MainWindow)},
 		{ label: "关闭", accelerator: "CommandOrControl+W", click: () => BrowserWindow.getFocusedWindow().close()}
 	]
 
@@ -192,13 +217,13 @@ function setMenu() {
 			{ label: "打开功夫资源目录（KF_HOME）", click: () => shell.showItemInFolder(KF_HOME) },
 			{ label: "打开功夫安装目录", click: () => shell.showItemInFolder(app.getAppPath()) },			
 			{ label: "打开功夫基础配置DB", click: () => shell.showItemInFolder(path.join(BASE_DB_DIR, 'config.db')) },			
-			{ label: "浏览日志文件", accelerator: "CommandOrControl+L", click: () => openLogFile(mainWindow) },			
+			{ label: "浏览日志文件", accelerator: "CommandOrControl+L", click: () => openLogFile(MainWindow) },			
 		]
 	},{
 		label: '运行',
 		submenu: [
-			{ label: "清理journal", click: () => clearJournal(mainWindow)},
-			{ label: "导出所有交易数据", accelerator: "CommandOrControl+E", click: () => exportAllTradingData(mainWindow)}
+			{ label: "清理journal", click: () => clearJournal(MainWindow)},
+			{ label: "导出所有交易数据", accelerator: "CommandOrControl+E", click: () => exportAllTradingData(MainWindow)}
 		]
 	},{
 		label: "帮助",

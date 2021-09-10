@@ -1,19 +1,27 @@
 
+//ELECTRON_RUN_AS_NODE 应用于通过process.execPath开启任务
 process.env.ELECTRON_RUN_AS_NODE = true;
 process.env.RENDERER_TYPE = 'app';
-
+process.env.RELOAD_AFTER_CRASHED = process.argv.includes("reloadAfterCrashed") ? 1 : 0;
 
 
 // debug export
-const { kungfu, longfist, kungfuConfigStore, history, getKungfuDataByDateRange } = require('__io/kungfu/kungfuUtils')
+const { kungfu, longfist, kungfuConfigStore, history, getKungfuDataByDateRange, commissionStore } = require('__io/kungfu/kungfuUtils')
 const { watcher, startGetKungfuWatcherStep } = require('__io/kungfu/watcher');
+const { KF_RUNTIME_DIR } = require("__gConfig/pathConfig");
+const { _pm2 } = require("__gUtils/processUtils");
 
 window.watcher = watcher;
 window.longfist = longfist;
 window.kungfu = kungfu;
 window.kungfuConfigStore = kungfuConfigStore;
+window.commissionStore = commissionStore;
 window.kungfuHistory = history;
+window.KF_RUNTIME_DIR = KF_RUNTIME_DIR;
+window.ELEC_WIN_MAP = new Set();
+window.pm2 = _pm2;
 
+console.log("RELOAD_AFTER_CRASHED", process.env.RELOAD_AFTER_CRASHED)
 
 //date: YYYY-MM-DD
 //dataType: 1 tradingday, 0 normalday
@@ -68,5 +76,11 @@ window.checkStepOverhead = () => {
     console.timeEnd("step");
 }
 
+window.crashTheWatcher = () => {
+    const id = [process.env.APP_TYPE, process.env.RENDERER_TYPE].join('');
+    return kungfu.watcher(KF_RUNTIME_DIR, kungfu.formatStringToHashHex(id), true, false);
+}
+
 startGetKungfuWatcherStep();
+
 
