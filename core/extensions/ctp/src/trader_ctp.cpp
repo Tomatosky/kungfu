@@ -581,8 +581,7 @@ bool TraderCTP::check_if_stored_instruments(const std::string& trading_day) {
   const cache::bank& state_bank = get_state_bank();
   for (auto &pair : state_bank[boost::hana::type_c<TimeKeyValue>]) {
     const TimeKeyValue& timeKeyValue = pair.second.data;
-    if (timeKeyValue.key == "instrument_stored_trading_day") {
-      SPDLOG_INFO("timeKeyValue.value {}, trading_day {}, == {}", timeKeyValue.value, trading_day, timeKeyValue.value == trading_day);
+    if (timeKeyValue.key == "instrument_stored_trading_day" || timeKeyValue.key == "instrument_stored_trading_day_next_day") {
       if (timeKeyValue.value == trading_day) {
         return true;
       }
@@ -598,6 +597,14 @@ void TraderCTP::record_instruments_stored_trading_day() {
   instrument_stored_trading_day_tkv.key = "instrument_stored_trading_day";
   instrument_stored_trading_day_tkv.value = trading_day_;
   writer->write(now(), instrument_stored_trading_day_tkv);
+
+  //为了解决夜盘的问题
+  TimeKeyValue instrument_stored_trading_day_next_day_tkv = {};
+  instrument_stored_trading_day_next_day_tkv.update_time = time::next_trading_day_end(now());
+  instrument_stored_trading_day_next_day_tkv.key = "instrument_stored_trading_day_next_day";
+  instrument_stored_trading_day_next_day_tkv.value = trading_day_;
+  writer->write(now(), instrument_stored_trading_day_next_day_tkv);
+  
   SPDLOG_INFO("INSTRUMENT_STORED_TRADING_DAY {}", trading_day_);
 }
 
