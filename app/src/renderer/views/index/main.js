@@ -9,7 +9,7 @@ import { remote } from 'electron';
 import store from '@/store';
 import router from './routers';
 import { logger } from '__gUtils/logUtils';
-import { delayMiliSeconds, openVueWin, getTradingDate } from '__gUtils/busiUtils';
+import { delayMilliSeconds, openVueWin, getTradingDate } from '__gUtils/busiUtils';
 import { removeJournal } from '__gUtils/fileUtils';
 import { KF_HOME, KF_ADMIN_PASSWORD_CONFIG_PATH } from '__gConfig/pathConfig';
 import { watcher } from '__io/kungfu/watcher';
@@ -56,7 +56,7 @@ if (!+process.env.RELOAD_AFTER_CRASHED) {
             Vue.store.dispatch('setProcessStatusWithDetail', processStatusWithDetail)
         });
     
-        delayMiliSeconds(1000)
+        delayMilliSeconds(1000)
             .then(() => startLedger(false))
             .catch(err => console.error(err.message))
     
@@ -64,7 +64,7 @@ if (!+process.env.RELOAD_AFTER_CRASHED) {
         //保证ui watcher已经启动
         let timer = setInterval(() => {
             if (watcher.isLive() && watcher.isStarted() && watcher.isUsable()) {
-                delayMiliSeconds(1000)
+                delayMilliSeconds(1000)
                     .then(() => { console.log("start daemon") })
                     .then(() => startDaemon())
                     .catch(err => console.error(err.message))

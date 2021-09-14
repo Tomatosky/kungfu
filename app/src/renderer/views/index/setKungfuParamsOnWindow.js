@@ -11,6 +11,7 @@ const { watcher, startGetKungfuWatcherStep } = require('__io/kungfu/watcher');
 const { KF_RUNTIME_DIR } = require("__gConfig/pathConfig");
 const { _pm2 } = require("__gUtils/processUtils");
 
+
 window.watcher = watcher;
 window.longfist = longfist;
 window.kungfu = kungfu;
@@ -23,9 +24,11 @@ window.pm2 = _pm2;
 
 console.log("RELOAD_AFTER_CRASHED", process.env.RELOAD_AFTER_CRASHED)
 
+window.testCase = {};
+
 //date: YYYY-MM-DD
 //dataType: 1 tradingday, 0 normalday
-window.checkIfDiffTradeWithSameOrderId = async (date, dateType = 0) => {
+window.testCase.checkIfDiffTradeWithSameOrderId = async (date, dateType = 0) => {
     const kungfuData = await getKungfuDataByDateRange(date, dateType);
     const hist_trades = kungfuData.Trade.sort("trade_time");
 
@@ -70,15 +73,26 @@ window.checkIfDiffTradeWithSameOrderId = async (date, dateType = 0) => {
     return error_pairs;
 }
 
-window.checkStepOverhead = () => {
+window.testCase.checkStepOverhead = () => {
     console.time("step");
     watcher.step();
     console.timeEnd("step");
 }
 
-window.crashTheWatcher = () => {
+window.testCase.crashTheWatcher = () => {
     const id = [process.env.APP_TYPE, process.env.RENDERER_TYPE].join('');
     return kungfu.watcher(KF_RUNTIME_DIR, kungfu.formatStringToHashHex(id), true, false);
+}
+
+window.testCase.tryCrashWatcherBySqliteRW = async () => {
+    let intervalTimer = setInterval(() => {
+        kungfuConfigStore.getAllConfig()
+    }, 10);
+    let timeoutTimer = setTimeout(() => {
+        console.log("clear timers")
+        clearInterval(intervalTimer);
+        clearTimeout(timeoutTimer);
+    }, 10000)
 }
 
 startGetKungfuWatcherStep();

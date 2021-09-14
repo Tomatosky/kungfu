@@ -2,7 +2,7 @@
 import { mapGetters, mapState } from 'vuex';
 
 
-import { checkAllMdProcess, getIndexFromTargetTickers, findTargetFromArray, delayMiliSeconds, debounce } from '__gUtils/busiUtils';
+import { checkAllMdProcess, getIndexFromTargetTickers, findTargetFromArray, delayMilliSeconds, debounce } from '__gUtils/busiUtils';
 import { sendDataToDaemonByPm2 } from "__gUtils/processUtils";
 import { getTickerSets, addSetTickerSet, removeTickerSetByName } from '__io/actions/market';
 import { kungfuSubscribeInstrument } from '__io/kungfu/makeCancelOrder';
@@ -158,7 +158,7 @@ export default {
             if (!sourceName) return;
             const mdLocation = encodeKungfuLocation(sourceName, 'md');
             if (!watcher.isReadyToInteract(mdLocation)) {
-                await delayMiliSeconds(1000);
+                await delayMilliSeconds(1000);
                 await this.subscribeTickersByProcessId(mdProcessId, slience);
             } else {
                 this.subscribeAllTickers(slience)                
