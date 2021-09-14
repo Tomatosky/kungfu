@@ -84,6 +84,7 @@ window.testCase.crashTheWatcher = () => {
     return kungfu.watcher(KF_RUNTIME_DIR, kungfu.formatStringToHashHex(id), true, false);
 }
 
+//类似ctp这种，需要启动时写入instruments的柜台，启动后调用该函数
 window.testCase.tryCrashWatcherBySqliteRW = async () => {
     let intervalTimer = setInterval(() => {
         kungfuConfigStore.getAllConfig()

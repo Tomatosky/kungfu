@@ -125,6 +125,8 @@ private:
 
   bool check_if_stored_instruments(const std::string& trading_day);
 
+  void restore_instruments_from_bank();
+
   void record_instruments_stored_trading_day();
 };
 } // namespace kungfu::wingchun::ctp

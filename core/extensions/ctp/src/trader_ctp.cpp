@@ -186,6 +186,7 @@ void TraderCTP::OnRspSettlementInfoConfirm(CThostFtdcSettlementInfoConfirmField 
   if (bIsLast) {
     if (check_if_stored_instruments(trading_day_)) {
       SPDLOG_INFO("CHECK_IF_STORED_INSTRUMENTS TRUE");
+      restore_instruments_from_bank();
       update_broker_state(BrokerState::Ready);
       SPDLOG_INFO("BrokerState::Ready");
       return;
@@ -588,6 +589,14 @@ bool TraderCTP::check_if_stored_instruments(const std::string& trading_day) {
     }
   }
   return false;
+}
+
+void TraderCTP::restore_instruments_from_bank() {
+  const cache::bank& state_bank = get_state_bank();
+  for (auto& pair : state_bank[boost::hana::type_c<Instrument>]) {
+    const Instrument& instrument = pair.second.data;
+    instrument_map_.emplace(instrument.instrument_id, instrument);
+  }
 }
 
 void TraderCTP::record_instruments_stored_trading_day() {
