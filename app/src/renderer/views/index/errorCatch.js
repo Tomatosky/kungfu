@@ -2,12 +2,15 @@ import { remote } from 'electron'
 import { logger } from '__gUtils/logUtils';
 const { dialog } = remote;
 
+
 process
     .on('unhandledRejection', (reason, p) => {
         console.error(reason, 'Unhandled Rejection', p);
         logger.error(reason, 'Unhandled Rejection', p);
     })
     .on('uncaughtException', (err) => {
+        if (!err) return;
+        
         console.error('Uncaught Exception thrown', err);
         logger.error('Uncaught Exception thrown', err);
 

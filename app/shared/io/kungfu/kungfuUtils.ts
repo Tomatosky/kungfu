@@ -1,6 +1,7 @@
 
 import { KF_RUNTIME_DIR } from '__gConfig/pathConfig';
 import moment from 'moment';
+import { logger } from '__gUtils/logUtils';
 
 export const kungfu = require('kungfu-core').kungfu;
 export const longfist = kungfu.longfist;
@@ -9,25 +10,35 @@ export const commissionStore = kungfu.CommissionStore(KF_RUNTIME_DIR);
 export const history = kungfu.History(KF_RUNTIME_DIR);
 
 export const getAllKfConfig = () => {
+    logger.info("Get All Kungfu Config")
+    console.log("Get All Kungfu Config")
     return kungfuConfigStore.getAllConfig();
 }
 
 export const setKfConfig = (key: string, type: string, config: string) => {
+    logger.info("Set Kungfu Config", key, type, config);
+    console.log("Set Kungfu Config", key, type, config);
     const kungfuKey = encodeKungfuLocation(key, type);
     return kungfuConfigStore.setConfig(kungfuKey.category, kungfuKey.group, kungfuKey.name, kungfuKey.mode, config)
 }
 
 export const getKfConfig = (key: string, type: string) => {
+    logger.info("Get Kungfu Config", key, type);
+    console.log("Get Kungfu Config", key, type);
     const kungfuKey = encodeKungfuLocation(key, type);
     return kungfuConfigStore.getConfig(kungfuKey.category, kungfuKey.group, kungfuKey.name, kungfuKey.mode)
 }
 
 export const removeKfConfig = (key: string, type: string) => {
+    logger.info("Remove Kungfu Config", key, type);
+    console.log("Remove Kungfu Config", key, type);
     const kungfuKey = encodeKungfuLocation(key, type);
     return kungfuConfigStore.removeConfig(kungfuKey.category, kungfuKey.group, kungfuKey.name, kungfuKey.mode)
 }
 
 export const getKfCommission = () => {
+    logger.info("Get kungfu Commission");
+    console.log("Get kungfu Commission");
     return new Promise((resolve, reject) => {
         try {
             const commissionData = commissionStore.getAllCommission();
@@ -39,6 +50,8 @@ export const getKfCommission = () => {
 }
 
 export const setKfCommission = (commissionItems: any) => {
+    logger.info("Set kungfu Commission");
+    console.log("Set kungfu Commission");
     return new Promise((resolve, reject) => {
         const kfCommissionData = longfist.Commission()
         const comissionResolve = commissionItems.map((item: any) => {

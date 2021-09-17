@@ -110,8 +110,16 @@ function createWindow (reloadAfterCrashed = false) {
 		})
 	});
 
-	MainWindow.webContents.on("crashed", (err) => {
-		logger.error("[MainWindow.webContents] crashed", new Date(), err);
+	MainWindow.webContents.on("crashed", () => {
+		logger.error("[MainWindow.webContents] crashed", new Date());
+		showCrashMessageBox().then((confirm) => {
+			if (!confirm) return;
+			createWindow(true);
+		})
+	})
+
+	MainWindow.webContents.on("unresponsive", () => {
+		logger.error("[MainWindow.webContents] unresponsive", new Date());
 		showCrashMessageBox().then((confirm) => {
 			if (!confirm) return;
 			createWindow(true);
