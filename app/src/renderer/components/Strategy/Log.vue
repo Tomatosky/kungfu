@@ -184,6 +184,7 @@ export default {
 
                 self.tableData = Object.freeze(list || [])
                 self.scrollToBottom();
+                console.log("start watching tail", self.processId)
                 self.startWatchingTail(self.processId, logPath, searchKeyword)
             }
         },
@@ -217,6 +218,7 @@ export default {
             });   
             this.tailObserver.watch();  
             this.tailObserver.on('line', line => ((curProcId, curKw) => {
+                console.log(curProcId, '--')
                 if(curKw) return;
                 if(curProcId !== this.processId) return;
                 const logData = dealLogMessage(line, this.searchKeyword);
