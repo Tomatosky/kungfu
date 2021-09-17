@@ -83,8 +83,6 @@ export default {
             },
         ];
 
-        console.log("Mounted")
-
         this.tailObserver = null;
         this.logMaxLenLimit = 500;
         
@@ -184,7 +182,6 @@ export default {
 
                 self.tableData = Object.freeze(list || [])
                 self.scrollToBottom();
-                console.log("start watching tail", self.processId)
                 self.startWatchingTail(self.processId, logPath, searchKeyword)
             }
         },
@@ -218,7 +215,6 @@ export default {
             });   
             this.tailObserver.watch();  
             this.tailObserver.on('line', line => ((curProcId, curKw) => {
-                console.log(curProcId, '--')
                 if(curKw) return;
                 if(curProcId !== this.processId) return;
                 const logData = dealLogMessage(line, this.searchKeyword);
@@ -252,7 +248,7 @@ export default {
             //最大log数
             const len = tableData.length;
             if (len > this.logMaxLenLimit) {
-                tableData = tableData.slice(len - 500, len)
+                tableData = tableData.slice(len - 300, len)
             }
 
             return Object.freeze(tableData)
