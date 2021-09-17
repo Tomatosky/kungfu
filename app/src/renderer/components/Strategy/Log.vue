@@ -82,8 +82,12 @@ export default {
                 prop: 'message',
             },
         ];
+
+        console.log("Mounted")
+
         this.tailObserver = null;
         this.logMaxLenLimit = 500;
+        
         return {
             rendererTable: false,
             tableData: Object.freeze([]),
