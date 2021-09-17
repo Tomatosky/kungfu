@@ -6,7 +6,7 @@ import * as taskkill from 'taskkill';
 import { KF_HOME, KUNGFU_ENGINE_PATH, KF_CONFIG_PATH, APP_DIR, buildProcessLogPath } from '__gConfig/pathConfig';
 import { platform } from '__gConfig/platformConfig';
 import { logger } from '__gUtils/logUtils';
-import { setTimerPromiseTask, delayMiliSeconds } from '__gUtils/busiUtils';
+import { setTimerPromiseTask, delayMilliSeconds } from '__gUtils/busiUtils';
 import { getProcesses } from 'getprocesses';
 
 
@@ -474,7 +474,7 @@ export const startStrategy = (strategyId: string, strategyPath: string): Promise
 
     if (ifLocalPython) {
         return deleteProcess(strategyId)
-            .then(() => delayMiliSeconds(2000))
+            .then(() => delayMilliSeconds(2000))
             .then(() => startStrategyProcess(strategyId, strategyPath, pythonPath));
     } else {
         const args = buildArgs(`strategy -n '${strategyId}' -p '${strategyPath}'`);

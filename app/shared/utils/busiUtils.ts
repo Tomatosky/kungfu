@@ -140,7 +140,7 @@ function kfForEachAsync (cb: Function) {
    
 }
 
-export const delayMiliSeconds = (miliSeconds: number): Promise<void> => {
+export const delayMilliSeconds = (miliSeconds: number): Promise<void> => {
     return new Promise(resolve => {
         let timer = setTimeout(() => {
             resolve()
@@ -557,7 +557,7 @@ export const loopToRunProcess = async (promiseFunc: Array<Function>, interval = 
             resList.push(err)
         }
         
-        await(delayMiliSeconds(interval))
+        await(delayMilliSeconds(interval))
     }
     return resList
 }

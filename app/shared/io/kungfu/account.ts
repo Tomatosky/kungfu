@@ -51,8 +51,6 @@ export const getMdList = (): Promise<Md[]> => {
 export const addTd = (accountId: string, config: string) => {
     return new Promise(resolve => {
         const td = setKfConfig(accountId, 'td', config);
-        
-
         logger.info("Add Trade Account", USER, accountId, hidePasswordByLogger(config));
         resolve(td)
     })

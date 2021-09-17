@@ -232,7 +232,7 @@ import { mapGetters } from 'vuex';
 import { Autocomplete } from 'element-ui';
 import { ipcRenderer } from 'electron';
 
-import { deepClone, delayMiliSeconds } from '__gUtils/busiUtils';
+import { deepClone, delayMilliSeconds } from '__gUtils/busiUtils';
 import { SourceTypeConfig, SideName, OffsetName, PriceType, HedgeFlag, ExchangeIds, InstrumentTypes, allowShorted } from 'kungfu-shared/config/tradingConfig';
 import { biggerThanZeroValidator } from '__assets/validator';
 
@@ -431,7 +431,7 @@ export default {
                 this.currentAccount = accountIdResolved
             }
 
-            delayMiliSeconds(300)
+            delayMilliSeconds(300)
                 .then(() => {
                     this.$refs['make-order-form'].clearValidate();
                     this.$refs['make-order-form'].validate()
