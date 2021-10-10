@@ -25,6 +25,7 @@
     "dev": "node .electron-kungfu/dev-runner.js",
     "dist:main": "cross-env NODE_ENV=production node --max_old_space_size=2048 ../node_modules/webpack/bin/webpack.js --config .electron-kungfu/webpack.main.config.js",
     "dist:render": "cross-env NODE_ENV=production node --max_old_space_size=2048 ../node_modules/webpack/bin/webpack.js --config .electron-kungfu/webpack.renderer.config.js",
+    "dist:shared": "cross-env NODE_ENV=production node --max_old_space_size=2048 ../node_modules/webpack/bin/webpack.js --config .electron-kungfu/webpack.shared.config.js",
     "dist": "node --max_old_space_size=4096 .electron-kungfu/build.js",
     "elec": "node .electron-builder/build.js",
     "prebuild": "yarn run clean && yarn run dist",
@@ -41,6 +42,7 @@
     "iconv-lite": "^0.6.2",
     "jschardet": "^2.3.0",
     "kungfu-core": "*",
+    "kungfu-shared": "*",
     "minimist": "^1.2.5",
     "moment": "^2.24.0",
     "pm2": "^4.5.6"
@@ -91,7 +93,6 @@
     "html-webpack-plugin": "^2.30.1",
     "inject-loader": "^3.0.0",
     "jquery": "^3.4.1",
-    "kungfu-shared": "*",
     "log4js": "^4.0.2",
     "mime": "^2.4.0",
     "mkdirp": "^0.5.1",

@@ -122,3 +122,4 @@ export const APP_DIR = process.env.NODE_ENV === 'production'
     ? path.resolve(path.join(process.resourcesPath, 'app', 'dist', 'app'))
     : path.resolve(path.join(__dirname, '..','..', 'dist', 'app'));
 
+

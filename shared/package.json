@@ -2,7 +2,7 @@
   "name": "kungfu-shared",
   "version": "1.0.0",
   "description": "",
-  "main": "",
+  "main": "./index.js",
   "types": "typeings/index.d.ts",
   "scripts": {
     "install-deps": "node -v",

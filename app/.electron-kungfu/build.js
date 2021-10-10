@@ -10,6 +10,7 @@ const Multispinner = require('multispinner')
 const mainConfig = require('./webpack.main.config')
 const rendererConfig = require('./webpack.renderer.config')
 const daemonConfig = require('./webpack.daemon.config')
+const sharedConfig = require('./webpack.shared.config')
 
 const doneLog = chalk.bgGreen.white(' DONE ') + ' '
 const errorLog = chalk.bgRed.white(' ERROR ') + ' '
@@ -62,6 +63,16 @@ function build () {
   }).catch(err => {
     m.error('daemon')
     console.log(`\n  ${errorLog}failed to build daemon process`)
+    console.error(`\n${err}\n`)
+    process.exit(1)
+  })
+
+  pack(sharedConfig).then(result => {
+    results += result + '\n\n'
+    m.success('shared')
+  }).catch(err => {
+    m.error('shared')
+    console.log(`\n  ${errorLog}failed to build shared process`)
     console.error(`\n${err}\n`)
     process.exit(1)
   })

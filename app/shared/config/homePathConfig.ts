@@ -13,6 +13,8 @@ const getHomePath = () => {
     }
 }
 
+console.log(require.resolve('kungfu-shared'), '----')
+
 if (process.env.NODE_ENV !== 'development' && process.env.APP_TYPE === 'main') {
     global.__resources = path.join(__dirname, '/resources').replace(/\\/g, '\\\\')
 }
@@ -25,6 +27,14 @@ if (process.env.APP_TYPE === 'cli') {
 if (process.env.APP_TYPE === 'daemon') {
     //@ts-ignore
     process.resourcesPath =  path.join(__dirname, '..', '..', '..').replace(/\\/g, '\\\\')
+}
+
+if (process.env.APP_TYPE === 'api') {
+    if (process.env.RESOURCE_PATH) {
+        process.resourcesPath = process.env.RESOURCE_PATH;
+    } else {
+        throw new Error("process.env.RESOURCE_PATH is required!")
+    }
 }
 
 
