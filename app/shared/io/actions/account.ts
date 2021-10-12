@@ -45,7 +45,7 @@ export const switchTd = (account: Td, value: boolean): Promise<any> => {
 }
 
 //起停md
-export const switchMd = (account: Td, value: boolean) => {
+export const switchMd = (account: Md, value: boolean) => {
     const { source_name } = account;
     const mdProcessId: string = `md_${source_name}`
     if(!value){

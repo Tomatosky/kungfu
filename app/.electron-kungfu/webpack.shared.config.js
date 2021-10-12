@@ -5,7 +5,7 @@ process.env.BABEL_ENV = 'main'
 const path = require('path')
 const { dependencies } = require('../package.json')
 const webpack = require('webpack')
-const OptimizeJsPlugin = require("optimize-js-plugin");
+const TerserPlugin = require('terser-webpack-plugin-legacy');
 
 let sharedConfig = {
   entry: {
@@ -55,6 +55,7 @@ let sharedConfig = {
     },
     extensions: ['.js', '.ts', '.json', '.node']
   },
+
   target: 'node'
 }
 
@@ -83,11 +84,16 @@ if (process.env.NODE_ENV !== 'production') {
  */
 if (process.env.NODE_ENV === 'production') {
   sharedConfig.devtool = '';
+
   sharedConfig.plugins.push(
-      new OptimizeJsPlugin({
-      sourceMap: false
+    new TerserPlugin({
+      terserOptions: {
+        compress: {
+          drop_console: true
+        }
+      }
     })
-  );
+  )
 
   sharedConfig.plugins.push(
     new webpack.DefinePlugin({
@@ -95,15 +101,6 @@ if (process.env.NODE_ENV === 'production') {
       'process.env.APP_TYPE': '"api"',
       'process.env.LANG_ENV': '"en"',
       'python_version': `"${pyVersion.toString()}"`,
-    })
-  )
-
-  sharedConfig.plugins.push(
-    new webpack.optimize.UglifyJsPlugin({
-      comments: false,
-      compress: {
-        drop_console: true
-      },
     })
   )
 }

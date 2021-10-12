@@ -111,6 +111,7 @@
     "style-loader": "^0.21.0",
     "tail": "^2.0.2",
     "taskkill": "^2.0.0",
+    "terser-webpack-plugin-legacy": "^1.2.5",
     "ts-loader": "3.5.0",
     "typescript": "^3.5.3",
     "uglifyjs-webpack-plugin": "2",

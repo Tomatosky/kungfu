@@ -13,8 +13,6 @@ const getHomePath = () => {
     }
 }
 
-console.log(require.resolve('kungfu-shared'), '----')
-
 if (process.env.NODE_ENV !== 'development' && process.env.APP_TYPE === 'main') {
     global.__resources = path.join(__dirname, '/resources').replace(/\\/g, '\\\\')
 }

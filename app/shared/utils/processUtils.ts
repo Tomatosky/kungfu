@@ -127,6 +127,24 @@ const pm2List = (): Promise<any[]> => {
     })
 }
 
+export const pm2KillAll = (): Promise<Boolean> => {
+    return new Promise((resolve, reject) => {
+        pm2.kill((err: Error, res: any) => {
+            if (err) {
+                logger.error("[PM2] kill", err)
+                reject(false)
+                return;
+            } 
+
+            if (res.success) {
+                resolve(true)
+            } else {
+                reject(false)
+            }
+        })
+    })
+}
+
 const dealSpaceInPath = (pathname: string): string => {
     const normalizePath = path.normalize(pathname);
     return normalizePath.replace(/ /g, '\ ')
