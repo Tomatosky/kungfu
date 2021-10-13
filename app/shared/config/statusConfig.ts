@@ -29,7 +29,7 @@ export const statusConfig: StatusConfig = {
     '1':   { name: isEnglish ? 'Idle' : '无数据', color: 'bg-gray', level: 0 },
     '2':   { name: isEnglish ? 'Disconnected' : '已断开', color: 'bg-red', level: -1 },
     '3':   { name: isEnglish ? 'Connected' : '已连接', color: 'tr-dot-wave', level: 0 },
-    '4':   { name: isEnglish ? 'LoggedIn' : '已登录', color: 'bg-green', level: 0 },
+    '4':   { name: isEnglish ? 'LoggedIn' : '已登录', color: 'bg-gray', level: 0 },
     '5':   { name: isEnglish ? 'LoginFailed' : '登录失败', color: 'bg-red', level: -1 },
     '100': { name: isEnglish ? 'Ready' : '就绪',  color: 'bg-green', level: 1 }
 }
