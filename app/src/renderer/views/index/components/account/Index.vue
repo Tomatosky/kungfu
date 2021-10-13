@@ -294,6 +294,7 @@ export default {
         },
 
         updateMakeOrderDashboard () {
+            console.log(111)
             this.$bus.$emit("update:make-order", {
                 currentId: this.currentId,
                 moduleType: this.moduleType,

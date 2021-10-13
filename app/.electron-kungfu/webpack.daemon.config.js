@@ -5,7 +5,7 @@ process.env.BABEL_ENV = 'main'
 const path = require('path')
 const { dependencies } = require('../package.json')
 const webpack = require('webpack')
-const OptimizeJsPlugin = require("optimize-js-plugin");
+const TerserPlugin = require('terser-webpack-plugin-legacy');
 
 let daemonConfig = {
   entry: {
@@ -77,9 +77,7 @@ if (process.env.NODE_ENV !== 'production') {
 if (process.env.NODE_ENV === 'production') {
   daemonConfig.devtool = ''
   daemonConfig.plugins.push(
-    new OptimizeJsPlugin({
-      sourceMap: false
-    }),
+    new TerserPlugin(),
     new webpack.DefinePlugin({
       'process.env.NODE_ENV': '"production"',
       'process.env.APP_TYPE': '"daemon"',

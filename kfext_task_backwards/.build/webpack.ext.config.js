@@ -4,8 +4,7 @@ process.env.BABEL_ENV = 'main'
 
 const path = require('path')
 const webpack = require('webpack')
-const OptimizeJsPlugin = require("optimize-js-plugin");
-
+const TerserPlugin = require('terser-webpack-plugin-legacy');
 
 let extConfig = {
   entry: {
@@ -88,9 +87,7 @@ if (process.env.NODE_ENV === 'production') {
       'process.env.NODE_ENV': '"production"',
       'python_version': `"${pyVersion.toString()}"`,
     }),
-    new OptimizeJsPlugin({
-      sourceMap: false
-    })
+    new TerserPlugin()
   )
 }
 
