@@ -5,7 +5,7 @@ process.env.BABEL_ENV = 'main'
 const path = require('path')
 const { dependencies } = require('../package.json')
 const webpack = require('webpack')
-const OptimizeJsPlugin = require("optimize-js-plugin");
+const TerserPlugin = require('terser-webpack-plugin-legacy');
 
 let mainConfig = {
   entry: {
@@ -113,9 +113,7 @@ if (process.env.NODE_ENV !== 'production') {
 if (process.env.NODE_ENV === 'production') {
   mainConfig.devtool = ''
   mainConfig.plugins.push(
-    new OptimizeJsPlugin({
-      sourceMap: false
-    }),
+    new TerserPlugin(),
     new webpack.DefinePlugin({
       'git_commit_version': `"${gitCommitVersion.toString()}"`,
       'python_version': `"${pyVersion.toString()}"`,

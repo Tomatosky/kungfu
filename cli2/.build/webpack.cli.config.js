@@ -4,7 +4,7 @@ process.env.BABEL_ENV = 'main'
 
 const path = require('path')
 const webpack = require('webpack')
-const OptimizeJsPlugin = require("optimize-js-plugin");
+const TerserPlugin = require('terser-webpack-plugin-legacy');
 const { dependencies } = require('../package.json');
 
 
@@ -102,14 +102,12 @@ if (process.env.NODE_ENV !== 'production') {
  */
 if (process.env.NODE_ENV === 'production') {
   cliConfig.plugins.push(
+    new TerserPlugin(),
     new webpack.DefinePlugin({
       'process.env.NODE_ENV': '"production"',
       'process.env.LANG_ENV': '"en"',
       'process.env.APP_TYPE': '"cli"',
       'python_version': `"${pyVersion.toString()}"`,
-    }),
-    new OptimizeJsPlugin({
-      sourceMap: false
     })
   )
 }

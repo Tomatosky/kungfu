@@ -92,10 +92,7 @@ if (process.env.NODE_ENV === 'production') {
           drop_console: true
         }
       }
-    })
-  )
-
-  sharedConfig.plugins.push(
+    }),
     new webpack.DefinePlugin({
       'process.env.NODE_ENV': '"production"',
       'process.env.APP_TYPE': '"api"',

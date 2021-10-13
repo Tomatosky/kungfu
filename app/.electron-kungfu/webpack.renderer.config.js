@@ -7,8 +7,8 @@ const { dependencies } = require('../package.json')
 const webpack = require('webpack')
 
 const ExtractTextPlugin = require('extract-text-webpack-plugin');
-const OptimizeJsPlugin = require("optimize-js-plugin");
 const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
+const TerserPlugin = require('terser-webpack-plugin-legacy');
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 
 const { getPythonVersion, getViewsConfig } = require('./utils');
@@ -180,9 +180,7 @@ if (process.env.NODE_ENV !== 'production') {
 if (process.env.NODE_ENV === 'production') {
   rendererConfig.devtool = ''
   rendererConfig.plugins.push(
-    new OptimizeJsPlugin({
-      sourceMap: false
-    }),
+    new TerserPlugin(),
     new webpack.DefinePlugin({
       'python_version': `"${pyVersion.toString()}"`,
       'process.env.NODE_ENV': '"production"',
