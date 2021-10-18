@@ -6,6 +6,7 @@ import { listAccountsStrategys } from '@/commanders/list';
 import { updateAccountStrategy } from '@/commanders/update';
 import { removeAccountStrategy } from '@/commanders/remove';
 import { addExtension, listExtension, removeExtension } from "@/commanders/ext";
+import { listCommission, addCommission } from '@/commanders/commission';
 import { setSystemConfig } from '@/commanders/config';
 import { shutdown } from '@/commanders/shutdown';
 import { monitKill } from '@/commanders/monitKill';
@@ -209,6 +210,34 @@ program
                 break;
         }
         process.exit(0)
+    })
+
+program
+    .command("commission [options]")
+    .description('commission setting, add, remove, or update commission setting')
+    .action(async (type: any, commander: any) => {
+        const list = commander.parent.list
+        const add = commander.parent.add
+        const remove = commander.parent.remove
+
+        if(!list && !add && !remove) {
+            console.error("Missing required options argument -l|-a|-r")
+            process.exit(1)
+        }
+
+
+        try {
+            if(list) {
+                const commissionList = await listCommission()
+                console.log(commissionList.join("\n"))
+            }
+            else if(add) await addCommission()
+            // else if(remove) await removeExtension()
+            process.exit(0)
+        } catch (err) {
+            console.error(err)
+            process.exit(1)
+        }
     })
 
 program

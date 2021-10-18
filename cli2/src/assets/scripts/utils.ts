@@ -83,7 +83,6 @@ export const parseToString = (targetList: any[], columnWidth: any[], pad=2) => {
 		.replace(/\u001b\[39m/g, '')
 		.replace(/\u001b\[45m/g, '')
 		.replace(/\u001b\[49m/g, '')
-		// console.log(lw.match(''), lw)
 
 		const len = lw.length;
 		const colWidth: number | string = columnWidth[i] || 0;
@@ -93,6 +92,17 @@ export const parseToString = (targetList: any[], columnWidth: any[], pad=2) => {
 		else if(spaceLength === 0) return item
 		else return (item + new Array(spaceLength + 1).join(" "))
 	}).join(new Array(pad + 2).join(" "))
+}
+
+export const parseToTargetWidthString = (str: string | number, targetWidth: number) => {
+	const strResolved = str.toString() || "";
+	const len = strResolved.length;
+	if (len <= targetWidth) {
+		let deltaLen = targetWidth - len;
+		return strResolved + new Array(deltaLen + 1).join(" ");
+	} else {
+		return strResolved.slice(0, targetWidth)
+	}
 }
 
 
