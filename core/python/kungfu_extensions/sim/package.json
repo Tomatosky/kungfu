@@ -28,7 +28,35 @@
 					],
 					"errMsg": "请选择撮合模式",
 					"required": true
-				}
+				},
+				{
+					"key": "n_max_orders_per_second",
+					"name": "一秒钟最大下单数",
+					"type": "int",
+					"risk": true,
+					"errMsg": "请填写最大下单数",
+					"required": true,
+					"default": 0
+				  },
+				  {
+					"key": "db_max_cancel_rate",
+					"name": "最大撤单比值(%)",
+					"type": "float",
+					"risk": true,
+					"errMsg": "请填写最大撤单比",
+					"required": true,
+					"default": 0
+				  },
+				  {
+					"key": "b_anti_auto_transaction",
+					"name": "防止自成交",
+					"type": "bool",
+					"risk": true,
+					"errMsg": "请填写防止自成交",
+					"tip": "请填写防止自成交",
+					"default": true,
+					"required": true
+				  }
 			],
 			"md_config": []
 		}

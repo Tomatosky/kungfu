@@ -6,7 +6,7 @@ import { listAccountsStrategys } from '@/commanders/list';
 import { updateAccountStrategy } from '@/commanders/update';
 import { removeAccountStrategy } from '@/commanders/remove';
 import { addExtension, listExtension, removeExtension } from "@/commanders/ext";
-import { listCommission, addCommission } from '@/commanders/commission';
+import { listCommission, addCommission, removeCommission } from '@/commanders/commission';
 import { setSystemConfig } from '@/commanders/config';
 import { shutdown } from '@/commanders/shutdown';
 import { monitKill } from '@/commanders/monitKill';
@@ -232,7 +232,7 @@ program
                 console.log(commissionList.join("\n"))
             }
             else if(add) await addCommission()
-            // else if(remove) await removeExtension()
+            else if(remove) await removeCommission()
             process.exit(0)
         } catch (err) {
             console.error(err)

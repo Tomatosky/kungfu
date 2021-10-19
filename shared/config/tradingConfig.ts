@@ -226,3 +226,13 @@ export const TimeCondition: NumberToStringObject = {
     1: isEnglish ? 'GFD' : 'GFD', 
     2: isEnglish ? 'GTC' : 'GTC' 
 };
+
+export const CommissionMode: NumberToStringObject = {
+    0: isEnglish ? "ByAmount" : "按金额",
+    1: isEnglish ? "ByVolume" : "按手数"
+}
+
+export const CommissionModeReverse: StringToNumberObject = {
+    ByAmount: 0,
+    ByVolume: 1
+}

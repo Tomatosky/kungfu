@@ -709,3 +709,14 @@ interface StringToQuoteData {
 interface StringToPosData {
     [prop: string]: PosData
 }
+
+interface CommissionItem {
+    product_id: string;
+    exchange_id: string;
+    instrument_type: number;
+    mode: number;
+    open_ratio: number;
+    close_ratio: number;
+    close_today_ratio: number;
+    min_commission: number;
+}

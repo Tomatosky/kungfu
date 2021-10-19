@@ -32,7 +32,7 @@ export const removeKfConfig = (key: string, type: string) => {
     return kungfuConfigStore.removeConfig(kungfuKey.category, kungfuKey.group, kungfuKey.name, kungfuKey.mode)
 }
 
-export const getKfCommission = () => {
+export const getKfCommission = (): Promise<any> => {
     logger.info("Get kungfu Commission");
     return new Promise((resolve, reject) => {
         try {
@@ -44,11 +44,11 @@ export const getKfCommission = () => {
     })
 }
 
-export const setKfCommission = (commissionItems: any) => {
+export const setKfCommission = (commissionItems: CommissionItem[]) => {
     logger.info("Set kungfu Commission");
     return new Promise((resolve, reject) => {
         const kfCommissionData = longfist.Commission()
-        const comissionResolve = commissionItems.map((item: any) => {
+        const comissionResolve = commissionItems.map((item: CommissionItem) => {
             return {
                 ...kfCommissionData,
                 ...item
