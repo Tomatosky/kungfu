@@ -1,4 +1,4 @@
-import { toDecimal } from '__gUtils/busiUtils';
+import { toDecimal, resolveMemCpu } from '__gUtils/busiUtils';
 import { statusConfig } from '__gConfig/statusConfig';
 import { logger } from '__gUtils/logUtils';
 
@@ -192,4 +192,33 @@ export const getKungfuTypeFromString = (typeString: string) => {
     else if(isMd) return 'md';
     else if(isStrategy) return 'strategy'
     else return ''
+}
+
+
+export const buildTdMdStatus = (processId: string, stringMdTddState: StringToMdTdState, processStatus: string): string | number => {
+    if(!stringMdTddState[processId]) return processStatus
+    else if(processStatus === 'online') return stringMdTddState[processId].state
+    else return processStatus
+}
+
+export const buildStatusDefault = (processStatus: ProcessStatusDetail | undefined) => {
+    if(!processStatus) return {
+        status: '--',
+        monit: {
+            cpu: 0,
+            memory: 0,
+        }
+    }
+
+
+    const monit = processStatus.monit;
+    const cpu = resolveMemCpu(monit, 'cpu');
+    const memory = resolveMemCpu(monit, 'memory');
+    return {
+        status: processStatus.status,
+        monit: {
+            cpu: monit.cpu == 0 ? monit.cpu + '%' : colors.green(cpu),
+            memory: monit.memory == 0 ? monit.memory + "M" : colors.green(memory)
+        }
+    }
 }

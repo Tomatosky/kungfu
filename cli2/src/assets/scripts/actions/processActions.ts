@@ -1,8 +1,7 @@
 
-import { dealStatus } from '@/assets/scripts/utils';
+import { dealStatus, buildTdMdStatus, buildStatusDefault } from '@/assets/scripts/utils';
 
-
-import { setTimerPromiseTask, resolveMemCpu } from '__gUtils/busiUtils';
+import { setTimerPromiseTask } from '__gUtils/busiUtils';
 import { logger } from '__gUtils/logUtils';
 import { removeJournal } from '__gUtils/fileUtils';
 import { listProcessStatusWithDetail, startArchiveMakeTask } from '__gUtils/processUtils';
@@ -88,37 +87,6 @@ export const switchProcess = (proc: any, messageBoard: any, loading: any) =>{
                 })
                 .catch((err: Error) => logger.error(err))
     }
-}
-
-
-
-export const processStatusObservable = () => {
-    return new Observable(observer => {
-        observer.next({})
-        setTimerPromiseTask(() => {
-            return listProcessStatusWithDetail()
-                .then((processStatus: StringToProcessStatusDetail) => {
-                    observer.next(processStatus)
-                })
-                .catch((err: Error) => logger.error(err))
-        }, 1000)    
-    })
-}
-
-export const mdTdStateObservable = () => {
-    const { buildGatewayStatePipe } = require('__io/kungfu/tradingData');
-    return buildGatewayStatePipe().pipe(
-        map((item: any) => {
-            
-            let gatewayStatesData: StringToMdTdState = {};
-            (item.gatewayStates || []).forEach((item: MdTdState) => {
-                if (item.processId) {
-                    gatewayStatesData[item.processId] = item;
-                }
-            });
-            return gatewayStatesData 
-        })
-    )
 }
 
 //系统所有进程列表
@@ -225,37 +193,39 @@ export const processListObservable = () => combineLatest(
 )
 
 
-function buildTdMdStatus(processId: string, stringMdTddState: StringToMdTdState, processStatus: string): string | number {
-    if(!stringMdTddState[processId]) return processStatus
-    else if(processStatus === 'online') return stringMdTddState[processId].state
-    else return processStatus
+
+export const processStatusObservable = () => {
+    return new Observable(observer => {
+        observer.next({})
+        setTimerPromiseTask(() => {
+            return listProcessStatusWithDetail()
+                .then((processStatus: StringToProcessStatusDetail) => {
+                    observer.next(processStatus)
+                })
+                .catch((err: Error) => logger.error(err))
+        }, 1000)    
+    })
 }
 
-function  buildStatusDefault(processStatus: ProcessStatusDetail | undefined) {
-    if(!processStatus) return {
-        status: '--',
-        monit: {
-            cpu: 0,
-            memory: 0,
-        }
-    }
-
-
-    const monit = processStatus.monit;
-    const cpu = resolveMemCpu(monit, 'cpu');
-    const memory = resolveMemCpu(monit, 'memory');
-    return {
-        status: processStatus.status,
-        monit: {
-            cpu: monit.cpu == 0 ? monit.cpu + '%' : colors.green(cpu),
-            memory: monit.memory == 0 ? monit.memory + "M" : colors.green(memory)
-        }
-    }
+export const mdTdStateObservable = () => {
+    const { buildGatewayStatePipe } = require('__io/kungfu/tradingData');
+    return buildGatewayStatePipe().pipe(
+        map((item: any) => {
+            
+            let gatewayStatesData: StringToMdTdState = {};
+            (item.gatewayStates || []).forEach((item: MdTdState) => {
+                if (item.processId) {
+                    gatewayStatesData[item.processId] = item;
+                }
+            });
+            return gatewayStatesData 
+        })
+    )
 }
 
 export const mdListObservable = () => {
     return new Observable(observer => {
-        return getMdList()
+        getMdList()
             .then((mdList: Md[]) => {
                 observer.next(mdList)
             })
@@ -265,7 +235,7 @@ export const mdListObservable = () => {
 
 export const tdListObservable = () => {
     return new Observable(observer => {
-        return getTdList()
+        getTdList()
             .then((tdList: Td[]) => {
                 observer.next(tdList)
             })
@@ -275,13 +245,11 @@ export const tdListObservable = () => {
 
 export const strategyListObservable = () => {
     return new Observable(observer => {
-        setTimerPromiseTask(() => {
-            return getStrategyList()
+        getStrategyList()
             .then((strategyList: Strategy[]) => {
                 observer.next(strategyList)
             })
             .catch((err: Error) => logger.error(err))
-        }, 5000)
     })
 }
 

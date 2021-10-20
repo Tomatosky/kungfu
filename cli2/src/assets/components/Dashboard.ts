@@ -4,11 +4,13 @@ const blessed = require('blessed');
 class Dashboard {
     screen: any
     message: any
+    
     constructor(){
         this.screen = blessed.screen({
             smartCSR: true,
             fullUnicode: true,
             autoPadding: true,
+            resizeTimeout: 500,
         });
 
         this.screen.title = 'Account Dashboard';

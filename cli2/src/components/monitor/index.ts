@@ -132,8 +132,6 @@ export class MonitorDashboard extends Dashboard {
     bindData() {
         const t = this;
         processListObservable().subscribe((processList: any) => {
-
-
             //processList
             t.globalData.processList = processList;
             const processListResolved = processList

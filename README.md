@@ -168,7 +168,8 @@ $HOME/.local/share/virtualenvs      # pipenv(unix) 存储的 Python 依赖
 * 2.3.7:
     * 增加渲染进程断开的重开处理，保证交易稳定性
     * ctp增加请求对应经纪商保证金比例
-    * 增加了渲染进程的错误拦截
+    * 增加了渲染进程的错误拦截机制
+    * 修正了 cli monit bugs
     * 修正了前端bugs
 * 2.3.6:
     * 优化数据传输，提升交互性能

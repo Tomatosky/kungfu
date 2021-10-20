@@ -8,7 +8,7 @@ import moment from 'moment';
 import { EXTENSION_DIR } from '__gConfig/pathConfig';
 import { listDir } from '__gUtils/fileUtils';
 import { allowShorted } from "kungfu-shared/config/tradingConfig";
-
+import { Stats } from 'fs';
 
 interface LogLineData {
     message: string;
@@ -674,15 +674,16 @@ export function getLog(logPath: string, searchKeyword: string, dealMessageFunc: 
     const numList = buildListByLineNum(100);    
     let logId = 0;            
     return new Promise((resolve, reject) => {
-        fse.stat(logPath, (err: Error) => {
+        fse.stat(logPath, (err: Error, res: Stats) => {
             if(err){
                 reject(err)
                 return;
             }
 
+            const size = res.size;
             const lineReader = readline.createInterface({
                 input: fse.createReadStream(logPath, {
-                    start: 0
+                    start: size > 3000 ? size - 3000 : 0 
                 })
             })
 
