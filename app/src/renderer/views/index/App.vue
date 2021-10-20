@@ -167,7 +167,7 @@ export default {
     methods: {
         bindQuotesListener () {
             buildMarketDataPipeByDaemon().subscribe(data => {
-                this.$store.dispatch('setQuotes', Object.freeze(Object.values(data)))   
+                this.$store.dispatch('setQuotes', Object.freeze(Object.values(data).map(item => Object.freeze(item))))   
             })
         },
 

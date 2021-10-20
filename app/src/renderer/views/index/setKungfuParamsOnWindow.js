@@ -9,7 +9,7 @@ process.env.RELOAD_AFTER_CRASHED = process.argv.includes("reloadAfterCrashed") ?
 const { kungfu, longfist, kungfuConfigStore, history, getKungfuDataByDateRange, commissionStore } = require('__io/kungfu/kungfuUtils')
 const { watcher, startGetKungfuWatcherStep } = require('__io/kungfu/watcher');
 const { KF_RUNTIME_DIR } = require("__gConfig/pathConfig");
-const { _pm2 } = require("__gUtils/processUtils");
+const { _pm2, pm2KillAll } = require("__gUtils/processUtils");
 
 
 window.watcher = watcher;
@@ -94,6 +94,14 @@ window.testCase.tryCrashWatcherBySqliteRW = async () => {
         clearInterval(intervalTimer);
         clearTimeout(timeoutTimer);
     }, 10000)
+}
+
+window.testCase.killAll = async () => {
+    try {
+        await pm2KillAll()
+    } catch (err) {
+        console.error("Kill All", err)
+    }
 }
 
 startGetKungfuWatcherStep();

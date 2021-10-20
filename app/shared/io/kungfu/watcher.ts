@@ -26,7 +26,7 @@ export const watcher: any = (() => {
     }
 
     if (process.env.APP_TYPE === "daemon") {
-        return kungfu.watcher(KF_RUNTIME_DIR, kungfu.formatStringToHashHex('kungfu_daemon'), false, true);
+        return kungfu.watcher(KF_RUNTIME_DIR, kungfu.formatStringToHashHex('kungfu_daemon'), bypassQuote, true);
     }
 
     if (process.env.RENDERER_TYPE === 'admin') {

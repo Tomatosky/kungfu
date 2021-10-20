@@ -64,6 +64,12 @@ buildMarketDataPipe().subscribe((data: any) => {
     const quotesAfterFilter =  QuotesRequiredInAppList.length ? data.filter((item: QuoteOriginData) => quotesAfterFilterKeys.indexOf(item.instrument_id) !== -1) : [];
     const quotesResolved = quotesAfterFilter.map((item: QuoteOriginData) => dealQuote(item));
 
+    if (!quotesResolved.length) {
+        return;
+    }
+
+    console.log(quotesResolved)
+
     //@ts-ignore
     process.send({
         type: "process:msg",

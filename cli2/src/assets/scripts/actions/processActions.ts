@@ -255,25 +255,21 @@ function  buildStatusDefault(processStatus: ProcessStatusDetail | undefined) {
 
 export const mdListObservable = () => {
     return new Observable(observer => {
-        setTimerPromiseTask(() => {
-            return getMdList()
-                .then((mdList: Md[]) => {
-                    observer.next(mdList)
-                })
-                .catch((err: Error) => logger.error(err))
-        }, 5000)
+        return getMdList()
+            .then((mdList: Md[]) => {
+                observer.next(mdList)
+            })
+            .catch((err: Error) => logger.error(err))
     })
 }
 
 export const tdListObservable = () => {
     return new Observable(observer => {
-        setTimerPromiseTask(() => {
-            return getTdList()
-                .then((tdList: Td[]) => {
-                    observer.next(tdList)
-                })
-                .catch((err: Error) => logger.error(err))
-        }, 5000)
+        return getTdList()
+            .then((tdList: Td[]) => {
+                observer.next(tdList)
+            })
+            .catch((err: Error) => logger.error(err))
     })
 }
 
