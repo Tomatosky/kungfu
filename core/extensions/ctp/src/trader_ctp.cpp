@@ -257,7 +257,25 @@ void TraderCTP::OnRtnOrder(CThostFtdcOrderField *pOrder) {
 
   if (inbound_order_refs_.find(orderRef_key) == inbound_order_refs_.end()) {
     SPDLOG_ERROR("CANNOT FIND orderRef_key {} in inbound_order_refs_", orderRef_key);
-    return;
+    auto writer = get_writer(location::PUBLIC);
+    OrderInput &input = writer->open_data<OrderInput>(now());
+    input.order_id = writer->current_frame_uid();
+    SPDLOG_INFO("input order_id {}", input.order_id);
+    from_ctp(*pOrder, input);
+    input.insert_time = pOrder->LimitPrice;
+    writer->close_data();
+    outbound_orders_[input.order_id] = pOrder->OrderRef;
+    inbound_order_refs_[orderRef_key] = input.order_id;
+
+    auto nano = time::now_in_nano();
+    auto writer_order = get_writer(location::PUBLIC);
+    Order &order = writer_order->open_data<Order>(now());
+    order_from_input(input, order);
+    strcpy(order.trading_day, trading_day_.c_str());
+    order.insert_time = nano;
+    order.update_time = nano;
+    writer_order->close_data();
+    orders_.emplace(order.uid(), state<Order>(get_home_uid(), location::PUBLIC, nano, order));
   }
 
   auto order_id = inbound_order_refs_.at(orderRef_key);

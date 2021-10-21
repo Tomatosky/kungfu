@@ -61,6 +61,10 @@ public:
     }
     AccountingMethod &accounting_method = *accounting_methods_.at(data.instrument_type);
     auto apply_and_update = [&](uint32_t book_uid) {
+      if (not has_book(book_uid) or not app_.has_writer(book_uid)) {
+         SPDLOG_INFO("book_uid {} not found", book_uid);
+         return;
+       }
       auto book = get_book(book_uid);
       auto &position = book->get_position_for(data);
       (accounting_method.*method)(book, data);
