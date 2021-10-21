@@ -56,6 +56,7 @@ export class MonitorDashboard extends Dashboard {
         t.initLoader();
         t.screen.render();
 
+
         t.bindEvent();
         t.bindData();
         t._bindLogMessage();
