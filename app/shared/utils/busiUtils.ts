@@ -681,9 +681,10 @@ export function getLog(logPath: string, searchKeyword: string, dealMessageFunc: 
             }
 
             const size = res.size;
+            const limit = 20000;
             const lineReader = readline.createInterface({
                 input: fse.createReadStream(logPath, {
-                    start: size > 3000 ? size - 3000 : 0 
+                    start: size > limit ? size - limit : 0 
                 })
             })
 
