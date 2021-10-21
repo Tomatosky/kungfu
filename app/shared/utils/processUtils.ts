@@ -402,7 +402,7 @@ export const startMaster = async (force: boolean): Promise<any> => {
     if (master instanceof Error) throw master
     const masterStatus = master.filter((m: any) => ((m || {}).pm2_env || {}).status === 'online')
     if (!force && masterStatus.length === master.length && master.length !== 0) throw new Error('kungfu master 正在运行！')
-    
+
     try {
         await killKfc();
     } catch (err) {
@@ -415,7 +415,6 @@ export const startMaster = async (force: boolean): Promise<any> => {
         logger.error('[PM2] kill kungfuDaemon in startMaster catch', err)
     }
     
-
     const args = buildArgs('master');
     return startProcess({
         "name": processName,

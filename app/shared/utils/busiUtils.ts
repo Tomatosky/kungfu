@@ -382,8 +382,7 @@ export const dealLogMessage = (line: string, searchKeyword?: string):any => {
 
     try{
         lineData = JSON.parse(line);
-    }catch(err){
-        console.error(err)
+    } catch (err) {
         return false;
     }
 

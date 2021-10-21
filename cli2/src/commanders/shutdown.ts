@@ -45,6 +45,7 @@ export function deleteNNFiles (rootPathName = KF_HOME) {
         await kfKill(['pm2']);
         console.log('Killing extra ...')
         await killExtra();
+        console.log('Deleting socket files ...')
         await deleteNNFiles();
         
         console.success(`Shutdown kungfu`)

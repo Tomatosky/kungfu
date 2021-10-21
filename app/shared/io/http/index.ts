@@ -12,7 +12,6 @@ export const testWorkable = () => {
         }
     })    
     .then(res => {
-        console.log(res.data)
         return res.data
     })
     .catch(err => {
@@ -30,7 +29,6 @@ export const getKungfuExts = () => {
         }
     })    
     .then((res: any) => {
-        console.log(res.data)
         return res.data;
     })
     .catch((err: Error) => {

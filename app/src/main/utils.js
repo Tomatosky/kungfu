@@ -1,8 +1,7 @@
 import electron from 'electron';
 import { KF_HOME, KUNGFU_ENGINE_PATH } from '__gConfig/pathConfig';
-import { killGodDaemon, killKfc, killKungfu } from '__gUtils/processUtils';
+import { killGodDaemon, killKfc, killKungfu, killExtra, pm2KillAll } from '__gUtils/processUtils';
 import { platform } from '__gConfig/platformConfig';
-import { killExtra } from '__gUtils/processUtils';
 import { reqRecordBeforeQuit } from "./events";
 
 const path = require('path');
@@ -41,20 +40,23 @@ export function showKungfuInfo () {
 //结束所有进程
 function KillAll () {
 	return new Promise(resolve => {
-		killKfc()
-		.catch(err => console.error(err)) 
-		.finally(() => {
-			if(platform === 'linux') killKungfu()
-			killGodDaemon()
-			.catch(err => console.error(err)) 				
+		pm2KillAll()
 			.finally(() => {
-				killExtra()
-				.catch(err => console.error(err)) 								
-				.finally(() => {
-					resolve(true)
-				})
+				killKfc()
+					.catch(err => console.error(err)) 
+					.finally(() => {
+						if(platform === 'linux') killKungfu()
+						killGodDaemon()
+							.catch(err => console.error(err)) 				
+							.finally(() => {
+								killExtra() // for keeping sure, kill again
+									.catch(err => console.error(err)) 								
+									.finally(() => {
+										resolve(true)
+									})
+							})
+					})
 			})
-		})
 	})
 }
 
