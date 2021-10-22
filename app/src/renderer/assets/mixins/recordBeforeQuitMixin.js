@@ -19,7 +19,6 @@ export default {
         
         ...mapState({
             tickerSets: state => state.MARKET.tickerSets,
-            quotes: state => state.MARKET.quotes
         }),
 
         ...mapGetters([
@@ -39,7 +38,7 @@ export default {
 
         recordQuote () {
             const tickerIds = this.flatternTickers.map(item => `${item.instrumentId}_${item.exchangeId}`).join(',')
-            const subscribedQuotes = this.quotes
+            const subscribedQuotes = this.$store.state.MARKET.quotes
                 .filter(item => {
                     return tickerIds.includes(`${item.instrumentId}_${item.exchangeId}`)
                 })
