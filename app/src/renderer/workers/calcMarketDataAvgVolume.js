@@ -22,8 +22,6 @@ self.addEventListener('message', (e) => {
     Promise.all(promises)
         .then(quotesList => {
             const avgVolumeData = calcAvgVolume(quotesList)
-
-            
             self.postMessage({
                 days,
                 data: avgVolumeData 
