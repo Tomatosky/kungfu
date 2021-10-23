@@ -180,6 +180,8 @@
             :label="option.name"
             :value="option.value"
           >
+            <span>{{ option.name }}</span>
+            <span>{{ option.value }}</span>
           </el-option>
         </el-select>
         <el-autocomplete

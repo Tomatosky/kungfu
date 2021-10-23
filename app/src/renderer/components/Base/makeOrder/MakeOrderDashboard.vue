@@ -68,6 +68,8 @@
                             :key="exchangeId"
                             :label="ExchangeIds[exchangeId]"
                             :value="exchangeId">
+                            <span>{{ ExchangeIds[exchangeId] }}</span>
+                            <span>{{ exchangeId }}</span>
                         </el-option>
                     </el-select>
                 </el-form-item>  
