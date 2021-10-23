@@ -613,6 +613,7 @@ export const getDefaultRenderCellClass = (prop: string, item: any) => {
         case 'accountId':
             if ((item.clientId || '').toLowerCase().includes('手动')) return 'yellow';
             if ((item.clientId || '').toLowerCase().includes('任务')) return 'blue';
+            if ((item.clientId || '').toLowerCase().includes('系统外')) return 'gray';
             break;
     }
 
