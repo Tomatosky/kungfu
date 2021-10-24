@@ -24,6 +24,7 @@ class MarketDataSim(wc.MarketData):
         instrument_id, exchange_id = ob.security.split(".")
         quote.data_time = self.now()
         quote.instrument_id = instrument_id
+        quote.instrument_type = wc.utils.get_instrument_type(exchange_id, instrument_id)
         quote.exchange_id = exchange_id
         quote.ask_price = [ob.offer_price(i) for i in range(0, min(10, ob.depth_offers()))]
         quote.ask_volume = [ob.offer_qty(i) for i in range(0, min(10, ob.depth_offers()))]
