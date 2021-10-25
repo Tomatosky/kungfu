@@ -69,11 +69,13 @@ public:
       }
 
       auto &instrument = book->instruments.at(instrument_key);
+
+      //此处仅计算结算价，但需要根据实时行情变化
       if (is_valid_price(quote.settlement_price)) {
         auto margin_pre = position.margin;
         position.margin = instrument.contract_multiplier * position.settlement_price * position.volume *
                           margin_ratio(instrument, position);
-        position.settlement_price = quote.settlement_price;
+        position.settlement_price = quote.settlement_price;        
         book->asset.avail -= position.margin - margin_pre;
       }
       if (is_valid_price(quote.last_price)) {
