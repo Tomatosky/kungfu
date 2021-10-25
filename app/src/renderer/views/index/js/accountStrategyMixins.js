@@ -60,6 +60,9 @@ export default {
         
             if (this.moduleType !== 'strategy') {
                 const { offset, side, volume } = this.getSideOffsetVolume(orderInput)
+
+                console.log(orderInput, '---')
+
                 this.$bus.$emit('update:make-order', {
                     currentId: this.currentIdInAccountStrategyResolved || '',
                     moduleType: this.moduleType,

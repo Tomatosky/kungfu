@@ -441,6 +441,8 @@ function resolveClientId(dest: number, parent_id: bigint): string {
     } else {
         if (Number(parent_id)) {
             return `${kungfuLocation.name} 手动` //是因为策略模块手动下单的时候刻意插入用于区分
+        } else if (dest === 0) {
+            return "系统外"
         } else {
             return kungfuLocation.name
         }
