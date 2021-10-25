@@ -71,6 +71,7 @@ public:
 
   void apply_quote(Book_ptr &book, const Quote &quote) override {
     auto apply = [&](Position &position) {
+
        auto cm_mr = get_instrument_contract_multiplier_and_margin_ratio(
         book, 
         quote.exchange_id, 
@@ -88,9 +89,11 @@ public:
         position.settlement_price = quote.settlement_price;
         book->asset.avail -= position.margin - margin_pre;
       }
+
       if (is_valid_price(quote.last_price)) {
         position.last_price = quote.last_price;
       }
+
       if (is_valid_price(quote.pre_settlement_price)) {
         position.pre_settlement_price = quote.pre_settlement_price;
       }
@@ -104,6 +107,7 @@ public:
 
   void apply_order_input(Book_ptr &book, const OrderInput &input) override {
     auto &position = book->get_position_for(input);
+
     auto cm_mr = get_instrument_contract_multiplier_and_margin_ratio(
       book, 
       input.exchange_id, 
@@ -121,6 +125,7 @@ public:
       book->asset.frozen_cash += frozen_margin;
       book->asset.frozen_margin += frozen_margin;
     }
+
     if (input.offset == Offset::Close or input.offset == Offset::CloseYesterday) {
       position.frozen_total += input.volume;
       if (position.yesterday_volume - position.frozen_yesterday >= input.volume) {
@@ -129,6 +134,7 @@ public:
         position.frozen_yesterday = position.yesterday_volume;
       }
     }
+
     if (input.offset == Offset::CloseToday) {
       position.frozen_total += input.volume;
     }
@@ -165,6 +171,7 @@ public:
         position.frozen_total = std::max(position.frozen_total - order.volume_left, VOLUME_ZERO);
         position.frozen_yesterday = std::max(position.frozen_yesterday - order.volume_left, VOLUME_ZERO);
       }
+
       if (order.offset == Offset::CloseToday and position.frozen_total >= order.volume_left) {
         position.frozen_total -= order.volume_left;
       }
@@ -184,6 +191,7 @@ public:
 
   void update_position(Book_ptr &book, Position &position) override {
     if (position.last_price > 0) {
+
       auto cm_mr = get_instrument_contract_multiplier_and_margin_ratio(
         book, 
         position.exchange_id, 
@@ -194,6 +202,7 @@ public:
       auto contract_multiplier = cm_mr.contract_multiplier;
       auto product_key = yijinjing::util::hash_str_32(get_instrument_product(position.instrument_id));
       double cost = 0;
+
       if (book->commissions.find(product_key) != book->commissions.end()) {
         auto &commission = book->commissions.at(product_key);
         auto close_today_volume = double(position.volume - position.yesterday_volume);
@@ -206,6 +215,7 @@ public:
         }
         cost = cost * contract_multiplier;
       }
+
       auto multiplier = contract_multiplier * (position.direction == Direction::Long ? 1 : -1);
       auto price_diff = position.last_price - position.avg_open_price;
       position.unrealized_pnl = (price_diff * position.volume) * multiplier - cost;
@@ -216,6 +226,7 @@ private:
 
   void apply_open(Book_ptr &book, const Trade &trade) { 
     auto &position = book->get_position_for(trade);
+    
     auto cm_mr = get_instrument_contract_multiplier_and_margin_ratio(
       book, 
       trade.exchange_id, 
