@@ -1,4 +1,4 @@
-import electron, { app } from 'electron';
+import { app, dialog, shell } from 'electron';
 import { KF_HOME, KUNGFU_ENGINE_PATH } from '__gConfig/pathConfig';
 import { killGodDaemon, killKfc, killKungfu, killExtra, pm2KillAll } from '__gUtils/processUtils';
 import { delayMilliSeconds } from "__gUtils/busiUtils";
@@ -6,13 +6,12 @@ import { platform } from '__gConfig/platformConfig';
 import { reqRecordBeforeQuit, clearProcessBeforeQuitStart, clearProcessBeforeQuitEnd  } from "./events";
 
 const path = require('path');
-const { app, dialog } = electron
 const packageJSON = require('__root/package.json');
 
 var BeforeQuitLoading = false;
 
 export function openUrl(url) {
-	electron.shell.openExternal(url)
+	shell.openExternal(url)
 }
 
 export function showKungfuInfo () {
@@ -66,16 +65,23 @@ function KillAll () {
 
 export function killAllBeforeQuit (mainWindow) {
 	console.time('quit clean')
-	// clearProcessBeforeQuitStart(mainWindow);
+	clearProcessBeforeQuitStart(mainWindow);
 	return KillAll()
 		.finally(() => {
 			console.timeEnd('quit clean')
-			// clearProcessBeforeQuitEnd(mainWindow);
+			clearProcessBeforeQuitEnd(mainWindow);
 		})
 }
 
 //退出提示
 export function showQuitMessageBox (mainWindow) {
+
+	if (BeforeQuitLoading) {
+		return Promise.reject(new Error("On Quitting Process"))
+	}
+
+	BeforeQuitLoading = true;
+
     return new Promise(resolve => {
         dialog.showMessageBox({
             type: 'question',
@@ -87,19 +93,18 @@ export function showQuitMessageBox (mainWindow) {
             icon: path.join(__resources, 'logo', 'icon.png')
         }, (index) => {
             if(index === 0){
-				// return reqRecordBeforeQuit(mainWindow)
-				// 	.then(() => {
-				// 		resolve(true)
-				// 	})
-				// 	.then(() => {
-				// 		return killAllBeforeQuit(mainWindow)
-				// 			.finally(() => {
-				// 				app.quit();
-				// 			})
-				// 	})
 				resolve(true)
+				Promise.all([
+					reqRecordBeforeQuit(mainWindow),
+					killAllBeforeQuit(mainWindow)
+				])
+				.finally(() => {
+					BeforeQuitLoading = false;
+					app.quit();
+				})
             } else {
                 resolve(false)
+				BeforeQuitLoading = false;
             }
         })
     })

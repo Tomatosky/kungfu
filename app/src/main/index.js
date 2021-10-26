@@ -30,7 +30,6 @@ var AllowQuit = false;
 var CrashedReloading = false;
 
 function createWindow (reloadAfterCrashed = false) {
-
 	if (reloadAfterCrashed) {
 		MainWindow && MainWindow.destroy();
 		CrashedReloading = true;
@@ -181,7 +180,7 @@ app.on('activate', function () {
     else MainWindow && MainWindow.show()
 })
 
-// Quit when all windows are closed.
+// // Quit when all windows are closed.
 app.on('window-all-closed', function (e) {
 	// On macOS it is common for applications and their menu bar
 	// to stay active until the user quits explicitly with Cmd + Q

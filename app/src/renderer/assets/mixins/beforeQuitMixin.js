@@ -11,8 +11,8 @@ export default {
     data () {
         
         return {
-            recordBeforeQuitLoading: false,
-            clearProcessBeforeQuitLoading: false,
+            recordBeforeQuitLoading: undefined,
+            clearProcessBeforeQuitLoading: undefined,
         }
     },
 
@@ -24,12 +24,16 @@ export default {
 
         ...mapGetters([
             "flatternTickers"
-        ])
+        ]),
+
+        showBeforeQuitDialog () {
+            return this.recordBeforeQuitLoading !== undefined && 
+                this.clearProcessBeforeQuitLoading !== undefined
+        }
     },
 
     methods: {
         setBeforeQuitLoading (status) {
-            console.log(status)
             this.clearProcessBeforeQuitLoading = status;
         },
 

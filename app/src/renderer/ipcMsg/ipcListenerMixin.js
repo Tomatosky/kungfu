@@ -191,13 +191,15 @@ export default {
                     case 'record-before-quit':
                         this.recordBeforeQuit()
                             .finally(() => {
-                                ipcRenderer.sendSync('record-before-quit-done')
+                                ipcRenderer.send('record-before-quit-done')
                             })
                         break
                     case "clear-process-before-quit-start":
                         this.setBeforeQuitLoading(true);
+                        break
                     case "clear-process-before-quit-end":
                         this.setBeforeQuitLoading(false);
+                        break
                     case 'clear-journal':
                         localStorage.setItem("clearJournalTradingDate", "")
                         this.$message.success('清理 journal 完成，请重启应用！')

@@ -25,10 +25,10 @@
 
         <SystemPrepareDialog
         title="系统提示"
-        :visible="recordBeforeQuitLoading || clearProcessBeforeQuitLoading "
+        :visible="showBeforeQuitDialog"
         :status="[
-            { key: 'record', status: recordBeforeQuitLoading },
-            { key: 'kill', status: clearProcessBeforeQuitLoading },
+            { key: 'record', status: !recordBeforeQuitLoading },
+            { key: 'kill', status: !clearProcessBeforeQuitLoading },
         ]"
         :tips="{
             'record': { done: '保存数据完成 ✓',     loading: '退出前保存数据中，请勿关闭...' },
