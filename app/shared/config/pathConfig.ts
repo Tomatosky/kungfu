@@ -123,3 +123,4 @@ export const APP_DIR = process.env.NODE_ENV === 'production'
     : path.resolve(path.join(__dirname, '..','..', 'dist', 'app'));
 
 
+process.env.PM2_HOME = path.resolve(require('os').homedir(), ".pm2");
