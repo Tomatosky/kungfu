@@ -9,7 +9,12 @@ import { logger } from '__gUtils/logUtils';
 import { platform } from '__gConfig/platformConfig';
 import { openUrl, showKungfuInfo, showQuitMessageBox, showCrashMessageBox } from './utils';
 import { KF_HOME, BASE_DB_DIR } from '__gConfig/pathConfig';
-import { openSettingDialog, clearJournal, openLogFile, exportAllTradingData } from "./events";
+import { 
+	openSettingDialog, 
+	clearJournal, 
+	openLogFile, 
+	exportAllTradingData
+} from "./events";
 
 const path = require('path');
 const { app, globalShortcut, BrowserWindow, Menu, dialog, shell } = electron
@@ -71,25 +76,26 @@ function createWindow (reloadAfterCrashed = false) {
 	});
 
 	MainWindow.on('close', (e) => {
-
 		if (CrashedReloading) {
+			AllowQuit = false;
 			return;
 		}
 
-		if (!AllowQuit) {
-			e.preventDefault();
-			showQuitMessageBox(MainWindow)
-				.then(res => {
-					if (res) {
-						AllowQuit = true;
-					}
-				})	
-				.catch(err => {
-					console.error(err)
-				})
-		} else {
-			return
+		if (AllowQuit) {
+			return;
 		}
+
+		e.preventDefault();
+		showQuitMessageBox(MainWindow)
+			.then(res => {
+				if (res) {
+					AllowQuit = true;
+				}
+			})	
+			.catch(err => {
+				console.error(err)
+			})
+
 	})
 
 
@@ -165,12 +171,7 @@ killExtra()
 	})
 
 
-// Quit when all windows are closed.
-app.on('window-all-closed', function (e) {
-// On macOS it is common for applications and their menu bar
-// to stay active until the user quits explicitly with Cmd + Q
-	app.quit()
-})
+
 
 app.on('activate', function () {
 // On macOS it's common to re-create a window in the app when the
@@ -178,6 +179,13 @@ app.on('activate', function () {
     if (MainWindow && MainWindow.isDestroyed()) createWindow()
     else if(MainWindow && MainWindow.isVisible()) MainWindow.focus()
     else MainWindow && MainWindow.show()
+})
+
+// Quit when all windows are closed.
+app.on('window-all-closed', function (e) {
+	// On macOS it is common for applications and their menu bar
+	// to stay active until the user quits explicitly with Cmd + Q
+	app.quit()
 })
 
 app.on('will-quit', (e) => {

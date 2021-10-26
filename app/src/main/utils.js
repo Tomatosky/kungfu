@@ -1,19 +1,19 @@
-import electron from 'electron';
+import electron, { app } from 'electron';
 import { KF_HOME, KUNGFU_ENGINE_PATH } from '__gConfig/pathConfig';
 import { killGodDaemon, killKfc, killKungfu, killExtra, pm2KillAll } from '__gUtils/processUtils';
+import { delayMilliSeconds } from "__gUtils/busiUtils";
 import { platform } from '__gConfig/platformConfig';
-import { reqRecordBeforeQuit } from "./events";
+import { reqRecordBeforeQuit, clearProcessBeforeQuitStart, clearProcessBeforeQuitEnd  } from "./events";
 
 const path = require('path');
 const { app, dialog } = electron
 const packageJSON = require('__root/package.json');
 
+var BeforeQuitLoading = false;
+
 export function openUrl(url) {
 	electron.shell.openExternal(url)
 }
-
-
-
 
 export function showKungfuInfo () {
 	const version = packageJSON.version;
@@ -65,10 +65,13 @@ function KillAll () {
 
 
 export function killAllBeforeQuit (mainWindow) {
-	if(mainWindow && !mainWindow.isDestroyed()) {
-		mainWindow.hide()
-	}
+	console.time('quit clean')
+	// clearProcessBeforeQuitStart(mainWindow);
 	return KillAll()
+		.finally(() => {
+			console.timeEnd('quit clean')
+			// clearProcessBeforeQuitEnd(mainWindow);
+		})
 }
 
 //退出提示
@@ -84,19 +87,17 @@ export function showQuitMessageBox (mainWindow) {
             icon: path.join(__resources, 'logo', 'icon.png')
         }, (index) => {
             if(index === 0){
-				reqRecordBeforeQuit(mainWindow)
-					.then(() => {
-						resolve(true)
-					})
-					.then(() => {
-						console.time('quit clean')
-						return killAllBeforeQuit(mainWindow)
-							.finally(() => {
-								console.timeEnd('quit clean')
-								app.quit()
-							})
-					})
-              
+				// return reqRecordBeforeQuit(mainWindow)
+				// 	.then(() => {
+				// 		resolve(true)
+				// 	})
+				// 	.then(() => {
+				// 		return killAllBeforeQuit(mainWindow)
+				// 			.finally(() => {
+				// 				app.quit();
+				// 			})
+				// 	})
+				resolve(true)
             } else {
                 resolve(false)
             }

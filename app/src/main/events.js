@@ -1,6 +1,6 @@
 const { ipcMain } = require('electron')
 
-export const reqRecordBeforeQuit = (mainWindow) => {
+export function reqRecordBeforeQuit (mainWindow) {
     return new Promise(resolve => {
 	    if (!mainWindow || !mainWindow.webContents) {
             resolve(false)
@@ -26,6 +26,15 @@ export const reqRecordBeforeQuit = (mainWindow) => {
         })
     })
 } 
+
+export function clearProcessBeforeQuitStart (mainWindow) {
+    sendMsgToMainWindow(mainWindow, 'clear-process-before-quit-start')
+}
+
+export function clearProcessBeforeQuitEnd (mainWindow) {
+    sendMsgToMainWindow(mainWindow, 'clear-process-before-quit-end')
+}
+
 
 //开启发送renderprocess 打开设置弹窗
 export function openSettingDialog (mainWindow) {

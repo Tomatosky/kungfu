@@ -13,7 +13,7 @@ import { writeCSV } from '__gUtils/fileUtils';
 
 
 import makeOrderCoreMixin from '@/components/Base/makeOrder/js/makeOrderCoreMixin';
-import recordBeforeQuitMixin from "@/assets/mixins/recordBeforeQuitMixin";
+import beforeQuitMixin from "@/assets/mixins/beforeQuitMixin";
 import tickerSetMixin from '@/components/MarketFilter/js/tickerSetMixin';
 
 const { _pm2, sendDataToProcessIdByPm2 } = require('__gUtils/processUtils');
@@ -22,7 +22,7 @@ const { dialog, BrowserWindow, shell } = remote;
 //一直启动，无需remove listener
 export default {
 
-    mixins: [ makeOrderCoreMixin, recordBeforeQuitMixin, tickerSetMixin ],
+    mixins: [ makeOrderCoreMixin, beforeQuitMixin, tickerSetMixin ],
 
     data () {
         this.BUS = null;
@@ -194,6 +194,10 @@ export default {
                                 ipcRenderer.sendSync('record-before-quit-done')
                             })
                         break
+                    case "clear-process-before-quit-start":
+                        this.setBeforeQuitLoading(true);
+                    case "clear-process-before-quit-end":
+                        this.setBeforeQuitLoading(false);
                     case 'clear-journal':
                         localStorage.setItem("clearJournalTradingDate", "")
                         this.$message.success('清理 journal 完成，请重启应用！')

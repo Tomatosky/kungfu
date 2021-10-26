@@ -80,7 +80,13 @@ const kfc = platform === 'win' ? 'kfc.exe' : 'kfc';
 
 export const killKfc = () => kfKill([kfc])
 
-export const killKungfu = () => kfKill(['kungfu'])
+export const killKungfu = () => {
+    if (platform === 'linux') {
+        return kfKill(['kungfu'])
+    }
+
+    return Promise.resolve(true);
+}
 
 export const killExtra = () => kfKill([kfc, 'pm2', 'kungfuDaemon'])
 
@@ -216,6 +222,7 @@ export const startProcess = (options: Pm2Options, no_ext = false): Promise<objec
         "killTimeout": 16000,
         "env": {
             ...options.env,
+            "PM2_HOME": process.env.PM2_HOME,
             "KF_HOME": dealSpaceInPath(KF_HOME),
         },
     };

@@ -11,7 +11,8 @@ export default {
     data () {
         
         return {
-            recordBeforeQuitLoading: false
+            recordBeforeQuitLoading: false,
+            clearProcessBeforeQuitLoading: false,
         }
     },
 
@@ -27,6 +28,11 @@ export default {
     },
 
     methods: {
+        setBeforeQuitLoading (status) {
+            console.log(status)
+            this.clearProcessBeforeQuitLoading = status;
+        },
+
         recordBeforeQuit () {
             this.recordBeforeQuitLoading = true;
             return Promise.all([
