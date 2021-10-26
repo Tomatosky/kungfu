@@ -36,23 +36,26 @@ export function showKungfuInfo () {
 	})
 }
 
-
 //结束所有进程
 function KillAll () {
 	return new Promise(resolve => {
 		pm2KillAll()
+			.catch(err => console.error(err)) 
 			.finally(() => {
 				killKfc()
 					.catch(err => console.error(err)) 
 					.finally(() => {
-						if(platform === 'linux') killKungfu()
-						killGodDaemon()
-							.catch(err => console.error(err)) 				
+						killKungfu()
+							.catch(err => console.error(err)) 
 							.finally(() => {
-								killExtra() // for keeping sure, kill again
-									.catch(err => console.error(err)) 								
+								killGodDaemon()
+									.catch(err => console.error(err)) 				
 									.finally(() => {
-										resolve(true)
+										killExtra() // for keeping sure, kill again
+											.catch(err => console.error(err)) 								
+											.finally(() => {
+												resolve(true)
+											})
 									})
 							})
 					})
@@ -62,7 +65,9 @@ function KillAll () {
 
 
 export function killAllBeforeQuit (mainWindow) {
-	if(mainWindow && !mainWindow.isDestroyed()) mainWindow.hide()
+	if(mainWindow && !mainWindow.isDestroyed()) {
+		mainWindow.hide()
+	}
 	return KillAll()
 }
 
