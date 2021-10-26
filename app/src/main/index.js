@@ -247,12 +247,12 @@ function setMenu() {
 }
 
 
-process.on('uncaughtException', err => {
-	console.log(err)
-    logger.error('[MASTER] Error caught in uncaughtException event:', err);
-});
-
-process.stderr.on('data', err => {
-	console.log(err)
-    logger.error('[MASTER] Error caught in stderr event:', err);
-})
+process
+	.on('uncaughtException', err => {
+		console.log(err)
+		logger.error('[MASTER] Error caught in uncaughtException event:', err);
+	})
+	.on("unhandledRejection", err => {
+		console.log(err)
+		logger.error('[MASTER] Error caught in unhandledRejection event:', err);
+	})
