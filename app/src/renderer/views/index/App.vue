@@ -31,8 +31,8 @@
             { key: 'kill', status: !clearProcessBeforeQuitLoading },
         ]"
         :tips="{
-            'record': { done: '保存数据完成 ✓',     loading: '退出前保存数据中，请勿关闭...' },
-            'kill': { done: '结束所有交易进程 ✓',     loading: '退出前结束交易进程，请勿关闭...' },
+            'record': { done: '保存数据完成 ✓',     loading: '保存数据中...' },
+            'kill': { done: '结束所有交易进程 ✓',     loading: '结束交易进程中，请勿关闭...' },
         }"
         ></SystemPrepareDialog>
 

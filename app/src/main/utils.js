@@ -99,8 +99,11 @@ export function showQuitMessageBox (mainWindow) {
 					killAllBeforeQuit(mainWindow)
 				])
 				.finally(() => {
-					BeforeQuitLoading = false;
-					app.quit();
+					delayMilliSeconds(1000)
+						.then(() => {
+							BeforeQuitLoading = false;
+							app.quit();
+						})
 				})
             } else {
                 resolve(false)
