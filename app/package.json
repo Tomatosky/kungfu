@@ -20,7 +20,8 @@
     "node": ">=12"
   },
   "scripts": {
-    "install-deps": "electron-builder install-app-deps",
+    "install-deps": "electron-builder install-app-deps && yarn run patch",
+    "patch": "./node_modules/.bin/patch-package",
     "clean": "rimraf ./dist/* ./build/*",
     "dev": "node .electron-kungfu/dev-runner.js",
     "dist:main": "cross-env NODE_ENV=production node --max_old_space_size=2048 ../node_modules/webpack/bin/webpack.js --config .electron-kungfu/webpack.main.config.js",
@@ -45,7 +46,7 @@
     "kungfu-shared": "*",
     "minimist": "^1.2.5",
     "moment": "^2.24.0",
-    "pm2": "^4.5.6"
+    "pm2": "5.1.2"
   },
   "devDependencies": {
     "@authing/vue-ui-components": "^2.4.29",
@@ -98,6 +99,7 @@
     "monaco-editor-webpack-plugin": "^2.0.0",
     "multispinner": "^0.2.1",
     "node-loader": "^0.6.0",
+    "patch-package": "^6.4.7",
     "preload-webpack-plugin": "^2.3.0",
     "require-dir": "^1.0.0",
     "rimraf": "^2.6.3",
