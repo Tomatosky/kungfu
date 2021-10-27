@@ -93,12 +93,12 @@ export function showQuitMessageBox (mainWindow) {
             icon: path.join(__resources, 'logo', 'icon.png')
         }, (index) => {
             if(index === 0){
-				resolve(true)
 				Promise.all([
 					reqRecordBeforeQuit(mainWindow),
 					killAllBeforeQuit(mainWindow)
 				])
 				.finally(() => {
+					resolve(true)
 					delayMilliSeconds(1000)
 						.then(() => {
 							BeforeQuitLoading = false;
