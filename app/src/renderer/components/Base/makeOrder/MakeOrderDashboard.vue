@@ -25,7 +25,7 @@
                                 <span style="color: #fff">{{account.account_id.toAccountId()}}</span>
                                 <el-tag :type="getAccountType(account.source_name).type">{{(SourceTypeConfig[getAccountType(account.source_name).typeName] || {}).name || ''}}</el-tag>
                             </span>
-                            <span style="float: right">可用：{{getAvailCash(account.account_id)}}</span>
+                            <span style="float: right">可用：{{getAvailCash(account.account_id) || '--'}}</span>
                         </el-option>
                     </el-select>
                 </el-form-item>   
@@ -125,15 +125,15 @@
                 </el-form-item>
 
 
-                <el-row class="make-order-line" v-if="makeOrderForm.price_type === 0">
+                <el-row class="make-order-line">
                     <el-col :span="14">
                         <el-form-item
-                        label="价格"
+                        :label=" makeOrderForm.price_type === 0 ? '价格' : '保护价格'"
                         prop="limit_price"
-                        :rules="[
+                        :rules="  makeOrderForm.price_type === 0 ? [
                             { required: true, message: '不能为空！', trigger: 'input' },
                             { validator: biggerThanZeroValidator, trigger: 'blur'}
-                        ]">
+                        ] : []">
                             <el-input-number
                             :precision="4"
                             :step="0.001"
@@ -150,22 +150,7 @@
                     </el-col>
                 </el-row>
 
-                <el-form-item
-                label="方式"
-                class="no-margin"
-                prop="buyType"
-                v-if="!allowShorted && (makeOrderForm.price_type === 0)"
-                :rules="[
-                    { required: true, message: '不能为空！', trigger: 'change' },
-                ]"
-                >
-                    <el-radio-group size="mini" v-model="makeOrderForm.buyType">
-                        <el-radio size="mini"  label="volume">按数量</el-radio>
-                        <el-radio size="mini"  label="price">按金额</el-radio>
-                    </el-radio-group>
-                </el-form-item>
-
-                <el-row v-if="makeOrderForm.buyType === 'volume'">
+                <el-row>
                     <el-col :span="14">
                         <el-form-item
                         label="数量"
@@ -186,34 +171,7 @@
                     <el-col :span="10">
                         <div class="make-order-line-info">
                             <span>可下单数量</span>
-                            <span>{{ avaliableOrderVolume }}</span>
-                        </div>
-                    </el-col>
-                </el-row>
-
-
-                <el-row v-else>
-                    <el-col :span="16">
-                        <el-form-item
-                        label="总金额"
-                        prop="totalPrice"
-                        class="no-margin"
-                        :rules="[
-                            { required: true, message: '不能为空！', trigger: 'input' },
-                            { validator: biggerThanZeroValidator, trigger: 'blur'}
-                        ]">
-                            <el-input-number 
-                            :step="100"  
-                            :controls="false"
-                            placeholder="请输入数量"
-                            v-model.trim="makeOrderForm.totalPrice"
-                            ></el-input-number>                
-                        </el-form-item>
-                    </el-col>
-                    <el-col :span="8">
-                        <div class="make-order-line-info">
-                            <span>下单手数</span>
-                            <span>{{ avaliableOrderVolume }}</span>
+                            <span>{{ avaliableOrderVolume || '--' }}</span>
                         </div>
                     </el-col>
                 </el-row>
@@ -287,7 +245,6 @@ export default {
                 offset: 0,
                 price_type: 0,
                 hedge_flag: 0,
-                buyType: 'volume', // volume or price
             },
         }
     },
@@ -370,24 +327,24 @@ export default {
         },        
 
         avaliableOrderVolume () {
-
-            if (this.makeOrderForm.buyType === 'price') {
-                return this.makeOrderForm.volume || 0
-            }
-
             if (this.makeOrderForm.price_type === 0) {
                 if (this.makeOrderForm.side === 0) { //买
-                    const price = +this.makeOrderForm.limit_price;
+                    const price = +(this.makeOrderForm.limit_price || 0);
                     if (!+price) return 0;
                     if (!+this.avaliableCash) return 0
                     if (this.avaliableCash < 0) return 0
                     return Math.floor(this.avaliableCash / price)
                 } else if (this.makeOrderForm.side === 1) { //卖
-                    const { instrumentId, totalVolume } = this.orderInput;
+                    const { instrumentId, totalVolume, yesterdayVolume } = this.orderInput;
                     if (instrumentId !== this.makeOrderForm.instrument_id) {
                         return 0
                     }
-                    return (totalVolume < 0 ? 0 : totalVolume) || ''
+
+                    if (this.allowShorted) {
+                        return (totalVolume < 0 ? 0 : totalVolume) || 0
+                    } else {
+                        return (yesterdayVolume < 0 ? 0 : yesterdayVolume) || 0
+                    }
                 }                
             } 
 
@@ -455,14 +412,7 @@ export default {
             
         },
 
-        'makeOrderForm.buyType' (val) {
-            if (val === 'price') {
-                this.$set(this.makeOrderForm, 'volume', 0)
-            }
-        },
-
         "makeOrderForm.totalPrice" (val) {
-            if (this.makeOrderForm.buyType !== 'price') return;
             const price = +this.makeOrderForm.limit_price;
             const totalPrice = +val;
 
@@ -481,7 +431,6 @@ export default {
         },
 
          "makeOrderForm.limit_price" (val) {
-            if (this.makeOrderForm.buyType !== 'price') return;
             const price = +val;
             const totalPrice = +this.makeOrderForm.totalPrice;
 
@@ -498,12 +447,6 @@ export default {
 
             this.$set(this.makeOrderForm, 'volume', 0)
         },
-
-        "makeOrderForm.price_type" (val) {
-            if (+val === 1) {
-                this.makeOrderForm.buyType = 'volume'
-            }
-        }
     },
 
     methods: {
@@ -645,7 +588,6 @@ export default {
                 this.currentAccount = '';
             }
 
-            this.$set(this.makeOrderForm, 'buyType', 'volume')
             this.$set(this.makeOrderForm, 'instrument_type', '')
             this.$set(this.makeOrderForm, 'exchange_id', '')
             this.$set(this.makeOrderForm, 'limit_price', 0)
