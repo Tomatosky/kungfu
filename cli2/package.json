@@ -17,7 +17,7 @@
     "node": ">=12"
   },
   "scripts": {
-    "install-deps": "patch",
+    "install-deps": "yarn run patch",
     "patch": "./node_modules/.bin/patch-package",
     "clean": "rimraf ./dist/* ./build/*",
     "build": "node -v",
