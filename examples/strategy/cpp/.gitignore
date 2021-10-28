@@ -39,9 +39,6 @@ yarn.lock
 
 #js third part
 */lib
-*/inquirer-path/lib/*
-*/inquirer-path/lib
-*/inquirer-path/node_modules/*
 */_version.py
 
 # Python Distribution / packaging

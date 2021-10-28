@@ -7,7 +7,7 @@ import { writeCSV } from '__gUtils/fileUtils';
 const os = require('os');
 const path = require('path');
 const inquirer = require( 'inquirer' );
-const { PathPrompt } = require('@/assets/static/js/inquirer-path/lib');
+const { PathPrompt } = require('inquirer-path');
 inquirer.registerPrompt('autocomplete', require('inquirer-autocomplete-prompt'));
 inquirer.registerPrompt('path', PathPrompt);
 

@@ -7,7 +7,7 @@ import { parseSources, renderSelect, getQuestionInputType, getKungfuTypeFromStri
 const os = require('os');
 const colors = require('colors');
 const inquirer = require( 'inquirer' );
-const { PathPrompt } = require('@/assets/static/js/inquirer-path/lib');
+const { PathPrompt } = require('inquirer-path');
 inquirer.registerPrompt('autocomplete', require('inquirer-autocomplete-prompt'));
 inquirer.registerPrompt('path', PathPrompt);
 

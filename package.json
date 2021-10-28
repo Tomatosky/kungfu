@@ -5,14 +5,20 @@
   "description": "KungFu Trader",
   "license": "Apache-2.0",
   "private": true,
-  "workspaces": [
-    "shared",
-    "core",
-    "kfext_task_timerTrader",
-    "kfext_task_backwards",
-    "cli2",
-    "app"
-  ],
+  "workspaces": {
+    "packages": [
+      "shared",
+      "core",
+      "kfext_task_timerTrader",
+      "kfext_task_backwards",
+      "cli2",
+      "app"
+    ],
+    "nohoist": [
+      "**/inquirer-path", 
+      "**/inquirer-path/**" 
+    ]
+  },
   "scripts": {
     "license-sync": "git pull && git checkout license && git rebase dev/v2/v2.3 && git push -f origin license && git checkout dev/v2/v2.3",
     "postinstall": "yarn wsrun --serial install-deps",

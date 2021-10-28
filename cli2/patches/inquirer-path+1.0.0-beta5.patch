@@ -1,0 +1,13 @@
+diff --git a/node_modules/inquirer-path/lib/PathAutocomplete.js b/node_modules/inquirer-path/lib/PathAutocomplete.js
+index e8d31a7..28ce7bc 100644
+--- a/node_modules/inquirer-path/lib/PathAutocomplete.js
++++ b/node_modules/inquirer-path/lib/PathAutocomplete.js
+@@ -34,7 +34,7 @@ var PathAutocomplete = function () {
+     _classCallCheck(this, PathAutocomplete);
+ 
+     this.cwd = new _Path2.default(cwd);
+-    if (!this.cwd.isExistingDirectory()) {
++    if (!this.cwd.isExistingDirectory() && directoryOnly) {
+       throw new Error('The provided working directory ' + cwd + ' does not exist or is not a directory.');
+     }
+     this.path = this.cwd;
