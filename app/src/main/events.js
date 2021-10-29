@@ -54,7 +54,7 @@ export function exportAllTradingData (mainWindow) {
 }
 
 function sendMsgToMainWindow (mainWindow, msg) {
-    if (mainWindow && mainWindow.webContents) {
+    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
 		mainWindow.webContents.send('main-process-messages', msg)
 		mainWindow.focus()
 	}

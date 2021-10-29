@@ -75,26 +75,24 @@ function createWindow (reloadAfterCrashed = false) {
 	});
 
 	MainWindow.on('close', (e) => {
-		if (CrashedReloading) {
-			AllowQuit = false;
-			return;
-		}
-
 		if (AllowQuit) {
 			return;
 		}
 
 		e.preventDefault();
-		showQuitMessageBox(MainWindow)
-			.then(res => {
-				if (res) {
-					AllowQuit = true;
-				}
-			})	
-			.catch(err => {
-				console.error(err)
-			})
-
+		if (CrashedReloading) {
+			AllowQuit = false;
+		} else {
+			showQuitMessageBox(MainWindow)
+				.then(res => {
+					if (res) {
+						AllowQuit = true;
+					}
+				})	
+				.catch(err => {
+					console.error(err)
+				})
+		}
 	})
 
 
