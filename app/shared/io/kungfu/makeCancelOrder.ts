@@ -50,6 +50,7 @@ export const kungfuMakeOrder = (makeOrderData: MakeOrderData, accountId: string,
     const orderInput = {
         ...longfist.OrderInput(),
         ...makeOrderData,
+        limit_price: makeOrderData.limit_price || 0,
         frozen_price: makeOrderData.limit_price || 0,
         insert_time: watcher.now()
     }
