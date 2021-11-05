@@ -4,6 +4,7 @@ import { killGodDaemon, killKfc, killKungfu, killExtra, pm2KillAll } from '__gUt
 import { delayMilliSeconds } from "__gUtils/busiUtils";
 import { platform } from '__gConfig/platformConfig';
 import { reqRecordBeforeQuit, clearProcessBeforeQuitStart, clearProcessBeforeQuitEnd  } from "./events";
+import { logger } from '__gUtils/logUtils';
 
 const path = require('path');
 const packageJSON = require('__root/package.json');
@@ -38,6 +39,7 @@ export function showKungfuInfo () {
 //结束所有进程
 function KillAll () {
 	return new Promise(resolve => {
+		logger.info("[Kill All]");
 		pm2KillAll()
 			.catch(err => console.error(err)) 
 			.finally(() => {

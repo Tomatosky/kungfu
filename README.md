@@ -76,7 +76,7 @@ sudo ln -s /usr/local/Cellar/openssl/1.0.2s/lib/libcrypto.1.0.0.dylib libcrypto.
 
 开发组在 Visual Studio 2019 16.5.0 环境下进行工作。
 
-下载并安装 [git](https://git-scm.com/download/win)，[Python 3](https://www.python.org/downloads/windows/)，[CMake](https://cmake.org/install/)，[Node.js LTS 10.16.0](https://nodejs.org/en/download/) 并添加相应路径至 %PATH% 环境变量。
+下载并安装 [git](https://git-scm.com/download/win), [Python 3](https://www.python.org/downloads/windows/), [CMake](https://cmake.org/install/), [Node.js LTS 10.16.0](https://nodejs.org/en/download/) 并添加相应路径至 %PATH% 环境变量。
 
 ```
 C:\> npm install -g yarn electron-builder
@@ -166,20 +166,22 @@ $HOME/.local/share/virtualenvs      # pipenv(unix) 存储的 Python 依赖
 
 # Version 版本
 * 2.3.7:
-    * 增加渲染进程断开的重开处理，保证交易稳定性
-    * ctp增加请求对应经纪商保证金比例
-    * 增加了渲染进程的错误拦截机制
-    * 修正了 cli monit bugs
-    * 修正了前端bugs
+    * [app] 增加渲染进程断开的重开处理，保证交易稳定性
+    * [app] 增加了渲染进程的错误拦截机制
+    * [app] 修正了 ui bugs, 优化了ui部分退出流程
+    * [cli] 增加了 cli 手续费设置
+    * [cli] 修正了 cli monit bugs
+    * [柜台] ctp 增加请求对应经纪商保证金比例
+    * [柜台] sim 修正不显示空单持仓
 * 2.3.6:
-    * 优化数据传输，提升交互性能
-    * 行情模块与账户模块合并
-    * 增加档位下单，优化添加标的以及下单体验
-    * 修正了最大启动次数的bug
-    * cli 增加导出全部
-    * 修正cli机制，不再获取当前session之前的数据，避免了多条cli进程造成 database is locked 的问题
-    * 修正ctp, 以及部分柜台bugs
-    * 修正前端bugs
+    * [app] 优化数据传输，提升交互性能
+    * [app] 行情模块与账户模块合并
+    * [app] 增加档位下单，优化添加标的以及下单体验
+    * [app] 修正前端bugs
+    * [cli] cli 增加导出全部
+    * [cli] 修正cli机制，不再获取当前session之前的数据，避免了多条cli进程造成 database is locked 的问题
+    * [柜台] 修正ctp, 以及部分柜台bugs
+    * [柜台] 修正了最大启动次数的bug
 * 2.3.5:
     * 增加数据通信进程，减小app渲染计算压力
     * 委托成交记录导出增加了精确时间字段
