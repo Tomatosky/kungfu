@@ -39,7 +39,6 @@ export function showKungfuInfo () {
 //结束所有进程
 function KillAll () {
 	return new Promise(resolve => {
-		logger.info("[Kill All]");
 		pm2KillAll()
 			.catch(err => console.error(err)) 
 			.finally(() => {
@@ -49,15 +48,12 @@ function KillAll () {
 						killKungfu()
 							.catch(err => console.error(err)) 
 							.finally(() => {
-								killGodDaemon()
-									.catch(err => console.error(err)) 				
+								killExtra() // for keeping sure, kill again
+									.catch(err => console.error(err)) 								
 									.finally(() => {
-										killExtra() // for keeping sure, kill again
-											.catch(err => console.error(err)) 								
-											.finally(() => {
-												resolve(true)
-											})
+										resolve(true)
 									})
+					
 							})
 					})
 			})
