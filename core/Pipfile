@@ -2,6 +2,7 @@
 conan = "==1.31"
 pywin32 = {version = "==227",sys_platform = "== 'win32'"}
 pyinstaller = "==4.6"
+pycryptodome = "==3.9.7"
 click = "==7.1.1"
 tabulate = "==0.8.6"
 prompt_toolkit = "==1.0.14"
