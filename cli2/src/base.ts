@@ -16,5 +16,6 @@ console.error = (log: string) => {
     console.log(`${colors.red('ERROR')} ${log}`)
 }
 
-export const { initConfig } = require('__assets/base')
+export const { initConfig, copyKungfuKey } = require('__assets/base')
 initConfig();
+copyKungfuKey();
