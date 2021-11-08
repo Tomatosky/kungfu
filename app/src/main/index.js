@@ -69,9 +69,7 @@ function createWindow (reloadAfterCrashed = false) {
 	MainWindow.on('ready-to-show', function() {
 		MainWindow.show();
 		MainWindow.focus();
-		if (reloadAfterCrashed) {
-			CrashedReloading = false;
-		}
+		CrashedReloading = false;
 	});
 
 	MainWindow.on('close', (e) => {

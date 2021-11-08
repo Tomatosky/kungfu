@@ -34,7 +34,7 @@ export const watcher: any = (() => {
     }
 
     const id = [process.env.APP_TYPE, process.env.RENDERER_TYPE].join('');
-    const bypassRestore = process.env.RELOAD_AFTER_CRASHED ? true : false;
+    const bypassRestore = +(process.env.RELOAD_AFTER_CRASHED || 0) ? true : false;
     return kungfu.watcher(KF_RUNTIME_DIR, kungfu.formatStringToHashHex(id), true, bypassRestore);
 })()
 
