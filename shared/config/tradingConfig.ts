@@ -117,7 +117,8 @@ export const ExchangeIds: StringToStringObject = {
     "DCE": "大商所",
     "CZCE": "郑商所",
     "CFFEX": "中金所",
-    "INE": "能源中心"
+    "INE": "能源中心",
+    "BINANCE": "币安"
 }
 
 export const InstrumentTypes: StringToNumberObject = {
