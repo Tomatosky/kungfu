@@ -165,6 +165,8 @@ $HOME/.local/share/virtualenvs      # pipenv(unix) 存储的 Python 依赖
 
 
 # Version 版本
+* 2.3.8:
+    * [base] 将写sqlite操作拆分为原子操作，不会造成主控进程堵塞
 * 2.3.7:
     * [app] 增加渲染进程断开的重开处理，保证交易稳定性
     * [app] 增加了渲染进程的错误拦截机制

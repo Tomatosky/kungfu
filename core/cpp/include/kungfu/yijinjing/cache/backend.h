@@ -118,6 +118,11 @@ public:
     storage_map_.at(event->dest())->replace(event->template data<DataType>());
   }
 
+  template <typename DataType> void operator<<(const state<DataType> &s) {
+    ensure_storage(s.dest);
+    storage_map_.at(s.dest)->replace(s.data);
+  }
+
   template <typename DataType> void operator-=(const typed_event_ptr<DataType> &event) {
     ensure_storage(event->dest());
     storage_map_.at(event->dest())->template remove_all<DataType>();
