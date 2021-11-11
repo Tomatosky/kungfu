@@ -240,7 +240,6 @@ export default {
                 exchange_id: '',
                 limit_price: 0,
                 volume: 0,
-                totalPrice: 0,
                 side: 0,
                 offset: 0,
                 price_type: 0,
@@ -368,6 +367,7 @@ export default {
             this.$set(this.makeOrderForm, 'instrument_id', instrumentId || '');
             this.$set(this.makeOrderForm, 'exchange_id', exchangeId || '');
             this.$set(this.makeOrderForm, 'limit_price', lastPrice || 0);
+            
             if (volume && !Number.isNaN(volume)) {
                 this.$set(this.makeOrderForm, 'volume', volume);
             }
@@ -410,43 +410,7 @@ export default {
                         })
                 })
             
-        },
-
-        "makeOrderForm.totalPrice" (val) {
-            const price = +this.makeOrderForm.limit_price;
-            const totalPrice = +val;
-
-            if (price && !isNaN(price)) {
-                if (totalPrice && !isNaN(totalPrice)) {
-                    if (totalPrice > 0) {
-                        if (price > 0) {
-                            this.$set(this.makeOrderForm, 'volume', Math.floor(totalPrice / price))
-                            return;
-                        }
-                    }
-                }
-            }
-
-            this.$set(this.makeOrderForm, 'volume', 0)
-        },
-
-         "makeOrderForm.limit_price" (val) {
-            const price = +val;
-            const totalPrice = +this.makeOrderForm.totalPrice;
-
-            if (price && !isNaN(price)) {
-                if (totalPrice && !isNaN(totalPrice)) {
-                    if (totalPrice > 0) {
-                        if (price > 0) {
-                            this.$set(this.makeOrderForm, 'volume', Math.floor(totalPrice / price))
-                            return;
-                        }
-                    }
-                }
-            }
-
-            this.$set(this.makeOrderForm, 'volume', 0)
-        },
+        }
     },
 
     methods: {
@@ -591,7 +555,6 @@ export default {
             this.$set(this.makeOrderForm, 'instrument_type', '')
             this.$set(this.makeOrderForm, 'exchange_id', '')
             this.$set(this.makeOrderForm, 'limit_price', 0)
-            this.$set(this.makeOrderForm, 'totalPrice', 0)
             this.$set(this.makeOrderForm, 'volume', 0)
             this.$set(this.makeOrderForm, 'side', 0)
             this.$set(this.makeOrderForm, 'offset', 0)
