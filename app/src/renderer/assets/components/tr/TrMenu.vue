@@ -38,7 +38,7 @@ export default {
             const t = this
             t.activeRouter = item
             if (t.router) {
-                t.$router.push(item).catch(err => {})
+                t.$router.push(item)
             }
         }
     }
