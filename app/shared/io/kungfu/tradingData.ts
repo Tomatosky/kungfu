@@ -36,23 +36,17 @@ const appDataSubject: any = new Subject();
             const positions = ensureLedgerData(ledgerData.Position).map((item: PosOriginData) => dealPos(item));
             const positionsByTicker = transformTradingItemListToData(positions, 'ticker');
             const assets = ensureLedgerData(ledgerData.Asset).map((item: AssetOriginData) => dealAsset(item));
-            const pnl = ensureLedgerData(ledgerData.AssetSnapshot, 'update_time').map((item: AssetSnapshotOriginData) => dealSnapshot(item));
-            const dailyAsset = ensureLedgerData(ledgerData.DailyAsset, 'trading_day').map((item: AssetSnapshotOriginData) => dealSnapshot(item));
             const quotes = ensureLedgerData(ledgerData.Quote);
 
             const accountTradingDataPipeData = {
                 positions: transformTradingItemListToData(positions, 'account'),
                 positionsByTicker,
                 assets: transformAssetItemListToData(assets, 'account'),
-                pnl: transformTradingItemListToData(pnl, 'account'),
-                dailyPnl: transformTradingItemListToData(dailyAsset, 'account'),
             }
     
             const strategyTradingDataPipeData = {
                 positions: transformTradingItemListToData(positions, 'strategy'),
                 assets: transformAssetItemListToData(assets, 'strategy'),
-                pnl: transformTradingItemListToData(pnl, 'strategy'),
-                dailyPnl: transformTradingItemListToData(dailyAsset, 'strategy'),
             }
     
             deamonDataSubject.next({

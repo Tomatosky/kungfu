@@ -39,7 +39,7 @@ export const watcher: any = (() => {
 })()
 
 
-export const startGetKungfuWatcherStep = (interval = 500) => {
+export const startGetKungfuWatcherStep = (interval = 1000) => {
     if (watcher.noWatcher) return;
     
     return setTimerPromiseTask(() => {
@@ -49,7 +49,17 @@ export const startGetKungfuWatcherStep = (interval = 500) => {
             }
 
             if (watcher.isLive()) {
-                watcher.step();
+                if ((window as any).requestIdleCallback) {
+                    (window as any).requestIdleCallback(() => {
+                        console.time("step")
+                        watcher.step();
+                        console.timeEnd("step")
+                        resolve(true);
+                    }, { timeout: 2000 })
+                } else {
+                    watcher.step();
+                    resolve(true);
+                }
             }
             
             resolve(true);

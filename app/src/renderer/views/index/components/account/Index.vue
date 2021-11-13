@@ -135,7 +135,15 @@ import TaskRecord from '@/components/Task/TaskRecord';
 import OrderBook from '@/components/MarketFilter/components/OrderBook';
 import MarketData from '@/components/MarketFilter/components/MarketData';
 
-import { watcher, transformPositionByTickerByMerge, transformOrderStatListToData, getOrdersBySourceDestInstrumentId, getTradesBySourceDestInstrumentId, getOrderStatByDest } from '__io/kungfu/watcher';
+import { 
+    watcher, 
+    transformPositionByTickerByMerge, 
+    transformOrderStatListToData, 
+    getOrdersBySourceDestInstrumentId, 
+    getTradesBySourceDestInstrumentId, 
+    getOrderStatByDest, 
+    dealSnapshot 
+} from '__io/kungfu/watcher';
 import { encodeKungfuLocation } from '__io/kungfu/kungfuUtils';
 import { buildTradingDataAccountPipeByDaemon, buildMarketDataPipeByDaemon } from '@/ipcMsg/daemon';
 
@@ -365,13 +373,21 @@ export default {
             this.orderStat = Object.freeze(orderStatResolved); 
       
             const positions = data['positions'][this.currentId];
-
             this.positions = Object.freeze(positions || []);
+            
+            if (this.currentTradesPnlTabNum == 'pnl') {
+                this.pnl = ledgerData.AssetSnapshot
+                    .filter("ledger_category", 0)
+                    .filter("dest", this.currentLocationUID)
+                    .sort('update_time')
+                    .map(item => Object.freeze(dealSnapshot(item)));
 
-            const pnl = data['pnl'][this.currentId];
-            this.pnl = Object.freeze(pnl || []);
-            const dailyPnl = data['dailyPnl'][this.currentId];
-            this.dailyPnl = Object.freeze(dailyPnl || []);
+                this.dailyPnl = ledgerData.DailyAsset
+                    .filter("ledger_category", 0)
+                    .filter("dest", this.currentLocationUID)
+                    .sort('update_time')
+                    .map(item => Object.freeze(dealSnapshot(item)));
+            }
         },
 
 

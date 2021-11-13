@@ -125,7 +125,15 @@ import MainContent from '@/components/Layout/MainContent';
 
 import { buildTradingDataStrategyPipeByDaemon } from '@/ipcMsg/daemon';
 import { buildKungfuDataByAppPipe } from '__io/kungfu/tradingData';
-import { watcher, transformOrderStatListToData, getOrderInputBySourceDest, getOrdersBySourceDestInstrumentId, getTradesBySourceDestInstrumentId, getOrderStatByDest, dealOrderInput, dealOrder, dealTrade } from '__io/kungfu/watcher';
+import { 
+    watcher, 
+    transformOrderStatListToData, 
+    getOrderInputBySourceDest, 
+    getOrdersBySourceDestInstrumentId, 
+    getTradesBySourceDestInstrumentId, 
+    getOrderStatByDest, 
+    dealSnapshot
+} from '__io/kungfu/watcher';
 import { encodeKungfuLocation } from '__io/kungfu/kungfuUtils';
 
 import accountStrategyMixins from '@/views/index/js/accountStrategyMixins';
@@ -155,15 +163,8 @@ export default {
 
     mounted(){
         this.tradingDataPipe = buildTradingDataStrategyPipeByDaemon().subscribe(data => {
-            
             const positions = data['positions'][this.strategyId];
             this.positions = Object.freeze(positions || []);
-  
-            const pnl = data['pnl'][this.strategyId];
-            this.pnl = Object.freeze(pnl || []);
-            const dailyPnl = data['dailyPnl'][this.strategyId];
-            this.dailyPnl = Object.freeze(dailyPnl || []);
-
             const assets = data['assets'];
             this.$store.dispatch('setStrategiesAsset', Object.freeze(assets));
         });
@@ -179,6 +180,20 @@ export default {
             if (!this.isHistoryDataTrade) {
                 const trades = getTradesBySourceDestInstrumentId(ledgerData.Trade, 'dest', this.currentLocationUID);
                 this.trades = Object.freeze(trades || []);
+            }
+
+            if (this.currentStrategyPosPnlTab == 'pnl') {
+            this.pnl = ledgerData.AssetSnapshot
+                .filter("ledger_category", 1)
+                .filter("dest", this.currentLocationUID)
+                .sort('update_time')
+                .map(item => Object.freeze(dealSnapshot(item)));
+
+            this.dailyPnl = ledgerData.DailyAsset
+                .filter("ledger_category", 1)
+                .filter("dest", this.currentLocationUID)
+                .sort('update_time')
+                .map(item => Object.freeze(dealSnapshot(item)));
             }
 
             //策略不会产生 orderStat
