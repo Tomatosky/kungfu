@@ -35,7 +35,7 @@ export const watcher: any = (() => {
 
     const id = [process.env.APP_TYPE, process.env.RENDERER_TYPE].join('');
     const bypassRestore = +(process.env.RELOAD_AFTER_CRASHED || 0) ? true : false;
-    return kungfu.watcher(KF_RUNTIME_DIR, kungfu.formatStringToHashHex(id), true, bypassRestore);
+    return kungfu.watcher(KF_RUNTIME_DIR, kungfu.formatStringToHashHex(id), bypassQuote, bypassRestore);
 })()
 
 
@@ -51,11 +51,11 @@ export const startGetKungfuWatcherStep = (interval = 1000) => {
             if (watcher.isLive()) {
                 if ((window as any).requestIdleCallback) {
                     (window as any).requestIdleCallback(() => {
-                        console.time("step")
+                        // console.time('step')
                         watcher.step();
-                        console.timeEnd("step")
+                        // console.timeEnd('step')
                         resolve(true);
-                    }, { timeout: 2000 })
+                    }, { timeout: 5000 })
                 } else {
                     watcher.step();
                     resolve(true);
@@ -208,7 +208,7 @@ export const transformTradingItemListToData = (list: any[], type: string) => {
         list.kfForEach((item: any) => {
             if (!item.accountId) return;
             if (!item.instrumentId) return;
-            const instrumentId = `${item.instrumentId}_${item.directionOrigin}`;
+            const instrumentId = `${item.exchangeId}_${item.instrumentId}_${item.directionOrigin}`;
             if (!instrumentId) return;
             if (!data[instrumentId]) data[instrumentId] = [];
             data[instrumentId].push(item)
@@ -318,7 +318,7 @@ export const getOrderInputBySourceDest = (OrderInput: any, type: string, sourceD
     }
 }
 
-export const getOrdersBySourceDestInstrumentId = (Order: any, type: string, sourceDestInstrumentId: number | string, directionOrigin?: number) => {
+export const getOrdersBySourceDestInstrumentId = (Order: any, type: string, sourceDestInstrumentId: number | string, exchnageId?: string, directionOrigin?: number) => {
     if (type === 'source') {
         return ensureLedgerData(Order.filter('source', sourceDestInstrumentId), 'update_time')
             .slice(0, 100)
@@ -328,11 +328,16 @@ export const getOrdersBySourceDestInstrumentId = (Order: any, type: string, sour
             .slice(0, 100)
             .map((item: OrderOriginData) => dealOrder(item));
     } else if (type === 'instrument') {
-        return ensureLedgerData(Order.filter('instrument_id', sourceDestInstrumentId), 'update_time')
+        return ensureLedgerData(
+                Order
+                    .filter('instrument_id', sourceDestInstrumentId)
+                    .filter('exchange_id', exchnageId),
+                'update_time'
+            )
             .slice(0, 500)
             .filter((item: OrderOriginData) => {
                 const { offset, side, instrument_type } = item;
-                if (directionOrigin) {
+                if (directionOrigin != undefined) {
                     return originOrderTradesFilterByDirection(directionOrigin, offset, side, instrument_type);
                 } else {
                     return false
@@ -347,7 +352,7 @@ export const getOrdersBySourceDestInstrumentId = (Order: any, type: string, sour
 }
 
 
-export const getTradesBySourceDestInstrumentId = (Trade: any, type: string, sourceDestInstrumentId: number | string, directionOrigin?: number) => {
+export const getTradesBySourceDestInstrumentId = (Trade: any, type: string, sourceDestInstrumentId: number | string, exchnageId?: string, directionOrigin?: number) => {
     if (type === 'source') {
         return ensureLedgerData(Trade.filter('source', sourceDestInstrumentId), 'trade_time')
             .slice(0, 100)
@@ -357,11 +362,16 @@ export const getTradesBySourceDestInstrumentId = (Trade: any, type: string, sour
             .slice(0, 100)
             .map((item: TradeOriginData) => dealTrade(item));
     } else if (type === 'instrument') {
-        return ensureLedgerData(Trade.filter('instrument_id', sourceDestInstrumentId), 'trade_time')
-            .slice(0, 1000)
+        return ensureLedgerData(
+            Trade
+                .filter('instrument_id', sourceDestInstrumentId)
+                .filter('exchange_id', exchnageId),
+            'update_time'
+        )
+            .slice(0, 500)
             .filter((item: OrderOriginData) => {
                 const { offset, side, instrument_type } = item;
-                if (directionOrigin) {
+                if (directionOrigin != undefined) {
                     return originOrderTradesFilterByDirection(directionOrigin, offset, side, instrument_type);
                 } else {
                     return false

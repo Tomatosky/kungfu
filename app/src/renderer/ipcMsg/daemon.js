@@ -15,33 +15,6 @@ _pm2.launchBus((err, pm2_bus) => {
     })
 })
 
-export const buildTradingDataAccountPipeByDaemon = () => {
-    return baseDaemonDataObserver
-        .pipe(
-            filter(packet => {
-                const { type } = packet || {};
-                return type === "DEAMON_TRADING_DATA_ACCOUNT"
-            }),
-            map(packet => {
-                const { body } = packet || {};
-                return body.data
-            })
-        )
-}
-
-export const buildTradingDataStrategyPipeByDaemon = () => {
-    return baseDaemonDataObserver
-        .pipe(
-            filter(packet => {
-                const { type } = packet || {};
-                return type === "DEAMON_TRADING_DATA_STRATEGY"
-            }),
-            map(packet => {
-                const { body } = packet || {};
-                return body.data
-            })
-        )
-}
 
 export const buildKungfuGlobalDataPipeByDaemon = () => {
     return baseDaemonDataObserver

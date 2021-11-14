@@ -1,5 +1,4 @@
 import {
-    buildTradingDataPipe,
     buildMarketDataPipe,
     buildKungfuGlobalDataPipe,
 } from "__io/kungfu/tradingData";
@@ -11,36 +10,6 @@ import * as PM2_METHODS from './pm2Methods';
 startGetKungfuWatcherStep()
 
 var QuotesRequiredInApp: {[prop: string]: TickerInTickerSet} = {};
-
-//daemon 要考虑的性能，daemon计算占用cpu/内存，传输序列化需要限制大小，同时避免在渲染进程做大量计算
-buildTradingDataPipe('account').subscribe((data: any) => {
-    //@ts-ignore
-    process.send({
-        type: "process:msg",
-        data: {
-            type: "DEAMON_TRADING_DATA_ACCOUNT",
-            body: {
-                timestamp: new Date().getTime(),
-                data,
-            }
-        }
-    })
-})
-
-buildTradingDataPipe('strategy').subscribe((data: any) => {
-    //@ts-ignore
-    process.send({
-        type: "process:msg",
-        data: {
-            type: "DEAMON_TRADING_DATA_STRATEGY",
-            body: {
-                timestamp: new Date().getTime(),
-                data,
-            }
-        }
-    })
-})
-
 
 buildKungfuGlobalDataPipe().subscribe((data: any) => {
     //@ts-ignore
