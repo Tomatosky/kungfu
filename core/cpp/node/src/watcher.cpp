@@ -234,10 +234,10 @@ Napi::Value Watcher::RequestMarketData(const Napi::CallbackInfo &info) {
 }
 
 Napi::Value Watcher::UpdateQuote(const Napi::CallbackInfo& info) {
-  for(auto& pair : quotes_bank_[boost::hana::type_c<Quote>]) {
-    auto& state = pair.second;
-    update_ledger(state.update_time, state.source, state.dest, state.data);
-  }
+  // for(auto& pair : quotes_bank_[boost::hana::type_c<Quote>]) {
+  //   auto& state = pair.second;
+  //   update_ledger(state.update_time, state.source, state.dest, state.data);
+  // }
 
   return Napi::Boolean::New(info.Env(), true);
 }

@@ -85,14 +85,3 @@ export const buildGatewayStatePipe = () => {
         })
     )
 }
-
-export const buildInstrumentsDataPipe = () => {
-    return appDataSubject.pipe(
-        map((data: any) => {
-            return {
-                instruments: data.instruments
-            }
-        })
-    )
-}
-

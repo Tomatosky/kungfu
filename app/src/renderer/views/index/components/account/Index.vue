@@ -304,8 +304,6 @@ export default {
                     }
                 })
                 console.timeEnd("deal quote")
-                console.log(this.quoteData)
-                    
 
                 this.dataDealing = false;
             }, { timeout: 2000 })

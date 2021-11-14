@@ -2,7 +2,7 @@ import {
     buildKungfuGlobalDataPipe,
 } from "__io/kungfu/tradingData";
 
-import { startGetKungfuWatcherStep, startUpdateKungfuWatcherQuotes, transformTradingItemListToData, dealQuote } from '__io/kungfu/watcher';
+import { startGetKungfuWatcherStep, startUpdateKungfuWatcherQuotes } from '__io/kungfu/watcher';
 
 import * as PM2_METHODS from './pm2Methods';
 
