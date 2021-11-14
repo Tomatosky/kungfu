@@ -22,7 +22,7 @@ export const watcher: any = (() => {
     if (process.env.APP_TYPE === 'cli') {
         const windowType = process.env.CLI_WINDOW_TYPE || '';
         const id = [process.env.APP_TYPE, windowType].join('');
-        return kungfu.watcher(KF_RUNTIME_DIR, kungfu.formatStringToHashHex(id), bypassQuote, true);
+        return kungfu.watcher(KF_RUNTIME_DIR, kungfu.formatStringToHashHex(id), true, true);
     }
 
     if (process.env.APP_TYPE === "daemon") {
@@ -49,11 +49,11 @@ export const startGetKungfuWatcherStep = (interval = 1000) => {
             }
 
             if (watcher.isLive()) {
-                if ((window as any).requestIdleCallback) {
+                if (process.env.APP_TYPE == 'renderer') {
                     (window as any).requestIdleCallback(() => {
-                        // console.time('step')
+                        console.time('step')
                         watcher.step();
-                        // console.timeEnd('step')
+                        console.timeEnd('step')
                         resolve(true);
                     }, { timeout: 5000 })
                 } else {
@@ -65,6 +65,33 @@ export const startGetKungfuWatcherStep = (interval = 1000) => {
             resolve(true);
         })
     }, interval);
+}
+
+export const startUpdateKungfuWatcherQuotes = (interval = 5000) => {
+    if (watcher.noWatcher) return;
+
+    return setTimerPromiseTask(() => {
+        return new Promise((resolve) => {
+            if (!watcher.isLive() || !watcher.isStarted() || !watcher.isUsable()) {
+                resolve(false)
+                return;
+            }
+
+            if (watcher.isLive()) {
+                if (process.env.APP_TYPE == 'renderer') {
+                    (window as any).requestIdleCallback(() => {
+                        console.time('updateQuote')
+                        watcher.updateQuote();
+                        console.timeEnd('updateQuote')
+                        resolve(true);
+                    }, { timeout: 5000 })
+                } else {
+                    watcher.updateQuote();
+                    resolve(true);
+                }
+            }
+        })
+    }, interval)
 }
 
 

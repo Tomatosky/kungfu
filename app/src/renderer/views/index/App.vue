@@ -67,7 +67,7 @@ import DatePickerDialog from '@/components/Base/DatePickerDialog';
 import AuthDialog from '@/components/Base/AuthingDialog';
 import SystemPrepareDialog from '@/components/Base/SystemPrepareDialog';
 
-import { buildMarketDataPipeByDaemon, buildKungfuGlobalDataPipeByDaemon } from '@/ipcMsg/daemon';
+import { buildKungfuGlobalDataPipeByDaemon } from '@/ipcMsg/daemon';
 import { buildGatewayStatePipe, buildKungfuDataByAppPipe } from '__io/kungfu/tradingData';
 import { watcher, dealAsset, transformAssetItemListToData } from '__io/kungfu/watcher';
 
@@ -126,7 +126,6 @@ export default {
 
         this.bindKungfuGlobalDataListener();
         this.bindTradingDataListener();
-        this.bindQuotesListener();
         this.bindBusEvent();
         this.bindMdTdStateChangeEvent();
 
@@ -167,12 +166,6 @@ export default {
     },
 
     methods: {
-        bindQuotesListener () {
-            buildMarketDataPipeByDaemon().subscribe(data => {
-                this.$store.dispatch('setQuotes', Object.freeze(Object.values(data).map(item => Object.freeze(item))))   
-            })
-        },
-
         bindTradingDataListener () {
             buildKungfuDataByAppPipe().subscribe(() => {
 

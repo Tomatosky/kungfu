@@ -133,7 +133,6 @@ import {
     getOrderStatByDest, 
     dealSnapshot,
     dealPos,
-    dealAsset
 } from '__io/kungfu/watcher';
 import { encodeKungfuLocation } from '__io/kungfu/kungfuUtils';
 
@@ -144,6 +143,7 @@ export default {
 
     data(){
         this.moduleType = 'strategy';
+        this.dataDealing = false;
 
         return {
             orders: Object.freeze([]),
@@ -158,56 +158,20 @@ export default {
             monitStrategies: false,
             currentStrategyDetailTab: "log",
             currentStrategyPosPnlTab: "pos",
+
         }
     },
 
     mounted(){
         this.orderStatPipe = buildKungfuDataByAppPipe().subscribe(() => {
-            const ledgerData = watcher.ledger;
+            
+            if (this.dataDealing) return;
+            this.dataDealing = true;
 
-            if (!this.isHistoryDataOrder) {
-                const orders = getOrdersBySourceDestInstrumentId(ledgerData.Order, 'dest', this.currentLocationUID);
-                this.orders = Object.freeze(orders || []);
-            }
-
-            if (!this.isHistoryDataTrade) {
-                const trades = getTradesBySourceDestInstrumentId(ledgerData.Trade, 'dest', this.currentLocationUID);
-                this.trades = Object.freeze(trades || []);
-            }
-
-            this.positions = Object.freeze(
-                ledgerData.Position
-                    .filter('ledger_category', 1)
-                    .filter('client_id', this.currentStrategy.strategy_id)
-                    .list()
-                    .filter(item => item.volume != 0)
-                    .map(item => Object.freeze(dealPos(item)))
-            )
-
-            if (this.currentStrategyPosPnlTab == 'pnl') {
-                this.pnl = ledgerData.AssetSnapshot
-                    .filter("ledger_category", 1)
-                    .filter("dest", this.currentLocationUID)
-                    .sort('update_time')
-                    .map(item => Object.freeze(dealSnapshot(item)));
-
-                this.dailyPnl = ledgerData.DailyAsset
-                    .filter("ledger_category", 1)
-                    .filter("dest", this.currentLocationUID)
-                    .sort('update_time')
-                    .map(item => Object.freeze(dealSnapshot(item)));
-            }
-
-            //策略不会产生 orderStat
-            const orderStat = getOrderStatByDest(ledgerData.OrderStat);
-            const orderStatResolved = transformOrderStatListToData(orderStat);
-            this.orderStat = Object.freeze(orderStatResolved);
-
-            //优化
-            if (this.currentStrategyDetailTab === 'orderMap') {
-                const orderInputs = getOrderInputBySourceDest(ledgerData.OrderInput, 'source', this.currentLocationUID)
-                this.orderInputs = Object.freeze(orderInputs);
-            }
+            window.requestIdleCallback(() => {
+                this.dealTradingData()
+                this.dataDealing = false;
+            })
         })
     },
 
@@ -245,6 +209,56 @@ export default {
         showCurrentIdInTabName (currentTabName, target) {
             return currentTabName === target ? this.strategyId : ''
         },
+
+        dealTradingData () {
+            const ledgerData = watcher.ledger;
+
+            if (!this.isHistoryDataOrder) {
+                const orders = getOrdersBySourceDestInstrumentId(ledgerData.Order, 'dest', this.currentLocationUID);
+                this.orders = Object.freeze(orders || []);
+            }
+
+            if (!this.isHistoryDataTrade) {
+                const trades = getTradesBySourceDestInstrumentId(ledgerData.Trade, 'dest', this.currentLocationUID);
+                this.trades = Object.freeze(trades || []);
+            }
+
+            console.time('strategy deal pos')
+            this.positions = Object.freeze(
+                ledgerData.Position
+                    .filter('ledger_category', 1)
+                    .nofilter("volume", BigInt(0))
+                    .filter('client_id', this.currentStrategy.strategy_id)
+                    .list()
+                    .map(item => Object.freeze(dealPos(item)))
+            )
+            console.timeEnd('strategy deal pos')
+
+            if (this.currentStrategyPosPnlTab == 'pnl') {
+                this.pnl = ledgerData.AssetSnapshot
+                    .filter("ledger_category", 1)
+                    .filter("dest", this.currentLocationUID)
+                    .sort('update_time')
+                    .map(item => Object.freeze(dealSnapshot(item)));
+
+                this.dailyPnl = ledgerData.DailyAsset
+                    .filter("ledger_category", 1)
+                    .filter("dest", this.currentLocationUID)
+                    .sort('update_time')
+                    .map(item => Object.freeze(dealSnapshot(item)));
+            }
+
+            //策略不会产生 orderStat
+            const orderStat = getOrderStatByDest(ledgerData.OrderStat);
+            const orderStatResolved = transformOrderStatListToData(orderStat);
+            this.orderStat = Object.freeze(orderStatResolved);
+
+            //优化
+            if (this.currentStrategyDetailTab === 'orderMap') {
+                const orderInputs = getOrderInputBySourceDest(ledgerData.OrderInput, 'source', this.currentLocationUID)
+                this.orderInputs = Object.freeze(orderInputs);
+            }
+        }
     }
 }
 </script>

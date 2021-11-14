@@ -3,14 +3,10 @@ import { map } from 'rxjs/operators';
 
 import { 
     watcher,
-    dealGatewayStates, 
-    transformTradingItemListToData, 
-    transformAssetItemListToData,
-    dealPos,
-    dealAsset,
+    dealGatewayStates,
 } from '__io/kungfu/watcher';
 
-import { setTimerPromiseTask, ensureLedgerData } from '__gUtils/busiUtils';
+import { setTimerPromiseTask } from '__gUtils/busiUtils';
 
 
 const deamonDataSubject: any = new Subject();
@@ -28,20 +24,7 @@ const appDataSubject: any = new Subject();
     };
 
     setTimerPromiseTask(async () => {
-            const ledgerData = watcher.ledger;
-            const positions = ensureLedgerData(ledgerData.Position).map((item: PosOriginData) => dealPos(item));
-            const positionsByTicker = transformTradingItemListToData(positions, 'ticker');
-            const assets = ensureLedgerData(ledgerData.Asset).map((item: AssetOriginData) => dealAsset(item));
-            const quotes = ensureLedgerData(ledgerData.Quote);
-
-            const accountTradingDataPipeData = {
-                positions: transformTradingItemListToData(positions, 'account'),
-                positionsByTicker,
-            }
-    
             deamonDataSubject.next({
-                accountTradingDataPipeData,
-                quotes,
                 globalPipeData: {
                     daemonIsLive: watcher.isLive(),
                 }
@@ -80,15 +63,6 @@ const appDataSubject: any = new Subject();
     }, 1000)
 
 })();
-
-
-export const buildMarketDataPipe = () => {
-    return deamonDataSubject.pipe(
-        map((data: any) => {
-            return data.quotes
-        })
-    )
-}
 
 export const buildKungfuGlobalDataPipe = () => {
     return deamonDataSubject.pipe(

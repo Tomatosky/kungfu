@@ -14,6 +14,7 @@
 #include <kungfu/wingchun/book/bookkeeper.h>
 #include <kungfu/wingchun/broker/client.h>
 #include <kungfu/yijinjing/practice/apprentice.h>
+#include <kungfu/yijinjing/cache/runtime.h>
 
 namespace kungfu::node {
 constexpr uint64_t ID_TRANC = 0x00000000FFFFFFFF;
@@ -71,6 +72,8 @@ public:
 
   Napi::Value RequestMarketData(const Napi::CallbackInfo &info);
 
+  Napi::Value UpdateQuote(const Napi::CallbackInfo& info);
+
   static void Init(Napi::Env env, Napi::Object exports);
 
 protected:
@@ -94,12 +97,15 @@ private:
   serialize::JsUpdateState update_ledger;
   serialize::JsPublishState publish;
   serialize::JsResetCache reset_cache;
+  yijinjing::cache::bank quotes_bank_;
 
   static constexpr auto bypass = [](yijinjing::practice::apprentice *app, bool bypass_quotes) {
     return rx::filter([=](const event_ptr &event) {
       return not(app->get_location(event->source())->category == longfist::enums::category::MD and bypass_quotes);
     });
   };
+
+  void Feed(const event_ptr& event);
 
   void RestoreState(const yijinjing::data::location_ptr &state_location, int64_t from, int64_t to, bool sync_schema);
 

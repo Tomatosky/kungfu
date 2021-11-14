@@ -233,6 +233,15 @@ Napi::Value Watcher::RequestMarketData(const Napi::CallbackInfo &info) {
   return Napi::Boolean::New(info.Env(), true);
 }
 
+Napi::Value Watcher::UpdateQuote(const Napi::CallbackInfo& info) {
+  for(auto& pair : quotes_bank_[boost::hana::type_c<Quote>]) {
+    auto& state = pair.second;
+    update_ledger(state.update_time, state.source, state.dest, state.data);
+  }
+
+  return Napi::Boolean::New(info.Env(), true);
+}
+
 void Watcher::Init(Napi::Env env, Napi::Object exports) {
   Napi::HandleScope scope(env);
 
@@ -250,6 +259,7 @@ void Watcher::Init(Napi::Env env, Napi::Object exports) {
                                         InstanceMethod("publishState", &Watcher::PublishState),                   //
                                         InstanceMethod("isReadyToInteract", &Watcher::IsReadyToInteract),         //
                                         InstanceMethod("issueOrder", &Watcher::IssueOrder),                       //
+                                        InstanceMethod("updateQuote", &Watcher::UpdateQuote),                     //
                                         InstanceMethod("cancelOrder", &Watcher::CancelOrder),                     //
                                         InstanceMethod("requestMarketData", &Watcher::RequestMarketData),         //
                                         InstanceAccessor("locator", &Watcher::GetLocator, &Watcher::NoSet),       //
@@ -278,8 +288,8 @@ void Watcher::on_start() {
   bookkeeper_.guard_positions();
   bookkeeper_.set_bypass_quotes(bypass_quotes_);
 
-  events_ | bypass(this, bypass_quotes_) | $$(feed_state_data(event, update_ledger));
-  events_ | bypass(this, bypass_quotes_) | is(Quote::tag) | $$(UpdateBook(event, event->data<Quote>()));
+  events_ | bypass(this, bypass_quotes_) | $$(Feed(event));
+  // events_ | bypass(this, bypass_quotes_) | is(Quote::tag) | $$(UpdateBook(event, event->data<Quote>()));
   events_ | is(OrderInput::tag) | $$(UpdateBook(event, event->data<OrderInput>()));
   events_ | is(Order::tag) | $$(UpdateBook(event, event->data<Order>()));
   events_ | is(Trade::tag) | $$(UpdateBook(event, event->data<Trade>()));
@@ -290,6 +300,14 @@ void Watcher::on_start() {
   events_ | is(Deregister::tag) | $$(OnDeregister(event->gen_time(), event->data<Deregister>()));
   events_ | is(BrokerStateUpdate::tag) | $$(UpdateBrokerState(event->source(), event->data<BrokerStateUpdate>()));
   events_ | is(CacheReset::tag) | $$(reset_cache(event));
+}
+
+void Watcher::Feed(const event_ptr& event) {
+  if (Quote::tag == event->msg_type()) {
+    feed_state_data(event, quotes_bank_);
+  } else {
+    feed_state_data(event, update_ledger);
+  }
 }
 
 void Watcher::RestoreState(const location_ptr &state_location, int64_t from, int64_t to, bool sync_schema) {

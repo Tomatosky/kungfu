@@ -144,10 +144,10 @@ import {
     getTradesBySourceDestInstrumentId, 
     getOrderStatByDest, 
     dealSnapshot,
-    dealPos
+    dealPos,
+    dealQuote
 } from '__io/kungfu/watcher';
 import { encodeKungfuLocation } from '__io/kungfu/kungfuUtils';
-import { buildMarketDataPipeByDaemon } from '@/ipcMsg/daemon';
 import { buildKungfuDataByAppPipe } from '__io/kungfu/tradingData';
 
 import accountStrategyMixins from '@/views/index/js/accountStrategyMixins';
@@ -159,6 +159,7 @@ export default {
 
     data() {
         this.tradingDataPipe = null;
+        this.dataDealing = false;
 
         return {
             orders: Object.freeze([]),
@@ -195,6 +196,7 @@ export default {
             currentTaskId: state => (state.BASE.currentTask || {}).name || '',
             tdAccountSource: state => state.BASE.tdAccountSource || {},
             taskExtConfigList: state => state.BASE.taskExtConfigList || [],
+            subscribedQuoteIds: state => state.MARKET.subscribedQuoteIds || {}
         }),
 
         ...mapGetters([
@@ -259,7 +261,6 @@ export default {
     },
 
     watch: {
-
         moduleType (val) {
             if (val === 'ticker') {
                 this.currentTradesPnlTabNum = 'trades'
@@ -280,16 +281,34 @@ export default {
         this.updateMakeOrderDashboard();
    
         this.tradingDataPipe = buildKungfuDataByAppPipe().subscribe(() => {
+            
+            if (this.dataDealing) return;
+            this.dataDealing = true;
 
-            if (this.moduleType !== 'ticker') {
-                this.dealTradingData();
-            } else {
-                this.dealTradingDataByTiker();
-            }
-        })
+            window.requestIdleCallback(() => {
+                if (this.moduleType !== 'ticker') {
+                    this.dealTradingData();
+                } else {
+                    this.dealTradingDataByTiker();
+                }
+                
+                console.time("deal quote")
+                const quoteList = watcher.ledger.Quote
+                    .list()
+                    .filter(item => !!this.subscribedQuoteIds[`${item.exchange_id}_${item.instrument_id}`])
+                    .map(item => Object.freeze(dealQuote(item)))
+                this.quoteData = [{}, ...quoteList].reduce((target, quote2) => {
+                    return {
+                        ...target,
+                        [`${quote2.exchangeId}_${quote2.instrumentId}`]: quote2
+                    }
+                })
+                console.timeEnd("deal quote")
+                console.log(this.quoteData)
+                    
 
-        this.marketDataPipe = buildMarketDataPipeByDaemon().subscribe(data => {
-            this.quoteData = Object.freeze(data);
+                this.dataDealing = false;
+            }, { timeout: 2000 })
         })
     },
 
@@ -362,29 +381,37 @@ export default {
         dealTradingData () {
             const ledgerData = watcher.ledger;
 
+            console.time("deal order")
             if (!this.isHistoryDataOrder) {
                 const orders = getOrdersBySourceDestInstrumentId(ledgerData.Order, 'source', this.currentLocationUID)
                 this.orders = Object.freeze(orders || []);
             }
+            console.timeEnd("deal order")
 
+            console.time("deal trade")
             if (!this.isHistoryDataTrade) {
                 const trades = getTradesBySourceDestInstrumentId(ledgerData.Trade, 'source', this.currentLocationUID)
                 this.trades = Object.freeze(trades || []);
             }
+            console.timeEnd("deal trade")
 
+            console.time("deal order stats")
             const orderStat = getOrderStatByDest(ledgerData.OrderStat, 'dest', this.currentLocationUID)
             const orderStatResolved = transformOrderStatListToData(orderStat);
             this.orderStat = Object.freeze(orderStatResolved); 
+            console.timeEnd("deal order stats")
       
+            console.time("deal pos")
             this.positions = Object.freeze(
                 ledgerData.Position
                     .filter('ledger_category', 0)
+                    .nofilter("volume", BigInt(0))
                     .filter("source_id", this.currentAccount.source_name)
                     .filter("account_id", this.currentAccountName)
                     .list()
-                    .filter(item => item.volume != 0)
                     .map(item => Object.freeze(dealPos(item)))
             )
+            console.timeEnd("deal pos")
             
             if (this.currentTradesPnlTabNum == 'pnl') {
                 this.pnl = ledgerData.AssetSnapshot
@@ -422,8 +449,8 @@ export default {
 
             
             const allPositions = ledgerData.Position
+                .nofilter("volume", 0)
                 .list()
-                .filter(item => item.volume != 0)
                 .map(item => Object.freeze(dealPos(item)))
             const positionsByTicker = transformTradingItemListToData(allPositions, 'ticker');
             this.positionsByTicker = Object.freeze(transformPositionByTickerByMerge(positionsByTicker, 'account') || []);

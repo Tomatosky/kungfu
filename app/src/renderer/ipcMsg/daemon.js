@@ -29,18 +29,3 @@ export const buildKungfuGlobalDataPipeByDaemon = () => {
             })
         )
 }
-
-export const buildMarketDataPipeByDaemon = () => {
-    return baseDaemonDataObserver
-    .pipe(
-        filter(packet => {
-            const { type } = packet || {};
-            return type === "DEAMON_MARKET_DATA"
-        }),
-        map(packet => {
-            const { body } = packet || {};
-            return body.data
-        })
-    )
-}
-

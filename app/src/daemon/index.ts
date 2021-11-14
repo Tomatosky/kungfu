@@ -1,15 +1,14 @@
 import {
-    buildMarketDataPipe,
     buildKungfuGlobalDataPipe,
 } from "__io/kungfu/tradingData";
 
-import { startGetKungfuWatcherStep, transformTradingItemListToData, dealQuote } from '__io/kungfu/watcher';
+import { startGetKungfuWatcherStep, startUpdateKungfuWatcherQuotes, transformTradingItemListToData, dealQuote } from '__io/kungfu/watcher';
 
 import * as PM2_METHODS from './pm2Methods';
 
-startGetKungfuWatcherStep()
+startGetKungfuWatcherStep(500)
+startUpdateKungfuWatcherQuotes(500)
 
-var QuotesRequiredInApp: {[prop: string]: TickerInTickerSet} = {};
 
 buildKungfuGlobalDataPipe().subscribe((data: any) => {
     //@ts-ignore
@@ -26,31 +25,6 @@ buildKungfuGlobalDataPipe().subscribe((data: any) => {
 })
 
 
-
-buildMarketDataPipe().subscribe((data: any) => {
-    const QuotesRequiredInAppList = Object.values(QuotesRequiredInApp || {})
-    const quotesAfterFilterKeys = QuotesRequiredInAppList.map((item: TickerInTickerSet) => item.instrumentId)    
-    const quotesAfterFilter =  QuotesRequiredInAppList.length ? data.filter((item: QuoteOriginData) => quotesAfterFilterKeys.indexOf(item.instrument_id) !== -1) : [];
-    const quotesResolved = quotesAfterFilter.map((item: QuoteOriginData) => dealQuote(item));
-
-    if (!quotesResolved.length) {
-        return;
-    }
-
-    console.log(quotesResolved)
-
-    //@ts-ignore
-    process.send({
-        type: "process:msg",
-        data: {
-            type: "DEAMON_MARKET_DATA",
-            body: {
-                timestamp: new Date().getTime(),
-                data: transformTradingItemListToData(quotesResolved, 'quote'),
-            }
-        }
-    })
-})
 
 // other process to daemon
 const { _pm2 } = require('__gUtils/processUtils');
@@ -98,10 +72,8 @@ process.on('message', (packet) => {
     
     if (type !== 'process:msg')  return;
     switch (topic) {
-        case "MAIN_RENDERER_SUBSCRIBED_TICKERS":
-            data.forEach((item: TickerInTickerSet) => {
-                QuotesRequiredInApp[`${item.instrumentId}_${item.exchangeId}`] = item;
-            });
-            break;
+        default:
+            console.log(data)
+            return;
     }
 })

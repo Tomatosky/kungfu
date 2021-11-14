@@ -30,7 +30,6 @@ import tradingDataMixin from './js/tradingDataMixin';
 import { writeCSV } from '__gUtils/fileUtils';
 import { toDecimal, deepClone } from '__gUtils/busiUtils';
 import { posHeader } from '@/components/Base/tradingData/js/tableHeaderConfig';
-import { sendDataToDaemonByPm2 } from "__gUtils/processUtils";
 
 export default {
     name: 'positions',
@@ -92,7 +91,7 @@ export default {
                 })
 
             if (this.subscribedTickersStr !== subscribedTickersStr) {
-                sendDataToDaemonByPm2('MAIN_RENDERER_SUBSCRIBED_TICKERS', subscribePosTickers)
+                this.$store.dispatch("setSubscribedQuoteIds", subscribePosTickers)
                 this.subscribedTickersStr = subscribedTickersStr;
             }
 
