@@ -26,7 +26,7 @@ export const watcher: any = (() => {
     }
 
     if (process.env.APP_TYPE === "daemon") {
-        return kungfu.watcher(KF_RUNTIME_DIR, kungfu.formatStringToHashHex('kungfu_daemon'), bypassQuote, true);
+        return kungfu.watcher(KF_RUNTIME_DIR, kungfu.formatStringToHashHex('kungfu_daemon'), true, true);
     }
 
     if (process.env.RENDERER_TYPE === 'admin') {
@@ -67,7 +67,7 @@ export const startGetKungfuWatcherStep = (interval = 1000) => {
     }, interval);
 }
 
-export const startUpdateKungfuWatcherQuotes = (interval = 5000) => {
+export const startUpdateKungfuWatcherQuotes = (interval = 2000) => {
     if (watcher.noWatcher) return;
 
     return setTimerPromiseTask(() => {

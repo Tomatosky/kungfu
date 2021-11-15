@@ -6,8 +6,8 @@ import { startGetKungfuWatcherStep, startUpdateKungfuWatcherQuotes } from '__io/
 
 import * as PM2_METHODS from './pm2Methods';
 
-startGetKungfuWatcherStep(500)
-startUpdateKungfuWatcherQuotes(500)
+startGetKungfuWatcherStep(1000)
+// startUpdateKungfuWatcherQuotes(500)
 
 
 buildKungfuGlobalDataPipe().subscribe((data: any) => {

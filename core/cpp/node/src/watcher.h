@@ -34,6 +34,8 @@ public:
 
   Napi::Value GetLocationUID(const Napi::CallbackInfo &info);
 
+  Napi::Value GetInstrumentUID(const Napi::CallbackInfo& info);
+
   Napi::Value GetConfig(const Napi::CallbackInfo &info);
 
   Napi::Value GetHistory(const Napi::CallbackInfo &info);
@@ -98,6 +100,7 @@ private:
   serialize::JsPublishState publish;
   serialize::JsResetCache reset_cache;
   yijinjing::cache::bank quotes_bank_;
+  std::unordered_map<uint32_t, longfist::types::InstrumentKey> subscribed_instruments_ = {};
 
   static constexpr auto bypass = [](yijinjing::practice::apprentice *app, bool bypass_quotes) {
     return rx::filter([=](const event_ptr &event) {
