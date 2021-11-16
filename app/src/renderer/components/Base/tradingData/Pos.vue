@@ -30,7 +30,7 @@ import tradingDataMixin from './js/tradingDataMixin';
 import { writeCSV } from '__gUtils/fileUtils';
 import { toDecimal, deepClone } from '__gUtils/busiUtils';
 import { posHeader } from '@/components/Base/tradingData/js/tableHeaderConfig';
-import { sendDataToDaemonByPm2 } from "__gUtils/processUtils";
+import { kungfuSubscribeInstrument } from '__io/kungfu/makeCancelOrder';
 
 export default {
     name: 'positions',
@@ -70,30 +70,44 @@ export default {
     },
 
     watch: {
-        kungfuData (positions) {
+        async kungfuData (positions) {
             const positionsResolved = this.dealPositionList(positions, this.searchKeyword) || {};
             const dataList = positionsResolved.dataList || [];
             this.tableData = dataList;
             this.dataByKey = positionsResolved.dataByKey || {};
 
             //订阅行情
-            const subscribePosTickers = dataList.map(item => {
-                return {
-                    instrumentId: item.instrumentId,
-                    exchangeId: item.exchangeId,
-                    source: item.sourceId
-                }
+            const subscribePosTickers = dataList
+                .filter(item => !!item.sourceId)
+                .map(item => {
+                    return {
+                        instrumentId: item.instrumentId,
+                        exchangeId: item.exchangeId,
+                        source: item.sourceId
+                    }
             })
+
             const subscribedTickersStr = subscribePosTickers.slice(0)
                 .sort((item1, item2) => {
                     const id1 = `${item1.instrumentId}_${item1.exchangeId}`;
                     const id2 = `${item2.instrumentId}_${item2.exchangeId}`;
                     return id1.localeCompare(id2);
                 })
+                .map(item => `${item.instrumentId}_${item.exchangeId}`)
+                .join(", ")
 
-            if (this.subscribedTickersStr !== subscribedTickersStr) {
-                sendDataToDaemonByPm2('MAIN_RENDERER_SUBSCRIBED_TICKERS', subscribePosTickers)
-                this.subscribedTickersStr = subscribedTickersStr;
+            if (subscribePosTickers.length) {
+                if (this.subscribedTickersStr !== subscribedTickersStr) {
+                    const isMdReady = await Promise.all(subscribePosTickers.map(item => {
+                        const { instrumentId, source, exchangeId } = item;
+                        return kungfuSubscribeInstrument(source, exchangeId, instrumentId)
+                    }))
+
+                    if (isMdReady.filter(item => !!item).length === isMdReady.length) {
+                        this.$store.dispatch("setSubscribedQuoteIds", subscribePosTickers)
+                        this.subscribedTickersStr = subscribedTickersStr;
+                    }
+                }
             }
 
             //更新orderbook

@@ -11,7 +11,7 @@ export default {
 
         marketAvgVolume: {},
 
-        quotes: [],
+        subscribedQuoteIds: {},
     },
 
     actions: {
@@ -27,14 +27,18 @@ export default {
             commit('SET_MARKET_AVG_VOLUME', { days, data })
         },
 
-        setQuotes ({ commit }, quotes) {
-            commit('SET_QUOTES', quotes)
-        }
+        setSubscribedQuoteIds ({ commit }, quotes) {
+            console.log("setSubscribedQuoteIds", quotes)
+            commit('SET_SUBSCRIBED_QUOTE_IDS', quotes)
+        },
     },
 
     mutations: {
-        SET_QUOTES (state, quotes) {
-            state.quotes = quotes;
+        SET_SUBSCRIBED_QUOTE_IDS (state, quotes) {
+            quotes.forEach(quote => {
+                const id = `${quote.exchangeId}_${quote.instrumentId}`
+                Vue.set(state.subscribedQuoteIds, id, true)
+            })
         },
 
         SET_TICKER_SETS (state, tickerSets) {

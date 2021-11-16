@@ -1,45 +1,13 @@
 import {
-    buildTradingDataPipe,
-    buildMarketDataPipe,
     buildKungfuGlobalDataPipe,
 } from "__io/kungfu/tradingData";
 
-import { startGetKungfuWatcherStep, transformTradingItemListToData, dealQuote } from '__io/kungfu/watcher';
+import { startGetKungfuWatcherStep, startUpdateKungfuWatcherQuotes } from '__io/kungfu/watcher';
 
 import * as PM2_METHODS from './pm2Methods';
 
-startGetKungfuWatcherStep()
-
-var QuotesRequiredInApp: {[prop: string]: TickerInTickerSet} = {};
-
-//daemon 要考虑的性能，daemon计算占用cpu/内存，传输序列化需要限制大小，同时避免在渲染进程做大量计算
-buildTradingDataPipe('account').subscribe((data: any) => {
-    //@ts-ignore
-    process.send({
-        type: "process:msg",
-        data: {
-            type: "DEAMON_TRADING_DATA_ACCOUNT",
-            body: {
-                timestamp: new Date().getTime(),
-                data,
-            }
-        }
-    })
-})
-
-buildTradingDataPipe('strategy').subscribe((data: any) => {
-    //@ts-ignore
-    process.send({
-        type: "process:msg",
-        data: {
-            type: "DEAMON_TRADING_DATA_STRATEGY",
-            body: {
-                timestamp: new Date().getTime(),
-                data,
-            }
-        }
-    })
-})
+startGetKungfuWatcherStep(1000)
+// startUpdateKungfuWatcherQuotes(500)
 
 
 buildKungfuGlobalDataPipe().subscribe((data: any) => {
@@ -57,31 +25,6 @@ buildKungfuGlobalDataPipe().subscribe((data: any) => {
 })
 
 
-
-buildMarketDataPipe().subscribe((data: any) => {
-    const QuotesRequiredInAppList = Object.values(QuotesRequiredInApp || {})
-    const quotesAfterFilterKeys = QuotesRequiredInAppList.map((item: TickerInTickerSet) => item.instrumentId)    
-    const quotesAfterFilter =  QuotesRequiredInAppList.length ? data.filter((item: QuoteOriginData) => quotesAfterFilterKeys.indexOf(item.instrument_id) !== -1) : [];
-    const quotesResolved = quotesAfterFilter.map((item: QuoteOriginData) => dealQuote(item));
-
-    if (!quotesResolved.length) {
-        return;
-    }
-
-    console.log(quotesResolved)
-
-    //@ts-ignore
-    process.send({
-        type: "process:msg",
-        data: {
-            type: "DEAMON_MARKET_DATA",
-            body: {
-                timestamp: new Date().getTime(),
-                data: transformTradingItemListToData(quotesResolved, 'quote'),
-            }
-        }
-    })
-})
 
 // other process to daemon
 const { _pm2 } = require('__gUtils/processUtils');
@@ -129,10 +72,8 @@ process.on('message', (packet) => {
     
     if (type !== 'process:msg')  return;
     switch (topic) {
-        case "MAIN_RENDERER_SUBSCRIBED_TICKERS":
-            data.forEach((item: TickerInTickerSet) => {
-                QuotesRequiredInApp[`${item.instrumentId}_${item.exchangeId}`] = item;
-            });
-            break;
+        default:
+            console.log(data)
+            return;
     }
 })

@@ -3,22 +3,14 @@ import { map } from 'rxjs/operators';
 
 import { 
     watcher,
-
-    dealGatewayStates, 
-    transformTradingItemListToData, 
-    transformAssetItemListToData,
-    dealPos,
-    dealAsset,
-    dealSnapshot,
+    dealGatewayStates,
 } from '__io/kungfu/watcher';
 
-import { setTimerPromiseTask, ensureLedgerData } from '__gUtils/busiUtils';
+import { setTimerPromiseTask } from '__gUtils/busiUtils';
 
 
 const deamonDataSubject: any = new Subject();
-
 const appDataSubject: any = new Subject();
-
 
 
 (() => {
@@ -32,27 +24,7 @@ const appDataSubject: any = new Subject();
     };
 
     setTimerPromiseTask(async () => {
-            const ledgerData = watcher.ledger;
-            const positions = ensureLedgerData(ledgerData.Position).map((item: PosOriginData) => dealPos(item));
-            const positionsByTicker = transformTradingItemListToData(positions, 'ticker');
-            const assets = ensureLedgerData(ledgerData.Asset).map((item: AssetOriginData) => dealAsset(item));
-            const quotes = ensureLedgerData(ledgerData.Quote);
-
-            const accountTradingDataPipeData = {
-                positions: transformTradingItemListToData(positions, 'account'),
-                positionsByTicker,
-                assets: transformAssetItemListToData(assets, 'account'),
-            }
-    
-            const strategyTradingDataPipeData = {
-                positions: transformTradingItemListToData(positions, 'strategy'),
-                assets: transformAssetItemListToData(assets, 'strategy'),
-            }
-    
             deamonDataSubject.next({
-                accountTradingDataPipeData,
-                strategyTradingDataPipeData,
-                quotes,
                 globalPipeData: {
                     daemonIsLive: watcher.isLive(),
                 }
@@ -80,26 +52,8 @@ const appDataSubject: any = new Subject();
         return new Promise(resolve => {
             const ledgerData = watcher.ledger;
 
-            let instrumentsAfterFilter: InstrumentOriginData[] = []; 
-            if (process.env.APP_TYPE !== 'cli') {
-                const instruments = ensureLedgerData(ledgerData.Instrument);
-                instrumentsAfterFilter = instruments
-                    .filter((item: InstrumentOriginData) => {
-                        //普通股票 期货 股票期权 基金 科创板股票 指数
-                        if (item.instrument_type === 1) return true;
-                        if (item.instrument_type === 2) return true;
-                        if (item.instrument_type === 4) return true;
-                        if (item.instrument_type === 5) return true;
-                        if (item.instrument_type === 6) return true;
-                        if (item.instrument_type === 7) return true;
-        
-                        return false
-                    });
-
-            }
-
             appDataSubject.next({
-                instruments: instrumentsAfterFilter,
+                instruments: ledgerData.instruments,
                 gatewayStates: dealGatewayStates(watcher.appStates)
             })
 
@@ -109,23 +63,6 @@ const appDataSubject: any = new Subject();
     }, 1000)
 
 })();
-
-
-export const buildTradingDataPipe = (type: string) => {
-    return deamonDataSubject.pipe(
-        map((data: any) => {
-            return type === 'account' ? data.accountTradingDataPipeData : data.strategyTradingDataPipeData;
-        })
-    )
-}
-
-export const buildMarketDataPipe = () => {
-    return deamonDataSubject.pipe(
-        map((data: any) => {
-            return data.quotes
-        })
-    )
-}
 
 export const buildKungfuGlobalDataPipe = () => {
     return deamonDataSubject.pipe(
@@ -148,14 +85,3 @@ export const buildGatewayStatePipe = () => {
         })
     )
 }
-
-export const buildInstrumentsDataPipe = () => {
-    return appDataSubject.pipe(
-        map((data: any) => {
-            return {
-                instruments: data.instruments
-            }
-        })
-    )
-}
-

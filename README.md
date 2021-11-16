@@ -166,6 +166,8 @@ $HOME/.local/share/virtualenvs      # pipenv(unix) 存储的 Python 依赖
 
 # Version 版本
 * 2.3.8:
+    * [app] 修正了持仓自动订阅逻辑
+    * [app] 优化了node addon部分，app性能不会受策略行情订阅影响
     * [base] 将写sqlite操作拆分为原子操作，不会造成主控进程堵塞
 * 2.3.7:
     * [app] 增加渲染进程断开的重开处理，保证交易稳定性

@@ -1,9 +1,11 @@
 
 import moment from 'moment';
 
+
+import { watcher } from '__io/kungfu/watcher';
 import { debounce } from '__gUtils/busiUtils';
 import { KF_DATASET_QUOTE_DIR } from '__gConfig/pathConfig';
-import { buildInstrumentsDataPipe } from '__io/kungfu/tradingData';
+import { buildGatewayStatePipe } from '__io/kungfu/tradingData';
 
 import Workers from '@/workers/index';
 
@@ -36,8 +38,8 @@ export default {
         bindDealInsturmentsListener () {
             const self = this;
 
-            buildInstrumentsDataPipe().subscribe(data => {
-                const instruments = data['instruments'] || [];
+            buildGatewayStatePipe().subscribe(() => {
+                const instruments = watcher.ledger.Instrument.list() || [];
 
                 if (!instruments || !instruments.length) {
                     localStorage.setItem('instrumentsSavedDate', '');
