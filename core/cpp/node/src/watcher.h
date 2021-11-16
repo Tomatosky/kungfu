@@ -128,7 +128,11 @@ private:
 
   void UpdateBook(const event_ptr &event, const longfist::types::Quote &quote);
 
+  void UpdateBook(int64_t update_time, uint32_t source_id, uint32_t dest_id, const longfist::types::Quote& quote);
+
   void UpdateBook(const event_ptr &event, const longfist::types::Position &position);
+
+  void UpdateBook(int64_t update_time, uint32_t source_id, uint32_t dest_id, const longfist::types::Position& position);
 
   template <typename TradingData> void UpdateBook(const event_ptr &event, const TradingData &data) {
     auto update = [&](uint32_t source, uint32_t dest) {

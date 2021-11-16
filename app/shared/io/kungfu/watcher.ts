@@ -51,9 +51,7 @@ export const startGetKungfuWatcherStep = (interval = 1000) => {
             if (watcher.isLive()) {
                 if (process.env.APP_TYPE == 'renderer') {
                     (window as any).requestIdleCallback(() => {
-                        console.time('step')
                         watcher.step();
-                        console.timeEnd('step')
                         resolve(true);
                     }, { timeout: 5000 })
                 } else {
@@ -67,7 +65,7 @@ export const startGetKungfuWatcherStep = (interval = 1000) => {
     }, interval);
 }
 
-export const startUpdateKungfuWatcherQuotes = (interval = 2000) => {
+export const startUpdateKungfuWatcherQuotes = (interval = 5000) => {
     if (watcher.noWatcher) return;
 
     return setTimerPromiseTask(() => {
@@ -80,9 +78,7 @@ export const startUpdateKungfuWatcherQuotes = (interval = 2000) => {
             if (watcher.isLive()) {
                 if (process.env.APP_TYPE == 'renderer') {
                     (window as any).requestIdleCallback(() => {
-                        console.time('updateQuote')
                         watcher.updateQuote();
-                        console.timeEnd('updateQuote')
                         resolve(true);
                     }, { timeout: 5000 })
                 } else {

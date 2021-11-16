@@ -223,7 +223,7 @@ export default {
                 this.trades = Object.freeze(trades || []);
             }
 
-            console.time('strategy deal pos')
+            // console.time('strategy deal pos')
             this.positions = Object.freeze(
                 ledgerData.Position
                     .filter('ledger_category', 1)
@@ -232,7 +232,7 @@ export default {
                     .list()
                     .map(item => Object.freeze(dealPos(item)))
             )
-            console.timeEnd('strategy deal pos')
+            // console.timeEnd('strategy deal pos')
 
             if (this.currentStrategyPosPnlTab == 'pnl') {
                 this.pnl = ledgerData.AssetSnapshot

@@ -28,6 +28,7 @@ export default {
         },
 
         setSubscribedQuoteIds ({ commit }, quotes) {
+            console.log("setSubscribedQuoteIds", quotes)
             commit('SET_SUBSCRIBED_QUOTE_IDS', quotes)
         },
     },

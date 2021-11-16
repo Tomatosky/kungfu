@@ -292,7 +292,7 @@ export default {
                     this.dealTradingDataByTiker();
                 }
                 
-                console.time("deal quote")
+                // console.time("deal quote")
                 const quoteList = watcher.ledger.Quote
                     .list()
                     .filter(item => !!this.subscribedQuoteIds[`${item.exchange_id}_${item.instrument_id}`])
@@ -303,7 +303,7 @@ export default {
                         [`${quote2.exchangeId}_${quote2.instrumentId}`]: quote2
                     }
                 })
-                console.timeEnd("deal quote")
+                // console.timeEnd("deal quote")
 
                 this.dataDealing = false;
             }, { timeout: 2000 })
@@ -379,27 +379,27 @@ export default {
         dealTradingData () {
             const ledgerData = watcher.ledger;
 
-            console.time("deal order")
+            // console.time("deal order")
             if (!this.isHistoryDataOrder) {
                 const orders = getOrdersBySourceDestInstrumentId(ledgerData.Order, 'source', this.currentLocationUID)
                 this.orders = Object.freeze(orders || []);
             }
-            console.timeEnd("deal order")
+            // console.timeEnd("deal order")
 
-            console.time("deal trade")
+            // console.time("deal trade")
             if (!this.isHistoryDataTrade) {
                 const trades = getTradesBySourceDestInstrumentId(ledgerData.Trade, 'source', this.currentLocationUID)
                 this.trades = Object.freeze(trades || []);
             }
-            console.timeEnd("deal trade")
+            // console.timeEnd("deal trade")
 
-            console.time("deal order stats")
+            // console.time("deal order stats")
             const orderStat = getOrderStatByDest(ledgerData.OrderStat, 'dest', this.currentLocationUID)
             const orderStatResolved = transformOrderStatListToData(orderStat);
             this.orderStat = Object.freeze(orderStatResolved); 
-            console.timeEnd("deal order stats")
+            // console.timeEnd("deal order stats")
       
-            console.time("deal pos")
+            // console.time("deal pos")
             this.positions = Object.freeze(
                 ledgerData.Position
                     .filter('ledger_category', 0)
@@ -409,7 +409,7 @@ export default {
                     .list()
                     .map(item => Object.freeze(dealPos(item)))
             )
-            console.timeEnd("deal pos")
+            // console.timeEnd("deal pos")
             
             if (this.currentTradesPnlTabNum == 'pnl') {
                 this.pnl = ledgerData.AssetSnapshot

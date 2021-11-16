@@ -244,10 +244,9 @@ Napi::Value Watcher::RequestMarketData(const Napi::CallbackInfo &info) {
 Napi::Value Watcher::UpdateQuote(const Napi::CallbackInfo& info) {
   for(auto& pair : quotes_bank_[boost::hana::type_c<Quote>]) {
     auto& state = pair.second;
-    auto uid = state.data.uid();
-    if (subscribed_instruments_.find(uid) != subscribed_instruments_.end()) {
-      update_ledger(state.update_time, state.source, state.dest, state.data);      
-    }
+    bookkeeper_.update_book(state.data);
+    UpdateBook(state.update_time, state.source, state.dest, state.data);
+    update_ledger(state.update_time, state.source, state.dest, state.data);      
   }
 
   return Napi::Boolean::New(info.Env(), true);
@@ -319,7 +318,6 @@ void Watcher::Feed(const event_ptr& event) {
     auto uid = quote.uid();
     if (subscribed_instruments_.find(uid) != subscribed_instruments_.end()) {
       feed_state_data(event, quotes_bank_);
-      UpdateBook(event, quote);
     }
   } else {
     feed_state_data(event, update_ledger);
@@ -414,13 +412,13 @@ void Watcher::UpdateBook(const event_ptr &event, const Quote &quote) {
   for (const auto &item : bookkeeper_.get_books()) {
     auto &book = item.second;
     auto holder_uid = book->asset.holder_uid;
+
     if (holder_uid == ledger_uid) {
       continue;
     }
 
     bool has_long_position_for_quote = book->has_long_position_for(quote);
     bool has_short_position_for_quote = book->has_short_position_for(quote);
-
 
     if (has_long_position_for_quote) {
       UpdateBook(event, book->get_position_for(Direction::Long, quote));
@@ -435,6 +433,32 @@ void Watcher::UpdateBook(const event_ptr &event, const Quote &quote) {
   }
 }
 
+void Watcher::UpdateBook(int64_t update_time, uint32_t source_id, uint32_t dest_id, const longfist::types::Quote& quote) {
+  auto ledger_uid = ledger_location_->uid;
+  for (const auto &item : bookkeeper_.get_books()) {
+    auto &book = item.second;
+    auto holder_uid = book->asset.holder_uid;
+
+    if (holder_uid == ledger_uid) {
+      continue;
+    }
+
+    bool has_long_position_for_quote = book->has_long_position_for(quote);
+    bool has_short_position_for_quote = book->has_short_position_for(quote);
+
+    if (has_long_position_for_quote) {
+      UpdateBook(update_time, source_id, dest_id, book->get_position_for(Direction::Long, quote));
+    }
+    if (has_short_position_for_quote) {
+      UpdateBook(update_time, source_id, dest_id, book->get_position_for(Direction::Short, quote));
+    }
+
+    if (has_short_position_for_quote or has_long_position_for_quote) {
+      update_ledger(update_time, ledger_uid, holder_uid, book->asset);
+    }
+  }
+}
+
 void Watcher::UpdateBook(const event_ptr &event, const Position &position) {
   auto book = bookkeeper_.get_book(position.holder_uid);
   auto &book_position = book->get_position_for(position.direction, position);
@@ -442,4 +466,13 @@ void Watcher::UpdateBook(const event_ptr &event, const Position &position) {
     update_ledger(event->gen_time(), event->source(), event->dest(), book_position);
   }
 }
+
+void Watcher::UpdateBook(int64_t update_time, uint32_t source_id, uint32_t dest_id, const longfist::types::Position& position) {
+  auto book = bookkeeper_.get_book(position.holder_uid);
+  auto &book_position = book->get_position_for(position.direction, position);
+  if (book_position.volume > 0 or book_position.direction == Direction::Long) {
+    update_ledger(update_time, source_id, dest_id, book_position);
+  }
+}
+
 } // namespace kungfu::node
