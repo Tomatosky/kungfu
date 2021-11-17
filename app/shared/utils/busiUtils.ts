@@ -812,3 +812,14 @@ export const hidePasswordByLogger = (config: string) => {
     return JSON.stringify(configCopy);
 }
 
+export const statTime = (name: string) => {
+    if (process.env.NODE_ENV !== "production") {
+        console.time(name);   
+    }
+}
+
+export const statTimeEnd = (name: string) => {
+    if (process.env.NODE_ENV !== "production") {
+        console.timeEnd(name);
+    }
+}

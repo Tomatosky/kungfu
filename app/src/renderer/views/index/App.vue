@@ -70,6 +70,7 @@ import SystemPrepareDialog from '@/components/Base/SystemPrepareDialog';
 import { buildKungfuGlobalDataPipeByDaemon } from '@/ipcMsg/daemon';
 import { buildGatewayStatePipe, buildKungfuDataByAppPipe } from '__io/kungfu/tradingData';
 import { watcher, dealAsset, transformAssetItemListToData } from '__io/kungfu/watcher';
+import { statTime, statTimeEnd } from '__gUtils/busiUtils';
 
 import ipcListenerMixin from '@/ipcMsg/ipcListenerMixin';
 import tickerSetMixin from '@/components/MarketFilter/js/tickerSetMixin';
@@ -169,7 +170,7 @@ export default {
         bindTradingDataListener () {
             buildKungfuDataByAppPipe().subscribe(() => {
 
-                // console.time("asset")
+                statTime("asset")
                 const ledgerData = watcher.ledger;
                 const accountAssets = ledgerData.Asset
                     .filter('ledger_category', 0)
@@ -178,14 +179,13 @@ export default {
                 const accountAssetsResolved = transformAssetItemListToData(accountAssets, 'account');
                 this.$store.dispatch('setAccountsAsset', Object.freeze(accountAssetsResolved));
 
-
                 const strategyAssets = ledgerData.Asset
                     .filter('ledger_category', 1)
                     .list()
                     .map((item) => dealAsset(item));
                 const strategyAssetsResolved = transformAssetItemListToData(strategyAssets, 'strategy');
                 this.$store.dispatch('setStrategiesAsset', Object.freeze(strategyAssetsResolved));
-                // console.timeEnd("asset")
+                statTimeEnd("asset")
             })
         },
 

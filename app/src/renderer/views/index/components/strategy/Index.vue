@@ -135,7 +135,7 @@ import {
     dealPos,
 } from '__io/kungfu/watcher';
 import { encodeKungfuLocation } from '__io/kungfu/kungfuUtils';
-
+import { statTime, statTimeEnd } from '__gUtils/busiUtils';
 import accountStrategyMixins from '@/views/index/js/accountStrategyMixins';
 
 export default {
@@ -223,7 +223,7 @@ export default {
                 this.trades = Object.freeze(trades || []);
             }
 
-            // console.time('strategy deal pos')
+            statTime('strategy deal pos')
             this.positions = Object.freeze(
                 ledgerData.Position
                     .filter('ledger_category', 1)
@@ -232,7 +232,7 @@ export default {
                     .list()
                     .map(item => Object.freeze(dealPos(item)))
             )
-            // console.timeEnd('strategy deal pos')
+            statTimeEnd('strategy deal pos')
 
             if (this.currentStrategyPosPnlTab == 'pnl') {
                 this.pnl = ledgerData.AssetSnapshot

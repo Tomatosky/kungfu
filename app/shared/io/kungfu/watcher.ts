@@ -1,6 +1,6 @@
 import fse from 'fs-extra';
 import { KF_RUNTIME_DIR, KF_CONFIG_PATH } from '__gConfig/pathConfig';
-import { setTimerPromiseTask, originOrderTradesFilterByDirection } from '__gUtils/busiUtils';
+import { statTime, statTimeEnd, setTimerPromiseTask, originOrderTradesFilterByDirection } from '__gUtils/busiUtils';
 import { kungfu } from '__io/kungfu/kungfuUtils';
 import { toDecimal, ensureNum, ensureLedgerData, addTwoItemByKeyForReduce, avgTwoItemByKeyForReduce } from '__gUtils/busiUtils';
 import { OffsetName, OrderStatus, SideName, PosDirection, PriceType, HedgeFlag, InstrumentType, VolumeCondition, TimeCondition } from "kungfu-shared/config/tradingConfig";
@@ -51,7 +51,9 @@ export const startGetKungfuWatcherStep = (interval = 1000) => {
             if (watcher.isLive()) {
                 if (process.env.APP_TYPE == 'renderer') {
                     (window as any).requestIdleCallback(() => {
+                        statTime("step")
                         watcher.step();
+                        statTimeEnd("step")
                         resolve(true);
                     }, { timeout: 5000 })
                 } else {
@@ -65,7 +67,7 @@ export const startGetKungfuWatcherStep = (interval = 1000) => {
     }, interval);
 }
 
-export const startUpdateKungfuWatcherQuotes = (interval = 5000) => {
+export const startUpdateKungfuWatcherQuotes = (interval = 2000) => {
     if (watcher.noWatcher) return;
 
     return setTimerPromiseTask(() => {
@@ -78,7 +80,9 @@ export const startUpdateKungfuWatcherQuotes = (interval = 5000) => {
             if (watcher.isLive()) {
                 if (process.env.APP_TYPE == 'renderer') {
                     (window as any).requestIdleCallback(() => {
+                        statTime('update Quote')
                         watcher.updateQuote();
+                        statTimeEnd('update Quote')
                         resolve(true);
                     }, { timeout: 5000 })
                 } else {
