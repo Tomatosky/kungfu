@@ -42,8 +42,6 @@ public:
 
   void guard_positions();
 
-  void set_bypass_quotes(bool bypass_quotes) { bypass_quotes_ = bypass_quotes; }
-
   void update_book(const event_ptr &event, const longfist::types::InstrumentKey &instrument_key);
 
   void update_book(const event_ptr &event, const longfist::types::Quote &quote);
@@ -77,8 +75,6 @@ public:
 private:
   yijinjing::practice::apprentice &app_;
   broker::Client &broker_client_;
-
-  bool bypass_quotes_ = false;
 
   bool positions_guarded_ = false;
   CommissionMap commissions_ = {};

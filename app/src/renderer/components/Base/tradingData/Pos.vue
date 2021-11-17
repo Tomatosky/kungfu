@@ -1,4 +1,4 @@
-<template>
+\<template>
 <tr-dashboard :title="noTitle ? '' : `持仓 ${currentTitle}`">
     <div slot="dashboard-header">
         <tr-dashboard-header-item>

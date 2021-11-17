@@ -106,12 +106,13 @@ export const HedgeFlag: NumberToStringObject = {
     0: isEnglish ? 'Speculation': '投机',
     1: isEnglish ? 'Arbitrage': '套利',
     2: isEnglish ? 'Hedge': '套保',
-    // 3: isEnglish ? 'Covered': '备兑'
+    3: isEnglish ? 'Covered': '备兑'
 }
 
 export const ExchangeIds: StringToStringObject = {
     "SSE": "上交所",
     "SZE": "深交所",
+    "BSE": "北交所",
     "SHFE": "上期所",
     "DCE": "大商所",
     "CZCE": "郑商所",

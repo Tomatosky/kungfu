@@ -7,6 +7,10 @@ class Source:
     CTP = "ctp"
     XTP = "xtp"
     OES = "oes"
+    TORA = "tora"
+    HUAR = "huar"
+    RONGH = "rongh"
+    
 
 
 class Exchange:
@@ -17,6 +21,7 @@ class Exchange:
     CZCE = "CZCE"
     CFFEX = "CFFEX"
     INE = "INE"
+    BSE = "BSE"
 
 
 class Region:

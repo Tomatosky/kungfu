@@ -295,7 +295,6 @@ void Watcher::on_react() {
 
 void Watcher::on_start() {
   broker_client_.on_start(events_);
-  bookkeeper_.set_bypass_quotes(true);
   bookkeeper_.on_start(events_);
   bookkeeper_.guard_positions();
 
