@@ -123,19 +123,27 @@ import Pos from '@/components/Base/tradingData/Pos';
 import Pnl from '@/components/Base/tradingData/pnl/Index';
 import MainContent from '@/components/Layout/MainContent';
 
-import { buildTradingDataStrategyPipeByDaemon } from '@/ipcMsg/daemon';
 import { buildKungfuDataByAppPipe } from '__io/kungfu/tradingData';
-import { watcher, transformOrderStatListToData, getOrderInputBySourceDest, getOrdersBySourceDestInstrumentId, getTradesBySourceDestInstrumentId, getOrderStatByDest, dealOrderInput, dealOrder, dealTrade } from '__io/kungfu/watcher';
+import { 
+    watcher, 
+    transformOrderStatListToData, 
+    getOrderInputBySourceDest, 
+    getOrdersBySourceDestInstrumentId, 
+    getTradesBySourceDestInstrumentId, 
+    getOrderStatByDest, 
+    dealSnapshot,
+    dealPos,
+} from '__io/kungfu/watcher';
 import { encodeKungfuLocation } from '__io/kungfu/kungfuUtils';
-
+import { statTime, statTimeEnd } from '__gUtils/busiUtils';
 import accountStrategyMixins from '@/views/index/js/accountStrategyMixins';
 
 export default {
     mixins: [ accountStrategyMixins ],
 
     data(){
-        this.tradingDataPipe = null;
         this.moduleType = 'strategy';
+        this.dataDealing = false;
 
         return {
             orders: Object.freeze([]),
@@ -150,52 +158,24 @@ export default {
             monitStrategies: false,
             currentStrategyDetailTab: "log",
             currentStrategyPosPnlTab: "pos",
+
         }
     },
 
     mounted(){
-        this.tradingDataPipe = buildTradingDataStrategyPipeByDaemon().subscribe(data => {
-            
-            const positions = data['positions'][this.strategyId];
-            this.positions = Object.freeze(positions || []);
-  
-            const pnl = data['pnl'][this.strategyId];
-            this.pnl = Object.freeze(pnl || []);
-            const dailyPnl = data['dailyPnl'][this.strategyId];
-            this.dailyPnl = Object.freeze(dailyPnl || []);
-
-            const assets = data['assets'];
-            this.$store.dispatch('setStrategiesAsset', Object.freeze(assets));
-        });
-
         this.orderStatPipe = buildKungfuDataByAppPipe().subscribe(() => {
-            const ledgerData = watcher.ledger;
+            
+            if (this.dataDealing) return;
+            this.dataDealing = true;
 
-            if (!this.isHistoryDataOrder) {
-                const orders = getOrdersBySourceDestInstrumentId(ledgerData.Order, 'dest', this.currentLocationUID);
-                this.orders = Object.freeze(orders || []);
-            }
-
-            if (!this.isHistoryDataTrade) {
-                const trades = getTradesBySourceDestInstrumentId(ledgerData.Trade, 'dest', this.currentLocationUID);
-                this.trades = Object.freeze(trades || []);
-            }
-
-            //策略不会产生 orderStat
-            const orderStat = getOrderStatByDest(ledgerData.OrderStat);
-            const orderStatResolved = transformOrderStatListToData(orderStat);
-            this.orderStat = Object.freeze(orderStatResolved);
-
-            //优化
-            if (this.currentStrategyDetailTab === 'orderMap') {
-                const orderInputs = getOrderInputBySourceDest(ledgerData.OrderInput, 'source', this.currentLocationUID)
-                this.orderInputs = Object.freeze(orderInputs);
-            }
+            window.requestIdleCallback(() => {
+                this.dealTradingData()
+                this.dataDealing = false;
+            })
         })
     },
 
     destroyed(){
-        this.tradingDataPipe && this.tradingDataPipe.unsubscribe();
         this.orderStatPipe && this.orderStatPipe.unsubscribe();
     },
 
@@ -229,6 +209,56 @@ export default {
         showCurrentIdInTabName (currentTabName, target) {
             return currentTabName === target ? this.strategyId : ''
         },
+
+        dealTradingData () {
+            const ledgerData = watcher.ledger;
+
+            if (!this.isHistoryDataOrder) {
+                const orders = getOrdersBySourceDestInstrumentId(ledgerData.Order, 'dest', this.currentLocationUID);
+                this.orders = Object.freeze(orders || []);
+            }
+
+            if (!this.isHistoryDataTrade) {
+                const trades = getTradesBySourceDestInstrumentId(ledgerData.Trade, 'dest', this.currentLocationUID);
+                this.trades = Object.freeze(trades || []);
+            }
+
+            statTime('strategy deal pos')
+            this.positions = Object.freeze(
+                ledgerData.Position
+                    .filter('ledger_category', 1)
+                    .nofilter("volume", BigInt(0))
+                    .filter('client_id', this.currentStrategy.strategy_id)
+                    .list()
+                    .map(item => Object.freeze(dealPos(item)))
+            )
+            statTimeEnd('strategy deal pos')
+
+            if (this.currentStrategyPosPnlTab == 'pnl') {
+                this.pnl = ledgerData.AssetSnapshot
+                    .filter("ledger_category", 1)
+                    .filter("dest", this.currentLocationUID)
+                    .sort('update_time')
+                    .map(item => Object.freeze(dealSnapshot(item)));
+
+                this.dailyPnl = ledgerData.DailyAsset
+                    .filter("ledger_category", 1)
+                    .filter("dest", this.currentLocationUID)
+                    .sort('update_time')
+                    .map(item => Object.freeze(dealSnapshot(item)));
+            }
+
+            //策略不会产生 orderStat
+            const orderStat = getOrderStatByDest(ledgerData.OrderStat);
+            const orderStatResolved = transformOrderStatListToData(orderStat);
+            this.orderStat = Object.freeze(orderStatResolved);
+
+            //优化
+            if (this.currentStrategyDetailTab === 'orderMap') {
+                const orderInputs = getOrderInputBySourceDest(ledgerData.OrderInput, 'source', this.currentLocationUID)
+                this.orderInputs = Object.freeze(orderInputs);
+            }
+        }
     }
 }
 </script>

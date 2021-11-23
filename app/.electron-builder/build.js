@@ -21,10 +21,10 @@ if (pro) {
         "to": "kungfu-extensions/timer-trader"
     })
 
-    baseConfig.extraResources.push({
-        "from": path.join(__dirname, '..', '..', 'kfext_task_backwards', 'lib'),
-        "to": "kungfu-extensions/backwards"
-    })
+    // baseConfig.extraResources.push({
+    //     "from": path.join(__dirname, '..', '..', 'kfext_task_backwards', 'lib'),
+    //     "to": "kungfu-extensions/backwards"
+    // })
 }
 
 if (target) {

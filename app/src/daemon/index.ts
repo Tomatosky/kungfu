@@ -1,45 +1,20 @@
 import {
-    buildTradingDataPipe,
-    buildMarketDataPipe,
     buildKungfuGlobalDataPipe,
 } from "__io/kungfu/tradingData";
-
-import { startGetKungfuWatcherStep, transformTradingItemListToData, dealQuote } from '__io/kungfu/watcher';
+import { aliveOrderStatusList } from 'kungfu-shared/config/tradingConfig';
+import { kungfuSubscribeInstrument, kungfuMakeOrder, kungfuCancelOrder } from '__io/kungfu/makeCancelOrder';
+import { 
+    watcher, 
+    startGetKungfuWatcherStep, 
+    startUpdateKungfuWatcherQuotes, 
+    getTargetOrdersByParentId,
+    decodeKungfuLocation
+} from '__io/kungfu/watcher';
 
 import * as PM2_METHODS from './pm2Methods';
 
-startGetKungfuWatcherStep()
-
-var QuotesRequiredInApp: {[prop: string]: TickerInTickerSet} = {};
-
-//daemon 要考虑的性能，daemon计算占用cpu/内存，传输序列化需要限制大小，同时避免在渲染进程做大量计算
-buildTradingDataPipe('account').subscribe((data: any) => {
-    //@ts-ignore
-    process.send({
-        type: "process:msg",
-        data: {
-            type: "DEAMON_TRADING_DATA_ACCOUNT",
-            body: {
-                timestamp: new Date().getTime(),
-                data,
-            }
-        }
-    })
-})
-
-buildTradingDataPipe('strategy').subscribe((data: any) => {
-    //@ts-ignore
-    process.send({
-        type: "process:msg",
-        data: {
-            type: "DEAMON_TRADING_DATA_STRATEGY",
-            body: {
-                timestamp: new Date().getTime(),
-                data,
-            }
-        }
-    })
-})
+startGetKungfuWatcherStep(200)
+startUpdateKungfuWatcherQuotes(200)
 
 
 buildKungfuGlobalDataPipe().subscribe((data: any) => {
@@ -57,31 +32,6 @@ buildKungfuGlobalDataPipe().subscribe((data: any) => {
 })
 
 
-
-buildMarketDataPipe().subscribe((data: any) => {
-    const QuotesRequiredInAppList = Object.values(QuotesRequiredInApp || {})
-    const quotesAfterFilterKeys = QuotesRequiredInAppList.map((item: TickerInTickerSet) => item.instrumentId)    
-    const quotesAfterFilter =  QuotesRequiredInAppList.length ? data.filter((item: QuoteOriginData) => quotesAfterFilterKeys.indexOf(item.instrument_id) !== -1) : [];
-    const quotesResolved = quotesAfterFilter.map((item: QuoteOriginData) => dealQuote(item));
-
-    if (!quotesResolved.length) {
-        return;
-    }
-
-    console.log(quotesResolved)
-
-    //@ts-ignore
-    process.send({
-        type: "process:msg",
-        data: {
-            type: "DEAMON_MARKET_DATA",
-            body: {
-                timestamp: new Date().getTime(),
-                data: transformTradingItemListToData(quotesResolved, 'quote'),
-            }
-        }
-    })
-})
 
 // other process to daemon
 const { _pm2 } = require('__gUtils/processUtils');
@@ -101,6 +51,8 @@ _pm2.launchBus((err: Error, pm2_bus: any) => {
             accountId, 
             ticker, 
             parentId, 
+            exchangeId, 
+            sourceId, 
         } = packetData.body || {
             accountId: '', 
             ticker: '', 
@@ -119,6 +71,31 @@ _pm2.launchBus((err: Error, pm2_bus: any) => {
                 PM2_METHODS.resPosData(pm2Id, accountId, processName)
                 PM2_METHODS.resOrderData(pm2Id, parentId, processName)
                 break;
+            case "SUBSCRIBE_BY_TICKER":
+                const sourceName = accountId ? (accountId || '').toSourceName() : sourceId;
+                kungfuSubscribeInstrument(sourceName, exchangeId, ticker)
+                break;
+            case 'MAKE_ORDER_BY_PARENT_ID':
+                const makeOrderData = packetData.body;
+                const markOrderDataResolved = {
+                    ...makeOrderData,
+                    parent_id: BigInt(makeOrderData.parent_id)
+                }
+                kungfuMakeOrder(markOrderDataResolved, makeOrderData.name)
+                    .catch((err: Error) => {
+                        console.error(err)
+                    })
+                break;
+            case 'CANCEL_ORDER_BY_PARENT_ID':
+                const ordersByParentId = getTargetOrdersByParentId(watcher.ledger.Order, parentId);
+                ordersByParentId
+                    .filter((order: OrderData) => aliveOrderStatusList.includes(+(order.status || 0)))
+                    .forEach((order: OrderData) => {
+                        const kungfuLocation = decodeKungfuLocation(+order.source);
+                        const accountId = `${kungfuLocation.group}_${kungfuLocation.name}`;
+                        kungfuCancelOrder(order.orderId, accountId)
+                    })
+                break
         }
     })
 })
@@ -129,10 +106,8 @@ process.on('message', (packet) => {
     
     if (type !== 'process:msg')  return;
     switch (topic) {
-        case "MAIN_RENDERER_SUBSCRIBED_TICKERS":
-            data.forEach((item: TickerInTickerSet) => {
-                QuotesRequiredInApp[`${item.instrumentId}_${item.exchangeId}`] = item;
-            });
-            break;
+        default:
+            console.log(data)
+            return;
     }
 })

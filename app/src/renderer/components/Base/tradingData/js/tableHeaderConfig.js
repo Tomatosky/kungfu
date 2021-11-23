@@ -24,7 +24,7 @@ export const ordersHeader = (dateForHistory, moduleType) => {
             type: "number",
             label: "委托价",
             prop: "limitPrice",
-            width: '80px'
+            width: '120px'
         },{
             type: "text",
             align: "center",

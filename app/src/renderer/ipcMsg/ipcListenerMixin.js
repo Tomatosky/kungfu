@@ -109,44 +109,8 @@ export default {
                     const pm2Id = processData.pm_id;
                     const processName = processData.name;
                     const dataType = packetData.type;
-                    const { 
-                        accountId, 
-                        exchangeId, 
-                        ticker, 
-                        parentId, 
-                        sourceId,  
-                    } = packetData.body || {};
-
+            
                     switch (dataType) {
-                        case 'MAKE_ORDER_BY_PARENT_ID':
-                            const makeOrderData = packetData.body;
-                            const markOrderDataResolved = {
-                                ...makeOrderData,
-                                parent_id: BigInt(makeOrderData.parent_id)
-                            }
-                            return this.makeOrder('account', markOrderDataResolved, makeOrderData.name)
-                                .catch(err => {
-                                    this.$message.error(err.message)
-                                })
-
-                        case 'CANCEL_ORDER_BY_PARENT_ID':
-                            const ordersByParentId = getTargetOrdersByParentId(watcher.ledger.Order, parentId);
-                            ordersByParentId
-                                .filter(order => aliveOrderStatusList.includes(+(order.status || 0)))
-                                .forEach(order => {
-                                    this.cancelOrder('account', order)
-                                })
-                            break
-
-                        case "SUBSCRIBE_BY_TICKER":
-                            const sourceName = accountId ? (accountId || '').toSourceName() : sourceId;
-                            this.subscribeTickers([{
-                                source: sourceName,
-                                exchangeId,
-                                instrumentId: ticker
-                            }])
-                            break;
-
                         case "SUBSCRIBE_BY_TICKERSET":
                             const { tickerSet } = packetData.body || {}
                             this.subscribeTickersInTickerSet(tickerSet)

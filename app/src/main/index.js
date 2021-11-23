@@ -31,8 +31,8 @@ var CrashedReloading = false;
 
 function createWindow (reloadAfterCrashed = false) {
 	if (reloadAfterCrashed) {
-		MainWindow && MainWindow.destroy();
 		CrashedReloading = true;
+		MainWindow && MainWindow.destroy();
 	}
 
 	// Create the browser window.
@@ -69,6 +69,7 @@ function createWindow (reloadAfterCrashed = false) {
 	MainWindow.on('ready-to-show', function() {
 		MainWindow.show();
 		MainWindow.focus();
+		console.log("ready-to-show")
 		CrashedReloading = false;
 	});
 

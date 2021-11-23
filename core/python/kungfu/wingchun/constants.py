@@ -7,6 +7,10 @@ class Source:
     CTP = "ctp"
     XTP = "xtp"
     OES = "oes"
+    TORA = "tora"
+    HUAR = "huar"
+    RONGH = "rongh"
+    
 
 
 class Exchange:
@@ -17,6 +21,7 @@ class Exchange:
     CZCE = "CZCE"
     CFFEX = "CFFEX"
     INE = "INE"
+    BSE = "BSE"
 
 
 class Region:
@@ -38,7 +43,7 @@ OrderActionFlag = lf.enums.OrderActionFlag
 LedgerCategory = lf.enums.LedgerCategory
 HedgeFlag = lf.enums.HedgeFlag
 CommissionRateMode = lf.enums.CommissionRateMode
-AllFinalOrderStatus = [OrderStatus.Filled, OrderStatus.Error, OrderStatus.PartialFilledNotActive, OrderStatus.Cancelled]
+AllFinalOrderStatus = [int(OrderStatus.Filled), int(OrderStatus.Error), int(OrderStatus.PartialFilledNotActive), int(OrderStatus.Cancelled)]
 
 InstrumentTypeInStockAccount = [InstrumentType.Stock,
                                 InstrumentType.Bond,

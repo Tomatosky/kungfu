@@ -67,9 +67,10 @@ import DatePickerDialog from '@/components/Base/DatePickerDialog';
 import AuthDialog from '@/components/Base/AuthingDialog';
 import SystemPrepareDialog from '@/components/Base/SystemPrepareDialog';
 
-import { buildMarketDataPipeByDaemon, buildTradingDataAccountPipeByDaemon, buildKungfuGlobalDataPipeByDaemon } from '@/ipcMsg/daemon';
-import { buildGatewayStatePipe } from '__io/kungfu/tradingData';
-import { watcher } from '__io/kungfu/watcher';
+import { buildKungfuGlobalDataPipeByDaemon } from '@/ipcMsg/daemon';
+import { buildGatewayStatePipe, buildKungfuDataByAppPipe } from '__io/kungfu/tradingData';
+import { watcher, dealAsset, transformAssetItemListToData } from '__io/kungfu/watcher';
+import { statTime, statTimeEnd } from '__gUtils/busiUtils';
 
 import ipcListenerMixin from '@/ipcMsg/ipcListenerMixin';
 import tickerSetMixin from '@/components/MarketFilter/js/tickerSetMixin';
@@ -126,7 +127,6 @@ export default {
 
         this.bindKungfuGlobalDataListener();
         this.bindTradingDataListener();
-        this.bindQuotesListener();
         this.bindBusEvent();
         this.bindMdTdStateChangeEvent();
 
@@ -167,16 +167,25 @@ export default {
     },
 
     methods: {
-        bindQuotesListener () {
-            buildMarketDataPipeByDaemon().subscribe(data => {
-                this.$store.dispatch('setQuotes', Object.freeze(Object.values(data).map(item => Object.freeze(item))))   
-            })
-        },
-
         bindTradingDataListener () {
-            buildTradingDataAccountPipeByDaemon().subscribe(data => {
-                const assets = data['assets'];
-                this.$store.dispatch('setAccountsAsset', Object.freeze(assets));
+            buildKungfuDataByAppPipe().subscribe(() => {
+
+                statTime("asset")
+                const ledgerData = watcher.ledger;
+                const accountAssets = ledgerData.Asset
+                    .filter('ledger_category', 0)
+                    .list()
+                    .map((item) => dealAsset(item));
+                const accountAssetsResolved = transformAssetItemListToData(accountAssets, 'account');
+                this.$store.dispatch('setAccountsAsset', Object.freeze(accountAssetsResolved));
+
+                const strategyAssets = ledgerData.Asset
+                    .filter('ledger_category', 1)
+                    .list()
+                    .map((item) => dealAsset(item));
+                const strategyAssetsResolved = transformAssetItemListToData(strategyAssets, 'strategy');
+                this.$store.dispatch('setStrategiesAsset', Object.freeze(strategyAssetsResolved));
+                statTimeEnd("asset")
             })
         },
 

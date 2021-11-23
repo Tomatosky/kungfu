@@ -7,7 +7,7 @@ process.env.RELOAD_AFTER_CRASHED = process.argv.includes("reloadAfterCrashed") ?
 
 // debug export
 const { kungfu, longfist, kungfuConfigStore, history, getKungfuDataByDateRange, commissionStore } = require('__io/kungfu/kungfuUtils')
-const { watcher, startGetKungfuWatcherStep } = require('__io/kungfu/watcher');
+const { watcher, startGetKungfuWatcherStep,startUpdateKungfuWatcherQuotes } = require('__io/kungfu/watcher');
 const { KF_RUNTIME_DIR } = require("__gConfig/pathConfig");
 const { _pm2, pm2KillAll } = require("__gUtils/processUtils");
 
@@ -105,5 +105,5 @@ window.testCase.killAll = async () => {
 }
 
 startGetKungfuWatcherStep();
-
+startUpdateKungfuWatcherQuotes();
 

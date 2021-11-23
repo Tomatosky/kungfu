@@ -3,7 +3,6 @@ import { mapGetters, mapState } from 'vuex';
 
 
 import { checkAllMdProcess, getIndexFromTargetTickers, findTargetFromArray, delayMilliSeconds, debounce } from '__gUtils/busiUtils';
-import { sendDataToDaemonByPm2 } from "__gUtils/processUtils";
 import { getTickerSets, addSetTickerSet, removeTickerSetByName } from '__io/actions/market';
 import { kungfuSubscribeInstrument } from '__io/kungfu/makeCancelOrder';
 import { encodeKungfuLocation } from '__io/kungfu/kungfuUtils';
@@ -182,7 +181,7 @@ export default {
 
         subscribeTickers (tickers, slience = true) {
             if (!watcher.isLive()) return;
-            sendDataToDaemonByPm2('MAIN_RENDERER_SUBSCRIBED_TICKERS', tickers)
+            this.$store.dispatch("setSubscribedQuoteIds", tickers)
             tickers.forEach(ticker => {
                 const { instrumentId, source, exchangeId } = ticker;
                 kungfuSubscribeInstrument(source, exchangeId, instrumentId)

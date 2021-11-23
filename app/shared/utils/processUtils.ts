@@ -601,21 +601,6 @@ export const sendDataToProcessIdByPm2 = (topic: string, pm2Id: number, processNa
     })
 }
 
-export const sendDataToDaemonByPm2 = (topic: string, data: any): Promise<any> => {
-    return getKungfuDaemonPmId()
-        .then(pmid => {
-            if (pmid === -1) {
-                return Promise.reject('KungfuDaemon not exsited！')
-            } else {
-                return pmid
-            }
-        })
-        .then((pmId: number): void => {
-            if (!pmId) return;
-            sendDataToProcessIdByPm2(topic, pmId, "kungfuDaemon", data)
-        })
-}
-
 function getKungfuDaemonPmId (): Promise<any> {
     return listProcessStatus()
         .then(({ processStatusWithDetail }) => {
