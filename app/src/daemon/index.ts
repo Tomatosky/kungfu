@@ -1,6 +1,4 @@
-import {
-    buildKungfuGlobalDataPipe,
-} from "__io/kungfu/tradingData";
+import { buildKungfuGlobalDataPipe } from "__io/kungfu/tradingData";
 import { aliveOrderStatusList } from 'kungfu-shared/config/tradingConfig';
 import { kungfuSubscribeInstrument, kungfuMakeOrder, kungfuCancelOrder } from '__io/kungfu/makeCancelOrder';
 import { 
