@@ -55,6 +55,8 @@ _pm2.launchBus((err: Error, pm2_bus: any) => {
             accountId: '', 
             ticker: '', 
             parentId: BigInt(0), 
+            exchangeId: '',
+            sourceId: ''
         };
 
         switch (dataType) {
