@@ -22,6 +22,7 @@ class Exchange:
     CFFEX = "CFFEX"
     INE = "INE"
     BSE = "BSE"
+    BINANCE = "BINANCE"
 
 
 class Region:

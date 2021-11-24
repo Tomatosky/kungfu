@@ -88,6 +88,12 @@ export const SourceTypeConfig: SourceType = {
         kfId: 4,
         color: 'success'
     },
+
+    'Crypto': {
+        name: isEnglish ? 'crypto' : '数字货币',
+        kfId: 5,
+        color: 'success'
+    },
 }
 
 export const TaskTypeConfig: any = {
@@ -130,7 +136,8 @@ export const InstrumentTypes: StringToNumberObject = {
     Fund            :5,
     TechStock       :6,
     Index           :7,
-    Repo            :8
+    Repo            :8,
+    Crypto          :9
 }
 
 
@@ -143,7 +150,8 @@ export const InstrumentType: NumberToStringObject = {
     5: isEnglish ? 'Fund'        : '基金',
     6: isEnglish ? 'TechStock'   : '科创板股票',
     7: isEnglish ? 'Index'       : '指数',
-    8: isEnglish ? 'Repo'        : '回购'
+    8: isEnglish ? 'Repo'        : '回购',
+    9: isEnglish ? 'Crypto'      : '数字货币'
 }
 
 　　
@@ -198,6 +206,13 @@ export const InstrumentTypeWithDetail: NumberToAnyObject = {
 
     8: {
        name: isEnglish ? 'Repo'        : '回购',
+    },
+
+    9: {
+        name: isEnglish ? 'Crypto' : '数字货币',
+        miniTradeUnit: 0.000001,
+        sellToday: true,
+        short: true
     }
 }
 
