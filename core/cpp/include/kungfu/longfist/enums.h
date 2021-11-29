@@ -188,7 +188,7 @@ enum class Direction : int8_t { Long, Short };
 
 inline std::ostream &operator<<(std::ostream &os, Direction t) { return os << int8_t(t); }
 
-enum class AccountType : int8_t { Stock, Credit, Future };
+enum class AccountType : int8_t { Stock, Credit, Future, Crypto };
 
 inline std::ostream &operator<<(std::ostream &os, AccountType t) { return os << int8_t(t); }
 
