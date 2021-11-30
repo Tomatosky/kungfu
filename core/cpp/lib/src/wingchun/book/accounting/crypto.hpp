@@ -52,33 +52,33 @@ namespace kungfu::wingchun::book {
         }
 
         virtual void apply_trade(Book_ptr &book, const Trade &trade) override {
-            kungfu::array<char, INSTRUMENT_ID_LEN> instrument_a;
-            kungfu::array<char, INSTRUMENT_ID_LEN> instrument_b;
-            kungfu::array<char, INSTRUMENT_ID_LEN> instrument_commission;
-            int64_t volume_a = 0;
-            int64_t  volume_b = 0;
-            int64_t volume_commission = 0;
-            get_instrument(book, trade, instrument_a, instrument_b, instrument_commission, volume_a, volume_b, volume_commission);
-            auto  &position_a = book->get_long_position(trade.exchange_id, instrument_a);
-            auto  &position_b = book->get_long_position(trade.exchange_id, instrument_b);
-            auto  &position_commission = book->get_long_position(trade.exchange_id, instrument_commission);
-            if (trade.side == Side::Buy)
-            {
-                position_a.volume += volume_a;
-                position_b.volume -= volume_b;
-            }
-            if (trade.side == Side::Sell)
-            {
-                position_a.volume -= volume_a;
-                position_b.volume += volume_b;
-            }
-            position_commission.volume -= volume_commission;
+            // kungfu::array<char, INSTRUMENT_ID_LEN> instrument_a;
+            // kungfu::array<char, INSTRUMENT_ID_LEN> instrument_b;
+            // kungfu::array<char, INSTRUMENT_ID_LEN> instrument_commission;
+            // int64_t volume_a = 0;
+            // int64_t  volume_b = 0;
+            // int64_t volume_commission = 0;
+            // get_instrument(book, trade, instrument_a, instrument_b, instrument_commission, volume_a, volume_b, volume_commission);
+            // auto  &position_a = book->get_long_position(trade.exchange_id, instrument_a);
+            // auto  &position_b = book->get_long_position(trade.exchange_id, instrument_b);
+            // auto  &position_commission = book->get_long_position(trade.exchange_id, instrument_commission);
+            // if (trade.side == Side::Buy)
+            // {
+            //     position_a.volume += volume_a;
+            //     position_b.volume -= volume_b;
+            // }
+            // if (trade.side == Side::Sell)
+            // {
+            //     position_a.volume -= volume_a;
+            //     position_b.volume += volume_b;
+            // }
+            // position_commission.volume -= volume_commission;
         }
 
         virtual void update_position(Book_ptr &book, Position &position) override {
-             auto position_in = book->get_long_position(position.instrument_id, position.exchange_id);
-             position_in.volume = position.volume;
-             position_in.frozen_total = position.frozen_total;
+            //  auto position_in = book->get_long_position(position.instrument_id, position.exchange_id);
+            //  position_in.volume = position.volume;
+            //  position_in.frozen_total = position.frozen_total;
         }
 
     protected:
