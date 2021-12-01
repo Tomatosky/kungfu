@@ -92,12 +92,24 @@ export const kungfuCancelOrder = (orderId: string, accountId: string, strategyId
     }
 }
 
-export const kungfuCancelAllOrders = (orderDataList: OrderOriginData[], strategyId?: string) => {
+export const kungfuCancelAllOrders = (orderDataList: OrderOriginData[], accountIdOrstrategyId: string, type: 'account' | 'strategy') => {
     if (!watcher.isLive()) {
         return Promise.reject(new Error(`Master 未连接！`))
     }
     
-    const promiseList = orderDataList.map((orderData:  OrderOriginData) => {
+    const promiseList = orderDataList
+    .filter((orderData: OrderOriginData) => {
+        if (type === 'account') {
+            const accountLocation = encodeKungfuLocation(accountIdOrstrategyId, 'td');
+            const sourceId = watcher.getLocationUID(accountLocation);
+            return orderData.source === sourceId
+        } else {
+            const strategyLocation = encodeKungfuLocation(accountIdOrstrategyId, 'strategy');
+            const destId = watcher.getLocationUID(strategyLocation);
+            return orderData.dest === destId
+        }
+    })
+    .map((orderData:  OrderOriginData) => {
         const kungfuLocation = decodeKungfuLocation(+orderData.source);
         const accountId = `${kungfuLocation.group}_${kungfuLocation.name}`;
         const accountLocation = encodeKungfuLocation(accountId, 'td');
@@ -112,8 +124,8 @@ export const kungfuCancelAllOrders = (orderDataList: OrderOriginData[], strategy
             order_id: BigInt(orderId)
         }
     
-        if (strategyId) {
-            const strategyLocation = encodeKungfuLocation(strategyId, 'strategy');
+        if (type === 'strategy') {
+            const strategyLocation = encodeKungfuLocation(accountIdOrstrategyId, 'strategy');
             if (!watcher.isReadyToInteract(strategyLocation)) {
                 return Promise.resolve(false)
             }
