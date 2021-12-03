@@ -68,14 +68,19 @@ export const getTickerWithMinValue = (targetList: Array<any>, targetKey: string)
 
 export const ensureTargetIncludesAllKeys = (targetObject: any, keys: Array<string>) => {
     let flag = true;
+    let requiredbutNotExistedKeys: string[] = [];
 
     keys.forEach(key => {
         if (targetObject[key] === undefined) {
+            requiredbutNotExistedKeys.push(key)
             flag = false;
         }
     })
 
-    return flag;
+    return {
+        flag,
+        requiredbutNotExistedKeys
+    };
 }
 
 export function ensureNum (num: number | bigint | string) {
