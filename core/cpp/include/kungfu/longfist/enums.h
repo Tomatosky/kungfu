@@ -98,7 +98,9 @@ enum class InstrumentType : int8_t {
   TechStock,   //科创板股票
   Index,       //指数
   Repo,        //回购
-  Crypto       //数字货币
+  Crypto,       //数字货币
+  CryptoUsdFuture,       //U本位合约
+  CryptoCoinFuture       //币本位合约
 };
 
 inline std::ostream &operator<<(std::ostream &os, InstrumentType t) { return os << int8_t(t); }
@@ -184,7 +186,7 @@ enum class OrderStatus : int8_t {
 
 inline std::ostream &operator<<(std::ostream &os, OrderStatus t) { return os << int8_t(t); }
 
-enum class Direction : int8_t { Long, Short };
+enum class Direction : int8_t { Long, Short, Both };
 
 inline std::ostream &operator<<(std::ostream &os, Direction t) { return os << int8_t(t); }
 

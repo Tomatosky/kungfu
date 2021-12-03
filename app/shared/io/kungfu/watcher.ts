@@ -653,14 +653,14 @@ export const dealPos = (item: PosOriginData): PosData => {
         direction,
         directionOrigin: item.direction,
 
-        yesterdayVolume: Number(item.yesterday_volume) || 0,
-        todayVolume: Number(item.volume) - Number(item.yesterday_volume) || 0,
-        totalVolume: Number(item.volume) || 0, 
+        yesterdayVolume: Number(item.yesterday_volume)/100000000 || 0,
+        todayVolume: (Number(item.volume) - Number(item.yesterday_volume))/100000000 || 0,
+        totalVolume: Number(item.volume)/100000000 || 0, 
 
         avgPrice: avgPrice || 0,
         lastPrice: item.last_price || 0,
-        totalPrice: +avgPrice * Number(item.volume) || 0,
-        totalMarketPrice: item.last_price * Number(item.volume) || 0,
+        totalPrice: +avgPrice * Number(item.volume) /100000000 || 0,
+        totalMarketPrice: item.last_price * Number(item.volume) /100000000 || 0,
         unRealizedPnl: item.unrealized_pnl || 0,
         
         accountId: item.account_id,

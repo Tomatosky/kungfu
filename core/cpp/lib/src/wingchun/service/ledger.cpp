@@ -67,7 +67,7 @@ void Ledger::refresh_account_book(int64_t trigger_time, uint32_t account_uid) {
   auto subscribe_positions = [&](auto positions) {
     for (const auto &pair : positions) {
       auto &position = pair.second;
-      if(strcmp(position.exchange_id, EXCHANGE_BINANCE) == 0)
+      if(strcmp(position.source_id, "binance") == 0)
       {
         return;
       }
