@@ -161,7 +161,8 @@
                             { validator: biggerThanZeroValidator, trigger: 'blur'}
                         ]">
                             <el-input-number 
-                            :step="100"  
+                            :precision="6"
+                            :step="0.00001"  
                             :controls="false"
                             placeholder="请输入数量"
                             v-model.trim="makeOrderForm.volume"
@@ -466,7 +467,8 @@ export default {
                         this.$set(this.makeOrderForm, 'instrument_type', instrumentType)
                     }
 
-                    const makeOrderForm = deepClone(this.makeOrderForm);
+                    let makeOrderForm = deepClone(this.makeOrderForm);
+                    makeOrderForm.volume = makeOrderForm.volume*100000000;
                     const makeOrderConfirmTip = this.buildMakeOrderFormInfo(makeOrderForm)
                     this.$confirm(makeOrderConfirmTip, '提示', {
                         confirmButtonText: '确 定',

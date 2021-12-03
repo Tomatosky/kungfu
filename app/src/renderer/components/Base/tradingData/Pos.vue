@@ -79,7 +79,7 @@ export default {
             //订阅行情
             const subscribePosTickers = dataList
                 .filter(item => !!item.sourceId)
-                .filter(item => item.exchangeId != "BINANCE")
+                .filter(item => item.sourceId != "binance")
                 .map(item => {
                     return {
                         instrumentId: item.instrumentId,

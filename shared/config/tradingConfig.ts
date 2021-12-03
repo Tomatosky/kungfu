@@ -151,7 +151,9 @@ export const InstrumentType: NumberToStringObject = {
     6: isEnglish ? 'TechStock'   : '科创板股票',
     7: isEnglish ? 'Index'       : '指数',
     8: isEnglish ? 'Repo'        : '回购',
-    9: isEnglish ? 'Crypto'      : '数字货币'
+    9: isEnglish ? 'Crypto'      : '数字货币',
+    10: isEnglish ? 'CryptoUsdFuture'      : '数字货币U本位合约',
+    11: isEnglish ? 'CryptoCoinFuture'      : '数字货币C本位合约'
 }
 
 　　
@@ -217,7 +219,7 @@ export const InstrumentTypeWithDetail: NumberToAnyObject = {
 }
 
 export const allowShorted = (instrumentType: number) => {
-    if ([2, 4].includes(instrumentType)) return true;
+    if ([2, 4, 10, 11].includes(instrumentType)) return true;
     return false
 }
 
