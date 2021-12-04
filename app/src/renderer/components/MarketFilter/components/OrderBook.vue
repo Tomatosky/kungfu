@@ -69,7 +69,11 @@ export default {
     computed: {
 
         quoteData () {
-            const quote = this.marketData[this.tickerId] || null;
+            quote = this.marketData[this.tickerId] || null;
+            if(quote){
+                quote.askVolumes = quote.askVolumes / 100000000;
+                quote.bidVolumes = quote.bidVolumes / 100000000;
+            }
             return quote;
         },
 
