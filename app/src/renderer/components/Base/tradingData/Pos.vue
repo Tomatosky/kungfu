@@ -178,9 +178,9 @@ export default {
                 let positionData = { ...item };
                 positionData.update = true;
           
-                positionData.yesterdayVolume = toDecimal(item.yesterdayVolume); 
-                positionData.todayVolume = toDecimal(item.todayVolume); 
-                positionData.totalVolume = toDecimal(item.totalVolume); 
+                positionData.yesterdayVolume = toDecimal(item.yesterdayVolume, 6); 
+                positionData.todayVolume = toDecimal(item.todayVolume, 6); 
+                positionData.totalVolume = toDecimal(item.totalVolume, 6); 
                 positionData.avgPrice = toDecimal(item.avgPrice); 
                 positionData.lastPrice = toDecimal(item.lastPrice); 
                 positionData.totalPrice = toDecimal(item.totalPrice); 

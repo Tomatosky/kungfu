@@ -807,9 +807,9 @@ export const dealQuote = (quote: QuoteOriginData): QuoteData => {
         upperLimitPrice: toDecimal(ensureNum(quote.upper_limit_price), 4),
         volume: ensureNum(quote.volume),
         askPrices: quote.ask_price.map((num: number) => toDecimal(ensureNum(num), 4)) || [],
-        askVolumes: quote.ask_volume.map((num: BigInt) => num.toString()) || [],
+        askVolumes: quote.ask_volume.map((num: BigInt) => toDecimal(Number(num)/100000000, 5)) || [],
         bidPrices: quote.bid_price.map((num: number) => toDecimal(ensureNum(num), 4)) || [],
-        bidVolumes: quote.bid_volume.map((num: BigInt) => num.toString()) || [],
+        bidVolumes: quote.bid_volume.map((num: BigInt) => toDecimal(Number(num)/100000000, 5)) || [],
     }
        
 
