@@ -99,8 +99,8 @@ enum class InstrumentType : int8_t {
   Index,       //指数
   Repo,        //回购
   Crypto,       //数字货币
-  CryptoUsdFuture,       //U本位合约
-  CryptoCoinFuture       //币本位合约
+  CryptoUFuture,       //U本位合约
+  CryptoCFuture       //币本位合约
 };
 
 inline std::ostream &operator<<(std::ostream &os, InstrumentType t) { return os << int8_t(t); }

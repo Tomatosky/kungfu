@@ -163,7 +163,7 @@ inline int get_repo_expire_days(const std::string &instrument_id) {
 }
 
 inline longfist::enums::InstrumentType get_instrument_type(const std::string &exchange_id,
-                                                           const std::string &instrument_id) {
+                                                           const std::string &instrument_id, const std::string &source_name="") {
   if (string_equals(exchange_id, EXCHANGE_SSE)) {
     if (startswith(instrument_id, "00")) {
       return longfist::enums::InstrumentType::Index;
@@ -193,7 +193,16 @@ inline longfist::enums::InstrumentType get_instrument_type(const std::string &ex
              string_equals(exchange_id, EXCHANGE_INE)) {
     return longfist::enums::InstrumentType::Future;
   }
-  else if (string_equals(exchange_id, EXCHANGE_BINANCE) || string_equals(exchange_id, EXCHANGE_HB)) {
+  else if (string_equals(exchange_id, EXCHANGE_HB)) {
+      return longfist::enums::InstrumentType::Crypto;
+  }
+  else if (string_equals(exchange_id, EXCHANGE_BINANCE) ) {
+      if(string_equals(source_name, "binanceUFuture")){
+        return longfist::enums::InstrumentType::CryptoUFuture;
+      }
+      if(string_equals(source_name, "binanceCFuture")){
+        return longfist::enums::InstrumentType::CryptoCFuture;
+      }
       return longfist::enums::InstrumentType::Crypto;
   }
   SPDLOG_ERROR("invalid instrument type for exchange {} and instrument {}", exchange_id, instrument_id);
