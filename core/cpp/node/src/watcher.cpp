@@ -218,11 +218,16 @@ Napi::Value Watcher::RequestMarketData(const Napi::CallbackInfo &info) {
     return Napi::Boolean::New(info.Env(), false);
   }
 
+  if (not IsValid(info, 3, &Napi::Value::IsString)) {
+    return Napi::Boolean::New(info.Env(), false);
+  }
+
   auto md_location = ExtractLocation(info, 0, get_locator());
   auto exchange_id = info[1].ToString().Utf8Value();
-  auto instrument_id = info[2].ToString().Utf8Value();
+  auto source_name = info[2].ToString().Utf8Value();
+  auto instrument_id = info[3].ToString().Utf8Value();
 
-  SPDLOG_INFO("request market data {}@{} from {}", exchange_id, instrument_id, md_location->uname);
+  SPDLOG_INFO("request market data {}@{} sourcename {} from {}", exchange_id, source_name, instrument_id, md_location->uname);
 
   if (not has_writer(md_location->uid)) {
     return Napi::Boolean::New(info.Env(), false);
@@ -234,7 +239,7 @@ Napi::Value Watcher::RequestMarketData(const Napi::CallbackInfo &info) {
   instrument_key.key = key;
   strcpy(instrument_key.instrument_id, instrument_id.c_str());
   strcpy(instrument_key.exchange_id, exchange_id.c_str());
-  instrument_key.instrument_type = get_instrument_type(exchange_id, instrument_id);
+  instrument_key.instrument_type = get_instrument_type(exchange_id, instrument_id, source_name);
   writer->write(now(), instrument_key);
   subscribed_instruments_.emplace(key, instrument_key);
 

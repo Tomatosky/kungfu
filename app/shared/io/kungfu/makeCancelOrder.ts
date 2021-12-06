@@ -30,7 +30,8 @@ export const kungfuSubscribeInstrument = (sourceName: string, exchangeId: string
     return Promise.resolve(
         watcher.requestMarketData(
             mdLocation,
-            exchangeId, 
+            exchangeId,
+            sourceName, 
             ticker
         )
     )

@@ -152,8 +152,8 @@ export const InstrumentType: NumberToStringObject = {
     7: isEnglish ? 'Index'       : '指数',
     8: isEnglish ? 'Repo'        : '回购',
     9: isEnglish ? 'Crypto'      : '数字货币',
-    10: isEnglish ? 'CryptoUsdFuture'      : '数字货币U本位合约',
-    11: isEnglish ? 'CryptoCoinFuture'      : '数字货币C本位合约'
+    10: isEnglish ? 'CryptoUFuture'      : '数字货币U本位合约',
+    11: isEnglish ? 'CryptoCFuture'      : '数字货币C本位合约'
 }
 
 　　
