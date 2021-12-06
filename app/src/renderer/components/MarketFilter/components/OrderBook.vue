@@ -5,7 +5,7 @@
                 <div class="order-line" v-for="(item, index) in new Array(10)" :key="index">
                     <span class="volume buy" @click.stop="handleMakeOrder(askPrices[9 - index], 0)"></span>
                     <span class="price green">{{ dealNum(askPrices[9 - index]) }}</span>
-                    <span class="volume sell" @click.stop="handleMakeOrder(askPrices[9 - index], 1)">{{ dealVolNum(askVolumes[9 - index]) }}</span>
+                    <span class="volume sell" @click.stop="handleMakeOrder(askPrices[9 - index], 1)">{{ dealNum(askVolumes[9 - index]) }}</span>
                 </div>
             </div>
             <div class="last-price">
@@ -20,7 +20,7 @@
             </div> 
             <div class="bid__warp order-book-part__warp">
                 <div class="order-line" v-for="(item, index) in new Array(10)" :key="index">
-                    <span class="volume buy" @click.stop="handleMakeOrder(bidPrices[index], 0)">{{ dealVolNum(bidVolumes[index]) }}</span>
+                    <span class="volume buy" @click.stop="handleMakeOrder(bidPrices[index], 0)">{{ dealNum(bidVolumes[index]) }}</span>
                     <span class="price red">{{ dealNum(bidPrices[index]) }}</span>
                     <span class="volume sell" @click.stop="handleMakeOrder(bidPrices[index], 1)"></span>
                 </div>
@@ -157,18 +157,6 @@ export default {
             }
             else {
                 return num
-            }
-        },
-
-        dealVolNum (num) {
-            if (num === undefined) {
-                return '--'
-            }
-            else if (+num === 0) {
-                return ''
-            }
-            else {
-                return num / 100000000
             }
         }
     }
