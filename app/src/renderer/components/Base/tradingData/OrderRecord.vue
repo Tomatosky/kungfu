@@ -249,12 +249,7 @@ export default {
                             return aliveOrderStatusList.includes(+item.status)
                     })
 
-                if (this.moduleType === 'strategy') {
-                    return kungfuCancelAllOrders(orderDataList, this.currentId)
-                } else {
-                    return kungfuCancelAllOrders(orderDataList)
-                }
-
+                return kungfuCancelAllOrders(orderDataList, this.currentId, this.moduleType)
             })
             .then(() => this.$message.success('撤单指令已发送！'))
             .catch(err => {

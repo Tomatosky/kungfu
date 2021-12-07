@@ -73,6 +73,7 @@ _pm2.launchBus((err: Error, pm2_bus: any) => {
                 break;
             case "SUBSCRIBE_BY_TICKER":
                 const sourceName = accountId ? (accountId || '').toSourceName() : sourceId;
+                console.log(sourceName, exchangeId, ticker)
                 kungfuSubscribeInstrument(sourceName, exchangeId, ticker)
                 break;
             case 'MAKE_ORDER_BY_PARENT_ID':
@@ -107,7 +108,6 @@ process.on('message', (packet) => {
     if (type !== 'process:msg')  return;
     switch (topic) {
         default:
-            console.log(data)
             return;
     }
 })

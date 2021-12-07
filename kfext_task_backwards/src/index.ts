@@ -27,7 +27,18 @@ const finishTime = moment().endOf('day').valueOf()
 const triggerTimeStr = moment(triggerTime).format('YYYYMMDD HH:mm:ss');
 const finishTimeStr = moment(finishTime).format('YYYYMMDD HH:mm:ss');
 const LOOP_INTERVAL = interval;
-const TICKERS = (tickerSetTickers || '').split('=');
+const TICKERS = (tickerSetTickers || '').split('=').map((ticker: string) => ticker.split('|')[0]);
+const TICKERS_FOR_SUBSCRIBE = (tickerSetTickers || '').split('=').map((ticker: string) =>{
+    const pair = ticker.split('|')
+    const instrumentId = pair[0].split('_')[0]
+    const exchangeId = pair[0].split('_')[1]
+    const sourceId = pair[1]
+    return {
+        ticker: instrumentId,
+        exchangeId,
+        sourceId
+    }
+});
 const MAX_BACKWARD = Number(maxBackward / 100).toFixed(3);
 
 console.log('==================== 交易信息 =======================')
@@ -42,18 +53,21 @@ console.log('[最大贴水]', MAX_BACKWARD)
 console.log('===================================================')
 
 
-
-// @ts-ignore
-process.send({
-    type: 'process:msg',
-    data: {
-        type: "SUBSCRIBE_BY_TICKERSET",
-        body: {
-            tickerSet: tickerSet,
+TICKERS_FOR_SUBSCRIBE.forEach((item: { ticker: string; exchangeId: string; sourceId: string; }) => {
+    // @ts-ignore
+    process.send({
+        type: 'process:msg',
+        data: {
+            type: 'SUBSCRIBE_BY_TICKER',
+            body: {
+                ...item
+            }
         }
-    }
-})
+    })
+
+});
 console.log(`[订阅] 目标标的池 ${tickerSet} 内所有标的 ${TICKERS.join(', ')}`)
+
 
 
 //请求行情
@@ -177,20 +191,20 @@ combineLatestObserver
         filter((data: BackWardTraderPipeData) => {
             const { quotes, instruments } = data;
             const tickersNoIndex = TICKERS.filter((ticker: string) => !ticker.includes(index))
-            checkRequiredDataErrorLogged = false;
+            
+            const quoteMeetRequired = ensureTargetIncludesAllKeys(quotes, TICKERS);
+            const instrumentsMeetRequired = ensureTargetIncludesAllKeys(instruments, tickersNoIndex);
 
-            if (!ensureTargetIncludesAllKeys(quotes, TICKERS)) {
+            if (!quoteMeetRequired.flag) {
                 if (!checkRequiredDataErrorLogged) {
-                    console.log(Object.keys(quotes), TICKERS)
-                    console.error(`[WARNING] 暂无行情信息，需保证已订阅${TICKERS}, 且MD进程开启`)
+                    console.error(`[WARNING] 暂无行情信息，需保证已订阅${TICKERS}, 且MD进程开启, 缺少 ${quoteMeetRequired.requiredbutNotExistedKeys.join(' ')}`)
                     checkRequiredDataErrorLogged = true;
                 }
                 return false;
 
-            } else if (!ensureTargetIncludesAllKeys(instruments, tickersNoIndex)) {
+            } else if (!instrumentsMeetRequired.flag) {
                 if (!checkRequiredDataErrorLogged) {
-                    console.log(Object.keys(instruments), tickersNoIndex)
-                    console.error(`[WARNING] 暂无到期日信息，需保证已订阅${tickersNoIndex}, 需保证MD进程开启`)
+                    console.error(`[WARNING] 暂无到期日信息，需保证已订阅${tickersNoIndex}, 需保证TD进程开启, 缺少 ${instrumentsMeetRequired.requiredbutNotExistedKeys.join(' ')}`)
                     checkRequiredDataErrorLogged = true;
                 }
                 return false;
@@ -285,7 +299,7 @@ combineLatestObserver
         
         let selectedInstrument = '';
 
-        console.log(+minBackWard, +MAX_BACKWARD, +minBackWard > +MAX_BACKWARD)
+        console.log(`minBackWard: ${+minBackWard}, MAX_BACKWARD: ${+MAX_BACKWARD}, minBackWard > MAX_BACKWARD ${+minBackWard > +MAX_BACKWARD}`)
         
         if (+minBackWard > +MAX_BACKWARD ) {
             console.log(`[判断] 最小贴水 > 最大贴水 ${MAX_BACKWARD}, 找出流动性最大的合约`)

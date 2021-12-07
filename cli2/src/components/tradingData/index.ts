@@ -222,13 +222,12 @@ class TradingDataDashboard extends Dashboard {
 		t.boards.cancelBtn.on('press', () => {
 			const { watcher } = require('__io/kungfu/watcher');
 			const aliveOrders = watcher.ledger.Order.list().filter((item: OrderOriginData) => aliveOrderStatusList.includes(+item.status));
-			const aliveOrdersResoved = aliveOrders.map((item: OrderOriginData) => dealOrder(item));
 
 			if (this.type === 'account') {
-				kungfuCancelAllOrders(aliveOrdersResoved)
+				kungfuCancelAllOrders(aliveOrders, this.targetId, 'account')
 					.then(() => t.boards.message.log(`Cancel all orders signal sending`, 3))
 			} else if (this.type === 'strategy') {
-				kungfuCancelAllOrders(aliveOrdersResoved, this.targetId)
+				kungfuCancelAllOrders(aliveOrders, this.targetId, 'strategy')
 					.then(() => t.boards.message.log(`Cancel all orders signal sending`, 3))
 			}
 		})
