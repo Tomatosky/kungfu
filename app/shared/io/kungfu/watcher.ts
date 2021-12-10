@@ -518,7 +518,7 @@ export const dealOrderInput = (item: OrderInputOriginData): OrderInputData => {
         instrumentTypeOrigin: instrument_type,
         limitPrice: toDecimal(item.limit_price, 4) || '--',
         frozenPrice: toDecimal(item.frozen_price, 4) || '--',
-        volume: item.volume.toString(),
+        volume: (Number(item.volume)/100000000).toString(),
 
         side: SideName[side] ? SideName[side] : '--',
         sideOrigin: side,
@@ -572,9 +572,9 @@ export const dealOrder = (item: OrderOriginData): OrderData => {
         limitPrice: toDecimal(item.limit_price, 4) || '--',
         frozenPrice: toDecimal(item.frozen_price, 4) || '--',
         
-        volume: item.volume.toString(),
-        volumeTraded: item.volume_traded.toString() + "/" + item.volume.toString(),
-        volumeLeft: item.volume_left.toString(),
+        volume: (Number(item.volume)/100000000).toString(),
+        volumeTraded: (Number(item.volume_traded)/100000000).toString() + "/" + (Number(item.volume)/100000000).toString(),
+        volumeLeft: (Number(item.volume_left)/100000000).toString(),
 
         statusName: +item.status !== 4 ? OrderStatus[item.status] : errMsg,
         status: item.status,
@@ -620,7 +620,7 @@ export const dealTrade = (item: TradeOriginData): TradeData => {
         hedgeFlagOrigin: hedge_flag,
 
         price: toDecimal(+item.price, 4) || '--',
-        volume: Number(item.volume),
+        volume: Number(item.volume)/100000000,
 
         clientId: resolveClientId(+dest, parent_order_id),
         accountId: resolveAccountId(+source, +dest, parent_order_id),
@@ -653,7 +653,7 @@ export const dealPos = (item: PosOriginData): PosData => {
         direction,
         directionOrigin: item.direction,
 
-        yesterdayVolume: Number(item.yesterday_volume)/100000000 || 0,
+        yesterdayVolume: Number(item.yesterday_volume)|| 0,
         todayVolume: (Number(item.volume) - Number(item.yesterday_volume))/100000000 || 0,
         totalVolume: Number(item.volume)/100000000 || 0, 
 

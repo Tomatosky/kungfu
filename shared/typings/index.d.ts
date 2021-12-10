@@ -524,6 +524,7 @@ interface AccountSettingOrigin {
     name: string;
     type: string;
     key: string;
+    vol_multiplier: number;
     td_config: AccountSettingItem[];
     md_config: AccountSettingItem[];
 }
@@ -534,6 +535,7 @@ interface AccountSetting {
     type: string;
     typeName: string;
     key: string;
+    vol_multiplier: number;
     config: AccountSettingItem[];
 }
 
