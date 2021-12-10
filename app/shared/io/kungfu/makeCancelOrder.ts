@@ -53,7 +53,8 @@ export const kungfuMakeOrder = (makeOrderData: MakeOrderData, accountId: string,
         ...makeOrderData,
         limit_price: makeOrderData.limit_price || 0,
         frozen_price: makeOrderData.limit_price || 0,
-        insert_time: watcher.now()
+        insert_time: watcher.now(),
+        volume: BigInt(makeOrderData.volume * 100000000)
     }
 
     if (strategyId) {

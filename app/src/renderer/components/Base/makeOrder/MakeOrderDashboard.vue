@@ -471,7 +471,7 @@ export default {
                     }
 
                     let makeOrderForm = deepClone(this.makeOrderForm);
-                    makeOrderForm.volume = makeOrderForm.volume*100000000;
+                    makeOrderForm.volume = makeOrderForm.volume;
                     const makeOrderConfirmTip = this.buildMakeOrderFormInfo(makeOrderForm)
                     this.$confirm(makeOrderConfirmTip, '提示', {
                         confirmButtonText: '确 定',

@@ -26,6 +26,7 @@ export const getAccountSource = async (): Promise<StringToSource> => {
                 const source: string = config.name;
                 const typeName: string = config.type;
                 const type: string = (SourceTypeConfig[typeName] || {}).color || '';
+                const volMultiplier: number = config.vol_multiplier || 1;
         
                 let tdItemConfig: AccountSettingItem[] = deepClone((config.td_config || []).filter((configItem: AccountSettingItem) => !configItem.risk) || []);
                 let mdItemConfig: AccountSettingItem[] = deepClone(config.md_config || []);
@@ -40,6 +41,7 @@ export const getAccountSource = async (): Promise<StringToSource> => {
                     type,
                     typeName,
                     key: config.key,
+                    vol_multiplier: volMultiplier,
                     config: tdItemConfig
                 }
 
@@ -49,6 +51,7 @@ export const getAccountSource = async (): Promise<StringToSource> => {
                     type,
                     typeName,
                     key: config.key,
+                    vol_multiplier: volMultiplier,
                     config: mdItemConfig
                 }
                 
@@ -58,6 +61,7 @@ export const getAccountSource = async (): Promise<StringToSource> => {
                     type,
                     typeName,
                     key: config.key,
+                    vol_multiplier: volMultiplier,
                     config: riskItemConfig
                 }
 
@@ -75,6 +79,6 @@ export const getAccountSource = async (): Promise<StringToSource> => {
     return {
         td: tdSources,
         md: mdSources,
-        risk: riskSources
+        risk: riskSources,
     }
 }
