@@ -128,7 +128,7 @@
                     <template slot-scope="props">
                         <tr-blink-num
                         :theKey="`${currentTickerSet.name}_${props.row.instrumentId}`"     
-                        :num="getValueFromMarketData(props.row, 'volume' )"
+                        :num="getValueFromMarketData(props.row, 'volume' ) / 100000000"
                         >
                         </tr-blink-num>
                     </template>
@@ -232,7 +232,7 @@ export default {
         ]),
 
         marketAvgVolume7Days () {
-            return this.marketAvgVolume[7] || {}
+            return this.marketAvgVolume[7] / 100000000 || {}
         }
     },
 
