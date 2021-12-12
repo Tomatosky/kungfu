@@ -286,8 +286,10 @@ void TraderCTP::OnRtnOrder(CThostFtdcOrderField *pOrder) {
   }
 
   //该笔报单请求首次到达CTP，风控通过后返回的第1个OnRtnOrder回报，此时因为还没有报入到交易所，所以回报中OrderSysID为空
+  uint64_t orderSysId_key = 0;
   if (strlen(pOrder->OrderSysID) != 0) {
-    inbound_order_sysids_[get_orderSysId_key(pOrder->ExchangeID, pOrder->OrderSysID)] = order_id;
+    orderSysId_key = get_orderSysId_key(pOrder->ExchangeID, pOrder->OrderSysID);
+    inbound_order_sysids_[orderSysId_key] = order_id;
   }
 
   auto &order_state = orders_.at(order_id);
@@ -298,6 +300,7 @@ void TraderCTP::OnRtnOrder(CThostFtdcOrderField *pOrder) {
   order_state.data.status = order.status;
   order.update_time = time::now_in_nano();
   writer->close_data();
+  doRtnTrade(orderSysId_key);
 }
 
 void TraderCTP::OnRtnTrade(CThostFtdcTradeField *pTrade) {
@@ -310,10 +313,24 @@ void TraderCTP::OnRtnTrade(CThostFtdcTradeField *pTrade) {
 
   uint64_t orderSysId_key = get_orderSysId_key(pTrade->ExchangeID, pTrade->OrderSysID);
   if (inbound_order_sysids_.find(orderSysId_key) == inbound_order_sysids_.end()) {
-    SPDLOG_ERROR("CANNOT FIND orderSysId_key {} in inbound_order_sysids_", orderSysId_key);
+    map_trades_.insert_or_assign(orderSysId_key, std::make_shared<CThostFtdcTradeField>( ));
+    memcpy(map_trades_.at(orderSysId_key).get(), (const CThostFtdcTradeField *)pTrade, sizeof(CThostFtdcTradeField));
+    SPDLOG_INFO("CANNOT FIND orderSysId_key {} in inbound_order_sysids_", orderSysId_key);
     return;
   }
+  doRtnTrade(orderSysId_key, pTrade);
 
+}
+
+void TraderCTP::doRtnTrade(uint64_t orderSysId_key) {
+  if (orderSysId_key != 0 && map_trades_.find(orderSysId_key) != map_trades_.end()) {
+    std::shared_ptr<CThostFtdcTradeField> pTrade = map_trades_.at(orderSysId_key);
+    doRtnTrade(orderSysId_key, pTrade.get());
+    map_trades_.erase(orderSysId_key);
+  }
+}
+
+void TraderCTP::doRtnTrade(uint64_t orderSysId_key, CThostFtdcTradeField *pTrade) {
   auto order_id = inbound_order_sysids_.at(orderSysId_key);
   if (orders_.find(order_id) == orders_.end()) {
     SPDLOG_ERROR("CANNOT FIND ORDER order_id {} with orderSysId_key {}", order_id, orderSysId_key);
