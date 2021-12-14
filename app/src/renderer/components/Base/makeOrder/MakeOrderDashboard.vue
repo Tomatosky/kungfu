@@ -286,6 +286,9 @@ export default {
         },
 
         allowShorted () {
+            if (this.accountType.toLowerCase() === 'future' || this.accountType.toLowerCase() === 'stockoption') {
+                return true;
+            }
             const { instrumentType } = this.orderInput || {};
             return allowShorted(instrumentType)
         },
