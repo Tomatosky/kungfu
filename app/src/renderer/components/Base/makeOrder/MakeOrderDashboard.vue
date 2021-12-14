@@ -132,7 +132,6 @@
                         prop="limit_price"
                         :rules="  makeOrderForm.price_type === 0 ? [
                             { required: true, message: '不能为空！', trigger: 'input' },
-                            { validator: biggerThanZeroValidator, trigger: 'blur'}
                         ] : []">
                             <el-input-number
                             :precision="4"
