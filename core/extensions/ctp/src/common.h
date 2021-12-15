@@ -20,6 +20,7 @@ struct TDConfiguration {
   std::string product_info;
   std::string app_id;
   bool broker_margin_ratio;
+  bool sync_external_order;
 };
 
 inline void from_json(const nlohmann::json &j, kungfu::wingchun::ctp::TDConfiguration &c) {
@@ -30,6 +31,7 @@ inline void from_json(const nlohmann::json &j, kungfu::wingchun::ctp::TDConfigur
   j.at("auth_code").get_to(c.auth_code);
   j.at("app_id").get_to(c.app_id);
   j.at("broker_margin_ratio").get_to(c.broker_margin_ratio);
+  j.at("sync_external_order").get_to(c.sync_external_order);
   c.product_info = j.value("product_info", "");
 }
 
