@@ -31,7 +31,6 @@ export const resQuoteData = (pm2Id: number, tickers: string, processName: string
     
     watcher.step();
     const ledger = watcher.ledger;
-    console.log(ledger.Quote)
     const quotes = ensureLedgerData(ledger.Quote)
         .filter((quote: QuoteOriginData) => tickers.includes(`${quote.instrument_id}_${quote.exchange_id}`))
         .map((quote: QuoteOriginData) => dealQuote(quote));

@@ -111,11 +111,6 @@ export default {
                     const dataType = packetData.type;
             
                     switch (dataType) {
-                        case "SUBSCRIBE_BY_TICKERSET":
-                            const { tickerSet } = packetData.body || {}
-                            this.subscribeTickersInTickerSet(tickerSet)
-                            break;
-
                         case "TIME_ALERT":
                             const { minute, quoteAlive } = packetData.body || {};
                             if (!quoteAlive) {

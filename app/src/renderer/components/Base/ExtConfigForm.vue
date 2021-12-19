@@ -368,7 +368,7 @@ export default {
       const target = findTargetFromArray(this.tickerSets, 'name', e)
 
       if (target) {
-        const tickers = target.tickers.map(ticker => `${ticker.instrumentId}_${ticker.exchangeId}`).join('=')
+        const tickers = target.tickers.map(ticker => `${ticker.instrumentId}_${ticker.exchangeId}|${ticker.source}`).join('=')
         this.$set(this.form, item.tickersKey, tickers)
       }
     },

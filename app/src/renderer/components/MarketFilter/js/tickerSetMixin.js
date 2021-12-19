@@ -170,15 +170,6 @@ export default {
             this.subscribeTickers(tickers, slience);
         },
 
-        subscribeTickersInTickerSet (tickerSet, slience = true) {
-            const target = findTargetFromArray(this.tickerSets, 'name', tickerSet)
-            if (target) {
-                this.subscribeTickers(target.tickers, slience)
-            } else {
-                this.$message.warning(`${tickerSet} 标的池不存在`)
-            }
-        },
-
         subscribeTickers (tickers, slience = true) {
             if (!watcher.isLive()) return;
             this.$store.dispatch("setSubscribedQuoteIds", tickers)

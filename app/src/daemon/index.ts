@@ -1,6 +1,4 @@
-import {
-    buildKungfuGlobalDataPipe,
-} from "__io/kungfu/tradingData";
+import { buildKungfuGlobalDataPipe } from "__io/kungfu/tradingData";
 import { aliveOrderStatusList } from 'kungfu-shared/config/tradingConfig';
 import { kungfuSubscribeInstrument, kungfuMakeOrder, kungfuCancelOrder } from '__io/kungfu/makeCancelOrder';
 import { 
@@ -57,6 +55,8 @@ _pm2.launchBus((err: Error, pm2_bus: any) => {
             accountId: '', 
             ticker: '', 
             parentId: BigInt(0), 
+            exchangeId: '',
+            sourceId: ''
         };
 
         switch (dataType) {
@@ -73,6 +73,7 @@ _pm2.launchBus((err: Error, pm2_bus: any) => {
                 break;
             case "SUBSCRIBE_BY_TICKER":
                 const sourceName = accountId ? (accountId || '').toSourceName() : sourceId;
+                console.log(sourceName, exchangeId, ticker)
                 kungfuSubscribeInstrument(sourceName, exchangeId, ticker)
                 break;
             case 'MAKE_ORDER_BY_PARENT_ID':
@@ -107,7 +108,6 @@ process.on('message', (packet) => {
     if (type !== 'process:msg')  return;
     switch (topic) {
         default:
-            console.log(data)
             return;
     }
 })
