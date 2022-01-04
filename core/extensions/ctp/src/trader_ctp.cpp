@@ -256,14 +256,14 @@ void TraderCTP::OnRtnOrder(CThostFtdcOrderField *pOrder) {
   uint64_t orderRef_key = get_orderRef_key(pOrder->FrontID, pOrder->SessionID, pOrder->OrderRef);
 
   if (inbound_order_refs_.find(orderRef_key) == inbound_order_refs_.end()) {
-    SPDLOG_ERROR("CANNOT FIND orderRef_key {} in inbound_order_refs_", orderRef_key);
     if(!config_.sync_external_order){
+      SPDLOG_ERROR("CANNOT FIND orderRef_key {} in inbound_order_refs_", orderRef_key);
       return;
     }
     auto writer = get_writer(location::PUBLIC);
     OrderInput &input = writer->open_data<OrderInput>(now());
     input.order_id = writer->current_frame_uid();
-    SPDLOG_INFO("input order_id {}", input.order_id);
+    // SPDLOG_INFO("input order_id {}", input.order_id);
     from_ctp(*pOrder, input);
     input.insert_time = pOrder->LimitPrice;
     writer->close_data();
@@ -317,11 +317,11 @@ void TraderCTP::OnRtnTrade(CThostFtdcTradeField *pTrade) {
   uint64_t orderSysId_key = get_orderSysId_key(pTrade->ExchangeID, pTrade->OrderSysID);
   if (inbound_order_sysids_.find(orderSysId_key) == inbound_order_sysids_.end()) {
     if(!config_.sync_external_order){
+      SPDLOG_ERROR("CANNOT FIND orderSysId_key {} in inbound_order_sysids_", orderSysId_key);
       return;
     }
     map_trades_.insert_or_assign(orderSysId_key, std::make_shared<CThostFtdcTradeField>( ));
     memcpy(map_trades_.at(orderSysId_key).get(), (const CThostFtdcTradeField *)pTrade, sizeof(CThostFtdcTradeField));
-    SPDLOG_INFO("CANNOT FIND orderSysId_key {} in inbound_order_sysids_", orderSysId_key);
     return;
   }
   doRtnTrade(orderSysId_key, pTrade);
