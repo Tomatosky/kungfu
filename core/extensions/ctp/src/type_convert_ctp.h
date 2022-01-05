@@ -286,6 +286,18 @@ inline void from_ctp(const CThostFtdcOrderField &ori, Order &des) {
   des.volume_traded = ori.VolumeTraded;
 }
 
+inline void from_ctp(const CThostFtdcOrderField &ori, OrderInput &des) {
+  strcpy(des.instrument_id, ori.InstrumentID);
+  strcpy(des.exchange_id, ori.ExchangeID);
+  strcpy(des.account_id, ori.InvestorID);
+  from_ctp_direction(ori.Direction, des.side);
+  from_ctp_comb_offset(ori.CombOffsetFlag, des.offset);
+  des.volume = ori.VolumeTotalOriginal;
+  from_ctp_price_type(ori.OrderPriceType, ori.VolumeCondition, ori.TimeCondition, des.price_type);
+  des.limit_price = ori.LimitPrice;
+  des.instrument_type = InstrumentType::Future;
+}
+
 inline void from_ctp(const CThostFtdcTradeField &ori, Trade &des) {
   strcpy(des.instrument_id, ori.InstrumentID);
   strcpy(des.exchange_id, ori.ExchangeID);

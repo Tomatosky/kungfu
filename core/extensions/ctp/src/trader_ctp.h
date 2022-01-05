@@ -95,6 +95,7 @@ private:
   std::unordered_map<uint64_t, uint64_t> inbound_order_sysids_;
   std::unordered_map<uint64_t, uint64_t> inbound_actions_;
   std::unordered_map<uint64_t, std::string> outbound_orders_;
+  std::unordered_map<uint64_t, std::shared_ptr<CThostFtdcTradeField>> map_trades_;
 
   PositionMap long_position_map_;
   PositionMap short_position_map_;
@@ -108,6 +109,9 @@ private:
   std::string trading_day_;
   
   int instrument_count_ = 0;
+  
+  void doRtnTrade(uint64_t orderSysId_key);
+  void doRtnTrade(uint64_t orderSysId_key, CThostFtdcTradeField *pTrade);
 
   bool login();
 

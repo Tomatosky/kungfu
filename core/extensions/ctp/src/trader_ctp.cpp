@@ -256,8 +256,29 @@ void TraderCTP::OnRtnOrder(CThostFtdcOrderField *pOrder) {
   uint64_t orderRef_key = get_orderRef_key(pOrder->FrontID, pOrder->SessionID, pOrder->OrderRef);
 
   if (inbound_order_refs_.find(orderRef_key) == inbound_order_refs_.end()) {
-    SPDLOG_ERROR("CANNOT FIND orderRef_key {} in inbound_order_refs_", orderRef_key);
-    return;
+    if(!config_.sync_external_order){
+      SPDLOG_ERROR("CANNOT FIND orderRef_key {} in inbound_order_refs_", orderRef_key);
+      return;
+    }
+    auto writer = get_writer(location::PUBLIC);
+    OrderInput &input = writer->open_data<OrderInput>(now());
+    input.order_id = writer->current_frame_uid();
+    // SPDLOG_INFO("input order_id {}", input.order_id);
+    from_ctp(*pOrder, input);
+    input.insert_time = pOrder->LimitPrice;
+    writer->close_data();
+    outbound_orders_[input.order_id] = pOrder->OrderRef;
+    inbound_order_refs_[orderRef_key] = input.order_id;
+
+    auto nano = time::now_in_nano();
+    auto writer_order = get_writer(location::PUBLIC);
+    Order &order = writer_order->open_data<Order>(now());
+    order_from_input(input, order);
+    strcpy(order.trading_day, trading_day_.c_str());
+    order.insert_time = nano;
+    order.update_time = nano;
+    writer_order->close_data();
+    orders_.emplace(order.uid(), state<Order>(get_home_uid(), location::PUBLIC, nano, order));
   }
 
   auto order_id = inbound_order_refs_.at(orderRef_key);
@@ -268,8 +289,10 @@ void TraderCTP::OnRtnOrder(CThostFtdcOrderField *pOrder) {
   }
 
   //该笔报单请求首次到达CTP，风控通过后返回的第1个OnRtnOrder回报，此时因为还没有报入到交易所，所以回报中OrderSysID为空
+  uint64_t orderSysId_key = 0;
   if (strlen(pOrder->OrderSysID) != 0) {
-    inbound_order_sysids_[get_orderSysId_key(pOrder->ExchangeID, pOrder->OrderSysID)] = order_id;
+    orderSysId_key = get_orderSysId_key(pOrder->ExchangeID, pOrder->OrderSysID);
+    inbound_order_sysids_[orderSysId_key] = order_id;
   }
 
   auto &order_state = orders_.at(order_id);
@@ -280,6 +303,7 @@ void TraderCTP::OnRtnOrder(CThostFtdcOrderField *pOrder) {
   order_state.data.status = order.status;
   order.update_time = time::now_in_nano();
   writer->close_data();
+  doRtnTrade(orderSysId_key);
 }
 
 void TraderCTP::OnRtnTrade(CThostFtdcTradeField *pTrade) {
@@ -292,10 +316,27 @@ void TraderCTP::OnRtnTrade(CThostFtdcTradeField *pTrade) {
 
   uint64_t orderSysId_key = get_orderSysId_key(pTrade->ExchangeID, pTrade->OrderSysID);
   if (inbound_order_sysids_.find(orderSysId_key) == inbound_order_sysids_.end()) {
-    SPDLOG_ERROR("CANNOT FIND orderSysId_key {} in inbound_order_sysids_", orderSysId_key);
+    if(!config_.sync_external_order){
+      SPDLOG_ERROR("CANNOT FIND orderSysId_key {} in inbound_order_sysids_", orderSysId_key);
+      return;
+    }
+    map_trades_.insert_or_assign(orderSysId_key, std::make_shared<CThostFtdcTradeField>( ));
+    memcpy(map_trades_.at(orderSysId_key).get(), (const CThostFtdcTradeField *)pTrade, sizeof(CThostFtdcTradeField));
     return;
   }
+  doRtnTrade(orderSysId_key, pTrade);
 
+}
+
+void TraderCTP::doRtnTrade(uint64_t orderSysId_key) {
+  if (orderSysId_key != 0 && map_trades_.find(orderSysId_key) != map_trades_.end()) {
+    std::shared_ptr<CThostFtdcTradeField> pTrade = map_trades_.at(orderSysId_key);
+    doRtnTrade(orderSysId_key, pTrade.get());
+    map_trades_.erase(orderSysId_key);
+  }
+}
+
+void TraderCTP::doRtnTrade(uint64_t orderSysId_key, CThostFtdcTradeField *pTrade) {
   auto order_id = inbound_order_sysids_.at(orderSysId_key);
   if (orders_.find(order_id) == orders_.end()) {
     SPDLOG_ERROR("CANNOT FIND ORDER order_id {} with orderSysId_key {}", order_id, orderSysId_key);

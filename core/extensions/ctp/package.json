@@ -80,6 +80,15 @@
                     "required": true,
                     "default": false,
                     "tip": "不同Broker的保证金比例不同，是否需要请求对应Broker的保证金比例，该操作因为ctp一秒内请求限制，会在一个交易日内首次开启时耗时10min左右，如不开启，则会用交易所默认的保证金比例进行功夫内部计算"
+                },
+                {
+                    "key": "sync_external_order",
+                    "name": "sync_external_order",
+                    "type": "bool",
+                    "errMsg": "是否同步外部订单",
+                    "required": true,
+                    "default": false,
+                    "tip": "若开启则同步用户在其他交易软件的订单"
                 }
             ],
             "md_config": [
