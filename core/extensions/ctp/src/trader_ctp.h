@@ -70,11 +70,13 @@ public:
   virtual void OnRspQryInstrument(CThostFtdcInstrumentField *pInstrument, CThostFtdcRspInfoField *pRspInfo,
                                   int nRequestID, bool bIsLast);
 
-  virtual void OnRspQryInstrumentMarginRate(CThostFtdcInstrumentMarginRateField *pInstrumentMarginRate, CThostFtdcRspInfoField *pRspInfo,
-                                   int nRequestID, bool bIsLast);
+  virtual void OnRspQryInstrumentMarginRate(CThostFtdcInstrumentMarginRateField *pInstrumentMarginRate,
+                                            CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast);
 
   virtual void OnRspSettlementInfoConfirm(CThostFtdcSettlementInfoConfirmField *pSettlementInfoConfirm,
                                           CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast);
+  virtual void OnRspQryInstrumentCommissionRate(CThostFtdcInstrumentCommissionRateField *pInstrumentCommissionRate,
+                                                CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast);
 
 protected:
   void on_start() override;
@@ -107,9 +109,9 @@ private:
   std::unordered_map<int, longfist::types::OrderAction> action_event_map_;
 
   std::string trading_day_;
-  
+
   int instrument_count_ = 0;
-  
+
   void doRtnTrade(uint64_t orderSysId_key);
   void doRtnTrade(uint64_t orderSysId_key, CThostFtdcTradeField *pTrade);
 
@@ -120,18 +122,20 @@ private:
   bool req_auth();
 
   bool req_qry_instrument();
-  
+
   void after_instrument();
 
   bool req_position_detail();
 
-  int req_qry_instrumentMarginRate(InstrumentMap::iterator& iter);
+  int req_qry_instrumentMarginRate(InstrumentMap::iterator &iter);
 
-  bool check_if_stored_instruments(const std::string& trading_day);
+  bool check_if_stored_instruments(const std::string &trading_day);
 
   void restore_instruments_from_bank();
 
   void record_instruments_stored_trading_day();
+
+  void req_commission();
 };
 } // namespace kungfu::wingchun::ctp
 #endif // KUNGFU_CTP_EXT_TRADER_H

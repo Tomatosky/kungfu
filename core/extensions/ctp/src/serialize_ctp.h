@@ -354,14 +354,14 @@ inline void to_json(nlohmann::json &j, const CThostFtdcInputOrderActionField &or
   j["OrderSysID"] = std::string(ori.OrderSysID);
 }
 
-inline void to_json(nlohmann::json &j, const CThostFtdcRspAuthenticateField& ori) {
+inline void to_json(nlohmann::json &j, const CThostFtdcRspAuthenticateField &ori) {
   j["BrokerID"] = std::string(ori.BrokerID);
   j["UserID"] = std::string(ori.UserID);
   j["UserProductInfo"] = std::string(ori.UserProductInfo);
   j["AppID"] = std::string(ori.AppID);
 }
 
-inline void to_json(nlohmann::json &j, const CThostFtdcRspUserLoginField& ori) {
+inline void to_json(nlohmann::json &j, const CThostFtdcRspUserLoginField &ori) {
   j["TradingDay"] = std::string(ori.TradingDay);
   j["LoginTime"] = std::string(ori.LoginTime);
   j["BrokerID"] = std::string(ori.BrokerID);
@@ -371,11 +371,27 @@ inline void to_json(nlohmann::json &j, const CThostFtdcRspUserLoginField& ori) {
   j["SessionID"] = ori.SessionID;
 }
 
-inline void to_json(nlohmann::json &j, const CThostFtdcSettlementInfoConfirmField& ori) {
+inline void to_json(nlohmann::json &j, const CThostFtdcSettlementInfoConfirmField &ori) {
   j["BrokerID"] = std::string(ori.BrokerID);
   j["InvestorID"] = std::string(ori.InvestorID);
   j["SettlementID"] = ori.SettlementID;
   j["AccountID"] = std::string(ori.AccountID);
+}
+
+inline void to_json(nlohmann::json &j, const CThostFtdcInstrumentCommissionRateField &ori) {
+  j["InstrumentID"] = ori.InstrumentID;
+  j["InvestorRange"] = ori.InvestorRange;
+  j["BrokerID"] = ori.BrokerID;
+  j["InvestorID"] = ori.InvestorID;
+  j["OpenRatioByMoney"] = ori.OpenRatioByMoney;
+  j["OpenRatioByVolume"] = ori.OpenRatioByVolume;
+  j["CloseRatioByMoney"] = ori.CloseRatioByMoney;
+  j["CloseRatioByVolume"] = ori.CloseRatioByVolume;
+  j["CloseTodayRatioByMoney"] = ori.CloseTodayRatioByMoney;
+  j["CloseTodayRatioByVolume"] = ori.CloseTodayRatioByVolume;
+  j["ExchangeID"] = ori.ExchangeID;
+  j["BizType"] = ori.BizType;
+  j["InvestUnitID"] = ori.InvestUnitID;
 }
 
 template <typename T> std::string to_string(const T &ori) {
