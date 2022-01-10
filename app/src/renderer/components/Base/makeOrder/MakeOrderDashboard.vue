@@ -254,6 +254,8 @@ export default {
                 this.orderInput = orderInput
                 this.currentId = currentId;
                 this.moduleType = moduleType
+
+                console.log(orderInput, '---')
             })
         } else {
             ipcRenderer.on('init-make-order-win-info', (event, info) => {

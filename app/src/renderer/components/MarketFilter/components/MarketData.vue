@@ -275,11 +275,14 @@ export default {
             }
 
             const quoteData = this.getMarketData(row);
+            const { exchangeId, instrumentId } = row;
             this.$bus.$emit('update:make-order', {
                 currentId: this.currentId,
                 moduleType: this.moduleType,
                 orderInput: {
-                    ...quoteData,
+                    ...quoteData || {},
+                     exchangeId, 
+                    instrumentId,
                     instrumentType: (quoteData || '').instrumentTypeOrigin || 0,
                     offset: 0,
                     side: 0,
@@ -287,10 +290,12 @@ export default {
                 }
             })
 
-            this.$bus.$emit("orderbook-tickerId", {
-                instrumentId: quoteData.instrumentId,
-                exchangeId: quoteData.exchangeId
-            })
+            if (quoteData) {
+                this.$bus.$emit("orderbook-tickerId", {
+                    instrumentId: quoteData.instrumentId,
+                    exchangeId: quoteData.exchangeId
+                })
+            }
         },
 
         getValueFromMarketData (tickerData, key) {
