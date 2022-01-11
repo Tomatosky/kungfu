@@ -103,6 +103,8 @@ inline void from_xtp(const XTP_PRICE_TYPE &xtp_price_type, const XTP_MARKET_TYPE
       price_type = PriceType::ForwardBest;
     else if (xtp_price_type == XTP_PRICE_REVERSE_BEST_LIMIT)
       price_type = PriceType::ReverseBest;
+    else if (xtp_price_type == XTP_PRICE_ALL_OR_CANCEL)
+      price_type = PriceType::Fok;
   } else
     price_type = PriceType::UnKnown;
 }
@@ -122,6 +124,8 @@ inline void to_xtp(XTP_PRICE_TYPE &xtp_price_type, const PriceType &price_type, 
       xtp_price_type = XTP_PRICE_FORWARD_BEST;
     else if (price_type == PriceType::ReverseBest)
       xtp_price_type = XTP_PRICE_REVERSE_BEST_LIMIT;
+    else if (price_type == PriceType::Fok)
+      xtp_price_type = XTP_PRICE_ALL_OR_CANCEL;
   } else
     xtp_price_type = XTP_PRICE_TYPE_UNKNOWN;
 }
@@ -146,19 +150,16 @@ inline void from_xtp(const XTP_ORDER_STATUS_TYPE &xtp_order_status, OrderStatus 
 
 inline void from_xtp(XTPQSI *ticker_info, Instrument &quote) {
   strcpy(quote.instrument_id, ticker_info->ticker);
-  if(ticker_info->exchange_id == 1)
-  {
+  if (ticker_info->exchange_id == 1) {
     quote.exchange_id = EXCHANGE_SSE;
-  }else if (ticker_info->exchange_id == 2)
-  {
+  } else if (ticker_info->exchange_id == 2) {
     quote.exchange_id = EXCHANGE_SZE;
-  }else
-  {
+  } else {
     quote.exchange_id = "false_id";
   }
-  //strcpy(quote.product_id, ticker_info->ticker_name);
-  memcpy(quote.product_id, ticker_info->ticker_name,32);//commit by JC
-  quote.instrument_type = get_instrument_type(quote.exchange_id,quote.instrument_id);
+  // strcpy(quote.product_id, ticker_info->ticker_name);
+  memcpy(quote.product_id, ticker_info->ticker_name, 32); // commit by JC
+  quote.instrument_type = get_instrument_type(quote.exchange_id, quote.instrument_id);
   quote.is_trading = true;
   quote.price_tick = ticker_info->price_tick;
 }
