@@ -115,13 +115,12 @@
                 <el-form-item
                 label="类型"
                 prop="price_type"
-                class="no-margin"
                 :rules="[
                     { required: true, message: '不能为空！', trigger: 'change' },
                 ]">
-                    <el-radio-group size="mini" v-model="makeOrderForm.price_type">
-                        <el-radio size="mini" v-for="key in Object.keys(PriceType || {})" :label="+key" :key="key">{{ PriceType[key] }}</el-radio>
-                    </el-radio-group>
+                    <el-select size="mini" v-model="makeOrderForm.price_type">
+                        <el-option v-for="key in Object.keys(PriceType || {})" :value="+key" :label="PriceType[key]" :key="key"></el-option>
+                    </el-select>
                 </el-form-item>
 
 
@@ -254,6 +253,8 @@ export default {
                 this.orderInput = orderInput
                 this.currentId = currentId;
                 this.moduleType = moduleType
+
+                console.log(orderInput, '---')
             })
         } else {
             ipcRenderer.on('init-make-order-win-info', (event, info) => {
@@ -573,7 +574,7 @@ function filterPriceType (PriceType) {
     let filterPriceType = {};
 
     Object.keys(PriceType || {}).forEach(key => {
-        if (key <= 1) {
+        if (+key !== 7) {
             filterPriceType[key] = PriceType[key]
         }
     })
