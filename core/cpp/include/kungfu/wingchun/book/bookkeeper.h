@@ -46,7 +46,7 @@ public:
 
   void update_book(const event_ptr &event, const longfist::types::Quote &quote);
 
-  void update_book(const longfist::types::Quote& quote);
+  void update_book(const longfist::types::Quote &quote);
 
   template <typename TradingData, typename ApplyMethod = void (AccountingMethod::*)(Book_ptr, const TradingData &)>
   void update_book(const event_ptr &event, ApplyMethod method) {
@@ -62,9 +62,8 @@ public:
     AccountingMethod &accounting_method = *accounting_methods_.at(data.instrument_type);
     auto apply_and_update = [&](uint32_t book_uid) {
       if (not has_book(book_uid) or not app_.has_writer(book_uid)) {
-         SPDLOG_INFO("book_uid {} not found", book_uid);
-         return;
-       }
+        return;
+      }
       auto book = get_book(book_uid);
       auto &position = book->get_position_for(data);
       (accounting_method.*method)(book, data);
@@ -95,7 +94,6 @@ private:
   Book_ptr make_book(uint32_t location_uid);
 
   void update_instrument(const longfist::types::Instrument &instrument);
-
 
   void try_update_asset(const longfist::types::Asset &asset);
 
