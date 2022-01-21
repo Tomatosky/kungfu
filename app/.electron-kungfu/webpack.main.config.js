@@ -1,126 +1,126 @@
-'use strict'
+"use strict";
 
-process.env.BABEL_ENV = 'main'
+process.env.BABEL_ENV = "main";
 
-const path = require('path')
-const { dependencies } = require('../package.json')
-const webpack = require('webpack')
-const TerserPlugin = require('terser-webpack-plugin-legacy');
+const path = require("path");
+const { dependencies } = require("../package.json");
+const webpack = require("webpack");
+const TerserPlugin = require("terser-webpack-plugin-legacy");
 
 let mainConfig = {
   entry: {
-    main: path.join(__dirname, '../src/main/index.js')
+    main: path.join(__dirname, "../src/main/index.js"),
   },
-  externals: [
-    ...Object.keys(dependencies || {})
-  ],
+  externals: [...Object.keys(dependencies || {})],
   module: {
     rules: [
       {
         test: /\.js$/,
-        use: 'babel-loader',
-        exclude: /node_modules/
+        use: "babel-loader",
+        exclude: /node_modules/,
       },
       {
         test: /\.ts$/,
-        use: 'ts-loader',
-        exclude: /node_modules/
+        use: "ts-loader",
+        exclude: /node_modules/,
       },
       {
         test: /\.node$/,
-        use: 'node-loader'
+        use: "node-loader",
       },
       {
         test: /\.(png|jpe?g|gif|svg)(\?.*)?$/,
         use: {
-          loader: 'url-loader',
+          loader: "url-loader",
           query: {
             limit: 10000,
-            name: 'imgs/[name]--[folder].[ext]'
-          }
-        }
+            name: "imgs/[name]--[folder].[ext]",
+          },
+        },
       },
       {
         test: /\.(mp4|webm|ogg|mp3|wav|flac|aac)(\?.*)?$/,
-        loader: 'url-loader',
+        loader: "url-loader",
         options: {
           limit: 10000,
-          name: 'media/[name]--[folder].[ext]'
-        }
+          name: "media/[name]--[folder].[ext]",
+        },
       },
       {
         test: /\.(woff2?|eot|ttf|otf)(\?.*)?$/,
         use: {
-          loader: 'file-loader',
+          loader: "file-loader",
           query: {
             limit: 10000,
-            name: 'fonts/[name]--[folder].[ext]'
-          }
-        }
-      }
-    ]
+            name: "fonts/[name]--[folder].[ext]",
+          },
+        },
+      },
+    ],
   },
   node: {
-    __dirname: process.env.NODE_ENV !== 'production',
-    __filename: process.env.NODE_ENV !== 'production'
+    __dirname: process.env.NODE_ENV !== "production",
+    __filename: process.env.NODE_ENV !== "production",
   },
   output: {
-    filename: '[name].js',
-    libraryTarget: 'commonjs2',
-    path: path.join(__dirname, '../dist/app')
+    filename: "[name].js",
+    libraryTarget: "commonjs2",
+    path: path.join(__dirname, "../dist/app"),
   },
-  plugins: [
-    new webpack.NoEmitOnErrorsPlugin(),
-  ],
+  plugins: [new webpack.NoEmitOnErrorsPlugin()],
   resolve: {
     alias: {
-      '__root': path.join(__dirname, '..'),
-      '@': path.join(__dirname, '../src/renderer'),
-      '__gUtils': path.join(__dirname, '../shared/utils'),
-      '__gConfig': path.join(__dirname, '../shared/config'),
-      '__io': path.join(__dirname, '../shared/io'),
-      '__assets': path.join(__dirname, '../shared/assets')
+      __root: path.join(__dirname, ".."),
+      "@": path.join(__dirname, "../src/renderer"),
+      __gUtils: path.join(__dirname, "../shared/utils"),
+      __gConfig: path.join(__dirname, "../shared/config"),
+      __io: path.join(__dirname, "../shared/io"),
+      __assets: path.join(__dirname, "../shared/assets"),
     },
-    extensions: ['.js', '.ts', '.json', '.node']
+    extensions: [".js", ".ts", ".json", ".node"],
   },
-  target: 'electron-main'
-}
+  target: "electron-main",
+};
 
-const { getCommitVersion, getPythonVersion } = require('./utils');
-const gitCommitVersion = getCommitVersion() || 'latest'
-const pyVersion = getPythonVersion() || '3'
-
+const { getCommitVersion, getPythonVersion } = require("./utils");
+const gitCommitVersion = getCommitVersion() || "latest";
+const pyVersion = getPythonVersion() || "3";
 
 /**
  * Adjust mainConfig for development settings
  */
-if (process.env.NODE_ENV !== 'production') {
+if (process.env.NODE_ENV !== "production") {
   mainConfig.plugins.push(
     new webpack.DefinePlugin({
-      'git_commit_version': `"${gitCommitVersion.toString()}"`,
-      'python_version': `"${pyVersion.toString()}"`,
-      'process.env.NODE_ENV': '"development"',
-      'process.env.APP_TYPE': '"main"',
-      '__resources': `"${path.join(__dirname, '../resources').replace(/\\/g, '\\\\')}"`,
-    }),
-  )
+      git_commit_version: `"${gitCommitVersion.toString()}"`,
+      python_version: `"${pyVersion.toString()}"`,
+      "process.env.KF_BRAND_TITLE": `"${process.env.KF_BRAND_TITLE}"`,
+      "process.env.KF_BRAND_TYPE": `"${process.env.KF_BRAND_TYPE}"`,
+      "process.env.NODE_ENV": '"development"',
+      "process.env.APP_TYPE": '"main"',
+      __resources: `"${path
+        .join(__dirname, "../resources")
+        .replace(/\\/g, "\\\\")}"`,
+    })
+  );
 }
-
 
 /**
  * Adjust mainConfig for production settings
  */
-if (process.env.NODE_ENV === 'production') {
-  mainConfig.devtool = ''
+if (process.env.NODE_ENV === "production") {
+  mainConfig.devtool = "";
   mainConfig.plugins.push(
     new TerserPlugin(),
     new webpack.DefinePlugin({
-      'git_commit_version': `"${gitCommitVersion.toString()}"`,
-      'python_version': `"${pyVersion.toString()}"`,
-      'process.env.NODE_ENV': '"production"',
-      'process.env.APP_TYPE': '"main"',
+      git_commit_version: `"${gitCommitVersion.toString()}"`,
+      python_version: `"${pyVersion.toString()}"`,
+      "process.env.KF_BRAND_TITLE": `"${process.env.KF_BRAND_TITLE}"`,
+      "process.env.KF_BRAND_TYPE": `"${process.env.KF_BRAND_TYPE}"`,
+      "process.env.NODE_ENV": '"production"',
+      "process.env.APP_TYPE": '"main"',
     })
-  )
+  );
 }
 
-module.exports = mainConfig
+module.exports = mainConfig;
