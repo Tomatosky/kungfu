@@ -7,6 +7,9 @@ const { dependencies } = require("../package.json");
 const webpack = require("webpack");
 const TerserPlugin = require("terser-webpack-plugin-legacy");
 
+console.log("[MAIN CONFIG]", "KF_BRAND_TYPE", process.env.KF_BRAND_TYPE);
+console.log("[MAIN CONFIG]", "KF_BRAND_TITLE", process.env.KF_BRAND_TITLE);
+
 let mainConfig = {
   entry: {
     main: path.join(__dirname, "../src/main/index.js"),

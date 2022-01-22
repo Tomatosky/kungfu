@@ -7,6 +7,9 @@ const webpack = require("webpack");
 const TerserPlugin = require("terser-webpack-plugin-legacy");
 const { dependencies } = require("../package.json");
 
+console.log("[CLI CONFIG]", "KF_BRAND_TYPE", process.env.KF_BRAND_TYPE);
+console.log("[CLI CONFIG]", "KF_BRAND_TITLE", process.env.KF_BRAND_TITLE);
+
 const nodeModules = {};
 Object.keys(dependencies || {})
   .filter(function(x) {

@@ -1,17 +1,14 @@
 "use strict";
 
 process.env.NODE_ENV = "production";
-const { getEnvFile } = require("./utils");
+const { getEnvFile } = require("../../app/.electron-kungfu/utils");
 getEnvFile();
 const { say } = require("cfonts");
 const chalk = require("chalk");
 const webpack = require("webpack");
 const Multispinner = require("multispinner");
 
-const mainConfig = require("./webpack.main.config");
-const rendererConfig = require("./webpack.renderer.config");
-const daemonConfig = require("./webpack.daemon.config");
-const sharedConfig = require("./webpack.shared.config");
+const cliConfig = require("./webpack.cli.config");
 
 const doneLog = chalk.bgGreen.white(" DONE ") + " ";
 const errorLog = chalk.bgRed.white(" ERROR ") + " ";
@@ -23,7 +20,7 @@ build();
 function build() {
   greeting();
 
-  const tasks = ["main", "renderer", "daemon"];
+  const tasks = ["cli"];
   const m = new Multispinner(tasks, {
     preText: "building",
     postText: "process",
@@ -38,50 +35,14 @@ function build() {
     process.exit();
   });
 
-  pack(mainConfig)
+  pack(cliConfig)
     .then((result) => {
       results += result + "\n\n";
-      m.success("main");
+      m.success("cli");
     })
     .catch((err) => {
-      m.error("main");
-      console.log(`\n  ${errorLog}failed to build main process`);
-      console.error(`\n${err}\n`);
-      process.exit(1);
-    });
-
-  pack(rendererConfig)
-    .then((result) => {
-      results += result + "\n\n";
-      m.success("renderer");
-    })
-    .catch((err) => {
-      m.error("renderer");
-      console.log(`\n  ${errorLog}failed to build renderer process`);
-      console.error(`\n${err}\n`);
-      process.exit(1);
-    });
-
-  pack(daemonConfig)
-    .then((result) => {
-      results += result + "\n\n";
-      m.success("daemon");
-    })
-    .catch((err) => {
-      m.error("daemon");
-      console.log(`\n  ${errorLog}failed to build daemon process`);
-      console.error(`\n${err}\n`);
-      process.exit(1);
-    });
-
-  pack(sharedConfig)
-    .then((result) => {
-      results += result + "\n\n";
-      m.success("shared");
-    })
-    .catch((err) => {
-      m.error("shared");
-      console.log(`\n  ${errorLog}failed to build shared process`);
+      m.error("cli");
+      console.log(`\n  ${errorLog}failed to build cli process`);
       console.error(`\n${err}\n`);
       process.exit(1);
     });

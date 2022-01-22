@@ -15,6 +15,9 @@ const BundleAnalyzerPlugin = require("webpack-bundle-analyzer")
 const { getPythonVersion, getViewsConfig } = require("./utils");
 const viewsConfig = getViewsConfig();
 
+console.log("[RENDERER CONFIG]", "KF_BRAND_TYPE", process.env.KF_BRAND_TYPE);
+console.log("[RENDERER CONFIG]", "KF_BRAND_TITLE", process.env.KF_BRAND_TITLE);
+
 let rendererConfig = {
   devtool: "#cheap-module-eval-source-map",
 

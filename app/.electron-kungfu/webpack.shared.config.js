@@ -7,6 +7,9 @@ const { dependencies } = require("../package.json");
 const webpack = require("webpack");
 const TerserPlugin = require("terser-webpack-plugin-legacy");
 
+console.log("[SHARED CONFIG]", "KF_BRAND_TYPE", process.env.KF_BRAND_TYPE);
+console.log("[SHARED CONFIG]", "KF_BRAND_TITLE", process.env.KF_BRAND_TITLE);
+
 let sharedConfig = {
   entry: {
     shared: path.join(__dirname, "../shared/index.ts"),
