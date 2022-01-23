@@ -112,7 +112,7 @@ class TraderSim(wc.Trader):
                 raise Exception("invalid match mode {}".format(self.match_mode))
             order.volume_left = order.volume - order.volume_traded
             writer.write(event.gen_time, order)
-            self.ctx.orders[order.order_id] = order;
+            self.ctx.orders[order.order_id] = order
 
             if order.volume_traded > 0:
                 trade = lf.types.Trade()
@@ -139,8 +139,11 @@ class TraderSim(wc.Trader):
             order_action = event.OrderAction()
             if order_action.order_id in self.ctx.orders:
                 order = self.ctx.orders.pop(order_action.order_id)
-                order.status = lf.enums.OrderStatus.Cancelled if order.volume_traded == 0 \
+                order.status = (
+                    lf.enums.OrderStatus.Cancelled
+                    if order.volume_traded == 0
                     else lf.enums.OrderStatus.PartialFilledNotActive
+                )
                 writer.write(event.gen_time, order)
             return True
 

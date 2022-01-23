@@ -148,7 +148,7 @@
           <template slot-scope="props">
             <tr-blink-num
               :theKey="`${currentTickerSet.name}_${props.row.instrumentId}`"
-              :num="getValueFromMarketData(props.row, 'volume') / DIGIT"
+              :num="getValueFromMarketData(props.row, 'volume')"
             >
             </tr-blink-num>
           </template>
@@ -222,8 +222,6 @@ import AddTickerDialog from "@/components/MarketFilter/components/AddTickerDialo
 import tickerSetMixin from "@/components/MarketFilter/js/tickerSetMixin";
 import taskMixin from "@/components/Task/js/taskMixin";
 
-const DIGIT = process.env.KF_BRAND_TYPE === "crypto" ? 100000000 : 1;
-
 export default {
   mixins: [tickerSetMixin, taskMixin],
 
@@ -246,7 +244,6 @@ export default {
       addTickerTargetTickerSetName: "",
 
       tickerSetsManagerDialogVisiblity: false,
-      DIGIT: DIGIT,
     };
   },
 
@@ -264,7 +261,7 @@ export default {
     ...mapGetters(["proMode"]),
 
     marketAvgVolume7Days() {
-      return this.marketAvgVolume[7] / DIGIT || {};
+      return this.marketAvgVolume[7] || {};
     },
   },
 

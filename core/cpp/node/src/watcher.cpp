@@ -76,7 +76,6 @@ Watcher::Watcher(const Napi::CallbackInfo &info)
     auto saved_location = location::make_shared(item, get_locator());
     add_location(now(), saved_location);
     RestoreState(saved_location, today, INT64_MAX, sync_schema);
-    SPDLOG_WARN("restored data for {}", saved_location->uname);
   }
   RestoreState(ledger_location_, today, INT64_MAX, sync_schema);
 
@@ -122,7 +121,7 @@ Napi::Value Watcher::GetLocationUID(const Napi::CallbackInfo &info) {
   return Napi::Number::New(info.Env(), target_location->uid);
 }
 
-Napi::Value Watcher::GetInstrumentUID(const Napi::CallbackInfo& info) {
+Napi::Value Watcher::GetInstrumentUID(const Napi::CallbackInfo &info) {
   auto exchange_id = info[0].ToString().Utf8Value();
   auto instrument_id = info[1].ToString().Utf8Value();
   auto key = hash_instrument(exchange_id.c_str(), instrument_id.c_str());
@@ -218,16 +217,11 @@ Napi::Value Watcher::RequestMarketData(const Napi::CallbackInfo &info) {
     return Napi::Boolean::New(info.Env(), false);
   }
 
-  if (not IsValid(info, 3, &Napi::Value::IsString)) {
-    return Napi::Boolean::New(info.Env(), false);
-  }
-
   auto md_location = ExtractLocation(info, 0, get_locator());
   auto exchange_id = info[1].ToString().Utf8Value();
-  auto source_name = info[2].ToString().Utf8Value();
-  auto instrument_id = info[3].ToString().Utf8Value();
+  auto instrument_id = info[2].ToString().Utf8Value();
 
-  SPDLOG_INFO("request market data {}@{} sourcename {} from {}", exchange_id, source_name, instrument_id, md_location->uname);
+  SPDLOG_INFO("request market data {}@{} from {}", exchange_id, instrument_id, md_location->uname);
 
   if (not has_writer(md_location->uid)) {
     return Napi::Boolean::New(info.Env(), false);
@@ -239,19 +233,19 @@ Napi::Value Watcher::RequestMarketData(const Napi::CallbackInfo &info) {
   instrument_key.key = key;
   strcpy(instrument_key.instrument_id, instrument_id.c_str());
   strcpy(instrument_key.exchange_id, exchange_id.c_str());
-  instrument_key.instrument_type = get_instrument_type(exchange_id, instrument_id, source_name);
+  instrument_key.instrument_type = get_instrument_type(exchange_id, instrument_id);
   writer->write(now(), instrument_key);
   subscribed_instruments_.emplace(key, instrument_key);
 
   return Napi::Boolean::New(info.Env(), true);
 }
 
-Napi::Value Watcher::UpdateQuote(const Napi::CallbackInfo& info) {
-  for(auto& pair : quotes_bank_[boost::hana::type_c<Quote>]) {
-    auto& state = pair.second;
+Napi::Value Watcher::UpdateQuote(const Napi::CallbackInfo &info) {
+  for (auto &pair : quotes_bank_[boost::hana::type_c<Quote>]) {
+    auto &state = pair.second;
     bookkeeper_.update_book(state.data);
     UpdateBook(state.update_time, state.source, state.dest, state.data);
-    update_ledger(state.update_time, state.source, state.dest, state.data);      
+    update_ledger(state.update_time, state.source, state.dest, state.data);
   }
 
   return Napi::Boolean::New(info.Env(), true);
@@ -316,7 +310,7 @@ void Watcher::on_start() {
   events_ | is(CacheReset::tag) | $$(reset_cache(event));
 }
 
-void Watcher::Feed(const event_ptr& event) {
+void Watcher::Feed(const event_ptr &event) {
   if (Quote::tag == event->msg_type()) {
     auto quote = event->data<Quote>();
     auto uid = quote.uid();
@@ -437,7 +431,8 @@ void Watcher::UpdateBook(const event_ptr &event, const Quote &quote) {
   }
 }
 
-void Watcher::UpdateBook(int64_t update_time, uint32_t source_id, uint32_t dest_id, const longfist::types::Quote& quote) {
+void Watcher::UpdateBook(int64_t update_time, uint32_t source_id, uint32_t dest_id,
+                         const longfist::types::Quote &quote) {
   auto ledger_uid = ledger_location_->uid;
   for (const auto &item : bookkeeper_.get_books()) {
     auto &book = item.second;
@@ -471,7 +466,8 @@ void Watcher::UpdateBook(const event_ptr &event, const Position &position) {
   }
 }
 
-void Watcher::UpdateBook(int64_t update_time, uint32_t source_id, uint32_t dest_id, const longfist::types::Position& position) {
+void Watcher::UpdateBook(int64_t update_time, uint32_t source_id, uint32_t dest_id,
+                         const longfist::types::Position &position) {
   auto book = bookkeeper_.get_book(position.holder_uid);
   auto &book_position = book->get_position_for(position.direction, position);
   if (book_position.volume > 0 or book_position.direction == Direction::Long) {

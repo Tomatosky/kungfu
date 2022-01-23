@@ -20,10 +20,6 @@ let electronProcess = null;
 let manualRestart = false;
 let hotMiddleware;
 
-console.log(process.argv);
-const argv = minimist(process.argv);
-const env = argv.env;
-
 function logStats(proc, data) {
   let log = "";
 

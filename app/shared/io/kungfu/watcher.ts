@@ -26,7 +26,8 @@ import {
   TimeCondition,
 } from "kungfu-shared/config/tradingConfig";
 
-const DIGIT = process.env.KF_BRAND_TYPE === "crypto" ? 100000000 : 1;
+const DIGIT =
+  process.env.KF_BRAND_TYPE === "crypto" ? BigInt(100000000) : BigInt(1);
 
 export const watcher: any = (() => {
   const kfSystemConfig: any = fse.readJsonSync(KF_CONFIG_PATH);
@@ -665,7 +666,7 @@ export const dealOrderInput = (item: OrderInputOriginData): OrderInputData => {
     instrumentTypeOrigin: instrument_type,
     limitPrice: toDecimal(item.limit_price, 4) || "--",
     frozenPrice: toDecimal(item.frozen_price, 4) || "--",
-    volume: Number(item.volume / BigInt(DIGIT)).toString(),
+    volume: Number(item.volume / DIGIT).toString(),
 
     side: SideName[side] ? SideName[side] : "--",
     sideOrigin: side,
@@ -731,12 +732,12 @@ export const dealOrder = (item: OrderOriginData): OrderData => {
     limitPrice: toDecimal(item.limit_price, 4) || "--",
     frozenPrice: toDecimal(item.frozen_price, 4) || "--",
 
-    volume: Number(item.volume / BigInt(DIGIT)).toString(),
+    volume: Number(item.volume / DIGIT).toString(),
     volumeTraded:
-      Number(item.volume_traded / BigInt(DIGIT)).toString() +
+      Number(item.volume_traded / DIGIT).toString() +
       "/" +
-      Number(item.volume / BigInt(DIGIT)).toString(),
-    volumeLeft: Number(item.volume_left / BigInt(DIGIT)).toString(),
+      Number(item.volume / DIGIT).toString(),
+    volumeLeft: Number(item.volume_left / DIGIT).toString(),
 
     statusName: +item.status !== 4 ? OrderStatus[item.status] : errMsg,
     status: item.status,
@@ -796,7 +797,7 @@ export const dealTrade = (item: TradeOriginData): TradeData => {
     hedgeFlagOrigin: hedge_flag,
 
     price: toDecimal(+item.price, 4) || "--",
-    volume: Number(item.volume / BigInt(DIGIT)),
+    volume: Number(item.volume / DIGIT),
 
     clientId: resolveClientId(+dest, parent_order_id),
     accountId: resolveAccountId(+source, +dest, parent_order_id),
@@ -831,15 +832,13 @@ export const dealPos = (item: PosOriginData): PosData => {
     directionOrigin: item.direction,
 
     yesterdayVolume: Number(item.yesterday_volume) || 0,
-    todayVolume:
-      Number((item.volume - item.yesterday_volume) / BigInt(DIGIT)) || 0,
-    totalVolume: Number(item.volume / BigInt(DIGIT)) || 0,
+    todayVolume: Number((item.volume - item.yesterday_volume) / DIGIT) || 0,
+    totalVolume: Number(item.volume / DIGIT) || 0,
 
     avgPrice: avgPrice || 0,
     lastPrice: item.last_price || 0,
-    totalPrice: +avgPrice * Number(item.volume / BigInt(DIGIT)) || 0,
-    totalMarketPrice:
-      item.last_price * Number(item.volume / BigInt(DIGIT)) || 0,
+    totalPrice: +avgPrice * Number(item.volume / DIGIT) || 0,
+    totalMarketPrice: item.last_price * Number(item.volume / DIGIT) || 0,
     unRealizedPnl: item.unrealized_pnl || 0,
 
     accountId: item.account_id,
@@ -1000,18 +999,18 @@ export const dealQuote = (quote: QuoteOriginData): QuoteData => {
     tradingDay: quote.trading_day,
     turnover: ensureNum(quote.turnover),
     upperLimitPrice: toDecimal(ensureNum(quote.upper_limit_price), 4),
-    volume: ensureNum(quote.volume),
+    volume: ensureNum(quote.volume / DIGIT),
     askPrices:
       quote.ask_price.map((num: number) => toDecimal(ensureNum(num), 4)) || [],
     askVolumes:
-      quote.ask_volume.map((num: BigInt) =>
-        toDecimal(Number(num) / DIGIT, 5)
+      quote.ask_volume.map((num) =>
+        toDecimal(Number((num as bigint) / DIGIT), 5)
       ) || [],
     bidPrices:
       quote.bid_price.map((num: number) => toDecimal(ensureNum(num), 4)) || [],
     bidVolumes:
-      quote.bid_volume.map((num: BigInt) =>
-        toDecimal(Number(num) / DIGIT, 5)
+      quote.bid_volume.map((num) =>
+        toDecimal(Number((num as bigint) / DIGIT), 5)
       ) || [],
   };
 };
