@@ -140,8 +140,7 @@ export const InstrumentTypes: StringToNumberObject = {
   Index: 7,
   Repo: 8,
   Crypto: 9,
-  CryptoUFuture: 10,
-  CryptoCFuture: 11,
+  CryptoFuture: 10,
 };
 
 export const InstrumentType: NumberToStringObject = {
@@ -155,8 +154,7 @@ export const InstrumentType: NumberToStringObject = {
   7: isEnglish ? "Index" : "指数",
   8: isEnglish ? "Repo" : "回购",
   9: isEnglish ? "Crypto" : "数字货币",
-  10: isEnglish ? "CryptoUFuture" : "数字货币U本位合约",
-  11: isEnglish ? "CryptoCFuture" : "数字货币C本位合约",
+  10: isEnglish ? "CryptoFuture" : "数字货币合约",
 };
 
 // 最小交易单位限制了交易数量的连续性。最小交易单位目前国内市场买入股票或基金，
@@ -213,8 +211,7 @@ export const InstrumentTypeWithDetail: NumberToAnyObject = {
   },
 
   9: { name: isEnglish ? "Crypto" : "数字货币" },
-  10: { name: isEnglish ? "CryptoUFuture" : "数字货币U本位合约" },
-  11: { name: isEnglish ? "CryptoCFuture" : "数字货币C本位合约" },
+  10: { name: isEnglish ? "CryptoFuture" : "数字货币合约" },
 };
 
 export const allowShorted = (instrumentType: number) => {
