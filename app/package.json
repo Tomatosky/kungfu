@@ -29,11 +29,12 @@
     "dist:shared": "cross-env NODE_ENV=production node --max_old_space_size=2048 ../node_modules/webpack/bin/webpack.js --config .electron-kungfu/webpack.shared.config.js",
     "dist": "node --max_old_space_size=4096 .electron-kungfu/build.js",
     "elec": "node .electron-builder/build.js",
-    "prebuild": "yarn run clean ",
-    "build": "yarn run dist",
-    "postbuild": "yarn run elec",
+    "prebuild": "yarn run clean && yarn run dist",
+    "build": "yarn run elec",
+    "build-crypto": "yarn run dist --env=crypto && yarn run elec --brand=crypto",
     "prebuild-cli": "yarn run clean && yarn run dist",
-    "build-cli": "yarn run elec --cli"
+    "build-cli": "yarn run elec --cli",
+    "build-cli-crypto": "yarn run elec --cli --brand crypto"
   },
   "dependencies": {
     "electron-find": "1.0.6",
