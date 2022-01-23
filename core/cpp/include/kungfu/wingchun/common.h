@@ -25,6 +25,8 @@
 #define EXCHANGE_CFFEX "CFFEX"
 #define EXCHANGE_INE "INE"
 #define EXCHANGE_BINANCE "BINANCE"
+#define EXCHANGE_BINANCE_C "BINANCE_C"
+#define EXCHANGE_BINANCE_U "BINANCE_U"
 #define EXCHANGE_HB "HB"
 
 #define SOURCE_SIM "sim"
@@ -197,11 +199,10 @@ inline longfist::enums::InstrumentType get_instrument_type(const std::string &ex
   } else if (string_equals(exchange_id, EXCHANGE_HB)) {
     return longfist::enums::InstrumentType::Crypto;
   } else if (string_equals(exchange_id, EXCHANGE_BINANCE)) {
-    // if(string_equals(source_name, "binanceCFuture")){
-    //   return longfist::enums::InstrumentType::CryptoCFuture;
-    // }
     return longfist::enums::InstrumentType::Crypto;
-  }
+  } else if (string_equals(exchange_id, EXCHANGE_BINANCE_C) || string_equals(exchange_id, EXCHANGE_BINANCE_U)) {
+    return longfist::enums::InstrumentType::CryptoFuture;
+  } 
   SPDLOG_ERROR("invalid instrument type for exchange {} and instrument {}", exchange_id, instrument_id);
   return longfist::enums::InstrumentType::Unknown;
 }
