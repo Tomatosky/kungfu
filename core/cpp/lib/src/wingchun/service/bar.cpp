@@ -58,6 +58,12 @@ void BarGenerator::on_start() {
   events_ | is(Quote::tag) | $([&](const event_ptr &event) {
     const auto &quote = event->data<Quote>();
     auto instrument_key = hash_instrument(quote.exchange_id, quote.instrument_id);
+    // 过滤，如果instrument_keys_中不存在instrument_key则直接跳过下面代码
+    // instrument_keys_只存在通过bar的subscribe添加的instrument_keys
+    if (instrument_keys_.find(instrument_key) == instrument_keys_.end()) {
+      return;
+    }
+
     auto pair = bars_.try_emplace(instrument_key);
     auto &bar = pair.first->second;
     if (pair.second) {
@@ -108,7 +114,12 @@ void BarGenerator::on_start() {
   });
 }
 
-bool BarGenerator::subscribe(const std::vector<InstrumentKey> &instrument_keys) { return false; }
+bool BarGenerator::subscribe(const std::vector<InstrumentKey> &instrument_keys) {
+  for (auto instrument_key : instrument_keys) {
+    instrument_keys_.emplace(hash_instrument(instrument_key.exchange_id, instrument_key.instrument_id), instrument_key);
+  }
+  return true;
+}
 
 bool BarGenerator::unsubscribe(const std::vector<InstrumentKey> &instrument_keys) { return false; }
 

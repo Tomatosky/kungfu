@@ -24,6 +24,7 @@ private:
   int64_t time_interval_;
   yijinjing::data::location_ptr source_location_;
   std::unordered_map<uint32_t, longfist::types::Bar> bars_;
+  std::unordered_map<uint32_t, longfist::types::InstrumentKey> instrument_keys_ = {};
 };
 } // namespace kungfu::wingchun::service
 
