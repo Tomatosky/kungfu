@@ -163,14 +163,14 @@ export const deepClone = <T>(obj: T): T => {
 //保留几位数据
 //(数据，保留位数，结果乘几个10，类型)
 export const toDecimal = (
-  num = 0,
+  num: string | number,
   digit = 2,
   multiply = 0,
   type = "round"
 ): string => {
-  if (num === null) num = 0;
+  if (num === null || num === undefined) num = 0;
   if (num.toString() === "") return "";
-  if (isNaN(num)) return ""; //如果为转换后为NaN,返回空
+  if (isNaN(+num)) return ""; //如果为转换后为NaN,返回空
   //如果存在科学计数法的数据则返回不做处理
   if (`${num}`.includes("e")) return new Number(num).toExponential(2);
   if (multiply === 0) return Number(num).toFixed(digit);

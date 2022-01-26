@@ -95,18 +95,13 @@ const getViewsConfig = () => {
 const getEnvFile = () => {
   const argv = minimist(process.argv);
   const env = argv.env;
-
-  if (env) {
-    const dotenvFile = path.resolve(path.dirname(__dirname), `./.env.${env}`);
-    console.log("dotenvFile", dotenvFile);
-    require("dotenv").config({
-      path: fs.existsSync(dotenvFile)
-        ? dotenvFile
-        : path.resolve(__dirname, `./.env`),
-    });
-  } else {
-    require("dotenv").config();
-  }
+  const dotenvFile = path.resolve(path.dirname(__dirname), `./.env.${env}`);
+  console.log("dotenvFile", dotenvFile);
+  require("dotenv").config({
+    path: fs.existsSync(dotenvFile)
+      ? dotenvFile
+      : path.resolve(path.dirname(__dirname), `./.env`),
+  });
 };
 
 exports.getCommitVersion = getCommitVersion;
