@@ -79,23 +79,34 @@ void Client::subscribe(const std::string &exchange_id, const std::string &instru
 void Client::subscribe(const location_ptr &md_location, const std::string &exchange_id,
                        const std::string &instrument_id) {
   subscribe(exchange_id, instrument_id);
-  exchange_md_locations_.emplace(exchange_id, md_location);
-  instrument_md_locations_.emplace(hash_instrument(exchange_id.c_str(), instrument_id.c_str()), md_location);
+  if (exchange_md_locations_.find(exchange_id) != exchange_md_locations_.end()) {
+    exchange_md_locations_.at(exchange_id).emplace(md_location);
+  } else {
+    exchange_md_locations_.emplace(exchange_id, std::set<location_ptr>{md_location});
+  }
+  uint32_t key = hash_instrument(exchange_id.c_str(), instrument_id.c_str());
+  if (instrument_md_locations_.find(key) != instrument_md_locations_.end()) {
+    instrument_md_locations_.at(key).emplace(md_location);
+  } else {
+    instrument_md_locations_.emplace(key, std::set<location_ptr>{md_location});
+  }
 }
 
 void Client::renew(int64_t trigger_time, const location_ptr &md_location) {
   auto writer = app_.get_writer(md_location->uid);
   for (const auto &pair : instrument_keys_) {
     auto &instrument_key = pair.second;
-    location_ptr source_location = {};
+    std::set<location_ptr> source_location_set = {};
     if (exchange_md_locations_.find(instrument_key.exchange_id) != exchange_md_locations_.end()) {
-      source_location = exchange_md_locations_.at(instrument_key.exchange_id);
+      source_location_set = exchange_md_locations_.at(instrument_key.exchange_id);
     }
     if (instrument_md_locations_.find(instrument_key.key) != instrument_md_locations_.end()) {
-      source_location = instrument_md_locations_.at(instrument_key.key);
+      source_location_set = instrument_md_locations_.at(instrument_key.key);
     }
-    if (source_location and md_location->uid == source_location->uid) {
-      writer->write(trigger_time, instrument_key);
+    for (location_ptr location : source_location_set) {
+      if (md_location->uid == location->uid) {
+        writer->write(trigger_time, instrument_key);
+      }
     }
   }
 }
@@ -220,7 +231,7 @@ bool PassiveClient::is_fully_subscribed(uint32_t md_location_uid) const {
 }
 
 void PassiveClient::subscribe(const location_ptr &md_location, const std::string &exchange_id,
-                             const std::string &instrument_id) {
+                              const std::string &instrument_id) {
   if (not is_fully_subscribed(md_location->uid)) {
     enrolled_md_locations_.emplace(md_location->uid, false);
   }

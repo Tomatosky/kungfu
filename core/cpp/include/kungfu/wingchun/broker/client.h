@@ -101,8 +101,8 @@ protected:
 private:
   BrokerStateMap broker_states_ = {};
   InstrumentKeyMap instrument_keys_ = {};
-  ExchangeSourceMap exchange_md_locations_ = {};
-  InstrumentSourceMap instrument_md_locations_ = {};
+  std::unordered_map<std::string, std::set<yijinjing::data::location_ptr>> exchange_md_locations_ = {};
+  std::unordered_map<uint32_t, std::set<yijinjing::data::location_ptr>> instrument_md_locations_ = {};
   yijinjing::data::location_map ready_md_locations_ = {};
   yijinjing::data::location_map ready_td_locations_ = {};
 
