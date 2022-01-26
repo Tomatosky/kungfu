@@ -1,8 +1,7 @@
 import { longfist, encodeKungfuLocation } from "__io/kungfu/kungfuUtils";
 import { watcher, decodeKungfuLocation } from "__io/kungfu/watcher";
 
-const DIGIT =
-  process.env.KF_BRAND_TYPE === "crypto" ? BigInt(100000000) : BigInt(1);
+const DIGIT = process.env.KF_BRAND_TYPE === "crypto" ? 100000000 : 1;
 
 interface MakeOrderData {
   intrument_id: string;
@@ -60,7 +59,7 @@ export const kungfuMakeOrder = (
     limit_price: makeOrderData.limit_price || 0,
     frozen_price: makeOrderData.limit_price || 0,
     insert_time: watcher.now(),
-    volume: BigInt(makeOrderData.volume) * DIGIT,
+    volume: BigInt(makeOrderData.volume * DIGIT),
   };
 
   if (strategyId) {
