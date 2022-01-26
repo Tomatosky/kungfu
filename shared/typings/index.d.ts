@@ -295,7 +295,7 @@ interface TradeData {
   hedgeFlagOrigin: number;
 
   price: string;
-  volume: number;
+  volume: string;
 
   clientId: string;
   accountId: string;
@@ -352,9 +352,9 @@ interface PosData {
   direction: string;
   directionOrigin: number;
 
-  yesterdayVolume: number;
-  todayVolume: number;
-  totalVolume: number;
+  yesterdayVolume: string;
+  todayVolume: string;
+  totalVolume: string;
 
   avgPrice: number;
   lastPrice: number;
@@ -638,7 +638,7 @@ interface QuoteData {
   tradingDay: string;
   turnover: number;
   upperLimitPrice: string;
-  volume: number;
+  volume: string;
   askPrices: Array<string>;
   askVolumes: Array<string>;
   bidPrices: Array<string>;

@@ -26,8 +26,8 @@ import {
   TimeCondition,
 } from "kungfu-shared/config/tradingConfig";
 
-const DIGIT =
-  process.env.KF_BRAND_TYPE === "crypto" ? BigInt(100000000) : BigInt(1);
+const DIGIT = process.env.KF_BRAND_TYPE === "crypto" ? 100000000 : 1;
+const FIEXED_DIGIT = process.env.KF_BRAND_TYPE === "crypto" ? 8 : 0;
 
 export const watcher: any = (() => {
   const kfSystemConfig: any = fse.readJsonSync(KF_CONFIG_PATH);
@@ -338,9 +338,17 @@ export const transformPositionByTickerByMerge = (
             item1,
             item2,
             "yesterdayVolume"
-          ),
-          todayVolume: addTwoItemByKeyForReduce(item1, item2, "todayVolume"),
-          totalVolume: addTwoItemByKeyForReduce(item1, item2, "totalVolume"),
+          ).toString(),
+          todayVolume: addTwoItemByKeyForReduce(
+            item1,
+            item2,
+            "todayVolume"
+          ).toString(),
+          totalVolume: addTwoItemByKeyForReduce(
+            item1,
+            item2,
+            "totalVolume"
+          ).toString(),
 
           avgPrice: avgTwoItemByKeyForReduce(item1, item2, "avgPrice"),
           totalPrice: addTwoItemByKeyForReduce(item1, item2, "totalPrice"),
@@ -666,7 +674,7 @@ export const dealOrderInput = (item: OrderInputOriginData): OrderInputData => {
     instrumentTypeOrigin: instrument_type,
     limitPrice: toDecimal(item.limit_price, 4) || "--",
     frozenPrice: toDecimal(item.frozen_price, 4) || "--",
-    volume: Number(item.volume / DIGIT).toString(),
+    volume: dealVolume(item.volume),
 
     side: SideName[side] ? SideName[side] : "--",
     sideOrigin: side,
@@ -732,12 +740,10 @@ export const dealOrder = (item: OrderOriginData): OrderData => {
     limitPrice: toDecimal(item.limit_price, 4) || "--",
     frozenPrice: toDecimal(item.frozen_price, 4) || "--",
 
-    volume: Number(item.volume / DIGIT).toString(),
+    volume: dealVolume(item.volume),
     volumeTraded:
-      Number(item.volume_traded / DIGIT).toString() +
-      "/" +
-      Number(item.volume / DIGIT).toString(),
-    volumeLeft: Number(item.volume_left / DIGIT).toString(),
+      dealVolume(item.volume_traded) + "/" + dealVolume(item.volume),
+    volumeLeft: dealVolume(item.volume_left),
 
     statusName: +item.status !== 4 ? OrderStatus[item.status] : errMsg,
     status: item.status,
@@ -797,7 +803,7 @@ export const dealTrade = (item: TradeOriginData): TradeData => {
     hedgeFlagOrigin: hedge_flag,
 
     price: toDecimal(+item.price, 4) || "--",
-    volume: Number(item.volume / DIGIT),
+    volume: dealVolume(item.volume),
 
     clientId: resolveClientId(+dest, parent_order_id),
     accountId: resolveAccountId(+source, +dest, parent_order_id),
@@ -816,6 +822,7 @@ export const dealPos = (item: PosOriginData): PosData => {
   //item.type :'0': 未知, '1': 股票, '2': 期货, '3': 债券
   const direction: string = PosDirection[item.direction] || "--";
   const avgPrice: number = item.avg_open_price || item.position_cost_price || 0;
+
   return {
     updateTime: kungfu.formatTime(update_time, "%H:%M:%S.%N").slice(0, 12),
     updateTimeMMDD: kungfu
@@ -831,14 +838,14 @@ export const dealPos = (item: PosOriginData): PosData => {
     direction,
     directionOrigin: item.direction,
 
-    yesterdayVolume: Number(item.yesterday_volume) || 0,
-    todayVolume: Number((item.volume - item.yesterday_volume) / DIGIT) || 0,
-    totalVolume: Number(item.volume / DIGIT) || 0,
+    yesterdayVolume: dealVolume(item.yesterday_volume),
+    todayVolume: dealVolume(item.volume - item.yesterday_volume),
+    totalVolume: dealVolume(item.volume),
 
     avgPrice: avgPrice || 0,
     lastPrice: item.last_price || 0,
-    totalPrice: +avgPrice * Number(item.volume / DIGIT) || 0,
-    totalMarketPrice: item.last_price * Number(item.volume / DIGIT) || 0,
+    totalPrice: +avgPrice * +dealVolume(item.volume) || 0,
+    totalMarketPrice: item.last_price * +dealVolume(item.volume) || 0,
     unRealizedPnl: item.unrealized_pnl || 0,
 
     accountId: item.account_id,
@@ -999,20 +1006,18 @@ export const dealQuote = (quote: QuoteOriginData): QuoteData => {
     tradingDay: quote.trading_day,
     turnover: ensureNum(quote.turnover),
     upperLimitPrice: toDecimal(ensureNum(quote.upper_limit_price), 4),
-    volume: ensureNum(quote.volume / DIGIT),
+    volume: ensureNum(dealVolume(quote.volume)).toString(),
     askPrices:
       quote.ask_price.map((num: number) => toDecimal(ensureNum(num), 4)) || [],
-    askVolumes:
-      quote.ask_volume.map((num) =>
-        toDecimal(Number((num as bigint) / DIGIT), 5)
-      ) || [],
+    askVolumes: quote.ask_volume.map((num: bigint) => dealVolume(num)) || [],
     bidPrices:
       quote.bid_price.map((num: number) => toDecimal(ensureNum(num), 4)) || [],
-    bidVolumes:
-      quote.bid_volume.map((num) =>
-        toDecimal(Number((num as bigint) / DIGIT), 5)
-      ) || [],
+    bidVolumes: quote.bid_volume.map((num: bigint) => dealVolume(num)) || [],
   };
 };
 
 // ========================== 交易数据处理 end ===========================
+
+function dealVolume(volume: bigint): string {
+  return Number(Number(volume) / DIGIT).toFixed(FIEXED_DIGIT);
+}
