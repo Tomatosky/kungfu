@@ -1,2 +1,1 @@
-
-process.env.RENDERER_TYPE = 'codeEditor'
+process.env.RENDERER_TYPE = 'codeEditor';

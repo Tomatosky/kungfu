@@ -4,27 +4,27 @@
 @import './commonStyle.scss';
 @import '@/assets/scss/coverElement.scss';
 
-
 /*
 系统共用部分
 */
 body {
-    color: $font;
-    // font-family: 'HanHei SC', 'PingFang SC',"Microsoft YaHei" ;
-    font-family: Consolas, Monaco, monospace,"Microsoft YaHei",sans-serif;
-    font-size: 14px;
-    direction: ltr;
-    -webkit-text-size-adjust: 100%;
-    -ms-text-size-adjust: 100%;
-    text-rendering: optimizelegibility;
-    position: relative;
-    overflow: hidden;
-    user-select: none;
+  color: $font;
+  // font-family: 'HanHei SC', 'PingFang SC',"Microsoft YaHei" ;
+  font-family: Consolas, Monaco, monospace, 'Microsoft YaHei', sans-serif;
+  font-size: 14px;
+  direction: ltr;
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+  text-rendering: optimizelegibility;
+  position: relative;
+  overflow: hidden;
+  user-select: none;
 }
-body,html{
-    height: 100%;
-    width: 100%;
-    font: caption;
+body,
+html {
+  height: 100%;
+  width: 100%;
+  font: caption;
 }
 
 /* 内外边距通常让各个浏览器样式的表现位置不同 */
@@ -63,13 +63,13 @@ nav,
 i,
 select,
 section {
-    margin: 0;
-    padding: 0;
+  margin: 0;
+  padding: 0;
 }
-i{
-    color: $icon
+i {
+  color: $icon;
 }
 
-*{
-    outline:none;
+* {
+  outline: none;
 }

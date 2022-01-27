@@ -1,19 +1,19 @@
-import fse from "fs-extra";
-import { KF_RUNTIME_DIR, KF_CONFIG_PATH } from "__gConfig/pathConfig";
+import fse from 'fs-extra';
+import { KF_RUNTIME_DIR, KF_CONFIG_PATH } from '__gConfig/pathConfig';
 import {
   statTime,
   statTimeEnd,
   setTimerPromiseTask,
   originOrderTradesFilterByDirection,
-} from "__gUtils/busiUtils";
-import { kungfu } from "__io/kungfu/kungfuUtils";
+} from '__gUtils/busiUtils';
+import { kungfu } from '__io/kungfu/kungfuUtils';
 import {
   toDecimal,
   ensureNum,
   ensureLedgerData,
   addTwoItemByKeyForReduce,
   avgTwoItemByKeyForReduce,
-} from "__gUtils/busiUtils";
+} from '__gUtils/busiUtils';
 import {
   OffsetName,
   OrderStatus,
@@ -24,18 +24,18 @@ import {
   InstrumentType,
   VolumeCondition,
   TimeCondition,
-} from "kungfu-shared/config/tradingConfig";
+} from 'kungfu-shared/config/tradingConfig';
 
-const DIGIT = process.env.KF_BRAND_TYPE === "crypto" ? 100000000 : 1;
-const FIEXED_DIGIT = process.env.KF_BRAND_TYPE === "crypto" ? 8 : 0;
+const DIGIT = process.env.KF_BRAND_TYPE === 'crypto' ? 100000000 : 1;
+const FIEXED_DIGIT = process.env.KF_BRAND_TYPE === 'crypto' ? 8 : 0;
 
 export const watcher: any = (() => {
   const kfSystemConfig: any = fse.readJsonSync(KF_CONFIG_PATH);
   const bypassQuote = (kfSystemConfig.performance || {}).bypassQuote || false;
 
-  if (process.env.RENDERER_TYPE !== "app") {
-    if (process.env.APP_TYPE !== "cli") {
-      if (process.env.APP_TYPE !== "daemon") {
+  if (process.env.RENDERER_TYPE !== 'app') {
+    if (process.env.APP_TYPE !== 'cli') {
+      if (process.env.APP_TYPE !== 'daemon') {
         return {
           noWatcher: true,
         };
@@ -43,42 +43,42 @@ export const watcher: any = (() => {
     }
   }
 
-  if (process.env.APP_TYPE === "cli") {
-    const windowType = process.env.CLI_WINDOW_TYPE || "";
-    const id = [process.env.APP_TYPE, windowType].join("");
+  if (process.env.APP_TYPE === 'cli') {
+    const windowType = process.env.CLI_WINDOW_TYPE || '';
+    const id = [process.env.APP_TYPE, windowType].join('');
     return kungfu.watcher(
       KF_RUNTIME_DIR,
       kungfu.formatStringToHashHex(id),
       true,
-      true
-    );
-  }
-
-  if (process.env.APP_TYPE === "daemon") {
-    return kungfu.watcher(
-      KF_RUNTIME_DIR,
-      kungfu.formatStringToHashHex("kungfu_daemon"),
-      bypassQuote,
-      true
-    );
-  }
-
-  if (process.env.RENDERER_TYPE === "admin") {
-    return kungfu.watcher(
-      KF_RUNTIME_DIR,
-      kungfu.formatStringToHashHex("renderer_admin"),
       true,
-      true
     );
   }
 
-  const id = [process.env.APP_TYPE, process.env.RENDERER_TYPE].join("");
+  if (process.env.APP_TYPE === 'daemon') {
+    return kungfu.watcher(
+      KF_RUNTIME_DIR,
+      kungfu.formatStringToHashHex('kungfu_daemon'),
+      bypassQuote,
+      true,
+    );
+  }
+
+  if (process.env.RENDERER_TYPE === 'admin') {
+    return kungfu.watcher(
+      KF_RUNTIME_DIR,
+      kungfu.formatStringToHashHex('renderer_admin'),
+      true,
+      true,
+    );
+  }
+
+  const id = [process.env.APP_TYPE, process.env.RENDERER_TYPE].join('');
   const bypassRestore = +(process.env.RELOAD_AFTER_CRASHED || 0) ? true : false;
   return kungfu.watcher(
     KF_RUNTIME_DIR,
     kungfu.formatStringToHashHex(id),
     bypassQuote,
-    bypassRestore
+    bypassRestore,
   );
 })();
 
@@ -92,15 +92,15 @@ export const startGetKungfuWatcherStep = (interval = 1000) => {
       }
 
       if (watcher.isLive()) {
-        if (process.env.APP_TYPE == "renderer") {
+        if (process.env.APP_TYPE == 'renderer') {
           (window as any).requestIdleCallback(
             () => {
-              statTime("step");
+              statTime('step');
               watcher.step();
-              statTimeEnd("step");
+              statTimeEnd('step');
               resolve(true);
             },
-            { timeout: 5000 }
+            { timeout: 5000 },
           );
         } else {
           watcher.step();
@@ -124,15 +124,15 @@ export const startUpdateKungfuWatcherQuotes = (interval = 2000) => {
       }
 
       if (watcher.isLive()) {
-        if (process.env.APP_TYPE == "renderer") {
+        if (process.env.APP_TYPE == 'renderer') {
           (window as any).requestIdleCallback(
             () => {
-              statTime("update Quote");
+              statTime('update Quote');
               watcher.updateQuote();
-              statTimeEnd("update Quote");
+              statTimeEnd('update Quote');
               resolve(true);
             },
-            { timeout: 5000 }
+            { timeout: 5000 },
           );
         } else {
           watcher.updateQuote();
@@ -147,12 +147,12 @@ export const writeKungfuTimeValue = (
   id: string,
   label: string,
   type: string,
-  val: string
+  val: string,
 ) => {
   let data = kungfu.longfist.TimeValue();
-  data.tag_a = id || "";
-  data.tag_b = label || "";
-  data.tag_c = type || "";
+  data.tag_a = id || '';
+  data.tag_b = label || '';
+  data.tag_c = type || '';
   data.value = val;
   data.update_time = watcher.now();
   watcher.publishState(data);
@@ -160,7 +160,7 @@ export const writeKungfuTimeValue = (
 
 export const transformOrderTradeListToData = (
   list: OrderOriginData[] | TradeOriginData[],
-  dealFunc: Function
+  dealFunc: Function,
 ) => {
   let accountData: { [prop: string]: OrderData[] | TradeData[] } = {};
   let strategyData: { [prop: string]: OrderData[] | TradeData[] } = {};
@@ -178,7 +178,7 @@ export const transformOrderTradeListToData = (
           tmpSourceIdData[source] = accountLocation;
         }
 
-        const accountId = accountLocation.group + "_" + accountLocation.name;
+        const accountId = accountLocation.group + '_' + accountLocation.name;
         if (!accountData[accountId]) accountData[accountId] = [];
         if (accountData[accountId].length < 100) {
           accountData[accountId].push(dealFunc(item));
@@ -212,7 +212,7 @@ export const transformOrderTradeListToData = (
 // source 跟 dest 跟普通相反，所以单独列出来
 export const transformOrderInputListToData = (
   list: OrderInputOriginData[],
-  dealFunc: Function
+  dealFunc: Function,
 ) => {
   let accountData: { [prop: string]: OrderInputData[] } = {};
   let strategyData: { [prop: string]: OrderInputData[] } = {};
@@ -229,7 +229,7 @@ export const transformOrderInputListToData = (
           tmpDestIdData[dest] = accountLocation;
         }
 
-        const accountId = accountLocation.group + "_" + accountLocation.name;
+        const accountId = accountLocation.group + '_' + accountLocation.name;
         if (!accountData[accountId]) accountData[accountId] = [];
         if (accountData[accountId].length < 100) {
           accountData[accountId].push(dealFunc(item));
@@ -273,7 +273,7 @@ export const transformOrderStatListToData = (list: OrderStatOriginData[]) => {
 
 export const transformTradingItemListToData = (list: any[], type: string) => {
   let data: StringToAnyObject = {};
-  if (type === "account") {
+  if (type === 'account') {
     list.kfForEach((item: any) => {
       if (!item.accountId) return;
       const accountId = `${item.sourceId}_${item.accountId}`;
@@ -283,7 +283,7 @@ export const transformTradingItemListToData = (list: any[], type: string) => {
         data[accountId].push(item);
       }
     });
-  } else if (type === "strategy") {
+  } else if (type === 'strategy') {
     list.kfForEach((item: any) => {
       const clientId = item.clientId;
       if (!clientId) return;
@@ -293,7 +293,7 @@ export const transformTradingItemListToData = (list: any[], type: string) => {
         data[clientId].push(item);
       }
     });
-  } else if (type === "ticker") {
+  } else if (type === 'ticker') {
     list.kfForEach((item: any) => {
       if (!item.accountId) return;
       if (!item.instrumentId) return;
@@ -302,7 +302,7 @@ export const transformTradingItemListToData = (list: any[], type: string) => {
       if (!data[instrumentId]) data[instrumentId] = [];
       data[instrumentId].push(item);
     });
-  } else if (type === "quote") {
+  } else if (type === 'quote') {
     list.kfForEach((item: any) => {
       const instrumentId = `${item.exchangeId}_${item.instrumentId}`;
       if (!instrumentId) return;
@@ -315,15 +315,15 @@ export const transformTradingItemListToData = (list: any[], type: string) => {
 
 export const transformPositionByTickerByMerge = (
   positionsByTicker: { [propname: string]: PosData[] },
-  type: string
+  type: string,
 ) => {
   const positionsByTickerList = Object.keys(positionsByTicker)
     .map((key: string) => {
       const tickerList: PosData[] = positionsByTicker[key];
       const tickerListResolved = tickerList.filter((item) => {
         if (!item.accountId) return false;
-        if (type === "account") return !item.clientId;
-        if (type === "strategy") return item.clientId;
+        if (type === 'account') return !item.clientId;
+        if (type === 'strategy') return item.clientId;
         if (+item.totalVolume === 0) return false;
         return true;
       });
@@ -337,30 +337,30 @@ export const transformPositionByTickerByMerge = (
           yesterdayVolume: addTwoItemByKeyForReduce(
             item1,
             item2,
-            "yesterdayVolume"
+            'yesterdayVolume',
           ).toString(),
           todayVolume: addTwoItemByKeyForReduce(
             item1,
             item2,
-            "todayVolume"
+            'todayVolume',
           ).toString(),
           totalVolume: addTwoItemByKeyForReduce(
             item1,
             item2,
-            "totalVolume"
+            'totalVolume',
           ).toString(),
 
-          avgPrice: avgTwoItemByKeyForReduce(item1, item2, "avgPrice"),
-          totalPrice: addTwoItemByKeyForReduce(item1, item2, "totalPrice"),
+          avgPrice: avgTwoItemByKeyForReduce(item1, item2, 'avgPrice'),
+          totalPrice: addTwoItemByKeyForReduce(item1, item2, 'totalPrice'),
           totalMarketPrice: addTwoItemByKeyForReduce(
             item1,
             item2,
-            "totalMarketPrice"
+            'totalMarketPrice',
           ),
           unRealizedPnl: addTwoItemByKeyForReduce(
             item1,
             item2,
-            "unRealizedPnl"
+            'unRealizedPnl',
           ),
         };
       });
@@ -412,24 +412,24 @@ export const flatternOrderTrades = (list: any[]) => {
 export const getOrderInputBySourceDest = (
   OrderInput: any,
   type: string,
-  sourceDest: number
+  sourceDest: number,
 ) => {
-  if (type === "source") {
+  if (type === 'source') {
     return ensureLedgerData(
-      OrderInput.filter("source", sourceDest),
-      "insert_time"
+      OrderInput.filter('source', sourceDest),
+      'insert_time',
     )
       .slice(0, 100)
       .map((item: OrderInputOriginData) => dealOrderInput(item));
-  } else if (type === "dest") {
+  } else if (type === 'dest') {
     return ensureLedgerData(
-      OrderInput.filter("dest", sourceDest),
-      "insert_time"
+      OrderInput.filter('dest', sourceDest),
+      'insert_time',
     )
       .slice(0, 100)
       .map((item: OrderInputOriginData) => dealOrderInput(item));
   } else {
-    console.error("getOrderInputBySourceDest type is not source or dest");
+    console.error('getOrderInputBySourceDest type is not source or dest');
     return [];
   }
 };
@@ -439,29 +439,29 @@ export const getOrdersBySourceDestInstrumentId = (
   type: string,
   sourceDestInstrumentId: number | string,
   exchnageId?: string,
-  directionOrigin?: number
+  directionOrigin?: number,
 ) => {
-  if (type === "source") {
+  if (type === 'source') {
     return ensureLedgerData(
-      Order.filter("source", sourceDestInstrumentId),
-      "update_time"
+      Order.filter('source', sourceDestInstrumentId),
+      'update_time',
     )
       .slice(0, 100)
       .map((item: OrderOriginData) => dealOrder(item));
-  } else if (type === "dest") {
+  } else if (type === 'dest') {
     return ensureLedgerData(
-      Order.filter("dest", sourceDestInstrumentId),
-      "update_time"
+      Order.filter('dest', sourceDestInstrumentId),
+      'update_time',
     )
       .slice(0, 100)
       .map((item: OrderOriginData) => dealOrder(item));
-  } else if (type === "instrument") {
+  } else if (type === 'instrument') {
     return ensureLedgerData(
-      Order.filter("instrument_id", sourceDestInstrumentId).filter(
-        "exchange_id",
-        exchnageId
+      Order.filter('instrument_id', sourceDestInstrumentId).filter(
+        'exchange_id',
+        exchnageId,
       ),
-      "update_time"
+      'update_time',
     )
       .slice(0, 500)
       .filter((item: OrderOriginData) => {
@@ -471,7 +471,7 @@ export const getOrdersBySourceDestInstrumentId = (
             directionOrigin,
             offset,
             side,
-            instrument_type
+            instrument_type,
           );
         } else {
           return false;
@@ -481,7 +481,7 @@ export const getOrdersBySourceDestInstrumentId = (
       .map((item: OrderOriginData) => Object.freeze(dealOrder(item)));
   } else {
     console.error(
-      "getOrdersBySourceDestInstrumentId type is not source, dest or instrument"
+      'getOrdersBySourceDestInstrumentId type is not source, dest or instrument',
     );
     return [];
   }
@@ -492,29 +492,29 @@ export const getTradesBySourceDestInstrumentId = (
   type: string,
   sourceDestInstrumentId: number | string,
   exchnageId?: string,
-  directionOrigin?: number
+  directionOrigin?: number,
 ) => {
-  if (type === "source") {
+  if (type === 'source') {
     return ensureLedgerData(
-      Trade.filter("source", sourceDestInstrumentId),
-      "trade_time"
+      Trade.filter('source', sourceDestInstrumentId),
+      'trade_time',
     )
       .slice(0, 100)
       .map((item: TradeOriginData) => dealTrade(item));
-  } else if (type === "dest") {
+  } else if (type === 'dest') {
     return ensureLedgerData(
-      Trade.filter("dest", sourceDestInstrumentId),
-      "trade_time"
+      Trade.filter('dest', sourceDestInstrumentId),
+      'trade_time',
     )
       .slice(0, 100)
       .map((item: TradeOriginData) => dealTrade(item));
-  } else if (type === "instrument") {
+  } else if (type === 'instrument') {
     return ensureLedgerData(
-      Trade.filter("instrument_id", sourceDestInstrumentId).filter(
-        "exchange_id",
-        exchnageId
+      Trade.filter('instrument_id', sourceDestInstrumentId).filter(
+        'exchange_id',
+        exchnageId,
       ),
-      "update_time"
+      'update_time',
     )
       .slice(0, 500)
       .filter((item: OrderOriginData) => {
@@ -524,7 +524,7 @@ export const getTradesBySourceDestInstrumentId = (
             directionOrigin,
             offset,
             side,
-            instrument_type
+            instrument_type,
           );
         } else {
           return false;
@@ -534,7 +534,7 @@ export const getTradesBySourceDestInstrumentId = (
       .map((item: TradeOriginData) => Object.freeze(dealTrade(item)));
   } else {
     console.error(
-      "getTradesBySourceDestInstrumentId type is not source, dest or instrument"
+      'getTradesBySourceDestInstrumentId type is not source, dest or instrument',
     );
     return [];
   }
@@ -543,25 +543,25 @@ export const getTradesBySourceDestInstrumentId = (
 export const getOrderStatByDest = (
   OrderStat: any,
   type?: string,
-  dest?: number
+  dest?: number,
 ) => {
-  if (type === "dest") {
+  if (type === 'dest') {
     return ensureLedgerData(
-      OrderStat.filter("dest", dest),
-      "insert_time"
+      OrderStat.filter('dest', dest),
+      'insert_time',
     ).slice(0, 500);
   } else {
-    return ensureLedgerData(OrderStat, "insert_time").slice(0, 500);
+    return ensureLedgerData(OrderStat, 'insert_time').slice(0, 500);
   }
 };
 
 export function decodeKungfuLocation(sourceOrDest: number): KungfuLocation {
   if (!sourceOrDest)
     return {
-      category: "td",
-      group: "node",
-      name: "",
-      mode: "live",
+      category: 'td',
+      group: 'node',
+      name: '',
+      mode: 'live',
     };
 
   const location: KungfuLocation = watcher.getLocation(sourceOrDest);
@@ -569,9 +569,9 @@ export function decodeKungfuLocation(sourceOrDest: number): KungfuLocation {
 }
 
 export function getTargetOrdersByParentId(Orders: any, parentId: string) {
-  return ensureLedgerData(
-    Orders.filter("parent_id", BigInt(parentId))
-  ).map((item: OrderOriginData) => dealOrder(item));
+  return ensureLedgerData(Orders.filter('parent_id', BigInt(parentId))).map(
+    (item: OrderOriginData) => dealOrder(item),
+  );
 }
 
 // ========================== 交易数据处理 start ===========================
@@ -588,49 +588,49 @@ function resolveSourceDest(source: number, dest: number): SourceDest {
   const kungfuLocationDest: KungfuLocation = decodeKungfuLocation(+dest) || {};
 
   return {
-    sourceGroup: (kungfuLocationSource.group || "").toString(),
-    sourceName: (kungfuLocationSource.name || "").toString(),
-    destGroup: (kungfuLocationDest.group || "").toString(),
+    sourceGroup: (kungfuLocationSource.group || '').toString(),
+    sourceName: (kungfuLocationSource.name || '').toString(),
+    destGroup: (kungfuLocationDest.group || '').toString(),
   };
 }
 
 function resolveAccountId(
   source: number,
   dest: number,
-  parent_id: bigint
+  parent_id: bigint,
 ): string {
   const { sourceName, sourceGroup, destGroup } = resolveSourceDest(
     source,
-    dest
+    dest,
   );
-  const name = sourceGroup + "_" + sourceName;
-  let mark = "";
-  if (destGroup === "node") {
+  const name = sourceGroup + '_' + sourceName;
+  let mark = '';
+  if (destGroup === 'node') {
     if (Number(parent_id)) {
-      mark = "任务";
+      mark = '任务';
     } else {
-      mark = "手动";
+      mark = '手动';
     }
   } else {
     if (Number(parent_id)) {
-      mark = "手动";
+      mark = '手动';
     }
   }
-  return [name, mark].join(" ");
+  return [name, mark].join(' ');
 }
 
 function resolveClientId(dest: number, parent_id: bigint): string {
   if (+dest === 0) {
-    return "系统外";
+    return '系统外';
   }
 
   const kungfuLocation: KungfuLocation = decodeKungfuLocation(+dest) || {};
-  if (!kungfuLocation) return "";
-  if (kungfuLocation.group === "node") {
+  if (!kungfuLocation) return '';
+  if (kungfuLocation.group === 'node') {
     if (Number(parent_id)) {
-      return "任务";
+      return '任务';
     } else {
-      return "手动";
+      return '手动';
     }
   } else {
     if (Number(parent_id)) {
@@ -660,9 +660,9 @@ export const dealOrderInput = (item: OrderInputOriginData): OrderInputData => {
     id: item.order_id.toString(),
     orderId: item.order_id.toString(),
     parentId: item.parent_id.toString(),
-    updateTime: kungfu.formatTime(insert_time, "%H:%M:%S.%N").slice(0, 12),
+    updateTime: kungfu.formatTime(insert_time, '%H:%M:%S.%N').slice(0, 12),
     updateTimeMMDD: kungfu
-      .formatTime(insert_time, "%m/%d %H:%M:%S.%N")
+      .formatTime(insert_time, '%m/%d %H:%M:%S.%N')
       .slice(0, 18),
     updateTimeNum: +Number(insert_time),
 
@@ -672,15 +672,15 @@ export const dealOrderInput = (item: OrderInputOriginData): OrderInputData => {
     accountId: accountId,
     instrumentType: InstrumentType[instrument_type],
     instrumentTypeOrigin: instrument_type,
-    limitPrice: toDecimal(item.limit_price, 4) || "--",
-    frozenPrice: toDecimal(item.frozen_price, 4) || "--",
+    limitPrice: toDecimal(item.limit_price, 4) || '--',
+    frozenPrice: toDecimal(item.frozen_price, 4) || '--',
     volume: dealVolume(item.volume),
 
-    side: SideName[side] ? SideName[side] : "--",
+    side: SideName[side] ? SideName[side] : '--',
     sideOrigin: side,
     offset: OffsetName[offset],
     offsetOrigin: offset,
-    hedgeFlag: HedgeFlag[hedge_flag] ? HedgeFlag[hedge_flag] : "--",
+    hedgeFlag: HedgeFlag[hedge_flag] ? HedgeFlag[hedge_flag] : '--',
     hedgeFlagOrigin: hedge_flag,
 
     priceType: PriceType[price_type],
@@ -709,10 +709,10 @@ export const dealOrder = (item: OrderOriginData): OrderData => {
     id: item.order_id.toString(),
     //用订单写入时间
     updateTime: kungfu
-      .formatTime(update_time || insert_time, "%H:%M:%S.%N")
+      .formatTime(update_time || insert_time, '%H:%M:%S.%N')
       .slice(0, 12),
     updateTimeMMDD: kungfu
-      .formatTime(update_time || insert_time, "%m/%d %H:%M:%S.%N")
+      .formatTime(update_time || insert_time, '%m/%d %H:%M:%S.%N')
       .slice(0, 18),
     updateTimeNum: +Number(update_time || insert_time),
 
@@ -725,11 +725,11 @@ export const dealOrder = (item: OrderOriginData): OrderData => {
     instrumentTypeOrigin: instrument_type,
     exchangeId: item.exchange_id,
 
-    side: SideName[side] ? SideName[side] : "--",
+    side: SideName[side] ? SideName[side] : '--',
     sideOrigin: side,
     offset: OffsetName[offset],
     offsetOrigin: offset,
-    hedgeFlag: HedgeFlag[hedge_flag] ? HedgeFlag[hedge_flag] : "--",
+    hedgeFlag: HedgeFlag[hedge_flag] ? HedgeFlag[hedge_flag] : '--',
     hedgeFlagOrigin: hedge_flag,
 
     priceType: PriceType[price_type],
@@ -737,12 +737,12 @@ export const dealOrder = (item: OrderOriginData): OrderData => {
     volumeCondition: VolumeCondition[item.volume_condition],
     timeCondition: TimeCondition[item.time_condition],
 
-    limitPrice: toDecimal(item.limit_price, 4) || "--",
-    frozenPrice: toDecimal(item.frozen_price, 4) || "--",
+    limitPrice: toDecimal(item.limit_price, 4) || '--',
+    frozenPrice: toDecimal(item.frozen_price, 4) || '--',
 
     volume: dealVolume(item.volume),
     volumeTraded:
-      dealVolume(item.volume_traded) + "/" + dealVolume(item.volume),
+      dealVolume(item.volume_traded) + '/' + dealVolume(item.volume),
     volumeLeft: dealVolume(item.volume_left),
 
     statusName: +item.status !== 4 ? OrderStatus[item.status] : errMsg,
@@ -780,10 +780,10 @@ export const dealTrade = (item: TradeOriginData): TradeData => {
       item.account_id.toString(),
       item.trade_id.toString(),
       trade_time.toString(),
-    ].join("_"),
-    updateTime: kungfu.formatTime(trade_time, "%H:%M:%S.%N").slice(0, 12),
+    ].join('_'),
+    updateTime: kungfu.formatTime(trade_time, '%H:%M:%S.%N').slice(0, 12),
     updateTimeMMDD: kungfu
-      .formatTime(trade_time, "%m/%d %H:%M:%S.%N")
+      .formatTime(trade_time, '%m/%d %H:%M:%S.%N')
       .slice(0, 18),
     updateTimeNum: +Number(trade_time),
     orderId: item.order_id.toString(),
@@ -795,14 +795,14 @@ export const dealTrade = (item: TradeOriginData): TradeData => {
     instrumentTypeOrigin: instrument_type,
     exchangeId: item.exchange_id,
 
-    side: SideName[side] ? SideName[side] : "--",
+    side: SideName[side] ? SideName[side] : '--',
     sideOrigin: side,
     offset: OffsetName[offset],
     offsetOrigin: offset,
-    hedgeFlag: HedgeFlag[hedge_flag] ? HedgeFlag[hedge_flag] : "--",
+    hedgeFlag: HedgeFlag[hedge_flag] ? HedgeFlag[hedge_flag] : '--',
     hedgeFlagOrigin: hedge_flag,
 
-    price: toDecimal(+item.price, 4) || "--",
+    price: toDecimal(+item.price, 4) || '--',
     volume: dealVolume(item.volume),
 
     clientId: resolveClientId(+dest, parent_order_id),
@@ -812,21 +812,21 @@ export const dealTrade = (item: TradeOriginData): TradeData => {
     source: source,
     dest: dest,
 
-    tax: toDecimal(+item.tax, 4) || "--",
-    commission: toDecimal(+item.commission, 4) || "--",
+    tax: toDecimal(+item.tax, 4) || '--',
+    commission: toDecimal(+item.commission, 4) || '--',
   };
 };
 
 export const dealPos = (item: PosOriginData): PosData => {
   const { update_time } = item;
   //item.type :'0': 未知, '1': 股票, '2': 期货, '3': 债券
-  const direction: string = PosDirection[item.direction] || "--";
+  const direction: string = PosDirection[item.direction] || '--';
   const avgPrice: number = item.avg_open_price || item.position_cost_price || 0;
 
   return {
-    updateTime: kungfu.formatTime(update_time, "%H:%M:%S.%N").slice(0, 12),
+    updateTime: kungfu.formatTime(update_time, '%H:%M:%S.%N').slice(0, 12),
     updateTimeMMDD: kungfu
-      .formatTime(update_time, "%m/%d %H:%M:%S.%N")
+      .formatTime(update_time, '%m/%d %H:%M:%S.%N')
       .slice(0, 18),
     updateTimeNum: +Number(update_time),
 
@@ -865,24 +865,24 @@ export const dealAsset = (item: AssetOriginData): AssetData => {
     clientId: item.client_id,
     ledgerCategory: item.ledger_category,
 
-    initialEquity: toDecimal(item.initial_equity) || "--",
-    staticEquity: toDecimal(item.static_equity) || "--",
-    dynamicEquity: toDecimal(item.dynamic_equity) || "--",
-    realizedPnl: toDecimal(item.realized_pnl) || "--",
-    unRealizedPnl: toDecimal(item.unrealized_pnl) || "--",
-    avail: toDecimal(item.avail) || "--",
-    marketValue: toDecimal(item.market_value) || "--",
-    margin: toDecimal(item.margin) || "--",
+    initialEquity: toDecimal(item.initial_equity) || '--',
+    staticEquity: toDecimal(item.static_equity) || '--',
+    dynamicEquity: toDecimal(item.dynamic_equity) || '--',
+    realizedPnl: toDecimal(item.realized_pnl) || '--',
+    unRealizedPnl: toDecimal(item.unrealized_pnl) || '--',
+    avail: toDecimal(item.avail) || '--',
+    marketValue: toDecimal(item.market_value) || '--',
+    margin: toDecimal(item.margin) || '--',
   };
 };
 
 export const dealSnapshot = (
-  item: AssetSnapshotOriginData
+  item: AssetSnapshotOriginData,
 ): AssetSnapshotData => {
   const { update_time } = item;
   return {
-    updateTime: kungfu.formatTime(update_time, "%H:%M"),
-    updateTimeMMDD: kungfu.formatTime(update_time, "%m/%d"),
+    updateTime: kungfu.formatTime(update_time, '%H:%M'),
+    updateTimeMMDD: kungfu.formatTime(update_time, '%m/%d'),
     updateTimeNum: +Number(update_time),
     tradingDay: item.trading_day,
     ledgerCategory: item.ledger_category,
@@ -911,7 +911,7 @@ export const dealSnapshot = (
 };
 
 export const dealOrderStat = (
-  item: OrderStatOriginData | null
+  item: OrderStatOriginData | null,
 ): OrderStatData | {} => {
   if (!item) return {};
 
@@ -933,12 +933,12 @@ export const dealOrderStat = (
     ackTime: Number(ack_time),
     insertTime: Number(insert_time),
     mdTime: Number(md_time),
-    latencySystem: latencySystem > 0 ? latencySystem.toString() : "",
-    latencyNetwork: latencyNetwork > 0 ? latencyNetwork.toString() : "",
-    latencyTrade: latencyTrade > 0 ? latencyTrade.toString() : "",
-    tradeTime: kungfu.formatTime(trade_time, "%H:%M:%S.%N").slice(0, 12),
+    latencySystem: latencySystem > 0 ? latencySystem.toString() : '',
+    latencyNetwork: latencyNetwork > 0 ? latencyNetwork.toString() : '',
+    latencyTrade: latencyTrade > 0 ? latencyTrade.toString() : '',
+    tradeTime: kungfu.formatTime(trade_time, '%H:%M:%S.%N').slice(0, 12),
     tradeTimeMMDD: kungfu
-      .formatTime(trade_time, "%m/%d %H:%M:%S.%N")
+      .formatTime(trade_time, '%m/%d %H:%M:%S.%N')
       .slice(0, 18),
     tradeTimeNum: +Number(trade_time),
 
@@ -949,19 +949,19 @@ export const dealOrderStat = (
 };
 
 export const dealGatewayStates = (
-  gatewayStates: StringToStringObject
+  gatewayStates: StringToStringObject,
 ): Array<MdTdState | {}> => {
   return Object.keys(gatewayStates)
     .map((key: string) => {
       const kungfuLocation = watcher.getLocation(key);
       if (!kungfuLocation) return {};
       switch (kungfuLocation.category) {
-        case "td":
+        case 'td':
           return {
             processId: `td_${kungfuLocation.group}_${kungfuLocation.name}`,
             state: gatewayStates[key],
           };
-        case "md":
+        case 'md':
           return {
             processId: `md_${kungfuLocation.group}`,
             state: gatewayStates[key],
@@ -982,7 +982,7 @@ export const dealQuote = (quote: QuoteOriginData): QuoteData => {
       quote.source_id +
       quote.instrument_id.toString() +
       String(quote.data_time),
-    dataTime: kungfu.formatTime(quote.data_time, "%Y-%m-%d %H:%M:%S"),
+    dataTime: kungfu.formatTime(quote.data_time, '%Y-%m-%d %H:%M:%S'),
     dataTimeNumber: quote.data_time.toString(),
 
     sourceId: quote.source_id,

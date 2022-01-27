@@ -2,60 +2,57 @@ import { DEFAULT_PADDING, TABLE_BASE_OPTIONS } from '@/assets/scripts/utils';
 const blessed = require('blessed');
 
 class Dashboard {
-    screen: any
-    message: any
-    
-    constructor(){
-        this.screen = blessed.screen({
-            smartCSR: true,
-            fullUnicode: true,
-            autoPadding: true,
-            resizeTimeout: 500,
-        });
+  screen: any;
+  message: any;
 
-        this.screen.title = 'Account Dashboard';
-    }
+  constructor() {
+    this.screen = blessed.screen({
+      smartCSR: true,
+      fullUnicode: true,
+      autoPadding: true,
+      resizeTimeout: 500,
+    });
 
-    init(){
-        console.error('Init must be cover!')
-    }
+    this.screen.title = 'Account Dashboard';
+  }
 
-    refresh(){
-        console.error('Refresh must be cover!')
-    }
+  init() {
+    console.error('Init must be cover!');
+  }
 
-    bindEvent(){
-        console.error('BindEvent must be cover!')
-    }
-    
-    render(){
-        const t = this;
-        t.screen.render();
-        // async refresh of the ui
-        setInterval(function () {
-            t.screen.render();
-        }, 300);
-    }
+  refresh() {
+    console.error('Refresh must be cover!');
+  }
 
-    initMessage(){
-        const t = this;
-        t.message = blessed.message({
-            parent: t.screen,
-            top: '100%-5',
-            left: '100%-30',
-            height: 5,
-            padding: DEFAULT_PADDING,
-            align: 'left',
-            valign: 'center',
-            width: 30,
-            tags: true,
-            hidden: true,
-            border: 'line'
-        });
-    }
+  bindEvent() {
+    console.error('BindEvent must be cover!');
+  }
 
-    
-    
+  render() {
+    const t = this;
+    t.screen.render();
+    // async refresh of the ui
+    setInterval(function () {
+      t.screen.render();
+    }, 300);
+  }
+
+  initMessage() {
+    const t = this;
+    t.message = blessed.message({
+      parent: t.screen,
+      top: '100%-5',
+      left: '100%-30',
+      height: 5,
+      padding: DEFAULT_PADDING,
+      align: 'left',
+      valign: 'center',
+      width: 30,
+      tags: true,
+      hidden: true,
+      border: 'line',
+    });
+  }
 }
 
-export default Dashboard
+export default Dashboard;

@@ -1,94 +1,97 @@
 <template>
-    <span :class="[ ...classNameResolved, 'blink-num', colorClassName, colorClass ]" :key="`${theKey}_${num}`">{{ num }}</span>
+  <span
+    :class="[...classNameResolved, 'blink-num', colorClassName, colorClass]"
+    :key="`${theKey}_${num}`"
+  >
+    {{ num }}
+  </span>
 </template>
 
 <script>
 export default {
-    name: 'tr-blink-num',
+  name: 'tr-blink-num',
 
-    props: {
-        num: {
-            type: [ String, Number ],
-            default: '--'
-        },
-
-        theKey: {
-            type: [ String, Number ],
-            required: true,
-            default: ''
-        },
-
-        className: {
-            type: Object,
-            default: () => ({})
-        }
+  props: {
+    num: {
+      type: [String, Number],
+      default: '--',
     },
 
-    data () {
-        return {
-            colorClassName: ''
-        }
+    theKey: {
+      type: [String, Number],
+      required: true,
+      default: '',
     },
 
-    computed: {
-        classNameResolved () {
-            return Object.keys(this.className || {}).filter(key => !!this.className[key])
-        },
+    className: {
+      type: Object,
+      default: () => ({}),
+    },
+  },
 
-        colorClass () {
-            if (Number.isNaN(+parseFloat(this.num))) return '';
-            if (+parseFloat(this.num) < 0) return 'green-color'
-        }
+  data() {
+    return {
+      colorClassName: '',
+    };
+  },
+
+  computed: {
+    classNameResolved() {
+      return Object.keys(this.className || {}).filter(
+        (key) => !!this.className[key],
+      );
     },
 
-    watch: {
-        num (newVal, oldVal) {
-            if (Number.isNaN(+parseFloat(oldVal))) return;
+    colorClass() {
+      if (Number.isNaN(+parseFloat(this.num))) return '';
+      if (+parseFloat(this.num) < 0) return 'green-color';
+    },
+  },
 
-            let bgClass = '';
+  watch: {
+    num(newVal, oldVal) {
+      if (Number.isNaN(+parseFloat(oldVal))) return;
 
-            if (+parseFloat(newVal) > +parseFloat(oldVal)) {
-                bgClass = 'red-blink'
-            } else if (+parseFloat(newVal) < +parseFloat(oldVal)) {
-                bgClass = 'green-blink'
-            } else {
-                bgClass = ''
-            }
+      let bgClass = '';
 
-            this.colorClassName = bgClass
-        }
-    }
-}
+      if (+parseFloat(newVal) > +parseFloat(oldVal)) {
+        bgClass = 'red-blink';
+      } else if (+parseFloat(newVal) < +parseFloat(oldVal)) {
+        bgClass = 'green-blink';
+      } else {
+        bgClass = '';
+      }
+
+      this.colorClassName = bgClass;
+    },
+  },
+};
 </script>
 
 <style lang="scss">
-
 @import '@/assets/scss/skin.scss';
 
 .blink-num {
+  display: inline-block;
+  width: 100%;
+  box-sizing: border-box;
+  animation: nanoBlink 1.1s 1;
+  font-family: Consolas, Monaco, Lucida Console, Liberation Mono,
+    DejaVu Sans Mono, Bitstream Vera Sans Mono, Courier New, monospace;
+  word-wrap: break-word;
+  text-align: right;
+  transform: translateZ(1);
 
-    display: inline-block;
-    width: 100%;
-    box-sizing: border-box;
-    animation: nanoBlink 1.1s 1;
-    font-family: Consolas,Monaco,Lucida Console,Liberation Mono,DejaVu Sans Mono,Bitstream Vera Sans Mono,Courier New, monospace;
-    word-wrap: break-word;
-    text-align: right;
-    transform: translateZ(1);
+  &.green-color {
+    color: $green;
+  }
 
+  &.red-blink {
+    animation: nanoRedBlink 1.1s 1;
+  }
 
-    &.green-color {
-        color: $green
-    }
-    
-    &.red-blink {
-        animation: nanoRedBlink 1.1s 1;
-    }
-
-    &.green-blink {
-        animation: nanoGreenBlink 1.1s 1;
-    }
+  &.green-blink {
+    animation: nanoGreenBlink 1.1s 1;
+  }
 }
-
-
 </style>

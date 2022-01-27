@@ -1,4 +1,4 @@
-import { mapGetters, mapState } from "vuex";
+import { mapGetters, mapState } from 'vuex';
 
 import {
   checkAllMdProcess,
@@ -6,15 +6,15 @@ import {
   findTargetFromArray,
   delayMilliSeconds,
   debounce,
-} from "__gUtils/busiUtils";
+} from '__gUtils/busiUtils';
 import {
   getTickerSets,
   addSetTickerSet,
   removeTickerSetByName,
-} from "__io/actions/market";
-import { kungfuSubscribeInstrument } from "__io/kungfu/makeCancelOrder";
-import { encodeKungfuLocation } from "__io/kungfu/kungfuUtils";
-import { watcher } from "__io/kungfu/watcher";
+} from '__io/actions/market';
+import { kungfuSubscribeInstrument } from '__io/kungfu/makeCancelOrder';
+import { encodeKungfuLocation } from '__io/kungfu/kungfuUtils';
+import { watcher } from '__io/kungfu/watcher';
 
 export default {
   mounted() {
@@ -31,14 +31,14 @@ export default {
     ...mapState({
       tickerSets: (state) => state.MARKET.tickerSets,
       currentTickerSetName: (state) =>
-        (state.MARKET.currentTickerSet || {}).name || "",
+        (state.MARKET.currentTickerSet || {}).name || '',
       currentTickerSetTickers: (state) =>
         (state.MARKET.currentTickerSet || {}).tickers || [],
       currentTickerSet: (state) => state.MARKET.currentTickerSet || {},
       processStatus: (state) => state.BASE.processStatus || {},
     }),
 
-    ...mapGetters(["flatternTickers"]),
+    ...mapGetters(['flatternTickers']),
 
     currentTickerSetTickersResolved() {
       return this.currentTickerSetTickers.slice(0).sort((ticker1, ticker2) => {
@@ -49,7 +49,7 @@ export default {
 
   methods: {
     handleSetCurrentTickerSet(tickerSet) {
-      this.$store.dispatch("setCurrentTickerSet", tickerSet);
+      this.$store.dispatch('setCurrentTickerSet', tickerSet);
     },
 
     handleRemoveTickerSet(tickerSet, replace = false) {
@@ -57,8 +57,8 @@ export default {
         ? Promise.resolve(true)
         : this.$confirm(
             `删除标的池 ${tickerSet.name} 会删除所有相关信息，确认删除吗？`,
-            "提示",
-            { confirmButtonText: "确 定", cancelButtonText: "取 消" }
+            '提示',
+            { confirmButtonText: '确 定', cancelButtonText: '取 消' },
           );
       return confirmPromise
         .then(() => {
@@ -66,7 +66,7 @@ export default {
         })
         .then(() => {
           if (!replace) {
-            this.$message.success("操作成功！");
+            this.$message.success('操作成功！');
           }
         })
         .then(() => {
@@ -75,7 +75,7 @@ export default {
           }
         })
         .catch((err) => {
-          if (err === "cancel") return;
+          if (err === 'cancel') return;
           this.$message.error(err.message);
         });
     },
@@ -95,8 +95,8 @@ export default {
       if (!targetTickerSetName) return;
       const targetTickerSet = findTargetFromArray(
         this.tickerSets,
-        "name",
-        targetTickerSetName
+        'name',
+        targetTickerSetName,
       );
       if (!targetTickerSet) return;
       const { name, tickers } = targetTickerSet;
@@ -132,8 +132,8 @@ export default {
     },
 
     bindMdTdStateChangeEvent() {
-      this.$bus.$on("mdTdStateReady", ({ processId }) => {
-        if (processId.includes("md")) {
+      this.$bus.$on('mdTdStateReady', ({ processId }) => {
+        if (processId.includes('md')) {
           this.subscribeTickersByProcessId(processId);
         }
       });
@@ -141,7 +141,7 @@ export default {
 
     getTickerSets() {
       return getTickerSets().then((res) => {
-        this.$store.dispatch("setTickerSets", Object.freeze(res));
+        this.$store.dispatch('setTickerSets', Object.freeze(res));
         this.initUpdateCurrentTickerSet(res);
       });
     },
@@ -149,31 +149,31 @@ export default {
     initUpdateCurrentTickerSet(tickerSets) {
       if (tickerSets.length) {
         const currentTickerSetIndex = this.tickerSets.findIndex(
-          (item) => item.name === this.currentTickerSetName
+          (item) => item.name === this.currentTickerSetName,
         );
 
         if (!this.currentTickerSetName) {
-          this.$store.dispatch("setCurrentTickerSet", tickerSets[0]);
+          this.$store.dispatch('setCurrentTickerSet', tickerSets[0]);
         } else {
           if (currentTickerSetIndex !== -1) {
             this.$store.dispatch(
-              "setCurrentTickerSet",
-              tickerSets[currentTickerSetIndex]
+              'setCurrentTickerSet',
+              tickerSets[currentTickerSetIndex],
             );
           } else {
-            this.$store.dispatch("setCurrentTickerSet", tickerSets[0]);
+            this.$store.dispatch('setCurrentTickerSet', tickerSets[0]);
           }
         }
       } else {
-        this.$store.dispatch("setCurrentTickerSet", null);
+        this.$store.dispatch('setCurrentTickerSet', null);
       }
     },
 
     //通过md 订阅
     async subscribeTickersByProcessId(mdProcessId, slience = true) {
-      const sourceName = mdProcessId.split("_")[1];
+      const sourceName = mdProcessId.split('_')[1];
       if (!sourceName) return;
-      const mdLocation = encodeKungfuLocation(sourceName, "md");
+      const mdLocation = encodeKungfuLocation(sourceName, 'md');
       if (!watcher.isReadyToInteract(mdLocation)) {
         await delayMilliSeconds(1000);
         await this.subscribeTickersByProcessId(mdProcessId, slience);
@@ -190,7 +190,7 @@ export default {
 
     subscribeTickers(tickers, slience = true) {
       if (!watcher.isLive()) return;
-      this.$store.dispatch("setSubscribedQuoteIds", tickers);
+      this.$store.dispatch('setSubscribedQuoteIds', tickers);
       tickers.forEach((ticker) => {
         const { instrumentId, source, exchangeId } = ticker;
         kungfuSubscribeInstrument(source, exchangeId, instrumentId);
@@ -198,7 +198,7 @@ export default {
 
       if (!slience) {
         if (checkAllMdProcess.call(this, tickers, this.processStatus)) {
-          this.$message.success("订阅请求已发送，请稍后");
+          this.$message.success('订阅请求已发送，请稍后');
         }
       }
     },

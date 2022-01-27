@@ -1,4 +1,5 @@
-\<template>
+\
+<template>
   <tr-dashboard :title="noTitle ? '' : `持仓 ${currentTitle}`">
     <div slot="dashboard-header">
       <tr-dashboard-header-item>
@@ -12,9 +13,9 @@
         ></i>
       </tr-dashboard-header-item>
       <tr-dashboard-header-item v-if="moduleType === 'strategy'">
-        <el-button size="mini" @click="$emit('showMakeOrderDashboard')"
-          >下单</el-button
-        >
+        <el-button size="mini" @click="$emit('showMakeOrderDashboard')">
+          下单
+        </el-button>
       </tr-dashboard-header-item>
     </div>
     <tr-table
@@ -30,22 +31,22 @@
 </template>
 
 <script>
-import tradingDataMixin from "./js/tradingDataMixin";
+import tradingDataMixin from './js/tradingDataMixin';
 
-import { writeCSV } from "__gUtils/fileUtils";
-import { toDecimal, deepClone } from "__gUtils/busiUtils";
-import { posHeader } from "@/components/Base/tradingData/js/tableHeaderConfig";
-import { kungfuSubscribeInstrument } from "__io/kungfu/makeCancelOrder";
+import { writeCSV } from '__gUtils/fileUtils';
+import { toDecimal, deepClone } from '__gUtils/busiUtils';
+import { posHeader } from '@/components/Base/tradingData/js/tableHeaderConfig';
+import { kungfuSubscribeInstrument } from '__io/kungfu/makeCancelOrder';
 
 export default {
-  name: "positions",
+  name: 'positions',
 
   mixins: [tradingDataMixin],
 
   props: {
     name: {
       type: String,
-      default: "",
+      default: '',
     },
 
     currentTicker: {
@@ -56,7 +57,7 @@ export default {
 
   data() {
     return {
-      subscribedTickersStr: "",
+      subscribedTickersStr: '',
       hasInitOrderBook: false,
       tableData: Object.freeze([]),
       dataByKey: Object.freeze({}),
@@ -85,7 +86,7 @@ export default {
       //订阅行情
       const subscribePosTickers = dataList
         .filter((item) => !!item.sourceId)
-        .filter((item) => item.sourceId != "binance")
+        .filter((item) => item.sourceId != 'binance')
         .map((item) => {
           return {
             instrumentId: item.instrumentId,
@@ -102,7 +103,7 @@ export default {
           return id1.localeCompare(id2);
         })
         .map((item) => `${item.instrumentId}_${item.exchangeId}`)
-        .join(", ");
+        .join(', ');
 
       if (subscribePosTickers.length) {
         if (this.subscribedTickersStr !== subscribedTickersStr) {
@@ -112,13 +113,13 @@ export default {
               return kungfuSubscribeInstrument(
                 source,
                 exchangeId,
-                instrumentId
+                instrumentId,
               );
-            })
+            }),
           );
 
           if (isMdReady.filter((item) => !!item).length === isMdReady.length) {
-            this.$store.dispatch("setSubscribedQuoteIds", subscribePosTickers);
+            this.$store.dispatch('setSubscribedQuoteIds', subscribePosTickers);
             this.subscribedTickersStr = subscribedTickersStr;
           }
         }
@@ -126,7 +127,7 @@ export default {
 
       //更新orderbook
       if (!this.hasInitOrderBook && this.tableData.length) {
-        this.$bus.$emit("orderbook-tickerId", {
+        this.$bus.$emit('orderbook-tickerId', {
           instrumentId: this.tableData[0].instrumentId,
           exchangeId: this.tableData[0].exchangeId,
         });
@@ -142,16 +143,16 @@ export default {
   methods: {
     handleClickCell(item) {
       if (this.isTickerModule) {
-        this.$emit("activeTicker", item);
+        this.$emit('activeTicker', item);
         //ticker mode need delete default accountId
         let itemResolved = deepClone(item);
         delete itemResolved.accountIdResolved;
-        this.$emit("makeOrder", itemResolved);
+        this.$emit('makeOrder', itemResolved);
       } else {
-        this.$emit("makeOrder", item);
+        this.$emit('makeOrder', item);
       }
 
-      this.$bus.$emit("orderbook-tickerId", {
+      this.$bus.$emit('orderbook-tickerId', {
         instrumentId: item.instrumentId,
         exchangeId: item.exchangeId,
       });
@@ -159,7 +160,7 @@ export default {
 
     handleExport() {
       this.$saveFile({
-        title: "保存持仓信息",
+        title: '保存持仓信息',
       }).then((filename) => {
         if (!filename) return;
         writeCSV(filename, this.tableData);
@@ -171,14 +172,14 @@ export default {
       let positionsAfterFilter = positions
         .filter((item) => !!Number(item.totalVolume))
         .filter((item) => {
-          if (searchKeyword.trim() === "") return true;
+          if (searchKeyword.trim() === '') return true;
           const { instrumentId } = item;
           return instrumentId.includes(searchKeyword);
         });
 
-      if (this.moduleType === "strategy") {
+      if (this.moduleType === 'strategy') {
         positionsAfterFilter = positionsAfterFilter.filter(
-          (item) => item.updateTimeNum >= BigInt(this.addTime)
+          (item) => item.updateTimeNum >= BigInt(this.addTime),
         );
       }
 
@@ -211,18 +212,18 @@ export default {
           Object.values(positionDataByKey).sort((a, b) => {
             const result = a.instrumentId.localeCompare(b.instrumentId);
             return result === 0
-              ? (a.directionOrigin || "")
+              ? (a.directionOrigin || '')
                   .toString()
-                  .localeCompare((b.directionOrigin || "").toString())
+                  .localeCompare((b.directionOrigin || '').toString())
               : result;
-          })
+          }),
         ),
       };
     },
 
     //拼接key值
     getKey(data) {
-      if (this.moduleType === "ticker") {
+      if (this.moduleType === 'ticker') {
         return data.accountIdResolved;
       }
       return `${data.instrumentId}_${data.directionOrigin}`;

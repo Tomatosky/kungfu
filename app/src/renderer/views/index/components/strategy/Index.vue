@@ -1,300 +1,351 @@
 <template>
-    <MainContent>
-        <div class="trader-content">
-            <template v-if="monitStrategies">
-                <el-col :span="14">
-                    <el-row style="height: 60%">
-                        <el-col>
-                            <Strategy
-                            v-model="monitStrategies"
-                            ></Strategy>
-                        </el-col>
-                    </el-row>
-                    <el-row style="height: 40%">
-                        <el-col>
-                            <el-tabs type="border-card" v-model="currentStrategyDetailTab">
-                                <el-tab-pane :lazy="true" :label="`策略日志 ${showCurrentIdInTabName(currentStrategyDetailTab, 'log')}`" name="log">
-                                    <Log></Log>                         
-                                </el-tab-pane>
-                                <el-tab-pane :lazy="true" :label="`委托跟踪 ${showCurrentIdInTabName(currentStrategyDetailTab, 'orderMap')}`" name="orderMap">
-                                    <OrderMap
-                                        :orders="orders"
-                                        :orderInputs="orderInputs"
-                                        :trades="trades"
-                                        :orderStat="orderStat"
-                                    ></OrderMap>
-                                </el-tab-pane>
-                            </el-tabs>
-                        </el-col>
-                    </el-row>
-                </el-col>
-            </template>
-            <template v-else>
-                <el-col :span="14">
-                    <el-row style="height: 33.33%">
-                        <el-col>
-                            <Strategy
-                            v-model="monitStrategies"
-                            ></Strategy>
-                        </el-col>
-                    </el-row>
-
-                    <el-row style="height: 66.66%">
-                        <el-col>
-                            <el-tabs type="border-card" v-model="currentStrategyDetailTab">
-                                <el-tab-pane :lazy="true" :label="`策略日志 ${showCurrentIdInTabName(currentStrategyDetailTab, 'log')}`" name="log">
-                                    <Log></Log>                         
-                                </el-tab-pane>
-                                <el-tab-pane :lazy="true" :label="`委托跟踪 ${showCurrentIdInTabName(currentStrategyDetailTab, 'orderMap')}`" name="orderMap">
-                                    <OrderMap
-                                        :orders="orders"
-                                        :orderInputs="orderInputs"
-                                        :trades="trades"
-                                        :orderStat="orderStat"
-                                    ></OrderMap>
-                                </el-tab-pane>
-                            </el-tabs>
-                        </el-col>
-                    </el-row>
-                </el-col>
-            </template>
-                
-            <el-col  :span="10">
-                <el-row style="height: 33.333%">
-                    <el-tabs type="border-card" v-model="currentStrategyPosPnlTab">
-                        <el-tab-pane :lazy="true" :label="`持仓 ${showCurrentIdInTabName(currentStrategyPosPnlTab, 'pos')}`" name="pos">
-                            <Pos
-                            :noTitle="true"
-                            moduleType="strategy"
-                            :currentId="strategyId"
-                            :kungfuData="positions"   
-                            :addTime="addTime" 
-                            @showMakeOrderDashboard="handleShowOrCloseMakeOrderDashboard(true)"
-                            @makeOrder="handleMakeOrderByPos"
-                            ></Pos>
-                        </el-tab-pane>
-                        <el-tab-pane :lazy="true" :label="`盈利曲线 ${showCurrentIdInTabName(currentStrategyPosPnlTab, 'pnl')}`" name="pnl">
-                            <Pnl
-                            :noTitle="true"
-                            ref="pnl"
-                            :currentId="strategyId" 
-                            moduleType="strategy"
-                            :minPnl="pnl"   
-                            :dailyPnl="dailyPnl"
-                            :addTime="addTime"                
-                            ></Pnl>
-                        </el-tab-pane>
-                    </el-tabs> 
-                </el-row>
-                <el-row  style="height: 33.333%">
-                        <OrderRecord
-                        moduleType="strategy"
-                        :currentId="strategyId"
-                        :kungfuData="orders"                 
-                        :addTime="addTime"   
-                        :orderStat="orderStat"   
-                        @showHistory="handleShowHistory"          
-                        ></OrderRecord>                      
-                </el-row>
-                <el-row style="height: 33.333%">
-                        <TradeRecord 
-                        moduleType="strategy"
-                        :currentId="strategyId"
-                        :kungfuData="trades"           
-                        :addTime="addTime"    
-                        :orderStat="orderStat"
-                        @showHistory="handleShowHistory"          
-                        ></TradeRecord>
-                </el-row>
+  <MainContent>
+    <div class="trader-content">
+      <template v-if="monitStrategies">
+        <el-col :span="14">
+          <el-row style="height: 60%">
+            <el-col>
+              <Strategy v-model="monitStrategies"></Strategy>
             </el-col>
-        </div>
-    </MainContent>
+          </el-row>
+          <el-row style="height: 40%">
+            <el-col>
+              <el-tabs type="border-card" v-model="currentStrategyDetailTab">
+                <el-tab-pane
+                  :lazy="true"
+                  :label="`策略日志 ${showCurrentIdInTabName(
+                    currentStrategyDetailTab,
+                    'log',
+                  )}`"
+                  name="log"
+                >
+                  <Log></Log>
+                </el-tab-pane>
+                <el-tab-pane
+                  :lazy="true"
+                  :label="`委托跟踪 ${showCurrentIdInTabName(
+                    currentStrategyDetailTab,
+                    'orderMap',
+                  )}`"
+                  name="orderMap"
+                >
+                  <OrderMap
+                    :orders="orders"
+                    :orderInputs="orderInputs"
+                    :trades="trades"
+                    :orderStat="orderStat"
+                  ></OrderMap>
+                </el-tab-pane>
+              </el-tabs>
+            </el-col>
+          </el-row>
+        </el-col>
+      </template>
+      <template v-else>
+        <el-col :span="14">
+          <el-row style="height: 33.33%">
+            <el-col>
+              <Strategy v-model="monitStrategies"></Strategy>
+            </el-col>
+          </el-row>
+
+          <el-row style="height: 66.66%">
+            <el-col>
+              <el-tabs type="border-card" v-model="currentStrategyDetailTab">
+                <el-tab-pane
+                  :lazy="true"
+                  :label="`策略日志 ${showCurrentIdInTabName(
+                    currentStrategyDetailTab,
+                    'log',
+                  )}`"
+                  name="log"
+                >
+                  <Log></Log>
+                </el-tab-pane>
+                <el-tab-pane
+                  :lazy="true"
+                  :label="`委托跟踪 ${showCurrentIdInTabName(
+                    currentStrategyDetailTab,
+                    'orderMap',
+                  )}`"
+                  name="orderMap"
+                >
+                  <OrderMap
+                    :orders="orders"
+                    :orderInputs="orderInputs"
+                    :trades="trades"
+                    :orderStat="orderStat"
+                  ></OrderMap>
+                </el-tab-pane>
+              </el-tabs>
+            </el-col>
+          </el-row>
+        </el-col>
+      </template>
+
+      <el-col :span="10">
+        <el-row style="height: 33.333%">
+          <el-tabs type="border-card" v-model="currentStrategyPosPnlTab">
+            <el-tab-pane
+              :lazy="true"
+              :label="`持仓 ${showCurrentIdInTabName(
+                currentStrategyPosPnlTab,
+                'pos',
+              )}`"
+              name="pos"
+            >
+              <Pos
+                :noTitle="true"
+                moduleType="strategy"
+                :currentId="strategyId"
+                :kungfuData="positions"
+                :addTime="addTime"
+                @showMakeOrderDashboard="
+                  handleShowOrCloseMakeOrderDashboard(true)
+                "
+                @makeOrder="handleMakeOrderByPos"
+              ></Pos>
+            </el-tab-pane>
+            <el-tab-pane
+              :lazy="true"
+              :label="`盈利曲线 ${showCurrentIdInTabName(
+                currentStrategyPosPnlTab,
+                'pnl',
+              )}`"
+              name="pnl"
+            >
+              <Pnl
+                :noTitle="true"
+                ref="pnl"
+                :currentId="strategyId"
+                moduleType="strategy"
+                :minPnl="pnl"
+                :dailyPnl="dailyPnl"
+                :addTime="addTime"
+              ></Pnl>
+            </el-tab-pane>
+          </el-tabs>
+        </el-row>
+        <el-row style="height: 33.333%">
+          <OrderRecord
+            moduleType="strategy"
+            :currentId="strategyId"
+            :kungfuData="orders"
+            :addTime="addTime"
+            :orderStat="orderStat"
+            @showHistory="handleShowHistory"
+          ></OrderRecord>
+        </el-row>
+        <el-row style="height: 33.333%">
+          <TradeRecord
+            moduleType="strategy"
+            :currentId="strategyId"
+            :kungfuData="trades"
+            :addTime="addTime"
+            :orderStat="orderStat"
+            @showHistory="handleShowHistory"
+          ></TradeRecord>
+        </el-row>
+      </el-col>
+    </div>
+  </MainContent>
 </template>
 <script>
-
 import { mapState } from 'vuex';
 
 import Strategy from '@/components/Strategy/Strategy';
 import Log from '@/components/Strategy/Log';
 import OrderRecord from '@/components/Base/tradingData/OrderRecord';
 import TradeRecord from '@/components/Base/tradingData/TradeRecord';
-import OrderMap from "@/components/Base/tradingData/OrderMap";
+import OrderMap from '@/components/Base/tradingData/OrderMap';
 import Pos from '@/components/Base/tradingData/Pos';
 import Pnl from '@/components/Base/tradingData/pnl/Index';
 import MainContent from '@/components/Layout/MainContent';
 
 import { buildKungfuDataByAppPipe } from '__io/kungfu/tradingData';
-import { 
-    watcher, 
-    transformOrderStatListToData, 
-    getOrderInputBySourceDest, 
-    getOrdersBySourceDestInstrumentId, 
-    getTradesBySourceDestInstrumentId, 
-    getOrderStatByDest, 
-    dealSnapshot,
-    dealPos,
+import {
+  watcher,
+  transformOrderStatListToData,
+  getOrderInputBySourceDest,
+  getOrdersBySourceDestInstrumentId,
+  getTradesBySourceDestInstrumentId,
+  getOrderStatByDest,
+  dealSnapshot,
+  dealPos,
 } from '__io/kungfu/watcher';
 import { encodeKungfuLocation } from '__io/kungfu/kungfuUtils';
 import { statTime, statTimeEnd } from '__gUtils/busiUtils';
 import accountStrategyMixins from '@/views/index/js/accountStrategyMixins';
 
 export default {
-    mixins: [ accountStrategyMixins ],
+  mixins: [accountStrategyMixins],
 
-    data(){
-        this.moduleType = 'strategy';
+  data() {
+    this.moduleType = 'strategy';
+    this.dataDealing = false;
+
+    return {
+      orders: Object.freeze([]),
+      orderInputs: Object.freeze([]),
+      trades: Object.freeze([]),
+      positions: Object.freeze([]),
+      pnl: Object.freeze([]),
+      dailyPnl: Object.freeze([]),
+      orderStat: Object.freeze({}),
+
+      historyData: {},
+      monitStrategies: false,
+      currentStrategyDetailTab: 'log',
+      currentStrategyPosPnlTab: 'pos',
+    };
+  },
+
+  mounted() {
+    this.orderStatPipe = buildKungfuDataByAppPipe().subscribe(() => {
+      if (this.dataDealing) return;
+      this.dataDealing = true;
+
+      window.requestIdleCallback(() => {
+        this.dealTradingData();
         this.dataDealing = false;
+      });
+    });
+  },
 
-        return {
-            orders: Object.freeze([]),
-            orderInputs: Object.freeze([]),
-            trades: Object.freeze([]),
-            positions: Object.freeze([]),
-            pnl: Object.freeze([]),
-            dailyPnl: Object.freeze([]),
-            orderStat: Object.freeze({}),
+  destroyed() {
+    this.orderStatPipe && this.orderStatPipe.unsubscribe();
+  },
 
-            historyData: {},
-            monitStrategies: false,
-            currentStrategyDetailTab: "log",
-            currentStrategyPosPnlTab: "pos",
+  computed: {
+    ...mapState({
+      currentStrategy: (state) => state.STRATEGY.currentStrategy,
+    }),
 
-        }
+    strategyId() {
+      return this.currentStrategy.strategy_id;
     },
 
-    mounted(){
-        this.orderStatPipe = buildKungfuDataByAppPipe().subscribe(() => {
-            
-            if (this.dataDealing) return;
-            this.dataDealing = true;
-
-            window.requestIdleCallback(() => {
-                this.dealTradingData()
-                this.dataDealing = false;
-            })
-        })
+    addTime() {
+      return this.currentStrategy.add_time;
     },
 
-    destroyed(){
-        this.orderStatPipe && this.orderStatPipe.unsubscribe();
+    currentLocationUID() {
+      if (!this.strategyId) return 0;
+      return watcher.getLocationUID(
+        encodeKungfuLocation(this.strategyId, 'strategy'),
+      );
+    },
+  },
+
+  components: {
+    Strategy,
+    OrderRecord,
+    OrderMap,
+    TradeRecord,
+    Pos,
+    Log,
+    Pnl,
+    MainContent,
+  },
+
+  methods: {
+    showCurrentIdInTabName(currentTabName, target) {
+      return currentTabName === target ? this.strategyId : '';
     },
 
-    computed: {
-        ...mapState({
-            currentStrategy: state => state.STRATEGY.currentStrategy,
-        }),
+    dealTradingData() {
+      const ledgerData = watcher.ledger;
 
-        strategyId(){
-            return this.currentStrategy.strategy_id
-        },
-        
-        addTime () {
-            return this.currentStrategy.add_time
-        },
+      if (!this.isHistoryDataOrder) {
+        const orders = getOrdersBySourceDestInstrumentId(
+          ledgerData.Order,
+          'dest',
+          this.currentLocationUID,
+        );
+        this.orders = Object.freeze(orders || []);
+      }
 
-        currentLocationUID () {
-            if (!this.strategyId) return 0;
-            return watcher.getLocationUID(encodeKungfuLocation(this.strategyId, 'strategy'));
-        },
+      if (!this.isHistoryDataTrade) {
+        const trades = getTradesBySourceDestInstrumentId(
+          ledgerData.Trade,
+          'dest',
+          this.currentLocationUID,
+        );
+        this.trades = Object.freeze(trades || []);
+      }
+
+      statTime('strategy deal pos');
+      this.positions = Object.freeze(
+        ledgerData.Position.filter('ledger_category', 1)
+          .nofilter('volume', BigInt(0))
+          .filter('client_id', this.currentStrategy.strategy_id)
+          .list()
+          .map((item) => Object.freeze(dealPos(item))),
+      );
+      statTimeEnd('strategy deal pos');
+
+      if (this.currentStrategyPosPnlTab == 'pnl') {
+        this.pnl = ledgerData.AssetSnapshot.filter('ledger_category', 1)
+          .filter('dest', this.currentLocationUID)
+          .sort('update_time')
+          .map((item) => Object.freeze(dealSnapshot(item)));
+
+        this.dailyPnl = ledgerData.DailyAsset.filter('ledger_category', 1)
+          .filter('dest', this.currentLocationUID)
+          .sort('update_time')
+          .map((item) => Object.freeze(dealSnapshot(item)));
+      }
+
+      //策略不会产生 orderStat
+      const orderStat = getOrderStatByDest(ledgerData.OrderStat);
+      const orderStatResolved = transformOrderStatListToData(orderStat);
+      this.orderStat = Object.freeze(orderStatResolved);
+
+      //优化
+      if (this.currentStrategyDetailTab === 'orderMap') {
+        const orderInputs = getOrderInputBySourceDest(
+          ledgerData.OrderInput,
+          'source',
+          this.currentLocationUID,
+        );
+        this.orderInputs = Object.freeze(orderInputs);
+      }
     },
-
-    components: {
-        Strategy, OrderRecord, OrderMap, TradeRecord, 
-        Pos, Log, Pnl,
-        MainContent
-    },
-   
-
-    methods:{
-        showCurrentIdInTabName (currentTabName, target) {
-            return currentTabName === target ? this.strategyId : ''
-        },
-
-        dealTradingData () {
-            const ledgerData = watcher.ledger;
-
-            if (!this.isHistoryDataOrder) {
-                const orders = getOrdersBySourceDestInstrumentId(ledgerData.Order, 'dest', this.currentLocationUID);
-                this.orders = Object.freeze(orders || []);
-            }
-
-            if (!this.isHistoryDataTrade) {
-                const trades = getTradesBySourceDestInstrumentId(ledgerData.Trade, 'dest', this.currentLocationUID);
-                this.trades = Object.freeze(trades || []);
-            }
-
-            statTime('strategy deal pos')
-            this.positions = Object.freeze(
-                ledgerData.Position
-                    .filter('ledger_category', 1)
-                    .nofilter("volume", BigInt(0))
-                    .filter('client_id', this.currentStrategy.strategy_id)
-                    .list()
-                    .map(item => Object.freeze(dealPos(item)))
-            )
-            statTimeEnd('strategy deal pos')
-
-            if (this.currentStrategyPosPnlTab == 'pnl') {
-                this.pnl = ledgerData.AssetSnapshot
-                    .filter("ledger_category", 1)
-                    .filter("dest", this.currentLocationUID)
-                    .sort('update_time')
-                    .map(item => Object.freeze(dealSnapshot(item)));
-
-                this.dailyPnl = ledgerData.DailyAsset
-                    .filter("ledger_category", 1)
-                    .filter("dest", this.currentLocationUID)
-                    .sort('update_time')
-                    .map(item => Object.freeze(dealSnapshot(item)));
-            }
-
-            //策略不会产生 orderStat
-            const orderStat = getOrderStatByDest(ledgerData.OrderStat);
-            const orderStatResolved = transformOrderStatListToData(orderStat);
-            this.orderStat = Object.freeze(orderStatResolved);
-
-            //优化
-            if (this.currentStrategyDetailTab === 'orderMap') {
-                const orderInputs = getOrderInputBySourceDest(ledgerData.OrderInput, 'source', this.currentLocationUID)
-                this.orderInputs = Object.freeze(orderInputs);
-            }
-        }
-    }
-}
+  },
+};
 </script>
 <style lang="scss">
 @import '@/assets/scss/skin.scss';
-.trader-content{
-    height: 100%;
+.trader-content {
+  height: 100%;
 }
 
-.trader-content > .el-row{
-    height: 100%;
+.trader-content > .el-row {
+  height: 100%;
 }
 
-.el-col{
-    height: 100%;
+.el-col {
+  height: 100%;
 }
 
-.el-row > .tr-dashboard{
-    padding-right: 0px;
+.el-row > .tr-dashboard {
+  padding-right: 0px;
 }
 
 .el-row > .el-tabs {
-
-    .tr-dashboard{
-        padding-right: 0px;
-    }
+  .tr-dashboard {
+    padding-right: 0px;
+  }
 }
 
-.trader-content > .el-row:last-child .tr-dashboard{
-    padding-bottom: 0px;
+.trader-content > .el-row:last-child .tr-dashboard {
+  padding-bottom: 0px;
 }
 
-.el-col > .el-row:last-child .tr-dashboard{
-    padding-bottom: 0px;
+.el-col > .el-row:last-child .tr-dashboard {
+  padding-bottom: 0px;
 }
-.el-col.has-padding .tr-dashboard{
-    padding-bottom: 8px !important;
+.el-col.has-padding .tr-dashboard {
+  padding-bottom: 8px !important;
 }
 </style>

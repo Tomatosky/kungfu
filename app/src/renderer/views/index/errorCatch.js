@@ -1,20 +1,19 @@
-import { remote } from 'electron'
+import { remote } from 'electron';
 import { logger } from '__gUtils/logUtils';
 const { dialog } = remote;
 
-
 process
-    .on('unhandledRejection', (reason, p) => {
-        console.error(reason, 'Unhandled Rejection', p);
-        logger.error(reason, 'Unhandled Rejection', p);
-    })
-    .on('uncaughtException', (err) => {
-        if (!err) return;
-        
-        console.error('Uncaught Exception thrown', err);
-        logger.error('Uncaught Exception thrown', err);
+  .on('unhandledRejection', (reason, p) => {
+    console.error(reason, 'Unhandled Rejection', p);
+    logger.error(reason, 'Unhandled Rejection', p);
+  })
+  .on('uncaughtException', (err) => {
+    if (!err) return;
 
-        if (!window.AFTER_APP_MOUNTED) {
-            dialog.showErrorBox('错误', err.message)
-        } 
-    });
+    console.error('Uncaught Exception thrown', err);
+    logger.error('Uncaught Exception thrown', err);
+
+    if (!window.AFTER_APP_MOUNTED) {
+      dialog.showErrorBox('错误', err.message);
+    }
+  });

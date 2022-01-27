@@ -5,7 +5,7 @@
  * @LastEditors: Please set LastEditors
  * @Description: In User Settings Edit
  * @FilePath: /kungfu/cli/src/commanders/monitKill.ts
- */ 
+ */
 /*
  * @Author: your name
  * @Date: 2020-06-11 16:09:35
@@ -13,32 +13,27 @@
  * @LastEditors: Please set LastEditors
  * @Description: In User Settings Edit
  * @FilePath: /kungfu/cli/src/commanders/shutdown.ts
- */ 
+ */
 
 import { kfKill } from '__gUtils/processUtils';
 import { SYSTEM_DIR } from '__gConfig/pathConfig';
 import { deleteNNFiles } from '@/commanders/shutdown';
 
-
-
-
 const glob = require('glob');
 const fs = require('fs');
 const path = require('path');
 
+export const monitKill = async () => {
+  try {
+    console.log('Killing monit ...');
+    await kfKill(['monit']);
+    const nodePath = path.join(SYSTEM_DIR, 'node');
+    await deleteNNFiles(nodePath);
 
-
- export const monitKill = async () => {
-    try {
-        console.log('Killing monit ...')
-        await kfKill(['monit']);
-        const nodePath = path.join(SYSTEM_DIR, 'node')
-        await deleteNNFiles(nodePath);
-        
-        console.success(`Kill Monitors`)
-        process.exit(0)
-    } catch (err) {
-        console.error(err)
-        process.exit(1)
-    }
- }
+    console.success(`Kill Monitors`);
+    process.exit(0);
+  } catch (err) {
+    console.error(err);
+    process.exit(1);
+  }
+};

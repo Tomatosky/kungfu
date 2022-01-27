@@ -4,8 +4,8 @@ import * as logUtils from './logUtils';
 import * as processUtils from './processUtils';
 
 export default {
-    busiUtils,
-    fileUtils,
-    logUtils,
-    processUtils
-}
+  busiUtils,
+  fileUtils,
+  logUtils,
+  processUtils,
+};

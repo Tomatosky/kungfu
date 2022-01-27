@@ -1,28 +1,32 @@
 {
   "comments": false,
   "env": {
-  
     "main": {
       "presets": [
-        ["env", {
-          "targets": { "node": 10 }
-        }],
+        [
+          "env",
+          {
+            "targets": { "node": 10 }
+          }
+        ],
         "stage-0",
-        ["es2015", {"modules": false}],
+        ["es2015", { "modules": false }],
         "stage-2"
       ]
     },
     "renderer": {
       "presets": [
-        ["env", {
-          "modules": false
-        }],
+        [
+          "env",
+          {
+            "modules": false
+          }
+        ],
         "stage-0",
-        ["es2015", {"modules": false}],
+        ["es2015", { "modules": false }],
         "stage-2"
       ]
     }
-
   },
   "plugins": [
     "transform-runtime",

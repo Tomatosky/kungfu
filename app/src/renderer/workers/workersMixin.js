@@ -1,6 +1,4 @@
-
 import moment from 'moment';
-
 
 import { watcher } from '__io/kungfu/watcher';
 import { debounce } from '__gUtils/busiUtils';
@@ -10,81 +8,87 @@ import { buildGatewayStatePipe } from '__io/kungfu/tradingData';
 import Workers from '@/workers/index';
 
 export default {
+  data() {
+    this.oldInstrumentsLength = JSON.parse(
+      localStorage.getItem('instruments') || '[]',
+    ).length;
+    this.dealInstrumentController = false;
+    return {};
+  },
 
-    data () {
-        this.oldInstrumentsLength = JSON.parse(localStorage.getItem('instruments') || "[]").length;
-        this.dealInstrumentController = false;
-        return {}
+  mounted() {
+    this.bindAvgMarketVolumeListener();
+    this.bindDealInsturmentsListener();
+  },
+
+  methods: {
+    bindAvgMarketVolumeListener() {
+      const self = this;
+      Workers.calcMarketDataAvgVolumeWorker.postMessage({
+        days: 7,
+        dataPath: KF_DATASET_QUOTE_DIR,
+      });
+
+      Workers.calcMarketDataAvgVolumeWorker.onmessage = debounce(function (
+        event,
+      ) {
+        {
+          self.$store.dispatch('setMarketAvgVolume', event.data);
+        }
+      });
     },
 
-    mounted () {
-        this.bindAvgMarketVolumeListener();
-        this.bindDealInsturmentsListener();
+    bindDealInsturmentsListener() {
+      const self = this;
+
+      buildGatewayStatePipe().subscribe(() => {
+        const instruments = watcher.ledger.Instrument.list() || [];
+
+        if (!instruments || !instruments.length) {
+          localStorage.setItem('instrumentsSavedDate', '');
+          return;
+        }
+
+        if (
+          self.getIfSaveInstruments(instruments) &&
+          !self.dealInstrumentController
+        ) {
+          self.dealInstrumentController = true;
+          console.time('DealInstruments');
+          console.log('DealInstruments postMessage', instruments.length);
+          Workers.dealInstruments.postMessage({
+            instruments: instruments,
+          });
+        }
+      });
+
+      Workers.dealInstruments.onmessage = (event) => {
+        const { instruments } = event.data || {};
+        console.timeEnd('DealInstruments');
+        console.log('DealInstruments onmessage', instruments.length);
+        localStorage.setItem(
+          'instrumentsSavedDate',
+          moment().format('YYYY-MM-DD'),
+        );
+        localStorage.setItem('instruments', JSON.stringify(instruments || []));
+        self.oldInstrumentsLength = instruments.length || 0; //refresh old instruments
+        self.dealInstrumentController = false;
+      };
     },
 
-    methods: {
-        bindAvgMarketVolumeListener () {
-            const self = this;
-            Workers.calcMarketDataAvgVolumeWorker.postMessage({
-                days: 7,
-                dataPath: KF_DATASET_QUOTE_DIR
-            })
+    getIfSaveInstruments(newInstruments) {
+      if (newInstruments.length !== this.oldInstrumentsLength) {
+        return true;
+      }
 
-            Workers.calcMarketDataAvgVolumeWorker.onmessage = debounce(function (event) {{
-                self.$store.dispatch('setMarketAvgVolume', event.data)
-            }})
-        },
-
-        bindDealInsturmentsListener () {
-            const self = this;
-
-            buildGatewayStatePipe().subscribe(() => {
-                const instruments = watcher.ledger.Instrument.list() || [];
-
-                if (!instruments || !instruments.length) {
-                    localStorage.setItem('instrumentsSavedDate', '');
-                    return;
-                }   
-                
-                if (self.getIfSaveInstruments(instruments) && !self.dealInstrumentController) {
-                
-                    self.dealInstrumentController = true;
-                    console.time('DealInstruments')
-                    console.log("DealInstruments postMessage", instruments.length)
-                    Workers.dealInstruments.postMessage({
-                        instruments: instruments
-                    });
-                }
-            })
-
-
-            Workers.dealInstruments.onmessage = event => {
-                const { instruments } = event.data || {};
-                console.timeEnd('DealInstruments')
-                console.log("DealInstruments onmessage", instruments.length)
-                localStorage.setItem('instrumentsSavedDate', moment().format('YYYY-MM-DD'))
-                localStorage.setItem('instruments', JSON.stringify(instruments || []))
-                self.oldInstrumentsLength = instruments.length || 0; //refresh old instruments
-                self.dealInstrumentController = false;
-            }
-        },
-
-        
-
-        getIfSaveInstruments (newInstruments) {
-
-            if (newInstruments.length !== this.oldInstrumentsLength) {
-                return true;
-            }
-
-            const instrumentsSavedDate = localStorage.getItem('instrumentsSavedDate')
-            if (!instrumentsSavedDate) {
-                return true
-            } else if (instrumentsSavedDate !== moment().format('YYYY-MM-DD')) {
-                return true 
-            } else {
-                return false
-            }
-        },
-    }
-}
+      const instrumentsSavedDate = localStorage.getItem('instrumentsSavedDate');
+      if (!instrumentsSavedDate) {
+        return true;
+      } else if (instrumentsSavedDate !== moment().format('YYYY-MM-DD')) {
+        return true;
+      } else {
+        return false;
+      }
+    },
+  },
+};

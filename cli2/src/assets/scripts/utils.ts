@@ -1,13 +1,11 @@
-import { toDecimal, resolveMemCpu } from "__gUtils/busiUtils";
-import { statusConfig } from "__gConfig/statusConfig";
-import { logger } from "__gUtils/logUtils";
+import { toDecimal, resolveMemCpu } from '__gUtils/busiUtils';
+import { statusConfig } from '__gConfig/statusConfig';
+import { logger } from '__gUtils/logUtils';
 
-const colors = require("colors");
+const colors = require('colors');
 
-String.prototype.toAccountId = function() {
-  return this.split("_")
-    .slice(1)
-    .join("_");
+String.prototype.toAccountId = function () {
+  return this.split('_').slice(1).join('_');
 };
 
 export const DEFAULT_PADDING: StringToNumberObject = {
@@ -17,19 +15,19 @@ export const DEFAULT_PADDING: StringToNumberObject = {
 };
 
 export const TABLE_BASE_OPTIONS = {
-  content: "",
+  content: '',
   padding: 0,
   scrollable: true,
   scrollbar: {
-    ch: " ",
+    ch: ' ',
     inverse: true,
   },
   border: {
-    type: "line",
-    fg: "white",
+    type: 'line',
+    fg: 'white',
   },
   keys: true,
-  align: "left",
+  align: 'left',
   autoCommandKeys: true,
   tags: true,
   mouse: true,
@@ -40,17 +38,17 @@ export const TABLE_BASE_OPTIONS = {
   style: {
     focus: {
       border: {
-        fg: "blue",
+        fg: 'blue',
       },
     },
     item: {
       border: {
-        fg: "white",
+        fg: 'white',
       },
     },
     scrollbar: {
-      bg: "blue",
-      fg: "black",
+      bg: 'blue',
+      fg: 'black',
     },
     selected: {
       bold: true,
@@ -66,48 +64,48 @@ export const TABLE_BASE_OPTIONS = {
 export const parseToString = (
   targetList: any[],
   columnWidth: any[],
-  pad = 2
+  pad = 2,
 ) => {
   return targetList
     .map((item: string, i: number) => {
-      if (item + "" === "0") item = "0";
-      item = (item || "").toString();
+      if (item + '' === '0') item = '0';
+      item = (item || '').toString();
 
       const lw = item
-        .replace(/\u001b\[1m/g, "")
-        .replace(/\u001b\[22m/g, "")
-        .replace(/\u001b\[31m/g, "")
-        .replace(/\u001b\[32m/g, "")
-        .replace(/\u001b\[33m/g, "")
-        .replace(/\u001b\[34m/g, "")
-        .replace(/\u001b\[35m/g, "")
-        .replace(/\u001b\[36m/g, "")
-        .replace(/\u001b\[37m/g, "")
-        .replace(/\u001b\[38m/g, "")
-        .replace(/\u001b\[39m/g, "")
-        .replace(/\u001b\[45m/g, "")
-        .replace(/\u001b\[49m/g, "");
+        .replace(/\u001b\[1m/g, '')
+        .replace(/\u001b\[22m/g, '')
+        .replace(/\u001b\[31m/g, '')
+        .replace(/\u001b\[32m/g, '')
+        .replace(/\u001b\[33m/g, '')
+        .replace(/\u001b\[34m/g, '')
+        .replace(/\u001b\[35m/g, '')
+        .replace(/\u001b\[36m/g, '')
+        .replace(/\u001b\[37m/g, '')
+        .replace(/\u001b\[38m/g, '')
+        .replace(/\u001b\[39m/g, '')
+        .replace(/\u001b\[45m/g, '')
+        .replace(/\u001b\[49m/g, '');
 
       const len = lw.length;
       const colWidth: number | string = columnWidth[i] || 0;
-      if (colWidth === "auto") return item;
+      if (colWidth === 'auto') return item;
       const spaceLength = +colWidth - len;
       if (spaceLength < 0) return lw.slice(0, +colWidth);
       else if (spaceLength === 0) return item;
-      else return item + new Array(spaceLength + 1).join(" ");
+      else return item + new Array(spaceLength + 1).join(' ');
     })
-    .join(new Array(pad + 2).join(" "));
+    .join(new Array(pad + 2).join(' '));
 };
 
 export const parseToTargetWidthString = (
   str: string | number,
-  targetWidth: number
+  targetWidth: number,
 ) => {
-  const strResolved = str.toString() || "";
+  const strResolved = str.toString() || '';
   const len = strResolved.length;
   if (len <= targetWidth) {
     let deltaLen = targetWidth - len;
-    return strResolved + new Array(deltaLen + 1).join(" ");
+    return strResolved + new Array(deltaLen + 1).join(' ');
   } else {
     return strResolved.slice(0, targetWidth);
   }
@@ -116,16 +114,16 @@ export const parseToTargetWidthString = (
 export const calcuHeaderWidth = (target: string[], wish: any[]) => {
   wish = wish || [];
   return target.map((t: string, i) => {
-    if (wish[i] === "auto") return wish[i];
+    if (wish[i] === 'auto') return wish[i];
     if (t.length < (wish[i] || 0)) return wish[i];
     else return t.length;
   });
 };
 
 export const dealStatus = (status: string | number) => {
-  if (status === "--") return status;
+  if (status === '--') return status;
   if (!statusConfig[status]) return status;
-  const name: string = statusConfig[status].name || "";
+  const name: string = statusConfig[status].name || '';
   const level: number = statusConfig[status].level || 0;
   if (level == 1) return colors.green(name);
   else if (level == 0) return colors.white(name);
@@ -134,10 +132,10 @@ export const dealStatus = (status: string | number) => {
 };
 
 export const dealNum = (num: number | string, percentage?: boolean) => {
-  const percentageStr: string = percentage ? "%" : "";
+  const percentageStr: string = percentage ? '%' : '';
   const targetNum: string =
-    (percentageStr ? toDecimal(num, 4, 2) : toDecimal(num)) + "" || "--";
-  if (targetNum === "--") return "--";
+    (percentageStr ? toDecimal(num, 4, 2) : toDecimal(num)) + '' || '--';
+  if (targetNum === '--') return '--';
   if (+targetNum > 0) {
     return colors.red(targetNum + percentageStr).toString();
   } else if (+targetNum < 0) return colors.green(targetNum + percentageStr);
@@ -146,81 +144,81 @@ export const dealNum = (num: number | string, percentage?: boolean) => {
 
 export const dealLog = (item: LogData) => {
   let type = item.type;
-  if (type === "error") type = colors.red(item.type);
-  else if (type === "warning") type = colors.yellow("warn");
+  if (type === 'error') type = colors.red(item.type);
+  else if (type === 'warning') type = colors.yellow('warn');
   return parseToString(
     [`[${item.updateTime}]`, `${type}`, item.message],
-    [31, 5, "auto"],
-    0
+    [31, 5, 'auto'],
+    0,
   );
 };
 
 export const parseSources = (accountSource: Sources): string[] => {
   return Object.values(accountSource).map(
-    (s: any) => `${s.source} (${s.typeName})`
+    (s: any) => `${s.source} (${s.typeName})`,
   );
 };
 
 export const getStatus = (processId: string, processStatus: any) => {
-  return processStatus[processId] === "online";
+  return processStatus[processId] === 'online';
 };
 
 export const getQuestionInputType = (originType: string) => {
   switch (originType) {
-    case "str":
-      return "input";
-    case "int":
-      return "number";
-    case "float":
-      return "number";
-    case "select":
-      return "list";
-    case "sources":
-      return "list";
-    case "bool":
-      return "confirm";
-    case "file":
-      return "path";
+    case 'str':
+      return 'input';
+    case 'int':
+      return 'number';
+    case 'float':
+      return 'number';
+    case 'select':
+      return 'list';
+    case 'sources':
+      return 'list';
+    case 'bool':
+      return 'confirm';
+    case 'file':
+      return 'path';
     default:
-      return "input";
+      return 'input';
   }
 };
 
 export const renderSelect = (configItem: AccountSettingItem) => {
-  if (configItem.type === "select")
+  if (configItem.type === 'select')
     return `(${(configItem.options || configItem.data || [])
-      .map((item) => item.value || "")
-      .join("|")})`;
-  else return "";
+      .map((item) => item.value || '')
+      .join('|')})`;
+  else return '';
 };
 
 export const getKungfuTypeFromString = (typeString: string) => {
-  const isTd = typeString.toLocaleLowerCase().includes("td");
-  const isMd = typeString.toLocaleLowerCase().includes("md");
-  const isStrategy = typeString.toLocaleLowerCase().includes("strategy");
+  const isTd = typeString.toLocaleLowerCase().includes('td');
+  const isMd = typeString.toLocaleLowerCase().includes('md');
+  const isStrategy = typeString.toLocaleLowerCase().includes('strategy');
 
-  if (isTd) return "td";
-  else if (isMd) return "md";
-  else if (isStrategy) return "strategy";
-  else return "";
+  if (isTd) return 'td';
+  else if (isMd) return 'md';
+  else if (isStrategy) return 'strategy';
+  else return '';
 };
 
 export const buildTdMdStatus = (
   processId: string,
   stringMdTddState: StringToMdTdState,
-  processStatus: string
+  processStatus: string,
 ): string | number => {
   if (!stringMdTddState[processId]) return processStatus;
-  else if (processStatus === "online") return stringMdTddState[processId].state;
+  else if (processStatus === 'online') return stringMdTddState[processId].state;
   else return processStatus;
 };
 
 export const buildStatusDefault = (
-  processStatus: ProcessStatusDetail | undefined
+  processStatus: ProcessStatusDetail | undefined,
 ) => {
   if (!processStatus)
     return {
-      status: "--",
+      status: '--',
       monit: {
         cpu: 0,
         memory: 0,
@@ -228,13 +226,13 @@ export const buildStatusDefault = (
     };
 
   const monit = processStatus.monit;
-  const cpu = resolveMemCpu(monit, "cpu");
-  const memory = resolveMemCpu(monit, "memory");
+  const cpu = resolveMemCpu(monit, 'cpu');
+  const memory = resolveMemCpu(monit, 'memory');
   return {
     status: processStatus.status,
     monit: {
-      cpu: monit.cpu == 0 ? monit.cpu + "%" : colors.green(cpu),
-      memory: monit.memory == 0 ? monit.memory + "M" : colors.green(memory),
+      cpu: monit.cpu == 0 ? monit.cpu + '%' : colors.green(cpu),
+      memory: monit.memory == 0 ? monit.memory + 'M' : colors.green(memory),
     },
   };
 };

@@ -1,56 +1,53 @@
 <template>
-    <div id="app">
-        <router-view></router-view>
-    </div>
+  <div id="app">
+    <router-view></router-view>
+  </div>
 </template>
 <script>
-
 import { ipcEmitDataByName } from '@/ipcMsg/emitter';
 import { setTimerPromiseTask } from '__gUtils/busiUtils';
 
 export default {
-    name: 'app',
+  name: 'app',
 
-    mounted(){
-        this.removeLoadingMask();
+  mounted() {
+    this.removeLoadingMask();
 
-        ipcEmitDataByName('tdMdList')
-            .then(({ data }) => {
-                const { mdList, tdList } = data;
-                this.$store.dispatch('setTdList', tdList)
-                this.$store.dispatch('setMdList', mdList)
-            })
+    ipcEmitDataByName('tdMdList').then(({ data }) => {
+      const { mdList, tdList } = data;
+      this.$store.dispatch('setTdList', tdList);
+      this.$store.dispatch('setMdList', mdList);
+    });
 
-        ipcEmitDataByName('strategyList')
-            .then(({ data }) => {
-                this.$store.dispatch('setStrategyList', data)
+    ipcEmitDataByName('strategyList').then(({ data }) => {
+      this.$store.dispatch('setStrategyList', data);
+    });
 
-            })
+    setTimerPromiseTask(
+      () =>
+        ipcEmitDataByName('accountsAsset').then(({ data }) => {
+          this.$store.dispatch('setAccountsAsset', data);
+        }),
+      3000,
+    );
 
-        setTimerPromiseTask(() => ipcEmitDataByName('accountsAsset')
-            .then(({ data }) => {
-                this.$store.dispatch('setAccountsAsset', data);
-            }),
-            3000
-        )
+    this.$store.dispatch('getAccountSourceConfig');
+  },
 
-        this.$store.dispatch('getAccountSourceConfig');
+  methods: {
+    removeLoadingMask() {
+      //remove loading mask
+      if (document.getElementById('loading'))
+        document.getElementById('loading').remove();
     },
-
-    methods: {
-        removeLoadingMask () {
-            //remove loading mask
-            if(document.getElementById('loading')) document.getElementById('loading').remove();
-        },
-    }
-}
+  },
+};
 </script>
 
 <style lang="scss">
 @import '@/assets/scss/base.scss';
- #app{
-   height: 100%;
-   background: $login-bg;
- }
-
+#app {
+  height: 100%;
+  background: $login-bg;
+}
 </style>

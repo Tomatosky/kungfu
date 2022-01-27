@@ -1,5 +1,3 @@
-
-
 /**
  * This file is used specifically and only for development. It installs
  * `electron-debug` & `vue-devtools`. There shouldn't be any need to
@@ -12,17 +10,16 @@
 // Set environment for development
 
 const { app, BrowserWindow } = require('electron');
-const path = require("path");
+const path = require('path');
 
 // Install `electron-debug` with `devtron`
-require('electron-debug')()
+require('electron-debug')();
 
 // Install `vue-devtools`
 app.on('ready', () => {
   const extPath = path.resolve(__dirname, '..', '..', 'vue-devtools');
   BrowserWindow.addDevToolsExtension(extPath);
-})
-
+});
 
 // Require `main` process to boot app
-require('./index')
+require('./index');

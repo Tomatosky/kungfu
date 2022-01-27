@@ -1,23 +1,23 @@
-const fs = require("fs");
-const path = require("path");
-const HtmlWebpackPlugin = require("html-webpack-plugin");
-const minimist = require("minimist");
+const fs = require('fs');
+const path = require('path');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const minimist = require('minimist');
 
 const getCommitVersion = () => {
-  var gitCommitVersion = "latest";
+  var gitCommitVersion = 'latest';
   try {
     var gitHEAD = fs
-      .readFileSync(path.join(__dirname, "..", "..", ".git", "HEAD"), "utf-8")
+      .readFileSync(path.join(__dirname, '..', '..', '.git', 'HEAD'), 'utf-8')
       .trim(); // ref: refs/heads/develop
-    if ((gitHEAD || "").split(": ").length <= 1) {
+    if ((gitHEAD || '').split(': ').length <= 1) {
       gitCommitVersion = gitHEAD;
     } else {
-      var ref = gitHEAD.split(": ")[1]; // refs/heads/develop
-      var develop = gitHEAD.split("/")[2]; // 环境：develop
+      var ref = gitHEAD.split(': ')[1]; // refs/heads/develop
+      var develop = gitHEAD.split('/')[2]; // 环境：develop
       var gitVersion = fs
-        .readFileSync(path.join(__dirname, "..", "..", ".git", ref), "utf-8")
+        .readFileSync(path.join(__dirname, '..', '..', '.git', ref), 'utf-8')
         .trim(); // git版本号，例如：6ceb0ab5059d01fd444cf4e78467cc2dd1184a66
-      gitCommitVersion = develop + ": " + gitVersion;
+      gitCommitVersion = develop + ': ' + gitVersion;
     }
   } catch (err) {
     console.error(err);
@@ -26,22 +26,22 @@ const getCommitVersion = () => {
 };
 
 const getPythonVersion = () => {
-  var pyVersion = "3";
+  var pyVersion = '3';
   try {
     var buildInfoRaw = fs.readFileSync(
       path.join(
         __dirname,
-        "..",
-        "..",
-        "core",
-        "build",
-        "kfc",
-        "kungfubuildinfo.json"
+        '..',
+        '..',
+        'core',
+        'build',
+        'kfc',
+        'kungfubuildinfo.json',
       ),
-      "utf-8"
+      'utf-8',
     );
     var buildInfo = JSON.parse(buildInfoRaw);
-    pyVersion = buildInfo.pythonVersion || "3";
+    pyVersion = buildInfo.pythonVersion || '3';
   } catch (err) {
     console.error(err);
   }
@@ -53,7 +53,7 @@ const listDirSync = (filePath) => {
 };
 
 const getViewsConfig = () => {
-  const viewsPath = path.resolve(__dirname, "..", "src", "renderer", "views");
+  const viewsPath = path.resolve(__dirname, '..', 'src', 'renderer', 'views');
   const files = listDirSync(viewsPath);
   let entry = {},
     plugins = [];
@@ -66,12 +66,12 @@ const getViewsConfig = () => {
     .forEach((file) => {
       (entry[file] = path.join(
         __dirname,
-        `../src/renderer/views/${file}/main.js`
+        `../src/renderer/views/${file}/main.js`,
       )),
         plugins.push(
           new HtmlWebpackPlugin({
             filename: `${file}.html`,
-            template: path.resolve(__dirname, "../src/index.ejs"),
+            template: path.resolve(__dirname, '../src/index.ejs'),
             minify: {
               collapseWhitespace: true,
               removeAttributeQuotes: true,
@@ -79,10 +79,10 @@ const getViewsConfig = () => {
             },
             chunks: [file],
             nodeModules:
-              process.env.NODE_ENV !== "production"
-                ? path.resolve(__dirname, "../node_modules")
+              process.env.NODE_ENV !== 'production'
+                ? path.resolve(__dirname, '../node_modules')
                 : false,
-          })
+          }),
         );
     });
 
@@ -96,8 +96,8 @@ const getEnvFile = () => {
   const argv = minimist(process.argv);
   const env = argv.env;
   const dotenvFile = path.resolve(path.dirname(__dirname), `./.env.${env}`);
-  console.log("dotenvFile", dotenvFile);
-  require("dotenv").config({
+  console.log('dotenvFile', dotenvFile);
+  require('dotenv').config({
     path: fs.existsSync(dotenvFile)
       ? dotenvFile
       : path.resolve(path.dirname(__dirname), `./.env`),

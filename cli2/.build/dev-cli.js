@@ -1,27 +1,27 @@
-"use strict";
+'use strict';
 
-const { getEnvFile } = require("../../app/.electron-kungfu/utils");
+const { getEnvFile } = require('../../app/.electron-kungfu/utils');
 getEnvFile();
 
-const chalk = require("chalk");
-const { say } = require("cfonts");
-const webpack = require("webpack");
-const webpackHotMiddleware = require("webpack-hot-middleware");
+const chalk = require('chalk');
+const { say } = require('cfonts');
+const webpack = require('webpack');
+const webpackHotMiddleware = require('webpack-hot-middleware');
 
-const cliConfig = require("./webpack.cli.config");
+const cliConfig = require('./webpack.cli.config');
 
 let electronProcess = null;
 let hotMiddleware;
 
 function logStats(proc, data) {
-  let log = "";
+  let log = '';
 
   log += chalk.yellow.bold(
-    `┏ ${proc} Process ${new Array(19 - proc.length + 1).join("-")}`
+    `┏ ${proc} Process ${new Array(19 - proc.length + 1).join('-')}`,
   );
-  log += "\n\n";
+  log += '\n\n';
 
-  if (typeof data === "object") {
+  if (typeof data === 'object') {
     data
       .toString({
         colors: true,
@@ -29,13 +29,13 @@ function logStats(proc, data) {
       })
       .split(/\r?\n/)
       .forEach((line) => {
-        log += "  " + line + "\n";
+        log += '  ' + line + '\n';
       });
   } else {
     log += `  ${data}\n`;
   }
 
-  log += "\n" + chalk.yellow.bold(`┗ ${new Array(28 + 1).join("-")}`) + "\n";
+  log += '\n' + chalk.yellow.bold(`┗ ${new Array(28 + 1).join('-')}`) + '\n';
 
   console.log(log);
 }
@@ -48,9 +48,9 @@ function startCli() {
       heartbeat: 2500,
     });
 
-    compiler.plugin("watch-run", (compilation, done) => {
-      logStats("Main", chalk.white.bold("compiling..."));
-      hotMiddleware.publish({ action: "compiling" });
+    compiler.plugin('watch-run', (compilation, done) => {
+      logStats('Main', chalk.white.bold('compiling...'));
+      hotMiddleware.publish({ action: 'compiling' });
       done();
     });
 
@@ -60,7 +60,7 @@ function startCli() {
         return;
       }
 
-      logStats("Main", stats);
+      logStats('Main', stats);
 
       if (electronProcess && electronProcess.kill) {
         manualRestart = true;
@@ -80,20 +80,20 @@ function startCli() {
 
 function greeting() {
   const cols = process.stdout.columns;
-  let text = "";
+  let text = '';
 
-  if (cols > 104) text = "";
-  else if (cols > 76) text = "kungfu-|trader";
+  if (cols > 104) text = '';
+  else if (cols > 76) text = 'kungfu-|trader';
   else text = false;
 
   if (text) {
     say(text, {
-      colors: ["yellow"],
-      font: "simple3d",
+      colors: ['yellow'],
+      font: 'simple3d',
       space: false,
     });
-  } else console.log(chalk.yellow.bold("\n  kungfu-trader"));
-  console.log(chalk.blue("  getting ready...") + "\n");
+  } else console.log(chalk.yellow.bold('\n  kungfu-trader'));
+  console.log(chalk.blue('  getting ready...') + '\n');
 }
 
 function init() {

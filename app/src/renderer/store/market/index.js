@@ -1,4 +1,4 @@
-import Vue from "vue";
+import Vue from 'vue';
 
 export default {
   state: {
@@ -15,19 +15,19 @@ export default {
 
   actions: {
     setTickerSets({ commit }, tickerSets) {
-      commit("SET_TICKER_SETS", tickerSets);
+      commit('SET_TICKER_SETS', tickerSets);
     },
 
     setCurrentTickerSet({ commit }, tickerSet) {
-      commit("SET_CURRENT_TICKER_SET", tickerSet);
+      commit('SET_CURRENT_TICKER_SET', tickerSet);
     },
 
     setMarketAvgVolume({ commit }, { days, data }) {
-      commit("SET_MARKET_AVG_VOLUME", { days, data });
+      commit('SET_MARKET_AVG_VOLUME', { days, data });
     },
 
     setSubscribedQuoteIds({ commit }, quotes) {
-      commit("SET_SUBSCRIBED_QUOTE_IDS", quotes);
+      commit('SET_SUBSCRIBED_QUOTE_IDS', quotes);
     },
   },
 
@@ -40,11 +40,11 @@ export default {
     },
 
     SET_TICKER_SETS(state, tickerSets) {
-      Vue.set(state, "tickerSets", tickerSets);
+      Vue.set(state, 'tickerSets', tickerSets);
     },
 
     SET_CURRENT_TICKER_SET(state, tickerSet) {
-      Vue.set(state, "currentTickerSet", tickerSet);
+      Vue.set(state, 'currentTickerSet', tickerSet);
     },
 
     SET_MARKET_AVG_VOLUME(state, { days, data }) {

@@ -7,16 +7,18 @@
             class="mouse-over text-icon"
             title="添加选股算法"
             @click="handleAddTask"
-            >选股</span
           >
+            选股
+          </span>
         </tr-dashboard-header-item>
         <tr-dashboard-header-item>
           <span
             class="mouse-over text-icon"
             title="订阅"
             @click="handleSubscribeAllTickers"
-            >订阅</span
           >
+            订阅
+          </span>
         </tr-dashboard-header-item>
         <tr-dashboard-header-item>
           <el-select
@@ -29,8 +31,7 @@
               :key="tickerSet.name"
               :label="`当前标的池：${tickerSet.name || ''}`"
               :value="tickerSet.name"
-            >
-            </el-option>
+            ></el-option>
           </el-select>
         </tr-dashboard-header-item>
         <tr-dashboard-header-item>
@@ -38,16 +39,18 @@
             size="mini"
             @click="tickerSetsManagerDialogVisiblity = true"
             title="设置标的池"
-            >设置标的池</el-button
           >
+            设置标的池
+          </el-button>
         </tr-dashboard-header-item>
         <tr-dashboard-header-item>
           <el-button
             size="mini"
             @click="handleAddTicker('marketdata')"
             title="添加"
-            >添加标的</el-button
           >
+            添加标的
+          </el-button>
         </tr-dashboard-header-item>
       </div>
       <el-table
@@ -61,8 +64,7 @@
           label="标的"
           show-overflow-tooltip
           min-width="80"
-        >
-        </el-table-column>
+        ></el-table-column>
         <el-table-column label="交易所" show-overflow-tooltip min-width="60">
           <template slot-scope="props">
             <span>{{ ExchangeIds[props.row.exchangeId] }}</span>
@@ -78,8 +80,7 @@
             <tr-blink-num
               :theKey="`${currentTickerSet.name}_${props.row.instrumentId}`"
               :num="getValueFromMarketData(props.row, 'openPrice')"
-            >
-            </tr-blink-num>
+            ></tr-blink-num>
           </template>
         </el-table-column>
         <el-table-column
@@ -92,8 +93,7 @@
             <tr-blink-num
               :theKey="`${currentTickerSet.name}_${props.row.instrumentId}`"
               :num="getValueFromMarketData(props.row, 'closePrice')"
-            >
-            </tr-blink-num>
+            ></tr-blink-num>
           </template>
         </el-table-column>
         <el-table-column
@@ -106,8 +106,7 @@
             <tr-blink-num
               :theKey="`${currentTickerSet.name}_${props.row.instrumentId}`"
               :num="getValueFromMarketData(props.row, 'highPrice')"
-            >
-            </tr-blink-num>
+            ></tr-blink-num>
           </template>
         </el-table-column>
         <el-table-column
@@ -120,8 +119,7 @@
             <tr-blink-num
               :theKey="`${currentTickerSet.name}_${props.row.instrumentId}`"
               :num="getValueFromMarketData(props.row, 'lowPrice')"
-            >
-            </tr-blink-num>
+            ></tr-blink-num>
           </template>
         </el-table-column>
         <el-table-column
@@ -134,8 +132,7 @@
             <tr-blink-num
               :theKey="`${currentTickerSet.name}_${props.row.instrumentId}`"
               :num="getValueFromMarketData(props.row, 'lastPrice')"
-            >
-            </tr-blink-num>
+            ></tr-blink-num>
           </template>
         </el-table-column>
         <el-table-column
@@ -149,8 +146,7 @@
             <tr-blink-num
               :theKey="`${currentTickerSet.name}_${props.row.instrumentId}`"
               :num="getValueFromMarketData(props.row, 'volume')"
-            >
-            </tr-blink-num>
+            ></tr-blink-num>
           </template>
         </el-table-column>
         <el-table-column
@@ -168,8 +164,7 @@
                   `${props.row.instrumentId}_${props.row.exchangeId}`
                 ] || '--'
               "
-            >
-            </tr-blink-num>
+            ></tr-blink-num>
           </template>
         </el-table-column>
         <el-table-column
@@ -182,8 +177,9 @@
             <span
               class="tr-oper-delete"
               @click.stop="handleDeleteTicker(props.row, currentTickerSet)"
-              ><i class=" el-icon-delete mouse-over" title="删除标的"></i
-            ></span>
+            >
+              <i class="el-icon-delete mouse-over" title="删除标的"></i>
+            </span>
           </template>
         </el-table-column>
       </el-table>
@@ -196,8 +192,7 @@
         (tickerData) =>
           handleAddTickerConfirm(tickerData, addTickerTargetTickerSetName)
       "
-    >
-    </AddTickerDialog>
+    ></AddTickerDialog>
 
     <TickerSetsManagerDialog
       v-if="tickerSetsManagerDialogVisiblity"
@@ -211,16 +206,16 @@
 </template>
 
 <script>
-import { mapGetters, mapState } from "vuex";
+import { mapGetters, mapState } from 'vuex';
 
-import { findTargetFromArray } from "__gUtils/busiUtils";
-import { ExchangeIds } from "kungfu-shared/config/tradingConfig";
+import { findTargetFromArray } from '__gUtils/busiUtils';
+import { ExchangeIds } from 'kungfu-shared/config/tradingConfig';
 
-import TickerSetsManagerDialog from "@/components/MarketFilter/components/TickerSetsManagerDialog";
-import AddTickerDialog from "@/components/MarketFilter/components/AddTickerDialog";
+import TickerSetsManagerDialog from '@/components/MarketFilter/components/TickerSetsManagerDialog';
+import AddTickerDialog from '@/components/MarketFilter/components/AddTickerDialog';
 
-import tickerSetMixin from "@/components/MarketFilter/js/tickerSetMixin";
-import taskMixin from "@/components/Task/js/taskMixin";
+import tickerSetMixin from '@/components/MarketFilter/js/tickerSetMixin';
+import taskMixin from '@/components/Task/js/taskMixin';
 
 export default {
   mixins: [tickerSetMixin, taskMixin],
@@ -240,8 +235,8 @@ export default {
     this.ExchangeIds = ExchangeIds;
     return {
       addTickerDialogVisiblity: false,
-      addTickerType: "",
-      addTickerTargetTickerSetName: "",
+      addTickerType: '',
+      addTickerTargetTickerSetName: '',
 
       tickerSetsManagerDialogVisiblity: false,
     };
@@ -258,7 +253,7 @@ export default {
       marketAvgVolume: (state) => state.MARKET.marketAvgVolume || {},
     }),
 
-    ...mapGetters(["proMode"]),
+    ...mapGetters(['proMode']),
 
     marketAvgVolume7Days() {
       return this.marketAvgVolume[7] || {};
@@ -268,19 +263,19 @@ export default {
   methods: {
     handleAddTicker(type, targetTickerSet = null) {
       const targetTickerSetResolved = Object.freeze(
-        targetTickerSet || this.currentTickerSet
+        targetTickerSet || this.currentTickerSet,
       );
       if (
         targetTickerSetResolved === null ||
         Object.keys(targetTickerSetResolved).length === 0
       ) {
-        this.$message.warning("请先添加标的池！");
+        this.$message.warning('请先添加标的池！');
         return;
       }
       this.addTickerType = type;
       this.addTickerTargetTickerSetName =
         Object.freeze(targetTickerSet || this.currentTickerSet || {}).name ||
-        "";
+        '';
       this.addTickerDialogVisiblity = true;
     },
 
@@ -291,15 +286,15 @@ export default {
     handleSetTickerSet(tickerSetName) {
       const targetOriginTickerSet = findTargetFromArray(
         this.tickerSets,
-        "name",
-        tickerSetName
+        'name',
+        tickerSetName,
       );
       this.handleSetCurrentTickerSet(targetOriginTickerSet);
     },
 
     handleAddTask() {
-      this.$bus.$emit("set-task", {
-        type: "mFilter",
+      this.$bus.$emit('set-task', {
+        type: 'mFilter',
         initData: {
           tickerSet: this.currentTickerSetName,
         },
@@ -308,20 +303,20 @@ export default {
 
     handleRowClick(row) {
       if (!row || !row.instrumentId) {
-        this.$message.warning("请点击订阅");
+        this.$message.warning('请点击订阅');
         return;
       }
 
       const quoteData = this.getMarketData(row);
       const { exchangeId, instrumentId } = row;
-      this.$bus.$emit("update:make-order", {
+      this.$bus.$emit('update:make-order', {
         currentId: this.currentId,
         moduleType: this.moduleType,
         orderInput: {
           ...(quoteData || {}),
           exchangeId,
           instrumentId,
-          instrumentType: (quoteData || "").instrumentTypeOrigin || 0,
+          instrumentType: (quoteData || '').instrumentTypeOrigin || 0,
           offset: 0,
           side: 0,
           volume: 0,
@@ -329,7 +324,7 @@ export default {
       });
 
       if (quoteData) {
-        this.$bus.$emit("orderbook-tickerId", {
+        this.$bus.$emit('orderbook-tickerId', {
           instrumentId: quoteData.instrumentId,
           exchangeId: quoteData.exchangeId,
         });
@@ -339,7 +334,7 @@ export default {
     getValueFromMarketData(tickerData, key) {
       const quote = this.getMarketData(tickerData);
       if (!quote) {
-        return "--";
+        return '--';
       } else {
         return quote[key];
       }

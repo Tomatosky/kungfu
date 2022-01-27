@@ -3,5 +3,7 @@ import * as strategy from './strategy';
 import * as base from './base';
 
 export default {
-    base, account, strategy
-}
+  base,
+  account,
+  strategy,
+};

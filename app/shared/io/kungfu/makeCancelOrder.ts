@@ -1,7 +1,7 @@
-import { longfist, encodeKungfuLocation } from "__io/kungfu/kungfuUtils";
-import { watcher, decodeKungfuLocation } from "__io/kungfu/watcher";
+import { longfist, encodeKungfuLocation } from '__io/kungfu/kungfuUtils';
+import { watcher, decodeKungfuLocation } from '__io/kungfu/watcher';
 
-const DIGIT = process.env.KF_BRAND_TYPE === "crypto" ? 100000000 : 1;
+const DIGIT = process.env.KF_BRAND_TYPE === 'crypto' ? 100000000 : 1;
 
 interface MakeOrderData {
   intrument_id: string;
@@ -18,23 +18,23 @@ interface MakeOrderData {
 export const kungfuSubscribeInstrument = (
   sourceName: string,
   exchangeId: string,
-  ticker: string
+  ticker: string,
 ) => {
   if (!watcher.isLive()) {
     return Promise.reject(new Error(`Master 未连接！`));
   }
 
-  const mdLocation = encodeKungfuLocation(sourceName, "md");
+  const mdLocation = encodeKungfuLocation(sourceName, 'md');
 
   if (!watcher.isReadyToInteract(mdLocation)) {
-    if (process.env.NODE_ENV === "development") {
-      console.log(mdLocation, "is not ready");
+    if (process.env.NODE_ENV === 'development') {
+      console.log(mdLocation, 'is not ready');
     }
     return Promise.resolve(false);
   }
 
   return Promise.resolve(
-    watcher.requestMarketData(mdLocation, exchangeId, ticker)
+    watcher.requestMarketData(mdLocation, exchangeId, ticker),
   );
 };
 
@@ -42,13 +42,13 @@ export const kungfuMakeOrder = (
   makeOrderData: MakeOrderData,
   accountId: string,
   strategyId?: string,
-  parentId?: number
+  parentId?: number,
 ) => {
   if (!watcher.isLive()) {
     return Promise.reject(new Error(`Master 未连接！`));
   }
 
-  const accountLocation = encodeKungfuLocation(accountId, "td");
+  const accountLocation = encodeKungfuLocation(accountId, 'td');
   if (!watcher.isReadyToInteract(accountLocation)) {
     return Promise.reject(new Error(`需要先启动 TD ${accountId} 交易进程！`));
   }
@@ -63,7 +63,7 @@ export const kungfuMakeOrder = (
   };
 
   if (strategyId) {
-    const strategyLocation = encodeKungfuLocation(strategyId, "strategy");
+    const strategyLocation = encodeKungfuLocation(strategyId, 'strategy');
     //设置orderInput的parentid，来标记该order为策略手动下单
     const parentId = BigInt(+new Date().getTime());
 
@@ -74,8 +74,8 @@ export const kungfuMakeOrder = (
           parent_id: parentId,
         },
         accountLocation,
-        strategyLocation
-      )
+        strategyLocation,
+      ),
     );
   } else {
     return Promise.resolve(watcher.issueOrder(orderInput, accountLocation));
@@ -85,13 +85,13 @@ export const kungfuMakeOrder = (
 export const kungfuCancelOrder = (
   orderId: string,
   accountId: string,
-  strategyId?: string
+  strategyId?: string,
 ) => {
   if (!watcher.isLive()) {
     return Promise.reject(new Error(`Master 未连接！`));
   }
 
-  const accountLocation = encodeKungfuLocation(accountId, "td");
+  const accountLocation = encodeKungfuLocation(accountId, 'td');
   if (!watcher.isReadyToInteract(accountLocation)) {
     return Promise.reject(new Error(`需要先启动 TD ${accountId} 交易进程！`));
   }
@@ -102,9 +102,9 @@ export const kungfuCancelOrder = (
   };
 
   if (strategyId) {
-    const strategyLocation = encodeKungfuLocation(strategyId, "strategy");
+    const strategyLocation = encodeKungfuLocation(strategyId, 'strategy');
     return Promise.resolve(
-      watcher.cancelOrder(orderAction, accountLocation, strategyLocation)
+      watcher.cancelOrder(orderAction, accountLocation, strategyLocation),
     );
   } else {
     return Promise.resolve(watcher.cancelOrder(orderAction, accountLocation));
@@ -114,7 +114,7 @@ export const kungfuCancelOrder = (
 export const kungfuCancelAllOrders = (
   orderDataList: OrderOriginData[],
   accountIdOrstrategyId: string,
-  type: "account" | "strategy"
+  type: 'account' | 'strategy',
 ) => {
   if (!watcher.isLive()) {
     return Promise.reject(new Error(`Master 未连接！`));
@@ -122,17 +122,17 @@ export const kungfuCancelAllOrders = (
 
   const promiseList = orderDataList
     .filter((orderData: OrderOriginData) => {
-      if (type === "account") {
+      if (type === 'account') {
         const accountLocation = encodeKungfuLocation(
           accountIdOrstrategyId,
-          "td"
+          'td',
         );
         const sourceId = watcher.getLocationUID(accountLocation);
         return orderData.source === sourceId;
       } else {
         const strategyLocation = encodeKungfuLocation(
           accountIdOrstrategyId,
-          "strategy"
+          'strategy',
         );
         const destId = watcher.getLocationUID(strategyLocation);
         return orderData.dest === destId;
@@ -141,7 +141,7 @@ export const kungfuCancelAllOrders = (
     .map((orderData: OrderOriginData) => {
       const kungfuLocation = decodeKungfuLocation(+orderData.source);
       const accountId = `${kungfuLocation.group}_${kungfuLocation.name}`;
-      const accountLocation = encodeKungfuLocation(accountId, "td");
+      const accountLocation = encodeKungfuLocation(accountId, 'td');
 
       if (!watcher.isReadyToInteract(accountLocation)) {
         return Promise.resolve(false);
@@ -153,20 +153,20 @@ export const kungfuCancelAllOrders = (
         order_id: BigInt(orderId),
       };
 
-      if (type === "strategy") {
+      if (type === 'strategy') {
         const strategyLocation = encodeKungfuLocation(
           accountIdOrstrategyId,
-          "strategy"
+          'strategy',
         );
         if (!watcher.isReadyToInteract(strategyLocation)) {
           return Promise.resolve(false);
         }
         return Promise.resolve(
-          watcher.cancelOrder(orderAction, accountLocation, strategyLocation)
+          watcher.cancelOrder(orderAction, accountLocation, strategyLocation),
         );
       } else {
         return Promise.resolve(
-          watcher.cancelOrder(orderAction, accountLocation)
+          watcher.cancelOrder(orderAction, accountLocation),
         );
       }
     });

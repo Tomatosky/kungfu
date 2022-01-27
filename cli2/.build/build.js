@@ -1,8 +1,8 @@
-const os = require("os");
-const childProcess = require("child_process");
+const os = require('os');
+const childProcess = require('child_process');
 
 switch (os.platform()) {
-  case "win32":
+  case 'win32':
     childProcess.exec(`yarn run build-win`, (err, stdout) => {
       if (err) {
         console.error(err);
@@ -10,8 +10,8 @@ switch (os.platform()) {
       }
       console.log(stdout);
     });
-    return "win";
-  case "darwin":
+    return 'win';
+  case 'darwin':
     childProcess.exec(`yarn run build-mac`, (err, stdout) => {
       if (err) {
         console.error(err);
@@ -19,8 +19,8 @@ switch (os.platform()) {
       }
       console.log(stdout);
     });
-    return "mac";
-  case "linux":
+    return 'mac';
+  case 'linux':
     childProcess.exec(`yarn run build-linux`, (err, stdout) => {
       if (err) {
         console.error(err);
@@ -28,7 +28,7 @@ switch (os.platform()) {
       }
       console.log(stdout);
     });
-    return "linux";
+    return 'linux';
   default:
-    return "";
+    return '';
 }

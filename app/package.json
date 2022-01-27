@@ -1,6 +1,6 @@
 {
   "name": "kungfu",
-  "version": "2.3.8",
+  "version": "2.3.9",
   "description": "KungFu Trader App",
   "license": "Apache-2.0",
   "homepage": "https://github.com/taurusai/kungfu",
@@ -34,7 +34,8 @@
     "build-crypto": "yarn run dist --env=crypto && yarn run elec --brand=crypto",
     "prebuild-cli": "yarn run clean && yarn run dist",
     "build-cli": "yarn run elec --cli",
-    "build-cli-crypto": "yarn run elec --cli --brand crypto"
+    "build-cli-crypto": "yarn run elec --cli --brand crypto",
+    "format": "prettier -l -w --config .prettierrc.js ."
   },
   "dependencies": {
     "electron-find": "1.0.6",
@@ -104,6 +105,7 @@
     "node-loader": "0.6.0",
     "patch-package": "6.4.7",
     "preload-webpack-plugin": "2.3.0",
+    "prettier": "^2.5.1",
     "require-dir": "1.0.0",
     "rimraf": "2.6.3",
     "rxjs": "6.5.2",

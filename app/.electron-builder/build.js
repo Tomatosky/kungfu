@@ -1,84 +1,84 @@
-const builder = require("electron-builder");
-const fse = require("fs-extra");
-const path = require("path");
-const minimist = require("minimist");
-const moment = require("moment");
+const builder = require('electron-builder');
+const fse = require('fs-extra');
+const path = require('path');
+const minimist = require('minimist');
+const moment = require('moment');
 
-const baseConfig = fse.readJSONSync(path.join(__dirname, "base.json"));
+const baseConfig = fse.readJSONSync(path.join(__dirname, 'base.json'));
 
 const argv = minimist(process.argv, {
-  boolean: ["cli", "pro"],
-  string: ["target", "brand"],
+  boolean: ['cli', 'pro'],
+  string: ['target', 'brand'],
 });
 const { cli, pro, target, brand } = argv;
 
-console.log("argv", argv);
+console.log('argv', argv);
 
 if (pro) {
   baseConfig.extraResources.push({
-    from: path.join(__dirname, "..", "..", "kfext_task_timerTrader", "lib"),
-    to: "kungfu-extensions/timer-trader",
+    from: path.join(__dirname, '..', '..', 'kfext_task_timerTrader', 'lib'),
+    to: 'kungfu-extensions/timer-trader',
   });
 
   baseConfig.extraResources.push({
-    from: path.join(__dirname, "..", "..", "kfext_task_backwards", "lib"),
-    to: "kungfu-extensions/backwards",
+    from: path.join(__dirname, '..', '..', 'kfext_task_backwards', 'lib'),
+    to: 'kungfu-extensions/backwards',
   });
 }
 
 if (target) {
   const targetIndex = findConfigItemIndex(baseConfig.extraResources, [
     {
-      key: "from",
-      value: "../core/build/kfc",
+      key: 'from',
+      value: '../core/build/kfc',
     },
     {
-      key: "to",
-      value: "kfc",
+      key: 'to',
+      value: 'kfc',
     },
   ]);
 
   if (targetIndex >= 0) {
     baseConfig.extraResources[targetIndex] = {
-      from: "../core/build/kfc",
-      to: "kfc",
+      from: '../core/build/kfc',
+      to: 'kfc',
       filter: [
-        "!**/btdata",
-        target.includes("xtp") ? "" : "!**/kungfu_extensions/xtp",
-        hasFuture(target) ? "!**/kungfu_extensions/ctp" : "",
+        '!**/btdata',
+        target.includes('xtp') ? '' : '!**/kungfu_extensions/xtp',
+        hasFuture(target) ? '!**/kungfu_extensions/ctp' : '',
       ].filter((key) => !!key),
     };
   }
 
-  if (target.includes("tora")) {
+  if (target.includes('tora')) {
     baseConfig.extraResources.push({
-      from: path.join(__dirname, "..", "..", "kfext_tora", "build", "dist"),
-      to: "kfc/kungfu_extensions/tora",
-      filter: ["!*.tgz"],
+      from: path.join(__dirname, '..', '..', 'kfext_tora', 'build', 'dist'),
+      to: 'kfc/kungfu_extensions/tora',
+      filter: ['!*.tgz'],
     });
   }
 
-  if (target.includes("zhaos")) {
+  if (target.includes('zhaos')) {
     baseConfig.extraResources.push({
-      from: path.join(__dirname, "..", "..", "kfext_zhaos", "build", "dist"),
-      to: "kfc/kungfu_extensions/zhaos",
-      filter: ["!*.tgz"],
+      from: path.join(__dirname, '..', '..', 'kfext_zhaos', 'build', 'dist'),
+      to: 'kfc/kungfu_extensions/zhaos',
+      filter: ['!*.tgz'],
     });
   }
 
-  if (target.includes("shengli")) {
+  if (target.includes('shengli')) {
     baseConfig.extraResources.push({
-      from: path.join(__dirname, "..", "..", "kfext_shengli", "build", "dist"),
-      to: "kfc/kungfu_extensions/shengli",
-      filter: ["!*.tgz"],
+      from: path.join(__dirname, '..', '..', 'kfext_shengli', 'build', 'dist'),
+      to: 'kfc/kungfu_extensions/shengli',
+      filter: ['!*.tgz'],
     });
   }
 
-  if (target.includes("rongh")) {
+  if (target.includes('rongh')) {
     baseConfig.extraResources.push({
-      from: path.join(__dirname, "..", "..", "kfext_rongh", "build", "dist"),
-      to: "kfc/kungfu_extensions/rongh",
-      filter: ["!*.tgz"],
+      from: path.join(__dirname, '..', '..', 'kfext_rongh', 'build', 'dist'),
+      to: 'kfc/kungfu_extensions/rongh',
+      filter: ['!*.tgz'],
     });
   }
 }
@@ -89,8 +89,8 @@ builder.build({
 });
 
 function hasFuture(target) {
-  if (target.includes("zhaos")) return true;
-  if (target.includes("rongh")) return true;
+  if (target.includes('zhaos')) return true;
+  if (target.includes('rongh')) return true;
   return false;
 }
 
@@ -109,14 +109,14 @@ function findConfigItemIndex(configList, conditions) {
 }
 
 function resolveArtifactName(cli, pro, target) {
-  const buildTime = moment().format("MMDDHHmm");
-  const appType = cli ? "cli" : "app";
-  const targetName = target || "";
+  const buildTime = moment().format('MMDDHHmm');
+  const appType = cli ? 'cli' : 'app';
+  const targetName = target || '';
   const appTypeResolvde = pro ? `${appType}-pro` : appType;
 
   const specialName = [appTypeResolvde, targetName, brand, buildTime]
     .filter((n) => !!n)
-    .join("-");
+    .join('-');
 
-  return "${productName}-${buildVersion}-${os}" + `-${specialName}` + ".${ext}";
+  return '${productName}-${buildVersion}-${os}' + `-${specialName}` + '.${ext}';
 }

@@ -1,57 +1,56 @@
 <template>
-    <div class="tr-menu">
-        <slot></slot>
-    </div>
+  <div class="tr-menu">
+    <slot></slot>
+  </div>
 </template>
 
 <script>
-
 export default {
-    name: 'tr-menu',
-    props: {
-        router: {
-            type: Boolean,
-            default: true
-        },
-        defaultActive: {
-            type: String,
-            default: ''
-        },
+  name: 'tr-menu',
+  props: {
+    router: {
+      type: Boolean,
+      default: true,
     },
-    data() {
-        return {
-            activeRouter: this.defaultActive
-        }
+    defaultActive: {
+      type: String,
+      default: '',
     },
-    provide() {
-        return {
-            menu: this
-        }
-    },
+  },
+  data() {
+    return {
+      activeRouter: this.defaultActive,
+    };
+  },
+  provide() {
+    return {
+      menu: this,
+    };
+  },
 
-    mounted(){
-        this.$on('item-click', this.handleItemClick);
-    },
+  mounted() {
+    this.$on('item-click', this.handleItemClick);
+  },
 
-    methods: {
-        handleItemClick(item) {
-            const t = this
-            t.activeRouter = item
-            if (t.router) {
-                t.$router.push(item)
-            }
-        }
-    }
-}
+  methods: {
+    handleItemClick(item) {
+      const t = this;
+      t.activeRouter = item;
+      if (t.router) {
+        t.$router.push(item);
+      }
+    },
+  },
+};
 </script>
 
 <style lang="scss">
 @import '@/assets/scss/skin.scss';
-.tr-menu{
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    width: 100%;
-    justify-content: center;
+.tr-menu {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+  justify-content: center;
 }
 </style>

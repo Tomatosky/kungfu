@@ -2,9 +2,9 @@
   <tr-dashboard :title="`下单 ${currentId || ''}`">
     <div slot="dashboard-header">
       <tr-dashboard-header-item>
-        <el-button size="mini" @click="clearData()" style="width: 50px;"
-          >重置</el-button
-        >
+        <el-button size="mini" @click="clearData()" style="width: 50px">
+          重置
+        </el-button>
       </tr-dashboard-header-item>
     </div>
     <div class="kf-make-order-window__body">
@@ -28,20 +28,22 @@
               :value="account.account_id"
             >
               <span>
-                <span style="color: #fff">{{
-                  account.account_id.toAccountId()
-                }}</span>
-                <el-tag :type="getAccountType(account.source_name).type">{{
-                  (
-                    SourceTypeConfig[
-                      getAccountType(account.source_name).typeName
-                    ] || {}
-                  ).name || ""
-                }}</el-tag>
+                <span style="color: #fff">
+                  {{ account.account_id.toAccountId() }}
+                </span>
+                <el-tag :type="getAccountType(account.source_name).type">
+                  {{
+                    (
+                      SourceTypeConfig[
+                        getAccountType(account.source_name).typeName
+                      ] || {}
+                    ).name || ''
+                  }}
+                </el-tag>
               </span>
-              <span style="float: right"
-                >可用：{{ getAvailCash(account.account_id) || "--" }}</span
-              >
+              <span style="float: right">
+                可用：{{ getAvailCash(account.account_id) || '--' }}
+              </span>
             </el-option>
           </el-select>
         </el-form-item>
@@ -66,7 +68,7 @@
                   <span class="name">{{ item.instrument_name }}</span>
                 </div>
                 <div class="auto-complete-instrument-id-item">
-                  {{ (item.exchange_id || "").toUpperCase() }}
+                  {{ (item.exchange_id || '').toUpperCase() }}
                 </div>
               </div>
             </template>
@@ -108,8 +110,9 @@
               v-for="key in Object.keys(HedgeFlag || {})"
               :key="key"
               :label="+key"
-              >{{ HedgeFlag[key] }}</el-radio
             >
+              {{ HedgeFlag[key] }}
+            </el-radio>
           </el-radio-group>
         </el-form-item>
 
@@ -128,8 +131,9 @@
               v-for="key in Object.keys(SideName || {}).slice(0, 2)"
               :key="key"
               :label="+key"
-              >{{ SideName[key] }}</el-radio
             >
+              {{ SideName[key] }}
+            </el-radio>
           </el-radio-group>
         </el-form-item>
 
@@ -149,8 +153,9 @@
               v-for="key in Object.keys(OffsetName || {})"
               :key="key"
               :label="+key"
-              >{{ OffsetName[key] }}</el-radio
             >
+              {{ OffsetName[key] }}
+            </el-radio>
           </el-radio-group>
         </el-form-item>
 
@@ -200,7 +205,7 @@
           <el-col :span="10">
             <div class="make-order-line-info">
               <span>可用金额</span>
-              <span>{{ avaliableCash || "--" }}</span>
+              <span>{{ avaliableCash || '--' }}</span>
             </div>
           </el-col>
         </el-row>
@@ -227,7 +232,7 @@
           <el-col :span="10">
             <div class="make-order-line-info">
               <span>可下单数量</span>
-              <span>{{ avaliableOrderVolume || "--" }}</span>
+              <span>{{ avaliableOrderVolume || '--' }}</span>
             </div>
           </el-col>
         </el-row>
@@ -239,21 +244,22 @@
           size="medium"
           class="make-order-by-task-btn"
           @click="handleMakeOrderByTask"
-          >算法</el-button
         >
+          算法
+        </el-button>
       </div>
     </div>
   </tr-dashboard>
 </template>
 
 <script>
-import Vue from "vue";
-import { mapGetters } from "vuex";
+import Vue from 'vue';
+import { mapGetters } from 'vuex';
 
-import { Autocomplete } from "element-ui";
-import { ipcRenderer } from "electron";
+import { Autocomplete } from 'element-ui';
+import { ipcRenderer } from 'electron';
 
-import { deepClone, delayMilliSeconds } from "__gUtils/busiUtils";
+import { deepClone, delayMilliSeconds } from '__gUtils/busiUtils';
 import {
   SourceTypeConfig,
   SideName,
@@ -263,17 +269,17 @@ import {
   ExchangeIds,
   InstrumentTypes,
   allowShorted,
-} from "kungfu-shared/config/tradingConfig";
-import { biggerThanZeroValidator } from "__assets/validator";
+} from 'kungfu-shared/config/tradingConfig';
+import { biggerThanZeroValidator } from '__assets/validator';
 
-import instrumentsMixin from "@/assets/mixins/instrumentsMixin";
-import makeOrderMixin from "@/components/Base/makeOrder/js/makeOrderMixin";
+import instrumentsMixin from '@/assets/mixins/instrumentsMixin';
+import makeOrderMixin from '@/components/Base/makeOrder/js/makeOrderMixin';
 
 function getMakeOrderCoreMixin() {
-  if (process.env.RENDERER_TYPE === "makeOrder") {
-    return require("@/components/Base/makeOrder/js/makeOrderIPCMixin").default;
+  if (process.env.RENDERER_TYPE === 'makeOrder') {
+    return require('@/components/Base/makeOrder/js/makeOrderIPCMixin').default;
   } else {
-    return require("@/components/Base/makeOrder/js/makeOrderCoreMixin").default;
+    return require('@/components/Base/makeOrder/js/makeOrderCoreMixin').default;
   }
 }
 
@@ -295,16 +301,16 @@ export default {
 
     return {
       //from event
-      currentId: "",
-      moduleType: "",
+      currentId: '',
+      moduleType: '',
       orderInput: {},
 
-      currentAccount: "", //except account
+      currentAccount: '', //except account
       makeOrderForm: {
-        name: "", // account_id in strategy
-        instrument_id: "",
-        instrument_type: "",
-        exchange_id: "",
+        name: '', // account_id in strategy
+        instrument_id: '',
+        instrument_type: '',
+        exchange_id: '',
         limit_price: 0,
         volume: 0,
         side: 0,
@@ -316,15 +322,15 @@ export default {
   },
 
   mounted() {
-    if (process.env.RENDERER_TYPE !== "makeOrder") {
-      this.$bus.$on("update:make-order", (makeOrderData) => {
+    if (process.env.RENDERER_TYPE !== 'makeOrder') {
+      this.$bus.$on('update:make-order', (makeOrderData) => {
         const { currentId, moduleType, orderInput } = makeOrderData || {};
         this.orderInput = orderInput;
         this.currentId = currentId;
         this.moduleType = moduleType;
       });
     } else {
-      ipcRenderer.on("init-make-order-win-info", (event, info) => {
+      ipcRenderer.on('init-make-order-win-info', (event, info) => {
         const { currentId, orderInput, moduleType } = info;
         this.currentId = currentId;
         this.moduleType = moduleType;
@@ -334,24 +340,24 @@ export default {
   },
 
   beforeDestroy() {
-    if (process.env.RENDERER_TYPE !== "makeOrder") {
-      this.$bus.$off("update:make-order");
+    if (process.env.RENDERER_TYPE !== 'makeOrder') {
+      this.$bus.$off('update:make-order');
     }
   },
 
   computed: {
-    ...mapGetters(["proMode"]),
+    ...mapGetters(['proMode']),
 
     accountType() {
-      const sourceName = this.currentSourceName || "";
-      if (!sourceName) return "stock";
-      return (this.tdAccountSource[sourceName] || {}).typeName || "";
+      const sourceName = this.currentSourceName || '';
+      if (!sourceName) return 'stock';
+      return (this.tdAccountSource[sourceName] || {}).typeName || '';
     },
 
     allowShorted() {
       if (
-        this.accountType.toLowerCase() === "future" ||
-        this.accountType.toLowerCase() === "stockoption"
+        this.accountType.toLowerCase() === 'future' ||
+        this.accountType.toLowerCase() === 'stockoption'
       ) {
         return true;
       }
@@ -360,14 +366,14 @@ export default {
     },
 
     currentAccountResolved() {
-      if (this.moduleType === "account") {
-        return this.currentId || "";
-      } else if (this.moduleType === "strategy") {
+      if (this.moduleType === 'account') {
+        return this.currentId || '';
+      } else if (this.moduleType === 'strategy') {
         return this.currentAccount;
-      } else if (this.moduleType === "ticker") {
+      } else if (this.moduleType === 'ticker') {
         return this.currentAccount;
       } else {
-        return "";
+        return '';
       }
     },
 
@@ -376,19 +382,19 @@ export default {
     },
 
     currentSourceName() {
-      if (this.moduleType === "account") {
-        return (this.currentId || "").toSourceName();
-      } else if (this.moduleType === "strategy") {
+      if (this.moduleType === 'account') {
+        return (this.currentId || '').toSourceName();
+      } else if (this.moduleType === 'strategy') {
         return this.currentAccount.toSourceName();
-      } else if (this.moduleType === "ticker") {
+      } else if (this.moduleType === 'ticker') {
         return this.currentAccount.toSourceName();
       } else {
-        return "";
+        return '';
       }
     },
 
     avaliableCash() {
-      if (!this.currentAccountResolved) return "";
+      if (!this.currentAccountResolved) return '';
       const avaliableCash = this.getAvailCash(this.currentAccountResolved);
       return avaliableCash;
     },
@@ -404,11 +410,8 @@ export default {
           return Math.floor(this.avaliableCash / price);
         } else if (this.makeOrderForm.side === 1) {
           //卖
-          const {
-            instrumentId,
-            totalVolume,
-            yesterdayVolume,
-          } = this.orderInput;
+          const { instrumentId, totalVolume, yesterdayVolume } =
+            this.orderInput;
           if (instrumentId !== this.makeOrderForm.instrument_id) {
             return 0;
           }
@@ -445,43 +448,43 @@ export default {
         this.clearData(true);
       }
 
-      this.$set(this.makeOrderForm, "instrument_id", instrumentId || "");
-      this.$set(this.makeOrderForm, "exchange_id", exchangeId || "");
-      this.$set(this.makeOrderForm, "limit_price", lastPrice || 0);
+      this.$set(this.makeOrderForm, 'instrument_id', instrumentId || '');
+      this.$set(this.makeOrderForm, 'exchange_id', exchangeId || '');
+      this.$set(this.makeOrderForm, 'limit_price', lastPrice || 0);
 
       if (volume && !Number.isNaN(volume)) {
-        this.$set(this.makeOrderForm, "volume", volume);
+        this.$set(this.makeOrderForm, 'volume', volume);
       }
-      this.$set(this.makeOrderForm, "instrument_type", instrumentType || 0);
+      this.$set(this.makeOrderForm, 'instrument_type', instrumentType || 0);
 
       if (side === undefined || Number.isNaN(+side)) {
-        console.error("OrderIput side is illegal", side);
+        console.error('OrderIput side is illegal', side);
       } else {
-        this.$set(this.makeOrderForm, "side", +side);
+        this.$set(this.makeOrderForm, 'side', +side);
       }
 
       if (offset === undefined || Number.isNaN(+offset)) {
-        console.error("OrderIput offset is illegal", offset);
+        console.error('OrderIput offset is illegal', offset);
       } else {
-        this.$set(this.makeOrderForm, "offset", +offset);
+        this.$set(this.makeOrderForm, 'offset', +offset);
       }
 
-      if (this.moduleType !== "strategy") {
-        this.$set(this.makeOrderForm, "name", accountIdResolved);
+      if (this.moduleType !== 'strategy') {
+        this.$set(this.makeOrderForm, 'name', accountIdResolved);
         this.currentAccount = accountIdResolved;
       }
 
       delayMilliSeconds(300).then(() => {
-        this.$refs["make-order-form"].clearValidate();
-        this.$refs["make-order-form"].validate().catch(() => {
+        this.$refs['make-order-form'].clearValidate();
+        this.$refs['make-order-form'].validate().catch(() => {
           this.$nextTick().then(() => {
             const $errordoms = document.querySelectorAll(
-              ".kf-make-order-window__body .el-form-item__error"
+              '.kf-make-order-window__body .el-form-item__error',
             );
             if ($errordoms.length) {
               const $errorDom = $errordoms[0];
               const $paDom = $errorDom.parentElement;
-              const $input = $paDom.getElementsByTagName("input");
+              const $input = $paDom.getElementsByTagName('input');
               if ($input.length) {
                 $input[0].focus();
               }
@@ -494,8 +497,8 @@ export default {
 
   methods: {
     handleMakeOrderByTask() {
-      this.$bus.$emit("set-task", {
-        type: "trade",
+      this.$bus.$emit('set-task', {
+        type: 'trade',
         initData: {
           exchangeId: this.makeOrderForm.exchange_id,
           instrumentId: this.makeOrderForm.instrument_id,
@@ -506,7 +509,7 @@ export default {
 
     handleBlurInstrumentId(e, item) {
       const value = e.target.value.trim();
-      this.$set(this.makeOrderForm, "instrument_id", value);
+      this.$set(this.makeOrderForm, 'instrument_id', value);
 
       //当手动输入ticker，清空除了instumentId外的一切
       this.setInstumentIdTimer = setTimeout(() => {
@@ -519,15 +522,15 @@ export default {
       this.setInstumentIdTimer && clearTimeout(this.setInstumentIdTimer);
       this.clearData(true);
       const { instrument_id, exchange_id } = item;
-      this.$set(this.makeOrderForm, "instrument_id", instrument_id);
+      this.$set(this.makeOrderForm, 'instrument_id', instrument_id);
       this.$set(
         this.makeOrderForm,
-        "exchange_id",
-        (exchange_id || "").toUpperCase()
+        'exchange_id',
+        (exchange_id || '').toUpperCase(),
       );
 
       this.$nextTick().then(() => {
-        this.$refs["make-order-form"].validateField("instrument_id");
+        this.$refs['make-order-form'].validateField('instrument_id');
       });
     },
 
@@ -536,37 +539,36 @@ export default {
     },
 
     handleMakeOrder() {
-      this.$refs["make-order-form"].clearValidate();
-      this.$refs["make-order-form"].validate((valid) => {
+      this.$refs['make-order-form'].clearValidate();
+      this.$refs['make-order-form'].validate((valid) => {
         if (valid) {
           //当下单不是从posdata进入
           if (!this.makeOrderForm.instrument_type) {
             const instrumentType = this.getInstrumentType(
-              this.currentAccountResolved
+              this.currentAccountResolved,
             );
-            this.$set(this.makeOrderForm, "instrument_type", instrumentType);
+            this.$set(this.makeOrderForm, 'instrument_type', instrumentType);
           }
 
           const makeOrderForm = deepClone(this.makeOrderForm);
-          const makeOrderConfirmTip = this.buildMakeOrderFormInfo(
-            makeOrderForm
-          );
-          this.$confirm(makeOrderConfirmTip, "提示", {
-            confirmButtonText: "确 定",
-            cancelButtonText: "取 消",
+          const makeOrderConfirmTip =
+            this.buildMakeOrderFormInfo(makeOrderForm);
+          this.$confirm(makeOrderConfirmTip, '提示', {
+            confirmButtonText: '确 定',
+            cancelButtonText: '取 消',
           })
             .then(() =>
               this.makeOrder(
                 this.moduleType,
                 makeOrderForm,
                 this.currentAccountResolved,
-                this.currentId
-              )
+                this.currentId,
+              ),
             )
-            .then(() => this.$message.success("下单指令已发送！"))
+            .then(() => this.$message.success('下单指令已发送！'))
             .catch((err) => {
-              if (err === "cancel") return;
-              this.$message.error(err.message || "下单指令发送失败！");
+              if (err === 'cancel') return;
+              this.$message.error(err.message || '下单指令发送失败！');
             });
         }
       });
@@ -616,9 +618,9 @@ export default {
     },
 
     getInstrumentType(accountId) {
-      const sourceName = accountId.split("_")[0] || "";
-      const config = this.tdAccountSource[sourceName] || "";
-      const typeName = config.typeName || "Unknow";
+      const sourceName = accountId.split('_')[0] || '';
+      const config = this.tdAccountSource[sourceName] || '';
+      const typeName = config.typeName || 'Unknow';
       return InstrumentTypes[typeName] || 0;
     },
 
@@ -631,9 +633,9 @@ export default {
 
     getSourceName(accountId) {
       const targetAccount = this.tdList.filter((a) =>
-        a.account_id.includes(accountId)
+        a.account_id.includes(accountId),
       );
-      if (!targetAccount.length) return "";
+      if (!targetAccount.length) return '';
       return targetAccount[0].source_name;
     },
 
@@ -642,25 +644,25 @@ export default {
     },
 
     clearData(exceptId = false) {
-      this.$emit("update:visible", false);
+      this.$emit('update:visible', false);
 
       if (!exceptId) {
-        this.$refs["make-order-form"].resetFields();
-        this.$set(this.makeOrderForm, "instrument_id", "");
-        this.$set(this.makeOrderForm, "name", "");
-        this.currentAccount = "";
+        this.$refs['make-order-form'].resetFields();
+        this.$set(this.makeOrderForm, 'instrument_id', '');
+        this.$set(this.makeOrderForm, 'name', '');
+        this.currentAccount = '';
       }
 
-      this.$set(this.makeOrderForm, "instrument_type", "");
-      this.$set(this.makeOrderForm, "exchange_id", "");
-      this.$set(this.makeOrderForm, "limit_price", 0);
-      this.$set(this.makeOrderForm, "volume", 0);
-      this.$set(this.makeOrderForm, "side", 0);
-      this.$set(this.makeOrderForm, "offset", 0);
-      this.$set(this.makeOrderForm, "price_type", 0);
-      this.$set(this.makeOrderForm, "hedge_flag", 0);
+      this.$set(this.makeOrderForm, 'instrument_type', '');
+      this.$set(this.makeOrderForm, 'exchange_id', '');
+      this.$set(this.makeOrderForm, 'limit_price', 0);
+      this.$set(this.makeOrderForm, 'volume', 0);
+      this.$set(this.makeOrderForm, 'side', 0);
+      this.$set(this.makeOrderForm, 'offset', 0);
+      this.$set(this.makeOrderForm, 'price_type', 0);
+      this.$set(this.makeOrderForm, 'hedge_flag', 0);
 
-      this.$refs["make-order-form"].clearValidate();
+      this.$refs['make-order-form'].clearValidate();
     },
   },
 };

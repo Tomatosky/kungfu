@@ -1,14 +1,14 @@
-import fse from "fs-extra";
-import iconv from "iconv-lite";
-import jschardet from "jschardet";
-import path from "path";
-import readline from "readline";
-import moment from "moment";
+import fse from 'fs-extra';
+import iconv from 'iconv-lite';
+import jschardet from 'jschardet';
+import path from 'path';
+import readline from 'readline';
+import moment from 'moment';
 
-import { EXTENSION_DIR } from "__gConfig/pathConfig";
-import { listDir } from "__gUtils/fileUtils";
-import { allowShorted } from "kungfu-shared/config/tradingConfig";
-import { Stats } from "fs";
+import { EXTENSION_DIR } from '__gConfig/pathConfig';
+import { listDir } from '__gUtils/fileUtils';
+import { allowShorted } from 'kungfu-shared/config/tradingConfig';
+import { Stats } from 'fs';
 
 interface LogLineData {
   message: string;
@@ -45,7 +45,7 @@ interface DisplayConfig {
   width: string;
 }
 
-const KUNGFU_KEY_IN_PACKAGEJSON = "kungfuConfig";
+const KUNGFU_KEY_IN_PACKAGEJSON = 'kungfuConfig';
 
 declare global {
   interface String {
@@ -65,20 +65,18 @@ declare global {
 export {};
 
 //因为accountid都是source_accountID,需要截取掉柜台名称
-String.prototype.toAccountId = function(): string {
-  if (this.indexOf("_") === -1) return this.toString();
-  return this.split("_")
-    .slice(1)
-    .join("_");
+String.prototype.toAccountId = function (): string {
+  if (this.indexOf('_') === -1) return this.toString();
+  return this.split('_').slice(1).join('_');
 };
 
-String.prototype.toSourceName = function(): string {
-  if (this.indexOf("_") === -1) return this.toString();
-  return this.split("_")[0];
+String.prototype.toSourceName = function (): string {
+  if (this.indexOf('_') === -1) return this.toString();
+  return this.split('_')[0];
 };
 
-String.prototype.parseSourceAccountId = function(): SourceAccountId {
-  const parseList = this.toString().split("_");
+String.prototype.parseSourceAccountId = function (): SourceAccountId {
+  const parseList = this.toString().split('_');
   //没有 "_"
   if (parseList.length !== 2) {
     throw new Error(`${this} accountId format is wrong！`);
@@ -90,11 +88,11 @@ String.prototype.parseSourceAccountId = function(): SourceAccountId {
   }
 };
 
-Array.prototype.removeRepeat = function(): any {
+Array.prototype.removeRepeat = function (): any {
   return Array.from(new Set(this));
 };
 
-Array.prototype.kfForEach = function(cb: Function): any {
+Array.prototype.kfForEach = function (cb: Function): any {
   if (!cb) return;
   const t = this;
   const len = t.length;
@@ -106,7 +104,7 @@ Array.prototype.kfForEach = function(cb: Function): any {
   }
 };
 
-Array.prototype.kfReverseForEach = function(cb: Function): any {
+Array.prototype.kfReverseForEach = function (cb: Function): any {
   if (!cb) return;
   const t = this;
   let i = t.length;
@@ -122,7 +120,7 @@ function setImmediateIter(
   i: number,
   len: number,
   cb: Function,
-  fcb: Function
+  fcb: Function,
 ) {
   if (i < len) {
     setImmediate(() => {
@@ -166,13 +164,13 @@ export const toDecimal = (
   num: string | number,
   digit = 2,
   multiply = 0,
-  type = "round"
+  type = 'round',
 ): string => {
   if (num === null || num === undefined) num = 0;
-  if (num.toString() === "") return "";
-  if (isNaN(+num)) return ""; //如果为转换后为NaN,返回空
+  if (num.toString() === '') return '';
+  if (isNaN(+num)) return ''; //如果为转换后为NaN,返回空
   //如果存在科学计数法的数据则返回不做处理
-  if (`${num}`.includes("e")) return new Number(num).toExponential(2);
+  if (`${num}`.includes('e')) return new Number(num).toExponential(2);
   if (multiply === 0) return Number(num).toFixed(digit);
 
   const multiplyNum: number = Math.pow(10, multiply);
@@ -192,7 +190,7 @@ export const toDecimal = (
  */
 export const debounce = (fn: Function, interval = 300): Function => {
   let timeout: NodeJS.Timer | null;
-  return function() {
+  return function () {
     //@ts-ignore
     const t: any = this;
     const args: any = arguments;
@@ -208,7 +206,7 @@ export const debounce = (fn: Function, interval = 300): Function => {
 
 export const throttle = (fn: Function, interval = 300): Function => {
   let timer: NodeJS.Timer | null;
-  return function() {
+  return function () {
     if (timer) return;
     //@ts-ignore
     const t: any = this;
@@ -221,15 +219,15 @@ export const throttle = (fn: Function, interval = 300): Function => {
   };
 };
 
-export const throttleInsert = (interval = 300, type = "push"): Function => {
+export const throttleInsert = (interval = 300, type = 'push'): Function => {
   let streamList: any = [];
   let timer: NodeJS.Timer | null;
   return (data: any) => {
     return new Promise((resolve) => {
-      if (type === "push") {
+      if (type === 'push') {
         if (data instanceof Array) streamList = [...streamList, ...data];
         else if (data) streamList.push(data);
-      } else if (type === "unshift") {
+      } else if (type === 'unshift') {
         if (data instanceof Array) streamList = [...data, ...streamList];
         else if (data) streamList.unshift(data);
       }
@@ -255,7 +253,7 @@ export const openVueWin = (
   htmlPath: string,
   routerPath: string,
   electronRemote: any,
-  windowConfig: {}
+  windowConfig: {},
 ) => {
   const BrowserWindow: any = electronRemote.BrowserWindow;
   const currentWindow: any = electronRemote.getCurrentWindow();
@@ -270,7 +268,7 @@ export const openVueWin = (
   }
 
   const modalPath =
-    process.env.NODE_ENV !== "production"
+    process.env.NODE_ENV !== 'production'
       ? `http://localhost:9090/${htmlPath}.html#${routerPath}`
       : `file://${__dirname}/${htmlPath}.html#${routerPath}`;
 
@@ -280,7 +278,7 @@ export const openVueWin = (
       y,
       width: 1080,
       height: 766,
-      backgroundColor: "#161B2E",
+      backgroundColor: '#161B2E',
       parent: currentWindow,
       webPreferences: {
         webSecurity: false,
@@ -291,9 +289,9 @@ export const openVueWin = (
     });
 
     win.webContents.loadURL(modalPath);
-    win.webContents.on("did-finish-load", () => {
+    win.webContents.on('did-finish-load', () => {
       if (!currentWindow || Object.keys(currentWindow).length == 0) {
-        reject(new Error("当前页面没有聚焦！"));
+        reject(new Error('当前页面没有聚焦！'));
         return;
       }
       resolve(win);
@@ -301,7 +299,7 @@ export const openVueWin = (
 
     let winId = win.id;
     window && window.ELEC_WIN_MAP && window.ELEC_WIN_MAP.add(winId, win);
-    win.on("close", () => {
+    win.on('close', () => {
       window && window.ELEC_WIN_MAP && window.ELEC_WIN_MAP.delete(winId);
       win = null;
     });
@@ -315,12 +313,12 @@ export const openVueWin = (
 export const openPage = (
   taskPath: string,
   electronRemote: any,
-  debugOptions = { width: 0, height: 0, show: false }
+  debugOptions = { width: 0, height: 0, show: false },
 ) => {
   const taskPathResolved = `file://${path.join(
     __resources,
-    "pages",
-    taskPath + ".html"
+    'pages',
+    taskPath + '.html',
   )}`;
   const BrowserWindow: any = electronRemote.BrowserWindow;
   const currentWindow: any = electronRemote.getCurrentWindow();
@@ -334,13 +332,13 @@ export const openPage = (
         nodeIntegrationInWorker: true,
       },
       ...debugOptions,
-      backgroundColor: "#161B2E",
+      backgroundColor: '#161B2E',
     });
 
     win.webContents.loadURL(taskPathResolved);
-    win.webContents.on("did-finish-load", () => {
+    win.webContents.on('did-finish-load', () => {
       if (!currentWindow || Object.keys(currentWindow).length == 0) {
-        reject(new Error("当前页面没有聚焦！"));
+        reject(new Error('当前页面没有聚焦！'));
         return;
       }
       const curWinId = currentWindow.id;
@@ -349,7 +347,7 @@ export const openPage = (
 
     let winId = win.id;
     window && window.ELEC_WIN_MAP && window.ELEC_WIN_MAP.add(winId, win);
-    win.on("close", () => {
+    win.on('close', () => {
       window && window.ELEC_WIN_MAP && window.ELEC_WIN_MAP.delete(winId);
       win = null;
     });
@@ -363,42 +361,42 @@ export const openPage = (
  */
 export const ifProcessRunning = (
   processId: string,
-  processStatus: any
+  processStatus: any,
 ): boolean => {
   if (!processStatus) return false;
   return (
-    processStatus[processId] === "online" ||
-    processStatus[processId] === "stopping"
+    processStatus[processId] === 'online' ||
+    processStatus[processId] === 'stopping'
   );
 };
 
 export const getMemCpu = (
   processId: string,
   processStatusWithDetail: any,
-  type: string
+  type: string,
 ) => {
   const processData = processStatusWithDetail[processId] || {};
   const monit = processData.monit || {};
-  if (type === "cpu") {
-    return monit.cpu !== undefined ? Number(monit.cpu).toFixed(1) + "%" : "--";
-  } else if (type === "memory") {
+  if (type === 'cpu') {
+    return monit.cpu !== undefined ? Number(monit.cpu).toFixed(1) + '%' : '--';
+  } else if (type === 'memory') {
     return monit.memory !== undefined
-      ? Number(monit.memory / (1024 * 1024)).toFixed(0) + "M"
-      : "--";
+      ? Number(monit.memory / (1024 * 1024)).toFixed(0) + 'M'
+      : '--';
   } else {
-    return "--";
+    return '--';
   }
 };
 
 export const resolveMemCpu = (monit: any, type: string) => {
-  if (type === "cpu") {
-    return monit.cpu !== undefined ? Number(monit.cpu).toFixed(1) + "%" : "--";
-  } else if (type === "memory") {
+  if (type === 'cpu') {
+    return monit.cpu !== undefined ? Number(monit.cpu).toFixed(1) + '%' : '--';
+  } else if (type === 'memory') {
     return monit.memory !== undefined
-      ? Number(monit.memory / (1024 * 1024)).toFixed(0) + "M"
-      : "--";
+      ? Number(monit.memory / (1024 * 1024)).toFixed(0) + 'M'
+      : '--';
   } else {
-    return "--";
+    return '--';
   }
 };
 
@@ -423,83 +421,59 @@ export const dealLogMessage = (line: string, searchKeyword?: string): any => {
   const message = lineData.message;
 
   //message 提取 ‘\n’ 再循环
-  return message.split("\n[").map((m: string, i: number) => {
+  return message.split('\n[').map((m: string, i: number) => {
     if (!m.length) return false;
-    if (i > 0) m = "[" + m;
+    if (i > 0) m = '[' + m;
 
-    const messageList = m.split("]");
+    const messageList = m.split(']');
     const len = messageList.length;
     let messageData: LogMessageData;
 
     switch (len) {
       case 5:
         messageData = {
-          updateTime: messageList[0]
-            .trim()
-            .slice(1)
-            .trim(),
-          type: messageList[1]
-            .trim()
-            .slice(1)
-            .trim(),
+          updateTime: messageList[0].trim().slice(1).trim(),
+          type: messageList[1].trim().slice(1).trim(),
           pid: messageList[2]
-            .slice(messageList[2].indexOf("pid/tid") + 7)
+            .slice(messageList[2].indexOf('pid/tid') + 7)
             .trim(),
-          action: messageList[3]
-            .trim()
-            .slice(1)
-            .trim(),
+          action: messageList[3].trim().slice(1).trim(),
           message: messageList[4].trim(),
         };
         break;
       case 4:
         messageData = {
           updateTime: lineData.timestamp,
-          type: "",
-          pid: "",
-          action: "",
-          message: messageList.join("]"),
+          type: '',
+          pid: '',
+          action: '',
+          message: messageList.join(']'),
         };
         break;
       default:
         if (len < 4) {
           const type =
-            lineData.type === "err"
-              ? "error"
-              : lineData.type === "out"
-              ? "info"
+            lineData.type === 'err'
+              ? 'error'
+              : lineData.type === 'out'
+              ? 'info'
               : lineData.type;
           messageData = {
             updateTime: lineData.timestamp,
             type,
-            pid: "",
-            action: "",
-            message: messageList
-              .slice(0)
-              .join("]")
-              .trim(),
+            pid: '',
+            action: '',
+            message: messageList.slice(0).join(']').trim(),
           };
         } else {
           messageData = {
-            updateTime: messageList[0]
-              .trim()
-              .slice(1)
-              .trim(),
-            type: messageList[1]
-              .trim()
-              .slice(1)
-              .trim(),
+            updateTime: messageList[0].trim().slice(1).trim(),
+            type: messageList[1].trim().slice(1).trim(),
             pid: messageList[2]
-              .slice(messageList[2].indexOf("pid/tid") + 7)
+              .slice(messageList[2].indexOf('pid/tid') + 7)
               .trim(),
-            action: messageList[3]
-              .trim()
-              .slice(1)
-              .trim(),
-            message: messageList
-              .slice(4)
-              .join("]")
-              .trim(),
+            action: messageList[3].trim().slice(1).trim(),
+            message: messageList.slice(4).join(']').trim(),
           };
         }
     }
@@ -518,10 +492,10 @@ export const getExtensions = async (extDir: string): Promise<any> => {
   if (!fse.existsSync(extDir)) return [];
   const files = await listDir(extDir);
   const filesResolved = (files || []).map((fp: string) =>
-    path.join(extDir, fp)
+    path.join(extDir, fp),
   );
   const statFiles = await Promise.all(
-    filesResolved.map((fp: string) => fse.stat(fp))
+    filesResolved.map((fp: string) => fse.stat(fp)),
   );
 
   const afterFilterFiles = filesResolved.filter((fp: string, index: number) => {
@@ -530,12 +504,12 @@ export const getExtensions = async (extDir: string): Promise<any> => {
   });
 
   const childFilesList = await Promise.all(
-    afterFilterFiles.map((fp: string) => listDir(fp))
+    afterFilterFiles.map((fp: string) => listDir(fp)),
   );
 
   return afterFilterFiles.filter((fp: string, index: number) => {
     const childFiles: any = childFilesList[index];
-    if (childFiles.includes("package.json")) return true;
+    if (childFiles.includes('package.json')) return true;
     else return false;
   });
 };
@@ -543,7 +517,7 @@ export const getExtensions = async (extDir: string): Promise<any> => {
 export const getExtensionPaths = (extDir: string): Promise<any> => {
   return getExtensions(extDir).then((filePaths: string[]): string[] => {
     return filePaths.map((fp: string): string =>
-      path.resolve(path.join(fp, "package.json"))
+      path.resolve(path.join(fp, 'package.json')),
     );
   });
 };
@@ -552,7 +526,7 @@ export const getExtensionConfigs = async (extDir: string): Promise<any> => {
   try {
     const packageJSONPaths: string[] = await getExtensionPaths(extDir);
     const packageJsons = await Promise.all(
-      packageJSONPaths.map((p: string) => fse.readJson(p))
+      packageJSONPaths.map((p: string) => fse.readJson(p)),
     );
     return packageJsons
       .map((p: any, index: number) => {
@@ -562,7 +536,7 @@ export const getExtensionConfigs = async (extDir: string): Promise<any> => {
           const uniKey: string | Array<string> = kungfuConfig.uniKey;
           const subType: string = kungfuConfig.subType;
           const config: SourceConfig = kungfuConfig.config;
-          const displayMode: string = kungfuConfig.displayMode || "";
+          const displayMode: string = kungfuConfig.displayMode || '';
           const displayConfig: DisplayConfig = kungfuConfig.displayConfig || {};
           return {
             type,
@@ -586,8 +560,8 @@ export const getExtensionConfigs = async (extDir: string): Promise<any> => {
 export const getSourceList = () =>
   getExtensionConfigs(EXTENSION_DIR).then((extList) => {
     const sourceList = extList
-      .filter((e: any) => e.type === "source")
-      .map((e: any) => (e.config || {}).name || "")
+      .filter((e: any) => e.type === 'source')
+      .map((e: any) => (e.config || {}).name || '')
       .filter((e: any) => !!e)
       .map((e: any) => ({ name: e, value: e }));
     return sourceList;
@@ -610,7 +584,7 @@ export const setTimerPromiseTask = (fn: Function, interval = 500) => {
   }
   timerPromiseTask(fn, interval);
   return {
-    clearLoop: function() {
+    clearLoop: function () {
       clear = true;
       if (taskTimer) clearTimeout(taskTimer);
     },
@@ -619,7 +593,7 @@ export const setTimerPromiseTask = (fn: Function, interval = 500) => {
 
 export const loopToRunProcess = async (
   promiseFunc: Array<Function>,
-  interval = 1000
+  interval = 1000,
 ) => {
   let i = 0,
     len = promiseFunc.length;
@@ -641,7 +615,7 @@ export const loopToRunProcess = async (
 export const findTargetFromArray = (
   list: any[],
   targetKey: string,
-  targetValue: string | number
+  targetValue: string | number,
 ) => {
   const targetList = list.filter((item) => item[targetKey] === targetValue);
   if (targetList) {
@@ -652,7 +626,7 @@ export const findTargetFromArray = (
 
 export const getIndexFromTargetTickers = (
   tickerList: TickerInTickerSet[],
-  ticker: TickerInTickerSet
+  ticker: TickerInTickerSet,
 ) => {
   return tickerList.findIndex((item) => {
     if (item.exchangeId === ticker.exchangeId) {
@@ -674,38 +648,38 @@ export const ensureNum = (num: number | bigint | string): number => {
 
 export const getDefaultRenderCellClass = (prop: string, item: any) => {
   switch (prop) {
-    case "selected":
-      if (item.selected === "✓") return "green";
+    case 'selected':
+      if (item.selected === '✓') return 'green';
       break;
-    case "side":
-      if (item.side === "买") return "red";
-      else if (item.side === "卖") return "green";
+    case 'side':
+      if (item.side === '买') return 'red';
+      else if (item.side === '卖') return 'green';
       break;
-    case "offset":
-      if (+item.offsetOrigin === 0) return "red";
-      else return "green";
-    case "statusName":
-      if (+item.status === 4) return "red";
-      else if ([3, 5, 6].indexOf(+item.status) !== -1) return "green";
-      else return "gray";
-    case "direction":
-      if (item.direction === "多") return "red";
-      else if (item.direction === "空") return "green";
+    case 'offset':
+      if (+item.offsetOrigin === 0) return 'red';
+      else return 'green';
+    case 'statusName':
+      if (+item.status === 4) return 'red';
+      else if ([3, 5, 6].indexOf(+item.status) !== -1) return 'green';
+      else return 'gray';
+    case 'direction':
+      if (item.direction === '多') return 'red';
+      else if (item.direction === '空') return 'green';
       break;
-    case "clientId":
-    case "accountId":
-      if ((item.clientId || "").toLowerCase().includes("手动")) return "yellow";
-      if ((item.clientId || "").toLowerCase().includes("任务")) return "blue";
-      if ((item.clientId || "").toLowerCase().includes("系统外")) return "gray";
+    case 'clientId':
+    case 'accountId':
+      if ((item.clientId || '').toLowerCase().includes('手动')) return 'yellow';
+      if ((item.clientId || '').toLowerCase().includes('任务')) return 'blue';
+      if ((item.clientId || '').toLowerCase().includes('系统外')) return 'gray';
       break;
   }
 
-  return "";
+  return '';
 };
 
 export function checkAllMdProcess(
   tickers: TickerInTickerSet[],
-  processStatus: StringToStringObject
+  processStatus: StringToStringObject,
 ) {
   let mds: any = {};
   tickers.forEach((item) => {
@@ -723,7 +697,7 @@ export function checkAllMdProcess(
 
   if (unrunningSources.length) {
     // @ts-ignore
-    this.$message.warning(`${unrunningSources.join(", ")} 行情进行未开启!`);
+    this.$message.warning(`${unrunningSources.join(', ')} 行情进行未开启!`);
     return false;
   } else {
     return true;
@@ -735,12 +709,12 @@ export function decodeBuffer(name: string[]) {
   //@ts-ignore
   const bufferFrom = Buffer.from(name);
   return isBufferGBK(bufferFrom)
-    ? iconv.decode(bufferFrom, "gbk")
-    : iconv.decode(bufferFrom, "utf8");
+    ? iconv.decode(bufferFrom, 'gbk')
+    : iconv.decode(bufferFrom, 'utf8');
 }
 
 export function isBufferGBK(bufferFrom: Buffer) {
-  return jschardet.detect(bufferFrom).encoding !== "UTF-8";
+  return jschardet.detect(bufferFrom).encoding !== 'UTF-8';
 }
 
 export const resolveInstruments = (instruments: InstrumentOriginData[]) => {
@@ -759,7 +733,7 @@ export const resolveInstruments = (instruments: InstrumentOriginData[]) => {
 export function getLog(
   logPath: string,
   searchKeyword: string,
-  dealMessageFunc: Function
+  dealMessageFunc: Function,
 ) {
   const numList = buildListByLineNum(100);
   let logId = 0;
@@ -778,7 +752,7 @@ export function getLog(
         }),
       });
 
-      lineReader.on("line", (line) => {
+      lineReader.on('line', (line) => {
         const messageData = dealMessageFunc(line, searchKeyword);
         if (!messageData || !messageData.length) return;
         messageData.forEach((msg: any) => {
@@ -791,7 +765,7 @@ export function getLog(
         });
       });
 
-      lineReader.on("close", () => {
+      lineReader.on('close', () => {
         resolve(numList);
       });
     });
@@ -809,7 +783,7 @@ function buildListByLineNum(num: number) {
     this.num = n;
   }
 
-  ListByNum.prototype.insert = function(item: any) {
+  ListByNum.prototype.insert = function (item: any) {
     if (this.len >= this.num) this.list.shift();
     else this.len++;
     this.list.push(item);
@@ -819,7 +793,7 @@ function buildListByLineNum(num: number) {
   return new ListByNum(num);
 }
 
-export function ensureLedgerData(data: any, key = "") {
+export function ensureLedgerData(data: any, key = '') {
   if (!key) {
     return data ? data.list() : [];
   }
@@ -831,7 +805,7 @@ export const originOrderTradesFilterByDirection = (
   direction: number,
   offset: number,
   side: number,
-  instrumentType: number
+  instrumentType: number,
 ) => {
   if (!allowShorted(+instrumentType)) {
     return true;
@@ -866,11 +840,11 @@ export const originOrderTradesFilterByDirection = (
 
 export const buildDictFromArray = (list: any[], key: string) => {
   let data: { [prop: string]: any } = {};
-  const keys: string[] = key.split(",");
+  const keys: string[] = key.split(',');
   list.kfForEach((item: any) => {
     const key: string = keys
-      .map((k: string): string => (item[k] || "").toString())
-      .join("_");
+      .map((k: string): string => (item[k] || '').toString())
+      .join('_');
     data[key] = item;
   });
   return data;
@@ -879,7 +853,7 @@ export const buildDictFromArray = (list: any[], key: string) => {
 export const addTwoItemByKeyForReduce = (
   item1: any,
   item2: any,
-  key: string
+  key: string,
 ) => {
   return (+item1[key] || 0) + (+item2[key] || 0);
 };
@@ -887,50 +861,48 @@ export const addTwoItemByKeyForReduce = (
 export const avgTwoItemByKeyForReduce = (
   item1: any,
   item2: any,
-  key: string
+  key: string,
 ) => {
   return addTwoItemByKeyForReduce(item1, item2, key) / 2;
 };
 
 export const getTradingDate = (today = true) => {
   if (today) {
-    return moment().format("YYYY-MM-DD");
+    return moment().format('YYYY-MM-DD');
   }
 
   const currentTimestamp = moment().valueOf();
   const tradingDayTimestamp = +moment()
-    .set("hours", 15)
-    .set("minutes", 30)
+    .set('hours', 15)
+    .set('minutes', 30)
     .valueOf();
 
   if (currentTimestamp > tradingDayTimestamp) {
-    return moment()
-      .add(1, "day")
-      .format("YYYY-MM-DD");
+    return moment().add(1, 'day').format('YYYY-MM-DD');
   } else {
-    return moment().format("YYYY-MM-DD");
+    return moment().format('YYYY-MM-DD');
   }
 };
 
 export const hidePasswordByLogger = (config: string) => {
   let configCopy = JSON.parse(config);
   Object.keys(configCopy || {}).forEach((key: string) => {
-    if (key.includes("password")) {
-      configCopy[key] = "******";
+    if (key.includes('password')) {
+      configCopy[key] = '******';
     }
   });
   return JSON.stringify(configCopy);
 };
 
 export const statTime = (name: string) => {
-  if (process.env.NODE_ENV !== "production") {
+  if (process.env.NODE_ENV !== 'production') {
     return;
     // console.time(name);
   }
 };
 
 export const statTimeEnd = (name: string) => {
-  if (process.env.NODE_ENV !== "production") {
+  if (process.env.NODE_ENV !== 'production') {
     return;
     // console.timeEnd(name);
   }

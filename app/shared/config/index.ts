@@ -1,5 +1,5 @@
-import * as pathConfig from './pathConfig'
+import * as pathConfig from './pathConfig';
 
 export default {
-    pathConfig
-}
+  pathConfig,
+};

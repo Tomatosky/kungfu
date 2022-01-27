@@ -1,259 +1,286 @@
 import moment from 'moment';
-import { decodeKungfuLocation, transformOrderStatListToData, dealOrderStat } from '__io/kungfu/watcher';
+import {
+  decodeKungfuLocation,
+  transformOrderStatListToData,
+  dealOrderStat,
+} from '__io/kungfu/watcher';
 import { getKungfuDataByDateRange } from '__io/kungfu/kungfuUtils';
 import { writeCSV } from '__gUtils/fileUtils';
-import { getDefaultRenderCellClass, originOrderTradesFilterByDirection } from '__gUtils/busiUtils';
+import {
+  getDefaultRenderCellClass,
+  originOrderTradesFilterByDirection,
+} from '__gUtils/busiUtils';
 
 export default {
-    props: {
-
-        currentId: {
-            type: String,
-            default: ''
-        },
-
-        moduleType: {
-            type: String,
-            default: ''
-        },
-
-        accountType: {
-            type: String,
-            default: ''
-        },
-
-        kungfuData: {
-            type: Array,
-            default: () => ([])
-        },
-
-        addTime: {
-            type: Number,
-            default: 0
-        },
-
-        ifBacktest: {
-            type: Boolean,
-            default: false
-        },
-
-        noTitle: {
-            type: Boolean,
-            default: false,
-        }
+  props: {
+    currentId: {
+      type: String,
+      default: '',
     },
 
-    data() {
-        return {
-            rendererTable: false,
-            searchKeyword: "",
-            filter: {
-                id: '', //对id、标的Id、策略Id模糊查询
-            },
-
-            dateRangeDialogVisiblityForExport: false,
-            dateRangeDialogVisiblityForHistory: false,
-            dateForHistory: '',
-            dateRangeExportLoading: false,
-            
-
-            tableData: Object.freeze([]),
-        }
+    moduleType: {
+      type: String,
+      default: '',
     },
 
-    mounted() {
-        this.rendererTable = true;
-        this.resetData();
+    accountType: {
+      type: String,
+      default: '',
     },
 
-    computed: {
-
-        schema() {
-            return []
-        },
-
-        currentTitle () {
-            return this.currentId ? `${this.currentId}` : ''
-        },
-
-        currentIdResolved () {
-            if (this.moduleType === 'account') {
-                return this.currentId
-            } else if (this.moduleType === 'strategy') {
-                return this.currentId
-            } else if (this.moduleType === 'ticker') {
-                const { instrumentId, directionOrigin } = this.currentTicker || {};
-                return `${instrumentId}_${directionOrigin}`
-            } else {
-                return ''
-            }
-        }
+    kungfuData: {
+      type: Array,
+      default: () => [],
     },
 
-    watch: {
-        currentIdResolved() {
-            this.resetData();
-        }
+    addTime: {
+      type: Number,
+      default: 0,
     },
 
-    methods: {
+    ifBacktest: {
+      type: Boolean,
+      default: false,
+    },
 
-        handleMonitTrades () {
-            this.$emit('input', !this.value)
-        },
+    noTitle: {
+      type: Boolean,
+      default: false,
+    },
+  },
 
-        handleMonitOrders () {
-            this.$emit('input', !this.value)
-        },
+  data() {
+    return {
+      rendererTable: false,
+      searchKeyword: '',
+      filter: {
+        id: '', //对id、标的Id、策略Id模糊查询
+      },
 
-        handleClearHistory () {
-            this.dateForHistory = '';
-            this.$emit('showHistory', {
-                date: '',
-                data: [],
-                type: this.kungfuBoardType
+      dateRangeDialogVisiblityForExport: false,
+      dateRangeDialogVisiblityForHistory: false,
+      dateForHistory: '',
+      dateRangeExportLoading: false,
+
+      tableData: Object.freeze([]),
+    };
+  },
+
+  mounted() {
+    this.rendererTable = true;
+    this.resetData();
+  },
+
+  computed: {
+    schema() {
+      return [];
+    },
+
+    currentTitle() {
+      return this.currentId ? `${this.currentId}` : '';
+    },
+
+    currentIdResolved() {
+      if (this.moduleType === 'account') {
+        return this.currentId;
+      } else if (this.moduleType === 'strategy') {
+        return this.currentId;
+      } else if (this.moduleType === 'ticker') {
+        const { instrumentId, directionOrigin } = this.currentTicker || {};
+        return `${instrumentId}_${directionOrigin}`;
+      } else {
+        return '';
+      }
+    },
+  },
+
+  watch: {
+    currentIdResolved() {
+      this.resetData();
+    },
+  },
+
+  methods: {
+    handleMonitTrades() {
+      this.$emit('input', !this.value);
+    },
+
+    handleMonitOrders() {
+      this.$emit('input', !this.value);
+    },
+
+    handleClearHistory() {
+      this.dateForHistory = '';
+      this.$emit('showHistory', {
+        date: '',
+        data: [],
+        type: this.kungfuBoardType,
+      });
+    },
+
+    handleConfirmDateRangeForHistory({ date, dateType }) {
+      return this.getDataByDateRange(date, dateType)
+        .then((data) => {
+          this.dateForHistory = moment(date).format('YYYY-MM-DD');
+          return data;
+        })
+        .then((data) => {
+          this.$emit('showHistory', {
+            date: date || '',
+            data: data,
+            type: this.kungfuBoardType,
+          });
+        });
+    },
+
+    //选择日期以及保存
+    handleConfirmDateRangeForExport({ date, dateType }) {
+      return this.getDataByDateRange(date, dateType)
+        .then((data) => {
+          return data;
+        })
+        .then((data) => {
+          const exportTitle =
+            this.kungfuBoardType === 'order' ? '订单' : '成交';
+          this.$saveFile({
+            title: exportTitle,
+          }).then((filename) => {
+            if (!filename) return;
+            writeCSV(filename, data);
+          });
+        });
+    },
+
+    getDataByDateRange(date, dateType) {
+      this.dateRangeExportLoading = true;
+
+      return getKungfuDataByDateRange(date, dateType)
+        .then((kungfuData) => {
+          const { instrumentId, directionOrigin } = this.currentTicker || {};
+          const targetList = this.getHistoryTargetListResolved(
+            this.kungfuBoardType,
+            kungfuData,
+            this.moduleType,
+            instrumentId,
+          );
+          const orderStats = kungfuData.OrderStat.list();
+          const orderStatByOrderId = transformOrderStatListToData(orderStats);
+          return targetList
+            .filter((item) => {
+              if (this.moduleType === 'account') {
+                return (
+                  this.getHistoryDataKeyForFilter('account', item) ===
+                  this.currentId
+                );
+              } else if (this.moduleType === 'strategy') {
+                return (
+                  this.getHistoryDataKeyForFilter('strategy', item) ===
+                  this.currentId
+                );
+              } else if (this.moduleType === 'all') {
+                return true;
+              } else if (this.moduleType === 'ticker') {
+                const { offset, side, instrument_type } = item;
+                return originOrderTradesFilterByDirection(
+                  directionOrigin,
+                  offset,
+                  side,
+                  instrument_type,
+                );
+              }
             })
-        },
+            .map((item) => {
+              //加上orderStat细节
+              const orderId = item.order_id.toString();
+              return Object.freeze({
+                //for export
+                ...orderStatByOrderId[orderId],
+                //for trades/orders recoard components
+                orderStats: dealOrderStat(orderStatByOrderId[orderId] || null),
+                ...item,
+                dest: item.dest,
+                source: item.source,
+                tag: item.tag,
+                ts: item.ts,
+                type: item.type,
+                uid_key: item.uid_key,
+              });
+            });
+        })
+        .finally(() => {
+          this.dateRangeExportLoading = false;
+          this.dateRangeDialogVisiblityForExport = false;
+          this.dateRangeDialogVisiblityForHistory = false;
+        });
+    },
 
-        handleConfirmDateRangeForHistory ({ date, dateType }) {
-            return this.getDataByDateRange(date, dateType)
-                .then(data => {
-                    this.dateForHistory = moment(date).format('YYYY-MM-DD')
-                    return data;
-                })
-                .then(data => {
-                    this.$emit('showHistory', {
-                        date: date || '',
-                        data: data,
-                        type: this.kungfuBoardType
-                    })
-                })
-        },
+    getHistoryTargetListResolved(
+      kungfuBoardType,
+      kungfuData,
+      moduleType = '',
+      instrumentId = '',
+    ) {
+      const kfDataTable = this.getHistoryTargetList(
+        kungfuBoardType,
+        kungfuData,
+      );
+      const sortName = this.getHistoryTargetSortName(kungfuBoardType);
+      if (moduleType === 'ticker') {
+        return kfDataTable.filter('instrument_id', instrumentId).sort(sortName);
+      } else {
+        return kfDataTable.sort(sortName);
+      }
+    },
 
-        //选择日期以及保存
-        handleConfirmDateRangeForExport ({ date, dateType}) {
-            return this.getDataByDateRange(date, dateType)
-                .then(data => {
-                    return data;
-                })
-                .then(data => {
-                    const exportTitle = this.kungfuBoardType === 'order' ? '订单' : '成交'
-                    this.$saveFile({
-                        title: exportTitle,
-                    }).then(filename => {
-                        if (!filename) return;
-                        writeCSV(filename, data)
-                    })
-                })
-        },
+    getHistoryTargetList(kungfuBoardType, kungfuData) {
+      if (!kungfuData) {
+        return {};
+      }
 
-        getDataByDateRange (date, dateType) {
-            this.dateRangeExportLoading = true;
+      if (kungfuBoardType === 'order') {
+        return kungfuData.Order;
+      } else if (kungfuBoardType === 'trade') {
+        return kungfuData.Trade;
+      } else {
+        console.error('getHistoryTargetList type is not trade or order!');
+        return [];
+      }
+    },
 
-            return getKungfuDataByDateRange(date, dateType)
-                .then(kungfuData => {
-                    const { instrumentId, directionOrigin } = this.currentTicker || {};
-                    const targetList = this.getHistoryTargetListResolved(this.kungfuBoardType, kungfuData, this.moduleType, instrumentId);
-                    const orderStats = kungfuData.OrderStat.list();
-                    const orderStatByOrderId = transformOrderStatListToData(orderStats);
-                    return targetList
-                        .filter(item => {
-                            if (this.moduleType === 'account') {
-                                return this.getHistoryDataKeyForFilter('account', item) === this.currentId;
-                            } else if (this.moduleType === 'strategy') {
-                                return this.getHistoryDataKeyForFilter('strategy', item) === this.currentId;
-                            } else if (this.moduleType === 'all') {
-                                return true;
-                            } else if (this.moduleType === 'ticker') {
-                                const { offset, side, instrument_type } = item;
-                                return originOrderTradesFilterByDirection(directionOrigin, offset, side, instrument_type);
-                            }
-                        })
-                        .map(item => {
-                            //加上orderStat细节
-                            const orderId = item.order_id.toString();
-                            return Object.freeze({
-                                //for export
-                                ...orderStatByOrderId[orderId],
-                                //for trades/orders recoard components
-                                orderStats: dealOrderStat(orderStatByOrderId[orderId] || null),
-                                ...item,
-                                dest: item.dest,
-                                source: item.source,
-                                tag: item.tag,
-                                ts: item.ts,
-                                type: item.type,
-                                uid_key: item.uid_key
-                            })
-                        });                    
-                })
-                .finally(() => {
-                    this.dateRangeExportLoading = false;
-                    this.dateRangeDialogVisiblityForExport = false;
-                    this.dateRangeDialogVisiblityForHistory = false;
-                })
-        },
+    getHistoryTargetSortName(kungfuBoardType) {
+      if (kungfuBoardType === 'order') {
+        return 'update_time';
+      } else if (kungfuBoardType === 'trade') {
+        return 'trade_time';
+      } else {
+        return '';
+      }
+    },
 
-    
-        
-        getHistoryTargetListResolved (kungfuBoardType, kungfuData, moduleType = '' , instrumentId = '') {
-            const kfDataTable = this.getHistoryTargetList(kungfuBoardType, kungfuData);
-            const sortName = this.getHistoryTargetSortName(kungfuBoardType);
-            if (moduleType === 'ticker') {
-                return kfDataTable.filter('instrument_id', instrumentId).sort(sortName);
-            } else {
-                return kfDataTable.sort(sortName);
-            }
-        },
+    getHistoryDataKeyForFilter(moduleType, item) {
+      if (moduleType === 'account') {
+        const kungfuLocation = decodeKungfuLocation(+item.source);
+        return `${kungfuLocation.group}_${kungfuLocation.name}`;
+      } else if (moduleType === 'strategy') {
+        const kungfuLocation = decodeKungfuLocation(+item.dest);
+        return kungfuLocation.name;
+      } else {
+        console.error(
+          'getHistoryDataKeyForFilter type is not account or strategy!',
+        );
+        return [];
+      }
+    },
 
-        getHistoryTargetList (kungfuBoardType, kungfuData ) {
+    resetData() {
+      this.searchKeyword = '';
+      this.tableData = Object.freeze([]);
+      this.handleClearHistory();
+      return true;
+    },
 
-            if (!kungfuData) {
-                return {}
-            }
-
-            if (kungfuBoardType === 'order') {
-                return kungfuData.Order
-            } else if (kungfuBoardType === 'trade') {
-                return kungfuData.Trade
-            } else {
-                console.error('getHistoryTargetList type is not trade or order!')
-                return []
-            }
-        },
-
-        getHistoryTargetSortName (kungfuBoardType) {
-            if (kungfuBoardType === 'order') {
-                return 'update_time'
-            } else if (kungfuBoardType === 'trade') {
-                return 'trade_time'
-            } else {
-                return ''
-            }
-        },
-
-        getHistoryDataKeyForFilter (moduleType, item) {
-            if (moduleType === 'account') {
-                const kungfuLocation = decodeKungfuLocation(+item.source);
-                return `${kungfuLocation.group}_${kungfuLocation.name}`
-            } else if (moduleType === 'strategy') {
-                const kungfuLocation = decodeKungfuLocation(+item.dest);
-                return kungfuLocation.name
-            } else {
-                console.error('getHistoryDataKeyForFilter type is not account or strategy!')
-                return []
-            }
-        },
-
-        resetData() {
-            this.searchKeyword = "";
-            this.tableData = Object.freeze([]);
-            this.handleClearHistory();
-            return true;
-        },
-
-        renderCellClass(prop, item) {   
-            return getDefaultRenderCellClass(prop, item)
-        }
-    }
-}
+    renderCellClass(prop, item) {
+      return getDefaultRenderCellClass(prop, item);
+    },
+  },
+};

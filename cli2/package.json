@@ -1,6 +1,6 @@
 {
   "name": "kungfu-cli",
-  "version": "2.3.8",
+  "version": "2.3.9",
   "description": "KungFu Trader Cli",
   "license": "Apache-2.0",
   "homepage": "https://github.com/taurusai/kungfu",
@@ -31,7 +31,8 @@
     "dist": "node --max_old_space_size=4096 .build/dist.js",
     "test": " mocha",
     "cp": "yarn run cp-node",
-    "cp-node": "copyfiles -a -f ../core/build/*/libkungfu.* ../core/build/*/kungfu.* ../core/build/*/pykungfu* ../core/build/*/node_kungfu.node ../core/build/*/kungfubuildinfo.json ../node_modules/fsevents/fsevents.node ./build/cli"
+    "cp-node": "copyfiles -a -f ../core/build/*/libkungfu.* ../core/build/*/kungfu.* ../core/build/*/pykungfu* ../core/build/*/node_kungfu.node ../core/build/*/kungfubuildinfo.json ../node_modules/fsevents/fsevents.node ./build/cli",
+    "format": "prettier -l -w --config .prettierrc.js ."
   },
   "bin": "./dist/cli/index.js",
   "pkg": {
@@ -101,6 +102,7 @@
     "patch-package": "6.4.7",
     "pkg": "4.4.0",
     "preload-webpack-plugin": "2.3.0",
+    "prettier": "^2.5.1",
     "require-dir": "1.0.0",
     "rimraf": "2.6.3",
     "rxjs": "6.5.2",

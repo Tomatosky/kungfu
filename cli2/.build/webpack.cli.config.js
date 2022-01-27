@@ -1,29 +1,29 @@
-"use strict";
+'use strict';
 
-process.env.BABEL_ENV = "main";
+process.env.BABEL_ENV = 'main';
 
-const path = require("path");
-const webpack = require("webpack");
-const TerserPlugin = require("terser-webpack-plugin-legacy");
-const { dependencies } = require("../package.json");
+const path = require('path');
+const webpack = require('webpack');
+const TerserPlugin = require('terser-webpack-plugin-legacy');
+const { dependencies } = require('../package.json');
 
-console.log("[CLI CONFIG]", "KF_BRAND_TYPE", process.env.KF_BRAND_TYPE);
-console.log("[CLI CONFIG]", "KF_BRAND_TITLE", process.env.KF_BRAND_TITLE);
+console.log('[CLI CONFIG]', 'KF_BRAND_TYPE', process.env.KF_BRAND_TYPE);
+console.log('[CLI CONFIG]', 'KF_BRAND_TITLE', process.env.KF_BRAND_TITLE);
 
 const nodeModules = {};
 Object.keys(dependencies || {})
-  .filter(function(x) {
-    return [".bin"].indexOf(x) === -1;
+  .filter(function (x) {
+    return ['.bin'].indexOf(x) === -1;
   })
-  .forEach(function(mod) {
-    nodeModules[mod] = "commonjs " + mod;
+  .forEach(function (mod) {
+    nodeModules[mod] = 'commonjs ' + mod;
   });
 
-nodeModules["kungfu-core"] = "commonjs kungfu-core";
+nodeModules['kungfu-core'] = 'commonjs kungfu-core';
 
 let cliConfig = {
   entry: {
-    index: path.join(__dirname, "../src/index.ts"),
+    index: path.join(__dirname, '../src/index.ts'),
   },
   externals: {
     ...nodeModules,
@@ -32,21 +32,21 @@ let cliConfig = {
     rules: [
       {
         test: /\.js$/,
-        use: "babel-loader",
+        use: 'babel-loader',
         exclude: /node_modules/,
       },
       {
         test: /\.ts$/,
-        use: "ts-loader",
+        use: 'ts-loader',
         include: [
-          path.resolve(__dirname, "..", "src"),
-          path.resolve(__dirname, "..", "..", "app", "shared"),
-          path.resolve(__dirname, "..", "..", "shared"),
+          path.resolve(__dirname, '..', 'src'),
+          path.resolve(__dirname, '..', '..', 'app', 'shared'),
+          path.resolve(__dirname, '..', '..', 'shared'),
         ],
       },
       {
         test: /\.node$/,
-        use: "node-loader",
+        use: 'node-loader',
       },
     ],
   },
@@ -55,67 +55,67 @@ let cliConfig = {
     __filename: true,
   },
   output: {
-    filename: "[name].js",
-    libraryTarget: "commonjs2",
-    path: path.join(__dirname, "../dist/cli"),
+    filename: '[name].js',
+    libraryTarget: 'commonjs2',
+    path: path.join(__dirname, '../dist/cli'),
   },
   plugins: [
     new webpack.NoEmitOnErrorsPlugin(),
     new webpack.DefinePlugin({
-      "process.env.LANG_ENV": '"en"',
-      "process.env.APP_TYPE": '"cli"',
+      'process.env.LANG_ENV': '"en"',
+      'process.env.APP_TYPE': '"cli"',
     }),
   ],
   resolve: {
     alias: {
-      "@": path.join(__dirname, "../src"),
-      __gUtils: path.join(__dirname, "../../app/shared/utils"),
-      __gConfig: path.join(__dirname, "../../app/shared/config"),
-      __io: path.join(__dirname, "../../app/shared/io"),
-      __assets: path.join(__dirname, "../../app/shared/assets"),
-      __app: path.join(__dirname, "../../app"),
+      '@': path.join(__dirname, '../src'),
+      __gUtils: path.join(__dirname, '../../app/shared/utils'),
+      __gConfig: path.join(__dirname, '../../app/shared/config'),
+      __io: path.join(__dirname, '../../app/shared/io'),
+      __assets: path.join(__dirname, '../../app/shared/assets'),
+      __app: path.join(__dirname, '../../app'),
     },
-    extensions: [".ts", ".js", ".json", ".node"],
+    extensions: ['.ts', '.js', '.json', '.node'],
   },
-  target: "node",
+  target: 'node',
 };
 
-const { getPythonVersion } = require("../../app/.electron-kungfu/utils");
-const pyVersion = getPythonVersion() || "3";
+const { getPythonVersion } = require('../../app/.electron-kungfu/utils');
+const pyVersion = getPythonVersion() || '3';
 
 /**
  * Adjust cliConfig for development settings
  */
-if (process.env.NODE_ENV !== "production") {
+if (process.env.NODE_ENV !== 'production') {
   cliConfig.plugins.push(
     new webpack.DefinePlugin({
       __resources: `"${path
-        .join(__dirname, "../../app/resources")
-        .replace(/\\/g, "\\\\")}"`,
-      "process.env.NODE_ENV": '"development"',
-      "process.env.APP_TYPE": '"cli"',
-      "process.env.LANG_ENV": '"en"',
-      "process.env.KF_BRAND_TITLE": `"${process.env.KF_BRAND_TITLE}"`,
-      "process.env.KF_BRAND_TYPE": `"${process.env.KF_BRAND_TYPE}"`,
+        .join(__dirname, '../../app/resources')
+        .replace(/\\/g, '\\\\')}"`,
+      'process.env.NODE_ENV': '"development"',
+      'process.env.APP_TYPE': '"cli"',
+      'process.env.LANG_ENV': '"en"',
+      'process.env.KF_BRAND_TITLE': `"${process.env.KF_BRAND_TITLE}"`,
+      'process.env.KF_BRAND_TYPE': `"${process.env.KF_BRAND_TYPE}"`,
       python_version: `"${pyVersion.toString()}"`,
-    })
+    }),
   );
 }
 
 /**
  * Adjust cliConfig for production settings
  */
-if (process.env.NODE_ENV === "production") {
+if (process.env.NODE_ENV === 'production') {
   cliConfig.plugins.push(
     new TerserPlugin(),
     new webpack.DefinePlugin({
-      "process.env.NODE_ENV": '"production"',
-      "process.env.LANG_ENV": '"en"',
-      "process.env.APP_TYPE": '"cli"',
-      "process.env.KF_BRAND_TITLE": `"${process.env.KF_BRAND_TITLE}"`,
-      "process.env.KF_BRAND_TYPE": `"${process.env.KF_BRAND_TYPE}"`,
+      'process.env.NODE_ENV': '"production"',
+      'process.env.LANG_ENV': '"en"',
+      'process.env.APP_TYPE': '"cli"',
+      'process.env.KF_BRAND_TITLE': `"${process.env.KF_BRAND_TITLE}"`,
+      'process.env.KF_BRAND_TYPE': `"${process.env.KF_BRAND_TYPE}"`,
       python_version: `"${pyVersion.toString()}"`,
-    })
+    }),
   );
 }
 

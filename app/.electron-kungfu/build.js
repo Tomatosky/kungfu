@@ -1,21 +1,21 @@
-"use strict";
+'use strict';
 
-process.env.NODE_ENV = "production";
-const { getEnvFile } = require("./utils");
+process.env.NODE_ENV = 'production';
+const { getEnvFile } = require('./utils');
 getEnvFile();
-const { say } = require("cfonts");
-const chalk = require("chalk");
-const webpack = require("webpack");
-const Multispinner = require("multispinner");
+const { say } = require('cfonts');
+const chalk = require('chalk');
+const webpack = require('webpack');
+const Multispinner = require('multispinner');
 
-const mainConfig = require("./webpack.main.config");
-const rendererConfig = require("./webpack.renderer.config");
-const daemonConfig = require("./webpack.daemon.config");
-const sharedConfig = require("./webpack.shared.config");
+const mainConfig = require('./webpack.main.config');
+const rendererConfig = require('./webpack.renderer.config');
+const daemonConfig = require('./webpack.daemon.config');
+const sharedConfig = require('./webpack.shared.config');
 
-const doneLog = chalk.bgGreen.white(" DONE ") + " ";
-const errorLog = chalk.bgRed.white(" ERROR ") + " ";
-const okayLog = chalk.bgBlue.white(" OKAY ") + " ";
+const doneLog = chalk.bgGreen.white(' DONE ') + ' ';
+const errorLog = chalk.bgRed.white(' ERROR ') + ' ';
+const okayLog = chalk.bgBlue.white(' OKAY ') + ' ';
 const isCI = process.env.CI || false;
 
 build();
@@ -23,28 +23,28 @@ build();
 function build() {
   greeting();
 
-  const tasks = ["main", "renderer", "daemon"];
+  const tasks = ['main', 'renderer', 'daemon'];
   const m = new Multispinner(tasks, {
-    preText: "building",
-    postText: "process",
+    preText: 'building',
+    postText: 'process',
   });
 
-  let results = "";
+  let results = '';
 
-  m.on("success", () => {
-    process.stdout.write("\x1B[2J\x1B[0f");
+  m.on('success', () => {
+    process.stdout.write('\x1B[2J\x1B[0f');
     console.log(`\n\n${results}`);
-    console.log(`${okayLog}take it away ${chalk.yellow("`kungfu-trader`")}\n`);
+    console.log(`${okayLog}take it away ${chalk.yellow('`kungfu-trader`')}\n`);
     process.exit();
   });
 
   pack(mainConfig)
     .then((result) => {
-      results += result + "\n\n";
-      m.success("main");
+      results += result + '\n\n';
+      m.success('main');
     })
     .catch((err) => {
-      m.error("main");
+      m.error('main');
       console.log(`\n  ${errorLog}failed to build main process`);
       console.error(`\n${err}\n`);
       process.exit(1);
@@ -52,11 +52,11 @@ function build() {
 
   pack(rendererConfig)
     .then((result) => {
-      results += result + "\n\n";
-      m.success("renderer");
+      results += result + '\n\n';
+      m.success('renderer');
     })
     .catch((err) => {
-      m.error("renderer");
+      m.error('renderer');
       console.log(`\n  ${errorLog}failed to build renderer process`);
       console.error(`\n${err}\n`);
       process.exit(1);
@@ -64,11 +64,11 @@ function build() {
 
   pack(daemonConfig)
     .then((result) => {
-      results += result + "\n\n";
-      m.success("daemon");
+      results += result + '\n\n';
+      m.success('daemon');
     })
     .catch((err) => {
-      m.error("daemon");
+      m.error('daemon');
       console.log(`\n  ${errorLog}failed to build daemon process`);
       console.error(`\n${err}\n`);
       process.exit(1);
@@ -76,11 +76,11 @@ function build() {
 
   pack(sharedConfig)
     .then((result) => {
-      results += result + "\n\n";
-      m.success("shared");
+      results += result + '\n\n';
+      m.success('shared');
     })
     .catch((err) => {
-      m.error("shared");
+      m.error('shared');
       console.log(`\n  ${errorLog}failed to build shared process`);
       console.error(`\n${err}\n`);
       process.exit(1);
@@ -92,7 +92,7 @@ function pack(config) {
     webpack(config, (err, stats) => {
       if (err) reject(err.stack || err);
       else if (stats.hasErrors()) {
-        let err = "";
+        let err = '';
 
         stats
           .toString({
@@ -110,7 +110,7 @@ function pack(config) {
           stats.toString({
             chunks: false,
             colors: true,
-          })
+          }),
         );
       }
     });
@@ -119,17 +119,17 @@ function pack(config) {
 
 function greeting() {
   const cols = process.stdout.columns;
-  let text = "";
+  let text = '';
 
-  if (cols > 85) text = "kungfu-build";
-  else if (cols > 60) text = "kungfu-|build";
+  if (cols > 85) text = 'kungfu-build';
+  else if (cols > 60) text = 'kungfu-|build';
   else text = false;
 
   if (text && !isCI) {
     say(text, {
-      colors: ["yellow"],
-      font: "simple3d",
+      colors: ['yellow'],
+      font: 'simple3d',
       space: false,
     });
-  } else console.log(chalk.yellow.bold("\n  kungfu-build"));
+  } else console.log(chalk.yellow.bold('\n  kungfu-build'));
 }
