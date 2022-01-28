@@ -27,7 +27,8 @@ import {
 } from 'kungfu-shared/config/tradingConfig';
 
 const DIGIT = process.env.KF_BRAND_TYPE === 'crypto' ? 100000000 : 1;
-const FIEXED_DIGIT = process.env.KF_BRAND_TYPE === 'crypto' ? 8 : 0;
+const VOLUME_DIGIT = process.env.KF_BRAND_TYPE === 'crypto' ? 8 : 0;
+const PRICE_DIGIT = process.env.KF_BRAND_TYPE === 'crypto' ? 8 : 4;
 
 export const watcher: any = (() => {
   const kfSystemConfig: any = fse.readJsonSync(KF_CONFIG_PATH);
@@ -672,8 +673,8 @@ export const dealOrderInput = (item: OrderInputOriginData): OrderInputData => {
     accountId: accountId,
     instrumentType: InstrumentType[instrument_type],
     instrumentTypeOrigin: instrument_type,
-    limitPrice: toDecimal(item.limit_price, 4) || '--',
-    frozenPrice: toDecimal(item.frozen_price, 4) || '--',
+    limitPrice: toDecimal(item.limit_price, PRICE_DIGIT) || '--',
+    frozenPrice: toDecimal(item.frozen_price, PRICE_DIGIT) || '--',
     volume: dealVolume(item.volume),
 
     side: SideName[side] ? SideName[side] : '--',
@@ -737,8 +738,8 @@ export const dealOrder = (item: OrderOriginData): OrderData => {
     volumeCondition: VolumeCondition[item.volume_condition],
     timeCondition: TimeCondition[item.time_condition],
 
-    limitPrice: toDecimal(item.limit_price, 4) || '--',
-    frozenPrice: toDecimal(item.frozen_price, 4) || '--',
+    limitPrice: toDecimal(item.limit_price, PRICE_DIGIT) || '--',
+    frozenPrice: toDecimal(item.frozen_price, PRICE_DIGIT) || '--',
 
     volume: dealVolume(item.volume),
     volumeTraded:
@@ -802,7 +803,7 @@ export const dealTrade = (item: TradeOriginData): TradeData => {
     hedgeFlag: HedgeFlag[hedge_flag] ? HedgeFlag[hedge_flag] : '--',
     hedgeFlagOrigin: hedge_flag,
 
-    price: toDecimal(+item.price, 4) || '--',
+    price: toDecimal(+item.price, PRICE_DIGIT) || '--',
     volume: dealVolume(item.volume),
 
     clientId: resolveClientId(+dest, parent_order_id),
@@ -991,27 +992,27 @@ export const dealQuote = (quote: QuoteOriginData): QuoteData => {
     instrumentType: InstrumentType[quote.instrument_type],
     instrumentTypeOrigin: quote.instrument_type,
 
-    highPrice: toDecimal(ensureNum(quote.high_price), 4),
-    closePrice: toDecimal(ensureNum(quote.close_price), 4),
-    lastPrice: toDecimal(ensureNum(quote.last_price), 4),
-    lowPrice: toDecimal(ensureNum(quote.low_price), 4),
-    lowerLimitPrice: toDecimal(ensureNum(quote.lower_limit_price), 4),
+    highPrice: toDecimal(ensureNum(quote.high_price), PRICE_DIGIT),
+    closePrice: toDecimal(ensureNum(quote.close_price), PRICE_DIGIT),
+    lastPrice: toDecimal(ensureNum(quote.last_price), PRICE_DIGIT),
+    lowPrice: toDecimal(ensureNum(quote.low_price), PRICE_DIGIT),
+    lowerLimitPrice: toDecimal(ensureNum(quote.lower_limit_price), PRICE_DIGIT),
     openInterest: ensureNum(quote.open_interest),
-    openPrice: toDecimal(ensureNum(quote.open_price), 4),
-    preClosePrice: toDecimal(ensureNum(quote.pre_close_price), 4),
+    openPrice: toDecimal(ensureNum(quote.open_price), PRICE_DIGIT),
+    preClosePrice: toDecimal(ensureNum(quote.pre_close_price), PRICE_DIGIT),
     preOpenInterest: ensureNum(quote.pre_open_interest),
-    preSettlementPrice: toDecimal(ensureNum(quote.pre_settlement_price), 4),
-    settlementPrice: toDecimal(ensureNum(quote.settlement_price), 4),
+    preSettlementPrice: toDecimal(ensureNum(quote.pre_settlement_price), PRICE_DIGIT),
+    settlementPrice: toDecimal(ensureNum(quote.settlement_price), PRICE_DIGIT),
 
     tradingDay: quote.trading_day,
     turnover: ensureNum(quote.turnover),
-    upperLimitPrice: toDecimal(ensureNum(quote.upper_limit_price), 4),
+    upperLimitPrice: toDecimal(ensureNum(quote.upper_limit_price), PRICE_DIGIT),
     volume: ensureNum(dealVolume(quote.volume)).toString(),
     askPrices:
-      quote.ask_price.map((num: number) => toDecimal(ensureNum(num), 4)) || [],
+      quote.ask_price.map((num: number) => toDecimal(ensureNum(num), PRICE_DIGIT)) || [],
     askVolumes: quote.ask_volume.map((num: bigint) => dealVolume(num)) || [],
     bidPrices:
-      quote.bid_price.map((num: number) => toDecimal(ensureNum(num), 4)) || [],
+      quote.bid_price.map((num: number) => toDecimal(ensureNum(num), PRICE_DIGIT)) || [],
     bidVolumes: quote.bid_volume.map((num: bigint) => dealVolume(num)) || [],
   };
 };
@@ -1019,5 +1020,5 @@ export const dealQuote = (quote: QuoteOriginData): QuoteData => {
 // ========================== 交易数据处理 end ===========================
 
 function dealVolume(volume: bigint): string {
-  return Number(Number(volume) / DIGIT).toFixed(FIEXED_DIGIT);
+  return Number(Number(volume) / DIGIT).toFixed(VOLUME_DIGIT);
 }
