@@ -194,7 +194,7 @@
               "
             >
               <el-input-number
-                :precision="4"
+                :precision="8"
                 :step="0.001"
                 :controls="false"
                 placeholder="请输入价格"
