@@ -23,6 +23,15 @@ struct TDConfiguration {
   bool sync_external_order;
 };
 
+template <typename T>
+void get_value_from_json(const nlohmann::json &j, const std::string &key, T &target, const T &dvalue) {
+  try {
+    j.at(key).get_to(target);
+  } catch (nlohmann::json::exception &e) {
+    target = dvalue;
+  }
+}
+
 inline void from_json(const nlohmann::json &j, kungfu::wingchun::ctp::TDConfiguration &c) {
   j.at("td_uri").get_to(c.td_uri);
   j.at("account_id").get_to(c.account_id);
@@ -31,8 +40,9 @@ inline void from_json(const nlohmann::json &j, kungfu::wingchun::ctp::TDConfigur
   j.at("auth_code").get_to(c.auth_code);
   j.at("app_id").get_to(c.app_id);
   j.at("broker_margin_ratio").get_to(c.broker_margin_ratio);
-  j.at("sync_external_order").get_to(c.sync_external_order);
   c.product_info = j.value("product_info", "");
+
+  get_value_from_json<bool>(j, "sync_external_order", c.sync_external_order, false);
 }
 
 struct MDConfiguration {
