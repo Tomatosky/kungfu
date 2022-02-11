@@ -40,39 +40,57 @@ namespace kungfu::wingchun::book {
         CryptoAccountingMethod() = default;
 
         virtual void apply_trading_day(Book_ptr &book, int64_t trading_day) override {
+          for (auto &pair : book->long_positions) {
+            auto &position = pair.second;
+            position.pre_close_price = 0;
+            position.yesterday_volume = position.volume;
+            position.close_price = 0;
+            position.update_time = trading_day;
+            position.trading_day = time::strftime(trading_day, KUNGFU_TRADING_DAY_FORMAT).c_str();
+          }
         }
 
         virtual void apply_quote(Book_ptr &book, const Quote &quote) override {
         }
 
         virtual void apply_order_input(Book_ptr &book, const OrderInput &input) override {
+          if (!book->has_position(input.exchange_id, input.instrument_id)) {
+            auto &position = book->get_position_for(input);
+            if (input.side == Side::Sell) {
+              position.frozen_total += input.volume;
+              position.frozen_yesterday += input.volume;
+            } else {
+              position.frozen_total -= input.volume;
+              position.frozen_yesterday -= input.volume;
+            }
+          }
         }
 
         virtual void apply_order(Book_ptr &book, const Order &order) override {
+          if (!book->has_position(order.exchange_id, order.instrument_id)) {
+            if (is_final_status(order.status)) {
+              auto &position = book->get_position_for(order);
+              if (order.side == Side::Buy) {
+                position.frozen_total = std::max(position.frozen_total + order.volume_left, VOLUME_ZERO);
+                position.frozen_yesterday = std::max(position.frozen_yesterday + order.volume_left, VOLUME_ZERO);
+              } else if (order.side == Side::Sell) {
+                position.frozen_total = std::max(position.frozen_total - order.volume_left, VOLUME_ZERO);
+                position.frozen_yesterday = std::max(position.frozen_yesterday - order.volume_left, VOLUME_ZERO);
+              }
+              update_position(book, position);
+            }
+          }
         }
 
         virtual void apply_trade(Book_ptr &book, const Trade &trade) override {
-            // kungfu::array<char, INSTRUMENT_ID_LEN> instrument_a;
-            // kungfu::array<char, INSTRUMENT_ID_LEN> instrument_b;
-            // kungfu::array<char, INSTRUMENT_ID_LEN> instrument_commission;
-            // int64_t volume_a = 0;
-            // int64_t  volume_b = 0;
-            // int64_t volume_commission = 0;
-            // get_instrument(book, trade, instrument_a, instrument_b, instrument_commission, volume_a, volume_b, volume_commission);
-            // auto  &position_a = book->get_long_position(trade.exchange_id, instrument_a);
-            // auto  &position_b = book->get_long_position(trade.exchange_id, instrument_b);
-            // auto  &position_commission = book->get_long_position(trade.exchange_id, instrument_commission);
-            // if (trade.side == Side::Buy)
-            // {
-            //     position_a.volume += volume_a;
-            //     position_b.volume -= volume_b;
-            // }
-            // if (trade.side == Side::Sell)
-            // {
-            //     position_a.volume -= volume_a;
-            //     position_b.volume += volume_b;
-            // }
-            // position_commission.volume -= volume_commission;
+          if (!book->has_position(trade.exchange_id, trade.instrument_id)) {
+            if (trade.side == Side::Sell) {
+              apply_sell(book, trade);
+            }
+            if (trade.side == Side::Buy) {
+              apply_buy(book, trade);
+            }
+          }
         }
 
         virtual void update_position(Book_ptr &book, Position &position) override {
@@ -85,9 +103,25 @@ namespace kungfu::wingchun::book {
         std::unordered_map<uint64_t, double> commission_map_ = {};
 
         virtual void apply_buy(Book_ptr &book, const Trade &trade) {
+          auto &position = book->get_position_for(trade);
+          if (position.volume + trade.volume > 0 && trade.price > 0) {
+            position.avg_open_price = 0;
+          }
+          auto commission = calculate_commission(trade);
+          auto tax = calculate_tax(trade);
+          position.volume += trade.volume;
         }
 
         virtual void apply_sell(Book_ptr &book, const Trade &trade) {
+          auto &position = book->get_position_for(trade);
+          auto realized_pnl = (trade.price - position.avg_open_price) * trade.volume;
+          auto commission = calculate_commission(trade);
+          auto tax = calculate_tax(trade);
+          position.frozen_total = std::max(position.frozen_total - trade.volume, VOLUME_ZERO);
+          position.frozen_yesterday = std::max(position.frozen_yesterday - trade.volume, VOLUME_ZERO);
+          position.yesterday_volume = std::max(position.yesterday_volume - trade.volume, VOLUME_ZERO);
+          position.volume = std::max(position.volume - trade.volume, VOLUME_ZERO);
+          position.realized_pnl += realized_pnl;
         }
 
         virtual double calculate_commission(const Trade &trade) {
