@@ -288,7 +288,7 @@ inline std::string get_exchange_id_from_future_instrument_id(const std::string &
              product == "nr" || product == "sp") {
     return EXCHANGE_SHFE;
   } else if (product == "if" || product == "ic" || product == "ih" || product == "ts" || product == "tf" ||
-             product == "t") {
+             product == "t" || product == "io") {
     return EXCHANGE_CFFEX;
   } else if (product == "sc") {
     return EXCHANGE_INE;
