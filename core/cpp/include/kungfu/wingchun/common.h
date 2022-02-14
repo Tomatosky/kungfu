@@ -272,25 +272,25 @@ inline std::string get_exchange_id_from_future_instrument_id(const std::string &
   std::string product = instrument_id.substr(0, found);
   std::transform(product.begin(), product.end(), product.begin(), ::tolower);
   if (product == "c" || product == "cs" || product == "a" || product == "b" || product == "m" || product == "y" ||
-      product == "p" || product == "fb" || product == "bb" || product == "jd" || product == "rr" || product == "l" ||
+      product == "p" || product == "fb" || product == "bb" || product == "jd" || product == "rr" || product == "lh" || product == "l" ||
       product == "v" || product == "pp" || product == "j" || product == "jm" || product == "i" || product == "eg" ||
-      product == "eb") {
+      product == "eb" || product == "pg") {
     return EXCHANGE_DCE;
   } else if (product == "wh" || product == "pm" || product == "cf" || product == "sr" || product == "oi" ||
              product == "ri" || product == "rs" || product == "rm" || product == "jr" || product == "lr" ||
              product == "cy" || product == "ap" || product == "cj" || product == "ta" || product == "ma" ||
              product == "zc" || product == "sf" || product == "sm" || product == "ur" || product == "fg" ||
-             product == "sa") {
+             product == "sa" || product == "pk" || product == "pf") {
     return EXCHANGE_CZCE;
   } else if (product == "cu" || product == "al" || product == "zn" || product == "pb" || product == "ni" ||
              product == "sn" || product == "au" || product == "ag" || product == "rb" || product == "wr" ||
              product == "hc" || product == "ss" || product == "fu" || product == "bu" || product == "ru" ||
-             product == "nr" || product == "sp") {
+             product == "sp") {
     return EXCHANGE_SHFE;
   } else if (product == "if" || product == "ic" || product == "ih" || product == "ts" || product == "tf" ||
              product == "t" || product == "io") {
     return EXCHANGE_CFFEX;
-  } else if (product == "sc") {
+  } else if (product == "sc" || product == "lu" || product == "nr" || product == "bc") {
     return EXCHANGE_INE;
   } else {
     return "";
