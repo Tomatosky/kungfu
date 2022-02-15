@@ -285,7 +285,7 @@ inline std::string get_exchange_id_from_future_instrument_id(const std::string &
   } else if (product == "cu" || product == "al" || product == "zn" || product == "pb" || product == "ni" ||
              product == "sn" || product == "au" || product == "ag" || product == "rb" || product == "wr" ||
              product == "hc" || product == "ss" || product == "fu" || product == "bu" || product == "ru" ||
-             product == "sp") {
+             product == "sp" ) {
     return EXCHANGE_SHFE;
   } else if (product == "if" || product == "ic" || product == "ih" || product == "ts" || product == "tf" ||
              product == "t" || product == "io") {
