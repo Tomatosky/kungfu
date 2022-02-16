@@ -34,6 +34,11 @@ const Instrument &MarketData::get_instrument(const std::string &instrument_id) c
 }
 
 void MarketData::update_instrument(Instrument instrument) {
+  if (strcmp(instrument.exchange_id.value, EXCHANGE_INE) == 0) {
+    if (instruments_.find(instrument.instrument_id) != instruments_.end()) {
+      strncpy(instruments_.at(instrument.instrument_id).exchange_id.value, EXCHANGE_INE, EXCHANGE_ID_LEN);
+    }
+  }
   instruments_.emplace(instrument.instrument_id, instrument);
 }
 } // namespace kungfu::wingchun::broker

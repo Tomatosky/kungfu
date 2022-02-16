@@ -32,6 +32,11 @@ bool MarketDataCTP::subscribe(const std::vector<InstrumentKey> &instruments) {
   auto targets = new char *[length];
   for (int i = 0; i < length; i++) {
     targets[i] = const_cast<char *>(instruments[i].instrument_id.value);
+    if (instrument_exchange_map_.find(instruments[i].instrument_id) != instrument_exchange_map_.end()) {
+      instrument_exchange_map_.at(instruments[i].instrument_id) = instruments[i].exchange_id.value;
+    } else {
+      instrument_exchange_map_.emplace(instruments[i].instrument_id, instruments[i].exchange_id);
+    }
   }
   auto rtn = api_->SubscribeMarketData(targets, length);
   delete[] targets;
@@ -104,13 +109,10 @@ void MarketDataCTP::OnRspUnSubMarketData(CThostFtdcSpecificInstrumentField *pSpe
 void MarketDataCTP::OnRtnDepthMarketData(CThostFtdcDepthMarketDataField *pDepthMarketData) {
   auto writer = get_writer(location::PUBLIC);
   Quote &quote = writer->open_data<Quote>(now());
-  if (has_instrument(pDepthMarketData->InstrumentID)) {
-    auto &instrument = get_instrument(pDepthMarketData->InstrumentID);
-    quote.exchange_id = instrument.exchange_id;
-  } else {
-    strcpy(quote.exchange_id, get_exchange_id_from_future_instrument_id(pDepthMarketData->InstrumentID).c_str());
-  }
   from_ctp(*pDepthMarketData, quote);
+  if(instrument_exchange_map_.find(pDepthMarketData->InstrumentID) != instrument_exchange_map_.end()){
+    strncpy(quote.exchange_id, instrument_exchange_map_[pDepthMarketData->InstrumentID].c_str(), EXCHANGE_ID_LEN);
+  }
   writer->close_data();
 }
 } // namespace kungfu::wingchun::ctp

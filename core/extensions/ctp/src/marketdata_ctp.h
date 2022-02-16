@@ -65,6 +65,7 @@ private:
   MDConfiguration config_;
   int request_id_;
   CThostFtdcMdApi *api_;
+  std::unordered_map<std::string, std::string> instrument_exchange_map_ = {};
 };
 } // namespace kungfu::wingchun::ctp
 #endif // KUNGFU_CTP_EXT_MARKETDATA_H
