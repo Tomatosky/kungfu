@@ -91,6 +91,8 @@ public:
    * @return current trading day
    */
   int64_t get_trading_day() const override;
+
+  kungfu::wingchun::book::Book_ptr get_account_book(const std::string &source, const std::string &account) override;
 };
 
 DECLARE_PTR(BacktestContext)

@@ -157,4 +157,18 @@ const location_ptr &RuntimeContext::find_md_location(const std::string &source) 
   }
   return market_data_.at(source);
 }
+
+kungfu::wingchun::book::Book_ptr RuntimeContext::get_account_book(const std::string &source,
+                                                                  const std::string &account) {
+  uint32_t account_id = hash_str_32(account);
+  if (td_locations_.find(account_id) == td_locations_.end()) {
+    throw wingchun_error(fmt::format("no account {}@{}", account, source));
+  }
+  auto home = app_.get_io_device()->get_home();
+  auto account_location = location::make_shared(mode::LIVE, category::TD, source, account, home->locator);
+  if (home->mode == mode::LIVE and not app_.has_location(account_location->uid)) {
+    throw wingchun_error(fmt::format("invalid account {}@{}", account, source));
+  }
+  return bookkeeper_.get_book(account_location->uid);
+}
 } // namespace kungfu::wingchun::strategy
