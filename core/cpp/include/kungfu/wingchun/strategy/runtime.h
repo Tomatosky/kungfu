@@ -115,6 +115,13 @@ public:
    */
   book::Bookkeeper &get_bookkeeper();
 
+  /**
+   * get_account_book.
+   * @param source source ID
+   * @param account account ID
+   */
+  kungfu::wingchun::book::Book_ptr get_account_book(const std::string &source, const std::string &account) override;
+
 protected:
   yijinjing::practice::apprentice &app_;
   const rx::connectable_observable<event_ptr> &events_;

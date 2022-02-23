@@ -126,6 +126,13 @@ public:
    */
   void hold_positions();
 
+  /**
+   * get_account_book.
+   * @param source source ID
+   * @param account account ID
+   */
+  virtual kungfu::wingchun::book::Book_ptr get_account_book(const std::string &source, const std::string &account) = 0;
+
 private:
   bool book_held_ = false;
   bool positions_mirrored_ = true;
