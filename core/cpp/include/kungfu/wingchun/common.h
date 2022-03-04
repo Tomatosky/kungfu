@@ -269,8 +269,7 @@ inline bool is_open(longfist::enums::InstrumentType instrument_type, longfist::e
 
 inline bool is_shortable(longfist::enums::InstrumentType instrument_type) {
   using namespace longfist::enums;
-  return not(instrument_type == InstrumentType::Stock or instrument_type == InstrumentType::Bond or
-             instrument_type == InstrumentType::Fund or instrument_type == InstrumentType::StockOption or
+  return not(instrument_type == InstrumentType::Fund or instrument_type == InstrumentType::StockOption or
              instrument_type == InstrumentType::TechStock or instrument_type == InstrumentType::Index or
              instrument_type == InstrumentType::Repo);
 }
@@ -294,6 +293,18 @@ inline longfist::enums::Direction get_direction(longfist::enums::InstrumentType 
   }
   if (side == Side::Buy and
       (offset == Offset::Close or offset == Offset::CloseToday or offset == Offset::CloseYesterday)) {
+    return Direction::Short;
+  }
+  if (instrument_type != InstrumentType::Stock) 
+    throw wingchun_error(fmt::format("invalid direction args {} {} {}", (int)instrument_type, (int)side, (int)offset));
+
+  if (side == Side::MarginTrade) {
+    return Direction::Long;
+  } else if (side == Side::ShortSell) {
+    return Direction::Short;
+  } else if (side == Side::RepayMargin) {
+    return Direction::Long;
+  } else if (side == Side::RepayStock) {
     return Direction::Short;
   }
   throw wingchun_error(fmt::format("invalid direction args {} {} {}", (int)instrument_type, (int)side, (int)offset));

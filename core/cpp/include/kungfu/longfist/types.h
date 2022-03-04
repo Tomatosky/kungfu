@@ -202,7 +202,8 @@ KF_DEFINE_PACK_TYPE(                                              //
     (bool, is_trading), //当前是否交易
 
     (double, long_margin_ratio), //多头保证金率
-    (double, short_margin_ratio) //空头保证金率
+    (double, short_margin_ratio), //空头保证金率
+    (double, discount_ratio) //担保品折扣率
 );
 
 KF_DEFINE_PACK_TYPE(                                         //
@@ -534,6 +535,22 @@ KF_DEFINE_PACK_TYPE(                              //
     (double, avail),        //可用资金
     (double, market_value), //市值(股票)
 
+    //两融相关
+    (double, total_asset), //总（现金）资产 //TotalAsset (包含融券卖出的金额) 所以不同于动态权益 净资产
+    (double, debt), //负债金额
+    (double, rz_debt),    //融资负债
+    //对于账户来讲 确定性的融券负债是一系列的融券标的欠券数量，而其对应的证券市值随时间不断变化，具有不确定性.
+    (double, rq_market_value), //融券卖出证券市值(欠券): 融券负债 -(手续费+税费) --- 随行情实时变化
+    (double, rq_income),    //融券负债 (累计 融券卖出清算金额=产生成交时的融券卖出金额-(手续费+税费))
+    (double, rz_margin),      //融资占用保证金
+    (double, rq_margin),      //融券占用保证金
+
+    (double, credit), //信用额度 CreditQuota （总可负债额度）
+    //(double, avail_credit), //可用信用额度 （当前可负债额度） : 可用保证金 (dKYBZJ)  不是一个概念!   信用负债可以达到 保证金额度/margin_ratio.
+    //(double, frozen_credit), //冻结信用额度 vs  冻结保证金(两融) use frozen_margin
+    (double, avail_margin),   //可用保证金
+    (double, collateral_ratio), //担保比例
+    
     (double, margin), //保证金(期货)
 
     (double, accumulated_fee), //累计手续费
