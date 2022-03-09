@@ -113,7 +113,7 @@ void master::deregister_app(int64_t trigger_time, uint32_t app_location_uid) {
   reader_->disjoin(app_location_uid);
   writers_.erase(app_location_uid);
   timer_tasks_.erase(app_location_uid);
-  app_cache_shift_.erase(app_location_uid);
+  // app_cache_shift_.erase(app_location_uid);
   get_writer(location::PUBLIC)->write(trigger_time, location->to<Deregister>());
 }
 
