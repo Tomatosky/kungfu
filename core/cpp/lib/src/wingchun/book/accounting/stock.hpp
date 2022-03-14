@@ -75,7 +75,7 @@ public:
   virtual void apply_quote(Book_ptr &book, const Quote &quote) override {
     auto apply = [&](Position &position) {
       //auto cd_mr = get_instrument_discount_and_margin_ratio(book, position.exchange_id, position.instrument_id, position);
-      //¸ù¾ÝÊµÊ±ÐÐÇé±ä»¯¼ÆËãÊµÊ±¿ÉÓÃ±£Ö¤½ð¹ýÓÚ¸´ÔÓ£¨³Ö²ÖºÜ¶à±êµÄµÄÇé¿öÏÂ£¬¼ÆËãÁ¿´ó)
+      //ï¿½ï¿½ï¿½ï¿½ÊµÊ±ï¿½ï¿½ï¿½ï¿½ä»¯ï¿½ï¿½ï¿½ï¿½ÊµÊ±ï¿½ï¿½ï¿½Ã±ï¿½Ö¤ï¿½ï¿½ï¿½ï¿½Ú¸ï¿½ï¿½Ó£ï¿½ï¿½Ö²ÖºÜ¶ï¿½ï¿½Äµï¿½ï¿½ï¿½ï¿½ï¿½Â£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½)
       if (is_valid_price(quote.last_price)) {
         // auto margin_pre = position.margin;
         // cd_mr.contract_multiplier is not required
@@ -217,12 +217,12 @@ protected:
     //book->asset.avail -= commission;
     //book->asset.avail -= tax;
 
-    double rq_amt = trade.price * trade.volume + commission + tax; // ÈÚÈ¯Âô³ö³É½»×Ê½ð + ÊÖÐø·Ñ + Ë°·Ñ
-    double rq_income = trade.price * trade.volume - (commission + tax); //ÈÚÈ¯Âô³öÇåËã×Ê½ð
-    book->asset.rq_income += rq_income; // asset.rq_deb: ÈÚÈ¯ÀÛ¼ÆÂô³öÇåËã×Ê½ð + (commission + tax) * 2£¬ ¼´ ÈÚÈ¯ÀÛ¼ÆÂô³öÇåËã×Ê½ð= trade.price * trade.volume - (commission + tax)
+    double rq_amt = trade.price * trade.volume + commission + tax; // ï¿½ï¿½È¯ï¿½ï¿½ï¿½ï¿½ï¿½É½ï¿½ï¿½Ê½ï¿½ + ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ + Ë°ï¿½ï¿½
+    double rq_income = trade.price * trade.volume - (commission + tax); //ï¿½ï¿½È¯ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê½ï¿½
+    book->asset_margin.rq_income += rq_income; // asset.rq_deb: ï¿½ï¿½È¯ï¿½Û¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê½ï¿½ + (commission + tax) * 2ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½È¯ï¿½Û¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê½ï¿½= trade.price * trade.volume - (commission + tax)
                                         
-    book->asset.rq_margin += rq_amt * cd_mr.short_margin_ratio; // trade.price *trade.volume *cd_mr.long_margin_ratio;
-    book->asset.total_asset += rq_income;
+    book->asset_margin.rq_margin += rq_amt * cd_mr.short_margin_ratio; // trade.price *trade.volume *cd_mr.long_margin_ratio;
+    book->asset_margin.total_asset += rq_income;
     book->asset.avail_margin -= rq_amt * cd_mr.short_margin_ratio;
     book->asset.intraday_fee += commission + tax;
     book->asset.accumulated_fee += commission + tax;
@@ -284,7 +284,7 @@ protected:
       book->asset.avail_margin += book->asset.rz_margin;
       
       // if total_asset contains the position market value, then repaymargin reduces the market value.
-      book->asset.total_asset -= book->asset.rz_debt;
+      book->asset_margin.total_asset -= book->asset.rz_debt;
 
       book->asset.rz_margin = 0;
       book->asset.rz_debt = 0;
@@ -296,7 +296,7 @@ protected:
       book->asset.avail_margin += released_margin;
 
       //if total_asset contains the position market value, then repaymargin reduces the market value. 
-      book->asset.total_asset -= trade_amt + commission + tax;
+      book->asset_margin.total_asset -= trade_amt + commission + tax;
     }
     book->asset.market_value -= trade_amt;
 
@@ -341,7 +341,7 @@ protected:
     book->asset.avail_margin += released_margin;
     
     double closed_rq_debt = trade.price * trade.volume;
-    book->asset.rq_market_value -= closed_rq_debt;
+    book->asset_margin.rq_market_value -= closed_rq_debt;
 
   }
 

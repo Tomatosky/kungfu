@@ -116,6 +116,18 @@ Book_ptr Bookkeeper::make_book(uint32_t location_uid) {
   if (location->category == category::STRATEGY) {
     strcpy(asset.client_id, location->name.c_str());
   }
+  auto &asset_margin = book->asset_margin;
+  asset_margin.holder_uid = location_uid;
+  asset_margin.ledger_category = location->category == category::TD ? LedgerCategory::Account : LedgerCategory::Strategy;
+  strcpy(asset_margin.trading_day, time::strftime(app_.get_trading_day(), KUNGFU_TRADING_DAY_FORMAT).c_str());
+  if (location->category == category::TD) {
+    strcpy(asset_margin.source_id, location->group.c_str());
+    strcpy(asset_margin.broker_id, location->group.c_str());
+    strcpy(asset_margin.account_id, location->name.c_str());
+  }
+  if (location->category == category::STRATEGY) {
+    strcpy(asset_margin.client_id, location->name.c_str());
+  }
   return book;
 }
 
