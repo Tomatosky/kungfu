@@ -18,6 +18,7 @@ export default {
         offset: 0,
         price_type: 0,
         hedge_flag: 0,
+        parent_id: BigInt(0),
       },
       adjustOrderProp: '',
     };
@@ -68,6 +69,7 @@ export default {
       this.$set(this.adjustOrderForm, 'offset', row.offsetOrigin);
       this.$set(this.adjustOrderForm, 'price_type', row.priceTypeOrigin);
       this.$set(this.adjustOrderForm, 'hedge_flag', row.hedgeFlagOrigin);
+      this.$set(this.adjustOrderForm, 'parent_id', BigInt(row.parentId));
 
       this.$nextTick().then(() => {
         this.adjustOrderInputVisibility = true;
@@ -166,6 +168,7 @@ export default {
         offset: 0,
         price_type: 0,
         hedge_flag: 0,
+        parent_id: BigInt(0),
       };
       this.adjustOrderProp = '';
     },

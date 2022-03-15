@@ -42,7 +42,6 @@ export const kungfuMakeOrder = (
   makeOrderData: MakeOrderData,
   accountId: string,
   strategyId?: string,
-  parentId?: number,
 ) => {
   if (!watcher.isLive()) {
     return Promise.reject(new Error(`Master 未连接！`));
@@ -61,6 +60,8 @@ export const kungfuMakeOrder = (
     insert_time: watcher.now(),
     volume: BigInt(makeOrderData.volume * DIGIT),
   };
+
+  console.log('parent_id', orderInput.parent_id);
 
   if (strategyId) {
     const strategyLocation = encodeKungfuLocation(strategyId, 'strategy');
