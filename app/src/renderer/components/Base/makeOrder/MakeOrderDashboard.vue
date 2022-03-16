@@ -128,7 +128,7 @@
             <el-radio
               size="mini"
               :class="{ 'red-radio': +key === 0, 'green-radio': +key === 1 }"
-              v-for="key in Object.keys(SideName || {}).slice(0, 2)"
+              v-for="key in Object.keys(SideName || {})"
               :key="key"
               :label="+key"
             >
