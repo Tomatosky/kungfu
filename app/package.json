@@ -32,7 +32,7 @@
     "prebuild": "yarn run clean && yarn run dist",
     "build": "yarn run elec",
     "build-crypto": "yarn run dist --env=crypto && yarn run elec --brand=crypto",
-    "prebuild-cli": "yarn run clean && yarn run dist",
+    "prebuild-cli": "yarn run clean && yarn run dist:main",
     "build-cli": "yarn run elec --cli",
     "build-cli-crypto": "yarn run elec --cli --brand crypto",
     "format": "prettier -l -w --config .prettierrc.js ."

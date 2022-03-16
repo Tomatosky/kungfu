@@ -23,7 +23,7 @@
     "build": "node -v",
     "build-cli": "yarn run dist",
     "postbuild-cli": "node ./.build/build.js && yarn run cp",
-    "build-win": "pkg . -t=node10.17-win-x64 --output=build/cli",
+    "build-win": "pkg . -t=node10.17-win-x64 --output=build/cli/kungfu-cli",
     "build-linux": "pkg . -t=node10.17-linux-x64 --out-path=build/cli",
     "build-mac": "pkg . -t=node10.17-macos-x64 --out-path=build/cli",
     "dev": "node .build/dev-cli.js",
@@ -38,6 +38,9 @@
   "pkg": {
     "scripts": [
       "../node_modules/bodec/bodec-node.js"
+    ],
+    "assets": [
+      "../node_modules/blessed/usr/xterm"
     ]
   },
   "dependencies": {
