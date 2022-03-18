@@ -403,6 +403,7 @@ void Watcher::UpdateAsset(const event_ptr &event, uint32_t book_uid) {
   auto book = bookkeeper_.get_book(book_uid);
   book->update(event->gen_time());
   update_ledger(event->gen_time(), ledger_location_->uid, book_uid, book->asset);
+  update_ledger(event->gen_time(), ledger_location_->uid, book_uid, book->asset_margin);
 }
 
 void Watcher::UpdateBook(const event_ptr &event, const Quote &quote) {
@@ -427,6 +428,7 @@ void Watcher::UpdateBook(const event_ptr &event, const Quote &quote) {
 
     if (has_short_position_for_quote or has_long_position_for_quote) {
       update_ledger(event->gen_time(), ledger_uid, holder_uid, book->asset);
+      update_ledger(event->gen_time(), ledger_uid, holder_uid, book->asset_margin);
     }
   }
 }
@@ -454,6 +456,7 @@ void Watcher::UpdateBook(int64_t update_time, uint32_t source_id, uint32_t dest_
 
     if (has_short_position_for_quote or has_long_position_for_quote) {
       update_ledger(update_time, ledger_uid, holder_uid, book->asset);
+      update_ledger(update_time, ledger_uid, holder_uid, book->asset_margin);
     }
   }
 }

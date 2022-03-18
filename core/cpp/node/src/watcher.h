@@ -144,6 +144,7 @@ private:
       auto &position = book->get_position_for(data);
       update_ledger(event->gen_time(), source, dest, position);
       update_ledger(event->gen_time(), source, dest, book->asset);
+      update_ledger(event->gen_time(), source, dest, book->asset_margin);
     };
     update(event->source(), event->dest());
     update(event->dest(), event->source());

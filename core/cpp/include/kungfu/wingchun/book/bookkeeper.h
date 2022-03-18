@@ -97,6 +97,8 @@ private:
 
   void try_update_asset(const longfist::types::Asset &asset);
 
+  void try_update_asset_margin(const longfist::types::AssetMargin &asset_margin);
+
   void try_update_position(const longfist::types::Position &position);
 };
 } // namespace kungfu::wingchun::book
