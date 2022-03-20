@@ -203,6 +203,36 @@ export default {
           Object.freeze(strategyAssetsResolved),
         );
         statTimeEnd('asset');
+
+        statTime('assetMargin');
+        const accountAssetMargins = ledgerData.AssetMargin.filter(
+          'ledger_category',
+          0,
+        ).list();
+        const accountAssetMarginsResolved = transformAssetItemListToData(
+          accountAssetMargins,
+          'account',
+        );
+        this.$store.dispatch(
+          'setAccountsAssetMargin',
+          Object.freeze(accountAssetMarginsResolved),
+        );
+
+        const strategyAssetMargins = ledgerData.AssetMargin.filter(
+          'ledger_category',
+          1,
+        )
+          .list()
+          .map((item) => dealAsset(item));
+        const strategyAssetMarginsResolved = transformAssetItemListToData(
+          strategyAssetMargins,
+          'strategy',
+        );
+        this.$store.dispatch(
+          'setStrategiesAssetMargin',
+          Object.freeze(strategyAssetMarginsResolved),
+        );
+        statTimeEnd('assetMargin');
       });
     },
 

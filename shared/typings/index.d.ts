@@ -459,6 +459,10 @@ interface AssetData {
   marketValue: string;
   margin: string;
   ledgerCategory: number;
+
+  rzDebt: string;
+  rzMargin: string;
+  availMargin: string;
 }
 
 interface AssetOriginData {
@@ -473,6 +477,26 @@ interface AssetOriginData {
   avail: number;
   market_value: number;
   margin: number;
+  ledger_category: number;
+
+  rz_debt: number;
+  rz_margin: number;
+  avail_margin: number;
+}
+
+interface AssetMarginOriginData {
+  account_id: string;
+  source_id: string;
+  client_id: string;
+
+  total_asset: number;
+  debt: number;
+  rz_debt: number;
+  rq_market_value: number;
+  rq_income: number;
+  rq_margin: number;
+  credit: number;
+  collateral_ratio: number;
   ledger_category: number;
 }
 

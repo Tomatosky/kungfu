@@ -874,6 +874,10 @@ export const dealAsset = (item: AssetOriginData): AssetData => {
     avail: toDecimal(item.avail) || '--',
     marketValue: toDecimal(item.market_value) || '--',
     margin: toDecimal(item.margin) || '--',
+
+    rzDebt: toDecimal(item.rz_debt) || '--',
+    rzMargin: toDecimal(item.rz_margin) || '--',
+    availMargin: toDecimal(item.avail_margin) || '--',
   };
 };
 
@@ -1001,7 +1005,10 @@ export const dealQuote = (quote: QuoteOriginData): QuoteData => {
     openPrice: toDecimal(ensureNum(quote.open_price), PRICE_DIGIT),
     preClosePrice: toDecimal(ensureNum(quote.pre_close_price), PRICE_DIGIT),
     preOpenInterest: ensureNum(quote.pre_open_interest),
-    preSettlementPrice: toDecimal(ensureNum(quote.pre_settlement_price), PRICE_DIGIT),
+    preSettlementPrice: toDecimal(
+      ensureNum(quote.pre_settlement_price),
+      PRICE_DIGIT,
+    ),
     settlementPrice: toDecimal(ensureNum(quote.settlement_price), PRICE_DIGIT),
 
     tradingDay: quote.trading_day,
@@ -1009,10 +1016,14 @@ export const dealQuote = (quote: QuoteOriginData): QuoteData => {
     upperLimitPrice: toDecimal(ensureNum(quote.upper_limit_price), PRICE_DIGIT),
     volume: ensureNum(dealVolume(quote.volume)).toString(),
     askPrices:
-      quote.ask_price.map((num: number) => toDecimal(ensureNum(num), PRICE_DIGIT)) || [],
+      quote.ask_price.map((num: number) =>
+        toDecimal(ensureNum(num), PRICE_DIGIT),
+      ) || [],
     askVolumes: quote.ask_volume.map((num: bigint) => dealVolume(num)) || [],
     bidPrices:
-      quote.bid_price.map((num: number) => toDecimal(ensureNum(num), PRICE_DIGIT)) || [],
+      quote.bid_price.map((num: number) =>
+        toDecimal(ensureNum(num), PRICE_DIGIT),
+      ) || [],
     bidVolumes: quote.bid_volume.map((num: bigint) => dealVolume(num)) || [],
   };
 };

@@ -27,9 +27,6 @@ export const kungfuSubscribeInstrument = (
   const mdLocation = encodeKungfuLocation(sourceName, 'md');
 
   if (!watcher.isReadyToInteract(mdLocation)) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log(mdLocation, 'is not ready');
-    }
     return Promise.resolve(false);
   }
 

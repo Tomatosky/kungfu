@@ -200,6 +200,60 @@
           </template>
         </el-table-column>
         <el-table-column
+          class-name="blink-cell"
+          label="可用保证金"
+          show-overflow-tooltip
+          align="right"
+          min-width="120"
+          v-if="!isAdmin"
+        >
+          <template slot-scope="props">
+            <tr-blink-num
+              :theKey="`${props.row.account_id}_${calcCash(
+                props.row,
+                'availMargin',
+              )}`"
+              :num="calcCash(props.row, 'availMargin') || '--'"
+            ></tr-blink-num>
+          </template>
+        </el-table-column>
+        <el-table-column
+          class-name="blink-cell"
+          label="融资负债"
+          show-overflow-tooltip
+          align="right"
+          min-width="120"
+          v-if="!isAdmin"
+        >
+          <template slot-scope="props">
+            <tr-blink-num
+              :theKey="`${props.row.account_id}_${calcCash(
+                props.row,
+                'rzDebt',
+              )}`"
+              :num="calcCash(props.row, 'rzDebt') || '--'"
+            ></tr-blink-num>
+          </template>
+        </el-table-column>
+        <el-table-column
+          class-name="blink-cell"
+          label="总资产"
+          show-overflow-tooltip
+          align="right"
+          min-width="120"
+          v-if="!isAdmin"
+        >
+          <template slot-scope="props">
+            <tr-blink-num
+              :theKey="`${props.row.account_id}_${calcCash(
+                props.row,
+                'total_asset',
+              )}`"
+              :num="calcCash(props.row, 'total_asset') || '--'"
+            ></tr-blink-num>
+          </template>
+        </el-table-column>
+        <el-table-column
           label=""
           align="right"
           min-width="160"
@@ -314,6 +368,7 @@ export default {
       riskAccountSource: (state) => state.BASE.riskAccountSource || {},
       mdTdState: (state) => state.ACCOUNT.mdTdState || {},
       accountsAsset: (state) => state.ACCOUNT.accountsAsset || {},
+      accountsAssetMargin: (state) => state.ACCOUNT.accountsAssetMargin || {},
       tdList: (state) => state.ACCOUNT.tdList || [],
       currentAccount: (state) => state.ACCOUNT.currentAccount || {},
     }),
@@ -452,7 +507,13 @@ export default {
 
     //计算持仓盈亏
     calcCash(row, key) {
-      return toDecimal((this.accountsAsset[row.account_id] || {})[key]) + '';
+      return (
+        toDecimal(
+          (this.accountsAsset[row.account_id] ||
+            this.accountsAssetMargin[row.account_id] ||
+            {})[key],
+        ) + ''
+      );
     },
   },
 };

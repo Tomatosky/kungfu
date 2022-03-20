@@ -5,6 +5,7 @@ export default {
   state: {
     mdTdState: {},
     accountsAsset: {},
+    accountsAssetMargin: {},
     tdList: [],
     mdList: [],
     currentAccount: {},
@@ -33,6 +34,10 @@ export default {
 
     setAccountsAsset({ commit }, accountsAsset) {
       commit('SET_ACCOUNTS_ASSET', accountsAsset);
+    },
+
+    setAccountsAssetMargin({ commit }, accountsAssetMargin) {
+      commit('SET_ACCOUNTS_ASSET_MARGIN', accountsAssetMargin);
     },
 
     setTdList({ commit }, tdList) {
@@ -84,6 +89,13 @@ export default {
       state.accountsAsset = {
         ...state.accountsAsset,
         ...accountsAsset,
+      };
+    },
+
+    SET_ACCOUNTS_ASSET_MARGIN(state, accountsAssetMargin) {
+      state.accountsAssetMargin = {
+        ...state.accountsAssetMargin,
+        ...accountsAssetMargin,
       };
     },
 

@@ -17,7 +17,6 @@ import {
   processListObservable,
 } from '@/assets/scripts/actions/processActions';
 import { kungfuCancelAllOrders } from '__io/kungfu/makeCancelOrder';
-import { dealOrder } from '__io/kungfu/watcher';
 import { deepClone } from '__gUtils/busiUtils';
 import { aliveOrderStatusList } from 'kungfu-shared/config/tradingConfig';
 

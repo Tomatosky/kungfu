@@ -6,6 +6,7 @@ export default {
     currentStrategy: '', //当前运行策略
     strategyList: [], //策略列表
     strategyiesAsset: {},
+    strategyiesAssetMargin: {},
   },
 
   actions: {
@@ -35,6 +36,10 @@ export default {
     setStrategiesAsset({ commit }, strategiesAsset) {
       commit('SET_STRATEGIES_ASSET', strategiesAsset);
     },
+
+    setStrategiesAssetMargin({ commit }, strategiesAssetMargin) {
+      commit('SET_STRATEGIES_ASSET_MARGIN', strategiesAssetMargin);
+    },
   },
 
   mutations: {
@@ -48,6 +53,10 @@ export default {
 
     SET_STRATEGIES_ASSET(state, strategiesAssets) {
       state.strategyiesAsset = strategiesAssets;
+    },
+
+    SET_STRATEGIES_ASSET_MARGIN(state, strategiesAssetMargin) {
+      state.strategiesAssetMargin = strategiesAssetMargin;
     },
   },
 
