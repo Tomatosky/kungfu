@@ -510,8 +510,7 @@ export default {
       return (
         toDecimal(
           (this.accountsAsset[row.account_id] ||
-            this.accountsAssetMargin[row.account_id] ||
-            {})[key],
+            {})[key] || (this.accountsAssetMargin[row.account_id] || [])[key] || '--',
         ) + ''
       );
     },
