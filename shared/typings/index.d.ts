@@ -484,6 +484,23 @@ interface AssetOriginData {
   avail_margin: number;
 }
 
+interface AssetMarginData {
+  accountIdResolved: string;
+  accountId: string;
+  sourceId: string;
+  clientId: string;
+
+  totalAsset: string;
+  debt: string;
+  rzDebt: string;
+  rqMarketValue: string;
+  rqIncome: string;
+  rqMargin: string;
+  credit: string;
+  collateralRatio: string;
+  ledgerCategory: number;
+}
+
 interface AssetMarginOriginData {
   account_id: string;
   source_id: string;

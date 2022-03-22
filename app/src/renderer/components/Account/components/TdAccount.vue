@@ -247,9 +247,9 @@
             <tr-blink-num
               :theKey="`${props.row.account_id}_${calcCash(
                 props.row,
-                'total_asset',
+                'totalAsset',
               )}`"
-              :num="calcCash(props.row, 'total_asset') || '--'"
+              :num="calcCash(props.row, 'totalAsset') || '--'"
             ></tr-blink-num>
           </template>
         </el-table-column>

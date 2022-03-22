@@ -881,6 +881,27 @@ export const dealAsset = (item: AssetOriginData): AssetData => {
   };
 };
 
+export const dealAssetMargin = (
+  item: AssetMarginOriginData,
+): AssetMarginData => {
+  return {
+    accountIdResolved: `${item.source_id}_${item.account_id}`,
+    accountId: item.account_id,
+    sourceId: item.source_id,
+    clientId: item.client_id,
+    ledgerCategory: item.ledger_category,
+
+    totalAsset: toDecimal(item.total_asset) || '--',
+    debt: toDecimal(item.debt) || '--',
+    rzDebt: toDecimal(item.rz_debt) || '--',
+    rqMarketValue: toDecimal(item.rq_market_value) || '--',
+    rqIncome: toDecimal(item.rq_income) || '--',
+    rqMargin: toDecimal(item.rq_margin) || '--',
+    credit: toDecimal(item.credit) || '--',
+    collateralRatio: toDecimal(item.collateral_ratio) || '--',
+  };
+};
+
 export const dealSnapshot = (
   item: AssetSnapshotOriginData,
 ): AssetSnapshotData => {
