@@ -77,6 +77,7 @@ import {
 import {
   watcher,
   dealAsset,
+  dealAssetMargin,
   transformAssetItemListToData,
 } from '__io/kungfu/watcher';
 import { statTime, statTimeEnd } from '__gUtils/busiUtils';
@@ -208,7 +209,9 @@ export default {
         const accountAssetMargins = ledgerData.AssetMargin.filter(
           'ledger_category',
           0,
-        ).list();
+        )
+          .list()
+          .map((item) => dealAssetMargin(item));
         const accountAssetMarginsResolved = transformAssetItemListToData(
           accountAssetMargins,
           'account',
@@ -223,7 +226,7 @@ export default {
           1,
         )
           .list()
-          .map((item) => dealAsset(item));
+          .map((item) => dealAssetMargin(item));
         const strategyAssetMarginsResolved = transformAssetItemListToData(
           strategyAssetMargins,
           'strategy',
