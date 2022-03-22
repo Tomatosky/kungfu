@@ -1,5 +1,5 @@
 [packages]
-conan = "==1.43"
+conan = "==1.45"
 pywin32 = {version = "==227",sys_platform = "== 'win32'"}
 pyinstaller = "==4.7"
 pycryptodome = "==3.9.7"
