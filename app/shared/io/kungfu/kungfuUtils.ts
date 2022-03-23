@@ -1,6 +1,7 @@
 import { KF_RUNTIME_DIR } from '__gConfig/pathConfig';
 import moment from 'moment';
 import { logger } from '__gUtils/logUtils';
+import { hidePasswordByLogger } from '../../utils/busiUtils';
 
 export const kungfu = require('kungfu-core').kungfu;
 export const longfist = kungfu.longfist;
@@ -14,7 +15,7 @@ export const getAllKfConfig = () => {
 };
 
 export const setKfConfig = (key: string, type: string, config: string) => {
-  logger.info('Set Kungfu Config', key, type, config);
+  logger.info('Set Kungfu Config', key, type, hidePasswordByLogger(config));
   const kungfuKey = encodeKungfuLocation(key, type);
   return kungfuConfigStore.setConfig(
     kungfuKey.category,
