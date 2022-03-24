@@ -104,8 +104,6 @@ void Bookkeeper::restore(const cache::bank &state_bank) {
     auto book = get_book(asset_margin.holder_uid);
     book->asset_margin = asset_margin;
 
-    SPDLOG_INFO("[restore] asset_margin total_asset {}  rz_debt {}", book->asset_margin.total_asset,
-        book->asset_margin.rz_debt);
 
     book->update(app_.now());
   }
