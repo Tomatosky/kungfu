@@ -229,9 +229,9 @@
             <tr-blink-num
               :theKey="`${props.row.account_id}_${calcCash(
                 props.row,
-                'rzDebt',
+                'cashDebt',
               )}`"
-              :num="calcCash(props.row, 'rzDebt') || '--'"
+              :num="calcCash(props.row, 'cashDebt') || '--'"
             ></tr-blink-num>
           </template>
         </el-table-column>
@@ -509,8 +509,9 @@ export default {
     calcCash(row, key) {
       return (
         toDecimal(
-          (this.accountsAsset[row.account_id] ||
-            {})[key] || (this.accountsAssetMargin[row.account_id] || [])[key] || '--',
+          (this.accountsAsset[row.account_id] || {})[key] ||
+            (this.accountsAssetMargin[row.account_id] || [])[key] ||
+            '--',
         ) + ''
       );
     },

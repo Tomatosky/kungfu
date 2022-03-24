@@ -550,30 +550,30 @@ KF_DEFINE_PACK_TYPE(                              //
 
 KF_DEFINE_PACK_TYPE(                               //
     AssetMargin, 211, PK(holder_uid), PERPETUAL(), //
-    (int64_t, update_time),                        //
-    (kungfu::array<char, DATE_LEN>, trading_day),  //
+    (int64_t, update_time),                        //更新时间
+    (kungfu::array<char, DATE_LEN>, trading_day),  //交易日
 
     (uint32_t, holder_uid),            //
     (LedgerCategory, ledger_category), //
 
-    (kungfu::array<char, SOURCE_ID_LEN>, source_id),   //
-    (kungfu::array<char, BROKER_ID_LEN>, broker_id),   //
-    (kungfu::array<char, ACCOUNT_ID_LEN>, account_id), //
-    (kungfu::array<char, CLIENT_ID_LEN>, client_id),   //
+    (kungfu::array<char, SOURCE_ID_LEN>, source_id),   //柜台ID
+    (kungfu::array<char, BROKER_ID_LEN>, broker_id),   // Broker ID
+    (kungfu::array<char, ACCOUNT_ID_LEN>, account_id), //账号ID
+    (kungfu::array<char, CLIENT_ID_LEN>, client_id),   // client ID
 
-    (double, total_asset),     
-    (double, avail_margin),   // Available margin for placing order.
-    (double, cash_margin),    // Used margin by MarginTrade debt
-    (double, short_margin),   // Used margin by ShortSell debt <depends on market value>
-    
-    (double, cash_debt),   // MarginTrade debt
-    (double, short_cash),   //ShortSell cash
-    
-    (double, short_market_value), 
-    (double, margin_market_value),
-  
-    (double, credit), 
-    (double, collateral_ratio)
+    (double, total_asset),  //总资产
+    (double, avail_margin), //可用保证金
+    (double, cash_margin),  //融资占用保证金
+    (double, short_margin), //融券占用保证金
+
+    (double, cash_debt),  //融资负债
+    (double, short_cash), //融券卖出金额
+
+    (double, short_market_value),  //融券卖出证券市值
+    (double, margin_market_value), //融资买入证券市值
+
+    (double, credit),          //信贷额度
+    (double, collateral_ratio) //担保比例
 );
 
 KF_DEFINE_PACK_TYPE(                                                         //

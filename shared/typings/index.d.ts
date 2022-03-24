@@ -459,10 +459,6 @@ interface AssetData {
   marketValue: string;
   margin: string;
   ledgerCategory: number;
-
-  rzDebt: string;
-  rzMargin: string;
-  availMargin: string;
 }
 
 interface AssetOriginData {
@@ -478,10 +474,6 @@ interface AssetOriginData {
   market_value: number;
   margin: number;
   ledger_category: number;
-
-  rz_debt: number;
-  rz_margin: number;
-  avail_margin: number;
 }
 
 interface AssetMarginData {
@@ -490,14 +482,16 @@ interface AssetMarginData {
   sourceId: string;
   clientId: string;
 
-  totalAsset: string;
-  debt: string;
-  rzDebt: string;
-  rqMarketValue: string;
-  rqIncome: string;
-  rqMargin: string;
-  credit: string;
-  collateralRatio: string;
+  totalAsset: string; //总资产
+  availMargin: string; //可用保证金
+  cashMargin: string; //融资占用保证金
+  shortMargin: string; //融券占用保证金
+  cashDebt: string; //融资负债
+  shortCash: string; //融券卖出金额
+  shortMarketValue: string; //融券卖出证券市值
+  marginMarketValue: string; //融资买入证券市值
+  credit: string; //信贷额度
+  collateralRatio: string; //担保比例
   ledgerCategory: number;
 }
 
@@ -506,14 +500,19 @@ interface AssetMarginOriginData {
   source_id: string;
   client_id: string;
 
-  total_asset: number;
-  debt: number;
-  rz_debt: number;
-  rq_market_value: number;
-  rq_income: number;
-  rq_margin: number;
-  credit: number;
-  collateral_ratio: number;
+  total_asset: number; //总资产
+  avail_margin: number; //可用保证金
+  cash_margin: number; //融资占用保证金
+  short_margin: number; //融券占用保证金
+
+  cash_debt: number; //融资负债
+  short_cash: number; //融券卖出金额
+
+  short_market_value: number; //融券卖出证券市值
+  margin_market_value: number; //融资买入证券市值
+
+  credit: number; //信贷额度
+  collateral_ratio: number; //担保比例
   ledger_category: number;
 }
 

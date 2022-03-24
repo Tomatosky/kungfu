@@ -874,10 +874,6 @@ export const dealAsset = (item: AssetOriginData): AssetData => {
     avail: toDecimal(item.avail) || '--',
     marketValue: toDecimal(item.market_value) || '--',
     margin: toDecimal(item.margin) || '--',
-
-    rzDebt: toDecimal(item.rz_debt) || '--',
-    rzMargin: toDecimal(item.rz_margin) || '--',
-    availMargin: toDecimal(item.avail_margin) || '--',
   };
 };
 
@@ -891,14 +887,16 @@ export const dealAssetMargin = (
     clientId: item.client_id,
     ledgerCategory: item.ledger_category,
 
-    totalAsset: toDecimal(item.total_asset) || '--',
-    debt: toDecimal(item.debt) || '--',
-    rzDebt: toDecimal(item.rz_debt) || '--',
-    rqMarketValue: toDecimal(item.rq_market_value) || '--',
-    rqIncome: toDecimal(item.rq_income) || '--',
-    rqMargin: toDecimal(item.rq_margin) || '--',
-    credit: toDecimal(item.credit) || '--',
-    collateralRatio: toDecimal(item.collateral_ratio) || '--',
+    totalAsset: toDecimal(item.total_asset) || '--', //总资产
+    availMargin: toDecimal(item.avail_margin) || '--', //可用保证金
+    cashMargin: toDecimal(item.cash_margin), //融资占用保证金
+    shortMargin: toDecimal(item.short_margin), //融券占用保证金
+    cashDebt: toDecimal(item.cash_debt), //融资负债
+    shortCash: toDecimal(item.short_cash), //融券卖出金额
+    shortMarketValue: toDecimal(item.short_market_value), //融券卖出证券市值
+    marginMarketValue: toDecimal(item.margin_market_value), //融资买入证券市值
+    credit: toDecimal(item.credit), //信贷额度
+    collateralRatio: toDecimal(item.collateral_ratio), //担保比例
   };
 };
 
