@@ -164,8 +164,6 @@ void TraderCTP::OnRspUserLogin(CThostFtdcRspUserLoginField *pRspUserLogin, CThos
 
   if (bIsLast) {
     req_settlement_confirm();
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-    req_commission();
   }
 }
 
@@ -189,13 +187,12 @@ void TraderCTP::OnRspSettlementInfoConfirm(CThostFtdcSettlementInfoConfirmField 
     if (check_if_stored_instruments(trading_day_)) {
       SPDLOG_INFO("CHECK_IF_STORED_INSTRUMENTS TRUE");
       restore_instruments_from_bank();
-      update_broker_state(BrokerState::Ready);
-      SPDLOG_INFO("BrokerState::Ready");
-      return;
+      req_commission();
+    }else{
+      SPDLOG_INFO("CHECK_IF_STORED_INSTRUMENTS FALSE");
+      req_qry_instrument();
     }
 
-    SPDLOG_INFO("CHECK_IF_STORED_INSTRUMENTS FALSE");
-    req_qry_instrument();
   }
 }
 
@@ -467,7 +464,6 @@ void TraderCTP::OnRspQryInstrument(CThostFtdcInstrumentField *pInstrument, CThos
 
   if (bIsLast) {
     SPDLOG_INFO("INSTRUMENT RES bIsLast {}", bIsLast);
-
     if (config_.broker_margin_ratio) {
       instrument_map_iter_ = instrument_map_.begin();
       req_marginRatio_count_ = 1;
@@ -475,8 +471,6 @@ void TraderCTP::OnRspQryInstrument(CThostFtdcInstrumentField *pInstrument, CThos
     } else {
       auto writer = get_writer(location::PUBLIC);
       writer->mark(now(), InstrumentEnd::tag);
-      update_broker_state(BrokerState::Ready);
-      SPDLOG_INFO("BrokerState::Ready");
     }
   }
 }
@@ -526,8 +520,7 @@ void TraderCTP::OnRspQryInstrumentMarginRate(CThostFtdcInstrumentMarginRateField
     record_instruments_stored_trading_day();
     auto writer = get_writer(location::PUBLIC);
     writer->mark(now(), InstrumentEnd::tag);
-    update_broker_state(BrokerState::Ready);
-    SPDLOG_INFO("BrokerState::Ready");
+    req_commission();
   }
 }
 
@@ -718,6 +711,8 @@ void TraderCTP::OnRspQryInstrumentCommissionRate(CThostFtdcInstrumentCommissionR
     cm.close_today_ratio = pInstrumentCommissionRate->CloseTodayRatioByVolume;
   }
   get_writer(location::PUBLIC)->close_data();
+  update_broker_state(BrokerState::Ready);
+  SPDLOG_INFO("BrokerState::Ready");
 }
 
 } // namespace kungfu::wingchun::ctp
