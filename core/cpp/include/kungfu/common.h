@@ -418,6 +418,8 @@ template <typename DataType> struct state {
   uint32_t dest;
 
   int64_t update_time;
+  bool stored = false;
+
   DataType data;
 
   explicit state(const event_ptr &event)

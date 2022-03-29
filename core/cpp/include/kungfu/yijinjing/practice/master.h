@@ -19,6 +19,10 @@ struct timer_task {
   int64_t repeat_count;
 };
 
+using ProfileDataTypesType = decltype(longfist::ProfileDataTypes);
+using ProfileStateMapType = decltype(longfist::build_state_map(longfist::ProfileDataTypes));
+typedef yijinjing::cache::type_bank<ProfileDataTypesType, ProfileStateMapType> ProfileStateBank;
+
 class master : public hero {
 public:
   explicit master(yijinjing::data::location_ptr home, bool low_latency = false);
@@ -52,7 +56,7 @@ private:
   index::session_builder session_builder_;
   profile profile_;
   yijinjing::cache::bank feed_bank_;
-  yijinjing::cache::bank profile_bank_;
+  ProfileStateBank profile_bank_ = ProfileStateBank(longfist::ProfileDataTypes);
 
   std::unordered_map<uint32_t, uint32_t> app_cmd_locations_ = {};
   std::unordered_map<uint32_t, cache::shift> app_cache_shift_ = {};

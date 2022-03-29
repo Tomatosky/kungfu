@@ -26,6 +26,17 @@ master::master(location_ptr home, bool low_latency)
   for (const auto &config : profile_.get_all(Config{})) {
     try_add_location(start_time_, location::make_shared(config, get_locator()));
   }
+
+  boost::hana::for_each(ProfileDataTypes, [&](auto it) {
+    auto type = boost::hana::second(it);
+    using DataType = typename decltype(+type)::type;
+    for (const auto &data : profile_.get_all(DataType{})) {
+      auto s = state(0, 0, start_time_, data);
+      SPDLOG_INFO("==== state ==== {} {}", s.data.type_name.c_str(), s.data.to_string());
+      profile_bank_ << s;
+    }
+  });
+
   auto io_device = std::dynamic_pointer_cast<io_device_master>(get_io_device());
   writers_.emplace(location::PUBLIC, io_device->open_writer(0));
   get_writer(location::PUBLIC)->mark(start_time_, SessionStart::tag);
@@ -188,7 +199,7 @@ void master::handle_cached_feeds() {
           try {
             app_cache_shift_.at(source_id) << s;
           } catch (const std::exception &e) {
-            SPDLOG_ERROR("Unexpected exception by storage << {}", e.what());
+            SPDLOG_ERROR("Unexpected exception by handle_cached_feeds << {}", e.what());
             continue;
           }
 
@@ -215,16 +226,20 @@ void master::handle_profile_feeds() {
       auto iter = feed_map.begin();
       while (iter != feed_map.end() and !stored_controller) {
         auto s = iter->second;
-        auto source_id = s.source;
+
+        if (s.stored) {
+          iter++;
+          continue;
+        }
 
         try {
           profile_ << s;
         } catch (const std::exception &e) {
-          SPDLOG_ERROR("Unexpected exception by storage << {}", e.what());
+          SPDLOG_ERROR("Unexpected exception by handle_profile_feeds << {}", e.what());
           continue;
         }
 
-        iter = feed_map.erase(iter);
+        s.stored = true;
         stored_controller = true;
       }
     }
@@ -254,7 +269,6 @@ void master::feed(const event_ptr &event) {
 
 void master::pong(const event_ptr &event) {
   get_io_device()->get_publisher()->publish("{}");
-  SPDLOG_INFO("pong");
 }
 
 void master::on_cache_reset(const event_ptr &event) {
@@ -353,12 +367,13 @@ void master::write_trading_day(int64_t trigger_time, const writer_ptr &writer) {
 }
 
 void master::write_profile_data(int64_t trigger_time, const writer_ptr &writer) {
-  boost::hana::for_each(ProfileDataTypes, [&](auto it) {
-    using DataType = typename decltype(+boost::hana::second(it))::type;
-    for (const auto &data : profile_.get_all(DataType{})) {
-      writer->write(trigger_time, data);
-    }
-  });
+  // boost::hana::for_each(ProfileDataTypes, [&](auto it) {
+  //   using DataType = typename decltype(+boost::hana::second(it))::type;
+  //   for (const auto &data : profile_.get_all(DataType{})) {
+  //     writer->write(trigger_time, data);
+  //   }
+  // });
+  profile_bank_ >> writer;
 }
 
 void master::write_registries(int64_t trigger_time, const writer_ptr &writer) {
