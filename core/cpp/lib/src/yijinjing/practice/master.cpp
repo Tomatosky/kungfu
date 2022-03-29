@@ -32,7 +32,6 @@ master::master(location_ptr home, bool low_latency)
     using DataType = typename decltype(+type)::type;
     for (const auto &data : profile_.get_all(DataType{})) {
       auto s = state(0, 0, start_time_, data);
-      SPDLOG_INFO("==== state ==== {} {}", s.data.type_name.c_str(), s.data.to_string());
       profile_bank_ << s;
     }
   });
@@ -192,7 +191,7 @@ void master::handle_cached_feeds() {
     if (feed_map.size() != 0) {
       auto iter = feed_map.begin();
       while (iter != feed_map.end() and !stored_controller) {
-        auto s = iter->second;
+        auto& s = iter->second;
         auto source_id = s.source;
 
         if (app_cache_shift_.find(source_id) != app_cache_shift_.end()) {
@@ -225,7 +224,7 @@ void master::handle_profile_feeds() {
     if (feed_map.size() != 0) {
       auto iter = feed_map.begin();
       while (iter != feed_map.end() and !stored_controller) {
-        auto s = iter->second;
+        auto& s = iter->second;
 
         if (s.stored) {
           iter++;
@@ -367,12 +366,6 @@ void master::write_trading_day(int64_t trigger_time, const writer_ptr &writer) {
 }
 
 void master::write_profile_data(int64_t trigger_time, const writer_ptr &writer) {
-  // boost::hana::for_each(ProfileDataTypes, [&](auto it) {
-  //   using DataType = typename decltype(+boost::hana::second(it))::type;
-  //   for (const auto &data : profile_.get_all(DataType{})) {
-  //     writer->write(trigger_time, data);
-  //   }
-  // });
   profile_bank_ >> writer;
 }
 
