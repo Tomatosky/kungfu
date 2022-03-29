@@ -484,8 +484,6 @@ export default {
       switchStrategy(strategyId, value)
         .then(({ type, message }) => this.$message[type](message))
         .catch((err) => this.$message['error'](err.message || '操作失败！'));
-
-      this.$store.dispatch('getStrategyList');
     },
 
     //关闭添加strategy弹窗, refresh数据
