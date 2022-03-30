@@ -254,7 +254,7 @@ void master::try_add_location(int64_t trigger_time, const location_ptr &app_loca
     try {
       profile_.set(dynamic_cast<Location &>(*app_location));
     } catch (const std::exception& e) {
-          SPDLOG_ERROR("Unexpected exception by profile set << {}", e.what());
+      SPDLOG_ERROR("Unexpected exception by profile try_add_location {}", e.what());
     }
     add_location(trigger_time, app_location);
   }
