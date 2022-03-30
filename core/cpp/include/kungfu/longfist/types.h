@@ -268,6 +268,7 @@ KF_DEFINE_PACK_TYPE(                                                    //
     (int64_t, volume),       //委托量
     (Side, side),            //委托方向
     (PriceType, price_type), //订单价格类型（市价、限价、本方最优）
+    (ExecType, exec_type), // SZ: 成交标识
 
     (int64_t, main_seq), //主序号
     (int64_t, seq)       //子序号
