@@ -123,7 +123,6 @@ void master::deregister_app(int64_t trigger_time, uint32_t app_location_uid) {
   reader_->disjoin(app_location_uid);
   writers_.erase(app_location_uid);
   timer_tasks_.erase(app_location_uid);
-  // app_cache_shift_.erase(app_location_uid);
   get_writer(location::PUBLIC)->write(trigger_time, location->to<Deregister>());
 }
 
@@ -226,13 +225,20 @@ void master::handle_profile_feeds() {
       while (iter != feed_map.end() and !stored_controller) {
         auto& s = iter->second;
 
+        if (s.source == 0 and s.dest == 0) {
+          iter++;
+          continue;
+        }
+
         if (s.stored) {
+          SPDLOG_INFO("----------- {}", s.data.to_string());
           iter++;
           continue;
         }
 
         try {
           profile_ << s;
+          SPDLOG_INFO("~~~~~~~~~~ {}", s.data.to_string());
         } catch (const std::exception &e) {
           SPDLOG_ERROR("Unexpected exception by handle_profile_feeds << {}", e.what());
           continue;
@@ -258,8 +264,11 @@ void master::feed(const event_ptr &event) {
     return;
   }
   session_builder_.update_session(std::dynamic_pointer_cast<journal::frame>(event));
+
   if (get_location(event->source())->category == category::MD) {
-    return;
+    if (event->msg_type() != Instrument::tag) {
+      return;
+    }
   }
 
   feed_state_data(event, feed_bank_);
