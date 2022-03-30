@@ -197,7 +197,7 @@ void master::handle_cached_feeds() {
           try {
             app_cache_shift_.at(source_id) << s;
           } catch (const std::exception &e) {
-            SPDLOG_ERROR("Unexpected exception by handle_cached_feeds << {}", e.what());
+            SPDLOG_ERROR("Unexpected exception by handle_cached_feeds {}", e.what());
             continue;
           }
 
@@ -238,7 +238,7 @@ void master::handle_profile_feeds() {
         try {
           profile_ << s;
         } catch (const std::exception &e) {
-          SPDLOG_ERROR("Unexpected exception by handle_profile_feeds << {}", e.what());
+          SPDLOG_ERROR("Unexpected exception by handle_profile_feeds {}", e.what());
           continue;
         }
 
@@ -251,7 +251,11 @@ void master::handle_profile_feeds() {
 
 void master::try_add_location(int64_t trigger_time, const location_ptr &app_location) {
   if (not has_location(app_location->uid)) {
-    profile_.set(dynamic_cast<Location &>(*app_location));
+    try {
+      profile_.set(dynamic_cast<Location &>(*app_location));
+    } catch (const std::exception& e) {
+          SPDLOG_ERROR("Unexpected exception by profile set << {}", e.what());
+    }
     add_location(trigger_time, app_location);
   }
 }
@@ -373,7 +377,16 @@ void master::write_trading_day(int64_t trigger_time, const writer_ptr &writer) {
 }
 
 void master::write_profile_data(int64_t trigger_time, const writer_ptr &writer) {
-  profile_bank_ >> writer;
+  boost::hana::for_each(ProfileDataTypes, [&](auto it) {
+    using DataType = typename decltype(+boost::hana::second(it))::type;
+    try {
+      for (const auto &data : profile_.get_all(DataType{})) {
+        writer->write(trigger_time, data);
+      }
+    } catch (const std::exception& e) {
+      SPDLOG_ERROR("Unexpected exception by profile set {}", e.what());
+    }
+  });
 }
 
 void master::write_registries(int64_t trigger_time, const writer_ptr &writer) {
