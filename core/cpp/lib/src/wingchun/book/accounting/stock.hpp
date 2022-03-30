@@ -73,15 +73,45 @@ public:
   }
 
   virtual void apply_quote(Book_ptr &book, const Quote &quote) override {
+    
     auto apply = [&](Position &position) {
-      //auto cd_mr = get_instrument_discount_and_margin_ratio(book, position.exchange_id, position.instrument_id, position);
       if (is_valid_price(quote.last_price)) {
-        // auto margin_pre = position.margin;
-        // cd_mr.contract_multiplier is not required
-        // position.margin =  position.last_price * position.volume * cd_mr.margin_ratio;
-        // book->asset.avail -= position.margin - margin_pre;
-        position.last_price = quote.last_price;
-        update_position(book, position);
+        double price_change = quote.last_price - position.last_price;
+        if (price_change) {
+          auto cd_mr =
+              get_instrument_discount_and_margin_ratio(book, position.exchange_id, position.instrument_id, position);
+          double market_value_change = price_change * position.volume;
+          double avail_margin_change;
+
+          auto &asset = book->asset;
+          auto &asset_margin = book->asset_margin;
+          asset_margin.total_asset += market_value_change;
+          if (position.direction == Direction::Long) {
+            avail_margin_change = cd_mr.discount_ratio * market_value_change;
+            // position.margin would not be changed for Long direction, the margin depends on debt.
+            // TODO: As non-margin position and margin position are combined together, need distinguish each volume.
+            // asset_margin.margin_market_value += price_change * position.margin_volume;
+
+            asset.market_value += market_value_change;  // Asset.market_value means Long positions only.
+            //asset.margin += price_change * position.margin_volume;
+            asset.unrealized_pnl += market_value_change;
+          } else {
+            double short_margin_change = cd_mr.short_margin_ratio * market_value_change;
+            avail_margin_change = -cd_mr.discount_ratio * market_value_change - short_margin_change;
+            position.margin += short_margin_change;
+            asset_margin.short_margin += short_margin_change;
+            asset_margin.short_market_value += market_value_change;
+            //Asset.margin is combined with long_margin and short_margin.
+            asset.margin += short_margin_change;
+            asset.unrealized_pnl -= market_value_change;
+          }
+          asset_margin.avail_margin += avail_margin_change;
+
+          position.last_price = quote.last_price;
+          // update position.unrealized_pnl
+          update_position(book, position);
+        }
+        
       }
       if (is_valid_price(quote.pre_close_price)) {
         position.pre_close_price = quote.pre_close_price;
@@ -99,21 +129,38 @@ public:
         position.yesterday_volume - position.frozen_yesterday >= input.volume) {
       position.frozen_total += input.volume;
       position.frozen_yesterday += input.volume;
-    } else if (input.side == Side::Buy) {
-      book->asset.frozen_cash += input.volume * input.frozen_price;
-      book->asset.avail -= input.volume * input.frozen_price;
-    } else if (input.side == Side::RepayStock) {
-      book->asset.frozen_cash += input.volume * input.frozen_price;
-      book->asset.avail -= input.volume * input.frozen_price;
+    } else if (input.side == Side::Buy) {  //Offset: Open
+      // TODO: book->asset.frozen_fee += frozen_cash * fee_ratio;
+      double frozen_fee = 0;
+      double frozen_cash = input.volume * input.frozen_price + frozen_fee;
+      book->asset.frozen_cash += frozen_cash;
+      book->asset.avail -= frozen_cash;
+    } else if (input.side == Side::RepayStock and  //Offset: Close
+               position.yesterday_volume - position.frozen_yesterday >= input.volume) {
+      // TODO: book->asset.frozen_fee += frozen_cash * fee_ratio;
+      double frozen_fee = 0;
+      double frozen_cash = input.volume * input.frozen_price + frozen_fee;
+      book->asset.frozen_cash += frozen_cash;
+      book->asset.avail -= frozen_cash;
       //Short position need frozen
       position.frozen_total += input.volume;
       position.frozen_yesterday += input.volume;
     } else if (input.side == Side::MarginTrade || input.side == Side::ShortSell) {
       auto cd_mr =
           get_instrument_discount_and_margin_ratio(book, position.exchange_id, position.instrument_id, position);
-      double frozen_margin = (input.volume * input.frozen_price) * (input.side == Side::MarginTrade ? cd_mr.long_margin_ratio: cd_mr.short_margin_ratio);
+      // TODO: book->asset.frozen_fee += frozen_cash * fee_ratio;
+      double frozen_fee = 0;
+      double frozen_cash = input.volume * input.frozen_price + frozen_fee;
+
+      double frozen_margin = frozen_cash * 
+          (input.side == Side::MarginTrade ? cd_mr.long_margin_ratio: cd_mr.short_margin_ratio);
       book->asset.frozen_margin += frozen_margin;
       book->asset_margin.avail_margin -= frozen_margin;
+      if (input.side == Side::MarginTrade) {
+        book->asset_margin.cash_margin += frozen_margin;
+      } else {
+        book->asset_margin.short_margin += frozen_margin;
+      }
     }
     //This call can be commented as no pnl change (update_position() just update 'unrealized_pnl' at present)
     //update_position(book, position);
@@ -131,7 +178,9 @@ public:
         book->asset.frozen_cash -= frozen;
         book->asset.avail += frozen;
       } else if (order.side == Side::RepayStock) {
-        auto frozen = book->get_frozen_price(order.order_id) * order.volume_left;
+        double frozen = book->get_frozen_price(order.order_id) * order.volume_left;
+        double frozen_fee = 0;
+        frozen += frozen_fee;
         book->asset.frozen_cash -= frozen;
         book->asset.avail += frozen;
         position.frozen_total = std::max(position.frozen_total - order.volume_left, VOLUME_ZERO);
@@ -146,10 +195,17 @@ public:
       } else if (order.side == Side::MarginTrade || order.side == Side::ShortSell) {
         auto cd_mr =
             get_instrument_discount_and_margin_ratio(book, position.exchange_id, position.instrument_id, position);
-        auto frozen = book->get_frozen_price(order.order_id) * order.volume_left *
+        double frozen_margin = book->get_frozen_price(order.order_id) * order.volume_left *
                       (order.side == Side::MarginTrade ? cd_mr.long_margin_ratio : cd_mr.short_margin_ratio);
-        book->asset.frozen_margin -= frozen;
-        book->asset_margin.avail_margin += frozen;
+        double frozen_fee = 0;
+        frozen_margin += frozen_fee;
+        book->asset.frozen_margin -= frozen_margin;
+        book->asset_margin.avail_margin += frozen_margin;
+        if (order.side == Side::MarginTrade) {
+          book->asset_margin.cash_margin -= frozen_margin;
+        } else {
+          book->asset_margin.short_margin -= frozen_margin;
+        }
       } 
       //it assumes position.volume is changed already(apply_trade), otherwise position.volume would be inconsistant.
       update_position(book, position);
@@ -187,100 +243,126 @@ protected:
 
   virtual void apply_buy(Book_ptr &book, const Trade &trade) {
     auto &position = book->get_position_for(trade);
+    double trade_amt = trade.price * trade.volume;
+    double commission = calculate_commission(trade);
+    double tax = calculate_tax(trade);
     if (position.volume + trade.volume > 0 && trade.price > 0) {
-      position.avg_open_price = (position.avg_open_price * position.volume + trade.price * trade.volume) /
+      position.avg_open_price = (position.avg_open_price * position.volume + trade_amt) /
                                 (double)(position.volume + trade.volume);
+      position.position_cost_price = (position.position_cost_price * position.volume + trade_amt + commission + tax) /
+                                     (double)(position.volume + trade.volume);
     }
-    auto commission = calculate_commission(trade);
-    auto tax = calculate_tax(trade);
+    
     position.volume += trade.volume;
 
     update_position(book, position);
 
-    auto frozen = book->get_frozen_price(trade.order_id) * trade.volume;
-    book->asset.frozen_cash -= frozen;
-    book->asset.avail -= commission;
-    book->asset.avail -= tax;
+    double frozen = book->get_frozen_price(trade.order_id) * trade.volume;
+    double frozen_fee = 0;
+    frozen += frozen_fee;
+    auto &asset = book->asset;
+    asset.frozen_cash -= frozen;
+    asset.avail -= commission;
+    asset.avail -= tax;
     // A minor issue: the asset.avail should minus frozen including commission&tax;
-    book->asset.avail += frozen;
-    
-    book->asset.avail -= trade.price * trade.volume;
-    book->asset.intraday_fee += commission + tax;
-    book->asset.accumulated_fee += commission + tax;
+    asset.avail += frozen;
+    asset.avail -= trade_amt;
+    asset.market_value += trade_amt;
+    asset.intraday_fee += commission + tax;
+    asset.accumulated_fee += commission + tax;
+    auto cd_mr = get_instrument_discount_and_margin_ratio(book, position.exchange_id, position.instrument_id, position);
+    double avail_margin_changes = trade_amt * (cd_mr.discount_ratio - 1) - tax - commission;
+    book->asset_margin.avail_margin += avail_margin_changes;
   }
 
   virtual void apply_shortsell(Book_ptr &book, const Trade &trade) {
     auto &position = book->get_position_for(trade);
-    if (position.volume + trade.volume > 0 && trade.price > 0) {
-      position.avg_open_price = (position.avg_open_price * position.volume + trade.price * trade.volume) /
-                                (double)(position.volume + trade.volume);
-    }
-    //TODO: setup calculate_margin_commission(Trade&);
+    double trade_amt = trade.price * trade.volume;
+    // TODO: margin_commission requires a dedicate calculate_margin_commission(Trade&);
     auto commission = calculate_commission(trade);
     auto tax = calculate_tax(trade);
+    if (position.volume + trade.volume > 0 && trade.price > 0) {
+      position.avg_open_price =
+          (position.avg_open_price * position.volume + trade_amt) / (double)(position.volume + trade.volume);
+      position.position_cost_price = 
+          (position.position_cost_price * position.volume + trade_amt - commission - tax) /
+                                     (double)(position.volume + trade.volume);
+    }
     position.volume += trade.volume;
+    // As Offset::Open Trade does not generate pnl, no need to calc pnl.
+    //--update_position(book, position);
 
-    update_position(book, position);
+    auto &asset = book->asset;
+    auto &asset_margin = book->asset_margin;
 
     auto cd_mr = get_instrument_discount_and_margin_ratio(book, position.exchange_id, position.instrument_id, position);
     auto frozen = book->get_frozen_price(trade.order_id) * trade.volume * cd_mr.short_margin_ratio;
     //FIXME: commission&tax + order_market_value_frozen should be considered in the frozen_margin part. 
     book->asset.frozen_margin -= frozen;
     book->asset_margin.avail_margin += frozen;
-    //book->asset_margin.avail_margin -= commission;
-    //book->asset_margin.avail_margin -= tax;  
-    //If commission&rate comes from the account cash, then should be done as below two statements.
-    //book->asset.avail -= commission;
-    //book->asset.avail -= tax;
 
-    //TODO: The short_margin calc with <short_market_value * cd_mr.short_margin_ratio + commission&tax>, 
-    // this lead to double times for the commission&tax ?
-    //book->asset_margin.total_asset += short_market_value - commission&tax ; 
+    double short_margin_change = trade_amt * cd_mr.short_margin_ratio;
+    double frozen_margin = book->get_frozen_price(trade.order_id) * trade.volume * cd_mr.short_margin_ratio;
 
-    double rq_amt = trade.price * trade.volume + commission + tax; 
-    double short_cash = trade.price * trade.volume - (commission + tax); 
+    position.margin += short_margin_change;
+        
+    asset.margin += short_margin_change;
+    asset.frozen_margin -= frozen_margin;
+    asset.intraday_fee += commission + tax;
+    asset.accumulated_fee += commission + tax;
 
-    //asset_margin.short_cash += short_cash;
-
-    book->asset_margin.short_cash += short_cash; // short cash = trade.price * trade.volume - (commission + tax)
-                                        
-    book->asset_margin.short_margin += rq_amt * cd_mr.short_margin_ratio; // trade.price *trade.volume *cd_mr.long_margin_ratio;
-    book->asset_margin.total_asset += short_cash;
-    book->asset_margin.avail_margin -= rq_amt * cd_mr.short_margin_ratio;
-    book->asset.intraday_fee += commission + tax;
-    book->asset.accumulated_fee += commission + tax;
+    double short_cash = trade_amt - commission - tax;
+    asset_margin.total_asset += short_cash;
+    asset_margin.short_cash += short_cash;
+    asset_margin.short_margin += short_margin_change;
+    asset_margin.avail_margin += frozen_margin;
+    asset_margin.avail_margin -= short_margin_change + commission + tax;
+    asset_margin.short_market_value += trade_amt;
+    double interest = 0;
+    asset_margin.collateral_ratio =
+        asset_margin.total_asset / (asset_margin.cash_debt + asset_margin.short_market_value + interest);
   }
 
   virtual void apply_margintrade(Book_ptr &book, const Trade &trade) {
     auto &position = book->get_position_for(trade);
-    if (position.volume + trade.volume > 0 && trade.price > 0) {
-      position.avg_open_price = (position.avg_open_price * position.volume + trade.price * trade.volume) /
-                                (double)(position.volume + trade.volume);
-    }
-    // TODO: setup calculate_margin_commission(Trade&);
+    double trade_amt = trade.price * trade.volume;
+    // TODO: margin_commission requires a dedicate calculate_margin_commission(Trade&);
     auto commission = calculate_commission(trade);
     auto tax = calculate_tax(trade);
+    if (position.volume + trade.volume > 0 && trade.price > 0) {
+      position.avg_open_price =
+          (position.avg_open_price * position.volume + trade_amt) / (double)(position.volume + trade.volume);
+      position.position_cost_price = (position.position_cost_price * position.volume + trade_amt + commission + tax) /
+                                     (double)(position.volume + trade.volume);
+    }
     position.volume += trade.volume;
+    // As Offset::Open Trade does not generate pnl
+    //--update_position(book, position);
 
-    update_position(book, position);
-
+    auto &asset = book->asset;
+    auto &asset_margin = book->asset_margin;
+    
     auto cd_mr = get_instrument_discount_and_margin_ratio(book, position.exchange_id, position.instrument_id, position);
-    auto frozen = book->get_frozen_price(trade.order_id) * trade.volume * cd_mr.long_margin_ratio;
-    book->asset.frozen_margin -= frozen;
-    book->asset_margin.avail_margin += frozen;
-    // book->asset_margin.avail_margin -= commission;  // could be -= commission * cd_mr.long_margin_ratio;
-    // book->asset_margin.avail_margin -= tax;   // could be -= tax * cd_mr.long_margin_ratio;
-    // If commission&rate comes from the account cash, then should be done as below two statements.
-    // book->asset.avail -= commission;
-    // book->asset.avail -= tax;
+    double cash_margin_change = trade_amt * cd_mr.long_margin_ratio;
+    double frozen_margin = book->get_frozen_price(trade.order_id) * trade.volume * cd_mr.long_margin_ratio;
 
-    double cash_debt = trade.price * trade.volume + commission + tax;
-    book->asset_margin.cash_debt += cash_debt;
-    book->asset_margin.cash_margin += cash_debt * cd_mr.long_margin_ratio; // trade.price *trade.volume *cd_mr.long_margin_ratio;
+    position.margin += cash_margin_change;
 
-    book->asset_margin.avail_margin -= cash_debt * cd_mr.long_margin_ratio;
-    book->asset.intraday_fee += commission + tax;
-    book->asset.accumulated_fee += commission + tax;
+    asset.margin += cash_margin_change;
+    asset.market_value += trade_amt;
+    asset.frozen_margin -= frozen_margin;
+    asset.intraday_fee += commission + tax;
+    asset.accumulated_fee += commission + tax;
+
+    asset_margin.cash_debt += trade_amt + commission + tax;
+    asset_margin.cash_margin += cash_margin_change;
+    asset_margin.avail_margin += frozen_margin;
+    asset_margin.avail_margin -= cash_margin_change + commission + tax;
+    asset_margin.margin_market_value += trade_amt;
+    //TODO: interest information is not available, ignore it.
+    double interest = 0;
+    asset_margin.collateral_ratio = asset_margin.total_asset / 
+         (asset_margin.cash_debt + asset_margin.short_market_value + interest);
   }
 
   virtual void apply_repaymargin(Book_ptr &book, const Trade &trade) {
@@ -291,40 +373,51 @@ protected:
     position.frozen_yesterday = std::max(position.frozen_yesterday - trade.volume, VOLUME_ZERO);
     position.yesterday_volume = std::max(position.yesterday_volume - trade.volume, VOLUME_ZERO);
     position.volume = std::max(position.volume - trade.volume, VOLUME_ZERO);
+    // Use position_cost_price would be better than avg_open_price for realized_pnl 
     auto realized_pnl = (trade.price - position.avg_open_price) * trade.volume;
     position.realized_pnl += realized_pnl;
-    book->asset.realized_pnl += realized_pnl;
-    update_position(book, position);
-
+    position.unrealized_pnl -= realized_pnl;
+    
+    auto &asset = book->asset;
+    asset.realized_pnl += realized_pnl;
+    asset.unrealized_pnl -= realized_pnl;
+    
     double trade_amt = trade.price * trade.volume;
     double income = trade_amt - (commission + tax);
 
     auto cd_mr = get_instrument_discount_and_margin_ratio(book, position.exchange_id, position.instrument_id, position);
-
-    //TODO: need check whether repaymargin done for a specified (dedicated contract) MarginDebt, otherwise total margin debt.
-    if (income > book->asset_margin.cash_debt) {
-      book->asset.avail += income - book->asset_margin.cash_debt;
-      book->asset_margin.avail_margin += book->asset_margin.cash_margin;
+    auto &asset_margin = book->asset_margin;
+    //TODO: need check repaymargin for a specified (same instrument contract) MarginDebt or not
+    if (income >asset_margin.cash_debt) {
+      book->asset.avail += income - asset_margin.cash_debt;
+      asset_margin.avail_margin += asset_margin.cash_margin;
       
       // if total_asset contains the position market value, then repaymargin reduces the market value.
-      book->asset_margin.total_asset -= book->asset_margin.cash_debt;
-
-      book->asset_margin.cash_margin = 0;
-      book->asset_margin.cash_debt = 0;
-        
+      asset_margin.total_asset -= asset_margin.cash_debt;
+      //TODO: need check whether other cash_debt can be closed via this RepayMargin trade.
+      asset_margin.cash_margin = 0;
+      asset_margin.cash_debt = 0;
+      asset_margin.margin_market_value -= trade_amt;
     } else {
-      book->asset_margin.cash_debt -= income;
+      
       double released_margin = income * cd_mr.long_margin_ratio;
-      book->asset_margin.cash_margin -= released_margin;
-      book->asset_margin.avail_margin += released_margin;
-
-      //if total_asset contains the position market value, then repaymargin reduces the market value. 
-      book->asset_margin.total_asset -= trade_amt + commission + tax;
+      position.margin = std::max(position.margin - released_margin, (double)VOLUME_ZERO);
+      asset_margin.cash_debt -= income;
+      asset_margin.cash_margin -= released_margin;
+      asset_margin.avail_margin += released_margin - (commission + tax);
+      asset_margin.total_asset -= trade_amt + commission + tax;
+      asset_margin.margin_market_value -= trade_amt;
     }
-    book->asset.market_value -= trade_amt;
-
-    book->asset.intraday_fee += commission + tax;
-    book->asset.accumulated_fee += commission + tax;
+    double interest = 0;
+    if (asset_margin.short_market_value + interest > 0) {
+      asset_margin.collateral_ratio =
+          std::min(asset_margin.total_asset / (asset_margin.short_market_value + interest), 1000.0);
+    } else {
+      asset_margin.collateral_ratio = 1000; // Maximum
+    }
+    asset.market_value -= trade_amt;
+    asset.intraday_fee += commission + tax;
+    asset.accumulated_fee += commission + tax;
   }
 
   virtual void apply_repaystock(Book_ptr &book, const Trade &trade) {
@@ -333,39 +426,39 @@ protected:
     auto commission = calculate_commission(trade);
     auto tax = calculate_tax(trade);
     //Position Direction: Short
-    //position.frozen_total = std::max(position.frozen_total - trade.volume, VOLUME_ZERO);
-    //position.frozen_yesterday = std::max(position.frozen_yesterday - trade.volume, VOLUME_ZERO);
+    position.frozen_total = std::max(position.frozen_total - trade.volume, VOLUME_ZERO);
+    position.frozen_yesterday = std::max(position.frozen_yesterday - trade.volume, VOLUME_ZERO);
     position.yesterday_volume = std::max(position.yesterday_volume - trade.volume, VOLUME_ZERO);
     position.volume = std::max(position.volume - trade.volume, VOLUME_ZERO);
-    auto realized_pnl = (position.avg_open_price - trade.price) * trade.volume;
-    position.realized_pnl += realized_pnl;
-
-    update_position(book, position);
-
-    book->asset.realized_pnl += realized_pnl;
-
-    auto frozen = book->get_frozen_price(trade.order_id) * trade.volume;
-    book->asset.frozen_cash -= frozen;
-    book->asset.avail -= commission;
-    book->asset.avail -= tax;
-    // A minor issue: the asset.avail should minus frozen including commission&tax;
-    book->asset.avail += frozen;
-
-    book->asset.avail -= trade.price * trade.volume;
-    book->asset.intraday_fee += commission + tax;
-    book->asset.accumulated_fee += commission + tax;
-
-    auto cd_mr = get_instrument_discount_and_margin_ratio(book, position.exchange_id, position.instrument_id, position);
-    double released_margin = trade.price * trade.volume * cd_mr.short_margin_ratio +
-                             trade.price * trade.volume * cd_mr.discount_ratio - trade.price * trade.volume -
-                             (commission + tax);
-    //commission & tax are paid by asset.avail (cash) instead of asset_margin.avail_margin
-    //As the asset.avail is changed, the total margin quota would be changed accordingly.
-    book->asset_margin.avail_margin += released_margin;
     
-    double closed_rq_debt = trade.price * trade.volume;
-    book->asset_margin.short_market_value -= closed_rq_debt;
+    auto realized_pnl = (position.avg_open_price - trade.price) * trade.volume;
+    double trade_amt = trade.price * trade.volume;
+    double frozen_cash = book->get_frozen_price(trade.order_id) * trade.volume;
+    auto cd_mr = get_instrument_discount_and_margin_ratio(book, position.exchange_id, position.instrument_id, position);
+    double released_margin = trade_amt * cd_mr.short_margin_ratio; //-(commission + tax);
+    
+    position.realized_pnl += realized_pnl;
+    position.unrealized_pnl -= realized_pnl;
+    position.margin -= released_margin;
 
+    auto &asset = book->asset;
+    asset.realized_pnl += realized_pnl;
+    asset.unrealized_pnl -= realized_pnl;   
+    asset.frozen_cash -= frozen_cash;
+    asset.avail -= commission + tax;
+    //TODO: need confirm whether the cash from asset cash, ShortSell-cash(partially).
+    asset.avail += frozen_cash;
+    asset.avail -= trade_amt;
+    asset.margin -= released_margin;
+    asset.intraday_fee += commission + tax;
+    asset.accumulated_fee += commission + tax;
+
+    auto &asset_margin = book->asset_margin;
+    asset_margin.avail_margin += released_margin;
+    asset_margin.short_market_value -= trade_amt;
+    asset_margin.short_cash -= trade_amt;
+    asset_margin.short_margin -= released_margin;
+    asset_margin.total_asset -= trade_amt;
   }
 
   virtual void apply_sell(Book_ptr &book, const Trade &trade) {
@@ -377,17 +470,27 @@ protected:
     position.frozen_yesterday = std::max(position.frozen_yesterday - trade.volume, VOLUME_ZERO);
     position.yesterday_volume = std::max(position.yesterday_volume - trade.volume, VOLUME_ZERO);
     position.volume = std::max(position.volume - trade.volume, VOLUME_ZERO);
-    auto realized_pnl = (trade.price - position.avg_open_price) * trade.volume;
+    double realized_pnl = (trade.price - position.avg_open_price) * trade.volume;
     position.realized_pnl += realized_pnl;
+    position.unrealized_pnl -= realized_pnl;
 
     update_position(book, position);
+    auto &asset = book->asset;
+    double trade_amt = trade.price * trade.volume;
+    asset.realized_pnl += realized_pnl;
+    asset.unrealized_pnl -= realized_pnl;
+    asset.avail += trade_amt;
+    asset.avail -= commission;
+    asset.avail -= tax;
+    asset.market_value -= trade_amt;
+    asset.intraday_fee += commission + tax;
+    asset.accumulated_fee += commission + tax;
 
-    book->asset.realized_pnl += realized_pnl;
-    book->asset.avail += trade.price * trade.volume;
-    book->asset.avail -= commission;
-    book->asset.avail -= tax;
-    book->asset.intraday_fee += commission + tax;
-    book->asset.accumulated_fee += commission + tax;
+    auto cd_mr = get_instrument_discount_and_margin_ratio(book, position.exchange_id, position.instrument_id, position);
+    double avail_margin_changes = trade_amt * (1 - cd_mr.discount_ratio) - tax - commission;
+    auto &asset_margin = book->asset_margin;
+    asset_margin.avail_margin += avail_margin_changes;
+
   }
 
   virtual double calculate_commission(const Trade &trade) {
@@ -419,7 +522,7 @@ protected:
     return trade.side == Side::Sell ? trade.price * trade.volume * 0.001 : 0;
   }
 
-   static contract_discount_and_margin_ratio
+  static contract_discount_and_margin_ratio
   get_instrument_discount_and_margin_ratio(Book_ptr &book, const char *exchange_id,
                                                       const char *instrument_id, const Position &position) {
     auto hashed_instrument_key = hash_instrument(exchange_id, instrument_id);
@@ -429,12 +532,16 @@ protected:
       cd_mr.contract_multiplier = DEFAULT_STOCK_CONTRACT_MULTIPLIER;
       cd_mr.margin_ratio = position.direction == Direction::Long ? DEFAULT_STOCK_LONG_MARGIN_RATIO
                                                                  : DEFAULT_STOCK_SHORT_MARGIN_RATIO;
+      cd_mr.long_margin_ratio = DEFAULT_STOCK_LONG_MARGIN_RATIO;
+      cd_mr.short_margin_ratio = DEFAULT_STOCK_SHORT_MARGIN_RATIO;
       return cd_mr;
     }
 
     auto &instrument = book->instruments.at(hashed_instrument_key);
     cd_mr.contract_multiplier = instrument.contract_multiplier;
     cd_mr.margin_ratio = margin_ratio(instrument, position);
+    cd_mr.long_margin_ratio = instrument.long_margin_ratio;
+    cd_mr.short_margin_ratio = instrument.short_margin_ratio;
     return cd_mr;
   }
 
