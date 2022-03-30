@@ -231,14 +231,12 @@ void master::handle_profile_feeds() {
         }
 
         if (s.stored) {
-          SPDLOG_INFO("----------- {}", s.data.to_string());
           iter++;
           continue;
         }
 
         try {
           profile_ << s;
-          SPDLOG_INFO("~~~~~~~~~~ {}", s.data.to_string());
         } catch (const std::exception &e) {
           SPDLOG_ERROR("Unexpected exception by handle_profile_feeds << {}", e.what());
           continue;
