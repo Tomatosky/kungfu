@@ -190,7 +190,7 @@ void master::handle_cached_feeds() {
     if (feed_map.size() != 0) {
       auto iter = feed_map.begin();
       while (iter != feed_map.end() and !stored_controller) {
-        auto& s = iter->second;
+        auto &s = iter->second;
         auto source_id = s.source;
 
         if (app_cache_shift_.find(source_id) != app_cache_shift_.end()) {
@@ -223,7 +223,7 @@ void master::handle_profile_feeds() {
     if (feed_map.size() != 0) {
       auto iter = feed_map.begin();
       while (iter != feed_map.end() and !stored_controller) {
-        auto& s = iter->second;
+        auto &s = iter->second;
 
         if (s.source == 0 and s.dest == 0) {
           iter++;
@@ -253,7 +253,7 @@ void master::try_add_location(int64_t trigger_time, const location_ptr &app_loca
   if (not has_location(app_location->uid)) {
     try {
       profile_.set(dynamic_cast<Location &>(*app_location));
-    } catch (const std::exception& e) {
+    } catch (const std::exception &e) {
       SPDLOG_ERROR("Unexpected exception by profile try_add_location {}", e.what());
     }
     add_location(trigger_time, app_location);
@@ -277,9 +277,7 @@ void master::feed(const event_ptr &event) {
   feed_profile_data(event, profile_bank_);
 }
 
-void master::pong(const event_ptr &event) {
-  get_io_device()->get_publisher()->publish("{}");
-}
+void master::pong(const event_ptr &event) { get_io_device()->get_publisher()->publish("{}"); }
 
 void master::on_cache_reset(const event_ptr &event) {
   auto msg_type = event->data<CacheReset>().msg_type;
@@ -383,7 +381,7 @@ void master::write_profile_data(int64_t trigger_time, const writer_ptr &writer) 
       for (const auto &data : profile_.get_all(DataType{})) {
         writer->write(trigger_time, data);
       }
-    } catch (const std::exception& e) {
+    } catch (const std::exception &e) {
       SPDLOG_ERROR("Unexpected exception by profile set {}", e.what());
     }
   });
