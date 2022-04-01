@@ -174,6 +174,7 @@ void bind(pybind11::module &&m) {
       .value("SurplusStockTransfer", Side::SurplusStockTransfer)
       .value("GuaranteeStockTransferIn", Side::GuaranteeStockTransferIn)
       .value("GuaranteeStockTransferOut", Side::GuaranteeStockTransferOut)
+      .value("Unknown", Side::Unknown)
       .export_values()
       .def("__eq__", [](const Side &a, int b) { return static_cast<int>(a) == b; });
 
