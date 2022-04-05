@@ -233,7 +233,7 @@ enum class MarketType : int8_t {
 };
 
 //证券数据类型
-enum SubscribeSecuDataType : int8_t
+enum class SubscribeSecuDataType : int8_t
 {
     kNone                                 = 0x000000000000,    ///< 订阅全部证券数据类别
     kSnapshot                             = 0x000000000001,    ///< 订阅快照数据类别
@@ -245,7 +245,7 @@ enum SubscribeSecuDataType : int8_t
 // class SubscribeCategory {
 //   public:
 //证券品种类型
-enum SubscribeCategoryType : uint64_t 
+enum class SubscribeCategoryType : uint64_t 
 {
     kNone                                 = 0x000000000000,    ///< 订阅全部证券品种类别
     kStock                                = 0x000000000001,    ///< 订阅股票证券品种类别
@@ -264,9 +264,9 @@ inline SubscribeSecuDataType datatype_bitwise(const SubscribeSecuDataType &a, co
 inline SubscribeSecuDataType datatype_bitwise(int a, const SubscribeSecuDataType &b) { return SubscribeSecuDataType(a | int(b)); }
 inline SubscribeSecuDataType datatype_bitwise(const SubscribeSecuDataType &a, int b) { return SubscribeSecuDataType(int(a) | b); }
 
-inline SubscribeCategoryType category_bitwise(const SubscribeCategoryType &a, const SubscribeCategoryType &b) { return SubscribeCategoryType(int(a) | int(b)); }
-inline SubscribeCategoryType category_bitwise(int a, const SubscribeCategoryType &b) { return SubscribeCategoryType(a | int(b)); }
-inline SubscribeCategoryType category_bitwise(const SubscribeCategoryType &a, int b) { return SubscribeCategoryType(int(a) | b); }
+inline SubscribeCategoryType category_bitwise(const SubscribeCategoryType &a, const SubscribeCategoryType &b) { return SubscribeCategoryType(uint64_t(a) | uint64_t(b)); }
+inline SubscribeCategoryType category_bitwise(int a, const SubscribeCategoryType &b) { return SubscribeCategoryType(uint64_t(a) | uint64_t(b)); }
+inline SubscribeCategoryType category_bitwise(const SubscribeCategoryType &a, int b) { return SubscribeCategoryType(uint64_t(a) | uint64_t(b)); }
 // };
 } // namespace kungfu::longfist::enums
 #endif // KUNGFU_LONGFIST_ENUM_H
