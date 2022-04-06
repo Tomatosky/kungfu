@@ -22,6 +22,7 @@ void MarketData::on_react() {
 void MarketData::on_start() {
   Broker::on_start();
   events_ | is(SubscribeAll::tag) | $$(subscribe_all());
+  events_ | is(SubscribeAll::tag) | $$(subscribe_market(event->data<SubscribeAll>()));
   events_ | is(InstrumentKey::tag) | $$(subscribe({event->data<InstrumentKey>()}));
 }
 

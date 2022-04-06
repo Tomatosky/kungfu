@@ -29,7 +29,6 @@ KF_DEFINE_MARK_TYPE(Ping, 10008);
 KF_DEFINE_MARK_TYPE(Pong, 10009);
 KF_DEFINE_MARK_TYPE(RequestStop, 10024);
 KF_DEFINE_MARK_TYPE(RequestStart, 10025);
-KF_DEFINE_MARK_TYPE(SubscribeAll, 303);
 KF_DEFINE_MARK_TYPE(NewOrderSingle, 353);
 KF_DEFINE_MARK_TYPE(CancelOrder, 354);
 KF_DEFINE_MARK_TYPE(CancelAllOrder, 355);
@@ -41,6 +40,14 @@ KF_DEFINE_MARK_TYPE(InstrumentEnd, 802);
 KF_DEFINE_MARK_TYPE(AlgoOrderInput, 20010);
 KF_DEFINE_MARK_TYPE(AlgoOrderReport, 20011);
 KF_DEFINE_MARK_TYPE(AlgoOrderModify, 20012);
+
+KF_DEFINE_DATA_TYPE(                              //
+    SubscribeAll, 303, PK(update_time), TIMESTAMP(update_time), //
+    (int64_t, update_time),                                    //
+    (MarketType, market_type),                     //
+    (SubscribeSecuDataType, subscribe_secu_datatype),                  //
+    (SubscribeCategoryType, subscribe_category_type)                          //
+);
 
 KF_DEFINE_DATA_TYPE(                              //
     Config, 10005, PK(location_uid), PERPETUAL(), //

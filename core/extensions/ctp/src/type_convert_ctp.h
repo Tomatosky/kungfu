@@ -17,6 +17,8 @@ namespace kungfu::wingchun::ctp {
 using namespace kungfu::longfist;
 using namespace kungfu::longfist::types;
 
+constexpr double DEFAULT_MARGIN_RATIO = 0.2;
+
 inline void to_ctp_comb_offset(TThostFtdcCombOffsetFlagType ctp_offset, const Offset &offset) {
   if (offset == Offset::Close) {
     ctp_offset[0] = THOST_FTDC_OF_Close;
@@ -195,11 +197,11 @@ inline void from_ctp(const CThostFtdcDepthMarketDataField &ori, Quote &des) {
   strcpy(des.trading_day, ori.TradingDay);
   strcpy(des.instrument_id, ori.InstrumentID);
   des.instrument_type = InstrumentType::Future;
-  if (strcmp(des.exchange_id, "DCE") == 0){
-      const auto today = kungfu::yijinjing::time::strfnow("%Y%m%d");
-      des.data_time = nsec_from_ctp_time(today.c_str(), ori.UpdateTime, ori.UpdateMillisec);
+  if (strcmp(des.exchange_id, "DCE") == 0) {
+    const auto today = kungfu::yijinjing::time::strfnow("%Y%m%d");
+    des.data_time = nsec_from_ctp_time(today.c_str(), ori.UpdateTime, ori.UpdateMillisec);
   } else {
-      des.data_time = nsec_from_ctp_time(ori.ActionDay, ori.UpdateTime, ori.UpdateMillisec);
+    des.data_time = nsec_from_ctp_time(ori.ActionDay, ori.UpdateTime, ori.UpdateMillisec);
   }
   des.last_price = ori.LastPrice;
   des.pre_settlement_price = ori.PreSettlementPrice;
@@ -312,6 +314,15 @@ inline void from_ctp(const CThostFtdcTradeField &ori, Trade &des) {
   des.trade_time = nsec_from_ctp_time(today.c_str(), ori.TradeTime);
 }
 
+inline double valid_margin_ratio(double ratio) {
+  // 柜台存在返回非法值，默认[0,100]区间内视为合法值，将柜台返回的非法值设置为DEFAULT_MARGIN_RATIO(0.2)
+  if (ratio >= 0 && ratio <= 100) {
+    return ratio;
+  }
+  SPDLOG_WARN("Invalid margin ratio : {}", ratio);
+  return DEFAULT_MARGIN_RATIO;
+}
+
 inline void from_ctp(const CThostFtdcInstrumentField &ori, Instrument &des) {
   strcpy(des.instrument_id, ori.InstrumentID);
   strcpy(des.exchange_id, ori.ExchangeID);
@@ -323,14 +334,14 @@ inline void from_ctp(const CThostFtdcInstrumentField &ori, Instrument &des) {
   strcpy(des.create_date, ori.CreateDate);
   strcpy(des.expire_date, ori.ExpireDate);
   strcpy(des.open_date, ori.OpenDate);
-  des.long_margin_ratio = ori.LongMarginRatio;
-  des.short_margin_ratio = ori.ShortMarginRatio;
+  des.long_margin_ratio = valid_margin_ratio(ori.LongMarginRatio);
+  des.short_margin_ratio = valid_margin_ratio(ori.ShortMarginRatio);
   des.price_tick = ori.PriceTick;
 }
 
 inline void from_ctp(const CThostFtdcInstrumentMarginRateField &ori, Instrument &des) {
-  des.long_margin_ratio = ori.LongMarginRatioByMoney;
-  des.short_margin_ratio = ori.ShortMarginRatioByMoney;
+  des.long_margin_ratio = valid_margin_ratio(ori.LongMarginRatioByMoney);
+  des.short_margin_ratio = valid_margin_ratio(ori.ShortMarginRatioByMoney);
 }
 
 inline void from_ctp(const CThostFtdcInstrumentCommissionRateField &ori,
