@@ -109,6 +109,7 @@ void master::register_app(const event_ptr &event) {
   write_registries(event->gen_time(), app_cmd_writer);
   write_channels(event->gen_time(), app_cmd_writer);
 
+  //for pybind
   on_register(event, register_data);
 }
 
