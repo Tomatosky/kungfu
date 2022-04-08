@@ -8,7 +8,6 @@ from . import td
 from . import strategy
 from . import bar
 from . import migrate
-from . import keygen
 from kungfu.command.journal import __all__
 from kungfu.command.data import __all__
 from kungfu.command.archive import __all__
