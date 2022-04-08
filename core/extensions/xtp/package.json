@@ -63,14 +63,6 @@
                     "required": true,
                     "validator": ["o99Validator", "intValidator"],
                     "tip": "请填写自定义多点登录ID 1-99整数,不同节点之间不要重复"
-                },
-                {
-                  "key": "account_code",
-                  "name": "account_code",
-                  "type": "str",
-                  "errMsg": "请填写账户授权码",
-                  "required": true,
-                  "tip": "请填写账户授权码，由证券/期货公司处获取"
                 }
               ],
           "md_config": [
