@@ -218,7 +218,7 @@ enum class BrokerState : int8_t {
 inline std::ostream &operator<<(std::ostream &os, BrokerState t) { return os << int8_t(t); }
 
 //权限订阅数据类型
-enum class MarketType : int8_t {
+enum class MarketType : uint8_t {
   kNone = 0, ///< 表示全市场
   kNEEQ = 2,          ///< 北交所
   kSHFE = 3,          ///< 上期所
