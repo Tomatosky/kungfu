@@ -269,7 +269,7 @@ inline bool is_open(longfist::enums::InstrumentType instrument_type, longfist::e
 
 inline bool is_shortable(longfist::enums::InstrumentType instrument_type) {
   using namespace longfist::enums;
-  return not(instrument_type == InstrumentType::Fund or instrument_type == InstrumentType::StockOption or
+  return not(instrument_type == InstrumentType::Bond or instrument_type == InstrumentType::StockOption or
              instrument_type == InstrumentType::TechStock or instrument_type == InstrumentType::Index or
              instrument_type == InstrumentType::Repo);
 }

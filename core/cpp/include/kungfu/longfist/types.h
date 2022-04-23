@@ -574,12 +574,16 @@ KF_DEFINE_PACK_TYPE(                               //
     (double, avail_margin), //可用保证金
     (double, cash_margin),  //融资占用保证金
     (double, short_margin), //融券占用保证金
+    (double, margin),       //总占用保证金
 
     (double, cash_debt),  //融资负债
     (double, short_cash), //融券卖出金额
 
     (double, short_market_value),  //融券卖出证券市值
     (double, margin_market_value), //融资买入证券市值
+    (double, margin_interest),  //融资融券利息
+    (double, margin_fee),  //融资融券费用
+    (double, settlement),  //融资融券清算资金
 
     (double, credit),          //信贷额度
     (double, collateral_ratio) //担保比例
