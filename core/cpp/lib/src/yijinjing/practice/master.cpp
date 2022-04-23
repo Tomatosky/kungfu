@@ -26,6 +26,16 @@ master::master(location_ptr home, bool low_latency)
   for (const auto &config : profile_.get_all(Config{})) {
     try_add_location(start_time_, location::make_shared(config, get_locator()));
   }
+
+  boost::hana::for_each(ProfileDataTypes, [&](auto it) {
+    auto type = boost::hana::second(it);
+    using DataType = typename decltype(+type)::type;
+    for (const auto &data : profile_.get_all(DataType{})) {
+      auto s = state(0, 0, start_time_, data);
+      profile_bank_ << s;
+    }
+  });
+
   auto io_device = std::dynamic_pointer_cast<io_device_master>(get_io_device());
   writers_.emplace(location::PUBLIC, io_device->open_writer(0));
   get_writer(location::PUBLIC)->mark(start_time_, SessionStart::tag);
@@ -99,6 +109,7 @@ void master::register_app(const event_ptr &event) {
   write_registries(event->gen_time(), app_cmd_writer);
   write_channels(event->gen_time(), app_cmd_writer);
 
+  //for pybind
   on_register(event, register_data);
 }
 
@@ -113,7 +124,6 @@ void master::deregister_app(int64_t trigger_time, uint32_t app_location_uid) {
   reader_->disjoin(app_location_uid);
   writers_.erase(app_location_uid);
   timer_tasks_.erase(app_location_uid);
-  // app_cache_shift_.erase(app_location_uid);
   get_writer(location::PUBLIC)->write(trigger_time, location->to<Deregister>());
 }
 
@@ -140,6 +150,7 @@ void master::on_active() {
   }
   handle_timer_tasks();
   handle_cached_feeds();
+  handle_profile_feeds();
 }
 
 void master::require_cached_write_to(int64_t trigger_time, uint32_t source_id, uint32_t dest_id) {
@@ -180,14 +191,14 @@ void master::handle_cached_feeds() {
     if (feed_map.size() != 0) {
       auto iter = feed_map.begin();
       while (iter != feed_map.end() and !stored_controller) {
-        auto s = iter->second;
+        auto &s = iter->second;
         auto source_id = s.source;
 
         if (app_cache_shift_.find(source_id) != app_cache_shift_.end()) {
           try {
             app_cache_shift_.at(source_id) << s;
           } catch (const std::exception &e) {
-            SPDLOG_ERROR("Unexpected exception by storage << {}", e.what());
+            SPDLOG_ERROR("Unexpected exception by handle_cached_feeds {}", e.what());
             continue;
           }
 
@@ -201,9 +212,51 @@ void master::handle_cached_feeds() {
   });
 }
 
+void master::handle_profile_feeds() {
+  bool stored_controller = false;
+  boost::hana::for_each(ProfileDataTypes, [&](auto it) {
+    using DataType = typename decltype(+boost::hana::second(it))::type;
+    auto hana_type = boost::hana::type_c<DataType>;
+
+    using FeedMap = std::unordered_map<uint64_t, state<DataType>>;
+    auto &feed_map = const_cast<FeedMap &>(profile_bank_[hana_type]);
+
+    if (feed_map.size() != 0) {
+      auto iter = feed_map.begin();
+      while (iter != feed_map.end() and !stored_controller) {
+        auto &s = iter->second;
+
+        if (s.source == 0 and s.dest == 0) {
+          iter++;
+          continue;
+        }
+
+        if (s.stored) {
+          iter++;
+          continue;
+        }
+
+        try {
+          profile_ << s;
+        } catch (const std::exception &e) {
+          SPDLOG_ERROR("Unexpected exception by handle_profile_feeds {}", e.what());
+          continue;
+        }
+
+        s.stored = true;
+        stored_controller = true;
+      }
+    }
+  });
+}
+
 void master::try_add_location(int64_t trigger_time, const location_ptr &app_location) {
   if (not has_location(app_location->uid)) {
-    profile_.set(dynamic_cast<Location &>(*app_location));
+    try {
+      profile_.set(dynamic_cast<Location &>(*app_location));
+    } catch (const std::exception &e) {
+      SPDLOG_ERROR("Unexpected exception by profile try_add_location {}", e.what());
+    }
     add_location(trigger_time, app_location);
   }
 }
@@ -214,18 +267,18 @@ void master::feed(const event_ptr &event) {
     return;
   }
   session_builder_.update_session(std::dynamic_pointer_cast<journal::frame>(event));
+
   if (get_location(event->source())->category == category::MD) {
-    return;
+    if (event->msg_type() != Instrument::tag) {
+      return;
+    }
   }
 
   feed_state_data(event, feed_bank_);
-  feed_profile_data(event, profile_);
+  feed_profile_data(event, profile_bank_);
 }
 
-void master::pong(const event_ptr &event) {
-  get_io_device()->get_publisher()->publish("{}");
-  SPDLOG_INFO("pong");
-}
+void master::pong(const event_ptr &event) { get_io_device()->get_publisher()->publish("{}"); }
 
 void master::on_cache_reset(const event_ptr &event) {
   auto msg_type = event->data<CacheReset>().msg_type;
@@ -325,8 +378,12 @@ void master::write_trading_day(int64_t trigger_time, const writer_ptr &writer) {
 void master::write_profile_data(int64_t trigger_time, const writer_ptr &writer) {
   boost::hana::for_each(ProfileDataTypes, [&](auto it) {
     using DataType = typename decltype(+boost::hana::second(it))::type;
-    for (const auto &data : profile_.get_all(DataType{})) {
-      writer->write(trigger_time, data);
+    try {
+      for (const auto &data : profile_.get_all(DataType{})) {
+        writer->write(trigger_time, data);
+      }
+    } catch (const std::exception &e) {
+      SPDLOG_ERROR("Unexpected exception by profile set {}", e.what());
     }
   });
 }

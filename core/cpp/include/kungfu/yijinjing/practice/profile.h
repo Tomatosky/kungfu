@@ -16,7 +16,9 @@ public:
 
   void setup();
 
-  template <typename DataType> void set(const DataType &data) { get_storage()->replace(data); }
+  template <typename DataType> void set(const DataType &data) { 
+    get_storage()->replace(data); 
+  }
 
   template <typename DataType> DataType get(const DataType &query) {
     using namespace boost::hana;
@@ -47,7 +49,11 @@ public:
   template <typename DataType> void remove_all() { get_storage()->remove_all<DataType>(); }
 
   template <typename DataType> void operator<<(const typed_event_ptr<DataType> &event) {
-    get_storage()->replace(event->template data<DataType>());
+      get_storage()->replace(event->template data<DataType>());
+  }
+
+  template <typename DataType> void operator<<(const state<DataType>& s) {
+      get_storage()->replace(s.data);
   }
 
 private:

@@ -43,7 +43,7 @@ using namespace boost::hana::literals;
 #define KF_PACK_TYPE_END __attribute__((packed));
 #endif
 
-#define KF_DEFINE_DATA_TYPE(NAME, TAG, PRIMARY_KEYS, TIMESTAMP_KEY, ...)                                               \
+#define KF_DEFINE_DATA_TYPE(NAME, TAG, PRIMARY_KEYS, TIMESTAMP_KEY, ...)                                              \
   struct NAME : public kungfu::data<NAME> {                                                                            \
     static constexpr int32_t tag = TAG;                                                                                \
     static constexpr auto type_name = HANA_STR(#NAME);                                                                 \
@@ -418,6 +418,8 @@ template <typename DataType> struct state {
   uint32_t dest;
 
   int64_t update_time;
+  bool stored = false;
+
   DataType data;
 
   explicit state(const event_ptr &event)
