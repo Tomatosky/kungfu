@@ -509,8 +509,8 @@ export default {
     calcCash(row, key) {
       return (
         toDecimal(
-          (this.accountsAsset[row.account_id] || {})[key] ||
-            (this.accountsAssetMargin[row.account_id] || [])[key] ||
+          +((this.accountsAsset[row.account_id] || {})[key] || 0) ||
+            +((this.accountsAssetMargin[row.account_id] || [])[key] || 0) ||
             '--',
         ) + ''
       );
