@@ -36,17 +36,24 @@ KF_DEFINE_MARK_TYPE(ResetBookRequest, 400);
 KF_DEFINE_MARK_TYPE(MirrorPositionsRequest, 401);
 KF_DEFINE_MARK_TYPE(AssetRequest, 402);
 KF_DEFINE_MARK_TYPE(PositionRequest, 403);
+KF_DEFINE_MARK_TYPE(BackupStrategyBookRequest, 406);
 KF_DEFINE_MARK_TYPE(InstrumentEnd, 802);
 KF_DEFINE_MARK_TYPE(AlgoOrderInput, 20010);
 KF_DEFINE_MARK_TYPE(AlgoOrderReport, 20011);
 KF_DEFINE_MARK_TYPE(AlgoOrderModify, 20012);
 
-KF_DEFINE_DATA_TYPE(                              //
+KF_DEFINE_DATA_TYPE(                                                            //
+    ResetStrategyPositionRequest, 407, PK(update_time), TIMESTAMP(update_time), //
+    (int64_t, update_time),                                                     //
+    (bool, is_book_held)                                                        //
+);
+
+KF_DEFINE_DATA_TYPE(                                            //
     SubscribeAll, 303, PK(update_time), TIMESTAMP(update_time), //
-    (int64_t, update_time),                                    //
-    (MarketType, market_type),                     //
-    (SubscribeCategoryType, subscribe_category_type),                          //
-    (SubscribeSecuDataType, subscribe_secu_datatype)                  //
+    (int64_t, update_time),                                     //
+    (MarketType, market_type),                                  //
+    (SubscribeCategoryType, subscribe_category_type),           //
+    (SubscribeSecuDataType, subscribe_secu_datatype)            //
 );
 
 KF_DEFINE_DATA_TYPE(                              //
@@ -276,7 +283,7 @@ KF_DEFINE_PACK_TYPE(                                                    //
     (int64_t, volume),       //委托量
     (Side, side),            //委托方向
     (PriceType, price_type), //订单价格类型（市价、限价、本方最优）
-    (ExecType, exec_type), // SZ: 成交标识
+    (ExecType, exec_type),   // SZ: 成交标识
 
     (int64_t, main_seq), //主序号
     (int64_t, seq)       //子序号

@@ -40,6 +40,7 @@ constexpr auto AllTypes = boost::hana::make_map( //
     TYPE_PAIR(Register),                         //
     TYPE_PAIR(Deregister),                       //
     TYPE_PAIR(CacheReset),                       //
+    TYPE_PAIR(ResetStrategyPositionRequest),     //
     TYPE_PAIR(BrokerStateUpdate),                //
     TYPE_PAIR(RequestReadFrom),                  //
     TYPE_PAIR(RequestReadFromPublic),            //
@@ -82,6 +83,7 @@ constexpr auto AllDataTypes = boost::hana::make_map( //
     TYPE_PAIR(Register),                             //
     TYPE_PAIR(Deregister),                           //
     TYPE_PAIR(CacheReset),                           //
+    TYPE_PAIR(ResetStrategyPositionRequest),         //
     TYPE_PAIR(BrokerStateUpdate),                    //
     TYPE_PAIR(RequestReadFrom),                      //
     TYPE_PAIR(RequestReadFromPublic),                //
