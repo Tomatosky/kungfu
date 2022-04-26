@@ -487,7 +487,7 @@ interface AssetMarginData {
   cashMargin: string; //融资占用保证金
   shortMargin: string; //融券占用保证金
   cashDebt: string; //融资负债
-  shortCash: string; //融券卖出金额
+  shortCash: string; //
   shortMarketValue: string; //融券卖出证券市值
   marginMarketValue: string; //融资买入证券市值
   credit: string; //信贷额度
@@ -506,7 +506,7 @@ interface AssetMarginOriginData {
   short_margin: number; //融券占用保证金
 
   cash_debt: number; //融资负债
-  short_cash: number; //融券卖出金额
+  short_cash: number; //
 
   short_market_value: number; //融券卖出证券市值
   margin_market_value: number; //融资买入证券市值

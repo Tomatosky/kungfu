@@ -263,8 +263,8 @@ protected:
         auto margin_pre = position.margin;
         if (is_valid_price(position.last_price)) {
           market_value += position.volume * position.last_price;
-          SPDLOG_INFO("position.last_price {}  position.volume {} position.instrument_id {} ", 
-                       position.last_price, position.volume, position.instrument_id);
+        //   SPDLOG_INFO("position.last_price {}  position.volume {} position.instrument_id {} ", 
+        //                position.last_price, position.volume, position.instrument_id);
         } else {
           if (is_valid_price(position.pre_close_price)) {
             market_value += position.volume * position.pre_close_price;
@@ -272,8 +272,8 @@ protected:
             market_value += position.volume * position.avg_open_price;
           } 
           
-          SPDLOG_INFO( "position.pre_close_price {} position.avg_open_price {}  position.volume {} instrument_id {}", 
-                        position.pre_close_price, position.avg_open_price, position.volume, position.instrument_id);
+        //   SPDLOG_INFO( "position.pre_close_price {} position.avg_open_price {}  position.volume {} instrument_id {}", 
+        //                 position.pre_close_price, position.avg_open_price, position.volume, position.instrument_id);
         }
 
         position.update_time = yijinjing::time::now_in_nano();
@@ -364,7 +364,7 @@ protected:
     position.last_price = trade.price;
     double curr_actual_position_margin = position.volume * position.last_price * cd_mr.short_margin_ratio;
     double short_margin_change = curr_actual_position_margin - prev_actual_position_margin;
-    SPDLOG_INFO("short_margin_change {} short_margin_change_ori {} ", short_margin_change, short_margin_change_ori);
+    // SPDLOG_INFO("short_margin_change {} short_margin_change_ori {} ", short_margin_change, short_margin_change_ori);
     position.margin += short_margin_change;  
 
     // asset_margin.margin should contain the frozen margin part, yet now it does not! see #avail_margin
@@ -382,8 +382,8 @@ protected:
     asset_margin.short_market_value += trade_amt;
     asset_margin.collateral_ratio =
         asset_margin.total_asset / (asset_margin.cash_debt + asset_margin.short_market_value + asset_margin.margin_interest);
-    SPDLOG_INFO("curr_actual_position_margin {} prev_actual_position_margin {} frozen_margin {} short_margin_ratio {}", 
-        curr_actual_position_margin, prev_actual_position_margin, frozen_margin, cd_mr.short_margin_ratio);
+    // SPDLOG_INFO("curr_actual_position_margin {} prev_actual_position_margin {} frozen_margin {} short_margin_ratio {}", 
+    //     curr_actual_position_margin, prev_actual_position_margin, frozen_margin, cd_mr.short_margin_ratio);
   }
 
   virtual void apply_margintrade(Book_ptr &book, const Trade &trade) {
@@ -421,8 +421,8 @@ protected:
     //double curr_actual_position_margin = curr_position_market_value * cd_mr.long_margin_ratio;
     //double cash_margin_change = curr_actual_position_margin - prev_actual_position_margin;
     double position_market_value_change = curr_position_market_value - prev_position_market_value;
-    SPDLOG_INFO("cash_margin_change {} frozen_margin {} position_market_value_change {} trade_amt {}", 
-        cash_margin_change, frozen_margin, position_market_value_change, trade_amt);
+    // SPDLOG_INFO("cash_margin_change {} frozen_margin {} position_market_value_change {} trade_amt {}", 
+        // cash_margin_change, frozen_margin, position_market_value_change, trade_amt);
 
     position.margin += cash_margin_change;  
     // position.cash_debt += trade_amt + commission + tax;
@@ -491,8 +491,8 @@ protected:
       double stock_to_cash_increased_margin = (income - asset_margin.cash_debt) * (1 - cd_mr.discount_ratio);
       asset_margin.avail_margin += asset_margin.cash_margin + stock_to_cash_increased_margin;
 
-      SPDLOG_INFO("stock_to_cash_increased_margin {} asset_margin.cash_margin {}  asset_margin.avail_margin {}",
-                  stock_to_cash_increased_margin, asset_margin.cash_margin, asset_margin.avail_margin);
+    //   SPDLOG_INFO("stock_to_cash_increased_margin {} asset_margin.cash_margin {}  asset_margin.avail_margin {}",
+                //   stock_to_cash_increased_margin, asset_margin.cash_margin, asset_margin.avail_margin);
       
       // if total_asset contains the position market value, then repaymargin reduces the market value.
       asset_margin.total_asset -= asset_margin.cash_debt;
@@ -516,8 +516,8 @@ protected:
       // Below logic is not true:
       asset_margin.margin_market_value += position_market_value_change;
 
-      SPDLOG_INFO("asset_margin.cash_margin {}  asset_margin.avail_margin {} position_market_value_change {}", 
-                  asset_margin.cash_margin, asset_margin.avail_margin, position_market_value_change);
+    //   SPDLOG_INFO("asset_margin.cash_margin {}  asset_margin.avail_margin {} position_market_value_change {}", 
+                //   asset_margin.cash_margin, asset_margin.avail_margin, position_market_value_change);
     }
     double interest = 0;
     if (asset_margin.short_market_value + interest > 0) {
@@ -605,8 +605,8 @@ protected:
       auto cd_mr =
           get_instrument_discount_and_margin_ratio(book, position.exchange_id, position.instrument_id, position);
       double avail_margin_changes = (cash_delivery - trade_amt * cd_mr.discount_ratio) * cd_mr.long_margin_ratio;
-      SPDLOG_INFO("cash_delivery {} trade_amt {} avail_margin_changes {} repay_margin {} cash_delivery {}",
-                  cash_delivery, trade_amt, avail_margin_changes, repay_margin, cash_delivery);
+    //   SPDLOG_INFO("cash_delivery {} trade_amt {} avail_margin_changes {} repay_margin {} cash_delivery {}",
+                //   cash_delivery, trade_amt, avail_margin_changes, repay_margin, cash_delivery);
 
       asset_margin.avail_margin += avail_margin_changes;
       asset_margin.margin -= repay_margin * cd_mr.long_margin_ratio;
@@ -625,9 +625,9 @@ protected:
       asset_margin.collateral_ratio =
           asset_margin.total_asset /
           (asset_margin.cash_debt + asset_margin.short_market_value + asset_margin.margin_interest);
-      SPDLOG_INFO("total_asset {} cash_debt {} short_market_value {} margin_interest {}  collateral_ratio {} ",
-                  asset_margin.total_asset, asset_margin.cash_debt, asset_margin.short_market_value,
-                  asset_margin.margin_interest, asset_margin.collateral_ratio);
+    //   SPDLOG_INFO("total_asset {} cash_debt {} short_market_value {} margin_interest {}  collateral_ratio {} ",
+                //   asset_margin.total_asset, asset_margin.cash_debt, asset_margin.short_market_value,
+                //   asset_margin.margin_interest, asset_margin.collateral_ratio);
     }
     
   }
