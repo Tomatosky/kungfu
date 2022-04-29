@@ -103,6 +103,7 @@ void Book::update(int64_t update_time) {
 
   double margin = 0;
   bool is_stock_acct = true;
+  double short_market_value = 0;
   auto update_position = [&](Position &position) {
     auto is_stock =
         position.instrument_type == InstrumentType::Stock or position.instrument_type == InstrumentType::Bond or
@@ -120,11 +121,14 @@ void Book::update(int64_t update_time) {
       asset.market_value += position_market_value;
       asset.unrealized_pnl += position.unrealized_pnl;
     }
-    
-    if (is_stock and position.direction == Direction::Long) {
-      asset.dynamic_equity += position_market_value;
-    }
-    if (is_future) {
+    if (is_stock) {
+      if (position.direction == Direction::Long) {
+        asset.dynamic_equity += position_market_value;
+      } else {
+        short_market_value += position_market_value;
+      }
+
+    } else if (is_future) {
       asset.dynamic_equity += position.margin + position.position_pnl;
     }
   };
@@ -138,6 +142,8 @@ void Book::update(int64_t update_time) {
   if (not is_stock_acct) {
     asset.margin = margin;
   }
+  asset_margin.short_market_value = short_market_value;
+  
 }
 
 void Book::replace(const OrderInput &input) { order_inputs.insert_or_assign(input.order_id, input); }
