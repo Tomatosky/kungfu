@@ -891,6 +891,7 @@ export const dealAssetMargin = (
     availMargin: toDecimal(item.avail_margin) || '--', //可用保证金
     cashMargin: toDecimal(item.cash_margin), //融资占用保证金
     shortMargin: toDecimal(item.short_margin), //融券占用保证金
+    margin: toDecimal(item.margin), //总占用保证金
     cashDebt: toDecimal(item.cash_debt), //融资负债
     shortCash: toDecimal(item.short_cash), //融券卖出金额
     shortMarketValue: toDecimal(item.short_market_value), //融券卖出证券市值
