@@ -1,0 +1,26 @@
+{
+  "name": "jni",
+  "author": "taurus.ai",
+  "version": "2.3.0",
+  "description": "KungFu",
+  "license": "Apache-2.0",
+  "scripts": {
+    "install-deps": "node -v",
+    "build": "cmake-js build",
+    "clean": "cmake-js clean",
+    "configure": "cmake-js configure",
+    "prebuild": "yarn run clean",
+    "prebuildl2": "yarn run clean",
+    "dev": "python scripts/devrun.py"
+  },
+  "dependencies": {
+    "nan": "^2.14.0"
+  },
+  "devDependencies": {
+    "cmake-js": "^5.3.1",
+    "copyfiles": "^2.4.1",
+    "cross-env": "^5.0.5",
+    "cross-var": "^1.1.0",
+    "rimraf": "^2.6.3"
+  }
+}
