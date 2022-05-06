@@ -22,6 +22,8 @@ void Trader::on_start() {
 
   events_ | is(OrderInput::tag) | $$(insert_order(event));
   events_ | is(OrderAction::tag) | $$(cancel_order(event));
+  events_ | is(RequestHistoryOrder::tag) | $$(req_history_order(event));
+  events_ | is(RequestHistoryTrade::tag) | $$(req_history_trade(event));
   events_ | is(AssetRequest::tag) | $$(req_account());
   events_ | is(PositionRequest::tag) | $$(req_position());
   events_ | is(ResetBookRequest::tag) | $$(get_writer(location::PUBLIC)->mark(now(), ResetBookRequest::tag));

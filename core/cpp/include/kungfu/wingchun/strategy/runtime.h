@@ -53,9 +53,8 @@ public:
    * Subscribe all from given MD
    * @param source MD group
    */
-  void subscribe_all(const std::string &source, uint8_t exchanges_ids = 0,
-                             uint64_t instrument_types = 0,
-                             uint64_t callback_types = 0) override;
+  void subscribe_all(const std::string &source, uint8_t exchanges_ids = 0, uint64_t instrument_types = 0,
+                     uint64_t callback_types = 0) override;
 
   /**
    * Insert order.
@@ -123,6 +122,16 @@ public:
    * @param account account ID
    */
   kungfu::wingchun::book::Book_ptr get_account_book(const std::string &source, const std::string &account) override;
+
+  /**
+   * query history order
+   */
+  void req_history_order(const std::string &account) const;
+
+  /**
+   * query history trade
+   */
+  void req_history_trade(const std::string &account) const;
 
 protected:
   yijinjing::practice::apprentice &app_;

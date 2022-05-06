@@ -60,6 +60,14 @@ public:
   //订单成交回报回调
   //@param trade             订单成交数据
   virtual void on_trade(Context_ptr &context, const longfist::types::Trade &trade){};
+
+  //历史订单回报回调
+  //@param history_order     历史订单数据
+  virtual void on_history_order(Context_ptr &context, const longfist::types::HistoryOrder &history_order){};
+
+  //历史订单成交回报回调
+  //@param history_order     历史订单成交数据
+  virtual void on_history_trade(Context_ptr &context, const longfist::types::HistoryTrade &history_trade){};
 };
 
 DECLARE_PTR(Strategy)

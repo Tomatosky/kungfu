@@ -37,6 +37,10 @@ public:
 
   virtual bool req_account() = 0;
 
+  virtual bool req_history_order(const event_ptr &event) = 0;
+
+  virtual bool req_history_trade(const event_ptr &event) = 0;
+
 protected:
   OrderMap orders_ = {};
   OrderActionMap actions_ = {};

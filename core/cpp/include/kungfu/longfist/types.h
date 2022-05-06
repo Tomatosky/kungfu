@@ -29,6 +29,8 @@ KF_DEFINE_MARK_TYPE(Ping, 10008);
 KF_DEFINE_MARK_TYPE(Pong, 10009);
 KF_DEFINE_MARK_TYPE(RequestStop, 10024);
 KF_DEFINE_MARK_TYPE(RequestStart, 10025);
+KF_DEFINE_MARK_TYPE(RequestHistoryOrder, 10029);
+KF_DEFINE_MARK_TYPE(RequestHistoryTrade, 10030);
 KF_DEFINE_MARK_TYPE(NewOrderSingle, 353);
 KF_DEFINE_MARK_TYPE(CancelOrder, 354);
 KF_DEFINE_MARK_TYPE(CancelAllOrder, 355);
@@ -414,6 +416,7 @@ KF_DEFINE_PACK_TYPE(                                  //
     Order, 203, PK(order_id), TIMESTAMP(insert_time), //
     (uint64_t, parent_id),                            //母订单ID
     (uint64_t, order_id),                             //订单ID
+//    (uint64_t, external_id),                          //柜台订单ID
 
     (int64_t, insert_time), //订单写入时间
     (int64_t, update_time), //订单更新时间
@@ -456,6 +459,7 @@ KF_DEFINE_PACK_TYPE(                                         //
     HistoryOrder, 212, PK(order_id), TIMESTAMP(insert_time), //
     (uint64_t, parent_id),                                   //母订单ID
     (uint64_t, order_id),                                    //订单ID
+//    (uint64_t, external_id),                                 //柜台订单ID
 
     (int64_t, insert_time), //订单写入时间
     (int64_t, update_time), //订单更新时间

@@ -50,6 +50,8 @@ class Strategy(wc.Strategy):
         self._on_transaction = getattr(self._module, "on_transaction", lambda ctx, transaction: None)
         self._on_order = getattr(self._module, 'on_order', lambda ctx, order: None)
         self._on_trade = getattr(self._module, 'on_trade', lambda ctx, trade: None)
+        self._on_history_order = getattr(self._module, 'on_history_order', lambda ctx, history_order: None)
+        self._on_history_trade = getattr(self._module, 'on_history_trade', lambda ctx, history_trade: None)
         self._on_order_action_error = getattr(self._module, 'on_order_action_error', lambda ctx, error: None)
 
     def __call_proxy(self, func, *args):
@@ -63,7 +65,8 @@ class Strategy(wc.Strategy):
             func(*args)
 
     def __init_book(self):
-        location = yjj.location(lf.enums.mode.LIVE, lf.enums.category.STRATEGY, self.ctx.group, self.ctx.name, self.ctx.runtime_locator)
+        location = yjj.location(lf.enums.mode.LIVE, lf.enums.category.STRATEGY, self.ctx.group, self.ctx.name,
+                                self.ctx.runtime_locator)
         self.ctx.book = self.ctx.wc_context.bookkeeper.get_book(location.uid)
 
     def __add_timer(self, nanotime, callback):
@@ -146,6 +149,12 @@ class Strategy(wc.Strategy):
 
     def on_trade(self, wc_context, trade):
         self.__call_proxy(self._on_trade, self.ctx, trade)
+
+    def on_history_order(self, wc_context, history_order):
+        self.__call_proxy(self._on_history_order, self.ctx, history_order)
+
+    def on_history_trade(self, wc_context, history_trade):
+        self.__call_proxy(self._on_history_trade, self.ctx, history_trade)
 
     def on_trading_day(self, wc_context, daytime):
         self.ctx.trading_day = kft.to_datetime(daytime)
