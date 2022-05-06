@@ -2,7 +2,7 @@
 #include <kungfu/wingchun/strategy/context.h>
 #include <kungfu/wingchun/strategy/runner.h>
 #include <kungfu/wingchun/strategy/strategy.h>
-#include <com_kungfu_Runner.h>
+#include "com_kungfu_Runner.h"
 
 using namespace kungfu::longfist::enums;
 using namespace kungfu::longfist::types;
