@@ -181,7 +181,11 @@ $HOME/.local/share/virtualenvs      # pipenv(unix) 存储的 Python 依赖
 # Version 版本
 
 - 2.3.9:
-  - [bar] 修正了原先 bar 的各种 bug
+  - [wingchun] 全市场订阅增加市场参数
+  - [柜台] ctp 同步保证金
+  - [柜台] 增加底层对两融业务的支持, 目前只支持顶点 api
+  - [master] 对底层实时存储同步做了优化，增加了稳定性
+  - [bar] 修正了原先 bar 的 bug
   - [strategy] 修正了不同账户使用同一个账户造成的计算错误与 crash 的问题
   - [strategy] 更改 add_timer 机制，当策略内 timer 任务出错，会 crash 进程
 - 2.3.8:
