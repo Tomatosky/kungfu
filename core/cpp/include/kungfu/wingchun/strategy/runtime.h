@@ -126,12 +126,12 @@ public:
   /**
    * query history order
    */
-  void req_history_order(const std::string &account) const;
+  void req_history_order(const std::string &account) override;
 
   /**
    * query history trade
    */
-  void req_history_trade(const std::string &account) const;
+  void req_history_trade(const std::string &account) override;
 
 protected:
   yijinjing::practice::apprentice &app_;

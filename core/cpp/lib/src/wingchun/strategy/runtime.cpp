@@ -173,7 +173,7 @@ kungfu::wingchun::book::Book_ptr RuntimeContext::get_account_book(const std::str
   return bookkeeper_.get_book(account_location->uid);
 }
 
-void RuntimeContext::req_history_order(const std::string &account) const {
+void RuntimeContext::req_history_order(const std::string &account) {
   auto account_location_uid = lookup_account_location_id(account);
   if (not broker_client_.is_ready(account_location_uid)) {
     SPDLOG_ERROR("account {} not ready", account);
@@ -183,7 +183,7 @@ void RuntimeContext::req_history_order(const std::string &account) const {
   writer->mark(now(), RequestHistoryOrder::tag);
 }
 
-void RuntimeContext::req_history_trade(const std::string &account) const {
+void RuntimeContext::req_history_trade(const std::string &account) {
   auto account_location_uid = lookup_account_location_id(account);
   if (not broker_client_.is_ready(account_location_uid)) {
     SPDLOG_ERROR("account {} not ready", account);
