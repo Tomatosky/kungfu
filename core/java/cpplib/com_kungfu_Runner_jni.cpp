@@ -11,7 +11,7 @@ using namespace kungfu::yijinjing::data;
 using namespace kungfu::yijinjing::log;
 
 
-Runner* runner_ = nullptr;
+std::shared_ptr<Runner> runner_;
 class DemoStrategy : public Strategy {
 public:
   DemoStrategy(JNIEnv * env, jobject r): env_(env), r_(r){};
@@ -435,25 +435,18 @@ Strategy_ptr demo_strategy;
  * Method:    init
  * Signature: (Lcom/kungfu/Runner;)V
  */
-extern "C"
-JNIEXPORT void JNICALL Java_com_kungfu_Runner_init
-  (JNIEnv * env, jobject self, jobject obj){
-    runner_ = new Runner(std::make_shared<locator>(), "default", "testcpp", mode::LIVE,
-                false);
+extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Runner_init(JNIEnv *env, jobject self, jobject obj) {
+  if (!runner_) {
+    runner_ = std::make_shared<Runner>(std::make_shared<locator>(), "default", "testcpp", mode::LIVE, false);
     demo_strategy = std::make_shared<DemoStrategy>(env, self);
-    std::cout << "Java_com_kungfu_Runner_init 1 " << uint64_t(runner_) << std::endl;
     runner_->add_strategy(demo_strategy);
     runner_->run();
   }
+}
 
 /*
  * Class:     com_kungfu_Runner
  * Method:    run
  * Signature: ()V
  */
-extern "C"
-JNIEXPORT void JNICALL Java_com_kungfu_Runner_run
-  (JNIEnv *, jobject){
-    std::cout << "Java_com_kungfu_Runner_run " << uint64_t(runner_) << std::endl;
-
-  }
+extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Runner_run(JNIEnv *, jobject) {}
