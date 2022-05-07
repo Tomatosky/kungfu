@@ -279,6 +279,8 @@ void bind(pybind11::module &&m) {
       .def("get_account_type", &Trader::get_account_type)
       .def("insert_order", &Trader::insert_order)
       .def("cancel_order", &Trader::cancel_order)
+      .def("req_history_order", &Trader::req_history_order)
+      .def("req_history_trade", &Trader::req_history_trade)
       .def("update_broker_state", &Trader::update_broker_state);
 
   py::class_<Ledger, kungfu::yijinjing::practice::apprentice, std::shared_ptr<Ledger>>(m, "Ledger")
@@ -322,6 +324,8 @@ void bind(pybind11::module &&m) {
            py::arg("limit_price"), py::arg("volume"), py::arg("type"), py::arg("side"),
            py::arg("offset") = Offset::Open, py::arg("hedge_flag") = HedgeFlag::Speculation)
       .def("cancel_order", &strategy::Context::cancel_order)
+      .def("req_history_order", &strategy::Context::req_history_order)
+      .def("req_history_trade", &strategy::Context::req_history_trade)
       .def("hold_book", &strategy::Context::hold_book)
       .def("hold_positions", &strategy::Context::hold_positions)
       .def("is_book_held", &strategy::Context::is_book_held)
