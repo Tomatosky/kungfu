@@ -469,14 +469,14 @@ jclass thisClass = env_->GetObjectClass(r_);
 
   env_->CallVoidMethod(r_, method_on_trade, obj_context, obj_trade);
 }
+
 void on_trade(Context_ptr &context, const kungfu::longfist::types::Trade &trade) override {
- on_trade_impl<kungfu::longfist::types::Trade>(context, trade); 
+  on_trade_impl<kungfu::longfist::types::Trade>(context, trade);
 }
 
-  void on_history_trade(Context_ptr &context, const kungfu::longfist::types::HistoryTrade &history_trade) override {
- on_trade_impl<kungfu::longfist::types::HistoryTrade>(context, history_trade); 
-
-  }
+void on_history_trade(Context_ptr &context, const kungfu::longfist::types::HistoryTrade &history_trade) override {
+  on_trade_impl<kungfu::longfist::types::HistoryTrade>(context, history_trade);
+}
 
   void setStringField(jclass clazz, jobject obj, const char* field_name, const char* field_value){
      jfieldID  field_id = env_->GetFieldID(clazz, field_name, "Ljava/lang/String;");
