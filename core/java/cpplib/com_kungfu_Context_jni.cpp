@@ -130,3 +130,19 @@ JNIEXPORT void JNICALL Java_com_kungfu_Context_add_1account
     return (jlong)oid;
 
   }
+
+  extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Context_req_1history_1order
+  (JNIEnv *env, jobject self, jstring jaccount){
+    std::string account = getStringFromJstring(env, jaccount);
+    Context *_self = getObject(env, self);
+    _self->req_history_order(account);
+    std::cout << "req_history_order for account:" << account << std::endl;
+  }
+
+extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Context_req_1history_1trade
+  (JNIEnv *env, jobject self, jstring jaccount){
+    std::string account = getStringFromJstring(env, jaccount);
+    Context *_self = getObject(env, self);
+    _self->req_history_trade(account);
+    std::cout << "req_history_trade for account:" << account << std::endl;
+  }

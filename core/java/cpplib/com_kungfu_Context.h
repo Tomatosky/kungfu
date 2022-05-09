@@ -47,6 +47,22 @@ JNIEXPORT jlong JNICALL Java_com_kungfu_Context_insert_1order
 JNIEXPORT jlong JNICALL Java_com_kungfu_Context_cancel_1order
   (JNIEnv *, jobject, jlong);
 
+/*
+ * Class:     com_kungfu_Context
+ * Method:    req_history_order
+ * Signature: (Ljava/lang/String;)V
+ */
+JNIEXPORT void JNICALL Java_com_kungfu_Context_req_1history_1order
+  (JNIEnv *, jobject, jstring);
+
+/*
+ * Class:     com_kungfu_Context
+ * Method:    req_history_trade
+ * Signature: (Ljava/lang/String;)V
+ */
+JNIEXPORT void JNICALL Java_com_kungfu_Context_req_1history_1trade
+  (JNIEnv *, jobject, jstring);
+
 #ifdef __cplusplus
 }
 #endif
