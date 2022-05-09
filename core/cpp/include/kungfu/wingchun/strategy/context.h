@@ -60,8 +60,7 @@ public:
    * Subscribe all from given MD
    * @param source MD group
    */
-  virtual void subscribe_all(const std::string &source, uint8_t exchanges_ids = 0,
-                             uint64_t instrument_types = 0,
+  virtual void subscribe_all(const std::string &source, uint8_t exchanges_ids = 0, uint64_t instrument_types = 0,
                              uint64_t callback_types = 0) = 0;
 
   /**
@@ -80,6 +79,16 @@ public:
                                 const std::string &account, double limit_price, int64_t volume,
                                 longfist::enums::PriceType type, longfist::enums::Side side,
                                 longfist::enums::Offset offset, longfist::enums::HedgeFlag hedge_flag) = 0;
+
+  /**
+   * query history order
+   */
+  virtual void req_history_order(const std::string &account) = 0;
+
+  /**
+   * query history trade
+   */
+  virtual void req_history_trade(const std::string &account) = 0;
 
   /**
    * Cancel order.

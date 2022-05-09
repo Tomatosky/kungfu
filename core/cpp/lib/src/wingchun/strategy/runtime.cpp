@@ -67,9 +67,8 @@ void RuntimeContext::subscribe(const std::string &source, const std::vector<std:
   md_locations_.emplace(md_location->uid, md_location);
 }
 
-void RuntimeContext::subscribe_all(const std::string &source, uint8_t exchanges_ids,
-                             uint64_t instrument_types,
-                             uint64_t callback_types) {
+void RuntimeContext::subscribe_all(const std::string &source, uint8_t exchanges_ids, uint64_t instrument_types,
+                                   uint64_t callback_types) {
   broker_client_.subscribe_all(find_md_location(source), exchanges_ids, instrument_types, callback_types);
 }
 
@@ -172,5 +171,25 @@ kungfu::wingchun::book::Book_ptr RuntimeContext::get_account_book(const std::str
     throw wingchun_error(fmt::format("invalid account {}@{}", account, source));
   }
   return bookkeeper_.get_book(account_location->uid);
+}
+
+void RuntimeContext::req_history_order(const std::string &account) {
+  auto account_location_uid = lookup_account_location_id(account);
+  if (not broker_client_.is_ready(account_location_uid)) {
+    SPDLOG_ERROR("account {} not ready", account);
+    return;
+  }
+  auto writer = app_.get_writer(account_location_uid);
+  writer->mark(now(), RequestHistoryOrder::tag);
+}
+
+void RuntimeContext::req_history_trade(const std::string &account) {
+  auto account_location_uid = lookup_account_location_id(account);
+  if (not broker_client_.is_ready(account_location_uid)) {
+    SPDLOG_ERROR("account {} not ready", account);
+    return;
+  }
+  auto writer = app_.get_writer(account_location_uid);
+  writer->mark(now(), RequestHistoryTrade::tag);
 }
 } // namespace kungfu::wingchun::strategy

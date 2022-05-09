@@ -38,6 +38,10 @@ public:
 
   bool cancel_order(const event_ptr &event) override;
 
+  bool req_history_order(const event_ptr &event) override { return true; };
+
+  bool req_history_trade(const event_ptr &event) override { return true; };
+
   virtual void OnFrontConnected();
 
   virtual void OnFrontDisconnected(int nReason);

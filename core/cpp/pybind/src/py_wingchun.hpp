@@ -75,6 +75,10 @@ public:
 
   bool req_account() override { PYBIND11_OVERLOAD_PURE(bool, Trader, req_account, ); }
 
+  bool req_history_order(const event_ptr &event) override { PYBIND11_OVERLOAD_PURE(bool, Trader, req_history_order, ); }
+
+  bool req_history_trade(const event_ptr &event) override { PYBIND11_OVERLOAD_PURE(bool, Trader, req_history_trade, ); }
+
   void on_start() override { PYBIND11_OVERLOAD(void, Trader, on_start, ); }
 };
 
@@ -170,6 +174,13 @@ public:
 
   void on_trade(strategy::Context_ptr &context, const Trade &trade) override {
     PYBIND11_OVERLOAD(void, strategy::Strategy, on_trade, context, trade);
+  }
+
+  void on_history_order(strategy::Context_ptr &context, const HistoryOrder &history_order) override {
+    PYBIND11_OVERLOAD(void, strategy::Strategy, on_history_order, context, history_order);
+  }
+  void on_history_trade(strategy::Context_ptr &context, const HistoryTrade &history_trade) override {
+    PYBIND11_OVERLOAD(void, strategy::Strategy, on_history_trade, context, history_trade);
   }
 };
 
@@ -268,6 +279,8 @@ void bind(pybind11::module &&m) {
       .def("get_account_type", &Trader::get_account_type)
       .def("insert_order", &Trader::insert_order)
       .def("cancel_order", &Trader::cancel_order)
+      .def("req_history_order", &Trader::req_history_order)
+      .def("req_history_trade", &Trader::req_history_trade)
       .def("update_broker_state", &Trader::update_broker_state);
 
   py::class_<Ledger, kungfu::yijinjing::practice::apprentice, std::shared_ptr<Ledger>>(m, "Ledger")
@@ -304,12 +317,15 @@ void bind(pybind11::module &&m) {
       .def("add_account", &strategy::Context::add_account)
       .def("get_account_cash_limit", &strategy::Context::get_account_cash_limit)
       .def("subscribe", &strategy::Context::subscribe)
-      .def("subscribe_all", &strategy::Context::subscribe_all, py::arg("source"), py::arg("exchanges_ids")=MarketType::kNone,
-           py::arg("instrument_types")=SubscribeCategoryType::kNone, py::arg("callback_types")=SubscribeSecuDataType::kNone)
+      .def("subscribe_all", &strategy::Context::subscribe_all, py::arg("source"),
+           py::arg("exchanges_ids") = MarketType::kNone, py::arg("instrument_types") = SubscribeCategoryType::kNone,
+           py::arg("callback_types") = SubscribeSecuDataType::kNone)
       .def("insert_order", &strategy::Context::insert_order, py::arg("symbol"), py::arg("exchange"), py::arg("account"),
            py::arg("limit_price"), py::arg("volume"), py::arg("type"), py::arg("side"),
            py::arg("offset") = Offset::Open, py::arg("hedge_flag") = HedgeFlag::Speculation)
       .def("cancel_order", &strategy::Context::cancel_order)
+      .def("req_history_order", &strategy::Context::req_history_order)
+      .def("req_history_trade", &strategy::Context::req_history_trade)
       .def("hold_book", &strategy::Context::hold_book)
       .def("hold_positions", &strategy::Context::hold_positions)
       .def("is_book_held", &strategy::Context::is_book_held)
@@ -332,7 +348,9 @@ void bind(pybind11::module &&m) {
       .def("on_entrust", &strategy::Strategy::on_entrust)
       .def("on_transaction", &strategy::Strategy::on_transaction)
       .def("on_order", &strategy::Strategy::on_order)
-      .def("on_trade", &strategy::Strategy::on_trade);
+      .def("on_trade", &strategy::Strategy::on_trade)
+      .def("on_history_order", &strategy::Strategy::on_history_order)
+      .def("on_history_trade", &strategy::Strategy::on_history_order);
 
   py::class_<BarGenerator, kungfu::yijinjing::practice::apprentice, std::shared_ptr<BarGenerator>>(m, "BarGenerator")
       .def(py::init<yijinjing::data::locator_ptr, longfist::enums::mode, bool, std::string &>())
