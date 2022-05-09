@@ -189,12 +189,11 @@ void TraderCTP::OnRspSettlementInfoConfirm(CThostFtdcSettlementInfoConfirmField 
       restore_instruments_from_bank();
       std::this_thread::sleep_for(std::chrono::seconds(1));
       req_commission();
-    }else{
+    } else {
       SPDLOG_INFO("CHECK_IF_STORED_INSTRUMENTS FALSE");
       std::this_thread::sleep_for(std::chrono::seconds(1));
       req_qry_instrument();
     }
-
   }
 }
 
@@ -466,7 +465,7 @@ void TraderCTP::OnRspQryInstrument(CThostFtdcInstrumentField *pInstrument, CThos
 
   if (bIsLast) {
     SPDLOG_INFO("INSTRUMENT RES bIsLast {}", bIsLast);
-    
+
     if (config_.broker_margin_ratio) {
       instrument_map_iter_ = instrument_map_.begin();
       req_marginRatio_count_ = 1;
@@ -720,6 +719,74 @@ void TraderCTP::OnRspQryInstrumentCommissionRate(CThostFtdcInstrumentCommissionR
     cm.close_today_ratio = pInstrumentCommissionRate->CloseTodayRatioByVolume;
   }
   get_writer(location::PUBLIC)->close_data();
+}
+
+yijinjing::journal::writer_ptr TraderCTP::get_history_writer(uint64_t request_id) {
+  return get_writer(map_request_location_.try_emplace(request_id).first->second);
+}
+
+bool TraderCTP::req_history_order(const event_ptr &event) {
+  CThostFtdcQryOrderField req = {};
+  strcpy(req.BrokerID, config_.broker_id.c_str());
+  strcpy(req.InvestorID, config_.account_id.c_str());
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+  SPDLOG_INFO("req_history_order REQ");
+  int request_id = request_id_++;
+  int rtn = api_->ReqQryOrder(&req, request_id);
+  map_request_location_.emplace(request_id, event->source());
+  SPDLOG_INFO("req_history_order REQ rtn {}", rtn);
+  return rtn == 0;
+}
+bool TraderCTP::req_history_trade(const event_ptr &event) {
+  CThostFtdcQryTradeField req = {};
+  strcpy(req.BrokerID, config_.broker_id.c_str());
+  strcpy(req.InvestorID, config_.account_id.c_str());
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+  SPDLOG_INFO("req_history_trade REQ");
+  int request_id = request_id_++;
+  int rtn = api_->ReqQryTrade(&req, request_id);
+  map_request_location_.emplace(request_id, event->source());
+  SPDLOG_INFO("req_history_trade REQ rtn {}", rtn);
+  return rtn == 0;
+}
+void TraderCTP::OnRspQryOrder(CThostFtdcOrderField *pOrder, CThostFtdcRspInfoField *pRspInfo, int nRequestID,
+                              bool bIsLast) {
+  if (pRspInfo != nullptr && pRspInfo->ErrorID != 0) {
+    SPDLOG_ERROR("OnRspQryOrder RES error_id {}, error_msg {}", pRspInfo->ErrorID, gbk2utf8(pRspInfo->ErrorMsg));
+    return;
+  }
+  if (pOrder == nullptr) {
+    SPDLOG_ERROR("CThostFtdcOrderField is nullptr");
+    return;
+  }
+
+  auto writer = get_history_writer(nRequestID);
+  HistoryOrder &history_order = writer->open_data<HistoryOrder>(now());
+  from_ctp(*pOrder, history_order);
+  history_order.order_id = writer->current_frame_uid();
+  strcpy(history_order.trading_day, trading_day_.c_str());
+  strcpy(history_order.account_id, this->get_account_id().c_str());
+  writer->close_data();
+}
+
+void TraderCTP::OnRspQryTrade(CThostFtdcTradeField *pTrade, CThostFtdcRspInfoField *pRspInfo, int nRequestID,
+                              bool bIsLast) {
+  if (pRspInfo != nullptr && pRspInfo->ErrorID != 0) {
+    SPDLOG_ERROR("OnRspQryTrade RES error_id {}, error_msg {}", pRspInfo->ErrorID, gbk2utf8(pRspInfo->ErrorMsg));
+    return;
+  }
+  if (pTrade == nullptr) {
+    SPDLOG_ERROR("CThostFtdcTradeField is nullptr");
+    return;
+  }
+
+  auto writer = get_history_writer(nRequestID);
+  HistoryTrade &history_trade = writer->open_data<HistoryTrade>(now());
+  from_ctp(*pTrade, history_trade);
+  history_trade.trade_id = writer->current_frame_uid();
+  strcpy(history_trade.trading_day, trading_day_.c_str());
+  strcpy(history_trade.account_id, this->get_account_id().c_str());
+  writer->close_data();
 }
 
 } // namespace kungfu::wingchun::ctp

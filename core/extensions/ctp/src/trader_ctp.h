@@ -38,9 +38,9 @@ public:
 
   bool cancel_order(const event_ptr &event) override;
 
-  bool req_history_order(const event_ptr &event) override { return true; };
+  bool req_history_order(const event_ptr &event) override;
 
-  bool req_history_trade(const event_ptr &event) override { return true; };
+  bool req_history_trade(const event_ptr &event) override;
 
   virtual void OnFrontConnected();
 
@@ -82,6 +82,13 @@ public:
   virtual void OnRspQryInstrumentCommissionRate(CThostFtdcInstrumentCommissionRateField *pInstrumentCommissionRate,
                                                 CThostFtdcRspInfoField *pRspInfo, int nRequestID, bool bIsLast);
 
+  ///请求查询报单响应
+  void OnRspQryOrder(CThostFtdcOrderField *pOrder, CThostFtdcRspInfoField *pRspInfo, int nRequestID,
+                     bool bIsLast) override;
+  ///请求查询成交响应
+  void OnRspQryTrade(CThostFtdcTradeField *pTrade, CThostFtdcRspInfoField *pRspInfo, int nRequestID,
+                     bool bIsLast) override;
+
 protected:
   void on_start() override;
 
@@ -102,6 +109,7 @@ private:
   std::unordered_map<uint64_t, uint64_t> inbound_actions_;
   std::unordered_map<uint64_t, std::string> outbound_orders_;
   std::unordered_map<uint64_t, std::shared_ptr<CThostFtdcTradeField>> map_trades_;
+  std::unordered_map<uint64_t, uint64_t> map_request_location_;
 
   PositionMap long_position_map_;
   PositionMap short_position_map_;
@@ -140,6 +148,8 @@ private:
   void record_instruments_stored_trading_day();
 
   void req_commission();
+
+  yijinjing::journal::writer_ptr get_history_writer(uint64_t request_id);
 };
 } // namespace kungfu::wingchun::ctp
 #endif // KUNGFU_CTP_EXT_TRADER_H

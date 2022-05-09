@@ -36,9 +36,9 @@ public:
 
   bool req_account() override;
 
-  bool req_history_order(const event_ptr &event) override { return true; };
+  bool req_history_order(const event_ptr &event) override;
 
-  bool req_history_trade(const event_ptr &event) override { return true; };
+  bool req_history_trade(const event_ptr &event) override;
 
   ///当客户端的某个连接与交易后台通信连接断开时，该方法被调用。
   ///@param reason 错误原因，请与错误代码表对应
@@ -86,7 +86,7 @@ public:
   ///@remark
   ///由于支持分时段查询，一个查询请求可能对应多个响应，需要快速返回，否则会堵塞后续消息，当堵塞严重时，会触发断线
   void OnQueryOrder(XTPQueryOrderRsp *order_info, XTPRI *error_info, int request_id, bool is_last,
-                    uint64_t session_id) override{};
+                    uint64_t session_id) override;
 
   ///请求查询成交响应
   ///@param trade_info 查询到的一个成交回报
@@ -98,7 +98,7 @@ public:
   ///@remark
   ///由于支持分时段查询，一个查询请求可能对应多个响应，需要快速返回，否则会堵塞后续消息，当堵塞严重时，会触发断线
   void OnQueryTrade(XTPQueryTradeRsp *trade_info, XTPRI *error_info, int request_id, bool is_last,
-                    uint64_t session_id) override{};
+                    uint64_t session_id) override;
 
   ///请求查询投资者持仓响应
   ///@param position 查询到的一只股票的持仓情况
@@ -210,6 +210,9 @@ private:
   std::string trading_day_;
   std::unordered_map<uint64_t, uint64_t> inbound_orders_;
   std::unordered_map<uint64_t, uint64_t> outbound_orders_;
+  std::unordered_map<uint64_t, uint64_t> map_request_location_;
+
+  yijinjing::journal::writer_ptr get_history_writer(uint64_t request_id);
 };
 } // namespace kungfu::wingchun::xtp
 #endif // KUNGFU_XTP_EXT_TRADER_H

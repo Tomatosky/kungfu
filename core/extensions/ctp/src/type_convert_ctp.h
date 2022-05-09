@@ -288,6 +288,23 @@ inline void from_ctp(const CThostFtdcOrderField &ori, Order &des) {
   des.volume_traded = ori.VolumeTraded;
 }
 
+inline void from_ctp(const CThostFtdcOrderField &ori, HistoryOrder &des) {
+  strcpy(des.instrument_id, ori.InstrumentID);
+  strcpy(des.exchange_id, ori.ExchangeID);
+  strcpy(des.account_id, ori.InvestorID);
+  des.instrument_type = InstrumentType::Future;
+  from_ctp_comb_offset(ori.CombOffsetFlag, des.offset);
+  from_ctp_order_status(ori.OrderStatus, ori.OrderSubmitStatus, des.status);
+  from_ctp_direction(ori.Direction, des.side);
+  from_ctp_price_type(ori.OrderPriceType, ori.VolumeCondition, ori.TimeCondition, des.price_type);
+  des.limit_price = ori.LimitPrice;
+  SPDLOG_DEBUG("ON_RTN_ORDER tradingDay {}", ori.TradingDay);
+  strcpy(des.trading_day, ori.TradingDay);
+  des.volume = ori.VolumeTotalOriginal;
+  des.volume_left = ori.VolumeTotal;
+  des.volume_traded = ori.VolumeTraded;
+}
+
 inline void from_ctp(const CThostFtdcOrderField &ori, OrderInput &des) {
   strcpy(des.instrument_id, ori.InstrumentID);
   strcpy(des.exchange_id, ori.ExchangeID);
@@ -301,6 +318,20 @@ inline void from_ctp(const CThostFtdcOrderField &ori, OrderInput &des) {
 }
 
 inline void from_ctp(const CThostFtdcTradeField &ori, Trade &des) {
+  strcpy(des.instrument_id, ori.InstrumentID);
+  strcpy(des.exchange_id, ori.ExchangeID);
+  strcpy(des.account_id, ori.InvestorID);
+  des.instrument_type = InstrumentType::Future;
+  des.price = ori.Price;
+  des.volume = ori.Volume;
+  from_ctp_offset(ori.OffsetFlag, des.offset);
+  from_ctp_direction(ori.Direction, des.side);
+  const auto today = kungfu::yijinjing::time::strfnow("%Y%m%d");
+  SPDLOG_DEBUG("ON_RTN_TRADE today {}, tradeDate {}, tradeTime {}", today, ori.TradeDate, ori.TradeTime);
+  des.trade_time = nsec_from_ctp_time(today.c_str(), ori.TradeTime);
+}
+
+inline void from_ctp(const CThostFtdcTradeField &ori, HistoryTrade &des) {
   strcpy(des.instrument_id, ori.InstrumentID);
   strcpy(des.exchange_id, ori.ExchangeID);
   strcpy(des.account_id, ori.InvestorID);
