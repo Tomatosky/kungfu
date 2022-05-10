@@ -250,7 +250,9 @@ void TraderXTP::OnQueryOrder(XTPQueryOrderRsp *order_info, XTPRI *error_info, in
   HistoryOrder &history_order = writer->open_data<HistoryOrder>();
   from_xtp(*order_info, history_order);
   history_order.order_id = writer->current_frame_uid();
-  history_order.update_time = time::now_in_nano();
+  history_order.is_last = is_last;
+  history_order.insert_time = time::now_in_nano();
+  history_order.update_time = history_order.insert_time;
   writer->close_data();
 }
 
@@ -268,6 +270,7 @@ void TraderXTP::OnQueryTrade(XTPQueryTradeRsp *trade_info, XTPRI *error_info, in
   HistoryTrade &history_trade = writer->open_data<HistoryTrade>(now());
   from_xtp(*trade_info, history_trade);
   history_trade.trade_id = writer->current_frame_uid();
+  history_trade.is_last = is_last;
   history_trade.trade_time = time::now_in_nano();
   strcpy(history_trade.trading_day, trading_day_.c_str());
   strcpy(history_trade.account_id, this->get_account_id().c_str());

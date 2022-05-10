@@ -416,7 +416,7 @@ KF_DEFINE_PACK_TYPE(                                  //
     Order, 203, PK(order_id), TIMESTAMP(insert_time), //
     (uint64_t, parent_id),                            //母订单ID
     (uint64_t, order_id),                             //订单ID
-//    (uint64_t, external_id),                          //柜台订单ID
+    //    (uint64_t, external_id),                          //柜台订单ID
 
     (int64_t, insert_time), //订单写入时间
     (int64_t, update_time), //订单更新时间
@@ -459,7 +459,7 @@ KF_DEFINE_PACK_TYPE(                                         //
     HistoryOrder, 212, PK(order_id), TIMESTAMP(insert_time), //
     (uint64_t, parent_id),                                   //母订单ID
     (uint64_t, order_id),                                    //订单ID
-//    (uint64_t, external_id),                                 //柜台订单ID
+    //    (uint64_t, external_id),                                 //柜台订单ID
 
     (int64_t, insert_time), //订单写入时间
     (int64_t, update_time), //订单更新时间
@@ -471,7 +471,8 @@ KF_DEFINE_PACK_TYPE(                                         //
 
     (kungfu::array<char, SOURCE_ID_LEN>, source_id),   //柜台ID
     (kungfu::array<char, ACCOUNT_ID_LEN>, account_id), //账号ID
-    (kungfu::array<char, CLIENT_ID_LEN>, client_id),   // Client ID
+    (bool, is_last),                                   //是否为本次查询的最后一条记录
+    //    (kungfu::array<char, CLIENT_ID_LEN>, client_id),   // Client ID
 
     (InstrumentType, instrument_type), //合约类型
 
@@ -542,7 +543,8 @@ KF_DEFINE_PACK_TYPE(                                        //
     (kungfu::array<char, EXCHANGE_ID_LEN>, exchange_id),     //交易所ID
     (kungfu::array<char, SOURCE_ID_LEN>, source_id),         //柜台ID
     (kungfu::array<char, ACCOUNT_ID_LEN>, account_id),       //账号ID
-    (kungfu::array<char, CLIENT_ID_LEN>, client_id),         // Client ID
+    (bool, is_last),                                         //是否为本次查询的最后一条记录
+    //    (kungfu::array<char, CLIENT_ID_LEN>, client_id),         // Client ID
 
     (InstrumentType, instrument_type), //合约类型
 

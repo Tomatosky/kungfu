@@ -764,6 +764,7 @@ void TraderCTP::OnRspQryOrder(CThostFtdcOrderField *pOrder, CThostFtdcRspInfoFie
   HistoryOrder &history_order = writer->open_data<HistoryOrder>(now());
   from_ctp(*pOrder, history_order);
   history_order.order_id = writer->current_frame_uid();
+  history_order.is_last = bIsLast;
   strcpy(history_order.trading_day, trading_day_.c_str());
   strcpy(history_order.account_id, this->get_account_id().c_str());
   writer->close_data();
@@ -784,6 +785,7 @@ void TraderCTP::OnRspQryTrade(CThostFtdcTradeField *pTrade, CThostFtdcRspInfoFie
   HistoryTrade &history_trade = writer->open_data<HistoryTrade>(now());
   from_ctp(*pTrade, history_trade);
   history_trade.trade_id = writer->current_frame_uid();
+  history_trade.is_last = bIsLast;
   strcpy(history_trade.trading_day, trading_day_.c_str());
   strcpy(history_trade.account_id, this->get_account_id().c_str());
   writer->close_data();
