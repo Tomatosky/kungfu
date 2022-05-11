@@ -350,7 +350,7 @@ void bind(pybind11::module &&m) {
       .def("on_order", &strategy::Strategy::on_order)
       .def("on_trade", &strategy::Strategy::on_trade)
       .def("on_history_order", &strategy::Strategy::on_history_order)
-      .def("on_history_trade", &strategy::Strategy::on_history_order);
+      .def("on_history_trade", &strategy::Strategy::on_history_trade);
 
   py::class_<BarGenerator, kungfu::yijinjing::practice::apprentice, std::shared_ptr<BarGenerator>>(m, "BarGenerator")
       .def(py::init<yijinjing::data::locator_ptr, longfist::enums::mode, bool, std::string &>())
