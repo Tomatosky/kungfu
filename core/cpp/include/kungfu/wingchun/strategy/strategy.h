@@ -68,6 +68,14 @@ public:
   //历史订单成交回报回调
   //@param history_order     历史订单成交数据
   virtual void on_history_trade(Context_ptr &context, const longfist::types::HistoryTrade &history_trade){};
+
+  //断开回调
+  //@param deregister     断开数据
+  virtual void on_deregister(Context_ptr &context, const longfist::types::Deregister &deregister){};
+
+  //客户端断开回调
+  //@param brokerStateUpdate     断开数据
+  virtual void on_disconnected(Context_ptr &context){};
 };
 
 DECLARE_PTR(Strategy)
