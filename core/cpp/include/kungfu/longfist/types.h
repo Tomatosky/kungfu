@@ -219,7 +219,7 @@ KF_DEFINE_PACK_TYPE(                                              //
 
     (double, long_margin_ratio),  //多头保证金率
     (double, short_margin_ratio), //空头保证金率
-    (double, discount_ratio)      //担保品折扣率
+    (double, conversion_rate)      //担保品折扣率
 );
 
 KF_DEFINE_PACK_TYPE(                                         //
@@ -670,6 +670,7 @@ KF_DEFINE_PACK_TYPE(                               //
     (double, margin_interest),     //融资融券利息
     (double, margin_fee),          //融资融券费用
     (double, settlement),          //融资融券清算资金
+    (double, commission_ratio),    //手续费费率
 
     (double, credit),          //信贷额度
     (double, collateral_ratio) //担保比例
