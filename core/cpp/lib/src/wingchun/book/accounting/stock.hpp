@@ -625,7 +625,7 @@ protected:
     asset_margin.short_margin -= released_margin;
     asset_margin.short_market_value -= repay_debt_mrkt_value;
     asset_margin.short_cash -= trade_amt;
-    asset_margin.total_asset -= trade_amt - (commission + tax);
+    asset_margin.total_asset -= trade_amt + (commission + tax);
     calculate_collateral_ratio(asset_margin);
   }
 
@@ -663,8 +663,8 @@ protected:
     //auto &asset_margin = book->asset_margin;
     if (asset_margin.total_asset) { // asset_margin.avail_margin || asset_margin.margin
       auto cd_mr = get_instr_conversion_margin_rate(book, position);
-      double avail_margin_changes =
-          (cash_delivery - trade_amt * cd_mr.conversion_rate) + repay_cash_debt * cd_mr.long_margin_ratio;
+      double avail_margin_changes = (cash_delivery - (trade_amt - repay_cash_debt) * cd_mr.conversion_rate) +
+                                    repay_cash_debt * cd_mr.long_margin_ratio;
       SPDLOG_TRACE("cash_delivery {} trade_amt {} avail_margin_changes {} repay_cash_debt {} ", cash_delivery, trade_amt,
                   avail_margin_changes, repay_cash_debt);
 
