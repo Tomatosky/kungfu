@@ -269,9 +269,10 @@ inline bool is_open(longfist::enums::InstrumentType instrument_type, longfist::e
 
 inline bool is_shortable(longfist::enums::InstrumentType instrument_type) {
   using namespace longfist::enums;
-  return not(instrument_type == InstrumentType::Bond or instrument_type == InstrumentType::StockOption or
-             instrument_type == InstrumentType::TechStock or instrument_type == InstrumentType::Index or
-             instrument_type == InstrumentType::Repo);
+  return (instrument_type == InstrumentType::Stock or instrument_type == InstrumentType::Future or
+          instrument_type == InstrumentType::TechStock or instrument_type == InstrumentType::Fund or
+          instrument_type == InstrumentType::StockOption or
+          instrument_type == InstrumentType::Crypto or instrument_type == InstrumentType::CryptoFuture);
 }
 
 inline longfist::enums::Direction get_direction(longfist::enums::InstrumentType instrument_type,
@@ -295,8 +296,9 @@ inline longfist::enums::Direction get_direction(longfist::enums::InstrumentType 
       (offset == Offset::Close or offset == Offset::CloseToday or offset == Offset::CloseYesterday)) {
     return Direction::Short;
   }
-  if (instrument_type != InstrumentType::Stock) 
-    throw wingchun_error(fmt::format("invalid direction args {} {} {}", (int)instrument_type, (int)side, (int)offset));
+  if (not (instrument_type == InstrumentType::Stock or instrument_type == InstrumentType::TechStock or
+      instrument_type == InstrumentType::Fund)) 
+    throw wingchun_error(fmt::format("get_direction: invalid direction args {} {} {}", (int)instrument_type, (int)side, (int)offset));
 
   if (side == Side::MarginTrade) {
     return Direction::Long;
@@ -307,7 +309,7 @@ inline longfist::enums::Direction get_direction(longfist::enums::InstrumentType 
   } else if (side == Side::RepayStock) {
     return Direction::Short;
   }
-  throw wingchun_error(fmt::format("invalid direction args {} {} {}", (int)instrument_type, (int)side, (int)offset));
+  throw wingchun_error(fmt::format("get_direction error: invalid direction args {} {} {}", (int)instrument_type, (int)side, (int)offset));
 }
 
 inline uint32_t hash_instrument(const char *exchange_id, const char *instrument_id) {
