@@ -212,14 +212,15 @@ KF_DEFINE_PACK_TYPE(                                              //
     (kungfu::array<char, DATE_LEN>, create_date), //创建日
     (kungfu::array<char, DATE_LEN>, expire_date), //到期日
 
-    (int, delivery_year),  //交割年份
-    (int, delivery_month), //交割月
+    (int, delivery_year),         //交割年份
+    (int, delivery_month),        //交割月
 
-    (bool, is_trading), //当前是否交易
+    (bool, is_trading),           //当前是否交易
+    (bool, force_update_ratio),   //两融柜台折算率及保证金率
 
     (double, long_margin_ratio),  //多头保证金率
     (double, short_margin_ratio), //空头保证金率
-    (double, conversion_rate)      //担保品折扣率
+    (double, conversion_rate)     //担保品折扣率
 );
 
 KF_DEFINE_PACK_TYPE(                                         //
@@ -663,11 +664,13 @@ KF_DEFINE_PACK_TYPE(                               //
 
     (double, cash_debt),  //融资负债
     (double, short_cash), //融券卖出金额
+    (kungfu::array<char, 1500>, margin_instruments),
+    (kungfu::array<char, 420>, exchanges),
+    (kungfu::array<double, 200>, debts),
 
     (double, short_market_value),  //融券卖出证券市值
     (double, margin_market_value), //融资买入证券市值
     (double, margin_interest),     //融资融券利息
-    (double, margin_fee),          //融资融券费用
     (double, settlement),          //融资融券清算资金
     (double, commission_ratio),    //手续费费率
 

@@ -141,7 +141,27 @@ Book_ptr Bookkeeper::make_book(uint32_t location_uid) {
 }
 
 void Bookkeeper::update_instrument(const longfist::types::Instrument &instrument) {
-  instruments_.emplace(hash_instrument(instrument.exchange_id, instrument.instrument_id), instrument);
+  auto pair = instruments_.try_emplace(hash_instrument(instrument.exchange_id, instrument.instrument_id), instrument);
+  if (not pair.second) {
+    auto &inserted_inst = pair.first->second;
+    if (instrument.force_update_ratio) {
+      inserted_inst.long_margin_ratio = instrument.long_margin_ratio;
+      inserted_inst.short_margin_ratio = instrument.short_margin_ratio;
+      inserted_inst.conversion_rate = instrument.conversion_rate;
+    } else {
+      if (inserted_inst.force_update_ratio) {
+        double long_margin_ratio = inserted_inst.long_margin_ratio;
+        double short_margin_ratio = inserted_inst.short_margin_ratio;
+        double conversion_rate = inserted_inst.conversion_rate;
+        memcpy(&inserted_inst, &instrument, sizeof(longfist::types::Instrument));
+        inserted_inst.long_margin_ratio = long_margin_ratio;
+        inserted_inst.short_margin_ratio = short_margin_ratio;
+        inserted_inst.conversion_rate = conversion_rate;
+      } else {
+        memcpy(&inserted_inst, &instrument, sizeof(longfist::types::Instrument));
+      }
+    }
+  }
 }
 
 void Bookkeeper::update_book(const event_ptr &event, const InstrumentKey &instrument_key) {
