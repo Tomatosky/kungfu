@@ -650,7 +650,7 @@ void on_deregister(Context_ptr &context, const kungfu::longfist::types::Deregist
       clazz_deregister, "<init>",
       "(ILcom/kungfu/Category;Lcom/kungfu/Mode;Ljava/lang/String;Ljava/lang/String;)V");
   jobject obj_deregister =
-      env_->NewObject(clazz_deregister, deregister_constructor, location_uid, obj_mode, group, name);
+      env_->NewObject(clazz_deregister, deregister_constructor, location_uid, obj_category, obj_mode, group, name);
 
   env_->CallVoidMethod(r_, method_on_deregister, obj_context, obj_deregister);
 }
