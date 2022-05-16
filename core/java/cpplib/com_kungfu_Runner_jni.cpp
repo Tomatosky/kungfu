@@ -313,6 +313,27 @@ std::string str_from_mode(kungfu::longfist::enums::mode c) {
   }
 }
 
+std::string str_from_brokerstate(kungfu::longfist::enums::BrokerState c) {
+  switch (c) {
+  case BrokerState::Pending:
+    return "Pending";
+  case BrokerState::Idle:
+    return "Idle";
+  case BrokerState::DisConnected:
+    return "DisConnected";
+  case BrokerState::Connected:
+    return "Connected";
+  case BrokerState::LoggedIn:
+    return "LoggedIn";
+  case BrokerState::LoginFailed:
+    return "LoginFailed";
+  case BrokerState::Ready:
+    return "Ready";
+  default:
+    return "DisConnected";
+  }
+}
+
 void on_order(Context_ptr &context, const kungfu::longfist::types::Order &order) override {
   jclass thisClass = env_->GetObjectClass(r_);
   jmethodID method_on_order = env_->GetMethodID(thisClass, "on_order", "(Lcom/kungfu/Context;Lcom/kungfu/Order;)V");
@@ -656,7 +677,52 @@ void on_deregister(Context_ptr &context, const kungfu::longfist::types::Deregist
 }
 
 
-void on_broker_state_change(Context_ptr &context, const kungfu::longfist::types::BrokerStateUpdate &brokerStateUpdate, const kungfu::yijinjing::data::location_ptr&){}
+void on_broker_state_change(Context_ptr &context, const kungfu::longfist::types::BrokerStateUpdate &brokerStateUpdate, const kungfu::yijinjing::data::location_ptr& location){
+  jclass thisClass = env_->GetObjectClass(r_);
+  jmethodID method_on_broker_state_change = env_->GetMethodID(thisClass, "on_broker_state_change", "(Lcom/kungfu/Context;Lcom/kungfu/BrokerStateUpdate;Lcom/kungfu/Location;)V");
+  if (NULL == method_on_broker_state_change)
+    return;
+  jclass c = env_->FindClass("com/kungfu/Context");
+  jmethodID context_constructor = env_->GetMethodID(c, "<init>", "(J)V");
+  jobject obj_context = env_->NewObject(c, context_constructor, (jlong)(context.get()));
+
+
+  jclass clazz_brokerstate = env_->FindClass("com/kungfu/BrokerState");
+  jfieldID fid_brokerstate = env_->GetStaticFieldID(clazz_brokerstate, str_from_brokerstate(brokerStateUpdate.state).c_str(), "Lcom/kungfu/BrokerState;");
+  jobject obj_brokerstate = env_->GetStaticObjectField(clazz_brokerstate, fid_brokerstate);
+
+  jclass clazz_brokerstateupdate = env_->FindClass("com/kungfu/BrokerStateUpdate");
+  jmethodID brokerstateupdate_constructor = env_->GetMethodID(
+      clazz_brokerstateupdate, "<init>",
+      "(Lcom/kungfu/BrokerState;)V");
+  jobject obj_brokerstateupdate =
+      env_->NewObject(clazz_brokerstateupdate, brokerstateupdate_constructor, obj_brokerstate);
+
+
+
+  jint uid = (jint)(location->uid);
+
+  jstring uname = env_->NewStringUTF(location->uname.c_str());
+  jstring group = env_->NewStringUTF(location->group.c_str());
+  jstring name = env_->NewStringUTF(location->name.c_str());
+
+  jclass clazz_category = env_->FindClass("com/kungfu/Category");
+  jfieldID fid_category = env_->GetStaticFieldID(clazz_category, str_from_category(location->category).c_str(), "Lcom/kungfu/Category;");
+  jobject obj_category = env_->GetStaticObjectField(clazz_category, fid_category);
+  
+  jclass clazz_mode = env_->FindClass("com/kungfu/Mode");
+  jfieldID fid_mode = env_->GetStaticFieldID(clazz_mode, str_from_mode(location->mode).c_str(), "Lcom/kungfu/Mode;");
+  jobject obj_mode = env_->GetStaticObjectField(clazz_mode, fid_mode);
+  
+  jclass clazz_location = env_->FindClass("com/kungfu/Location");
+  jmethodID location_constructor = env_->GetMethodID(
+      clazz_location, "<init>",
+      "(ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/kungfu/Category;Lcom/kungfu/Mode;)V");
+  jobject obj_location =
+      env_->NewObject(clazz_location, location_constructor, uid, uname, group, name, obj_category, obj_mode);
+
+  env_->CallVoidMethod(r_, method_on_broker_state_change, obj_context, obj_brokerstateupdate, obj_location);
+}
 
 JNIEnv * env_;
 jobject r_;
