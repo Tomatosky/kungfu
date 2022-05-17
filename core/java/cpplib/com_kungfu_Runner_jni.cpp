@@ -24,9 +24,21 @@ public:
     jclass c = env_->FindClass("com/kungfu/Context");
     jmethodID ctor = env_->GetMethodID(c, "<init>", "(J)V");
     jobject obj_context = env_->NewObject(c, ctor, (jlong)(context.get()));
-    std::cout << "pre_start7" << std::endl;
 
     env_->CallVoidMethod(r_, method_pre_start, obj_context);
+
+  }
+
+void post_start(Context_ptr &context) override {
+    jclass thisClass = env_->GetObjectClass(r_);
+    jmethodID method_post_start = env_->GetMethodID(thisClass, "post_start", "(Lcom/kungfu/Context;)V");
+    if (NULL == method_post_start)
+        return;
+    jclass c = env_->FindClass("com/kungfu/Context");
+    jmethodID ctor = env_->GetMethodID(c, "<init>", "(J)V");
+    jobject obj_context = env_->NewObject(c, ctor, (jlong)(context.get()));
+
+    env_->CallVoidMethod(r_, method_post_start, obj_context);
 
   }
 
