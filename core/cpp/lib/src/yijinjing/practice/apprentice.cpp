@@ -219,7 +219,10 @@ void apprentice::checkin() {
 }
 
 void apprentice::expect_start() {
+  SPDLOG_INFO("expect_start start");
+  SPDLOG_INFO("reader join start {} {} {}", master_home_location_->uname, master_home_location_->uid, begin_time_);
   reader_->join(master_home_location_, 0, begin_time_);
+  SPDLOG_INFO("reader join end");
   events_ | is(RequestStart::tag) | first() |
       $(
           [&](const event_ptr &event) {
