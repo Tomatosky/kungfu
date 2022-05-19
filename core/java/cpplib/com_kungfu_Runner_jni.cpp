@@ -748,17 +748,25 @@ Strategy_ptr demo_strategy;
  */
 extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Runner_init(JNIEnv *env, jobject self, jobject obj) {
 }
-
+std::string jstring2string(JNIEnv *env, jstring jStr){
+    const char *cstr = env->GetStringUTFChars(jStr, NULL);
+    std::string str = std::string(cstr);
+    env->ReleaseStringUTFChars(jStr, cstr);
+    return str;
+}
 /*
  * Class:     com_kungfu_Runner
  * Method:    run
  * Signature: ()V
  */
-extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Runner_run(JNIEnv *env, jobject self) {
+extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Runner_run(JNIEnv *env, jobject self, jstring group, jstring name) {
   if (!runner_) {
-    runner_ = std::make_shared<Runner>(std::make_shared<locator>(), "default", "trademesh", mode::LIVE, false);
+    std::string g = jstring2string(env, group);
+    std::string n = jstring2string(env, name);
+    runner_ = std::make_shared<Runner>(std::make_shared<locator>(), g.c_str(), n.c_str(), mode::LIVE, false);
     demo_strategy = std::make_shared<DemoStrategy>(env, self);
     runner_->add_strategy(demo_strategy);
+    std::cout << "runner is ready to run..." << std::endl;
     runner_->run();
   } else {
     jclass exp = env->FindClass("java/lang/RuntimeException");

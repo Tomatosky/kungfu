@@ -18,10 +18,10 @@ JNIEXPORT void JNICALL Java_com_kungfu_Runner_init
 /*
  * Class:     com_kungfu_Runner
  * Method:    run
- * Signature: ()V
+ * Signature: (Ljava/lang/String;Ljava/lang/String;)V
  */
 JNIEXPORT void JNICALL Java_com_kungfu_Runner_run
-  (JNIEnv *, jobject);
+  (JNIEnv *, jobject, jstring, jstring);
 
 #ifdef __cplusplus
 }
