@@ -57,7 +57,8 @@ class TraderSim(wc.Trader):
         wc.Trader.__init__(self, low_latency, locator, "sim", account_id)
         config = json.loads(json_config)
         self.match_mode = config.get("match_mode", MatchMode.Custom)
-        self.logger = create_logger("sim_td", "info", yjj.location(lf.enums.mode.LIVE, lf.enums.category.TD, "sim", account_id, locator))
+        self.logger = create_logger("sim_td", "info",
+                                    yjj.location(lf.enums.mode.LIVE, lf.enums.category.TD, "sim", account_id, locator))
 
         self.ctx = DottedDict()
         self.ctx.orders = {}
@@ -72,6 +73,8 @@ class TraderSim(wc.Trader):
             self.ctx.cancel_order = getattr(impl, "cancel_order", lambda ctx, event: False)
             self.ctx.req_account = getattr(impl, "req_account", lambda ctx: False)
             self.ctx.req_position = getattr(impl, "req_position", lambda ctx: False)
+            self.ctx.req_history_order = getattr(impl, "req_history_order", lambda ctx: False)
+            self.ctx.req_history_trade = getattr(impl, "req_history_trade", lambda ctx: False)
 
     def on_start(self):
         wc.Trader.on_start(self)
@@ -155,4 +158,14 @@ class TraderSim(wc.Trader):
     def req_position(self):
         if self.match_mode == MatchMode.Custom:
             return self.ctx.req_position(self.ctx)
+        return False
+
+    def req_history_order(self):
+        if self.match_mode == MatchMode.Custom:
+            return self.ctx.req_history_order(self.ctx)
+        return False
+
+    def req_history_trade(self):
+        if self.match_mode == MatchMode.Custom:
+            return self.ctx.req_history_trade(self.ctx)
         return False
