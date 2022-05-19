@@ -59,4 +59,8 @@ void Trader::clean_orders() {
     }
   }
 }
+
+bool Trader::req_history_order(const event_ptr &event) { return false; }
+
+bool Trader::req_history_trade(const event_ptr &event) { return false; }
 } // namespace kungfu::wingchun::broker
