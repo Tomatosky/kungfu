@@ -751,7 +751,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Runner_init(JNIEnv *env, jobje
 std::string jstring2string(JNIEnv *env, jstring jStr){
     const char *cstr = env->GetStringUTFChars(jStr, NULL);
     std::string str = std::string(cstr);
-    env->ReleaseStringUTFChars(jStr, str);
+    env->ReleaseStringUTFChars(jStr, cstr);
     return str;
 }
 /*
