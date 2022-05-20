@@ -103,7 +103,6 @@ void master::register_app(const event_ptr &event) {
   write_profile_data(event->gen_time(), app_cmd_writer);
 
   app_cache_shift_[app_location->uid] >> app_cmd_writer;
-
   app_cmd_writer->mark(start_time_, RequestStart::tag);
 
   write_registries(event->gen_time(), app_cmd_writer);
@@ -281,6 +280,7 @@ void master::feed(const event_ptr &event) {
 void master::pong(const event_ptr &event) { get_io_device()->get_publisher()->publish("{}"); }
 
 void master::on_cache_reset(const event_ptr &event) {
+  SPDLOG_INFO("on_cache_reset {} {} {} {}", event->source(), get_location_uname(event->source()), event->dest(), get_location_uname(event->dest()));
   auto msg_type = event->data<CacheReset>().msg_type;
   boost::hana::for_each(StateDataTypes, [&](auto it) {
     using DataType = typename decltype(+boost::hana::second(it))::type;

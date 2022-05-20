@@ -86,7 +86,7 @@ void Bookkeeper::restore(const cache::bank &state_bank) {
     auto book = get_book(position.holder_uid);
     auto is_long = position.direction == longfist::enums::Direction::Long;
     auto &positions = is_long ? book->long_positions : book->short_positions;
-    positions[hash_instrument(position.exchange_id, position.instrument_id)] = position;
+    positions.insert_or_assign(hash_instrument(position.exchange_id, position.instrument_id), position);
   }
   for (auto &pair : state_bank[boost::hana::type_c<Asset>]) {
     auto &state = pair.second;

@@ -30,9 +30,8 @@ protected:
 private:
   broker::AutoClient broker_client_;
   book::Bookkeeper bookkeeper_;
+  book::BookMap tmp_books_;
   std::unordered_map<uint64_t, state<longfist::types::OrderStat>> order_stats_ = {};
-  std::unordered_map<uint64_t, std::set<uint32_t>> strategy_subscribed_ = {}; // value为hash_instrument
-  book::BookMap strategy_book_backup_ = {};
 
   void refresh_books();
 
@@ -50,6 +49,10 @@ private:
 
   void inspect_channel(int64_t trigger_time, const longfist::types::Channel &channel);
 
+  void keep_positions(int64_t trigger_time, uint32_t strategy_uid);
+
+  void rebuild_positions(int64_t trigger_time, uint32_t strategy_uid);
+
   void mirror_positions(int64_t trigger_time, uint32_t strategy_uid);
 
   void write_book_reset(int64_t trigger_time, uint32_t book_uid);
@@ -59,12 +62,6 @@ private:
   void write_positions(int64_t trigger_time, uint32_t dest, book::PositionMap &positions);
 
   void write_asset_snapshots(int32_t msg_type);
-
-  void backup_strategy_book(const event_ptr &event);
-
-  void store_strategy_subscribed(const event_ptr &event);
-
-  void reset_strategy_position(const event_ptr &event);
 
   template <typename TradingData>
   void write_book(int64_t trigger_time, uint32_t account_uid, uint32_t strategy_uid, const TradingData &data) {

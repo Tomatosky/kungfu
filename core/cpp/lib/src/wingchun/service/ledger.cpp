@@ -35,14 +35,13 @@ void Ledger::on_start() {
   bookkeeper_.on_start(events_);
   bookkeeper_.guard_positions();
 
-  events_ | is(InstrumentKey::tag) | $$(store_strategy_subscribed(event));
-  events_ | is(BackupStrategyBookRequest::tag) | $$(backup_strategy_book(event));
   events_ | is(OrderInput::tag) | $$(update_order_stat(event, event->data<OrderInput>()));
   events_ | is(Order::tag) | $$(update_order_stat(event, event->data<Order>()));
   events_ | is(Trade::tag) | $$(update_order_stat(event, event->data<Trade>()));
   events_ | is(Channel::tag) | $$(inspect_channel(event->gen_time(), event->data<Channel>()));
+  events_ | is(KeepPositionsRequest::tag) | $$(keep_positions(event->gen_time(), event->source()));
+  events_ | is(RebuildPositionsRequest::tag) | $$(rebuild_positions(event->gen_time(), event->source()));
   events_ | is(MirrorPositionsRequest::tag) | $$(mirror_positions(event->gen_time(), event->source()));
-  events_ | is(ResetStrategyPositionRequest::tag) | $$(reset_strategy_position(event));
   events_ | is(PositionRequest::tag) | $$(write_strategy_data(event->gen_time(), event->source()));
   events_ | is(AssetRequest::tag) | $$(write_book_reset(event->gen_time(), event->source()));
   events_ | is(PositionEnd::tag) | $$(update_account_book(event->gen_time(), event->data<PositionEnd>().holder_uid););
@@ -148,6 +147,36 @@ void Ledger::inspect_channel(int64_t trigger_time, const Channel &channel) {
   }
 }
 
+void Ledger::keep_positions(int64_t trigger_time, uint32_t strategy_uid) {
+  if (bookkeeper_.has_book(strategy_uid)) {
+    auto strategy_book = bookkeeper_.get_book(strategy_uid);
+    tmp_books_.insert_or_assign(strategy_uid, strategy_book);
+    bookkeeper_.drop_book(strategy_uid);
+  }
+}
+
+
+void Ledger::rebuild_positions(int64_t trigger_time, uint32_t strategy_uid) {
+  auto strategy_book = bookkeeper_.get_book(strategy_uid);
+  auto rebuild_book = [&](auto &positions) {
+    for (const auto &pair : positions) {
+      auto &position = pair.second;
+      if (strategy_book->has_position_for(position)) {
+        auto &strategy_position = strategy_book->get_position_for(position.direction, position);
+        longfist::copy(strategy_position, position);
+        strategy_position.update_time = trigger_time;
+      }
+    }
+  };
+
+  if (tmp_books_.find(strategy_uid) != tmp_books_.end()) {
+    auto tmp_book = tmp_books_.at(strategy_uid);
+    rebuild_book(tmp_book->long_positions);
+    rebuild_book(tmp_book->short_positions);
+  }
+  strategy_book->update(trigger_time);
+}
+
 void Ledger::mirror_positions(int64_t trigger_time, uint32_t strategy_uid) {
   auto strategy_book = bookkeeper_.get_book(strategy_uid);
 
@@ -225,8 +254,6 @@ void Ledger::write_book_reset(int64_t trigger_time, uint32_t book_uid) {
 void Ledger::write_strategy_data(int64_t trigger_time, uint32_t strategy_uid) {
   auto strategy_book = bookkeeper_.get_book(strategy_uid);
   auto writer = get_writer(strategy_uid);
-  writer->open_data<CacheReset>(trigger_time).msg_type = Position::tag;
-  writer->close_data();
   for (const auto &pair : bookkeeper_.get_books()) {
     auto &book = pair.second;
     auto &asset = book->asset;
@@ -266,38 +293,4 @@ void Ledger::write_asset_snapshots(int32_t msg_type) {
   }
 }
 
-void Ledger::store_strategy_subscribed(const event_ptr &event) {
-  auto &instrument_key = event->data<InstrumentKey>();
-  auto &key_set = strategy_subscribed_.try_emplace(event->source()).first->second;
-  key_set.emplace(instrument_key.key);
-}
-
-void Ledger::reset_strategy_position(const event_ptr &event) {
-  if (strategy_book_backup_.find(event->source()) == strategy_book_backup_.end()) {
-    SPDLOG_ERROR("book strategy : {} not in strategy_book_backup! Program execution sequence error!",
-                 get_location(event->source()));
-    return;
-  }
-  auto old_book = strategy_book_backup_.at(event->source());
-  auto new_book = bookkeeper_.get_book(event->source());
-  auto &request = event->data<ResetStrategyPositionRequest>();
-  auto &key_set = strategy_subscribed_.try_emplace(event->source()).first->second;
-  auto fun_reset_position = [&](book::PositionMap &position_map) {
-    for (auto &pair : position_map) {
-      auto &old_position = pair.second;
-      auto key = hash_instrument(old_position.exchange_id, old_position.instrument_id);
-      if (not request.is_book_held and key_set.find(key) == key_set.end()) {
-        continue;
-      }
-      auto &new_position = new_book->get_position_for(old_position.direction, old_position);
-      new_position = old_position;
-    }
-  };
-  fun_reset_position(old_book->long_positions);
-  fun_reset_position(old_book->short_positions);
-}
-
-void Ledger::backup_strategy_book(const event_ptr &event) {
-  strategy_book_backup_.insert_or_assign(event->source(), bookkeeper_.get_book(event->source()));
-}
 } // namespace kungfu::wingchun::service

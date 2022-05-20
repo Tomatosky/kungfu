@@ -75,9 +75,9 @@ public:
 
   bool req_account() override { PYBIND11_OVERLOAD_PURE(bool, Trader, req_account, ); }
 
-  bool req_history_order(const event_ptr &event) override { PYBIND11_OVERLOAD_PURE(bool, Trader, req_history_order, ); }
+  bool req_history_order(const event_ptr &event) override { PYBIND11_OVERLOAD(bool, Trader, req_history_order, event); }
 
-  bool req_history_trade(const event_ptr &event) override { PYBIND11_OVERLOAD_PURE(bool, Trader, req_history_trade, ); }
+  bool req_history_trade(const event_ptr &event) override { PYBIND11_OVERLOAD(bool, Trader, req_history_trade, event); }
 
   void on_start() override { PYBIND11_OVERLOAD(void, Trader, on_start, ); }
 };
@@ -350,7 +350,7 @@ void bind(pybind11::module &&m) {
       .def("on_order", &strategy::Strategy::on_order)
       .def("on_trade", &strategy::Strategy::on_trade)
       .def("on_history_order", &strategy::Strategy::on_history_order)
-      .def("on_history_trade", &strategy::Strategy::on_history_order);
+      .def("on_history_trade", &strategy::Strategy::on_history_trade);
 
   py::class_<BarGenerator, kungfu::yijinjing::practice::apprentice, std::shared_ptr<BarGenerator>>(m, "BarGenerator")
       .def(py::init<yijinjing::data::locator_ptr, longfist::enums::mode, bool, std::string &>())
