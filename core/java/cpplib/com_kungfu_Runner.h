@@ -17,6 +17,30 @@ JNIEXPORT void JNICALL Java_com_kungfu_Runner_init
 
 /*
  * Class:     com_kungfu_Runner
+ * Method:    setup
+ * Signature: ()V
+ */
+JNIEXPORT void JNICALL Java_com_kungfu_Runner_setup
+  (JNIEnv *, jobject);
+
+/*
+ * Class:     com_kungfu_Runner
+ * Method:    step
+ * Signature: ()V
+ */
+JNIEXPORT void JNICALL Java_com_kungfu_Runner_step
+  (JNIEnv *, jobject);
+
+/*
+ * Class:     com_kungfu_Runner
+ * Method:    add_strategy
+ * Signature: (Ljava/lang/String;Ljava/lang/String;)V
+ */
+JNIEXPORT void JNICALL Java_com_kungfu_Runner_add_1strategy
+  (JNIEnv *, jobject, jstring, jstring);
+
+/*
+ * Class:     com_kungfu_Runner
  * Method:    run
  * Signature: (Ljava/lang/String;Ljava/lang/String;)V
  */
