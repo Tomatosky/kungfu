@@ -269,8 +269,7 @@ inline bool is_open(longfist::enums::InstrumentType instrument_type, longfist::e
 
 inline bool is_shortable(longfist::enums::InstrumentType instrument_type) {
   using namespace longfist::enums;
-  return (instrument_type == InstrumentType::Stock or instrument_type == InstrumentType::Future or
-          instrument_type == InstrumentType::TechStock or instrument_type == InstrumentType::Fund or
+  return (instrument_type == InstrumentType::Future or
           instrument_type == InstrumentType::StockOption or
           instrument_type == InstrumentType::Crypto or instrument_type == InstrumentType::CryptoFuture);
 }
@@ -279,6 +278,15 @@ inline longfist::enums::Direction get_direction(longfist::enums::InstrumentType 
                                                 longfist::enums::Side side, longfist::enums::Offset offset) {
   using namespace longfist::enums;
 
+  if (side == Side::MarginTrade) {
+    return Direction::Long;
+  } else if (side == Side::ShortSell) {
+    return Direction::Short;
+  } else if (side == Side::RepayMargin) {
+    return Direction::Long;
+  } else if (side == Side::RepayStock) {
+    return Direction::Short;
+  }
   if (not is_shortable(instrument_type)) {
     return Direction::Long;
   }
@@ -296,19 +304,7 @@ inline longfist::enums::Direction get_direction(longfist::enums::InstrumentType 
       (offset == Offset::Close or offset == Offset::CloseToday or offset == Offset::CloseYesterday)) {
     return Direction::Short;
   }
-  if (not (instrument_type == InstrumentType::Stock or instrument_type == InstrumentType::TechStock or
-      instrument_type == InstrumentType::Fund)) 
-    throw wingchun_error(fmt::format("get_direction: invalid direction args {} {} {}", (int)instrument_type, (int)side, (int)offset));
 
-  if (side == Side::MarginTrade) {
-    return Direction::Long;
-  } else if (side == Side::ShortSell) {
-    return Direction::Short;
-  } else if (side == Side::RepayMargin) {
-    return Direction::Long;
-  } else if (side == Side::RepayStock) {
-    return Direction::Short;
-  }
   throw wingchun_error(fmt::format("get_direction error: invalid direction args {} {} {}", (int)instrument_type, (int)side, (int)offset));
 }
 
