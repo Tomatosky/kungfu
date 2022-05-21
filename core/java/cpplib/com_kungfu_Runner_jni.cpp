@@ -759,6 +759,7 @@ std::string jstring2string(JNIEnv *env, jstring jStr){
  * Method:    run
  * Signature: ()V
  */
+std::thread* t;
 extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Runner_run(JNIEnv *env, jobject self, jstring group, jstring name) {
   if (!runner_) {
     std::string g = jstring2string(env, group);
@@ -767,7 +768,8 @@ extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Runner_run(JNIEnv *env, jobjec
     demo_strategy = std::make_shared<DemoStrategy>(env, self);
     runner_->add_strategy(demo_strategy);
     std::cout << "runner is ready to run..." << std::endl;
-    runner_->run();
+     t = new std::thread([&] {runner_->run();});
+    
   } else {
     jclass exp = env->FindClass("java/lang/RuntimeException");
     env->ThrowNew(  exp, "runner is running" );
