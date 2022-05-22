@@ -17,18 +17,8 @@ PROJECT(librunner)
 
 ############################################################
 
-IF(APPLE)
-    SET(KF_SDK_HOME "/Applications/Kungfu.app/Contents/Resources/kfc")
-ENDIF()
-IF(UNIX AND NOT APPLE)
-    SET(KF_SDK_HOME "/opt/Kungfu/resources/kfc")
-    SET(JNI_HOME "/usr/local/java/jdk1.8.0_333")
-ENDIF()
-IF (WIN32)
-    SET(KF_SDK_HOME "C:\\Program Files\\Kungfu\\resources\\kfc")
-    SET(JNI_HOME "C:/Program Files/Java/jdk1.8.0_202")
-ENDIF()
-MESSAGE("KF_SDK_HOME set to ${KF_SDK_HOME}")
+SET(KF_SDK_HOME "../../build/kfc")
+MESSAGE(STATUS "KF_SDK_HOME set to ${KF_SDK_HOME}")
 
 ############################################################
 
@@ -70,25 +60,25 @@ if(WIN32)
     ADD_COMPILE_DEFINITIONS(HAVE_SNPRINTF)
     ADD_COMPILE_DEFINITIONS(FMT_HEADER_ONLY)
 endif()
+
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ftemplate-backtrace-limit=0 -Wno-address-of-packed-member -Wno-deprecated")
+endif ()
+############################################################
+
+find_package(Java 1.8)
+find_package(JNI)
+
+INCLUDE_DIRECTORIES(${JNI_INCLUDE_DIRS})
+
 ############################################################
 
 LINK_DIRECTORIES("${KF_SDK_HOME}")
-if(UNIX AND NOT APPLE)
-INCLUDE_DIRECTORIES("${JNI_HOME}/include" "${JNI_HOME}/include/linux" "${CMAKE_SOURCE_DIR}/../../cpp/include" "${KF_SDK_HOME}/include")
-add_library(runner SHARED com_kungfu_Runner_jni.cpp)
-add_library(context SHARED com_kungfu_Context_jni.cpp)
-TARGET_LINK_LIBRARIES(runner PRIVATE kungfu)
-TARGET_LINK_LIBRARIES(context PRIVATE kungfu)
-endif()
-if(WIN32)
-INCLUDE_DIRECTORIES("${JNI_HOME}/include" "${JNI_HOME}/include/win32" "${CMAKE_SOURCE_DIR}/../../cpp/include" "${KF_SDK_HOME}/include")
-add_library(runner SHARED com_kungfu_Runner_jni.cpp)
-add_library(context SHARED com_kungfu_Context_jni.cpp)
-TARGET_LINK_LIBRARIES(runner PRIVATE kungfu)
-TARGET_LINK_LIBRARIES(context PRIVATE kungfu)
-endif()
 
-#INCLUDE("${KF_SDK_HOME}/cmake/sdk.cmake")
-#ADD_SUBDIRECTORY("${KF_SDK_HOME}/pybind11" "${PROJECT_BINARY_DIR}/pybind11")
+INCLUDE_DIRECTORIES("${KF_SDK_HOME}/include")
 
-# AUX_SOURCE_DIRECTORY(src SOURCE_FILES)
+add_library(runner SHARED com_kungfu_Runner_jni.cpp)
+TARGET_LINK_LIBRARIES(runner PRIVATE kungfu ${JNI_LIBRARIES})
+
+add_library(context SHARED com_kungfu_Context_jni.cpp)
+TARGET_LINK_LIBRARIES(context PRIVATE kungfu ${JNI_LIBRARIES})

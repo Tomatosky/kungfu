@@ -7,45 +7,34 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
 /*
  * Class:     com_kungfu_Runner
  * Method:    init
- * Signature: (Lcom/kungfu/Runner;)V
+ * Signature: (Ljava/lang/String;Ljava/lang/String;)V
  */
-JNIEXPORT void JNICALL Java_com_kungfu_Runner_init
-  (JNIEnv *, jobject, jobject);
+JNIEXPORT void JNICALL Java_com_kungfu_Runner_init(JNIEnv *, jobject, jstring, jstring);
 
 /*
  * Class:     com_kungfu_Runner
  * Method:    setup
  * Signature: ()V
  */
-JNIEXPORT void JNICALL Java_com_kungfu_Runner_setup
-  (JNIEnv *, jobject);
+JNIEXPORT void JNICALL Java_com_kungfu_Runner_setup(JNIEnv *, jobject);
 
 /*
  * Class:     com_kungfu_Runner
  * Method:    step
  * Signature: ()V
  */
-JNIEXPORT void JNICALL Java_com_kungfu_Runner_step
-  (JNIEnv *, jobject);
-
-/*
- * Class:     com_kungfu_Runner
- * Method:    add_strategy
- * Signature: (Ljava/lang/String;Ljava/lang/String;)V
- */
-JNIEXPORT void JNICALL Java_com_kungfu_Runner_add_1strategy
-  (JNIEnv *, jobject, jstring, jstring);
+JNIEXPORT void JNICALL Java_com_kungfu_Runner_step(JNIEnv *, jobject);
 
 /*
  * Class:     com_kungfu_Runner
  * Method:    run
  * Signature: (Ljava/lang/String;Ljava/lang/String;)V
  */
-JNIEXPORT void JNICALL Java_com_kungfu_Runner_run
-  (JNIEnv *, jobject, jstring, jstring);
+JNIEXPORT void JNICALL Java_com_kungfu_Runner_run(JNIEnv *, jobject);
 
 #ifdef __cplusplus
 }

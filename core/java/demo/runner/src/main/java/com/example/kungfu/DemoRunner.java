@@ -1,4 +1,4 @@
-package com.name.kungfu;
+package com.example.kungfu;
 
 import com.kungfu.*;
 
@@ -54,16 +54,18 @@ public class DemoRunner extends Runner {
         System.out.println("on_history_trade: order_id " + deregister.getName());
     }
 
-    @Override
-    public void run(String group, String name) {
-        System.out.println("demo run");
-        super.run(group, group);
-    }
-
     public static void main(String[] args) throws InterruptedException {
         Thread thread = new Thread(() -> {
             DemoRunner demoRunner = new DemoRunner();
-            demoRunner.run("dft", "222");
+            demoRunner.init("java", "test");
+            System.out.println("demo runner init");
+            
+            demoRunner.setup();
+            while (!Thread.currentThread().isInterrupted()){
+                demoRunner.step();
+            }
+            
+            // demoRunner.run();
         });
         thread.start();
         thread.join();

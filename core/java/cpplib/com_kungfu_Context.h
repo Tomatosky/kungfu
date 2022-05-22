@@ -12,56 +12,51 @@ extern "C" {
  * Method:    nativeNew
  * Signature: (J)J
  */
-JNIEXPORT jlong JNICALL Java_com_kungfu_Context_nativeNew
-  (JNIEnv *, jobject, jlong);
+JNIEXPORT jlong JNICALL Java_com_kungfu_Context_nativeNew(JNIEnv *, jobject, jlong);
 
 /*
  * Class:     com_kungfu_Context
  * Method:    add_account
  * Signature: (Ljava/lang/String;Ljava/lang/String;D)V
  */
-JNIEXPORT void JNICALL Java_com_kungfu_Context_add_1account
-  (JNIEnv *, jobject, jstring, jstring, jdouble);
+JNIEXPORT void JNICALL Java_com_kungfu_Context_add_1account(JNIEnv *, jobject, jstring, jstring, jdouble);
 
 /*
  * Class:     com_kungfu_Context
  * Method:    subscribe
  * Signature: (Ljava/lang/String;Ljava/util/ArrayList;Ljava/lang/String;)V
  */
-JNIEXPORT void JNICALL Java_com_kungfu_Context_subscribe
-  (JNIEnv *, jobject, jstring, jobject, jstring);
+JNIEXPORT void JNICALL Java_com_kungfu_Context_subscribe(JNIEnv *, jobject, jstring, jobject, jstring);
 
 /*
  * Class:     com_kungfu_Context
  * Method:    insert_order
- * Signature: (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;DJLcom/kungfu/PriceType;Lcom/kungfu/Side;Lcom/kungfu/Offset;Lcom/kungfu/HedgeFlag;)J
+ * Signature:
+ * (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;DJLcom/kungfu/PriceType;Lcom/kungfu/Side;Lcom/kungfu/Offset;Lcom/kungfu/HedgeFlag;)J
  */
-JNIEXPORT jlong JNICALL Java_com_kungfu_Context_insert_1order
-  (JNIEnv *, jobject, jstring, jstring, jstring, jdouble, jlong, jobject, jobject, jobject, jobject);
+JNIEXPORT jlong JNICALL Java_com_kungfu_Context_insert_1order(JNIEnv *, jobject, jstring, jstring, jstring, jdouble,
+                                                              jlong, jobject, jobject, jobject, jobject);
 
 /*
  * Class:     com_kungfu_Context
  * Method:    cancel_order
  * Signature: (J)J
  */
-JNIEXPORT jlong JNICALL Java_com_kungfu_Context_cancel_1order
-  (JNIEnv *, jobject, jlong);
+JNIEXPORT jlong JNICALL Java_com_kungfu_Context_cancel_1order(JNIEnv *, jobject, jlong);
 
 /*
  * Class:     com_kungfu_Context
  * Method:    req_history_order
  * Signature: (Ljava/lang/String;)V
  */
-JNIEXPORT void JNICALL Java_com_kungfu_Context_req_1history_1order
-  (JNIEnv *, jobject, jstring);
+JNIEXPORT void JNICALL Java_com_kungfu_Context_req_1history_1order(JNIEnv *, jobject, jstring);
 
 /*
  * Class:     com_kungfu_Context
  * Method:    req_history_trade
  * Signature: (Ljava/lang/String;)V
  */
-JNIEXPORT void JNICALL Java_com_kungfu_Context_req_1history_1trade
-  (JNIEnv *, jobject, jstring);
+JNIEXPORT void JNICALL Java_com_kungfu_Context_req_1history_1trade(JNIEnv *, jobject, jstring);
 
 #ifdef __cplusplus
 }
