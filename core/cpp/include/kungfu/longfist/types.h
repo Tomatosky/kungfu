@@ -38,17 +38,13 @@ KF_DEFINE_MARK_TYPE(ResetBookRequest, 400);
 KF_DEFINE_MARK_TYPE(MirrorPositionsRequest, 401);
 KF_DEFINE_MARK_TYPE(AssetRequest, 402);
 KF_DEFINE_MARK_TYPE(PositionRequest, 403);
-KF_DEFINE_MARK_TYPE(BackupStrategyBookRequest, 406);
+KF_DEFINE_MARK_TYPE(KeepPositionsRequest, 406);
+KF_DEFINE_MARK_TYPE(RebuildPositionsRequest, 407);
 KF_DEFINE_MARK_TYPE(InstrumentEnd, 802);
 KF_DEFINE_MARK_TYPE(AlgoOrderInput, 20010);
 KF_DEFINE_MARK_TYPE(AlgoOrderReport, 20011);
 KF_DEFINE_MARK_TYPE(AlgoOrderModify, 20012);
 
-KF_DEFINE_DATA_TYPE(                                                            //
-    ResetStrategyPositionRequest, 407, PK(update_time), TIMESTAMP(update_time), //
-    (int64_t, update_time),                                                     //
-    (bool, is_book_held)                                                        //
-);
 
 KF_DEFINE_DATA_TYPE(                                            //
     SubscribeAll, 303, PK(update_time), TIMESTAMP(update_time), //

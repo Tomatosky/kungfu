@@ -112,29 +112,27 @@ void Runner::prepare(const event_ptr &event) {
     return;
   }
   auto ledger_uid = ledger_location_.uid;
-  //  if (not context_->is_book_held() and not book_reset_requested_ and has_writer(ledger_uid)) {
-  //    get_writer(ledger_uid)->mark(now(), ResetBookRequest::tag);
-  //    book_reset_requested_ = true;
-  //  }
   if (not positions_requested_ and has_writer(ledger_uid)) {
     auto writer = get_writer(ledger_uid);
+
+    if (not context_->is_book_held()) {
+      // Start - Let ledger prepare book for strategy
+      writer->mark(now(), KeepPositionsRequest::tag);
+      writer->mark(now(), ResetBookRequest::tag);
+    }
+
     for (const auto &pair : context_->get_broker_client().get_instrument_keys()) {
       writer->write(now(), pair.second);
     }
-
-    if (not context_->is_book_held()) {
-      writer->mark(now(), BackupStrategyBookRequest::tag); // 备份ledger的book
-      writer->mark(now(), ResetBookRequest::tag);          // 删除strategy和watcher的book
-      auto &request = writer->open_data<ResetStrategyPositionRequest>();
-      request.is_book_held = context_->is_book_held(); // 判断ST是否删除34position
-      request.update_time = now();
-      writer->close_data();
-    }
-
     if (context_->is_positions_mirrored()) {
       writer->mark(now(), MirrorPositionsRequest::tag);
     }
-//    writer->mark(now(), AssetRequest::tag);
+    // End - Let ledger prepare book for strategy
+    if (not context_->is_book_held() and not context_->is_positions_mirrored()) {
+      writer->mark(now(), RebuildPositionsRequest::tag);
+    }
+    // Request ledger to recover book for strategy
+    writer->mark(now(), AssetRequest::tag);
     writer->mark(now(), PositionRequest::tag);
     positions_requested_ = true;
     return;
