@@ -33,6 +33,7 @@ public:
     jobject obj_context = env_->NewObject(c, ctor, (jlong)(context.get()));
 
     env_->CallVoidMethod(handler_, method_pre_start, obj_context);
+    check_callmethod_exception("pre_start: CallVoidMethod Exception");
   }
 
   void post_start(Context_ptr &context) override {
@@ -45,6 +46,7 @@ public:
     jobject obj_context = env_->NewObject(c, ctor, (jlong)(context.get()));
 
     env_->CallVoidMethod(handler_, method_post_start, obj_context);
+    check_callmethod_exception("post_start: CallVoidMethod Exception");
   }
 
   jdoubleArray makeDoubleArray(const double *field_value) {
@@ -124,30 +126,7 @@ public:
         settlement_price, iopv, bid_price, ask_price, bid_volume, ask_volume);
 
     env_->CallVoidMethod(handler_, method_on_quote, obj_context, obj_quote);
-
-    // jfieldID  field_instrument_id = env_->GetFieldID(q, "instrument_id", "Ljava/lang/String;");
-    // jstring jstring_instrument_id = env_->NewStringUTF(quote.instrument_id);
-    // env_->SetObjectField(obj_quote, field_instrument_id, jstring_instrument_id);
-    // jmethodID quote_constructor1 = env_->GetMethodID(q, "setInstrument_id", "(Ljava/lang/String;)V");
-    // env_->CallVoidMethod(obj_quote, quote_constructor1, jstring_instrument_id);
-    //  setStringField(q, obj_quote, "instrument_id", quote.instrument_id);
-
-    //     jclass jcB = e->FindClass("java/lang/String");
-    // jobject jbs = e->NewObject(jcB,e->GetMethodID(jcB, "<init>","()V"));
-
-    //     jstring jstr = (jstring) env_->GetObjectField( obj_quote, field_instrument_id);
-
-    //     const char *nativeString = env_->GetStringUTFChars(jstring_instrument_id, 0);
-    //     const char *nativeString1 = env_->GetStringUTFChars(jstr, 0);
-
-    // std::cout << "StrategyProxy on_quote " << quote.instrument_id << " " <<  nativeString << " " << nativeString1  <<
-    // std::endl;
-    //    env_->ReleaseStringUTFChars(jstring_instrument_id, nativeString);
-    //    env_->ReleaseStringUTFChars(jstr, nativeString1);
-
-    // jfieldID  field_last_price = env_->GetFieldID(q, "last_price", "D");
-    // jdouble jdouble_last_price = (jdouble)(quote.last_price);
-    // env_->SetDoubleField(obj_quote, field_last_price, jdouble_last_price);
+    check_callmethod_exception("on_quote: CallVoidMethod Exception");
   }
 
   void on_order(Context_ptr &context, const kungfu::longfist::types::Order &order) override {
@@ -241,6 +220,7 @@ public:
         obj_hedgeflag, obj_pricetype, obj_volumecondition, obj_timecondition);
 
     env_->CallVoidMethod(handler_, method_on_order, obj_context, obj_order);
+    check_callmethod_exception("on_order: CallVoidMethod Exception");
   }
 
   void on_history_order(Context_ptr &context, const kungfu::longfist::types::HistoryOrder &order) override {
@@ -334,6 +314,7 @@ public:
         obj_hedgeflag, obj_pricetype, obj_volumecondition, obj_timecondition);
 
     env_->CallVoidMethod(handler_, method_on_history_order, obj_context, obj_order);
+    check_callmethod_exception("on_history_order: CallVoidMethod Exception");
   }
 
   void on_trade(Context_ptr &context, const kungfu::longfist::types::Trade &trade) override {
@@ -397,6 +378,7 @@ public:
                         obj_offset, obj_hedgeflag, price, volume, close_today_volume, tax, commission);
 
     env_->CallVoidMethod(handler_, method_on_trade, obj_context, obj_trade);
+    check_callmethod_exception("on_trade: CallVoidMethod Exception");
   }
 
   void on_history_trade(Context_ptr &context, const kungfu::longfist::types::HistoryTrade &trade) override {
@@ -461,12 +443,14 @@ public:
                         obj_offset, obj_hedgeflag, price, volume, close_today_volume, tax, commission);
 
     env_->CallVoidMethod(handler_, method_on_history_trade, obj_context, obj_trade);
+    check_callmethod_exception("on_history_trade: CallVoidMethod Exception");
   }
 
   void setStringField(jclass clazz, jobject obj, const char *field_name, const char *field_value) {
     jfieldID field_id = env_->GetFieldID(clazz, field_name, "Ljava/lang/String;");
     jstring jstring_field = env_->NewStringUTF(field_value);
     env_->SetObjectField(obj, field_id, jstring_field);
+    check_callmethod_exception("on_history_trade: CallVoidMethod Exception");
   }
 
   void on_deregister(Context_ptr &context, const kungfu::longfist::types::Deregister &deregister) {
@@ -500,6 +484,7 @@ public:
         env_->NewObject(clazz_deregister, deregister_constructor, location_uid, obj_category, obj_mode, group, name);
 
     env_->CallVoidMethod(handler_, method_on_deregister, obj_context, obj_deregister);
+    check_callmethod_exception("on_deregister: CallVoidMethod Exception");
   }
 
   void on_broker_state_change(Context_ptr &context, const kungfu::longfist::types::BrokerStateUpdate &brokerStateUpdate,
@@ -548,11 +533,20 @@ public:
         env_->NewObject(clazz_location, location_constructor, uid, uname, group, name, obj_category, obj_mode);
 
     env_->CallVoidMethod(handler_, method_on_broker_state_change, obj_context, obj_brokerstateupdate, obj_location);
+    check_callmethod_exception("on_broker_state_change: CallVoidMethod Exception");
   }
 
 private:
   JNIEnv *env_;
   jobject handler_;
+
+  void check_callmethod_exception(const char* msg) {
+    if (env_->ExceptionCheck()) {
+      env_->ExceptionClear();
+      env_->ThrowNew(env_->FindClass("java/lang/RuntimeException"), msg);
+      return;
+    }
+  }
 
   std::string str_from_side(kungfu::longfist::enums::Side s) {
     switch (s) {
