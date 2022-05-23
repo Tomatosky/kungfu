@@ -66,8 +66,8 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 endif ()
 ############################################################
 
-find_package(Java 1.8 required)
-find_package(JNI required)
+find_package(Java 1.8 REQUIRED)
+find_package(JNI REQUIRED)
 
 INCLUDE_DIRECTORIES(${JNI_INCLUDE_DIRS})
 
@@ -78,7 +78,7 @@ LINK_DIRECTORIES("${KF_SDK_HOME}")
 INCLUDE_DIRECTORIES("${KF_SDK_HOME}/include")
 
 add_library(runner SHARED com_kungfu_Runner_jni.cpp)
-TARGET_LINK_LIBRARIES(runner PRIVATE kungfu ${JNI_LIBRARIES})
+TARGET_LINK_LIBRARIES(runner PRIVATE kungfu)
 
 add_library(context SHARED com_kungfu_Context_jni.cpp)
-TARGET_LINK_LIBRARIES(context PRIVATE kungfu ${JNI_LIBRARIES})
+TARGET_LINK_LIBRARIES(context PRIVATE kungfu)
