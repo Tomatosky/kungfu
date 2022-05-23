@@ -14,6 +14,14 @@ std::string getStringFromJstring(JNIEnv *env, jstring str) {
   return s;
 }
 
+void check_callmethod_exception(JNIEnv *env, const char* msg) {
+    if (env->ExceptionCheck()) {
+      env->ExceptionClear();
+      env->ThrowNew(env->FindClass("java/lang/RuntimeException"), msg);
+      return;
+    }
+  }
+
 static Context *getObject(JNIEnv *env, jobject self) {
   jclass cls = env->GetObjectClass(self);
   if (!cls)
@@ -54,11 +62,13 @@ extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Context_subscribe(JNIEnv *env,
 
   // get the size of the list
   jint size = env->CallIntMethod(jList, mSize);
+  check_callmethod_exception(env, "Java_com_kungfu_Context_subscribe: CallIntMethod Exception");
   std::vector<std::string> sVector;
 
   // walk through and fill the vector
   for (jint i = 0; i < size; i++) {
     jstring strObj = (jstring)env->CallObjectMethod(jList, mGet, i);
+    check_callmethod_exception(env, "Java_com_kungfu_Context_subscribe: CallObjectMethod Exception");
     const char *chr = env->GetStringUTFChars(strObj, NULL);
     sVector.push_back(chr);
     env->ReleaseStringUTFChars(strObj, chr);
@@ -88,37 +98,35 @@ extern "C" JNIEXPORT jlong JNICALL Java_com_kungfu_Context_insert_1order(
   jmethodID j_method_pricetype_ordinal = env->GetMethodID(clazz_pricetype, "ordinal", "()I");
   kungfu::longfist::enums::PriceType price_type =
       (kungfu::longfist::enums::PriceType)(env->CallIntMethod(obj_type, j_method_pricetype_ordinal));
-  std::cout << "price_type=" << int(price_type) << std::endl;
+  check_callmethod_exception(env, "Java_com_kungfu_Context_insert_1order: CallIntMethod price_type Exception");
 
   jclass clazz_side = env->FindClass("com/kungfu/Side");
   jmethodID j_method_side_ordinal = env->GetMethodID(clazz_side, "ordinal", "()I");
   kungfu::longfist::enums::Side side =
       (kungfu::longfist::enums::Side)(env->CallIntMethod(obj_side, j_method_side_ordinal));
-  std::cout << "Side=" << int(side) << std::endl;
+  check_callmethod_exception(env, "Java_com_kungfu_Context_subscribe: CallIntMethod side Exception");
 
   jclass clazz_offset = env->FindClass("com/kungfu/Offset");
   jmethodID j_method_offset_ordinal = env->GetMethodID(clazz_offset, "ordinal", "()I");
   kungfu::longfist::enums::Offset offset =
       (kungfu::longfist::enums::Offset)(env->CallIntMethod(obj_offset, j_method_offset_ordinal));
+  check_callmethod_exception(env, "Java_com_kungfu_Context_subscribe: CallIntMethod Offset Exception");
 
   jclass clazz_hedgeFlag = env->FindClass("com/kungfu/HedgeFlag");
   jmethodID j_method_hedge_ordinal = env->GetMethodID(clazz_hedgeFlag, "ordinal", "()I");
   kungfu::longfist::enums::HedgeFlag hedge =
       (kungfu::longfist::enums::HedgeFlag)(env->CallIntMethod(obj_hedge_flag, j_method_hedge_ordinal));
-  std::cout << "hedge=" << int(hedge) << std::endl;
+  check_callmethod_exception(env, "Java_com_kungfu_Context_subscribe: CallIntMethod hedge Exception");
 
   Context *_self = getObject(env, self);
-  std::cout << "_self=" << uint64_t(_self) << std::endl;
   uint64_t oid = _self->insert_order(str_instrument_id, str_exchange_id, str_account, d_limit_price, i64_volume,
                                      price_type, side, offset, hedge);
-  std::cout << "oid=" << uint64_t(oid) << std::endl;
   return (jlong)oid;
 }
 
 extern "C" JNIEXPORT jlong JNICALL Java_com_kungfu_Context_cancel_1order(JNIEnv *env, jobject self, jlong order_id) {
   Context *_self = getObject(env, self);
   uint64_t oid = _self->cancel_order((uint64_t)order_id);
-  std::cout << "input order_id=" << order_id << "; return oid=" << uint64_t(oid) << std::endl;
   return (jlong)oid;
 }
 
@@ -127,7 +135,6 @@ extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Context_req_1history_1order(JN
   std::string account = getStringFromJstring(env, jaccount);
   Context *_self = getObject(env, self);
   _self->req_history_order(account);
-  std::cout << "req_history_order for account:" << account << std::endl;
 }
 
 extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Context_req_1history_1trade(JNIEnv *env, jobject self,
@@ -135,5 +142,4 @@ extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Context_req_1history_1trade(JN
   std::string account = getStringFromJstring(env, jaccount);
   Context *_self = getObject(env, self);
   _self->req_history_trade(account);
-  std::cout << "req_history_trade for account:" << account << std::endl;
 }

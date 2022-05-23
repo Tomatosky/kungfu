@@ -450,7 +450,6 @@ public:
     jfieldID field_id = env_->GetFieldID(clazz, field_name, "Ljava/lang/String;");
     jstring jstring_field = env_->NewStringUTF(field_value);
     env_->SetObjectField(obj, field_id, jstring_field);
-    check_callmethod_exception("on_history_trade: CallVoidMethod Exception");
   }
 
   void on_deregister(Context_ptr &context, const kungfu::longfist::types::Deregister &deregister) {
