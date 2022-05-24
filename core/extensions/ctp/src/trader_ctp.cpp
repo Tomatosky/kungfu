@@ -765,8 +765,9 @@ void TraderCTP::OnRspQryOrder(CThostFtdcOrderField *pOrder, CThostFtdcRspInfoFie
   from_ctp(*pOrder, history_order);
   history_order.order_id = writer->current_frame_uid();
   history_order.is_last = bIsLast;
-  strcpy(history_order.trading_day, trading_day_.c_str());
-  strcpy(history_order.account_id, this->get_account_id().c_str());
+  strncpy(history_order.account_id, get_account_id().c_str(), ACCOUNT_ID_LEN);
+  strncpy(history_order.source_id, SOURCE_CTP, SOURCE_ID_LEN);
+  strncpy(history_order.trading_day, trading_day_.c_str(), DATE_LEN);
   writer->close_data();
 }
 
@@ -786,8 +787,9 @@ void TraderCTP::OnRspQryTrade(CThostFtdcTradeField *pTrade, CThostFtdcRspInfoFie
   from_ctp(*pTrade, history_trade);
   history_trade.trade_id = writer->current_frame_uid();
   history_trade.is_last = bIsLast;
-  strcpy(history_trade.trading_day, trading_day_.c_str());
-  strcpy(history_trade.account_id, this->get_account_id().c_str());
+  strncpy(history_trade.account_id, get_account_id().c_str(), ACCOUNT_ID_LEN);
+  strncpy(history_trade.source_id, SOURCE_CTP, SOURCE_ID_LEN);
+  strncpy(history_trade.trading_day, trading_day_.c_str(), DATE_LEN);
   writer->close_data();
 }
 

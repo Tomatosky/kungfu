@@ -248,11 +248,15 @@ void TraderXTP::OnQueryOrder(XTPQueryOrderRsp *order_info, XTPRI *error_info, in
   }
   auto writer = get_history_writer(request_id);
   HistoryOrder &history_order = writer->open_data<HistoryOrder>();
+  strncpy(history_order.account_id, get_account_id().c_str(), ACCOUNT_ID_LEN);
+  strncpy(history_order.source_id, SOURCE_XTP, SOURCE_ID_LEN);
+  strncpy(history_order.trading_day, trading_day_.c_str(), DATE_LEN);
   from_xtp(*order_info, history_order);
   history_order.order_id = writer->current_frame_uid();
   history_order.is_last = is_last;
   history_order.insert_time = time::now_in_nano();
   history_order.update_time = history_order.insert_time;
+
   writer->close_data();
 }
 
@@ -272,8 +276,10 @@ void TraderXTP::OnQueryTrade(XTPQueryTradeRsp *trade_info, XTPRI *error_info, in
   history_trade.trade_id = writer->current_frame_uid();
   history_trade.is_last = is_last;
   history_trade.trade_time = time::now_in_nano();
-  strcpy(history_trade.trading_day, trading_day_.c_str());
-  strcpy(history_trade.account_id, this->get_account_id().c_str());
+  strncpy(history_trade.account_id, get_account_id().c_str(), ACCOUNT_ID_LEN);
+  strncpy(history_trade.source_id, SOURCE_XTP, SOURCE_ID_LEN);
+  strncpy(history_trade.trading_day, trading_day_.c_str(), DATE_LEN);
+
   history_trade.instrument_type = get_instrument_type(history_trade.exchange_id, history_trade.instrument_id);
   writer->close_data();
 }
