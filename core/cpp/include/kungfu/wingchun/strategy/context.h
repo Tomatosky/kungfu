@@ -143,6 +143,12 @@ public:
    * @param account account ID
    */
   virtual kungfu::wingchun::book::Book_ptr get_account_book(const std::string &source, const std::string &account) = 0;
+  
+  /**
+   * request deregister.
+   * @return void
+   */
+  virtual void req_deregister() {}
 
 private:
   bool book_held_ = false;
