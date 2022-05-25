@@ -773,3 +773,35 @@ extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Runner_run(JNIEnv *env, jobjec
     env->ThrowNew(  exp, "runner is running" );
   }
 }
+
+extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Runner_setup
+  (JNIEnv *env, jobject self){
+    if (runner_) {
+      runner_->setup();
+    }else{
+      std::cout << "setup: runner is null" << std::endl;
+    }
+  }
+extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Runner_step
+  (JNIEnv *env, jobject self){
+    if (runner_) {
+      runner_->step();
+    }else{
+      std::cout << "step: runner is null" << std::endl;
+    }
+  }
+
+
+extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Runner_add_1strategy
+  (JNIEnv *env, jobject self, jstring group, jstring name){
+  if (!runner_) {
+    std::string g = jstring2string(env, group);
+    std::string n = jstring2string(env, name);
+    runner_ = std::make_shared<Runner>(std::make_shared<locator>(), g.c_str(), n.c_str(), mode::LIVE, false);
+    demo_strategy = std::make_shared<DemoStrategy>(env, self);
+    runner_->add_strategy(demo_strategy);
+  } else {
+    jclass exp = env->FindClass("java/lang/RuntimeException");
+    env->ThrowNew(  exp, "runner is running" );
+  }
+  }
