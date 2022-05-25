@@ -320,6 +320,9 @@ void bind(pybind11::module &&m) {
       .def("subscribe_all", &strategy::Context::subscribe_all, py::arg("source"),
            py::arg("exchanges_ids") = MarketType::kNone, py::arg("instrument_types") = SubscribeCategoryType::kNone,
            py::arg("callback_types") = SubscribeSecuDataType::kNone)
+      .def("make_order", &strategy::Context::make_order, py::arg("symbol"), py::arg("exchange"), py::arg("source"),
+           py::arg("account"), py::arg("limit_price"), py::arg("volume"), py::arg("type"), py::arg("side"),
+           py::arg("offset") = Offset::Open, py::arg("hedge_flag") = HedgeFlag::Speculation)
       .def("insert_order", &strategy::Context::insert_order, py::arg("symbol"), py::arg("exchange"), py::arg("account"),
            py::arg("limit_price"), py::arg("volume"), py::arg("type"), py::arg("side"),
            py::arg("offset") = Offset::Open, py::arg("hedge_flag") = HedgeFlag::Speculation)

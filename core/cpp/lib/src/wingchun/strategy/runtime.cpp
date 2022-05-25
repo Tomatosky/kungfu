@@ -54,6 +54,9 @@ void RuntimeContext::add_account(const std::string &source, const std::string &a
   account_cash_limits_.emplace(account_id, cash_limit);
   account_location_ids_.emplace(account_id, account_location->uid);
 
+  uint32_t source_account_id = hash_instrument(source.c_str(), account.c_str());
+  source_account_location_ids_.emplace(source_account_id, account_location->uid);
+
   broker_client_.enroll_account(account_location);
   td_locations_.emplace(account_location->uid, account_location);
 }
@@ -72,11 +75,10 @@ void RuntimeContext::subscribe_all(const std::string &source, uint8_t exchanges_
   broker_client_.subscribe_all(find_md_location(source), exchanges_ids, instrument_types, callback_types);
 }
 
-uint64_t RuntimeContext::insert_order(const std::string &instrument_id, const std::string &exchange_id,
-                                      const std::string &account, double limit_price, int64_t volume, PriceType type,
-                                      Side side, Offset offset, HedgeFlag hedge_flag) {
+uint64_t RuntimeContext::insert_order(uint32_t account_location_uid, const std::string &instrument_id,
+                                      const std::string &exchange_id, const std::string &account, double limit_price,
+                                      int64_t volume, PriceType type, Side side, Offset offset, HedgeFlag hedge_flag) {
   auto insert_time = time::now_in_nano();
-  auto account_location_uid = lookup_account_location_id(account);
   if (not broker_client_.is_ready(account_location_uid)) {
     SPDLOG_ERROR("account {} not ready", account);
     return 0;
@@ -105,6 +107,22 @@ uint64_t RuntimeContext::insert_order(const std::string &instrument_id, const st
   writer->close_data();
   bookkeeper_.on_order_input(app_.now(), app_.get_home_uid(), account_location_uid, input);
   return input.order_id;
+}
+
+uint64_t RuntimeContext::make_order(const std::string &instrument_id, const std::string &exchange_id,
+                                    const std::string &source, const std::string &account, double limit_price,
+                                    int64_t volume, PriceType type, Side side, Offset offset, HedgeFlag hedge_flag) {
+  auto account_location_uid = lookup_source_account_location_id(source, account);
+  return insert_order(account_location_uid, instrument_id, exchange_id, account, limit_price, volume, type, side,
+                      offset, hedge_flag);
+}
+
+uint64_t RuntimeContext::insert_order(const std::string &instrument_id, const std::string &exchange_id,
+                                      const std::string &account, double limit_price, int64_t volume, PriceType type,
+                                      Side side, Offset offset, HedgeFlag hedge_flag) {
+  auto account_location_uid = lookup_account_location_id(account);
+  return insert_order(account_location_uid, instrument_id, exchange_id, account, limit_price, volume, type, side,
+                      offset, hedge_flag);
 }
 
 uint64_t RuntimeContext::cancel_order(uint64_t order_id) {
@@ -147,6 +165,12 @@ uint32_t RuntimeContext::lookup_account_location_id(const std::string &account) 
   return account_location_ids_.at(hash_str_32(account));
 }
 
+uint32_t RuntimeContext::lookup_source_account_location_id(const std::string &source,
+                                                           const std::string &account) const {
+  uint32_t source_account_id = hash_instrument(source.c_str(), account.c_str());
+  return source_account_location_ids_.at(source_account_id);
+}
+
 const location_ptr &RuntimeContext::find_md_location(const std::string &source) {
   if (market_data_.find(source) == market_data_.end()) {
     auto home = app_.get_home();
@@ -173,8 +197,8 @@ kungfu::wingchun::book::Book_ptr RuntimeContext::get_account_book(const std::str
   return bookkeeper_.get_book(account_location->uid);
 }
 
-void RuntimeContext::req_history_order(const std::string &account) {
-  auto account_location_uid = lookup_account_location_id(account);
+void RuntimeContext::req_history_order(const std::string &source, const std::string &account) {
+  auto account_location_uid = lookup_source_account_location_id(source, account);
   if (not broker_client_.is_ready(account_location_uid)) {
     SPDLOG_ERROR("account {} not ready", account);
     return;
@@ -183,8 +207,8 @@ void RuntimeContext::req_history_order(const std::string &account) {
   writer->mark(now(), RequestHistoryOrder::tag);
 }
 
-void RuntimeContext::req_history_trade(const std::string &account) {
-  auto account_location_uid = lookup_account_location_id(account);
+void RuntimeContext::req_history_trade(const std::string &source, const std::string &account) {
+  auto account_location_uid = lookup_source_account_location_id(source, account);
   if (not broker_client_.is_ready(account_location_uid)) {
     SPDLOG_ERROR("account {} not ready", account);
     return;
@@ -193,7 +217,5 @@ void RuntimeContext::req_history_trade(const std::string &account) {
   writer->mark(now(), RequestHistoryTrade::tag);
 }
 
-void RuntimeContext::req_deregister() {
-  app_.request_deregister();
-}
+void RuntimeContext::req_deregister() { app_.request_deregister(); }
 } // namespace kungfu::wingchun::strategy
