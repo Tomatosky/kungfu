@@ -733,7 +733,7 @@ protected:
     
     //typedef std::unordered_map<uint32_t, longfist::types::Instrument> InstrumentMap;
     if (book->instruments.find(hashed_instrument_key) == book->instruments.end()) {
-      SPDLOG_INFO("instrument information missing for {}@{}", instrument_id, exchange_id);
+      // SPDLOG_INFO("instrument information missing for {}@{}", instrument_id, exchange_id);
       cd_mr.contract_multiplier = DEFAULT_STOCK_CONTRACT_MULTIPLIER;
       cd_mr.margin_ratio = position.direction == Direction::Long ? 
           DEFAULT_STOCK_LONG_MARGIN_RATIO : DEFAULT_STOCK_SHORT_MARGIN_RATIO;
