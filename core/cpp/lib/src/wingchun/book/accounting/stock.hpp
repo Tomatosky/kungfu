@@ -718,12 +718,6 @@ protected:
     }
   }
 
-  static int get_vol_multi(const std::string &instrument_id, const std::string &exchange_id) {
-    if (!is_repo(instrument_id, exchange_id))
-      return 1;
-    return exchange_id == EXCHANGE_SSE ? 1000 : 100;
-  }
-
   virtual double calculate_tax(const Trade &trade) {
     bool is_short = (trade.side == Side::Sell) || (trade.side == Side::ShortSell) || (trade.side == Side::RepayMargin);
     return is_short ? trade.price * trade.volume * 0.001 : 0;
@@ -739,7 +733,7 @@ protected:
     
     //typedef std::unordered_map<uint32_t, longfist::types::Instrument> InstrumentMap;
     if (book->instruments.find(hashed_instrument_key) == book->instruments.end()) {
-      SPDLOG_INFO("instrument information missing for {}@{}", instrument_id, exchange_id);
+      // SPDLOG_INFO("instrument information missing for {}@{}", instrument_id, exchange_id);
       cd_mr.contract_multiplier = DEFAULT_STOCK_CONTRACT_MULTIPLIER;
       cd_mr.margin_ratio = position.direction == Direction::Long ? 
           DEFAULT_STOCK_LONG_MARGIN_RATIO : DEFAULT_STOCK_SHORT_MARGIN_RATIO;
@@ -751,7 +745,7 @@ protected:
       strcpy(instrument.exchange_id, position.exchange_id);
       // InstrumentType
       instrument.instrument_type = get_instrument_type(instrument.exchange_id, instrument.instrument_id);
-      instrument.contract_multiplier = get_vol_multi(instrument.instrument_id, instrument.exchange_id);
+      instrument.contract_multiplier = 1;
       instrument.long_margin_ratio = cd_mr.long_margin_ratio;
       instrument.short_margin_ratio = cd_mr.short_margin_ratio;
       instrument.conversion_rate = cd_mr.conversion_rate;
