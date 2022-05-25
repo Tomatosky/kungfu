@@ -4,10 +4,9 @@
 #include <kungfu/wingchun/strategy/runner.h>
 #include <kungfu/wingchun/strategy/strategy.h>
 #include <kungfu/yijinjing/util/os.h>
+#include "jni_common.h"
 
-#define JAVA_RUNTIME_EXCEPTION env->FindClass("java/lang/RuntimeException")
-#define JAVA_THROW(exception, msg) env->ThrowNew(exception, msg)
-#define JAVA_THROW_RUNTIME_EXCEPTION(msg) JAVA_THROW(JAVA_RUNTIME_EXCEPTION, msg)
+
 
 using namespace kungfu::longfist::enums;
 using namespace kungfu::longfist::types;
@@ -805,19 +804,31 @@ extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Runner_run(JNIEnv *env, jobjec
   if (not check_runner_setup(env)) {
     return;
   }
-  runner_->run();
+  try {
+    runner_->run();
+  } catch (const std::exception &e) {
+    JAVA_THROW_RUNTIME_EXCEPTION(e.what());
+  }
 }
 
 extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Runner_setup(JNIEnv *env, jobject self) {
   if (not check_runner_setup(env)) {
     return;
   }
-  runner_->setup();
+  try {
+    runner_->setup();
+  } catch (const std::exception &e) {
+    JAVA_THROW_RUNTIME_EXCEPTION(e.what());
+  }
 }
 
 extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Runner_step(JNIEnv *env, jobject self) {
   if (not check_runner_running(env)) {
     return;
   }
-  runner_->step();
+  try {
+    runner_->step();
+  } catch (const std::exception &e) {
+    JAVA_THROW_RUNTIME_EXCEPTION(e.what());
+  }
 }

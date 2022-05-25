@@ -1,5 +1,7 @@
 #include "com_kungfu_Context.h"
 #include <kungfu/wingchun/strategy/context.h>
+#include "jni_common.h"
+
 using namespace kungfu::longfist::enums;
 using namespace kungfu::longfist::types;
 using namespace kungfu::wingchun::strategy;
@@ -45,7 +47,11 @@ extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Context_add_1account(JNIEnv *e
   const char *c_account = env->GetStringUTFChars(account, NULL);
   string s_account(c_account);
   env->ReleaseStringUTFChars(account, c_account);
-  _self->add_account(s_source, s_account, static_cast<double>(cashLimit));
+  try {
+    _self->add_account(s_source, s_account, static_cast<double>(cashLimit));
+  } catch (const std::exception &e) {
+    JAVA_THROW_RUNTIME_EXCEPTION(e.what());
+  }
 }
 
 extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Context_subscribe(JNIEnv *env, jobject self, jstring source,
@@ -82,7 +88,11 @@ extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Context_subscribe(JNIEnv *env,
   env->ReleaseStringUTFChars(exchangeIds, c_exchange);
 
   Context *_self = getObject(env, self);
-  _self->subscribe(s_source, sVector, s_exchange);
+  try {
+    _self->subscribe(s_source, sVector, s_exchange);
+  } catch (const std::exception &e) {
+    JAVA_THROW_RUNTIME_EXCEPTION(e.what());
+  }
 }
 
 extern "C" JNIEXPORT jlong JNICALL Java_com_kungfu_Context_insert_1order(
@@ -119,14 +129,24 @@ extern "C" JNIEXPORT jlong JNICALL Java_com_kungfu_Context_insert_1order(
   check_callmethod_exception(env, "Java_com_kungfu_Context_subscribe: CallIntMethod hedge Exception");
 
   Context *_self = getObject(env, self);
-  uint64_t oid = _self->insert_order(str_instrument_id, str_exchange_id, str_account, d_limit_price, i64_volume,
-                                     price_type, side, offset, hedge);
+  uint64_t oid = 0;
+  try {
+    oid = _self->insert_order(str_instrument_id, str_exchange_id, str_account, d_limit_price, i64_volume, price_type,
+                              side, offset, hedge);
+  } catch (const std::exception &e) {
+    JAVA_THROW_RUNTIME_EXCEPTION(e.what());
+  }
   return (jlong)oid;
 }
 
 extern "C" JNIEXPORT jlong JNICALL Java_com_kungfu_Context_cancel_1order(JNIEnv *env, jobject self, jlong order_id) {
   Context *_self = getObject(env, self);
-  uint64_t oid = _self->cancel_order((uint64_t)order_id);
+  uint64_t oid = 0;
+  try {
+    oid = _self->cancel_order((uint64_t)order_id);
+  } catch (const std::exception &e) {
+    JAVA_THROW_RUNTIME_EXCEPTION(e.what());
+  }
   return (jlong)oid;
 }
 
@@ -134,12 +154,20 @@ extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Context_req_1history_1order(JN
                                                                               jstring jaccount) {
   std::string account = getStringFromJstring(env, jaccount);
   Context *_self = getObject(env, self);
-  _self->req_history_order(account);
+  try {
+    _self->req_history_order(account);
+  } catch (const std::exception &e) {
+    JAVA_THROW_RUNTIME_EXCEPTION(e.what());
+  }
 }
 
 extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Context_req_1history_1trade(JNIEnv *env, jobject self,
                                                                               jstring jaccount) {
   std::string account = getStringFromJstring(env, jaccount);
   Context *_self = getObject(env, self);
-  _self->req_history_trade(account);
+  try {
+    _self->req_history_trade(account);
+  } catch (const std::exception &e) {
+    JAVA_THROW_RUNTIME_EXCEPTION(e.what());
+  }
 }

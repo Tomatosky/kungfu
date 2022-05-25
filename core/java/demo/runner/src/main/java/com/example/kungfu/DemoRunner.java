@@ -9,6 +9,7 @@ public class DemoRunner extends Runner {
     static long oid = 0L;
 
     public void pre_start(Context context){
+        System.out.println("pre_start");
         context.add_account("sim", "1", 100000.0);
         ArrayList<String> instrumentIds = new ArrayList<String>();
         instrumentIds.add("600000");
@@ -23,7 +24,13 @@ public class DemoRunner extends Runner {
     public void on_quote(Context context, Quote quote){
         System.out.println("on_quote: " + quote.getInstrument_id()+ " " + quote.getLast_price());
         if(orderid == 0L){
-            orderid = context.insert_order("600000", "SSE", "1", 200, 500, PriceType.Any, Side.Buy, Offset.Open, HedgeFlag.Hedge);
+            try {
+                orderid = context.insert_order("600000", "SSE", "12", 200, 500, PriceType.Any, Side.Buy, Offset.Open, HedgeFlag.Hedge);
+            }catch(Exception e)
+            {
+                System.out.println(".........");
+                System.out.println(e.getMessage());
+            }
         }
         else{
             if(oid == 0L) {
@@ -65,7 +72,7 @@ public class DemoRunner extends Runner {
                 demoRunner.step();
             }
             
-            // demoRunner.run();
+//             demoRunner.run();
         });
         thread.start();
         thread.join();
