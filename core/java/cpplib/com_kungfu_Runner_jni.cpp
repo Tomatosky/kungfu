@@ -805,19 +805,30 @@ extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Runner_run(JNIEnv *env, jobjec
   if (not check_runner_setup(env)) {
     return;
   }
-  runner_->run();
+  try {
+    runner_->run();
+  } catch (const std::exception &ex) {
+    JAVA_THROW_RUNTIME_EXCEPTION(ex.what());
+  }
 }
 
 extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Runner_setup(JNIEnv *env, jobject self) {
   if (not check_runner_setup(env)) {
     return;
   }
-  runner_->setup();
-}
+  try {
+    runner_->setup();
+  } catch (const std::exception &ex) {
+    JAVA_THROW_RUNTIME_EXCEPTION(ex.what());
+  }
 
 extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Runner_step(JNIEnv *env, jobject self) {
   if (not check_runner_running(env)) {
     return;
   }
-  runner_->step();
+  try {
+    runner_->step();
+  } catch (const std::exception &ex) {
+    JAVA_THROW_RUNTIME_EXCEPTION(ex.what());
+  }
 }
