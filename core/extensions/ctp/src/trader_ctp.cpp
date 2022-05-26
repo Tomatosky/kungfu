@@ -751,17 +751,23 @@ bool TraderCTP::req_history_trade(const event_ptr &event) {
 }
 void TraderCTP::OnRspQryOrder(CThostFtdcOrderField *pOrder, CThostFtdcRspInfoField *pRspInfo, int nRequestID,
                               bool bIsLast) {
-  if (pRspInfo != nullptr && pRspInfo->ErrorID != 0) {
-    SPDLOG_ERROR("OnRspQryOrder RES error_id {}, error_msg {}", pRspInfo->ErrorID, gbk2utf8(pRspInfo->ErrorMsg));
-    return;
-  }
+  auto writer = get_history_writer(nRequestID);
+  HistoryOrder &history_order = writer->open_data<HistoryOrder>(now());
+
   if (pOrder == nullptr) {
-    SPDLOG_ERROR("CThostFtdcOrderField is nullptr");
+    SPDLOG_ERROR("CThostFtdcOrderField *pOrder == nullptr");
+    history_order.is_last = true;
+    strncpy(history_order.error_msg, "返回数据为空，可能代表无历史Order数据", ERROR_MSG_LEN);
+    writer->close_data();
     return;
   }
 
-  auto writer = get_history_writer(nRequestID);
-  HistoryOrder &history_order = writer->open_data<HistoryOrder>(now());
+  if (pRspInfo != nullptr && pRspInfo->ErrorID != 0) {
+    SPDLOG_ERROR("OnRspQryOrder RES error_id {}, error_msg {}", pRspInfo->ErrorID, gbk2utf8(pRspInfo->ErrorMsg));
+    history_order.error_id = pRspInfo->ErrorID;
+    strncpy(history_order.error_msg, gbk2utf8(pRspInfo->ErrorMsg).c_str(), ERROR_MSG_LEN);
+  }
+
   from_ctp(*pOrder, history_order);
   history_order.order_id = writer->current_frame_uid();
   history_order.is_last = bIsLast;
@@ -773,17 +779,23 @@ void TraderCTP::OnRspQryOrder(CThostFtdcOrderField *pOrder, CThostFtdcRspInfoFie
 
 void TraderCTP::OnRspQryTrade(CThostFtdcTradeField *pTrade, CThostFtdcRspInfoField *pRspInfo, int nRequestID,
                               bool bIsLast) {
-  if (pRspInfo != nullptr && pRspInfo->ErrorID != 0) {
-    SPDLOG_ERROR("OnRspQryTrade RES error_id {}, error_msg {}", pRspInfo->ErrorID, gbk2utf8(pRspInfo->ErrorMsg));
-    return;
-  }
+  auto writer = get_history_writer(nRequestID);
+  HistoryTrade &history_trade = writer->open_data<HistoryTrade>(now());
+
   if (pTrade == nullptr) {
-    SPDLOG_ERROR("CThostFtdcTradeField is nullptr");
+    SPDLOG_ERROR("CThostFtdcTradeField *pTrade == nullptr, no data returned");
+    history_trade.is_last = true;
+    strncpy(history_trade.error_msg, "返回数据为空，可能代表无历史Trade数据", ERROR_MSG_LEN);
+    writer->close_data();
     return;
   }
 
-  auto writer = get_history_writer(nRequestID);
-  HistoryTrade &history_trade = writer->open_data<HistoryTrade>(now());
+  if (pRspInfo != nullptr && pRspInfo->ErrorID != 0) {
+    SPDLOG_ERROR("OnRspQryTrade RES error_id {}, error_msg {}", pRspInfo->ErrorID, gbk2utf8(pRspInfo->ErrorMsg));
+    history_trade.error_id = pRspInfo->ErrorID;
+    strncpy(history_trade.error_msg, gbk2utf8(pRspInfo->ErrorMsg).c_str(), ERROR_MSG_LEN);
+  }
+
   from_ctp(*pTrade, history_trade);
   history_trade.trade_id = writer->current_frame_uid();
   history_trade.is_last = bIsLast;

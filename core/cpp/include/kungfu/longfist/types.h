@@ -45,7 +45,6 @@ KF_DEFINE_MARK_TYPE(AlgoOrderInput, 20010);
 KF_DEFINE_MARK_TYPE(AlgoOrderReport, 20011);
 KF_DEFINE_MARK_TYPE(AlgoOrderModify, 20012);
 
-
 KF_DEFINE_DATA_TYPE(                                            //
     SubscribeAll, 303, PK(update_time), TIMESTAMP(update_time), //
     (int64_t, update_time),                                     //
@@ -208,11 +207,11 @@ KF_DEFINE_PACK_TYPE(                                              //
     (kungfu::array<char, DATE_LEN>, create_date), //创建日
     (kungfu::array<char, DATE_LEN>, expire_date), //到期日
 
-    (int, delivery_year),         //交割年份
-    (int, delivery_month),        //交割月
+    (int, delivery_year),  //交割年份
+    (int, delivery_month), //交割月
 
-    (bool, is_trading),           //当前是否交易
-    (bool, force_update_ratio),   //两融柜台折算率及保证金率
+    (bool, is_trading),         //当前是否交易
+    (bool, force_update_ratio), //两融柜台折算率及保证金率
 
     (double, long_margin_ratio),  //多头保证金率
     (double, short_margin_ratio), //空头保证金率
@@ -260,10 +259,10 @@ KF_DEFINE_PACK_TYPE(                                         //
     (double, settlement_price), //结算价
     (double, iopv),             //基金实时参考净值
 
-    (kungfu::array<double, 10>, bid_price),   //申买价
-    (kungfu::array<double, 10>, ask_price),   //申卖价
-    (kungfu::array<int64_t, 10>, bid_volume), //申买量
-    (kungfu::array<int64_t, 10>, ask_volume), //申卖量
+    (kungfu::array<double, 10>, bid_price),      //申买价
+    (kungfu::array<double, 10>, ask_price),      //申卖价
+    (kungfu::array<int64_t, 10>, bid_volume),    //申买量
+    (kungfu::array<int64_t, 10>, ask_volume),    //申卖量
     (kungfu::array<char, 8>, trading_phase_code) //交易
 );
 
@@ -286,7 +285,7 @@ KF_DEFINE_PACK_TYPE(                                                    //
 
     (int64_t, main_seq), //主序号
     (int64_t, seq),      //子序号
-    (int64_t, biz_index)  // 业务序号
+    (int64_t, biz_index) // 业务序号
 );
 
 KF_DEFINE_PACK_TYPE(                                                        //
@@ -312,7 +311,7 @@ KF_DEFINE_PACK_TYPE(                                                        //
 
     (int64_t, main_seq), //主序号
     (int64_t, seq),      //子序号
-    (int64_t, biz_index)  // 业务序号
+    (int64_t, biz_index) // 业务序号
 );
 
 KF_DEFINE_PACK_TYPE(                                                 //
@@ -555,8 +554,10 @@ KF_DEFINE_PACK_TYPE(                                        //
     (int64_t, volume),             //成交量
     (int64_t, close_today_volume), //平今日仓量(期货)
 
-    (double, tax),       //税
-    (double, commission) //手续费
+    (double, tax),                                  //税
+    (double, commission),                           //手续费
+    (int32_t, error_id),                            //错误ID
+    (kungfu::array<char, ERROR_MSG_LEN>, error_msg) //错误信息
 );
 
 KF_DEFINE_PACK_TYPE(                                                                   //
@@ -662,8 +663,7 @@ KF_DEFINE_PACK_TYPE(                               //
 
     (double, cash_debt),  //融资负债
     (double, short_cash), //融券卖出金额
-    (kungfu::array<char, 1500>, margin_instruments),
-    (kungfu::array<char, 420>, exchanges),
+    (kungfu::array<char, 1500>, margin_instruments), (kungfu::array<char, 420>, exchanges),
     (kungfu::array<double, 200>, debts),
 
     (double, short_market_value),  //融券卖出证券市值
