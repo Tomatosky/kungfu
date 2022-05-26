@@ -23,9 +23,13 @@ public class Context {
 
     public native long cancel_order(long orderId);
 
-    public native void req_history_order(String account);
+    public native void req_history_order(String source, String account);
 
-    public native void req_history_trade(String account);
+    public native void req_history_trade(String source, String account);
+
+    public native long make_order(String instrument_id, String exchange_id, String source,
+                                    String account, double limit_price, long volume, PriceType type,
+                                    Side side, Offset offset, HedgeFlag hedge_flag);
 
 
 }

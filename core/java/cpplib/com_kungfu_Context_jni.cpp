@@ -139,6 +139,51 @@ extern "C" JNIEXPORT jlong JNICALL Java_com_kungfu_Context_insert_1order(
   return (jlong)oid;
 }
 
+extern "C" JNIEXPORT jlong JNICALL Java_com_kungfu_Context_make_1order(
+    JNIEnv *env, jobject self, jstring instrument_id, jstring exchange_id, jstring source, jstring account, jdouble limit_price,
+    jlong volume, jobject obj_type, jobject obj_side, jobject obj_offset, jobject obj_hedge_flag) {
+  std::string str_instrument_id = getStringFromJstring(env, instrument_id);
+  std::string str_exchange_id = getStringFromJstring(env, exchange_id);
+  std::string str_source = getStringFromJstring(env, source);
+  std::string str_account = getStringFromJstring(env, account);
+  double d_limit_price = (double)limit_price;
+  int64_t i64_volume = (int64_t)volume;
+
+  jclass clazz_pricetype = env->FindClass("com/kungfu/PriceType");
+  jmethodID j_method_pricetype_ordinal = env->GetMethodID(clazz_pricetype, "ordinal", "()I");
+  kungfu::longfist::enums::PriceType price_type =
+      (kungfu::longfist::enums::PriceType)(env->CallIntMethod(obj_type, j_method_pricetype_ordinal));
+  check_callmethod_exception(env, "Java_com_kungfu_Context_insert_1order: CallIntMethod price_type Exception");
+
+  jclass clazz_side = env->FindClass("com/kungfu/Side");
+  jmethodID j_method_side_ordinal = env->GetMethodID(clazz_side, "ordinal", "()I");
+  kungfu::longfist::enums::Side side =
+      (kungfu::longfist::enums::Side)(env->CallIntMethod(obj_side, j_method_side_ordinal));
+  check_callmethod_exception(env, "Java_com_kungfu_Context_subscribe: CallIntMethod side Exception");
+
+  jclass clazz_offset = env->FindClass("com/kungfu/Offset");
+  jmethodID j_method_offset_ordinal = env->GetMethodID(clazz_offset, "ordinal", "()I");
+  kungfu::longfist::enums::Offset offset =
+      (kungfu::longfist::enums::Offset)(env->CallIntMethod(obj_offset, j_method_offset_ordinal));
+  check_callmethod_exception(env, "Java_com_kungfu_Context_subscribe: CallIntMethod Offset Exception");
+
+  jclass clazz_hedgeFlag = env->FindClass("com/kungfu/HedgeFlag");
+  jmethodID j_method_hedge_ordinal = env->GetMethodID(clazz_hedgeFlag, "ordinal", "()I");
+  kungfu::longfist::enums::HedgeFlag hedge =
+      (kungfu::longfist::enums::HedgeFlag)(env->CallIntMethod(obj_hedge_flag, j_method_hedge_ordinal));
+  check_callmethod_exception(env, "Java_com_kungfu_Context_subscribe: CallIntMethod hedge Exception");
+
+  Context *_self = getObject(env, self);
+  uint64_t oid = 0;
+  try {
+    oid = _self->make_order(str_instrument_id, str_exchange_id, str_source, str_account, d_limit_price, i64_volume, price_type,
+                              side, offset, hedge);
+  } catch (const std::exception &e) {
+    JAVA_THROW_RUNTIME_EXCEPTION(e.what());
+  }
+  return (jlong)oid;
+}
+
 extern "C" JNIEXPORT jlong JNICALL Java_com_kungfu_Context_cancel_1order(JNIEnv *env, jobject self, jlong order_id) {
   Context *_self = getObject(env, self);
   uint64_t oid = 0;
@@ -151,22 +196,24 @@ extern "C" JNIEXPORT jlong JNICALL Java_com_kungfu_Context_cancel_1order(JNIEnv 
 }
 
 extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Context_req_1history_1order(JNIEnv *env, jobject self,
-                                                                              jstring jaccount) {
+                                                                              jstring jsource, jstring jaccount) {
+  std::string source  = getStringFromJstring(env, jsource);
   std::string account = getStringFromJstring(env, jaccount);
   Context *_self = getObject(env, self);
   try {
-    _self->req_history_order(account);
+    _self->req_history_order(source, account);
   } catch (const std::exception &e) {
     JAVA_THROW_RUNTIME_EXCEPTION(e.what());
   }
 }
 
 extern "C" JNIEXPORT void JNICALL Java_com_kungfu_Context_req_1history_1trade(JNIEnv *env, jobject self,
-                                                                              jstring jaccount) {
+                                                                              jstring jsource, jstring jaccount) {
+  std::string source  = getStringFromJstring(env, jsource);
   std::string account = getStringFromJstring(env, jaccount);
   Context *_self = getObject(env, self);
   try {
-    _self->req_history_trade(account);
+    _self->req_history_trade(source, account);
   } catch (const std::exception &e) {
     JAVA_THROW_RUNTIME_EXCEPTION(e.what());
   }
