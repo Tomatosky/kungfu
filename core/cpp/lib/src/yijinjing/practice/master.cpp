@@ -79,12 +79,10 @@ void master::register_app(const event_ptr &event) {
 
   if (app_cache_shift_.find(app_location->uid) != app_cache_shift_.end()) {
     app_cache_shift_.erase(app_location->uid);
-    return;
   }
 
   if (app_cache_shift_.find(master_cmd_location->uid) != app_cache_shift_.end()) {
     app_cache_shift_.erase(master_cmd_location->uid);
-    return;
   }
 
   app_cache_shift_.emplace(app_location->uid, app_location);
