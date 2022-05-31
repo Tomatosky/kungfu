@@ -77,6 +77,14 @@ void master::register_app(const event_ptr &event) {
   try_add_location(event->gen_time(), master_cmd_location);
   app_cmd_locations_.emplace(app_location->uid, master_cmd_location->uid);
 
+  if (app_cache_shift_.find(app_location->uid) != app_cache_shift_.end()) {
+    app_cache_shift_.erase(app_location->uid);
+  }
+
+  if (app_cache_shift_.find(master_cmd_location->uid) != app_cache_shift_.end()) {
+    app_cache_shift_.erase(master_cmd_location->uid);
+  }
+
   app_cache_shift_.emplace(app_location->uid, app_location);
   app_cache_shift_.emplace(master_cmd_location->uid, master_cmd_location);
   app_cache_shift_[master_cmd_location->uid].ensure_storage(app_location->uid);
@@ -108,7 +116,7 @@ void master::register_app(const event_ptr &event) {
   write_registries(event->gen_time(), app_cmd_writer);
   write_channels(event->gen_time(), app_cmd_writer);
 
-  //for pybind
+  // for pybind
   on_register(event, register_data);
 }
 
@@ -280,7 +288,8 @@ void master::feed(const event_ptr &event) {
 void master::pong(const event_ptr &event) { get_io_device()->get_publisher()->publish("{}"); }
 
 void master::on_cache_reset(const event_ptr &event) {
-  SPDLOG_INFO("on_cache_reset {} {} {} {}", event->source(), get_location_uname(event->source()), event->dest(), get_location_uname(event->dest()));
+  SPDLOG_INFO("on_cache_reset {} {} {} {}", event->source(), get_location_uname(event->source()), event->dest(),
+              get_location_uname(event->dest()));
   auto msg_type = event->data<CacheReset>().msg_type;
   boost::hana::for_each(StateDataTypes, [&](auto it) {
     using DataType = typename decltype(+boost::hana::second(it))::type;
