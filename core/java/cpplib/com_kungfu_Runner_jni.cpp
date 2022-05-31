@@ -20,7 +20,7 @@ static Strategy_ptr strategy_proxy_ = {};
 
 class StrategyProxy : public Strategy {
 public:
-  StrategyProxy(JNIEnv *env, jobject handler) : env_(env), handler_(handler){
+  StrategyProxy(JNIEnv *env, jobject handler) : env_(env){
     handler_ = env->NewGlobalRef(handler);
   };
 
