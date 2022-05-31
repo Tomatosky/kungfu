@@ -20,7 +20,11 @@ static Strategy_ptr strategy_proxy_ = {};
 
 class StrategyProxy : public Strategy {
 public:
-  StrategyProxy(JNIEnv *env, jobject handler) : env_(env), handler_(handler){};
+  StrategyProxy(JNIEnv *env, jobject handler) : env_(env), handler_(handler){
+    handler_ = env->NewGlobalRef(handler);
+  };
+
+  ~StrategyProxy() { env_->DeleteLocalRef(handler_); }
 
   void pre_start(Context_ptr &context) override {
     jclass handler_class = env_->GetObjectClass(handler_);
