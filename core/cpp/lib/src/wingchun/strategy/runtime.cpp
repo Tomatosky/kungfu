@@ -162,12 +162,19 @@ broker::Client &RuntimeContext::get_broker_client() { return broker_client_; }
 book::Bookkeeper &RuntimeContext::get_bookkeeper() { return bookkeeper_; }
 
 uint32_t RuntimeContext::lookup_account_location_id(const std::string &account) const {
-  return account_location_ids_.at(hash_str_32(account));
+  auto account_id = hash_str_32(account);
+  if (account_location_ids_.find(account_id) == account_location_ids_.end()) {
+    SPDLOG_ERROR("call add_account to register accout : {} before using it", account);
+  }
+  return account_location_ids_.at(account_id);
 }
 
 uint32_t RuntimeContext::lookup_source_account_location_id(const std::string &source,
                                                            const std::string &account) const {
   uint32_t source_account_id = hash_instrument(source.c_str(), account.c_str());
+  if (source_account_location_ids_.find(source_account_id) == source_account_location_ids_.end()) {
+    SPDLOG_ERROR("call add_account to register accout : {}@{} before using it", account, source);
+  }
   return source_account_location_ids_.at(source_account_id);
 }
 
