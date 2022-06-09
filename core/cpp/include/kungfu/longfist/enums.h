@@ -217,10 +217,6 @@ enum class BrokerState : int8_t {
 
 inline std::ostream &operator<<(std::ostream &os, BrokerState t) { return os << int8_t(t); }
 
-enum class TradeType : int8_t { Traded, Cancelled, Unknown };
-
-inline std::ostream &operator<<(std::ostream &os, TradeType t) { return os << int8_t(t); }
-
 //权限订阅数据类型
 enum class MarketType : uint8_t {
   kNone = 0,   ///< 表示全市场

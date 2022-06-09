@@ -542,7 +542,7 @@ KF_DEFINE_PACK_TYPE(                                        //
     (kungfu::array<char, SOURCE_ID_LEN>, source_id),         //柜台ID
     (kungfu::array<char, ACCOUNT_ID_LEN>, account_id),       //账号ID
     (bool, is_last),                                         //是否为本次查询的最后一条记录
-    (TradeType, trade_type),                                 //撤单或者成交标记
+    (kungfu::array<char, ERROR_MSG_LEN>, trade_type_desc),   //成交类型内容，柜台返回什么就填什么
     //    (kungfu::array<char, CLIENT_ID_LEN>, client_id),         // Client ID
 
     (InstrumentType, instrument_type), //合约类型
