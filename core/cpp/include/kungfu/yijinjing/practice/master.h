@@ -51,6 +51,7 @@ protected:
   void on_active() final;
 
 private:
+  static constexpr int32_t kFeedCount = 10;
   int64_t start_time_;
   int64_t last_check_;
   index::session_builder session_builder_;

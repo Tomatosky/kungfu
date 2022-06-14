@@ -197,7 +197,9 @@ void master::handle_cached_feeds() {
 
     if (feed_map.size() != 0) {
       auto iter = feed_map.begin();
+      int32_t feed_count = 0;
       while (iter != feed_map.end() and !stored_controller) {
+        ++feed_count;
         auto &s = iter->second;
         auto source_id = s.source;
 
@@ -210,7 +212,9 @@ void master::handle_cached_feeds() {
           }
 
           iter = feed_map.erase(iter);
-          stored_controller = true;
+          if (feed_count >= kFeedCount) {
+            stored_controller = true;
+          }
         } else {
           iter++;
         }
@@ -230,7 +234,9 @@ void master::handle_profile_feeds() {
 
     if (feed_map.size() != 0) {
       auto iter = feed_map.begin();
+      int32_t feed_count = 0;
       while (iter != feed_map.end() and !stored_controller) {
+        ++feed_count;
         auto &s = iter->second;
 
         if (s.source == 0 and s.dest == 0) {
@@ -251,7 +257,9 @@ void master::handle_profile_feeds() {
         }
 
         s.stored = true;
-        stored_controller = true;
+        if (feed_count >= kFeedCount) {
+          stored_controller = true;
+        }
       }
     }
   });
