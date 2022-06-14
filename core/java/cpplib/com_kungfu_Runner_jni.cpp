@@ -124,8 +124,8 @@ public:
                                                     "lang/String;Lcom/kungfu/InstrumentType;DDDJDDDDDDDDDDD[D[D[J[J)V");
     jobject obj_quote = env_->NewObject(
         clazz_quote, quote_constructor, source_id, trading_day, data_time, instrument_id, exchange_id,
-        obj_instrument_type, pre_open_interest, pre_close_price, pre_settlement_price, last_price, volume, turnover,
-        pre_open_interest, open_price, high_price, low_price, upper_limit_price, lower_limit_price, close_price,
+        obj_instrument_type, pre_close_price, pre_settlement_price, last_price, volume, turnover, pre_open_interest,
+        open_interest, open_price, high_price, low_price, upper_limit_price, lower_limit_price, close_price,
         settlement_price, iopv, bid_price, ask_price, bid_volume, ask_volume);
 
     env_->CallVoidMethod(handler_, method_on_quote, obj_context, obj_quote);
