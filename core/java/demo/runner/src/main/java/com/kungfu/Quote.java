@@ -38,7 +38,10 @@ public class Quote {
         long[] bid_volume;
         long[] ask_volume;
 
-        public Quote(String source_id, String trading_day, long data_time, String instrument_id, String exchange_id, InstrumentType instrument_type, double pre_close_price, double pre_settlement_price, double last_price, long volume, double turnover, double pre_open_interest, double open_interest, double open_price, double high_price, double low_price, double upper_limit_price, double lower_limit_price, double close_price, double settlement_price, double iopv, double[] bid_price, double[] ask_price, long[] bid_volume, long[] ask_volume) {
+        public Quote(String source_id, String trading_day, long data_time, String instrument_id, String exchange_id,
+                     InstrumentType instrument_type, double pre_close_price, double pre_settlement_price, double last_price, long volume, double turnover, double pre_open_interest,
+                     double open_interest, double open_price, double high_price, double low_price, double upper_limit_price, double lower_limit_price, double close_price,
+                     double settlement_price, double iopv, double[] bid_price, double[] ask_price, long[] bid_volume, long[] ask_volume) {
                 this.source_id = source_id;
                 this.trading_day = trading_day;
                 this.data_time = data_time;
