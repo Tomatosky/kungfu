@@ -406,6 +406,7 @@ public:
     jstring account_id = env_->NewStringUTF(trade.account_id);
     // jstring client_id = env_->NewStringUTF(trade.client_id);
     jboolean is_last = (jboolean)(trade.is_last);
+    jstring trade_type_desc = env_->NewStringUTF(trade.trade_type_desc);
 
     jclass clazz_InstrumentType = env_->FindClass("com/kungfu/InstrumentType");
     jfieldID fid_instrument_type = env_->GetStaticFieldID(
@@ -442,7 +443,7 @@ public:
         "InstrumentType;Lcom/kungfu/Side;Lcom/kungfu/Offset;Lcom/kungfu/HedgeFlag;DJJDD)V");
     jobject obj_trade =
         env_->NewObject(clazz_trade, trade_constructor, trade_id, order_id, parent_order_id, trade_time, trading_day,
-                        instrument_id, exchange_id, source_id, account_id, is_last, obj_instrument_type, obj_side,
+                        instrument_id, exchange_id, source_id, account_id, is_last, trade_type_desc, obj_instrument_type, obj_side,
                         obj_offset, obj_hedgeflag, price, volume, close_today_volume, tax, commission);
 
     env_->CallVoidMethod(handler_, method_on_history_trade, obj_context, obj_trade);

@@ -10,6 +10,8 @@ public class DemoRunner extends Runner {
 
     public void pre_start(Context context){
         System.out.println("pre_start");
+        Side s = Side.Buy;
+        System.out.println(s.code);
         context.add_account("sim", "1", 100000.0);
         ArrayList<String> instrumentIds = new ArrayList<String>();
         instrumentIds.add("600000");
@@ -25,7 +27,7 @@ public class DemoRunner extends Runner {
         System.out.println("on_quote: " + quote.getInstrument_id()+ " " + quote.getLast_price());
         if(orderid == 0L){
             try {
-                orderid = context.insert_order("600000", "SSE", "12", 200, 500, PriceType.Any, Side.Buy, Offset.Open, HedgeFlag.Hedge);
+                orderid = context.insert_order("600000", "SSE", "1", 200, 500, PriceType.Any, Side.Buy, Offset.Open, HedgeFlag.Hedge);
             }catch(Exception e)
             {
                 System.out.println(".........");
@@ -33,10 +35,10 @@ public class DemoRunner extends Runner {
             }
         }
         else{
-            if(oid == 0L) {
-                oid = context.cancel_order(orderid);
-                System.out.println("on_quote cancel_order: " + oid);
-            }
+//            if(oid == 0L) {
+//                oid = context.cancel_order(orderid);
+//                System.out.println("on_quote cancel_order: " + oid);
+//            }
         }
         System.out.println("on_quote insert_order: " + orderid);
     }
@@ -46,7 +48,7 @@ public class DemoRunner extends Runner {
     }
 
     public void on_order(Context context, Order order){
-        System.out.println("on_order: " + order.instrument_id + " " + order.limit_price);
+        System.out.println("on_order: " + order.instrument_id + " " + order.limit_price + " " + order.side);
     }
     public void on_history_order(Context context, HistoryOrder history_order){
         System.out.println("on_history_order: order_id " + history_order.getOrder_id()+ " account_id " + history_order.getAccount_id()+ " instrument_id " + history_order.getInstrument_id());

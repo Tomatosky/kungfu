@@ -15,6 +15,10 @@ public class HistoryTrade {
     String account_id;       //账号ID
 //    String client_id;         // Client ID
     boolean is_last;
+
+
+
+    String trade_type_desc;
     InstrumentType instrument_type; //合约类型
 
     Side side;            //买卖方向
@@ -28,7 +32,7 @@ public class HistoryTrade {
     double tax;       //税
     double commission; //手续费
 
-    public HistoryTrade(long trade_id, long order_id, long parent_order_id, long trade_time, String trading_day, String instrument_id, String exchange_id, String source_id, String account_id, boolean is_last, InstrumentType instrument_type, Side side, Offset offset, HedgeFlag hedge_flag, double price, long volume, long close_today_volume, double tax, double commission) {
+    public HistoryTrade(long trade_id, long order_id, long parent_order_id, long trade_time, String trading_day, String instrument_id, String exchange_id, String source_id, String account_id, boolean is_last, String trade_type_desc, InstrumentType instrument_type, Side side, Offset offset, HedgeFlag hedge_flag, double price, long volume, long close_today_volume, double tax, double commission) {
         this.trade_id = trade_id;
         this.order_id = order_id;
         this.parent_order_id = parent_order_id;
@@ -39,6 +43,7 @@ public class HistoryTrade {
         this.source_id = source_id;
         this.account_id = account_id;
         this.is_last = is_last;
+        this.trade_type_desc = trade_type_desc;
         this.instrument_type = instrument_type;
         this.side = side;
         this.offset = offset;
@@ -126,6 +131,13 @@ public class HistoryTrade {
         return is_last;
     }
 
+    public String getTrade_type_desc() {
+        return trade_type_desc;
+    }
+
+    public void setTrade_type_desc(String trade_type_desc) {
+        this.trade_type_desc = trade_type_desc;
+    }
     public void setIs_last(boolean is_last) {
         this.is_last = is_last;
     }
