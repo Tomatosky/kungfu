@@ -267,27 +267,27 @@ function setMenu() {
         },
       ],
     },
-    {
-      label: '帮助',
-      submenu: [
-        {
-          label: '官网',
-          click: () => openUrl('https://www.kungfu-trader.com/'),
-        },
-        {
-          label: '用户手册',
-          click: () => openUrl('https://www.kungfu-trader.com/manual/'),
-        },
-        {
-          label: '策略API文档',
-          click: () => openUrl('https://www.kungfu-trader.com/api-doc/'),
-        },
-        {
-          label: 'Kungfu 论坛',
-          click: () => openUrl('https://www.kungfu-trader.com/community/'),
-        },
-      ],
-    },
+    // {
+    //   label: '帮助',
+    //   submenu: [
+    //     {
+    //       label: '官网',
+    //       click: () => openUrl('https://www.kungfu-trader.com/'),
+    //     },
+    //     {
+    //       label: '用户手册',
+    //       click: () => openUrl('https://www.kungfu-trader.com/manual/'),
+    //     },
+    //     {
+    //       label: '策略API文档',
+    //       click: () => openUrl('https://www.kungfu-trader.com/api-doc/'),
+    //     },
+    //     {
+    //       label: 'Kungfu 论坛',
+    //       click: () => openUrl('https://www.kungfu-trader.com/community/'),
+    //     },
+    //   ],
+    // },
   ];
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
