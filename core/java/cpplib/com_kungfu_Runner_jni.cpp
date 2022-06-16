@@ -439,8 +439,8 @@ public:
     jclass clazz_trade = env_->FindClass("com/kungfu/HistoryTrade");
     jmethodID trade_constructor = env_->GetMethodID(
         clazz_trade, "<init>",
-        "(JJJJLjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZLcom/kungfu/"
-        "InstrumentType;Lcom/kungfu/Side;Lcom/kungfu/Offset;Lcom/kungfu/HedgeFlag;DJJDD)V");
+        "(JJJJLjava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;ZLjava/lang/"
+        "String;Lcom/kungfu/InstrumentType;Lcom/kungfu/Side;Lcom/kungfu/Offset;Lcom/kungfu/HedgeFlag;DJJDD)V");
     jobject obj_trade =
         env_->NewObject(clazz_trade, trade_constructor, trade_id, order_id, parent_order_id, trade_time, trading_day,
                         instrument_id, exchange_id, source_id, account_id, is_last, trade_type_desc, obj_instrument_type, obj_side,
