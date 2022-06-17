@@ -81,7 +81,6 @@ public:
     auto apply = [&](Position &position) {
       if (is_valid_price(quote.last_price) and position.volume) {
         if (not position.last_price) {
-          SPDLOG_INFO("position.last_price set to {} for {} ", quote.last_price, position.instrument_id);  
           position.last_price = quote.last_price;
         }
         //position.last_price = position.last_price > 0 ? position.last_price : quote.last_price;
@@ -370,7 +369,6 @@ protected:
     position.volume += trade.volume;
     //The market value is calculated in Book::update()
     if (not position.last_price) {
-      SPDLOG_INFO("position.last_price set to {} for {} ", trade.price, position.instrument_id);
       position.last_price = trade.price;
     }
     position.last_price = position.last_price > 0 ? position.last_price : position.avg_open_price;
@@ -439,7 +437,6 @@ protected:
     //position.last_price = position.last_price > 0 ? position.last_price : position.avg_open_price;
     // if position.last_price == 0, there is no position, position.volume expected : 0
     if (not position.last_price) {
-      SPDLOG_INFO("position.last_price set to {} for {} ", trade.price, position.instrument_id);
       position.last_price = trade.price;
     }
     
@@ -452,8 +449,6 @@ protected:
     double cash_margin_change = trade_amt * cd_mr.long_margin_ratio;
 
     double unrealized_pnl_change = (position.last_price - trade.price) * trade.volume;
-    SPDLOG_TRACE("position.last_price {} trade.price {} (commission + tax) {} unrealized_pnl_change {}", 
-        position.last_price, trade.price, (commission + tax), unrealized_pnl_change);
 
     double original_volume = position.volume;
     if (position.volume + trade.volume > 0 && trade.price > 0) {
@@ -498,7 +493,6 @@ protected:
   virtual void apply_repaymargin(Book_ptr &book, const Trade &trade) {
     auto &position = book->get_position_for(trade);
     if (not position.last_price) {
-      SPDLOG_INFO("position.last_price: 0, set to {} ", trade.price);
       position.last_price = trade.price;
     }
     auto &asset_margin = book->asset_margin;
