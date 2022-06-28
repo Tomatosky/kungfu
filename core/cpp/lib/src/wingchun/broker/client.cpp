@@ -209,7 +209,7 @@ bool AutoClient::is_custom_quote_subscribed(uint32_t md_location_uid) const { re
 bool AutoClient::is_custom_transaction_subscribed(uint32_t md_location_uid) const { return false; }
 bool AutoClient::is_custom_entrust_subscribed(uint32_t md_location_uid) const { return false; }
 std::string AutoClient::get_custom_exchange(uint32_t md_location_uid) const { return "0"; }
-InstrumentType AutoClient::get_custom_instrument_type(uint32_t md_location_uid) const {return InstrumentType::Crypto;}
+bool AutoClient::is_custom_instrument_type_subscribed(uint32_t md_location_uid, InstrumentType kf_instrument_type) const {return false;}
 
 bool AutoClient::is_all_subscribed(uint32_t md_location_uid) const { return false; }
 
@@ -244,24 +244,24 @@ bool PassiveClient::is_custom_subscribed(uint32_t md_location_uid) const {
 bool PassiveClient::is_custom_quote_subscribed(uint32_t md_location_uid) const {
   if (should_connect_md(app_.get_location(md_location_uid)) and enrolled_md_locations_.at(md_location_uid)) {
     auto &custom_sub = custom_subs_.at(md_location_uid);
-    return custom_sub.secu_datatypes == SubscribeSecuDataType::kSnapshot or
-           custom_sub.secu_datatypes == SubscribeSecuDataType::kNone;
+    return custom_sub.secu_datatypes == SubscribeSecuDataType::kNone or
+           (uint64_t(custom_sub.secu_datatypes) & uint64_t(SubscribeSecuDataType::kSnapshot)) != 0;
   }
 }
 
 bool PassiveClient::is_custom_transaction_subscribed(uint32_t md_location_uid) const {
   if (should_connect_md(app_.get_location(md_location_uid)) and enrolled_md_locations_.at(md_location_uid)) {
     auto &custom_sub = custom_subs_.at(md_location_uid);
-    return custom_sub.secu_datatypes == SubscribeSecuDataType::kTickExecution or
-           custom_sub.secu_datatypes == SubscribeSecuDataType::kNone;
+    return custom_sub.secu_datatypes == SubscribeSecuDataType::kNone or
+           uint64_t(custom_sub.secu_datatypes) & uint64_t(SubscribeSecuDataType::kTickExecution) != 0;
   }
 }
 
 bool PassiveClient::is_custom_entrust_subscribed(uint32_t md_location_uid) const {
   if (should_connect_md(app_.get_location(md_location_uid)) and enrolled_md_locations_.at(md_location_uid)) {
     auto &custom_sub = custom_subs_.at(md_location_uid);
-    return custom_sub.secu_datatypes == SubscribeSecuDataType::kTickOrder or
-           custom_sub.secu_datatypes == SubscribeSecuDataType::kNone;
+    return custom_sub.secu_datatypes == SubscribeSecuDataType::kNone or
+           uint64_t(custom_sub.secu_datatypes) & uint64_t(SubscribeSecuDataType::kTickOrder) != 0;
   }
 }
 
@@ -294,33 +294,43 @@ std::string PassiveClient::get_custom_exchange(uint32_t md_location_uid) const {
   return std::string("0");
 }
 
-InstrumentType PassiveClient::get_custom_instrument_type(uint32_t md_location_uid) const {
+bool PassiveClient::is_custom_instrument_type_subscribed(uint32_t md_location_uid, InstrumentType kf_instrument_type) const {
   if (should_connect_md(app_.get_location(md_location_uid)) and enrolled_md_locations_.at(md_location_uid)) {
     auto &custom_sub = custom_subs_.at(md_location_uid);
-    switch (custom_sub.instrument_types) {
-    case SubscribeCategoryType::kStock:
-      return InstrumentType::Stock;
-    case SubscribeCategoryType::kFund:
-      return InstrumentType::Fund;
-    case SubscribeCategoryType::kBond:
-      return InstrumentType::Bond;
-    case SubscribeCategoryType::kIndex:
-      return InstrumentType::Index;
-    case SubscribeCategoryType::kHKT:
-      return InstrumentType::Crypto;
-    case SubscribeCategoryType::kOption:
-      return InstrumentType::StockOption;
-    case SubscribeCategoryType::kFutureOption:
-      return InstrumentType::Future;
-    case SubscribeCategoryType::kOthers:
-      return InstrumentType::Crypto;
-    case SubscribeCategoryType::kNone:
-      return InstrumentType::Unknown;
-    default:
-      return InstrumentType::Crypto;
+    SubscribeCategoryType custom_type = SubscribeCategoryType::kOthers;
+    switch (kf_instrument_type) {
+    case InstrumentType::Stock: {
+      custom_type = SubscribeCategoryType::kStock;
+      break;
     }
-  }
-  return InstrumentType::Crypto;
+    case InstrumentType::Fund: {
+      custom_type = SubscribeCategoryType::kFund;
+      break;
+    }
+    case InstrumentType::Future: {
+      custom_type = SubscribeCategoryType::kFutureOption;
+      break;
+    }
+    case InstrumentType::Bond: {
+      custom_type = SubscribeCategoryType::kBond;
+      break;
+    }
+    case InstrumentType::StockOption: {
+      custom_type = SubscribeCategoryType::kOption;
+      break;
+    }
+    case InstrumentType::Index: {
+      custom_type = SubscribeCategoryType::kIndex;
+      break;
+    }
+    default: {
+      custom_type = SubscribeCategoryType::kOthers;
+      break;
+    }
+    }
+  return (uint64_t(custom_type) & uint64_t(custom_sub.instrument_types)) != 0;
+}
+return false;
 }
 
 bool PassiveClient::is_all_subscribed(uint32_t md_location_uid) const {
