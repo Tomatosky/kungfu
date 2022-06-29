@@ -239,9 +239,9 @@ static constexpr auto is_own(const Client &broker_client) {
     if (event->msg_type() == DataType::tag) {
       const DataType &data = event->data<DataType>();
       if(broker_client.is_custom_subscribed(event->source())) {
-        if((std::is_same_v<DataType, longfist::types::Quote> || std::is_same_v<DataType, longfist::types::Bar>) && broker_client.is_custom_quote_subscribed(event->source()) ||
-        std::is_same_v<DataType, longfist::types::Transaction> && broker_client.is_custom_transaction_subscribed(event->source()) ||
-        std::is_same_v<DataType, longfist::types::Entrust> && broker_client.is_custom_entrust_subscribed(event->source())){
+        if(((std::is_same_v<DataType, longfist::types::Quote> || std::is_same_v<DataType, longfist::types::Bar>) && broker_client.is_custom_quote_subscribed(event->source())) ||
+        (std::is_same_v<DataType, longfist::types::Transaction> && broker_client.is_custom_transaction_subscribed(event->source())) ||
+        (std::is_same_v<DataType, longfist::types::Entrust> && broker_client.is_custom_entrust_subscribed(event->source()))){
           std::string custom_exchange = broker_client.get_custom_exchange(event->source());
           if((custom_exchange.empty() || custom_exchange.compare(data.exchange_id.value) == 0) && broker_client.is_custom_instrument_type_subscribed(event->source(), kungfu::wingchun::get_instrument_type(data.exchange_id, data.instrument_id))){
             return true;
