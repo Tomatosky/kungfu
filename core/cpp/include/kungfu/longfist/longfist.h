@@ -5,6 +5,7 @@
 #ifndef KUNGFU_LONGFIST_H
 #define KUNGFU_LONGFIST_H
 
+#include "kungfu/yijinjing/cache/ringqueue.h"
 #include <kungfu/longfist/types.h>
 
 #define TYPE_PAIR(DataType) boost::hana::make_pair(HANA_STR(#DataType), boost::hana::type_c<types::DataType>)
@@ -138,25 +139,32 @@ constexpr auto StateDataTypes = boost::hana::make_map( //
     TYPE_PAIR(Commission),                             //
     TYPE_PAIR(Instrument),                             //
     TYPE_PAIR(Quote),                                  //
-    TYPE_PAIR(Entrust),                                //
-    TYPE_PAIR(Transaction),                            //
-    TYPE_PAIR(Bar),                                    //
-    TYPE_PAIR(TopOfBook),                              //
+    // TYPE_PAIR(Entrust),                                //
+    // TYPE_PAIR(Transaction),                            //
+    // TYPE_PAIR(Bar),                                    //
+    // TYPE_PAIR(TopOfBook),                              //
     TYPE_PAIR(OrderInput),                             //
     TYPE_PAIR(OrderAction),                            //
     TYPE_PAIR(OrderActionError),                       //
     TYPE_PAIR(Order),                                  //
     TYPE_PAIR(Trade),                                  //
-    TYPE_PAIR(HistoryOrder),                           //
-    TYPE_PAIR(HistoryTrade),                           //
+    // TYPE_PAIR(HistoryOrder),                           //
+    // TYPE_PAIR(HistoryTrade),                           //
     TYPE_PAIR(Asset),                                  //
     TYPE_PAIR(AssetMargin),                            //
-    TYPE_PAIR(AssetSnapshot),                          //
-    TYPE_PAIR(DailyAsset),                             //
+    // TYPE_PAIR(AssetSnapshot),                          //
+    // TYPE_PAIR(DailyAsset),                             //
     TYPE_PAIR(Position),                               //
-    TYPE_PAIR(PositionDetail),                         //
-    TYPE_PAIR(InstrumentCommissionRate),               //
+    // TYPE_PAIR(PositionDetail),                         //
+    // TYPE_PAIR(InstrumentCommissionRate),               //
     TYPE_PAIR(OrderStat)                               //
+);
+
+constexpr auto TradingDataTypes = boost::hana::make_map( //
+    TYPE_PAIR(OrderInput),                               //
+    TYPE_PAIR(Order),                                    //
+    TYPE_PAIR(Trade),                                    //
+    TYPE_PAIR(OrderStat)                                 //
 );
 
 constexpr auto build_data_map = [](auto types) {
@@ -175,11 +183,25 @@ constexpr auto build_state_map = [](auto types) {
   return boost::hana::unpack(maps, boost::hana::make_map);
 };
 
+constexpr auto build_ring_state_map = [](auto types) {
+  auto maps = boost::hana::transform(boost::hana::values(types), [](auto value) {
+    using DataType = typename decltype(+value)::type;
+    kungfu::yijinjing::cache::ringqueue<state<DataType>> *p =
+        new kungfu::yijinjing::cache::ringqueue<state<DataType>>(1024);
+    return boost::hana::make_pair(value, p);
+  });
+  // SPDLOG_INFO("type = {}", typeid(maps).name());
+  return boost::hana::unpack(maps, boost::hana::make_map);
+};
+
 using ProfileMapType = decltype(build_data_map(longfist::ProfileDataTypes));
 DECLARE_PTR(ProfileMapType)
 
 using StateMapType = decltype(build_state_map(longfist::StateDataTypes));
 DECLARE_PTR(StateMapType)
+
+using TradingMapType = decltype(build_ring_state_map(longfist::TradingDataTypes));
+DECLARE_PTR(TradingMapType)
 
 template <typename DataType> std::enable_if_t<size_fixed_v<DataType>> copy(DataType &to, const DataType &from) {
   memcpy(&to, &from, sizeof(DataType));

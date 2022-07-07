@@ -6,6 +6,7 @@
 #include "commission_store.h"
 #include "config_store.h"
 #include "history.h"
+#include "kungfu/yijinjing/cache/ringqueue.h"
 #include <sstream>
 
 using namespace kungfu::rx;
@@ -280,6 +281,7 @@ void Watcher::Init(Napi::Env env, Napi::Object exports) {
                                         InstanceAccessor("ledger", &Watcher::GetLedger, &Watcher::NoSet),         //
                                         InstanceAccessor("appStates", &Watcher::GetAppStates, &Watcher::NoSet),   //
                                         InstanceAccessor("tradingDay", &Watcher::GetTradingDay, &Watcher::NoSet), //
+                                        InstanceMethod("syncOrder", &Watcher::SyncOrder),
                                     });
 
   constructor = Napi::Persistent(func);
@@ -289,7 +291,7 @@ void Watcher::Init(Napi::Env env, Napi::Object exports) {
 }
 
 void Watcher::on_react() {
-  events_ | $([&](const event_ptr &event) { feed_state_data(event, update_state); });
+  events_ | take_until(events_ | is(RequestStart::tag)) | bypass(this, bypass_quotes_) | $([&](const event_ptr &event) { feed_state_data(event, update_state); });
 }
 
 void Watcher::on_start() {
@@ -310,16 +312,41 @@ void Watcher::on_start() {
   events_ | is(CacheReset::tag) | $$(reset_cache(event));
 }
 
-void Watcher::Feed(const event_ptr &event) {
+void Watcher::Feed(const event_ptr &event, bool is_restore) {
   if (Quote::tag == event->msg_type()) {
     auto quote = event->data<Quote>();
     auto uid = quote.uid();
     if (subscribed_instruments_.find(uid) != subscribed_instruments_.end()) {
-      feed_state_data(event, quotes_bank_);
+      quotes_bank_ << typed_event_ptr<Quote>(event);
     }
   } else {
+    bool is_order(false);
+    boost::hana::for_each(longfist::TradingDataTypes, [&](auto it) {
+      using DataType = typename decltype(+boost::hana::second(it))::type;
+      if (DataType::tag == event->msg_type()) {
+        trading_bank_ << typed_event_ptr<DataType>(event);
+        is_order = true;
+      }
+    });
+    if (!is_order) {
+      if (!is_restore && Instrument::tag == event->msg_type()) {
+        auto instrument_item = event->data<Instrument>();
+        uint32_t hash_value = hash_instrument(instrument_item.exchange_id, instrument_item.instrument_id);
+        if (hash_instruments_.find(hash_value) == hash_instruments_.end()) {
+          feed_state_data(event, update_ledger);
+          hash_instruments_.insert(hash_value);
+        }
+      } else {
+        feed_state_data(event, update_ledger);
+      }
+    }
     feed_state_data(event, update_ledger);
   }
+}
+
+Napi::Value Watcher::SyncOrder(const Napi::CallbackInfo &info) {
+  boost::hana::for_each(TradingDataTypes, [&](auto it) { UpdateOrder(+boost::hana::second(it)); });
+  return {};
 }
 
 void Watcher::RestoreState(const location_ptr &state_location, int64_t from, int64_t to, bool sync_schema) {

@@ -74,6 +74,33 @@ private:
   DataTypesMap state_map_;
 };
 
+class trading_bank {
+public:
+  trading_bank() : trading_data_map_(longfist::build_ring_state_map(longfist::TradingDataTypes)) {}
+  template <typename DataType> void operator<<(const state<DataType> &state) {
+    auto &target_queue = trading_data_map_[boost::hana::type_c<DataType>];
+    target_queue->push(state);
+  }
+
+  template <typename DataType> void operator<<(const typed_event_ptr<DataType> &event) {
+    auto &target_queue = trading_data_map_[boost::hana::type_c<DataType>];
+    kungfu::state<DataType> s(*event);
+    target_queue->push(s);
+  }
+
+  template <typename DataType>
+  kungfu::yijinjing::cache::ringqueue<state<DataType>> &operator[](const boost::hana::basic_type<DataType> &type) {
+    return *(trading_data_map_[type]);
+  }
+
+  ~trading_bank() {
+    boost::hana::for_each(trading_data_map_, [&](const auto &x) { delete (+boost::hana::second(x)); });
+  }
+
+private:
+  longfist::TradingMapType trading_data_map_;
+};
+
 } // namespace kungfu::yijinjing::cache
 
 #endif // KUNGFU_CACHE_RUNTIME_H

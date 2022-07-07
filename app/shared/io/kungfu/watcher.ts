@@ -131,11 +131,13 @@ export const startUpdateKungfuWatcherQuotes = (interval = 2000) => {
               statTime('update Quote');
               watcher.updateQuote();
               statTimeEnd('update Quote');
+              watcher.syncOrder();
               resolve(true);
             },
             { timeout: 5000 },
           );
         } else {
+          watcher.syncOrder();
           watcher.updateQuote();
           resolve(true);
         }

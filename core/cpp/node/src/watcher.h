@@ -76,6 +76,8 @@ public:
 
   Napi::Value UpdateQuote(const Napi::CallbackInfo& info);
 
+  Napi::Value SyncOrder(const Napi::CallbackInfo &info);
+
   static void Init(Napi::Env env, Napi::Object exports);
 
 protected:
@@ -100,7 +102,9 @@ private:
   serialize::JsPublishState publish;
   serialize::JsResetCache reset_cache;
   yijinjing::cache::bank quotes_bank_;
+  yijinjing::cache::trading_bank trading_bank_;
   std::unordered_map<uint32_t, longfist::types::InstrumentKey> subscribed_instruments_ = {};
+  std::unordered_set<uint32_t> hash_instruments_ = {};
 
   static constexpr auto bypass = [](yijinjing::practice::apprentice *app, bool bypass_quotes) {
     return rx::filter([=](const event_ptr &event) {
@@ -108,7 +112,7 @@ private:
     });
   };
 
-  void Feed(const event_ptr& event);
+  void Feed(const event_ptr& event, bool is_restore = false);
 
   void RestoreState(const yijinjing::data::location_ptr &state_location, int64_t from, int64_t to, bool sync_schema);
 
@@ -154,6 +158,16 @@ private:
   std::enable_if_t<std::is_same_v<TradingData, longfist::types::OrderInput>> UpdateBook(uint32_t source, uint32_t dest,
                                                                                         const TradingData &data) {
     bookkeeper_.on_order_input(now(), source, dest, data);
+  }
+
+  template <typename DataType> void UpdateOrder(const boost::hana::basic_type<DataType> &type) {
+    auto &order_queue = trading_bank_[type];
+    int i = 0;
+    kungfu::state<DataType> *pstate = nullptr;
+    while (i < 1024 && order_queue.pop(pstate) && pstate != nullptr) {
+      update_ledger(pstate->update_time, pstate->source, pstate->dest, pstate->data);
+      i++;
+    }
   }
 
   template <typename TradingData>
