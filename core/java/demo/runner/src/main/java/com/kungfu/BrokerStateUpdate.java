@@ -14,4 +14,11 @@ public class BrokerStateUpdate {
     public BrokerStateUpdate(BrokerState state) {
         this.state = state;
     }
+
+    @Override
+    public String toString() {
+        return "BrokerStateUpdate{" +
+                "state=" + state +
+                '}';
+    }
 }

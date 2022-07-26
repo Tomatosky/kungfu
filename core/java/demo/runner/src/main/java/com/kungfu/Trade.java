@@ -202,4 +202,29 @@ public class Trade {
     public void setCommission(double commission) {
         this.commission = commission;
     }
+
+    @Override
+    public String toString() {
+        return "Trade{" +
+                "trade_id=" + trade_id +
+                ", order_id=" + order_id +
+                ", parent_order_id=" + parent_order_id +
+                ", trade_time=" + trade_time +
+                ", trading_day='" + trading_day + '\'' +
+                ", instrument_id='" + instrument_id + '\'' +
+                ", exchange_id='" + exchange_id + '\'' +
+                ", source_id='" + source_id + '\'' +
+                ", account_id='" + account_id + '\'' +
+                ", client_id='" + client_id + '\'' +
+                ", instrument_type=" + instrument_type +
+                ", side=" + side +
+                ", offset=" + offset +
+                ", hedge_flag=" + hedge_flag +
+                ", price=" + price +
+                ", volume=" + volume +
+                ", close_today_volume=" + close_today_volume +
+                ", tax=" + tax +
+                ", commission=" + commission +
+                '}';
+    }
 }

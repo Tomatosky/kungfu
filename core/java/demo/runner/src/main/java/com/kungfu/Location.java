@@ -64,4 +64,16 @@ public class Location {
     public void setMode(Mode mode) {
         this.mode = mode;
     }
+
+    @Override
+    public String toString() {
+        return "Location{" +
+                "uid=" + uid +
+                ", uname='" + uname + '\'' +
+                ", group='" + group + '\'' +
+                ", name='" + name + '\'' +
+                ", category=" + category +
+                ", mode=" + mode +
+                '}';
+    }
 }

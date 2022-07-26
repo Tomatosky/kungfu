@@ -1,6 +1,8 @@
 package com.kungfu;
 
 
+import java.util.Arrays;
+
 public class Quote {
         String source_id;         //柜台ID
         String trading_day;            //交易日
@@ -267,5 +269,36 @@ public class Quote {
 
         public void setAsk_volume(long[] ask_volume) {
                 this.ask_volume = ask_volume;
+        }
+
+        @Override
+        public String toString() {
+                return "Quote{" +
+                        "source_id='" + source_id + '\'' +
+                        ", trading_day='" + trading_day + '\'' +
+                        ", data_time=" + data_time +
+                        ", instrument_id='" + instrument_id + '\'' +
+                        ", exchange_id='" + exchange_id + '\'' +
+                        ", instrument_type=" + instrument_type +
+                        ", pre_close_price=" + pre_close_price +
+                        ", pre_settlement_price=" + pre_settlement_price +
+                        ", last_price=" + last_price +
+                        ", volume=" + volume +
+                        ", turnover=" + turnover +
+                        ", pre_open_interest=" + pre_open_interest +
+                        ", open_interest=" + open_interest +
+                        ", open_price=" + open_price +
+                        ", high_price=" + high_price +
+                        ", low_price=" + low_price +
+                        ", upper_limit_price=" + upper_limit_price +
+                        ", lower_limit_price=" + lower_limit_price +
+                        ", close_price=" + close_price +
+                        ", settlement_price=" + settlement_price +
+                        ", iopv=" + iopv +
+                        ", bid_price=" + Arrays.toString(bid_price) +
+                        ", ask_price=" + Arrays.toString(ask_price) +
+                        ", bid_volume=" + Arrays.toString(bid_volume) +
+                        ", ask_volume=" + Arrays.toString(ask_volume) +
+                        '}';
         }
 }

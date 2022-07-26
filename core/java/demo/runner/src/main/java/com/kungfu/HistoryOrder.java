@@ -287,4 +287,37 @@ public class HistoryOrder {
     public void setTime_condition(TimeCondition time_condition) {
         this.time_condition = time_condition;
     }
+
+    @Override
+    public String toString() {
+        return "HistoryOrder{" +
+                "parent_id=" + parent_id +
+                ", order_id=" + order_id +
+                ", insert_time=" + insert_time +
+                ", update_time=" + update_time +
+                ", trading_day='" + trading_day + '\'' +
+                ", instrument_id='" + instrument_id + '\'' +
+                ", exchange_id='" + exchange_id + '\'' +
+                ", source_id='" + source_id + '\'' +
+                ", account_id='" + account_id + '\'' +
+                ", is_last=" + is_last +
+                ", instrument_type=" + instrument_type +
+                ", limit_price=" + limit_price +
+                ", frozen_price=" + frozen_price +
+                ", volume=" + volume +
+                ", volume_traded=" + volume_traded +
+                ", volume_left=" + volume_left +
+                ", tax=" + tax +
+                ", commission=" + commission +
+                ", status=" + status +
+                ", error_id=" + error_id +
+                ", error_msg='" + error_msg + '\'' +
+                ", side=" + side +
+                ", offset=" + offset +
+                ", hedge_flag=" + hedge_flag +
+                ", price_type=" + price_type +
+                ", volume_condition=" + volume_condition +
+                ", time_condition=" + time_condition +
+                '}';
+    }
 }
