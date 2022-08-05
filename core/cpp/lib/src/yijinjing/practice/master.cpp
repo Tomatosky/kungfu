@@ -61,6 +61,8 @@ void master::register_app(const event_ptr &event) {
   Register register_data(request_data.c_str(), request_data.length());
 
   auto app_location = location::make_shared(register_data, home->locator);
+  auto uid_str = fmt::format("{:08x}", app_location->uid);
+  SPDLOG_INFO("location {} is registering {}", app_location->uname, uid_str);
 
   if (is_location_live(app_location->uid)) {
     SPDLOG_ERROR("location {} has already been registered live", app_location->uname);
@@ -68,7 +70,6 @@ void master::register_app(const event_ptr &event) {
   }
 
   auto now = time::now_in_nano();
-  auto uid_str = fmt::format("{:08x}", app_location->uid);
   auto master_cmd_location = location::make_shared(mode::LIVE, category::SYSTEM, "master", uid_str, home->locator);
   auto public_writer = get_writer(location::PUBLIC);
   auto app_cmd_writer = get_io_device()->open_writer_at(master_cmd_location, app_location->uid);
