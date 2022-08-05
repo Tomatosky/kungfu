@@ -313,6 +313,7 @@ void master::on_request_write_to(const event_ptr &event) {
   const RequestWriteTo &request = event->data<RequestWriteTo>();
   auto trigger_time = event->gen_time();
   auto app_uid = event->source();
+  SPDLOG_INFO("{} named {} request_write_to {} named {}",app_uid, get_location_uname(app_uid), request.dest_id, get_location_uname(request.dest_id));
   if (not is_location_live(app_uid)) {
     return;
   }
@@ -332,6 +333,7 @@ void master::on_request_read_from(const event_ptr &event) {
   const RequestReadFrom &request = event->data<RequestReadFrom>();
   auto trigger_time = event->gen_time();
   auto app_uid = event->source();
+  SPDLOG_INFO("{} named {} request_read_from {} named {}",app_uid, get_location_uname(app_uid), request.source_id, get_location_uname(request.source_id));
   if (not check_location_live(request.source_id, app_uid)) {
     return;
   }
