@@ -140,7 +140,7 @@ void master::react() {
   events_ | is(RequestWriteTo::tag) | $$(on_request_write_to(event));
   events_ | is(RequestReadFrom::tag) | $$(on_request_read_from(event));
   events_ | is(RequestReadFromPublic::tag) | $$(on_request_read_from_public(event));
-  events_ | is(Channel::tag) | $$(on_channel_request(event));
+  events_ | is(ChannelRequest::tag) | $$(on_channel_request(event));
   events_ | is(TimeRequest::tag) | $$(on_time_request(event));
   events_ | is(Location::tag) | $$(on_new_location(event));
   events_ | is(CacheReset::tag) | $$(on_cache_reset(event));

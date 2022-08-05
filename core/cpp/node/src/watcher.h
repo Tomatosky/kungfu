@@ -229,7 +229,7 @@ private:
         return Napi::Boolean::New(info.Env(), true);
       }
 
-      Channel request = {};
+      ChannelRequest request = {};
       request.dest_id = strategy_location->uid;
       request.source_id = ledger_location_->uid;
       master_cmd_writer->write(trigger_time, request);
