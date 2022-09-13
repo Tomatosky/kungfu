@@ -110,6 +110,7 @@ private:
   std::unordered_map<uint64_t, std::string> outbound_orders_;
   std::unordered_map<uint64_t, std::shared_ptr<CThostFtdcTradeField>> map_trades_;
   std::unordered_map<uint64_t, uint64_t> map_request_location_;
+  std::unordered_set<std::string> set_rongh_trade_ids_{}; // 存储已处理过得trade_id, 防止重复处理
 
   PositionMap long_position_map_;
   PositionMap short_position_map_;

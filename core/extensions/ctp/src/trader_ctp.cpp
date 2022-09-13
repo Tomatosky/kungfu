@@ -318,10 +318,10 @@ void TraderCTP::OnRtnTrade(CThostFtdcTradeField *pTrade) {
 
   uint64_t orderSysId_key = get_orderSysId_key(pTrade->ExchangeID, pTrade->OrderSysID);
   if (inbound_order_sysids_.find(orderSysId_key) == inbound_order_sysids_.end()) {
-    if (!config_.sync_external_order) {
-      SPDLOG_ERROR("CANNOT FIND orderSysId_key {} in inbound_order_sysids_", orderSysId_key);
-      return;
-    }
+    //    if (!config_.sync_external_order) {
+    SPDLOG_WARN("CANNOT FIND orderSysId_key {} in inbound_order_sysids_", orderSysId_key);
+    //      return;
+    //    }
     map_trades_.insert_or_assign(orderSysId_key, std::make_shared<CThostFtdcTradeField>());
     memcpy(map_trades_.at(orderSysId_key).get(), (const CThostFtdcTradeField *)pTrade, sizeof(CThostFtdcTradeField));
     return;
@@ -343,6 +343,12 @@ void TraderCTP::doRtnTrade(uint64_t orderSysId_key, CThostFtdcTradeField *pTrade
     SPDLOG_ERROR("CANNOT FIND ORDER order_id {} with orderSysId_key {}", order_id, orderSysId_key);
     return;
   }
+
+  if (set_rongh_trade_ids_.find(pTrade->TradeID) != set_rongh_trade_ids_.end()) {
+    SPDLOG_WARN("TradeId: {} already dealt, ignore this time", pTrade->TradeID);
+    return;
+  }
+  set_rongh_trade_ids_.emplace(pTrade->TradeID);
 
   auto &order_state = orders_.at(order_id);
   auto writer = get_writer(order_state.dest);
