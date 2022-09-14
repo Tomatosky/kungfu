@@ -60,8 +60,8 @@ inline void from_json(const nlohmann::json &j, kungfu::wingchun::ctp::MDConfigur
 }
 
 inline uint64_t get_orderSysId_key(const char* exchangeId, const char* orderSysId) {
-  uint32_t hashed_exchangeId = kungfu::hash_32((const unsigned char*)exchangeId, sizeof(TThostFtdcExchangeIDType));
-  uint32_t hashed_orderSysId = kungfu::hash_32((const unsigned char*)orderSysId, sizeof(TThostFtdcOrderSysIDType));
+  uint32_t hashed_exchangeId = kungfu::hash_32((const unsigned char *)exchangeId, strlen(exchangeId));
+  uint32_t hashed_orderSysId = kungfu::hash_32((const unsigned char *)orderSysId, strlen(orderSysId));
   return ((uint64_t)hashed_exchangeId << 32u) | hashed_orderSysId;
 }
 
