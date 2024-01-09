@@ -1303,7 +1303,7 @@ export const initClean = async (withApp: boolean, withPm2: boolean) => {
 
 function promiseWithTimeout<T>(
   promise: Promise<T | T[]>,
-  ms: number = 15000,
+  ms = 15000,
 ): Promise<T | T[]> {
   return Promise.race([
     promise,
