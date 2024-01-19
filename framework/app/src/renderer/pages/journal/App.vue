@@ -51,14 +51,20 @@
                 }"
               >
                 <template v-if="column.dataIndex === 'sessionName'">
-                  <a-tag
-                    :color="dealCategory(record.category)?.color || 'default'"
-                  >
-                    {{ dealCategory(record.category)?.name }}
-                  </a-tag>
-                  {{
-                    record[column.dataIndex as keyof KungfuApi.SessionResolved]
-                  }}
+                  <div class="session-name__warp">
+                    <a-tag
+                      :color="dealCategory(record.category)?.color || 'default'"
+                    >
+                      {{ dealCategory(record.category)?.name }}
+                    </a-tag>
+                    <span>
+                      {{
+                        record[
+                          column.dataIndex as keyof KungfuApi.SessionResolved
+                        ]
+                      }}
+                    </span>
+                  </div>
                 </template>
                 <template v-else-if="column.dataIndex === 'status'">
                   <span
@@ -131,7 +137,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, computed, getCurrentInstance } from 'vue';
+import { onMounted, ref, computed } from 'vue';
 import { storeToRefs } from 'pinia';
 import { getSessionColumns, SessionStatus } from './config';
 import {
@@ -175,7 +181,6 @@ const { searchKeyword, tableData } =
     'name',
   ]);
 
-const app = getCurrentInstance();
 const simpleImage = Empty.PRESENTED_IMAGE_SIMPLE;
 const currentMenuList = ref<('event' | 'visual')[]>(['event']);
 const menus = [
@@ -280,12 +285,6 @@ const mouseDownHandler = (event: MouseEvent) => {
 onMounted(() => {
   setSessions();
   removeLoadingMask();
-  window.addEventListener('resize', () => {
-    app?.proxy &&
-      app?.proxy.$globalBus.next({
-        tag: 'resize',
-      } as KfEvent.ResizeEvent);
-  });
 });
 
 const onExportJournalData = (
@@ -366,6 +365,9 @@ function onEntryVisualization() {
             height: auto;
             margin-top: 48px;
           }
+        }
+        .session-name__warp {
+          word-break: break-all;
         }
 
         .kf-journal-visualization {

@@ -1,5 +1,5 @@
 <template>
-  <div class="kf-time-slider__wrap" v-if="contentVisible">
+  <div class="kf-time-slider__wrap">
     <backward-outlined
       class="forward-icon"
       @click="handleTimeBack()"
@@ -43,7 +43,7 @@ import { storeToRefs } from 'pinia';
 import { dealKfTime } from '@kungfu-trader/kungfu-js-api/kungfu';
 import { ForwardOutlined, BackwardOutlined } from '@ant-design/icons-vue';
 import { SessionStatusEnum } from '@kungfu-trader/kungfu-js-api/typings/enums';
-import { useNow, useResizeFlag } from '../utils';
+import { useNow } from '../utils';
 import { useJournalStore } from '../store/journalStore';
 import { delayMilliSeconds } from '@kungfu-trader/kungfu-js-api/utils/busiUtils';
 
@@ -56,7 +56,6 @@ const props = withDefaults(
   },
 );
 
-const { contentVisible } = useResizeFlag();
 const {
   currentSession,
   currentTime,

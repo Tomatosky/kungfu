@@ -8,12 +8,10 @@ import {
   UpOutlined,
   DownOutlined,
 } from '@ant-design/icons-vue';
-import { filter } from 'rxjs';
 import {
   computed,
   watch,
   getCurrentInstance,
-  onBeforeMount,
   onMounted,
   ref,
   toRaw,
@@ -285,22 +283,19 @@ const initScrollerTableWidth = () => {
   });
 };
 
+const resizeScrollerTableWidth = () => {
+  if (kfScrollerTableBodyRef.value) {
+    kfScrollerTableWidth.value = kfScrollerTableBodyRef.value.clientWidth - 8;
+  }
+};
+
 onMounted(() => {
   initScrollerTableWidth();
 
-  if (app?.proxy && props.resizable) {
-    const subscription = app?.proxy.$globalBus
-      .pipe(filter((e: KfEvent.KfBusEvent) => e.tag === 'resize'))
-      .subscribe(() => {
-        if (kfScrollerTableBodyRef.value) {
-          kfScrollerTableWidth.value =
-            kfScrollerTableBodyRef.value.clientWidth - 8;
-        }
-      });
-
-    onBeforeMount(() => {
-      subscription.unsubscribe();
-    });
+  if (props.resizable && kfScrollerTableBodyRef.value) {
+    new ResizeObserver(() => {
+      resizeScrollerTableWidth();
+    }).observe(kfScrollerTableBodyRef.value.parentNode as HTMLElement);
   }
 });
 
@@ -555,6 +550,7 @@ defineExpose({
   scrollToTop,
   getVisibleIndexRange,
   resetSort,
+  resizeScrollerTableWidth,
 });
 </script>
 <template>

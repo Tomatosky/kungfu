@@ -2224,6 +2224,35 @@ export const KfConfigValueNumberType = [
   ...Object.keys(numberEnumRadioType || {}),
 ];
 
+export const FormItemNeedIcon = [
+  'str',
+  'password',
+  'int',
+  'float',
+  'percent',
+  'side',
+  'priceType',
+  'priceLevel',
+  'radio',
+  'checkbox',
+  'checkboxGroup',
+  'select',
+  'multiSelect',
+  'instrument',
+  'instruments',
+  'td',
+  'tds',
+  'md',
+  'md&operator',
+  'operator',
+  'strategy',
+  'basket',
+  'bool',
+  ...Object.keys(numberEnumSelectType || {}),
+  ...Object.keys(stringEnumSelectType || {}),
+  ...Object.keys(numberEnumRadioType || {}),
+];
+
 export const KfConfigValueBooleanType = ['bool', 'checkbox'];
 
 export const KfConfigValueArrayType = [
