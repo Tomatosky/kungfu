@@ -839,6 +839,16 @@ export function startArchiveMakeTask(
 ) {
   const globalSetting = getKfGlobalSettingsValue();
   const bypassArchive = globalSetting?.system?.bypassArchive ?? false;
+  const bypassArchiveDev = globalSetting?.system?.bypassArchiveDev ?? false;
+
+  if (bypassArchiveDev) {
+    cb?.('online');
+    return delayMilliSeconds(2000).then(() => {
+      cb?.('stopped');
+      kfLogger.info('Completely pass the archive for dev');
+    });
+  }
+
   return startProcessGetStatusUntilStop(
     {
       name: 'archive',
@@ -1293,7 +1303,7 @@ export const initClean = async (withApp: boolean, withPm2: boolean) => {
 
 function promiseWithTimeout<T>(
   promise: Promise<T | T[]>,
-  ms: number = 15000,
+  ms = 15000,
 ): Promise<T | T[]> {
   return Promise.race([
     promise,

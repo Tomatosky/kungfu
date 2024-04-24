@@ -3,7 +3,7 @@ const { t } = VueI18n.global;
 
 export const getColumns = (
   sorter: (
-    dataIndex: string,
+    dataIndex: keyof KungfuApi.KfConfig | keyof KungfuApi.Asset,
   ) => (
     a: KungfuApi.KfConfig,
     b: KungfuApi.KfConfig,

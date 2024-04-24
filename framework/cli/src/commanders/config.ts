@@ -63,7 +63,9 @@ const getConfigTipsMap = (settings) => {
     const hasConfigProp = Object.prototype.hasOwnProperty.call(cur, 'config');
     return {
       ...pre,
-      [cur.key]: hasConfigProp ? getConfigTipsMap(cur.config) : cur.tip,
+      [cur.key]: hasConfigProp
+        ? getConfigTipsMap(cur.config)
+        : cur.tip && cur.tip.replace(/\.?\n/, '. '),
     };
   }, {});
 };

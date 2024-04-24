@@ -41,6 +41,7 @@
         show-search
         :placeholder="$t('journalConfig.selete_msg_type')"
         allow-clear
+        :auto-clear-search-value="false"
         @blur="handleApplyFilters"
         @deselect="handleApplyFilters"
         @change="handleClearAll"

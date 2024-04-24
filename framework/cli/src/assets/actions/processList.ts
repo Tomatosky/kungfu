@@ -13,7 +13,6 @@ import {
   isExtService,
   kfLogger,
   removeArchiveBeforeToday,
-  removeJournal,
   switchKfLocation,
 } from '@kungfu-trader/kungfu-js-api/utils/busiUtils';
 import {
@@ -39,10 +38,7 @@ import {
   startAllExtServices,
 } from '../methods/utils';
 import { dealProcessName } from '../methods/utils';
-import {
-  ARCHIVE_DIR,
-  KF_HOME,
-} from '@kungfu-trader/kungfu-js-api/config/pathConfig';
+import { ARCHIVE_DIR } from '@kungfu-trader/kungfu-js-api/config/pathConfig';
 import { globalState } from './globalState';
 import {
   LifeCycleHook,
@@ -747,7 +743,6 @@ const switchMaster = async (status: boolean): Promise<void> => {
     await deleteNNFiles();
   } else {
     await deleteNNFiles();
-    await removeJournal(KF_HOME);
     await removeArchiveBeforeToday(ARCHIVE_DIR);
     await startMaster(false);
     await delayMilliSeconds(1000);

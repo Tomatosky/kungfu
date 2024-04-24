@@ -2224,6 +2224,35 @@ export const KfConfigValueNumberType = [
   ...Object.keys(numberEnumRadioType || {}),
 ];
 
+export const FormItemNeedIcon = [
+  'str',
+  'password',
+  'int',
+  'float',
+  'percent',
+  'side',
+  'priceType',
+  'priceLevel',
+  'radio',
+  'checkbox',
+  'checkboxGroup',
+  'select',
+  'multiSelect',
+  'instrument',
+  'instruments',
+  'td',
+  'tds',
+  'md',
+  'md&operator',
+  'operator',
+  'strategy',
+  'basket',
+  'bool',
+  ...Object.keys(numberEnumSelectType || {}),
+  ...Object.keys(stringEnumSelectType || {}),
+  ...Object.keys(numberEnumRadioType || {}),
+];
+
 export const KfConfigValueBooleanType = ['bool', 'checkbox'];
 
 export const KfConfigValueArrayType = [
@@ -2699,14 +2728,15 @@ export const ifTodayFirstStart = () => {
   return true;
 };
 
-export const buildTableColumnSorterWithStrike = <T>(
+export const buildTableColumnSorterWithStrike = <T, U = object>(
   type: 'num' | 'str',
-  dataIndex: keyof T,
+  dataIndex: keyof T | keyof U,
+  transform?: (data: T) => number | string | null,
 ) => {
   return (a: T, b: T, sorterOrder: '' | 'ascend' | 'descend') => {
     if (type === 'num') {
-      let aVal: unknown = a[dataIndex] ?? '--',
-        bVal: unknown = b[dataIndex] ?? '--';
+      let aVal = (transform ? transform(a) : a[dataIndex as keyof T]) ?? '--',
+        bVal = (transform ? transform(b) : b[dataIndex as keyof T]) ?? '--';
       if (sorterOrder === 'ascend') {
         aVal = aVal === '--' ? Infinity : aVal;
         bVal = bVal === '--' ? Infinity : bVal;
@@ -2718,7 +2748,11 @@ export const buildTableColumnSorterWithStrike = <T>(
       }
       return Number(aVal) - Number(bVal);
     } else {
-      return `${a[dataIndex] ?? ''}`.localeCompare(`${b[dataIndex] ?? ''}`);
+      return `${
+        (transform ? transform(a) : a[dataIndex as keyof T]) ?? ''
+      }`.localeCompare(
+        `${(transform ? transform(b) : b[dataIndex as keyof T]) ?? ''}`,
+      );
     }
   };
 };

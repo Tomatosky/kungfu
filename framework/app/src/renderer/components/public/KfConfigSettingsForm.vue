@@ -7,6 +7,7 @@ import {
   DashOutlined,
   CloseOutlined,
   PlusOutlined,
+  InfoCircleOutlined,
 } from '@ant-design/icons-vue';
 import {
   getCurrentInstance,
@@ -47,6 +48,7 @@ import {
   dealPriceLevel,
   dealSide,
   replaceNonAlphaNumericWithSpace,
+  FormItemNeedIcon,
 } from '@kungfu-trader/kungfu-js-api/utils/busiUtils';
 import { RuleObject } from 'ant-design-vue/lib/form';
 import {
@@ -316,7 +318,23 @@ if ('instrument' in formState.value) {
               ...Object.keys(Side).slice(0, 2),
               SideEnum.Exec + '',
             ];
-          } else if (instrumentType === InstrumentTypeEnum.future) {
+          } else {
+            if (configSettingFormInject?.sideFilter) {
+              sideRadiosList.value =
+                configSettingFormInject.sideFilter?.(instrumentType);
+            } else {
+              sideRadiosList.value = Object.keys(Side).slice(0, 2);
+            }
+          }
+
+          if (
+            'side' in formState.value &&
+            !sideRadiosList.value.includes(`${formState.value.side}`)
+          ) {
+            formState.value.side = +sideRadiosList.value[0];
+          }
+
+          if (instrumentType === InstrumentTypeEnum.future) {
             if (exchangeId === 'SHFE' || exchangeId === 'INE') {
               numberEnumRadioTypeResolved.value['offset'] =
                 numberEnumRadioType['offset'];
@@ -325,13 +343,6 @@ if ('instrument' in formState.value) {
                 numberEnumRadioType['offset'],
                 [OffsetEnum.CloseToday, OffsetEnum.CloseYest],
               );
-            }
-          } else {
-            if (configSettingFormInject?.sideFilter) {
-              sideRadiosList.value =
-                configSettingFormInject.sideFilter?.(instrumentType);
-            } else {
-              sideRadiosList.value = Object.keys(Side).slice(0, 2);
             }
           }
         }
@@ -1161,7 +1172,11 @@ defineExpose({
       :label="isLanguageKeyAvailable(item.name) ? $t(item.name) : item.name"
       :name="item.key"
       :extra="
-        item.tip && isLanguageKeyAvailable(item.tip) ? $t(item.tip) : item.tip
+        item.showTipWithIcon
+          ? ''
+          : item.tip && isLanguageKeyAvailable(item.tip)
+          ? $t(item.tip)
+          : item.tip
       "
       :rules="
         (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
@@ -1237,488 +1252,508 @@ defineExpose({
             ]
       "
     >
-      <a-input
-        v-if="item.type === 'str'"
-        v-model:value.trim="formState[item.key]"
-        :maxlength="item.maxlength || null"
-        :disabled="
-          (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
-          item.disabled
-        "
-      ></a-input>
-      <a-input-password
-        v-else-if="item.type === 'password'"
-        v-model:value.trim="formState[item.key]"
-        :maxlength="item.maxlength || null"
-        :disabled="
-          (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
-          item.disabled
-        "
-      ></a-input-password>
-      <a-input-number
-        v-else-if="item.type === 'int'"
-        v-model:value="formState[item.key]"
-        :max="item.max ?? Infinity"
-        :min="item.min ?? -Infinity"
-        :formatter="(val) => Math.floor(val)"
-        :parser="(val) => Math.floor(Number(val))"
-        :step="item.step || 1"
-        :disabled="
-          (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
-          item.disabled
-        "
-        @focus="numbersTyping[item.key] = true"
-        @blur="numbersTyping[item.key] = false"
-      ></a-input-number>
-      <a-input-number
-        v-else-if="item.type === 'float'"
-        v-model:value="formState[item.key]"
-        :max="item.max ?? Infinity"
-        :min="item.min ?? -Infinity"
-        :precision="item.precision ?? 4"
-        :step="item.step ?? 0.0001"
-        :disabled="
-          (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
-          item.disabled
-        "
-        @focus="numbersTyping[item.key] = true"
-        @blur="
-          () => {
-            formState[item.key] = Number(formState[item.key]); // change value '' to 0.0000
-            numbersTyping[item.key] = false;
-          }
-        "
-      ></a-input-number>
-      <a-input-number
-        v-else-if="item.type === 'percent'"
-        v-model:value="formState[item.key]"
-        :max="item.max ?? Infinity"
-        :min="item.min ?? -Infinity"
-        :precision="item.precision || 2"
-        :step="item.step || 0.01"
-        :formatter="formatterPercentNumber"
-        :parser="parserPercentString"
-        :disabled="
-          (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
-          item.disabled
-        "
-        @focus="numbersTyping[item.key] = true"
-        @blur="numbersTyping[item.key] = false"
-      ></a-input-number>
-      <a-radio-group
-        v-else-if="item.type === 'side'"
-        v-model:value="formState[item.key]"
-        :name="item.key"
-        :disabled="
-          (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
-          item.disabled
-        "
+      <div
+        v-if="FormItemNeedIcon.includes(item.type)"
+        class="kf-form-item_icon__warp"
       >
-        <a-radio v-for="key in sideRadiosList" :key="key" :value="+key">
-          {{ dealSide(+key).name }}
-        </a-radio>
-      </a-radio-group>
-      <a-select
-        v-else-if="item.type === 'priceType'"
-        v-model:value="formState[item.key]"
-        :disabled="
-          (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
-          item.disabled
-        "
-      >
-        <a-select-option
-          v-for="key in Object.keys(getPriceTypeConfig()).filter(
-            (enumValue) => +enumValue !== PriceTypeEnum.Unknown,
-          )"
-          :key="key"
-          :value="+key"
+        <a-input
+          v-if="item.type === 'str'"
+          v-model:value.trim="formState[item.key]"
+          :maxlength="item.maxlength || null"
+          :disabled="
+            (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
+            item.disabled
+          "
+        ></a-input>
+        <a-input-password
+          v-else-if="item.type === 'password'"
+          v-model:value.trim="formState[item.key]"
+          :maxlength="item.maxlength || null"
+          :disabled="
+            (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
+            item.disabled
+          "
+        ></a-input-password>
+        <a-input-number
+          v-else-if="item.type === 'int'"
+          v-model:value="formState[item.key]"
+          :max="item.max ?? Infinity"
+          :min="item.min ?? -Infinity"
+          :formatter="(val) => Math.floor(val)"
+          :parser="(val) => Math.floor(Number(val))"
+          :step="item.step || 1"
+          :disabled="
+            (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
+            item.disabled
+          "
+          @focus="numbersTyping[item.key] = true"
+          @blur="numbersTyping[item.key] = false"
+        ></a-input-number>
+        <a-input-number
+          v-else-if="item.type === 'float'"
+          v-model:value="formState[item.key]"
+          :max="item.max ?? Infinity"
+          :min="item.min ?? -Infinity"
+          :precision="item.precision ?? 4"
+          :step="item.step ?? 0.0001"
+          :disabled="
+            (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
+            item.disabled
+          "
+          @focus="numbersTyping[item.key] = true"
+          @blur="
+            () => {
+              formState[item.key] = Number(formState[item.key]); // change value '' to 0.0000
+              numbersTyping[item.key] = false;
+            }
+          "
+        ></a-input-number>
+        <a-input-number
+          v-else-if="item.type === 'percent'"
+          v-model:value="formState[item.key]"
+          :max="item.max ?? Infinity"
+          :min="item.min ?? -Infinity"
+          :precision="item.precision || 2"
+          :step="item.step || 0.01"
+          :formatter="formatterPercentNumber"
+          :parser="parserPercentString"
+          :disabled="
+            (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
+            item.disabled
+          "
+          @focus="numbersTyping[item.key] = true"
+          @blur="numbersTyping[item.key] = false"
+        ></a-input-number>
+        <a-radio-group
+          v-else-if="item.type === 'side'"
+          v-model:value="formState[item.key]"
+          :name="item.key"
+          :disabled="
+            (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
+            item.disabled
+          "
         >
-          {{ dealPriceType(+key).name }}
-        </a-select-option>
-      </a-select>
-      <a-select
-        v-else-if="item.type === 'priceLevel'"
-        v-model:value="formState[item.key]"
-        :disabled="
-          (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
-          item.disabled
-        "
-      >
-        <a-select-option
-          v-for="key in Object.keys(PriceLevel).slice(0, 13)"
-          :key="key"
-          :value="+key"
+          <a-radio v-for="key in sideRadiosList" :key="key" :value="+key">
+            {{ dealSide(+key).name }}
+          </a-radio>
+        </a-radio-group>
+        <a-select
+          v-else-if="item.type === 'priceType'"
+          v-model:value="formState[item.key]"
+          :disabled="
+            (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
+            item.disabled
+          "
         >
-          {{ dealPriceLevel(+key).name }}
-        </a-select-option>
-      </a-select>
-      <a-radio-group
-        v-else-if="numberEnumRadioTypeResolved[item.type]"
-        v-model:value="formState[item.key]"
-        :name="item.key"
-        :disabled="
-          (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
-          item.disabled
-        "
-      >
-        <a-radio
-          v-for="key in Object.keys(numberEnumRadioTypeResolved[item.type])"
-          :key="key"
-          :value="+key"
+          <a-select-option
+            v-for="key in Object.keys(getPriceTypeConfig()).filter(
+              (enumValue) => +enumValue !== PriceTypeEnum.Unknown,
+            )"
+            :key="key"
+            :value="+key"
+          >
+            {{ dealPriceType(+key).name }}
+          </a-select-option>
+        </a-select>
+        <a-select
+          v-else-if="item.type === 'priceLevel'"
+          v-model:value="formState[item.key]"
+          :disabled="
+            (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
+            item.disabled
+          "
         >
-          {{ getKfTradeValueName(numberEnumRadioTypeResolved[item.type], key) }}
-        </a-radio>
-      </a-radio-group>
-      <a-radio-group
-        v-else-if="item.type === 'radio'"
-        v-model:value="formState[item.key]"
-        :name="item.key"
-        :disabled="
-          changeType === 'update' && item.primary && !isPrimaryDisabled
-        "
-      >
-        <a-radio
-          v-for="option in item.options"
-          :key="option.value"
-          :value="option.value"
+          <a-select-option
+            v-for="key in Object.keys(PriceLevel).slice(0, 13)"
+            :key="key"
+            :value="+key"
+          >
+            {{ dealPriceLevel(+key).name }}
+          </a-select-option>
+        </a-select>
+        <a-radio-group
+          v-else-if="numberEnumRadioTypeResolved[item.type]"
+          v-model:value="formState[item.key]"
+          :name="item.key"
+          :disabled="
+            (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
+            item.disabled
+          "
         >
-          <a-tag
-            v-if="option.type === 'tag'"
-            :color="dealKungfuColorToStyleColor(option.color || 'default')"
+          <a-radio
+            v-for="key in Object.keys(numberEnumRadioTypeResolved[item.type])"
+            :key="key"
+            :value="+key"
           >
             {{
-              isLanguageKeyAvailable(option.label + '')
-                ? $t(option.label + '')
-                : option.label
+              getKfTradeValueName(numberEnumRadioTypeResolved[item.type], key)
             }}
-          </a-tag>
-          <span
-            v-else
-            :class="dealKungfuColorToClassname(option.color || 'text')"
-            :style="{
-              color: dealKungfuColorToStyleColor(option.color || 'text'),
-            }"
+          </a-radio>
+        </a-radio-group>
+        <a-radio-group
+          v-else-if="item.type === 'radio'"
+          v-model:value="formState[item.key]"
+          :name="item.key"
+          :disabled="
+            changeType === 'update' && item.primary && !isPrimaryDisabled
+          "
+        >
+          <a-radio
+            v-for="option in item.options"
+            :key="option.value"
+            :value="option.value"
           >
-            {{
-              isLanguageKeyAvailable(option.label + '')
-                ? $t(option.label + '')
-                : option.label
-            }}
-          </span>
-        </a-radio>
-      </a-radio-group>
-      <a-checkbox
-        v-else-if="item.type === 'checkbox'"
-        v-model:checked="formState[item.key]"
-        :disabled="
-          (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
-          item.disabled
-        "
-      ></a-checkbox>
-      <a-checkbox-group
-        v-else-if="item.type === 'checkboxGroup'"
-        v-model:value="formState[item.key]"
-        :options="item.options"
-        :disabled="
-          (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
-          item.disabled
-        "
-      ></a-checkbox-group>
-      <a-select
-        v-else-if="numberEnumSelectType[item.type]"
-        v-model:value="formState[item.key]"
-        :disabled="
-          (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
-          item.disabled
-        "
-      >
-        {{ item.type }}
-        <a-select-option
-          v-for="key in Object.keys(numberEnumSelectType[item.type])"
-          :key="key"
-          :value="+key"
-        >
-          {{ getKfTradeValueName(numberEnumSelectType[item.type], key) }}
-        </a-select-option>
-      </a-select>
-      <a-select
-        v-else-if="stringEnumSelectType[item.type]"
-        v-model:value="formState[item.key]"
-        :disabled="
-          (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
-          item.disabled
-        "
-      >
-        {{ item.type }}
-        <a-select-option
-          v-for="key in Object.keys(stringEnumSelectType[item.type])"
-          :key="key"
-          :value="key"
-        >
-          {{ getKfTradeValueName(stringEnumSelectType[item.type], key) }}
-        </a-select-option>
-      </a-select>
-      <a-select
-        v-else-if="item.type === 'select'"
-        v-model:value="formState[item.key]"
-        :disabled="
-          (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
-          item.disabled
-        "
-      >
-        <a-select-option
-          v-for="option in item.options"
-          :key="option.value"
-          :value="option.value"
-        >
-          <a-tag
-            v-if="option.type === 'tag'"
-            :color="dealKungfuColorToStyleColor(option.color || 'default')"
-          >
-            {{
-              isLanguageKeyAvailable(option.label + '')
-                ? $t(option.label + '')
-                : option.label
-            }}
-          </a-tag>
-          <span
-            v-else
-            :class="dealKungfuColorToClassname(option.color || 'text')"
-            :style="{
-              color: dealKungfuColorToStyleColor(option.color || 'text'),
-            }"
-          >
-            {{
-              isLanguageKeyAvailable(option.label + '')
-                ? $t(option.label + '')
-                : option.label
-            }}
-          </span>
-        </a-select-option>
-      </a-select>
-      <a-select
-        v-else-if="item.type === 'multiSelect'"
-        v-model:value="formState[item.key]"
-        mode="multiple"
-        :filter-option="
-          (inputValue, option) =>
-            option.key.toLowerCase().indexOf(inputValue.toLowerCase()) > -1
-        "
-        allow-clear
-        show-search
-        :disabled="
-          (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
-          item.disabled
-        "
-      >
-        <a-select-option
-          v-for="option in item.options"
-          :key="option.label"
-          :value="option.value"
-        >
-          <a-tag
-            v-if="option.type === 'tag'"
-            :color="dealKungfuColorToStyleColor(option.color || 'default')"
-          >
-            {{
-              isLanguageKeyAvailable(option.label + '')
-                ? $t(option.label + '')
-                : option.label
-            }}
-          </a-tag>
-          <span
-            v-else
-            :class="dealKungfuColorToClassname(option.color || 'text')"
-            :style="{
-              color: dealKungfuColorToStyleColor(option.color || 'text'),
-            }"
-          >
-            {{
-              isLanguageKeyAvailable(option.label + '')
-                ? $t(option.label + '')
-                : option.label
-            }}
-          </span>
-        </a-select-option>
-      </a-select>
-      <a-select
-        v-else-if="item.type === 'instrument'"
-        :ref="item.key"
-        v-model:value="formState[item.key]"
-        class="instrument-select"
-        :disabled="
-          (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
-          item.disabled
-        "
-        show-search
-        :filter-option="false"
-        :options="instrumentOptionsReactiveData.data[item.key]"
-        @search="instrumentsSearchRelated[item.key].handleSearchInstrument"
-        @blur="instrumentsSearchRelated[item.key].handleSearchInstrumentBlur"
-      ></a-select>
-      <a-select
-        v-else-if="item.type === 'instruments'"
-        :ref="item.key"
-        class="instrument-select"
-        :disabled="
-          (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
-          item.disabled
-        "
-        mode="multiple"
-        show-search
-        :value="formState[item.key]"
-        :filter-option="false"
-        :options="instrumentOptionsReactiveData.data[item.key]"
-        @search="instrumentsSearchRelated[item.key].handleSearchInstrument"
-        @select="handleInstrumentSelected($event, item.key)"
-        @deselect="handleInstrumentDeselected($event, item.key)"
-        @blur="instrumentsSearchRelated[item.key].handleSearchInstrumentBlur"
-      ></a-select>
-
-      <a-select
-        v-else-if="item.type === 'td'"
-        v-model:value="formState[item.key]"
-        :disabled="
-          (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
-          item.disabled
-        "
-      >
-        <a-select-option
-          v-for="config in tdList ? tdList : td"
-          :key="getIdByKfLocation(config)"
-          :value="getIdByKfLocation(config)"
-        >
-          {{ getIdByKfLocation(config) }}
-        </a-select-option>
-      </a-select>
-      <a-select
-        v-else-if="item.type === 'tds'"
-        v-model:value="formState[item.key]"
-        :disabled="
-          (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
-          item.disabled
-        "
-        mode="multiple"
-        show-search
-      >
-        <a-select-option
-          v-for="config in td"
-          :key="getIdByKfLocation(config)"
-          :value="getIdByKfLocation(config)"
-        >
-          {{ getIdByKfLocation(config) }}
-        </a-select-option>
-      </a-select>
-      <a-select
-        v-else-if="item.type === 'md'"
-        v-model:value="formState[item.key]"
-        :disabled="
-          (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
-          item.disabled
-        "
-      >
-        <a-select-option
-          v-for="config in md"
-          :key="getIdByKfLocation(config)"
-          :value="getIdByKfLocation(config)"
-        >
-          {{ getIdByKfLocation(config) }}
-        </a-select-option>
-      </a-select>
-      <a-select
-        v-else-if="item.type === 'md&operator'"
-        v-model:value="formState[item.key]"
-        :disabled="
-          (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
-          item.disabled
-        "
-      >
-        <a-select-option
-          v-for="config in md"
-          :key="getIdByKfLocation(config)"
-          :value="getIdByKfLocation(config)"
-        >
-          <a-tag :color="KfCategory[KfCategoryEnum.md].color">
-            {{ t('Md') }}
-          </a-tag>
-          {{ getIdByKfLocation(config) }}
-        </a-select-option>
-        <a-select-option
-          v-for="config in operator"
-          :key="getIdByKfLocation(config)"
-          :value="getIdByKfLocation(config)"
-        >
-          <a-tag :color="KfCategory[KfCategoryEnum.operator].color">
-            {{ t('Operator') }}
-          </a-tag>
-          {{ getIdByKfLocation(config) }}
-        </a-select-option>
-      </a-select>
-      <a-select
-        v-else-if="item.type === 'operator'"
-        v-model:value="formState[item.key]"
-        :disabled="
-          (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
-          item.disabled
-        "
-      >
-        <a-select-option
-          v-for="config in operator"
-          :key="getIdByKfLocation(config)"
-          :value="getIdByKfLocation(config)"
-        >
-          {{ getIdByKfLocation(config) }}
-        </a-select-option>
-      </a-select>
-      <a-select
-        v-else-if="item.type === 'strategy'"
-        v-model:value="formState[item.key]"
-        :disabled="
-          (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
-          item.disabled
-        "
-      >
-        <a-select-option
-          v-for="config in strategy"
-          :key="getIdByKfLocation(config)"
-          :value="getIdByKfLocation(config)"
-        >
-          {{ getIdByKfLocation(config) }}
-        </a-select-option>
-      </a-select>
-      <a-select
-        v-else-if="item.type === 'basket'"
-        v-model:value="formState[item.key]"
-        :disabled="
-          (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
-          item.disabled
-        "
-      >
-        <a-select-option
-          v-for="basket in basketList"
-          :key="basket.id"
-          :value="buildBasketOptionValue(basket)"
-        >
-          <span>
-            {{ basket.name }}
             <a-tag
-              style="margin-left: 4px"
-              :color="BasketVolumeType[basket.volume_type].color"
+              v-if="option.type === 'tag'"
+              :color="dealKungfuColorToStyleColor(option.color || 'default')"
             >
-              {{ BasketVolumeType[basket.volume_type].name }}
+              {{
+                isLanguageKeyAvailable(option.label + '')
+                  ? $t(option.label + '')
+                  : option.label
+              }}
             </a-tag>
-          </span>
-        </a-select-option>
-      </a-select>
-      <a-switch
-        v-else-if="item.type === 'bool'"
-        v-model:checked="formState[item.key]"
-        size="small"
-        :disabled="
-          (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
-          item.disabled
-        "
-      ></a-switch>
+            <span
+              v-else
+              :class="dealKungfuColorToClassname(option.color || 'text')"
+              :style="{
+                color: dealKungfuColorToStyleColor(option.color || 'text'),
+              }"
+            >
+              {{
+                isLanguageKeyAvailable(option.label + '')
+                  ? $t(option.label + '')
+                  : option.label
+              }}
+            </span>
+          </a-radio>
+        </a-radio-group>
+        <a-checkbox
+          v-else-if="item.type === 'checkbox'"
+          v-model:checked="formState[item.key]"
+          :disabled="
+            (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
+            item.disabled
+          "
+        ></a-checkbox>
+        <a-checkbox-group
+          v-else-if="item.type === 'checkboxGroup'"
+          v-model:value="formState[item.key]"
+          :options="item.options"
+          :disabled="
+            (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
+            item.disabled
+          "
+        ></a-checkbox-group>
+        <a-select
+          v-else-if="numberEnumSelectType[item.type]"
+          v-model:value="formState[item.key]"
+          :disabled="
+            (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
+            item.disabled
+          "
+        >
+          {{ item.type }}
+          <a-select-option
+            v-for="key in Object.keys(numberEnumSelectType[item.type])"
+            :key="key"
+            :value="+key"
+          >
+            {{ getKfTradeValueName(numberEnumSelectType[item.type], key) }}
+          </a-select-option>
+        </a-select>
+        <a-select
+          v-else-if="stringEnumSelectType[item.type]"
+          v-model:value="formState[item.key]"
+          :disabled="
+            (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
+            item.disabled
+          "
+        >
+          {{ item.type }}
+          <a-select-option
+            v-for="key in Object.keys(stringEnumSelectType[item.type])"
+            :key="key"
+            :value="key"
+          >
+            {{ getKfTradeValueName(stringEnumSelectType[item.type], key) }}
+          </a-select-option>
+        </a-select>
+        <a-select
+          v-else-if="item.type === 'select'"
+          v-model:value="formState[item.key]"
+          :disabled="
+            (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
+            item.disabled
+          "
+        >
+          <a-select-option
+            v-for="option in item.options"
+            :key="option.value"
+            :value="option.value"
+          >
+            <a-tag
+              v-if="option.type === 'tag'"
+              :color="dealKungfuColorToStyleColor(option.color || 'default')"
+            >
+              {{
+                isLanguageKeyAvailable(option.label + '')
+                  ? $t(option.label + '')
+                  : option.label
+              }}
+            </a-tag>
+            <span
+              v-else
+              :class="dealKungfuColorToClassname(option.color || 'text')"
+              :style="{
+                color: dealKungfuColorToStyleColor(option.color || 'text'),
+              }"
+            >
+              {{
+                isLanguageKeyAvailable(option.label + '')
+                  ? $t(option.label + '')
+                  : option.label
+              }}
+            </span>
+          </a-select-option>
+        </a-select>
+        <a-select
+          v-else-if="item.type === 'multiSelect'"
+          v-model:value="formState[item.key]"
+          mode="multiple"
+          :filter-option="
+            (inputValue, option) =>
+              option.key.toLowerCase().indexOf(inputValue.toLowerCase()) > -1
+          "
+          allow-clear
+          show-search
+          :disabled="
+            (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
+            item.disabled
+          "
+        >
+          <a-select-option
+            v-for="option in item.options"
+            :key="option.label"
+            :value="option.value"
+          >
+            <a-tag
+              v-if="option.type === 'tag'"
+              :color="dealKungfuColorToStyleColor(option.color || 'default')"
+            >
+              {{
+                isLanguageKeyAvailable(option.label + '')
+                  ? $t(option.label + '')
+                  : option.label
+              }}
+            </a-tag>
+            <span
+              v-else
+              :class="dealKungfuColorToClassname(option.color || 'text')"
+              :style="{
+                color: dealKungfuColorToStyleColor(option.color || 'text'),
+              }"
+            >
+              {{
+                isLanguageKeyAvailable(option.label + '')
+                  ? $t(option.label + '')
+                  : option.label
+              }}
+            </span>
+          </a-select-option>
+        </a-select>
+        <a-select
+          v-else-if="item.type === 'instrument'"
+          :ref="item.key"
+          v-model:value="formState[item.key]"
+          class="instrument-select"
+          :disabled="
+            (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
+            item.disabled
+          "
+          show-search
+          :filter-option="false"
+          :options="instrumentOptionsReactiveData.data[item.key]"
+          @search="instrumentsSearchRelated[item.key].handleSearchInstrument"
+          @blur="instrumentsSearchRelated[item.key].handleSearchInstrumentBlur"
+        ></a-select>
+        <a-select
+          v-else-if="item.type === 'instruments'"
+          :ref="item.key"
+          class="instrument-select"
+          :disabled="
+            (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
+            item.disabled
+          "
+          mode="multiple"
+          show-search
+          :value="formState[item.key]"
+          :filter-option="false"
+          :options="instrumentOptionsReactiveData.data[item.key]"
+          @search="instrumentsSearchRelated[item.key].handleSearchInstrument"
+          @select="handleInstrumentSelected($event, item.key)"
+          @deselect="handleInstrumentDeselected($event, item.key)"
+          @blur="instrumentsSearchRelated[item.key].handleSearchInstrumentBlur"
+        ></a-select>
+        <a-select
+          v-else-if="item.type === 'td'"
+          v-model:value="formState[item.key]"
+          :disabled="
+            (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
+            item.disabled
+          "
+        >
+          <a-select-option
+            v-for="config in tdList ? tdList : td"
+            :key="getIdByKfLocation(config)"
+            :value="getIdByKfLocation(config)"
+          >
+            {{ getIdByKfLocation(config) }}
+          </a-select-option>
+        </a-select>
+        <a-select
+          v-else-if="item.type === 'tds'"
+          v-model:value="formState[item.key]"
+          :disabled="
+            (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
+            item.disabled
+          "
+          mode="multiple"
+          show-search
+        >
+          <a-select-option
+            v-for="config in td"
+            :key="getIdByKfLocation(config)"
+            :value="getIdByKfLocation(config)"
+          >
+            {{ getIdByKfLocation(config) }}
+          </a-select-option>
+        </a-select>
+        <a-select
+          v-else-if="item.type === 'md'"
+          v-model:value="formState[item.key]"
+          :disabled="
+            (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
+            item.disabled
+          "
+        >
+          <a-select-option
+            v-for="config in md"
+            :key="getIdByKfLocation(config)"
+            :value="getIdByKfLocation(config)"
+          >
+            {{ getIdByKfLocation(config) }}
+          </a-select-option>
+        </a-select>
+        <a-select
+          v-else-if="item.type === 'md&operator'"
+          v-model:value="formState[item.key]"
+          :disabled="
+            (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
+            item.disabled
+          "
+        >
+          <a-select-option
+            v-for="config in md"
+            :key="getIdByKfLocation(config)"
+            :value="getIdByKfLocation(config)"
+          >
+            <a-tag :color="KfCategory[KfCategoryEnum.md].color">
+              {{ t('Md') }}
+            </a-tag>
+            {{ getIdByKfLocation(config) }}
+          </a-select-option>
+          <a-select-option
+            v-for="config in operator"
+            :key="getIdByKfLocation(config)"
+            :value="getIdByKfLocation(config)"
+          >
+            <a-tag :color="KfCategory[KfCategoryEnum.operator].color">
+              {{ t('Operator') }}
+            </a-tag>
+            {{ getIdByKfLocation(config) }}
+          </a-select-option>
+        </a-select>
+        <a-select
+          v-else-if="item.type === 'operator'"
+          v-model:value="formState[item.key]"
+          :disabled="
+            (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
+            item.disabled
+          "
+        >
+          <a-select-option
+            v-for="config in operator"
+            :key="getIdByKfLocation(config)"
+            :value="getIdByKfLocation(config)"
+          >
+            {{ getIdByKfLocation(config) }}
+          </a-select-option>
+        </a-select>
+        <a-select
+          v-else-if="item.type === 'strategy'"
+          v-model:value="formState[item.key]"
+          :disabled="
+            (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
+            item.disabled
+          "
+        >
+          <a-select-option
+            v-for="config in strategy"
+            :key="getIdByKfLocation(config)"
+            :value="getIdByKfLocation(config)"
+          >
+            {{ getIdByKfLocation(config) }}
+          </a-select-option>
+        </a-select>
+        <a-select
+          v-else-if="item.type === 'basket'"
+          v-model:value="formState[item.key]"
+          :disabled="
+            (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
+            item.disabled
+          "
+        >
+          <a-select-option
+            v-for="basket in basketList"
+            :key="basket.id"
+            :value="buildBasketOptionValue(basket)"
+          >
+            <span>
+              {{ basket.name }}
+              <a-tag
+                style="margin-left: 4px"
+                :color="BasketVolumeType[basket.volume_type].color"
+              >
+                {{ BasketVolumeType[basket.volume_type].name }}
+              </a-tag>
+            </span>
+          </a-select-option>
+        </a-select>
+        <a-switch
+          v-else-if="item.type === 'bool'"
+          v-model:checked="formState[item.key]"
+          size="small"
+          :disabled="
+            (changeType === 'update' && item.primary && !isPrimaryDisabled) ||
+            item.disabled
+          "
+        ></a-switch>
+
+        <div v-if="item.showTipWithIcon && item.tip" class="tooltip__wrap">
+          <a-tooltip
+            :placement="item.toolTipPlacement ?? 'top'"
+            :title="
+              item.tip && isLanguageKeyAvailable(item.tip)
+                ? $t(item.tip)
+                : item.tip
+            "
+          >
+            <InfoCircleOutlined class="color-primary" />
+          </a-tooltip>
+        </div>
+      </div>
+
       <div v-else-if="item.type === 'file'" class="kf-form-item__warp file">
         <a-button
           size="small"
@@ -1730,6 +1765,18 @@ defineExpose({
         >
           <template #icon><DashOutlined /></template>
         </a-button>
+        <div v-if="item.showTipWithIcon && item.tip" class="tooltip__wrap">
+          <a-tooltip
+            :placement="item.toolTipPlacement ?? 'top'"
+            :title="
+              item.tip && isLanguageKeyAvailable(item.tip)
+                ? $t(item.tip)
+                : item.tip
+            "
+          >
+            <InfoCircleOutlined class="color-primary" />
+          </a-tooltip>
+        </div>
         <div
           v-if="formState[item.key]"
           class="file-path"
@@ -1755,11 +1802,23 @@ defineExpose({
         <a-button
           v-if="item.default"
           size="small"
-          style="margin-left: 4px; vertical-align: middle"
+          style="margin-left: 8px; vertical-align: middle"
           @click="handleSelectDirectory(item, 'default')"
         >
           {{ $t('globalSettingConfig.reset_order') }}
         </a-button>
+        <div v-if="item.showTipWithIcon && item.tip" class="tooltip__wrap">
+          <a-tooltip
+            :placement="item.toolTipPlacement ?? 'top'"
+            :title="
+              item.tip && isLanguageKeyAvailable(item.tip)
+                ? $t(item.tip)
+                : item.tip
+            "
+          >
+            <InfoCircleOutlined class="color-primary" />
+          </a-tooltip>
+        </div>
         <div
           v-if="formState[item.key]"
           class="file-path"
@@ -2210,6 +2269,15 @@ export default defineComponent({
 </script>
 <style lang="less">
 .kf-config-form {
+  .tooltip__wrap {
+    display: inline-block;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .kf-form-item_icon__warp {
+    display: flex;
+    align-items: center;
+  }
   .kf-form-item__warp {
     &.file {
       padding-bottom: 4px;
@@ -2363,5 +2431,9 @@ export default defineComponent({
 
 .kf-config-setting-form-spin {
   z-index: 9999;
+}
+
+.ant-tooltip .ant-tooltip-content .ant-tooltip-inner {
+  color: rgba(255, 255, 255, 0.85);
 }
 </style>

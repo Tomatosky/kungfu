@@ -1,5 +1,5 @@
 <template>
-  <div v-if="contentVisible" class="kf-journal-events__wrap">
+  <div class="kf-journal-events__wrap">
     <div class="kf-journal-filters-bar">
       <div class="kf-journal-bar-title">
         <span>{{ `${$t('journalConfig.time_range')}: ` }}</span>
@@ -58,7 +58,6 @@
           dynamicTableInSearching: true,
         }"
         :size-dependencies-fields="['dataAsString']"
-        :resizable="false"
         :custom-row-class="dealRowClassName"
         @click-cell="handleClickRow"
         @click-row="handleClickRow"
@@ -152,7 +151,6 @@ import { getFrameColumns } from '../config';
 import {
   dealFrame,
   buildFrameHeaderForShow,
-  useResizeFlag,
   getSourceDestMap,
   useNow,
 } from '../utils';
@@ -171,7 +169,6 @@ import VueI18n from '@kungfu-trader/kungfu-js-api/language';
 
 const { t } = VueI18n.global;
 
-const { contentVisible } = useResizeFlag();
 const {
   currentSession,
   currentTime,
@@ -278,7 +275,12 @@ const frameHeaderForShow = computed(() => {
 });
 const frameDataForShow = computed(() => {
   if (!currentRowData.value) return [];
-  const data = JSON.parse(currentRowData.value.dataAsString);
+  const data = JSON.parse(
+    currentRowData.value.dataAsString.replace(
+      /(?<=:\s?)(\d*)(?=\s?,|})/g,
+      '"$1"',
+    ), // Avoid losing accuracy by converting large numbers to numbers
+  );
   return Object.entries(data).map(([key, value]) => {
     return {
       key,
