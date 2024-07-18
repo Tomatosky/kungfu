@@ -4,7 +4,7 @@
     "name": "Kungfu Trader",
     "email": "info@kungfu.link"
   },
-  "version": "3.0.8-alpha.1",
+  "version": "3.0.8-alpha.2",
   "description": "KungFu Matcher 101 - on quote",
   "license": "Apache-2.0",
   "main": "package.json",
@@ -29,7 +29,7 @@
     "install": "node -e \"require('@kungfu-trader/kungfu-core').prebuilt('install')\""
   },
   "devDependencies": {
-    "@kungfu-trader/kungfu-sdk": "^3.0.8-alpha.1"
+    "@kungfu-trader/kungfu-sdk": "^3.0.8-alpha.2"
   },
   "kungfuConfig": {
     "key": "KungfuMatcher101Cpp",

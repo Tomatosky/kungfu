@@ -1,6 +1,6 @@
 {
   "name": "@kungfu-trader/kfx-ui-novice-guide",
-  "version": "3.0.8-alpha.1",
+  "version": "3.0.8-alpha.2",
   "description": "A extension for kungfu to guide novice to use.",
   "author": {
     "name": "kungfu-trader",
@@ -84,16 +84,16 @@
     }
   },
   "dependencies": {
-    "@kungfu-trader/kungfu-app": "^3.0.8-alpha.1",
-    "@kungfu-trader/kungfu-cli": "^3.0.8-alpha.1",
-    "@kungfu-trader/kungfu-core": "^3.0.8-alpha.1",
-    "@kungfu-trader/kungfu-js-api": "^3.0.8-alpha.1",
+    "@kungfu-trader/kungfu-app": "^3.0.8-alpha.2",
+    "@kungfu-trader/kungfu-cli": "^3.0.8-alpha.2",
+    "@kungfu-trader/kungfu-core": "^3.0.8-alpha.2",
+    "@kungfu-trader/kungfu-js-api": "^3.0.8-alpha.2",
     "driver.js": "^1.3.1"
   },
   "devDependencies": {
-    "@kungfu-trader/kfx-broker-sim": "^3.0.8-alpha.1",
-    "@kungfu-trader/kfx-operator-bar": "^3.0.8-alpha.1",
-    "@kungfu-trader/kungfu-sdk": "^3.0.8-alpha.1",
-    "@kungfu-trader/kungfu-toolchain": "^3.0.8-alpha.1"
+    "@kungfu-trader/kfx-broker-sim": "^3.0.8-alpha.2",
+    "@kungfu-trader/kfx-operator-bar": "^3.0.8-alpha.2",
+    "@kungfu-trader/kungfu-sdk": "^3.0.8-alpha.2",
+    "@kungfu-trader/kungfu-toolchain": "^3.0.8-alpha.2"
   }
 }

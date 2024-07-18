@@ -1,6 +1,6 @@
 {
   "name": "@kungfu-trader/kfx-ui-wallet",
-  "version": "3.0.8-alpha.1",
+  "version": "3.0.8-alpha.2",
   "description": "The wallet extension for Kungfu.",
   "author": {
     "name": "kungfu-trader",
@@ -78,15 +78,15 @@
     }
   },
   "dependencies": {
-    "@kungfu-trader/kfx-ui-login-authing": "^3.0.8-alpha.1",
-    "@kungfu-trader/kungfu-js-api": "^3.0.8-alpha.1",
+    "@kungfu-trader/kfx-ui-login-authing": "^3.0.8-alpha.2",
+    "@kungfu-trader/kungfu-js-api": "^3.0.8-alpha.2",
     "authing-node-sdk": "^3.1.0",
     "axios": "^1.6.2",
     "echarts": "^5.4.3"
   },
   "devDependencies": {
-    "@kungfu-trader/kungfu-sdk": "^3.0.8-alpha.1",
-    "@kungfu-trader/kungfu-toolchain": "^3.0.8-alpha.1",
+    "@kungfu-trader/kungfu-sdk": "^3.0.8-alpha.2",
+    "@kungfu-trader/kungfu-toolchain": "^3.0.8-alpha.2",
     "@types/js-yaml": "^4.0.5"
   }
 }

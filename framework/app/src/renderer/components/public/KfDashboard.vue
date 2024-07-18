@@ -61,7 +61,11 @@ onMounted(() => {
     emit('boardSizeChange', getBodyWidthHeight());
   });
 
-  const subscription = app?.proxy?.$globalBus
+  const globalBus = app?.proxy?.$globalBus;
+
+  if (!globalBus) return;
+
+  const subscription = globalBus
     .pipe(filter((e: KfEvent.KfBusEvent) => e.tag === 'resize'))
     .subscribe(() => {
       emit('boardSizeChange', getBodyWidthHeight());

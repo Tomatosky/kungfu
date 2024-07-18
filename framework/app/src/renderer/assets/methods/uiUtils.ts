@@ -107,22 +107,15 @@ import VueI18n, {
 const { t } = VueI18n.global;
 import fse from 'fs-extra';
 import fsPromise from 'fs/promises';
-import md from 'markdown-it';
-import mdHljs from 'markdown-it-highlightjs';
-import mdCheckbox from 'markdown-it-task-checkbox-pro';
-import hlForCpp from 'highlight.js/lib/languages/cpp';
-import hlForPython from 'highlight.js/lib/languages/python';
-import hlForJs from 'highlight.js/lib/languages/javascript';
-import hlForTs from 'highlight.js/lib/languages/typescript';
 import Mark from 'mark.js';
 import { Router } from 'vue-router';
 import { normalizePath } from '@kungfu-trader/kungfu-js-api/utils/osUtils';
 import { getDialogLogoPath } from '@kungfu-trader/kungfu-js-api/config/brand';
 import { keyShortMap } from '@kungfu-trader/kungfu-js-api/config/systemConfig';
 import {
-  VTable,
   ResizeColumn,
   ChangeHeaderPosition,
+  IVTableColumns,
 } from '@kungfu-trader/kungfu-app/src/renderer/assets/configs/vTable';
 
 // this utils file is only for ui components
@@ -1910,73 +1903,6 @@ export const confirmModalSkippable = (
   return promise;
 };
 
-const markdown = md('commonmark');
-markdown.use(mdHljs, {
-  inline: true,
-  register: {
-    cpp: hlForCpp,
-    python: hlForPython,
-    js: hlForJs,
-    ts: hlForTs,
-  },
-});
-
-markdown.use(mdCheckbox, {
-  divWrap: true,
-  divClass: 'kf-md-checkbox',
-});
-export const compileMd2Html = (content: string): string => {
-  try {
-    return (
-      '<div class="kf-markdown__wrap markdown-body">' +
-      markdown.render(content) +
-      '</div>'
-    );
-  } catch (error) {
-    console.error(error);
-    return '';
-  }
-};
-
-export const compileMdFile2Html = (filePath: string): string => {
-  if (fse.existsSync(filePath)) {
-    const buffer = fse.readFileSync(filePath);
-    return compileMd2Html(buffer.toString());
-  }
-
-  return '';
-};
-
-export const openReadmeModal = (
-  readmePath: string,
-  extraConfig?: ModalFuncProps,
-) => {
-  if (fse.existsSync(readmePath)) {
-    return fse.readFile(readmePath).then((buffer) => {
-      const str = buffer.toString();
-      const mdHtml = markdown.render(str);
-      const content = h('div', {
-        class: 'kf-markdown__wrap markdown-body',
-        style: {
-          maxHeight: '60vh',
-          overflow: 'auto',
-        },
-        innerHTML: mdHtml,
-      });
-      return Modal.info({
-        content: content,
-        width: '60vw',
-        okText: t('confirm'),
-        cancelText: t('cancel'),
-        ...(extraConfig || {}),
-      });
-    });
-  } else {
-    messagePrompt().error(t('文件路径不存在'));
-    return Promise.reject();
-  }
-};
-
 export const useBoardFilter = () => {
   const rootPackageJson = readRootPackageJsonSync();
   const boardFilter: Record<string, boolean | undefined> | undefined =
@@ -2724,12 +2650,10 @@ export const useBrowserWindowMinimize = () => {
 
 export const useTableResizeControl = (
   tableName: string,
-  columnsRef:
-    | Ref<VTable.TYPES.ColumnDefine[]>
-    | ComputedRef<VTable.TYPES.ColumnDefine[]>,
+  columnsRef: Ref<IVTableColumns> | ComputedRef<IVTableColumns>,
   resizable = false,
 ) => {
-  const resizedColumns = ref<VTable.TYPES.ColumnDefine[]>([]);
+  const resizedColumns = ref<IVTableColumns>([]);
   const DEFAULT_KEY = 'tableResizeConfigMap';
   const app = getCurrentInstance();
   const tableKey = ref<string>(tableName);
@@ -2833,7 +2757,7 @@ export const useTableResizeControl = (
     }
   }
 
-  function getResizedColumns(columns: VTable.TYPES.ColumnDefine[]) {
+  function getResizedColumns(columns: IVTableColumns) {
     if (!resizable) {
       return columns;
     }
@@ -2855,7 +2779,7 @@ export const useTableResizeControl = (
     return resizedColumns;
   }
 
-  function initializeTableResizeConfig(columns: VTable.TYPES.ColumnDefine[]) {
+  function initializeTableResizeConfig(columns: IVTableColumns) {
     tableResizeConfig.value = {
       fields: [],
       columnsWidth: {},
@@ -2874,7 +2798,7 @@ export const useTableResizeControl = (
   }
 
   function updateTableResizeConfig(
-    columns: VTable.TYPES.ColumnDefine[],
+    columns: IVTableColumns,
     fields: string[],
     columnsWidth: Record<string, number>,
   ) {
@@ -2887,11 +2811,11 @@ export const useTableResizeControl = (
   }
 
   function buildResizedColumns(
-    columns: VTable.TYPES.ColumnDefine[],
+    columns: IVTableColumns,
     fields: string[],
     columnsWidth: Record<string, number>,
   ) {
-    const resizedColumns: VTable.TYPES.ColumnDefine[] = [];
+    const resizedColumns: IVTableColumns = [];
 
     fields.forEach((field, index) => {
       const column = columns.find((item) => item.field === field);

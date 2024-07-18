@@ -1,6 +1,6 @@
 {
   "name": "@kungfu-trader/kfx-ui-extension-manager",
-  "version": "3.0.8-alpha.1",
+  "version": "3.0.8-alpha.2",
   "description": "The extension for Kungfu extension manager.",
   "author": {
     "name": "kungfu-trader",
@@ -119,17 +119,17 @@
     }
   },
   "dependencies": {
-    "@kungfu-trader/kfx-ui-login-authing": "^3.0.8-alpha.1",
-    "@kungfu-trader/kfx-ui-novice-guide": "^3.0.8-alpha.1",
-    "@kungfu-trader/kungfu-app": "^3.0.8-alpha.1",
-    "@kungfu-trader/kungfu-cli": "^3.0.8-alpha.1",
-    "@kungfu-trader/kungfu-core": "^3.0.8-alpha.1",
-    "@kungfu-trader/kungfu-js-api": "^3.0.8-alpha.1",
+    "@kungfu-trader/kfx-ui-login-authing": "^3.0.8-alpha.2",
+    "@kungfu-trader/kfx-ui-novice-guide": "^3.0.8-alpha.2",
+    "@kungfu-trader/kungfu-app": "^3.0.8-alpha.2",
+    "@kungfu-trader/kungfu-cli": "^3.0.8-alpha.2",
+    "@kungfu-trader/kungfu-core": "^3.0.8-alpha.2",
+    "@kungfu-trader/kungfu-js-api": "^3.0.8-alpha.2",
     "pinia": "~2.0.0"
   },
   "devDependencies": {
-    "@kungfu-trader/kfx-broker-sim": "^3.0.8-alpha.1",
-    "@kungfu-trader/kungfu-sdk": "^3.0.8-alpha.1",
-    "@kungfu-trader/kungfu-toolchain": "^3.0.8-alpha.1"
+    "@kungfu-trader/kfx-broker-sim": "^3.0.8-alpha.2",
+    "@kungfu-trader/kungfu-sdk": "^3.0.8-alpha.2",
+    "@kungfu-trader/kungfu-toolchain": "^3.0.8-alpha.2"
   }
 }

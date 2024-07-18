@@ -1,10 +1,5 @@
 <script setup lang="ts">
-import {
-  VTable,
-  ICustomActionOption,
-} from '@kungfu-trader/kungfu-app/src/renderer/assets/configs/vTable';
-
-import { dealCurrency } from '@kungfu-trader/kungfu-js-api/utils/tradingUtils';
+import { VTable } from '@kungfu-trader/kungfu-app/src/renderer/assets/configs/vTable';
 
 import {
   useDownloadHistoryTradingData,
@@ -78,32 +73,6 @@ const { dealDataWithCache } = useDealDataWithCaches<
 const { globalSetting } = storeToRefs(useGlobalStore());
 
 const canvasRef = ref();
-
-const customLayout = computed<Record<string, ICustomActionOption[]>>(() => {
-  return {
-    instrument_id_resolved: [
-      {
-        type: 'text',
-        dealValue: (record) => record.instrument_id_resolved,
-        fontSize: 12,
-        fill: '#ffffffd9',
-        boundsPadding: [7, 10, 5, 10],
-        key: 'instrument_id_resolved',
-      },
-      {
-        type: 'text',
-        dealValue: (record) =>
-          globalSetting.value?.currency?.instrumentCurrency
-            ? dealCurrency(record.currency || 0).name
-            : '',
-        fontSize: 12,
-        fill: '#faad14',
-        boundsPadding: [7, 10, 5, 10],
-        key: 'currency',
-      },
-    ],
-  };
-});
 
 const columns = computed(() => {
   const defaultLocation = {
@@ -312,7 +281,6 @@ function handleShowTradingDataDetail(args: VTable.MousePointerCellEvent) {
         table-key="Pos"
         :columns="columns"
         :has-data="hasData"
-        :custom-layout="customLayout"
         column-resize-mode="header"
         drag-header-mode="all"
         cache-column-resizable

@@ -1,6 +1,6 @@
 {
   "name": "@kungfu-trader/kfx-operator-bar",
-  "version": "3.0.8-alpha.1",
+  "version": "3.0.8-alpha.2",
   "author": {
     "name": "Kungfu Trader",
     "email": "info@kungfu.link"
@@ -29,10 +29,10 @@
     "format": "node ../../framework/core/.gyp/run-format-cpp.js src"
   },
   "dependencies": {
-    "@kungfu-trader/kungfu-core": "^3.0.8-alpha.1"
+    "@kungfu-trader/kungfu-core": "^3.0.8-alpha.2"
   },
   "devDependencies": {
-    "@kungfu-trader/kungfu-sdk": "^3.0.8-alpha.1"
+    "@kungfu-trader/kungfu-sdk": "^3.0.8-alpha.2"
   },
   "kungfuConfig": {
     "key": "bar",

@@ -224,10 +224,8 @@ import {
 import { storeToRefs } from 'pinia';
 import { Empty } from 'ant-design-vue';
 import { LeftOutlined } from '@ant-design/icons-vue';
-import {
-  useTableSearchKeyword,
-  compileMdFile2Html,
-} from '@kungfu-trader/kungfu-app/src/renderer/assets/methods/uiUtils';
+import { useTableSearchKeyword } from '@kungfu-trader/kungfu-app/src/renderer/assets/methods/uiUtils';
+import { compileMdFile2Html } from '@kungfu-trader/kungfu-app/src/renderer/assets/methods/markdown';
 import VueI18n from '@kungfu-trader/kungfu-js-api/language';
 import { useAuthingCredential } from '@kungfu-trader/kfx-ui-login-authing/src/utils/externalUtils';
 import { LoginAuthingKeys } from '@kungfu-trader/kfx-ui-login-authing/src/configs';

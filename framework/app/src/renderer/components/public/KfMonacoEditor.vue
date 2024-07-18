@@ -39,7 +39,7 @@ const emit = defineEmits<{
 
 const id = `kf-code-editor-${Date.now()}`;
 
-const FONTFAMILY = `Font4-CascadiaCode, Font1-Source_Han_Sans_SC, sans-serif, "Courier New", monospace`;
+const FONTFAMILY = `Menlo, Font4-CascadiaCode, Font1-Source_Han_Sans_SC, sans-serif, "Courier New", monospace`;
 
 /** 设置主题 */
 monaco.editor.defineTheme(
