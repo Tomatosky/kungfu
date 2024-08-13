@@ -4,7 +4,7 @@
     "name": "Kungfu Trader",
     "email": "info@kungfu.link"
   },
-  "version": "2.7.7-alpha.0",
+  "version": "2.7.7-alpha.1",
   "description": "KungFu Operator for Bar Data",
   "license": "Apache-2.0",
   "main": "package.json",
@@ -29,10 +29,10 @@
     "format": "node ../../framework/core/.gyp/run-format-cpp.js src"
   },
   "dependencies": {
-    "@kungfu-trader/kungfu-core": "^2.7.7-alpha.0"
+    "@kungfu-trader/kungfu-core": "^2.7.7-alpha.1"
   },
   "devDependencies": {
-    "@kungfu-trader/kungfu-sdk": "^2.7.7-alpha.0"
+    "@kungfu-trader/kungfu-sdk": "^2.7.7-alpha.1"
   },
   "kungfuConfig": {
     "key": "bar",
