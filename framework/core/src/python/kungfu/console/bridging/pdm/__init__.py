@@ -64,9 +64,9 @@ class MakeupCommand(BaseCommand):
             ]
         )
         project["dynamic"] = ["version"]
-        project["requires-python"] = (
-            f"~={sys.version_info.major}.{sys.version_info.minor}"
-        )
+        project[
+            "requires-python"
+        ] = f"~={sys.version_info.major}.{sys.version_info.minor}"
         project["dependencies"] = project.get("dependencies", [])
 
         settings = pdm_project.pyproject.settings
