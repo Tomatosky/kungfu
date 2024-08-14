@@ -67,6 +67,10 @@ private:
 
   void rebuild_positions(int64_t trigger_time, uint32_t strategy_uid);
 
+  int get_decimal_places(double num);
+
+  double translate_by_price_tick(const char *exchange_id, const char *instrument_id, double price);
+
   template <typename AppStateMap, typename AppStateUpdate>
   void update_app_state_map(uint32_t location_uid, const AppStateUpdate &state_update, AppStateMap &app_states) {
     app_states.insert_or_assign(location_uid, state_update);
