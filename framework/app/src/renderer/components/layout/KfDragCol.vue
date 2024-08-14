@@ -41,7 +41,7 @@ export default defineComponent({
 
   setup(props) {
     const colData = reactive<{
-      resizeing: boolean;
+      resizing: boolean;
       upRow$: HTMLElement | null;
       upBoardId: string;
       upRowHeight: number;
@@ -51,7 +51,7 @@ export default defineComponent({
       paBoundingRect: DOMRect | { [x: string]: number };
       preY: number;
     }>({
-      resizeing: false,
+      resizing: false,
       upRow$: null,
       upBoardId: '',
       upRowHeight: 0,
@@ -119,12 +119,12 @@ export default defineComponent({
           this.paBoundingRect = paElement.getBoundingClientRect();
         }
         this.preY = e.y;
-        this.resizeing = true;
+        this.resizing = true;
       }
     },
 
     handleMouseMove(e: MouseEvent) {
-      if (!this.resizeing) return;
+      if (!this.resizing) return;
 
       const currentY: number = e.y;
       const deltaY = currentY - this.preY;
@@ -159,7 +159,7 @@ export default defineComponent({
         !this.bottomRow$ ||
         !this.upBoardId ||
         !this.bottomBoardId ||
-        !this.resizeing
+        !this.resizing
       ) {
         this.clearState();
         return;
@@ -192,19 +192,19 @@ export default defineComponent({
     },
 
     handleMouseLeave() {
-      if (this.resizeing) {
+      if (this.resizing) {
         document.addEventListener('mouseup', this.handleMouseUp);
       }
     },
 
     handleMouseEnter() {
-      if (!this.resizeing) {
+      if (!this.resizing) {
         document.removeEventListener('mouseup', this.handleMouseUp);
       }
     },
 
     clearState() {
-      this.resizeing = false;
+      this.resizing = false;
       this.upRow$ = null;
       this.upRowHeight = 0;
       this.bottomRow$ = null;
@@ -248,7 +248,6 @@ export default defineComponent({
     top: 0;
     height: 100%;
     width: 4px;
-    background-color: #000;
     cursor: col-resize;
     box-sizing: border-box;
     z-index: 10;

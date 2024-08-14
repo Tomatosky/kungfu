@@ -5,9 +5,11 @@ import { InjectionKey } from 'vue';
 
 export const BuiltinComponentInjectKeysMap: {
   TradingTask: InjectionKey<BuiltinComponentPropsMap['TradingTask']>;
+  KfBoards: InjectionKey<BuiltinComponentPropsMap['KfBoards']>;
   // MakeOrder: InjectionKey<BuiltinComponentPropsMap['MakeOrder']>;
 } = {
   TradingTask: Symbol.for('TradingTask'),
+  KfBoards: Symbol.for('KfBoards'),
   // Pos: Symbol.for('Pos'),
   // PosGlobal: Symbol.for('PosGlobal'),
   // Order: Symbol.for('Order'),
@@ -28,3 +30,9 @@ export const BuiltinComponentInjectKeysMap: {
 // } = {
 //   Side: Symbol.for('Side'),
 // }
+
+export const UIHelperInjectKeysMap: {
+  KfBoards: InjectionKey<UIHelperProvideMap['KfBoards']>;
+} = {
+  KfBoards: Symbol.for('KfBoardsHelper'),
+};

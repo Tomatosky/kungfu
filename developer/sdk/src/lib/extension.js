@@ -394,7 +394,22 @@ exports.compile = () => {
   fse.ensureDirSync(outputDir);
 
   if (hasSourceFor(packageJson, 'python')) {
-    const srcDir = path.join('src', 'python', extensionName);
+    const corePath = customResolve('@kungfu-trader/kungfu-core');
+    const nodeModulesPath = path.join(
+      corePath.split('node_modules')[0],
+      'node_modules',
+    );
+    const srcDir =
+      packageJson.kungfuBuild &&
+      packageJson.kungfuBuild.python &&
+      packageJson.kungfuBuild.python.external
+        ? path.join(
+            nodeModulesPath,
+            packageJson.kungfuBuild.python.external,
+            'src/python',
+            extensionName,
+          )
+        : path.join('src', 'python', extensionName);
     const { cmd, args0 } = getKfcCmdArgs();
 
     const kfcArgs = [...args0, 'engage', 'nuitka'];

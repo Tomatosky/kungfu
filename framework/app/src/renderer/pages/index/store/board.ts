@@ -11,42 +11,52 @@ import {
   toRaw,
   getCurrentInstance,
   Ref,
+  inject,
 } from 'vue';
 import { Subscription } from 'rxjs';
 import { messagePrompt } from '../../../assets/methods/uiUtils';
 import { useGlobalStore } from './global';
 import { storeToRefs } from 'pinia';
+import {
+  BuiltinComponentInjectKeysMap,
+  UIHelperInjectKeysMap,
+} from '../../../assets/configs/symbols';
+import { provide } from 'vue';
 
 // 对应store中的state
 interface StateTree {
+  needCached: Ref<boolean>;
   boardsMap: Ref<KfLayout.BoardsMap>;
-  dragedContentData: Ref<KfLayout.ContentData | null>;
+  draggedContentData: Ref<KfLayout.ContentData | null>;
   isBoardDragging: Ref<boolean>;
 }
 // 对应store中的action
 interface ActionsTree {
   markIsBoardDragging: (status: boolean) => void;
   initBoardsMap: (boardMap: KfLayout.BoardsMap) => void;
-  setBoardsMapAttrById: (
+  getContentId: (content: KfLayout.Content) => string;
+  setBoardsMapAttrById: <T extends KfLayout.BoardInfoKeys>(
     id: number,
-    attrKey: keyof KfLayout.BoardInfo,
-    value: KfLayout.BoardInfo[keyof KfLayout.BoardInfo],
+    attrKey: T,
+    value: (KfLayout.WrapperBoardInfo &
+      KfLayout.DefaultContentBoardInfo &
+      KfLayout.CustomContentBoardInfo)[T],
   ) => void;
-  addBoardFromEmpty: (targetContentId: string) => Promise<void>;
-  addBoardByContentId: (
+  addBoardFromEmpty: (targetContentId: string) => void;
+  addBoardByContent: (
     targetBoardId: number,
-    targetContentId: string,
-  ) => Promise<void>;
-  removeBoardByContentId: (
+    targetContent: KfLayout.Content,
+  ) => KfLayout.Content;
+  removeBoardByContent: (
     targetBoardId: number,
-    targetContentId: string,
+    targetContent: KfLayout.Content,
   ) => void;
-  setDragedContentData: (
+  setDraggedContentData: (
     boardId: KfLayout.BoardId,
-    contentId: KfLayout.ContentId,
+    content: KfLayout.Content,
   ) => void;
   afterDragMoveBoard: (
-    dragedContentData: KfLayout.ContentData | null,
+    draggedContentData: KfLayout.ContentData | null,
     destBoardId: KfLayout.BoardId,
     directionClassName: KfLayoutTargetDirectionClassName,
   ) => void;
@@ -54,17 +64,15 @@ interface ActionsTree {
 }
 
 type combineType = StateTree & ActionsTree;
+type BoardStoreDefinition = StoreDefinition<
+  `${string}_boardsStore`,
+  _UnwrapAll<Pick<combineType, keyof StateTree>>,
+  Pick<combineType, never>, // never在有computed的时候用，对应store中getter
+  Pick<combineType, keyof ActionsTree>
+>;
 declare global {
   interface Window {
-    allBoardsStore: Record<
-      string,
-      StoreDefinition<
-        `${string}_boardsStore`,
-        _UnwrapAll<Pick<combineType, keyof StateTree>>,
-        Pick<combineType, never>, // never在有computed的时候用，对应store中getter
-        Pick<combineType, keyof ActionsTree>
-      >
-    >;
+    allBoardsStore: Record<string, BoardStoreDefinition>;
   }
 }
 
@@ -72,14 +80,20 @@ export const useBoards = () => {
   const app = getCurrentInstance();
   const { success } = messagePrompt();
 
+  function getContentId(content: KfLayout.Content) {
+    return typeof content === 'string' ? content : content.id;
+  }
+
   const createBoardsStore = (
     storeId: string,
     initBoardMap: KfLayout.BoardsMap,
     defaultBoardsMap: KfLayout.BoardsMap,
+    cached = true,
   ) => {
     const useBoardsStore = defineStore(`${storeId}_boardsStore`, () => {
+      const needCached = ref(cached);
       const boardsMap = ref<KfLayout.BoardsMap>(initBoardMap);
-      const dragedContentData = ref<KfLayout.ContentData | null>(null);
+      const draggedContentData = ref<KfLayout.ContentData | null>(null);
       const isBoardDragging = ref<boolean>(false);
 
       const { currentBoardsStoreId } = storeToRefs(useGlobalStore());
@@ -91,14 +105,16 @@ export const useBoards = () => {
         subscription = app?.proxy?.$globalBus.subscribe(
           (data: KfEvent.KfBusEvent) => {
             if (data.tag === 'main') {
-              if (data.name === 'reset-main-dashboard') {
+              if (data.name === 'reset-current-dashboard') {
+                console.log('reset-current-dashboard', defaultBoardsMap);
                 initBoardsMap(defaultBoardsMap);
                 success();
               }
 
               if (data.name == 'record-before-quit') {
-                Object.values(window.allBoardsStore).forEach((store) => {
-                  store().saveBoardsMap();
+                Object.values(window.allBoardsStore).forEach((useStore) => {
+                  const store = useStore();
+                  store.needCached && store.saveBoardsMap();
                 });
               }
             }
@@ -112,7 +128,7 @@ export const useBoards = () => {
 
       onUnmounted(() => {
         subscription && subscription.unsubscribe();
-        saveBoardsMap();
+        cached && saveBoardsMap();
       });
 
       function markIsBoardDragging(status: boolean) {
@@ -123,17 +139,26 @@ export const useBoards = () => {
         boardsMap.value = JSON.parse(JSON.stringify(boardMap));
       }
 
-      function setBoardsMapAttrById(
+      function setBoardsMapAttrById<
+        T extends keyof (KfLayout.WrapperBoardInfo & KfLayout.ContentBoardInfo),
+      >(
         id: number,
-        attrKey: keyof KfLayout.BoardInfo,
-        value: KfLayout.BoardInfo[keyof KfLayout.BoardInfo],
+        attrKey: T,
+        value: (KfLayout.WrapperBoardInfo & KfLayout.ContentBoardInfo)[T],
       ) {
-        (<typeof value>boardsMap.value[id][attrKey]) = value;
+        if (!boardsMap.value[id]) return;
+        if (attrKey in boardsMap.value[id]) {
+          (
+            boardsMap.value[id] as KfLayout.WrapperBoardInfo &
+              KfLayout.ContentBoardInfo
+          )[attrKey] = value;
+        }
       }
 
       function addBoardFromEmpty(targetContentId: string) {
-        const newBoardInfo: KfLayout.BoardInfo = {
+        const newBoardInfo: KfLayout.ContentBoardInfo = {
           paId: 0,
+          id: 1,
           direction: KfLayoutDirection.v,
           contents: [targetContentId],
           current: targetContentId,
@@ -141,48 +166,54 @@ export const useBoards = () => {
           height: '100%',
         };
         boardsMap.value[1] = newBoardInfo;
-        boardsMap.value[0].children = [1];
-        return Promise.resolve();
+        (boardsMap.value[0] as KfLayout.WrapperBoardInfo).children = [1];
       }
 
-      function addBoardByContentId(
+      function addBoardByContent(
         targetBoardId: number,
-        targetContentId: string,
-      ): Promise<void> {
-        const targetBoard: KfLayout.BoardInfo = boardsMap.value[targetBoardId];
-        const contents = targetBoard?.contents;
-        const targetIndex = contents?.indexOf(targetContentId);
-
-        if (contents === undefined) {
-          return Promise.reject();
-        } else if (targetIndex === undefined) {
-          return Promise.reject();
-        } else if (targetIndex !== -1) {
-          return Promise.reject();
-        }
-
-        contents.push(targetContentId);
-        targetBoard.current = targetContentId;
-
-        return Promise.resolve();
-      }
-
-      function removeBoardByContentId(
-        targetBoardId: number,
-        targetContentId: string,
+        targetContent: KfLayout.Content,
       ) {
-        const targetBoard: KfLayout.BoardInfo = boardsMap.value[targetBoardId];
-        const contents = targetBoard?.contents;
-        const targetIndex = contents?.indexOf(targetContentId);
+        const targetBoard = boardsMap.value[targetBoardId];
 
-        if (targetIndex === undefined) return;
+        if (!('contents' in targetBoard)) return;
+
+        const contents = targetBoard.contents;
+        const targetContentId = getContentId(targetContent);
+        const targetIndex = contents.findIndex(
+          (i) => getContentId(i) === targetContentId,
+        );
+
+        if (targetIndex !== -1) return;
+
+        contents.push(targetContent);
+        targetBoard.current = getContentId(targetContent);
+        return targetContent;
+      }
+
+      function removeBoardByContent(
+        targetBoardId: number,
+        targetContent: KfLayout.Content,
+      ) {
+        const targetBoard = boardsMap.value[targetBoardId];
+
+        if (!('contents' in targetBoard)) return;
+
+        const contents = targetBoard.contents;
+        const targetContentId = getContentId(targetContent);
+        const targetIndex = contents.findIndex(
+          (content) => getContentId(content) === targetContentId,
+        );
+
         if (targetIndex === -1) return;
 
-        const removedItem: KfLayout.ContentId =
-          (contents?.splice(targetIndex, 1) || [])[0] || '';
+        const removedItem: KfLayout.Content =
+          contents.splice(targetIndex, 1)[0] || '';
+        const removedItemId = getContentId(removedItem);
 
-        if (removedItem === targetBoard.current && contents?.length) {
-          targetBoard.current = (targetBoard.contents || [])[0];
+        if (removedItemId === targetBoard.current && contents.length) {
+          const newCurrentContent = targetBoard.contents[0];
+          const current = getContentId(newCurrentContent);
+          targetBoard.current = current;
         }
 
         if (!contents?.length && targetBoard.paId != -1) {
@@ -195,10 +226,12 @@ export const useBoards = () => {
         if (targetBoard && targetBoard.paId !== -1) {
           const paId = targetBoard.paId;
           const paBoard = boardsMap.value[paId];
-          const children = paBoard?.children;
-          const childIndex = paBoard.children?.indexOf(targetBoardId);
 
-          if (childIndex === undefined) return;
+          if (!('children' in paBoard)) return;
+
+          const children = paBoard.children;
+          const childIndex = paBoard.children.indexOf(targetBoardId);
+
           if (childIndex === -1) return;
 
           children?.splice(childIndex, 1);
@@ -217,29 +250,30 @@ export const useBoards = () => {
         return;
       }
 
-      function setDragedContentData(
+      function setDraggedContentData(
         boardId: KfLayout.BoardId,
-        contentId: KfLayout.ContentId,
+        content: KfLayout.Content,
       ) {
-        if (boardId === -1 && !contentId) {
-          dragedContentData.value = null;
+        if (boardId === -1 && !content) {
+          draggedContentData.value = null;
         } else {
-          dragedContentData.value = {
-            contentId,
+          draggedContentData.value = {
+            content,
             boardId,
           };
         }
       }
 
       function afterDragMoveBoard(
-        dragedContentData: KfLayout.ContentData | null,
+        draggedContentData: KfLayout.ContentData | null,
         destBoardId: KfLayout.BoardId,
         directionClassName: KfLayoutTargetDirectionClassName,
       ) {
-        const { boardId, contentId } = dragedContentData || {};
+        const { boardId, content } = draggedContentData || {};
         const destBoard = boardsMap.value[destBoardId];
 
-        if (!contentId || boardId === undefined) return;
+        if (!content || boardId === undefined || !('contents' in destBoard))
+          return;
 
         //to self
         if (
@@ -250,28 +284,37 @@ export const useBoards = () => {
           return;
         }
 
-        removeBoardByContentId(boardId, contentId);
+        removeBoardByContent(boardId, content);
 
         if (directionClassName === KfLayoutTargetDirectionClassName.center) {
           if (destBoard.contents) {
-            if (!destBoard.contents.includes(contentId)) {
-              destBoard.contents.push(contentId);
+            const contentId = getContentId(content);
+            if (
+              !destBoard.contents.find((i) => getContentId(i) === contentId)
+            ) {
+              destBoard.contents.push(content);
             }
-            destBoard.current = contentId;
+            destBoard.current = getContentId(content);
           }
         } else if (
           directionClassName != KfLayoutTargetDirectionClassName.unset
         ) {
-          dragMakeNewBoard_(contentId, destBoardId, directionClassName);
+          dragMakeNewBoard_(content, destBoardId, directionClassName);
         }
       }
 
       function dragMakeNewBoard_(
-        contentId: KfLayout.ContentId,
+        content: KfLayout.Content,
         destBoardId: number,
         directionClassName: KfLayoutTargetDirectionClassName,
       ) {
         const destBoard = boardsMap.value[destBoardId];
+        const newWrapperBoard: KfLayout.WrapperBoardInfo = {
+          paId: destBoard.paId,
+          id: destBoardId,
+          direction: destBoard.direction,
+          children: [],
+        };
         const destPaId: number = destBoard.paId;
         const destDirection: KfLayoutDirection = destBoard.direction;
         const newBoardId: KfLayout.BoardId = buildNewBoardId_();
@@ -286,49 +329,56 @@ export const useBoards = () => {
             : KfLayoutDirection.unset;
         const newBoardInfo: KfLayout.BoardInfo = {
           paId: destPaId,
+          id: newBoardId,
           direction: newBoardDirection,
-          contents: [contentId],
-          current: contentId,
+          contents: [content],
+          current: getContentId(content),
         };
 
         if (destDirection === newBoardDirection) {
-          const siblings = boardsMap.value[destPaId].children;
-          const destIndex = siblings?.indexOf(destBoardId);
-          if (destIndex === -1 || destIndex === undefined) {
-            throw new Error("Insert dest board is not in pa board's childen");
+          const destPa = boardsMap.value[destPaId];
+          if (!('children' in destPa))
+            throw new Error('Dest parent board is not a content board');
+
+          const siblings = destPa.children;
+          const destIndex = siblings.indexOf(destBoardId);
+          if (destIndex === -1) {
+            throw new Error("Insert dest board is not in pa board's children");
           }
 
           if (
             directionClassName === KfLayoutTargetDirectionClassName.top ||
             directionClassName === KfLayoutTargetDirectionClassName.left
           ) {
-            siblings?.splice(destIndex, 0, newBoardId);
+            siblings.splice(destIndex, 0, newBoardId);
           } else {
-            siblings?.splice(destIndex + 1, 0, newBoardId);
+            siblings.splice(destIndex + 1, 0, newBoardId);
           }
         } else {
           newBoardInfo.paId = destBoardId;
-          const destBoardCopy: KfLayout.BoardInfo = {
+          const newDestBoardId = newBoardId + 1;
+
+          const newDestBoard: KfLayout.BoardInfo = {
             ...toRaw(destBoard),
+            id: newDestBoardId,
             direction: newBoardDirection,
             paId: destBoardId,
             width: undefined,
             height: undefined,
           };
 
-          const newDestBoardId = newBoardId + 1;
           if (
             directionClassName === KfLayoutTargetDirectionClassName.top ||
             directionClassName === KfLayoutTargetDirectionClassName.left
           ) {
-            destBoard.children = [newBoardId, newDestBoardId];
+            newWrapperBoard.children = [newBoardId, newDestBoardId];
           } else {
-            destBoard.children = [newDestBoardId, newBoardId];
+            newWrapperBoard.children = [newDestBoardId, newBoardId];
           }
-          delete destBoard.contents;
-          delete destBoard.current;
 
-          boardsMap.value[newDestBoardId] = destBoardCopy;
+          boardsMap.value[destBoardId] = newWrapperBoard;
+
+          boardsMap.value[newDestBoardId] = newDestBoard;
         }
 
         destBoard.width && delete destBoard.width;
@@ -353,17 +403,19 @@ export const useBoards = () => {
       }
 
       return {
+        needCached,
         boardsMap,
-        dragedContentData,
+        draggedContentData,
         isBoardDragging,
 
+        getContentId,
         markIsBoardDragging,
         initBoardsMap,
         setBoardsMapAttrById,
         addBoardFromEmpty,
-        addBoardByContentId,
-        removeBoardByContentId,
-        setDragedContentData,
+        addBoardByContent,
+        removeBoardByContent,
+        setDraggedContentData,
         afterDragMoveBoard,
         saveBoardsMap,
       } as combineType;
@@ -392,9 +444,96 @@ export const useBoards = () => {
     return storedBoardsMap;
   };
 
+  const currentBoardInfos = ref<{
+    boardsId: string;
+    boardId: number;
+    boardInfo: KfLayout.BoardInfo;
+    useBoardsStore: BoardStoreDefinition;
+  } | null>(null);
+  let injection = inject(BuiltinComponentInjectKeysMap.KfBoards, null);
+  provide(UIHelperInjectKeysMap.KfBoards, {
+    boardInfosMounter: (data) => {
+      injection = data;
+    },
+  });
+  const getCurrentBoardInfos = () => {
+    if (currentBoardInfos.value) return currentBoardInfos.value;
+
+    if (!injection) return null;
+
+    const { boardId, boardsId } = injection;
+
+    const useBoardsStore = getBoardsStoreById(boardsId);
+
+    const boardInfo = useBoardsStore().boardsMap[boardId];
+
+    const infos = {
+      ...injection,
+      boardInfo,
+      useBoardsStore,
+    };
+
+    currentBoardInfos.value = infos;
+
+    return infos;
+  };
+
+  const addContentToBoard = (
+    targetBoardId: number,
+    content: KfLayout.ContentNew,
+  ) => {
+    const infos = getCurrentBoardInfos();
+    if (!infos) return;
+
+    const { useBoardsStore } = infos;
+    const { addBoardByContent } = useBoardsStore();
+
+    const contentNew =
+      typeof content === 'string'
+        ? content
+        : {
+            id: content.component + Date.now(),
+            ...content,
+          };
+    return addBoardByContent(targetBoardId, contentNew);
+  };
+
+  const addContentToCurBoard = (content: KfLayout.ContentNew) => {
+    const infos = getCurrentBoardInfos();
+    if (!infos) return;
+
+    const { boardId } = infos;
+    return addContentToBoard(boardId, content);
+  };
+
+  const removeContentInCurBoard = (content: KfLayout.Content) => {
+    const infos = getCurrentBoardInfos();
+    if (!infos) return;
+
+    const { boardId, useBoardsStore } = infos;
+    const { removeBoardByContent } = useBoardsStore();
+
+    return removeBoardByContent(boardId, content);
+  };
+
+  const activeContentInCurBoard = (content: KfLayout.Content) => {
+    const infos = getCurrentBoardInfos();
+    if (!infos) return;
+
+    const { boardId, useBoardsStore } = infos;
+    const { setBoardsMapAttrById } = useBoardsStore();
+    setBoardsMapAttrById(boardId, 'current', getContentId(content));
+  };
+
   return {
     getBoardsStoreById,
     createBoardsStore,
     getLocalBoardsMap,
+    getContentId,
+    getCurrentBoardInfos,
+    addContentToBoard,
+    addContentToCurBoard,
+    removeContentInCurBoard,
+    activeContentInCurBoard,
   };
 };

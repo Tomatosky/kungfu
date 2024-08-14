@@ -127,10 +127,6 @@ const statisticModalVisible = ref<boolean>(false);
 const needProcessTradingData = ref<boolean>(true);
 const isRendering = ref(false);
 
-const hasData = computed(() => {
-  return allOrders.value.length > 0;
-});
-
 const processTradingData = async (
   tradingDataKeeper: KungfuApi.TradingDataKeeper,
   keepProcessing = false,
@@ -720,7 +716,6 @@ function testOrderSourceIsOnline(order: KungfuApi.OrderResolved) {
           ref="canvasRef"
           table-key="Order"
           :columns="columns"
-          :has-data="hasData"
           cache-column-resizable
           cache-column-change
           column-resize-mode="header"

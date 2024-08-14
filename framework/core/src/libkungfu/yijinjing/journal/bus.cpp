@@ -27,26 +27,32 @@ void bus::wait() {
 
 void bus::set_trigger_frame_uid(uint64_t frame_uid) { trigger_frame_uid_ = frame_uid; }
 
-void bus::set_trigger_source_id(uint64_t source_id) { trigger_source_id_ = source_id; }
+void bus::set_trigger_initial_source_id(uint32_t initial_source_id) { trigger_initial_source_id_ = initial_source_id; }
 
-void bus::set_trigger_dest_id(uint64_t dest_id) { trigger_dest_id_ = dest_id; }
+void bus::set_trigger_source_id(uint32_t source_id) { trigger_source_id_ = source_id; }
+
+void bus::set_trigger_dest_id(uint32_t dest_id) { trigger_dest_id_ = dest_id; }
 
 void bus::set_trigger_msg_type(int32_t msg_type) { trigger_msg_type_ = msg_type; }
 
 uint64_t bus::get_trigger_frame_uid() { return trigger_frame_uid_; }
 
-uint64_t bus::get_trigger_source_id() { return trigger_source_id_; }
+uint32_t bus::get_trigger_initial_source_id() { return trigger_initial_source_id_; }
 
-uint64_t bus::get_trigger_dest_id() { return trigger_dest_id_; }
+uint32_t bus::get_trigger_source_id() { return trigger_source_id_; }
+
+uint32_t bus::get_trigger_dest_id() { return trigger_dest_id_; }
 
 int32_t bus::get_trigger_msg_type() { return trigger_msg_type_; }
 
 void bus::set_trigger_frame(const event_ptr &event) {
   bus::set_trigger_frame_uid(event->frame_uid());
+  bus::set_trigger_initial_source_id(event->initial_source());
   bus::set_trigger_source_id(event->source());
   bus::set_trigger_dest_id(event->dest());
   bus::set_trigger_msg_type(event->msg_type());
   log::set_trigger_frame_uid(event->frame_uid());
+  log::set_trigger_initial_source_id(event->initial_source());
   log::set_trigger_source_id(event->source());
   log::set_trigger_dest_id(event->dest());
   log::set_trigger_msg_type(event->msg_type());

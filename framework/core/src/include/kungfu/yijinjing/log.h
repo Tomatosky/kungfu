@@ -38,11 +38,34 @@
   if (kungfu::yijinjing::log::is_signal_log())                                                                         \
   SPDLOG_CRITICAL
 
+#define SPDLOGF_TRACE                                                                                                  \
+  kungfu::yijinjing::log::enable_exception_log_frame();                                                                \
+  SPDLOG_TRACE
+#define SPDLOGF_DEBUG                                                                                                  \
+  kungfu::yijinjing::log::enable_exception_log_frame();                                                                \
+  SPDLOG_DEBUG
+#define SPDLOGF_INFO                                                                                                   \
+  kungfu::yijinjing::log::enable_exception_log_frame();                                                                \
+  SPDLOG_INFO
+#define SPDLOGF_WARN                                                                                                   \
+  kungfu::yijinjing::log::enable_exception_log_frame();                                                                \
+  SPDLOG_WARN
+#define SPDLOGF_ERROR                                                                                                  \
+  kungfu::yijinjing::log::enable_exception_log_frame();                                                                \
+  SPDLOG_ERROR
+#define SPDLOGF_CRITICAL                                                                                               \
+  kungfu::yijinjing::log::enable_exception_log_frame();                                                                \
+  SPDLOG_CRITICAL
+
 namespace kungfu::yijinjing::log {
 
 bool is_log_frame();
 
+void enable_exception_log_frame();
+
 void set_trigger_frame_uid(uint64_t frame_uid);
+
+void set_trigger_initial_source_id(uint32_t initial_source_id);
 
 void set_trigger_source_id(uint32_t source_id);
 
@@ -51,6 +74,8 @@ void set_trigger_dest_id(uint32_t dest_id);
 void set_trigger_msg_type(int32_t msg_type);
 
 uint64_t get_trigger_frame_uid();
+
+uint32_t get_trigger_initial_source_id();
 
 uint32_t get_trigger_source_id();
 

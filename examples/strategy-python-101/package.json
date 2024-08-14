@@ -1,6 +1,6 @@
 {
   "name": "@kungfu-trader/examples-strategy-python",
-  "version": "3.0.7-alpha.7",
+  "version": "3.1.0-alpha.1",
   "author": {
     "name": "Kungfu Trader",
     "email": "info@kungfu.link"
@@ -44,6 +44,6 @@
     ]
   },
   "devDependencies": {
-    "@kungfu-trader/kungfu-sdk": "^3.0.7-alpha.7"
+    "@kungfu-trader/kungfu-sdk": "^3.1.0-alpha.1"
   }
 }

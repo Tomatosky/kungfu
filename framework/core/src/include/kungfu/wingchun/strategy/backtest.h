@@ -371,7 +371,7 @@ private:
     int reference_count;
   };
 
-  static std::shared_ptr<wingchun::factor::LiveStreamDataBatcher> backtest_stream_data_batcher_;
+  static std::shared_ptr<wingchun::factor::BackTestStreamDataBatcher> backtest_stream_data_batcher_;
   broker::PassiveClient broker_client_;
   book::Bookkeeper bookkeeper_;
   Matcher_ptr matcher_;

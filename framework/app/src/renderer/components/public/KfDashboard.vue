@@ -1,7 +1,7 @@
 <template>
-  <div class="kf-dashboard__warp kf-translateZ">
-    <div class="kf-dashboard__header">
-      <div v-if="$slots.title" class="title">
+  <div class="kf-dashboard__warp kf-translateZ" :style="{ overflow }">
+    <div v-if="$slots.title || $slots.header" class="kf-dashboard__header">
+      <div class="title">
         <slot name="title"></slot>
       </div>
       <div v-if="$slots.header" class="header-actions">
@@ -13,47 +13,67 @@
     </div>
   </div>
 </template>
-<script lang="ts">
-import { defineComponent, nextTick, onBeforeUnmount, PropType } from 'vue';
+<script lang="ts" setup>
+import {
+  nextTick,
+  onBeforeUnmount,
+  ref,
+  onMounted,
+  getCurrentInstance,
+} from 'vue';
 import { filter } from 'rxjs';
 
-export default defineComponent({
-  name: 'KfDashboard',
-
-  props: {
-    title: {
-      type: String as PropType<string>,
-      default: '',
-    },
+withDefaults(
+  defineProps<{
+    title?: string;
+    overflow?:
+      | 'scroll'
+      | 'hidden'
+      | 'auto'
+      | 'visible'
+      | 'initial'
+      | 'inherit'
+      | 'unset';
+  }>(),
+  {
+    title: '',
+    overflow: 'hidden',
   },
+);
 
-  mounted() {
-    nextTick().then(() => {
-      this.$emit('boardSizeChange', this.getBodyWidthHeight());
+const emit = defineEmits<{
+  (e: 'boardSizeChange', size: { width: number; height: number }): void;
+}>();
+
+const app = getCurrentInstance();
+const kfDashboardBody = ref();
+
+const getBodyWidthHeight = (): { width: number; height: number } => {
+  const dashboardBody = kfDashboardBody.value as HTMLElement;
+  return {
+    width: dashboardBody?.clientWidth || 0,
+    height: dashboardBody?.clientHeight || 0,
+  };
+};
+
+onMounted(() => {
+  nextTick().then(() => {
+    emit('boardSizeChange', getBodyWidthHeight());
+  });
+
+  const globalBus = app?.proxy?.$globalBus;
+
+  if (!globalBus) return;
+
+  const subscription = globalBus
+    .pipe(filter((e: KfEvent.KfBusEvent) => e.tag === 'resize'))
+    .subscribe(() => {
+      emit('boardSizeChange', getBodyWidthHeight());
     });
 
-    if (this.$globalBus) {
-      const subscription = this.$globalBus
-        .pipe(filter((e: KfEvent.KfBusEvent) => e.tag === 'resize'))
-        .subscribe(() => {
-          this.$emit('boardSizeChange', this.getBodyWidthHeight());
-        });
-
-      onBeforeUnmount(() => {
-        subscription.unsubscribe();
-      });
-    }
-  },
-
-  methods: {
-    getBodyWidthHeight(): { width: number; height: number } {
-      const dashboardBody = this.$refs['kfDashboardBody'] as HTMLElement;
-      return {
-        width: dashboardBody?.clientWidth || 0,
-        height: dashboardBody?.clientHeight || 0,
-      };
-    },
-  },
+  onBeforeUnmount(() => {
+    subscription?.unsubscribe();
+  });
 });
 </script>
 <style lang="less">
@@ -64,7 +84,6 @@ export default defineComponent({
   flex-direction: column;
   padding: 4px 8px;
   box-sizing: border-box;
-  overflow: hidden;
 
   .kf-dashboard__header {
     width: 100%;

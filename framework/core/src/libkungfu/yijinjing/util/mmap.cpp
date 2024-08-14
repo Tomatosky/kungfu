@@ -82,7 +82,7 @@ uintptr_t load_mmap_buffer(const std::string &path, size_t size, bool is_writing
 
   if (buffer == MAP_FAILED) {
     close(fd);
-    throw journal_error("Error mapping file to buffer");
+    throw journal_error("Error mapping file to buffer: " + path);
   }
 
   if (!lazy && madvise(buffer, size, MADV_RANDOM) != 0 && mlock(buffer, size) != 0) {

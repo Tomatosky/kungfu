@@ -4,6 +4,13 @@ export enum KfLayoutDirection {
   unset = '',
 }
 
+export enum KfLayoutBoardType {
+  Tab = 'tab',
+  Card = 'card',
+  CardTab = 'card-tab',
+  Custom = 'custom',
+}
+
 export enum KfLayoutTargetDirectionClassName {
   unset = '',
   center = 'drag-over',

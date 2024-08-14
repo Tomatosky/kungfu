@@ -100,9 +100,11 @@ public:
     }
     if (it == events.end()) {
       events.clear();
+      std::vector<BufferType>().swap(events);
     } else {
       auto ori_begin = std::rotate(events.begin(), it, events.end());
       events.erase(ori_begin, events.end());
+      std::vector<BufferType>(events).swap(events);
     }
     time_stamp_map_[get_instrument_exchange_type_id(instrument_id, exchange_id, BufferType::tag)] = app_.now();
   }
@@ -148,8 +150,13 @@ private:
         }
       }
     }
+    reader.seek_to_time(begin_time);
+    const int64_t end_time = app_.now();
     while (reader.data_available()) {
       const yijinjing::journal::frame_ptr frame = reader.current_frame();
+      if (frame->gen_time() > end_time) {
+        break;
+      }
       if (frame->msg_type() == BufferType::tag) {
         auto &event = const_cast<BufferType &>(frame->data<BufferType>());
         if (get_key(event.instrument_id, event.exchange_id) == get_key(instrument_id, exchange_id)) {

@@ -273,12 +273,12 @@ protected:
                  auto writer = get_writer(get_master_command_uid());
                  longfist::types::TimeRequest &r = writer->open_data<longfist::types::TimeRequest>(now());
                  r.id = timer_id;
-                 r.base_time = now();
+                 r.base_time = timer_checkpoints_[timer_id] + duration_ns;
                  r.duration = duration_ns;
                  r.repeat = 1;
                  r.location_uid = get_live_home_uid();
                  writer->close_data();
-                 timer_checkpoints_[timer_id] = now();
+                 timer_checkpoints_[timer_id] = timer_checkpoints_[timer_id] + duration_ns;
                  return true;
                } else {
                  return false;

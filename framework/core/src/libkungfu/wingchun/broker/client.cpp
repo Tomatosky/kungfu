@@ -77,15 +77,20 @@ Client::Client(apprentice &app) : app_(app) {}
 const Client::InstrumentKeyMap &Client::get_instrument_keys() const { return instrument_keys_; }
 
 bool Client::is_ready(uint32_t app_location_uid) const {
-  if (app_.has_location(app_location_uid) and app_.has_writer(app_location_uid)) {
+  if (app_.has_location(app_location_uid)) {
     auto app_location = app_.get_location(app_location_uid);
-    bool md_test = app_location->category == category::MD and
-                   ready_md_locations_.find(app_location->uid) != ready_md_locations_.end();
-    bool td_test = app_location->category == category::TD and
-                   ready_td_locations_.find(app_location->uid) != ready_td_locations_.end();
-    bool op_test = app_location->category == category::OPERATOR and
-                   ready_op_locations_.find(app_location->uid) != ready_op_locations_.end();
-    return md_test or td_test or op_test;
+    switch (app_location->category) {
+    case longfist::enums::category::MD:
+      return ready_md_locations_.find(app_location->uid) != ready_md_locations_.end() and
+             app_.has_writer(app_location_uid);
+    case longfist::enums::category::TD:
+      return ready_td_locations_.find(app_location->uid) != ready_td_locations_.end() and
+             app_.has_writer(app_location_uid);
+    case longfist::enums::category::OPERATOR:
+      return ready_op_locations_.find(app_location->uid) != ready_op_locations_.end();
+    default:
+      return false;
+    }
   }
   return false;
 }
@@ -207,8 +212,10 @@ void Client::connect(const event_ptr &event, const Register &register_data) {
   }
   if (app_location->category == category::OPERATOR and should_connect_operator(app_location)) {
     auto resume_time_point = get_resume_policy()->get_connect_time(app_, register_data);
-    app_.request_write_to(app_.now(), app_location->uid);
-    app_.request_read_from(app_.now(), app_location->uid, resume_time_point);
+    if (app_.get_home()->category == category::SYSTEM or app_.get_home()->category == category::MD) {
+      app_.request_write_to(app_.now(), app_location->uid);
+      app_.request_read_from(app_.now(), app_location->uid, resume_time_point);
+    }
     app_.request_read_from_public(app_.now(), app_location->uid, resume_time_point);
     SPDLOG_INFO("resume {} connection from {}", app_location->uname, time::strftime(resume_time_point));
   }
@@ -341,7 +348,7 @@ bool PassiveClient::enrolled_td_ready() const {
 
 bool PassiveClient::enrolled_operator_connected() const {
   return std::all_of(enrolled_op_locations_.begin(), enrolled_op_locations_.end(),
-                     [this](const auto &it) { return is_connected(it.first); });
+                     [this](const auto &it) { return app_.has_location(it.first); });
 }
 
 bool PassiveClient::enrolled_md_connected() const {

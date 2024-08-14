@@ -1932,7 +1932,8 @@ declare namespace KfEvent {
 
   export interface TriggerAddBoard {
     tag: 'addBoard';
-    boardId: number;
+    targetBoard: KfLayout.ContentBoardInfo;
+    boardsStoreId: string;
   }
 
   export interface TriggerCurrentConfigModalReady {

@@ -14,9 +14,11 @@
 namespace kungfu::yijinjing::log {
 bool signal_log = true;
 thread_local uint64_t trigger_frame_uid = 0;
+thread_local uint32_t trigger_initial_source_id_ = 0;
 thread_local uint32_t trigger_source_id = 0;
 thread_local uint32_t trigger_dest_id = 0;
 thread_local int32_t trigger_msg_type = 0;
+thread_local bool exception_log_frame = false;
 
 void disable_signal_log() { signal_log = false; }
 
@@ -35,11 +37,12 @@ public:
 
   void format(const spdlog::details::log_msg &msg, spdlog::memory_buf_t &dest) override {
     spdlog::details::fmt_helper::append_string_view(time::strftime(time::now_in_nano(), TS_PATTERN), dest);
-    if (is_log_frame()) {
-      spdlog::details::fmt_helper::append_string_view(fmt::format("[{:>10}->{:<10}:{:<10}:{:<20}]",
-                                                                  get_trigger_source_id(), get_trigger_dest_id(),
-                                                                  get_trigger_msg_type(), get_trigger_frame_uid()),
-                                                      dest);
+    if (is_log_frame() or exception_log_frame) {
+      spdlog::details::fmt_helper::append_string_view(
+          fmt::format("[{:>10}:{:>10}->{:<10}:{:<10}:{:<20}]", get_trigger_initial_source_id(), get_trigger_source_id(),
+                      get_trigger_dest_id(), get_trigger_msg_type(), get_trigger_frame_uid()),
+          dest);
+      exception_log_frame = false;
     }
     spdlog_formatter.format(msg, dest);
   }
@@ -120,18 +123,24 @@ bool is_log_frame() {
 
 void set_trigger_frame_uid(uint64_t frame_uid) { trigger_frame_uid = frame_uid; }
 
-uint64_t get_trigger_frame_uid() { return trigger_frame_uid; }
+void set_trigger_initial_source_id(uint32_t initial_source_id) { trigger_initial_source_id_ = initial_source_id; }
 
 void set_trigger_source_id(uint32_t source_id) { trigger_source_id = source_id; }
 
 void set_trigger_dest_id(uint32_t dest_id) { trigger_dest_id = dest_id; }
 
+void set_trigger_msg_type(int32_t msg_type) { trigger_msg_type = msg_type; }
+
+uint64_t get_trigger_frame_uid() { return trigger_frame_uid; }
+
+uint32_t get_trigger_initial_source_id() { return trigger_initial_source_id_; }
+
 uint32_t get_trigger_source_id() { return trigger_source_id; }
 
 uint32_t get_trigger_dest_id() { return trigger_dest_id; }
 
-void set_trigger_msg_type(int32_t msg_type) { trigger_msg_type = msg_type; }
-
 int32_t get_trigger_msg_type() { return trigger_msg_type; }
+
+void enable_exception_log_frame() { exception_log_frame = true; }
 
 } // namespace kungfu::yijinjing::log

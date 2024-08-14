@@ -168,7 +168,7 @@ private:
 
     auto switch_broker_state = [&](category broker_category, location_map &ready_locations, auto on_app_ready) {
       bool ready_recorded = ready_locations.find(app_location->uid) != ready_locations.end();
-      if (state_ready and app_.has_writer(app_location->uid) and not ready_recorded) {
+      if (state_ready and not ready_recorded) {
         ready_locations.emplace(app_location->uid, app_location);
         SPDLOG_INFO("{} ready, state {}", app_location->uname, static_cast<int>(state_value));
         on_app_ready();

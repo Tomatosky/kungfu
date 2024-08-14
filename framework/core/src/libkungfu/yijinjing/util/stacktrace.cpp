@@ -251,7 +251,7 @@ void print_stack_trace(FILE *out) {
       // __cxa_demangle():
       int status = 0;
       size_t funcnamesize = 8192;
-      char funcname[8192];
+      auto funcname = reinterpret_cast<char *>(std::malloc(funcnamesize));
       char *ret = abi::__cxa_demangle(begin_name, funcname, &funcnamesize, &status);
       if (console_count >= 0) {
         KF_LOG_CRITICAL("{:<30} ({:<40}+{}) {}", symbollist[i], status == 0 ? ret : begin_name,
@@ -261,6 +261,7 @@ void print_stack_trace(FILE *out) {
       fprintf(log_file, "[%s] \t(%s+%s)  %s\n", symbollist[i], status == 0 ? ret : begin_name,
               begin_offset ? begin_offset : "", end_offset);
       fflush(log_file);
+      std::free(ret);
 #endif // !DARWIN - but is posix
     } else {
       // couldn't parse the line? print the whole line.

@@ -4,20 +4,21 @@ import caret_normal from '../svg/table-icons/caret-normal.svg';
 import caret_upward from '../svg/table-icons/caret-upward.svg';
 import caret_downward from '../svg/table-icons/caret-downward.svg';
 import {
-  type ITextGraphicAttribute,
+  ITextGraphicAttribute,
   IImageGraphicAttribute,
 } from '@visactor/vrender-core';
+import { Icon } from '@visactor/vtable/es/render/layout/icon';
 export type ITextOption = {
-  type: string;
+  type: 'text';
   marginTop?: number;
   marginRight?: number;
   marginBottom?: number;
   marginLeft?: number;
   key: string;
-  dealValue?: (value) => string | string;
+  dealValue?: ((value) => string) | string;
 } & ITextGraphicAttribute;
 export type IImageOptions = {
-  type: string;
+  type: 'image';
   src?: string;
   shape?: 'circle' | 'square';
   marginTop?: number;
@@ -25,10 +26,20 @@ export type IImageOptions = {
   marginBottom?: number;
   marginLeft?: number;
   key: string;
-  dealValue?: (value) => string | string;
+  dealValue?: ((value) => string) | string;
 } & IImageGraphicAttribute;
+export type IIconOption = {
+  type: 'icon';
+  key: string;
+  dealValue?: ((value) => string) | string;
+} & ConstructorParameters<typeof Icon>[0];
 
-export type ICustomActionOption = ITextOption & IImageOptions;
+export type ICustomActionOption = ITextOption | IImageOptions | IIconOption;
+export type IVTableColumn = Omit<VTable.ColumnDefine, 'customLayout'> & {
+  customLayout?: ICustomActionOption[];
+};
+export type IVTableColumns = IVTableColumn[];
+
 export interface InputEditorConfig {
   max?: number;
   min?: number;
