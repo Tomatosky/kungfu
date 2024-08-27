@@ -12,9 +12,7 @@ md_source = "sim"  # 目标行情源的柜台名称, 需添加 sim 行情源
 def pre_start(context):
     context.log.info("pre start")
     context.add_account(source, account)  # 添加交易账户
-    context.subscribe(
-        md_source, ["600000", "600004", "600009"], Exchange.SSE
-    )  # 订阅行情
+    context.subscribe(md_source, ["600000", "600004", "600009"], Exchange.SSE)  # 订阅行情
     context.subscribe(md_source, ["300033", "300059"], Exchange.SZE)  # 订阅行情
     context.subscribe(md_source, ["rb2401"], Exchange.SHFE)  # 订阅行情
     context.subscribe(md_source, ["sc2401"], Exchange.INE)  # 订阅行情
