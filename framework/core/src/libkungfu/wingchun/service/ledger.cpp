@@ -164,6 +164,44 @@ void Ledger::update_order_stat(const event_ptr &event, const Trade &data) {
   }
 }
 
+// 获取有效位长度
+int Ledger::get_decimal_places(double num) {
+  std::ostringstream out;
+  out << std::fixed << std::setprecision(16) << num; // 设置足够的精度
+  std::string str = out.str();
+  size_t dotPos = str.find('.');
+  if (dotPos == std::string::npos)
+    return 0; // 没有小数点
+  size_t precision = str.size() - dotPos - 1;
+  // 去除末尾的0
+  while (precision > 0 && str[dotPos + precision] == '0') {
+    precision--;
+  }
+
+  return precision;
+}
+
+double Ledger::translate_by_price_tick(const char *exchange_id, const char *instrument_id, double price) {
+  auto hashed_instrument_key = hash_instrument(exchange_id, instrument_id);
+  auto instruments = bookkeeper_.get_static_data().get_instruments();
+  if (instruments.find(hashed_instrument_key) != instruments.end()) {
+    double price_tick = instruments[hashed_instrument_key].price_tick;
+    if (is_valid_price(price_tick)) {
+      if (price_tick >= 1) {
+        price_tick = 1;
+      }
+
+      int digits = get_decimal_places(price_tick);
+      double new_price_tick = 1.0 / pow(10, digits);
+      uint64_t tick = 1 / new_price_tick;
+      uint64_t uPrice = (uint64_t)((std::abs(price) + new_price_tick * 0.5) * tick);
+      return (double)uPrice / tick;
+    }
+  }
+
+  return int64_t(price * DEFAULT_AVG_VALID_VALUE) / DEFAULT_AVG_VALID_VALUE;
+}
+
 void Ledger::update_account_book(int64_t trigger_time, uint32_t account_uid) {
   refresh_account_book(trigger_time, account_uid);
   auto book = bookkeeper_.get_book(account_uid);

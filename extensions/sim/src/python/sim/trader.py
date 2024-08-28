@@ -147,7 +147,7 @@ class TraderSim(wc.Trader):
         self.logger.info(f"insert_batch_orders")
         self.logger.info(f"{order_inputs}")
         for item in order_inputs:
-            self.insert_order_(event, item)
+            self.insert_order_(event.source, event.gen_time, item)
 
     def insert_order(self, event):
         if self.match_mode == MatchMode.Custom:

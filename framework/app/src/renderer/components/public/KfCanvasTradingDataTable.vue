@@ -1,10 +1,11 @@
 <template>
   <div
     ref="listTableRef"
-    style="width: 100%; height: 100%; margin-top: -1px"
+    style="width: 100%; margin-top: -1px"
+    :style="{ height: containerHeight }"
   ></div>
   <a-empty
-    v-if="showEmpty"
+    v-if="!hasData"
     ref="emptyRef"
     :image="simpleImage"
     :description="t('empty_text')"
@@ -36,7 +37,6 @@ const { t } = VueI18n.global;
 
 const app = getCurrentInstance();
 const simpleImage = Empty.PRESENTED_IMAGE_SIMPLE;
-const showEmpty = ref<boolean>(false);
 let widthMode: 'adaptive' | 'autoWidth' | 'standard' = 'standard';
 let columnResizeMode: 'all' | 'body' | 'header' | 'none' = 'none';
 let dragHeaderMode: 'all' | 'none' | 'column' | 'row' = 'none';
@@ -52,7 +52,6 @@ const props = withDefaults(
     tableKey?: string;
     columns: IVTableColumns;
     dataSource?: tableDataItem[];
-    hasData?: boolean;
     widthMode?: 'adaptive' | 'autoWidth' | 'standard';
     columnResizeMode?: 'all' | 'body' | 'header' | 'none';
     dragHeaderMode?: 'all' | 'none' | 'column' | 'row';
@@ -265,6 +264,7 @@ const defaultOptionItems = ref<VTable.ListTableConstructorOptions>({
 });
 
 const listTableRef = ref();
+const hasData = ref(false);
 const emptyRef = ref();
 const option = computed<VTable.ListTableConstructorOptions>(() => {
   return {
@@ -276,6 +276,26 @@ const option = computed<VTable.ListTableConstructorOptions>(() => {
 let listTable: VTable.ListTable | null = null;
 
 const containerWidth = ref<number>(10);
+const containerHeight = computed(() => (hasData.value ? '100%' : '35px'));
+
+watch(
+  hasData,
+  (val) => {
+    if (listTable) {
+      const targetScrollStyleVisible = val ? 'focus' : 'none';
+      if (
+        defaultTheme.scrollStyle &&
+        defaultTheme.scrollStyle.visible !== targetScrollStyleVisible
+      ) {
+        defaultTheme.scrollStyle.visible = targetScrollStyleVisible;
+        listTable?.updateTheme(defaultTheme);
+      }
+
+      if (!val) listTable?.setRecords([]);
+    }
+  },
+  { immediate: true },
+);
 
 function createCustomLayoutNode(
   option: ICustomActionOption,
@@ -346,35 +366,6 @@ function initCustomLayoutOptions(
   });
 }
 
-const isShowEmpty = () => {
-  if (listTable) {
-    if (!props.hasData) {
-      nextTick(() => {
-        listTableRef.value.style.height = `35px`;
-        if (
-          defaultTheme.scrollStyle &&
-          defaultTheme.scrollStyle.visible !== 'none'
-        ) {
-          defaultTheme.scrollStyle.visible = 'none';
-          listTable?.updateTheme(defaultTheme);
-        }
-        listTable?.setRecords([]);
-        showEmpty.value = true;
-      });
-    } else {
-      listTableRef.value.style.height = `100%`;
-      if (
-        defaultTheme.scrollStyle &&
-        defaultTheme.scrollStyle.visible !== 'focus'
-      ) {
-        defaultTheme.scrollStyle.visible = 'focus';
-        listTable.updateTheme(defaultTheme);
-      }
-      showEmpty.value = false;
-    }
-  }
-};
-
 onMounted(() => {
   font = document.body.style.fontFamily;
   if (font) {
@@ -394,7 +385,6 @@ onMounted(() => {
       listTableRef.value,
       option.value as VTable.ListTableConstructorOptions,
     );
-    isShowEmpty();
   }
 
   const rowList = listTable?.getAllColumnHeaderCells();
@@ -430,6 +420,8 @@ const setRecords = (records: tableDataItem[]) => {
   nextTick(() => {
     if (listTable) {
       listTable?.setRecords(records);
+
+      hasData.value = records.length > 0;
     }
   });
 };
@@ -438,14 +430,6 @@ defineExpose({
   setRecords,
   getListTable,
 });
-
-watch(
-  () => props.hasData,
-  () => {
-    isShowEmpty();
-  },
-  { immediate: true },
-);
 
 const registerEvent = () => {
   if (!listTable) return;

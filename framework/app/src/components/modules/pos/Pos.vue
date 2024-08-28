@@ -107,8 +107,6 @@ const columns = computed(() => {
   });
 });
 
-const hasData = computed(() => pos.value.length > 0);
-
 const setTableData = () => {
   const tableData = searchByKeyword<KungfuApi.PositionResolved>(
     searchKeyword.value,
@@ -280,7 +278,6 @@ function handleShowTradingDataDetail(args: VTable.MousePointerCellEvent) {
         ref="canvasRef"
         table-key="Pos"
         :columns="columns"
-        :has-data="hasData"
         column-resize-mode="header"
         drag-header-mode="all"
         cache-column-resizable

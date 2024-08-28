@@ -130,10 +130,6 @@ const processTradingData = async (
   }
 };
 
-const hasData = computed(() => {
-  return allTrades.value.length > 0;
-});
-
 onActivated(() => {
   const subscription = app?.proxy?.$tradingDataSubject.subscribe(
     async (data) => {
@@ -306,7 +302,6 @@ function handleShowTradingDataDetail(args: VTable.MousePointerCellEvent) {
         ref="canvasRef"
         table-key="Trade"
         :columns="columns"
-        :hasData="hasData"
         column-resize-mode="header"
         drag-header-mode="all"
         cache-column-resizable
