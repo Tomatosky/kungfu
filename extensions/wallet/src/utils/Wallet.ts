@@ -104,7 +104,7 @@ export class Wallet {
         res.data.data?.wallets.map((item) => ({
           ...item,
           rate_amount: this.dealNumStr(item.rate_amount),
-          balance: this.dealNumStr(item.balance),
+          balance: item.balance_cents / 100,
           created_at: this.dealTimeStr(item.created_at),
           expiration_at: this.dealTimeStr(item.expiration_at),
           last_balance_sync_at: this.dealTimeStr(item.last_balance_sync_at),
