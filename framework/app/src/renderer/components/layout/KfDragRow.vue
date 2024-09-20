@@ -27,7 +27,7 @@ import { storeToRefs } from 'pinia';
 import { useBoards } from '../../pages/index/store/board';
 
 interface KfDragRowData {
-  resizeing: boolean;
+  resizing: boolean;
   leftCol$: HTMLElement | null;
   leftBoardId: string;
   leftColWidth: number;
@@ -54,7 +54,7 @@ export default defineComponent({
 
   setup(props) {
     const rowData = reactive<KfDragRowData>({
-      resizeing: false,
+      resizing: false,
       leftCol$: null,
       leftBoardId: '',
       leftColWidth: 0,
@@ -123,12 +123,12 @@ export default defineComponent({
           this.paBoundingRect = paElement.getBoundingClientRect();
         }
         this.preX = e.x;
-        this.resizeing = true;
+        this.resizing = true;
       }
     },
 
     handleMouseMove(e: MouseEvent) {
-      if (!this.resizeing) return;
+      if (!this.resizing) return;
 
       const currentX: number = e.x;
       const deltaX = currentX - this.preX;
@@ -189,19 +189,19 @@ export default defineComponent({
     },
 
     handleMouseLeave() {
-      if (this.resizeing) {
+      if (this.resizing) {
         document.addEventListener('mouseup', this.handleMouseUp);
       }
     },
 
     handleMouseEnter() {
-      if (!this.resizeing) {
+      if (!this.resizing) {
         document.removeEventListener('mouseup', this.handleMouseUp);
       }
     },
 
     clearState() {
-      this.resizeing = false;
+      this.resizing = false;
       this.leftCol$ = null;
       this.leftColWidth = 0;
       this.rightCol$ = null;
@@ -244,7 +244,6 @@ export default defineComponent({
     bottom: 1px;
     height: 4px;
     width: 100%;
-    background-color: #000;
     cursor: row-resize;
     box-sizing: border-box;
     z-index: 10;

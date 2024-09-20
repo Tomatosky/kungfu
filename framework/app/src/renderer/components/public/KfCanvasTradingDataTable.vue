@@ -1,10 +1,11 @@
 <template>
   <div
     ref="listTableRef"
-    style="width: 100%; height: 100%; margin-top: -1px"
+    style="width: 100%; margin-top: -1px"
+    :style="{ height: containerHeight }"
   ></div>
   <a-empty
-    v-if="showEmpty"
+    v-if="!hasData"
     ref="emptyRef"
     :image="simpleImage"
     :description="t('empty_text')"
@@ -26,22 +27,20 @@ import VueI18n from '@kungfu-trader/kungfu-js-api/language';
 import {
   VTable,
   ICustomActionOption,
+  IVTableColumns,
 } from '@kungfu-trader/kungfu-app/src/renderer/assets/configs/vTable';
 
 import { useTableResizeControl } from '@kungfu-trader/kungfu-app/src/renderer/assets/methods/uiUtils';
+import { INode } from '@visactor/vtable/es/vrender';
 
 const { t } = VueI18n.global;
 
 const app = getCurrentInstance();
 const simpleImage = Empty.PRESENTED_IMAGE_SIMPLE;
-const showEmpty = ref<boolean>(false);
 let widthMode: 'adaptive' | 'autoWidth' | 'standard' = 'standard';
 let columnResizeMode: 'all' | 'body' | 'header' | 'none' = 'none';
 let dragHeaderMode: 'all' | 'none' | 'column' | 'row' = 'none';
 let font = '';
-const ColumnCustomMap = ref<
-  Record<string, { customLayout: VTable.TYPES.ICustomLayoutFuc }>
->({});
 
 type tableDataItem =
   | KungfuApi.TradingDataItem
@@ -51,10 +50,8 @@ type tableDataItem =
 const props = withDefaults(
   defineProps<{
     tableKey?: string;
-    columns: VTable.ColumnsDefine;
+    columns: IVTableColumns;
     dataSource?: tableDataItem[];
-    hasData?: boolean;
-    customLayout?: Record<string, ICustomActionOption[]>;
     widthMode?: 'adaptive' | 'autoWidth' | 'standard';
     columnResizeMode?: 'all' | 'body' | 'header' | 'none';
     dragHeaderMode?: 'all' | 'none' | 'column' | 'row';
@@ -152,12 +149,15 @@ const resizable =
 const { resizedColumns, handleResizeColumnEnd, handleChangeHeaderPosition } =
   useTableResizeControl(props.tableKey, columnsRef, resizable);
 
+const resolvedColumns = computed(() => {
+  return initCustomLayoutOptions(resizedColumns.value as IVTableColumns);
+});
+
 watch(
-  () => resizedColumns.value,
-  (resizedColumns) => {
+  () => resolvedColumns.value,
+  (newColumns) => {
     if (listTable) {
-      initCustomLayoutOptions();
-      listTable.updateColumns(resizedColumns);
+      listTable.updateColumns(newColumns);
     }
   },
 );
@@ -264,10 +264,11 @@ const defaultOptionItems = ref<VTable.ListTableConstructorOptions>({
 });
 
 const listTableRef = ref();
+const hasData = ref(false);
 const emptyRef = ref();
 const option = computed<VTable.ListTableConstructorOptions>(() => {
   return {
-    columns: resizedColumns.value,
+    columns: resolvedColumns.value,
     ...defaultOptionItems.value,
     ...props.optionItems,
   } as VTable.ListTableConstructorOptions;
@@ -275,13 +276,63 @@ const option = computed<VTable.ListTableConstructorOptions>(() => {
 let listTable: VTable.ListTable | null = null;
 
 const containerWidth = ref<number>(10);
+const containerHeight = computed(() => (hasData.value ? '100%' : '35px'));
 
-const initCustomLayoutOptions = () => {
-  if (!props.customLayout) return;
-  const customLayoutOption = props.customLayout;
-  Object.keys(customLayoutOption).forEach((key) => {
-    if (!customLayoutOption[key]) return;
-    ColumnCustomMap.value[key] = {
+watch(
+  hasData,
+  (val) => {
+    if (listTable) {
+      const targetScrollStyleVisible = val ? 'focus' : 'none';
+      if (
+        defaultTheme.scrollStyle &&
+        defaultTheme.scrollStyle.visible !== targetScrollStyleVisible
+      ) {
+        defaultTheme.scrollStyle.visible = targetScrollStyleVisible;
+        listTable?.updateTheme(defaultTheme);
+      }
+
+      if (!val) listTable?.setRecords([]);
+    }
+  },
+  { immediate: true },
+);
+
+function createCustomLayoutNode(
+  option: ICustomActionOption,
+  record,
+): INode | null {
+  const { type, dealValue } = option;
+  const value = typeof dealValue === 'function' ? dealValue(record) : dealValue;
+  if (!value) return null;
+
+  if (type === 'text') {
+    return new VTable.CustomLayout.Text({
+      ...option,
+      text: value,
+    });
+  } else if (type === 'image') {
+    return new VTable.CustomLayout.Image({
+      ...option,
+      image: value,
+    });
+  } else if (type === 'icon') {
+    return new VTable.CustomLayout.Icon({
+      ...option,
+      svg: value,
+    });
+  }
+  return null;
+}
+
+function initCustomLayoutOptions(
+  columns: IVTableColumns,
+): VTable.ColumnsDefine {
+  return columns.map((column) => {
+    if (!column.customLayout) return column as VTable.ColumnDefine;
+    const customLayout = column.customLayout;
+
+    return {
+      ...column,
       customLayout: (args: VTable.TYPES.CustomRenderFunctionArg) => {
         const { table, row, col, rect } = args;
         const { height, width } = rect || table.getCellRect(col, row);
@@ -296,41 +347,13 @@ const initCustomLayoutOptions = () => {
           flexWrap: 'nowrap',
           alignContent: 'center',
         });
-        let obj;
-        for (obj of customLayoutOption[key]) {
-          const { type, dealValue, ...rest } = obj;
-          if (type === 'text') {
-            try {
-              const text =
-                dealValue && typeof dealValue === 'function'
-                  ? dealValue(record)
-                  : dealValue;
-              if (text) {
-                const customLayout = new VTable.CustomLayout.Text({
-                  ...rest,
-                  text,
-                });
-                container.add(customLayout);
-              }
-            } catch (error) {
-              console.log(error);
-            }
-          } else if (type === 'image') {
-            try {
-              const image =
-                dealValue && typeof dealValue === 'function'
-                  ? dealValue(record)
-                  : dealValue;
-              if (image) {
-                const customLayout = new VTable.CustomLayout.Image({
-                  ...rest,
-                  image,
-                });
-                container.add(customLayout);
-              }
-            } catch (error) {
-              console.log(error);
-            }
+
+        for (let nodeOption of customLayout) {
+          try {
+            const node = createCustomLayoutNode(nodeOption, record);
+            if (node) container.add(node);
+          } catch (error) {
+            console.log(error);
           }
         }
 
@@ -339,47 +362,9 @@ const initCustomLayoutOptions = () => {
           renderDefault: false,
         };
       },
-    };
+    } as VTable.ColumnDefine;
   });
-  option.value.columns?.forEach((column) => {
-    if (
-      column.field &&
-      typeof column.field === 'string' &&
-      ColumnCustomMap.value[column.field]
-    ) {
-      column.customLayout = ColumnCustomMap.value[column.field].customLayout;
-    }
-  });
-};
-
-const isShowEmpty = () => {
-  if (listTable) {
-    if (!props.hasData) {
-      nextTick(() => {
-        listTableRef.value.style.height = `35px`;
-        if (
-          defaultTheme.scrollStyle &&
-          defaultTheme.scrollStyle.visible !== 'none'
-        ) {
-          defaultTheme.scrollStyle.visible = 'none';
-          listTable?.updateTheme(defaultTheme);
-        }
-        listTable?.setRecords([]);
-        showEmpty.value = true;
-      });
-    } else {
-      listTableRef.value.style.height = `100%`;
-      if (
-        defaultTheme.scrollStyle &&
-        defaultTheme.scrollStyle.visible !== 'focus'
-      ) {
-        defaultTheme.scrollStyle.visible = 'focus';
-        listTable.updateTheme(defaultTheme);
-      }
-      showEmpty.value = false;
-    }
-  }
-};
+}
 
 onMounted(() => {
   font = document.body.style.fontFamily;
@@ -394,13 +379,12 @@ onMounted(() => {
       defaultTheme.tooltipStyle.fontFamily = font;
     }
   }
-  initCustomLayoutOptions();
+
   if (listTableRef.value) {
     listTable = new VTable.ListTable(
       listTableRef.value,
       option.value as VTable.ListTableConstructorOptions,
     );
-    isShowEmpty();
   }
 
   const rowList = listTable?.getAllColumnHeaderCells();
@@ -436,6 +420,8 @@ const setRecords = (records: tableDataItem[]) => {
   nextTick(() => {
     if (listTable) {
       listTable?.setRecords(records);
+
+      hasData.value = records.length > 0;
     }
   });
 };
@@ -443,26 +429,8 @@ const setRecords = (records: tableDataItem[]) => {
 defineExpose({
   setRecords,
   getListTable,
-  initCustomLayoutOptions,
 });
 
-watch(
-  () => props.hasData,
-  () => {
-    isShowEmpty();
-  },
-  { immediate: true },
-);
-
-watch(
-  () => props.customLayout,
-  (customLayout) => {
-    if (customLayout && listTable) {
-      initCustomLayoutOptions();
-      listTable.updateOption(option.value);
-    }
-  },
-);
 const registerEvent = () => {
   if (!listTable) return;
 

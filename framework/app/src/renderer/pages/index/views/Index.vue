@@ -2,8 +2,10 @@
   <div class="kf-index__warp">
     <KfBoards
       boards-id="main"
-      :closable="true"
+      tab-closable
+      tab-draggable
       :boards-map-builder="buildDefaultBoardsMap"
+      @add-board="handleAddBoard"
     ></KfBoards>
     <KfAddBoardModalVue
       v-if="addBoardModalVisible"
@@ -14,16 +16,15 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onActivated, onDeactivated } from 'vue';
-import { Subscription } from 'rxjs';
+import { defineComponent, ref, onActivated } from 'vue';
 
 import KfBoards from '@kungfu-trader/kungfu-app/src/renderer/components/layout/KfBoards.vue';
-import KfAddBoardModalVue from '../../../components/public/KfAddBoardModal.vue';
+import KfAddBoardModalVue from '@kungfu-trader/kungfu-app/src/renderer/components/public/KfAddBoardModal.vue';
 
 import { useGlobalStore } from '@kungfu-trader/kungfu-app/src/renderer/pages/index/store/global';
 import { defaultBoardsMap } from '@kungfu-trader/kungfu-app/src/renderer/assets/configs';
-import globalBus from '@kungfu-trader/kungfu-js-api/utils/globalBus';
 import { deepClone } from '@kungfu-trader/kungfu-js-api/utils/commonUtils';
+import { KfLayoutBoardType } from '@kungfu-trader/kungfu-app/src/typings/enums';
 
 export default defineComponent({
   name: 'Index',
@@ -43,32 +44,26 @@ export default defineComponent({
     const addBoardModalVisible = ref<boolean>(false);
     const addBoardTargetBoardId = ref<number>(-1);
 
-    let subscription: Subscription;
     const curDefaultBoardsMap = dealDefaultBoardsHook.trigger(
       defaultBoardsMap,
     ) as KfLayout.BoardsMap;
-    const curBoardsMap: KfLayout.BoardsMap = deepClone(curDefaultBoardsMap);
 
     onActivated(() => {
-      subscription = globalBus.subscribe((data: KfEvent.KfBusEvent) => {
-        if (data.tag === 'addBoard') {
-          addBoardModalVisible.value = true;
-          addBoardTargetBoardId.value = data.boardId;
-        }
-      });
-
       setCurrentGlobalKfLocation(null);
       setDefaultCurrentGlobalKfLocation();
     });
 
-    onDeactivated(() => {
-      subscription.unsubscribe();
-    });
+    const handleAddBoard = (data: { targetBoard: KfLayout.BoardInfo }) => {
+      addBoardModalVisible.value = true;
+      addBoardTargetBoardId.value = data.targetBoard.id;
+    };
 
     return {
-      buildDefaultBoardsMap: () => curBoardsMap,
+      buildDefaultBoardsMap: () => deepClone(curDefaultBoardsMap),
+      KfLayoutBoardType,
       addBoardModalVisible,
       addBoardTargetBoardId,
+      handleAddBoard,
     };
   },
 });

@@ -411,7 +411,8 @@ body {
   user-select: text;
 
   code {
-    font-family: inherit !important;
+    font-family: Menlo, Font4-CascadiaCode, Font1-Source_Han_Sans_SC, sans-serif,
+      'Courier New', monospace !important;
     padding: 2px 6px !important;
   }
 
@@ -426,6 +427,21 @@ body {
     ul,
     ol {
       list-style-type: revert;
+    }
+
+    table {
+      td,
+      th {
+        border: 1px solid #383838 !important;
+      }
+
+      tr {
+        background-color: #181818 !important;
+
+        &:nth-child(2n) {
+          background-color: #222 !important;
+        }
+      }
     }
 
     .kf-md-checkbox {

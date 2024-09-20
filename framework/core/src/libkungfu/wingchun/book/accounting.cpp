@@ -25,7 +25,6 @@ void AccountingMethod::setup_defaults(Bookkeeper &bookkeeper, const AccountingMe
   auto crypto_accounting_method = std::make_shared<CryptoAccountingMethod>();
   auto crypto_future_accounting_method = std::make_shared<CryptoFutureAccountingMethod>();
   auto crypto_ufuture_accounting_method = std::make_shared<CryptoUFutureAccountingMethod>();
-
   auto future_accounting_method = std::make_shared<FutureAccountingMethod>();
 
   if (accounting_method_type == AccountingMethodType::OTC) {

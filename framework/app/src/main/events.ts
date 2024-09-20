@@ -61,8 +61,8 @@ export function clearDB(mainWindow: BrowserWindow): void {
   sendMsgToMainWindow(mainWindow, 'clear-db');
 }
 
-export function resetMainDashboard(mainWindow: BrowserWindow): void {
-  sendMsgToMainWindow(mainWindow, 'reset-main-dashboard');
+export function resetCurDashboard(mainWindow: BrowserWindow): void {
+  sendMsgToMainWindow(mainWindow, 'reset-current-dashboard');
 }
 
 export function openLogFile(mainWindow: BrowserWindow): void {

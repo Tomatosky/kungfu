@@ -33,7 +33,7 @@ import {
   viewAllJournal,
   openLogFile,
   openSettingDialog,
-  resetMainDashboard,
+  resetCurDashboard,
 } from './events';
 
 import {
@@ -369,7 +369,7 @@ function setMenu() {
         },
         {
           label: t('reset_current_panel'),
-          click: () => MainWindow && resetMainDashboard(MainWindow),
+          click: () => MainWindow && resetCurDashboard(MainWindow),
         },
         {
           label: t('export_all_transaction_data'),

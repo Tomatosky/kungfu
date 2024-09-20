@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
-import { computed, getCurrentInstance, onMounted, ref } from 'vue';
+import { computed, getCurrentInstance, onMounted, ref, nextTick } from 'vue';
 import { messagePrompt, useModalVisible } from '../../assets/methods/uiUtils';
 import { useGlobalStore } from '../../pages/index/store/global';
 import VueI18n, { useLanguage } from '@kungfu-trader/kungfu-js-api/language';
@@ -28,9 +28,15 @@ const { currentBoardsStoreId } = storeToRefs(useGlobalStore());
 const { getBoardsStoreById } = useBoards();
 const useBoardsStore = getBoardsStoreById(currentBoardsStoreId.value);
 const { boardsMap } = storeToRefs(useBoardsStore());
-const { addBoardFromEmpty, addBoardByContentId } = useBoardsStore();
+const { addBoardFromEmpty, addBoardByContent } = useBoardsStore();
 const addedBoards = computed(() => {
-  return boardsMap.value[props.targetBoardId]?.contents || [];
+  const curBoard = boardsMap.value[props.targetBoardId];
+  if (curBoard && 'contents' in curBoard) {
+    return curBoard.contents.map((item) =>
+      typeof item === 'string' ? item : item.id,
+    );
+  }
+  return [];
 });
 
 onMounted(() => {
@@ -61,14 +67,12 @@ function handleConfirm() {
       return;
     }
 
-    addBoardFromEmpty(selectedBoard.value)
-      .then(() => {
-        success();
-        closeModal();
-      })
-      .catch(() => {
-        error();
-      });
+    addBoardFromEmpty(selectedBoard.value);
+
+    nextTick(() => {
+      success();
+      closeModal();
+    });
 
     return;
   }
@@ -76,20 +80,18 @@ function handleConfirm() {
   if (
     props.targetBoardId === -1 ||
     !boardsMap.value[props.targetBoardId] ||
-    boardsMap.value[props.targetBoardId]?.contents === undefined
+    !('contents' in boardsMap.value[props.targetBoardId])
   ) {
     error(t('add_board_error'));
     return;
   }
 
-  addBoardByContentId(props.targetBoardId, selectedBoard.value)
-    .then(() => {
-      success();
-      closeModal();
-    })
-    .catch(() => {
-      error();
-    });
+  addBoardByContent(props.targetBoardId, selectedBoard.value);
+
+  nextTick(() => {
+    success();
+    closeModal();
+  });
 }
 </script>
 <template>

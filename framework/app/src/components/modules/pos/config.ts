@@ -4,26 +4,53 @@ import { defaultColorMap } from '@kungfu-trader/kungfu-js-api/config/systemConfi
 
 import { useQuote } from '@kungfu-trader/kungfu-app/src/renderer/assets/methods/actionsUtils';
 import {
-  VTable,
+  IVTableColumn,
+  IVTableColumns,
   vTableSorter,
 } from '@kungfu-trader/kungfu-app/src/renderer/assets/configs/vTable';
-import { dealDirection } from '@kungfu-trader/kungfu-js-api/utils/tradingUtils';
+import {
+  dealCurrency,
+  dealDirection,
+} from '@kungfu-trader/kungfu-js-api/utils/tradingUtils';
 import VueI18n from '@kungfu-trader/kungfu-js-api/language';
+import { useGlobalStore } from '@kungfu-trader/kungfu-app/src/renderer/pages/index/store/global';
+
 const { t } = VueI18n.global;
 
 const { getPositionLastPrice } = useQuote();
 export { getPositionLastPrice };
-export const getColumns = (
-  kfLocation: KungfuApi.KfLocation,
-): VTable.ColumnDefine[] =>
+const globalStore = useGlobalStore();
+
+export const getColumns = (kfLocation: KungfuApi.KfLocation): IVTableColumns =>
   (globalThis.HookKeeper.getHooks().dealTradingTable as DealTradingTableHooks)
     .trigger(kfLocation, 'position')
-    .getColumns<VTable.ColumnDefine>([
+    .getColumns<IVTableColumn>([
       {
         field: 'instrument_id_resolved',
         title: t('posGlobalConfig.instrument_id'),
         width: 156,
         sort: vTableSorter,
+        customLayout: [
+          {
+            type: 'text',
+            dealValue: (record) => record.instrument_id_resolved,
+            fontSize: 12,
+            fill: '#ffffffd9',
+            boundsPadding: [7, 10, 5, 10],
+            key: 'instrument_id_resolved',
+          },
+          {
+            type: 'text',
+            dealValue: (record) =>
+              globalStore.globalSetting?.currency?.instrumentCurrency
+                ? dealCurrency(record.currency || 0).name
+                : '',
+            fontSize: 12,
+            fill: '#faad14',
+            boundsPadding: [7, 10, 5, 10],
+            key: 'currency',
+          },
+        ],
       },
       ...(isTd(kfLocation.category)
         ? []

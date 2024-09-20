@@ -6,6 +6,10 @@ import { watch, computed, onMounted } from 'vue';
 import * as monaco from 'monaco-editor';
 import themeData from '@kungfu-trader/kungfu-app/src/renderer/assets/monaco/Monokai.json';
 import {
+  conf,
+  language,
+} from 'monaco-editor/esm/vs/basic-languages/python/python';
+import {
   keywordsList,
   kungfuFunctions,
   kungfuProperties,
@@ -35,17 +39,32 @@ const emit = defineEmits<{
 
 const id = `kf-code-editor-${Date.now()}`;
 
-const FONTFAMILY = `Font3-Inconsolata-Regular, sans-serif, "Courier New", monospace`;
+const FONTFAMILY = `Menlo, Font4-CascadiaCode, Font1-Source_Han_Sans_SC, sans-serif, "Courier New", monospace`;
 
+/** 设置主题 */
 monaco.editor.defineTheme(
   'monokai',
   themeData as monaco.editor.IStandaloneThemeData,
 );
 monaco.editor.setTheme('monokai');
+/** 结束 */
+
+/** 注册语言 */
+// monaco 默认自带 python 的语法，按道理可以不用注册
+// 但是在插件中使用时因为 webpack 打包的问题运行时会报错，所以采用这种方式注册
+monaco.languages.register({
+  id: 'python',
+  extensions: ['.py', '.rpy', '.pyw', '.cpy', '.gyp', '.gypi'],
+  aliases: ['Python', 'py'],
+  firstLine: '^#!/.*\\bpython[0-9.-]*\\b',
+});
+monaco.languages.setLanguageConfiguration('python', conf);
+monaco.languages.setMonarchTokensProvider('python', language);
 
 monaco.languages.registerCompletionItemProvider('python', {
   provideCompletionItems: pythonProvideCompletionItems,
 });
+/** 结束 */
 
 let editor: monaco.editor.IStandaloneCodeEditor | undefined;
 
@@ -161,6 +180,8 @@ function startWatchOptions() {
       ) {
         updateSpaceTab();
       }
+
+      editor.updateOptions(newOpt);
     },
     {
       immediate: true,
