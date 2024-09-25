@@ -103,7 +103,9 @@ void bind_tool(pybind11::module &m) {
 
     virtual float acquire_lead_ratio() const override { PYBIND11_OVERLOAD(float, SliceIndexer, acquire_lead_ratio, ); }
 
-    virtual float release_delay_ratio() const override { PYBIND11_OVERLOAD(float, SliceIndexer, release_delay_ratio, ); }
+    virtual float release_delay_ratio() const override {
+      PYBIND11_OVERLOAD(float, SliceIndexer, release_delay_ratio, );
+    }
 
     virtual void sync_save_location(const yijinjing::data::location_ptr &location) override {
       PYBIND11_OVERLOAD(void, SliceIndexer, sync_save_location, location);
