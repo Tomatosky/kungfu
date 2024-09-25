@@ -39,9 +39,9 @@ int64_t SliceIndexer::get_operator_slice_end_time(int64_t nano_time, const std::
   return get_end_time();
 }
 
-int SliceIndexer::acquire_lead_ratio() const { return 1; }
+float SliceIndexer::acquire_lead_ratio() const { return 1; }
 
-int SliceIndexer::release_delay_ratio() const { return 0; }
+float SliceIndexer::release_delay_ratio() const { return 0; }
 
 location_ptr DayIndexer::find_md_slice_location(int64_t nano_time, const std::string &group, const std::string &name,
                                                 const std::string &instrument_id, const std::string &exchange_id,
