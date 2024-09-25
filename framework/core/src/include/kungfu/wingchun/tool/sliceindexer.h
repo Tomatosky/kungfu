@@ -37,9 +37,9 @@ public:
 
   virtual void wait_release_location(const yijinjing::data::location_ptr &location) {}
 
-  virtual int acquire_lead_ratio() const;
+  virtual float acquire_lead_ratio() const;
 
-  virtual int release_delay_ratio() const;
+  virtual float release_delay_ratio() const;
 
   virtual void sync_save_location(const yijinjing::data::location_ptr &location) {}
 
