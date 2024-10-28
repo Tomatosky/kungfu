@@ -79,6 +79,11 @@ public:
     PYBIND11_OVERLOAD(void, strategy::Strategy, on_synthetic_data, context, synthetic_data, location, dest);
   }
 
+  void on_funding_rate(strategy::Context_ptr &context, const FundingRate &funding_rate,
+                       const kungfu::yijinjing::data::location_ptr &location, uint32_t dest) override {
+    PYBIND11_OVERLOAD(void, strategy::Strategy, on_funding_rate, context, funding_rate, location, dest);
+  }
+
   void on_order(strategy::Context_ptr &context, const Order &order,
                 const kungfu::yijinjing::data::location_ptr &location, uint32_t dest) override {
     PYBIND11_OVERLOAD(void, strategy::Strategy, on_order, context, order, location, dest);
@@ -254,6 +259,7 @@ void bind_strategy(pybind11::module &m) {
       .def("on_depth", &strategy::Strategy::on_depth)
       .def("on_tick", &strategy::Strategy::on_tick)
       .def("on_synthetic_data", &strategy::Strategy::on_synthetic_data)
+      .def("on_funding_rate", &strategy::Strategy::on_funding_rate)
       .def("on_order", &strategy::Strategy::on_order)
       .def("on_order_trigger", &strategy::Strategy::on_order_trigger)
       .def("on_algo_order", &strategy::Strategy::on_algo_order)

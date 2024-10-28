@@ -224,6 +224,15 @@ bid_weighted_avg_price
 ask_weighted_avg_price
 bid_depth
 ask_depth
+funding_period
+funding_rate
+next_funding_rate
+funding_time
+next_funding_time
+min_funding_rate
+max_funding_rate
+settle_State
+settle_funding_rate
 key
 market_type
 tag_a
@@ -308,6 +317,8 @@ Transaction
 Tree
 Depth
 Tick
+FundingRate
+HistoryFundingRate
 InstrumentKey
 CustomSubscribe
 BrokerStateUpdate
@@ -365,6 +376,11 @@ SSE
 SZE
 MarketType
 Snapshot
+Entrust
+Transaction
+Tree
+Tick
+Depth
 SubscribeDataType
 Stock
 Future
@@ -583,3 +599,9 @@ Intraday
 Stateless
 Continuous
 ResumePolicy
+CurrentPeriod
+NextPeriod
+FundingPeriod
+Processing
+Settled
+SettleState

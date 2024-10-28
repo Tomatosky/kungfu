@@ -68,6 +68,12 @@ public:
   virtual void on_synthetic_data(Context_ptr &context, const longfist::types::SyntheticData &synthetic_data,
                                  const kungfu::yijinjing::data::location_ptr &location, uint32_t dest){};
 
+  // 资金费率回调
+  // @param funding_rate      资金费率
+  // @param location          数据来源
+  virtual void on_funding_rate(Context_ptr &context, const longfist::types::FundingRate &funding_rate,
+                               const kungfu::yijinjing::data::location_ptr &location, uint32_t dest){};
+
   // 订单信息更新回调
   // @param order             订单信息数据
   // @param location          数据来源

@@ -885,5 +885,25 @@ KF_JSON_SERIALIZE_ENUM(ResumePolicy, {
 
 inline std::ostream &operator<<(std::ostream &os, ResumePolicy t) { return os << int8_t(t); }
 
+enum class FundingPeriod : int8_t { Unknown, CurrentPeriod, NextPeriod };
+
+KF_JSON_SERIALIZE_ENUM(FundingPeriod, {
+                                          {FundingPeriod::CurrentPeriod, "CurrentPeriod"},
+                                          {FundingPeriod::NextPeriod, "NextPeriod"},
+                                          {FundingPeriod::Unknown, "Unknown"},
+                                      })
+
+inline std::ostream &operator<<(std::ostream &os, FundingPeriod t) { return os << int8_t(t); }
+
+enum class SettleState : int8_t { Unknown, Processing, Settled };
+
+KF_JSON_SERIALIZE_ENUM(SettleState, {
+                                        {SettleState::Processing, "Processing"},
+                                        {SettleState::Settled, "Settled"},
+                                        {SettleState::Unknown, "Unknown"},
+                                    })
+
+inline std::ostream &operator<<(std::ostream &os, SettleState t) { return os << int8_t(t); }
+
 } // namespace kungfu::longfist::enums
 #endif // KUNGFU_LONGFIST_ENUM_H

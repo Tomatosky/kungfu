@@ -83,6 +83,7 @@ class Strategy(wc.Strategy):
             "on_depth",
             "on_tick",
             "on_synthetic_data",
+            "on_funding_rate",
             "on_order",
             "on_order_trigger",
             "on_algo_order",
