@@ -98,8 +98,6 @@ on_depth
 on_tick
 on_synthetic_data
 on_funding_rate
-on_history_funding_rate
-on_req_history_funding_rate_error
 on_deregister
 on_broker_state_change
 on_operator_state_change
