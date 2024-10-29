@@ -57,6 +57,7 @@ constexpr auto AllTypes = boost::hana::make_map( //
     TYPE_PAIR(Tree),                             // 404
     TYPE_PAIR(Depth),                            // 405
     TYPE_PAIR(Tick),                             // 406
+    TYPE_PAIR(FundingRate),                      // 407
     TYPE_PAIR(InstrumentKey),                    // 501
     TYPE_PAIR(CustomSubscribe),                  // 502
     TYPE_PAIR(SyntheticData),                    // 601

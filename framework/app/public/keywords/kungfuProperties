@@ -235,6 +235,7 @@ settle_State
 settle_funding_rate
 key
 market_type
+start_time
 tag_a
 tag_b
 tag_c
@@ -318,9 +319,11 @@ Tree
 Depth
 Tick
 FundingRate
-HistoryFundingRate
 InstrumentKey
 CustomSubscribe
+HistoryFundingRate
+RequestHistoryFundingRate
+RequestHistoryFundingRateError
 BrokerStateUpdate
 Commission
 Instrument
