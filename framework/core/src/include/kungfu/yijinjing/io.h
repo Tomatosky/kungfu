@@ -9,7 +9,6 @@
 
 #include <kungfu/yijinjing/journal/journal.h>
 #include <kungfu/yijinjing/nanomsg/socket.h>
-#include <kungfu/yijinjing/nanomsg/webserver.h>
 
 namespace kungfu::yijinjing {
 FORWARD_DECLARE_CLASS_PTR(session)
@@ -121,57 +120,6 @@ private:
 };
 
 DECLARE_PTR(io_device_console)
-
-class io_device_network : public resource {
-public:
-  io_device_network() { stream_manager_ = std::make_shared<kungfu::yijinjing::webserver::stream_manage>(); }
-
-  ~io_device_network() override = default;
-
-  bool is_usable() override { return true; }
-
-  bool setup() override { return true; }
-
-  kungfu::yijinjing::webserver::stream_manage_ptr get_stream_manager() { return stream_manager_; };
-
-protected:
-  kungfu::yijinjing::webserver::stream_manage_ptr stream_manager_;
-};
-DECLARE_PTR(io_device_network)
-
-class io_device_network_server : public io_device_network {
-public:
-  io_device_network_server(const std::string &address, const std::vector<std::string> &paths, bool is_text_mode = true)
-      : http_server_(std::make_shared<kungfu::yijinjing::webserver::http_server>(address)) {
-    for (const auto &path : paths) {
-      http_server_->add_websocket(stream_manager_, path, is_text_mode);
-    }
-  };
-
-  ~io_device_network_server() override = default;
-
-private:
-  kungfu::yijinjing::webserver::http_server_ptr http_server_;
-};
-DECLARE_PTR(io_device_network_server)
-
-class io_device_network_client : public io_device_network {
-public:
-  io_device_network_client() = default;
-
-  ~io_device_network_client() override = default;
-
-  // TODO: how to stand return connect failed?
-  uint64_t connect_remote(const std::string &address) {
-    auto client = std::make_shared<kungfu::yijinjing::webserver::webclient>(stream_manager_, address);
-    webclients_.emplace_back(client);
-    return client->get_stream_id();
-  };
-
-private:
-  std::vector<kungfu::yijinjing::webserver::webclient_ptr> webclients_;
-};
-DECLARE_PTR(io_device_network_client)
 
 void handle_sql_error(int rc, const std::string &error_tip);
 void ensure_sqlite_initilize();
