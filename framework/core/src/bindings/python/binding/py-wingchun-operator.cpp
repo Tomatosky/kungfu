@@ -72,6 +72,11 @@ public:
     PYBIND11_OVERLOAD(void, op::Operator, on_synthetic_data, context, synthetic_data, location, dest);
   }
 
+  void on_funding_rate(op::Context_ptr &context, const FundingRate &funding_rate,
+                       const kungfu::yijinjing::data::location_ptr &location, uint32_t dest) override {
+    PYBIND11_OVERLOAD(void, op::Operator, on_funding_rate, context, funding_rate, location, dest);
+  }
+
   void on_deregister(op::Context_ptr &context, const Deregister &deregister,
                      const kungfu::yijinjing::data::location_ptr &location) override {
     PYBIND11_OVERLOAD(void, op::Operator, on_deregister, context, deregister, location);
@@ -139,6 +144,7 @@ void bind_operator(pybind11::module &m) {
       .def("on_depth", &op::Operator::on_depth)
       .def("on_tick", &op::Operator::on_tick)
       .def("on_synthetic_data", &op::Operator::on_synthetic_data)
+      .def("on_funding_rate", &op::Operator::on_funding_rate)
       .def("on_deregister ", &op::Operator::on_deregister)
       .def("on_broker_state_change ", &op::Operator::on_broker_state_change)
       .def("on_operator_state_change ", &op::Operator::on_operator_state_change);

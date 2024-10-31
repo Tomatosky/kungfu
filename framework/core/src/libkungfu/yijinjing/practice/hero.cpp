@@ -22,7 +22,6 @@ using namespace kungfu::yijinjing::cache;
 using namespace kungfu::yijinjing::data;
 using namespace kungfu::yijinjing::journal;
 using namespace kungfu::yijinjing::nanomsg;
-using namespace kungfu::yijinjing::webserver;
 
 namespace kungfu::yijinjing::practice {
 

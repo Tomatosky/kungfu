@@ -126,6 +126,8 @@ void Runner::on_start() {
   start_events | is(SyntheticData::tag) |
       $$(invoke(&Strategy::on_synthetic_data, event->data<SyntheticData>(), get_location(event->source()),
                 event->dest()));
+  start_events | is(FundingRate::tag) |
+      $$(invoke(&Strategy::on_funding_rate, event->data<FundingRate>(), get_location(event->source()), event->dest()));
 
   events_ | is(BrokerStateUpdate::tag) |
       $$(invoke(&Strategy::on_broker_state_change, event->data<BrokerStateUpdate>(), get_location(event->source())));
