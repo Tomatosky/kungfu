@@ -19,6 +19,7 @@ PYBIND11_MAKE_OPAQUE(map::OrderMap)
 PYBIND11_MAKE_OPAQUE(map::TradeMap)
 PYBIND11_MAKE_OPAQUE(map::AlgoOrderInputMap)
 PYBIND11_MAKE_OPAQUE(map::AlgoOrderMap)
+PYBIND11_MAKE_OPAQUE(map::FundingRateMap)
 
 namespace kungfu::wingchun::pybind {
 

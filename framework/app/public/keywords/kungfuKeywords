@@ -2,6 +2,7 @@ __uid__
 commissions
 instruments
 instrument_factors
+funding_rates
 static_data
 baskets
 basket_instruments
