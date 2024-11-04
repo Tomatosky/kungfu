@@ -35,6 +35,7 @@ void bind_map_types(pybind11::module &m) {
   py::bind_map<map::TradeMap>(m, "TradeMap");
   py::bind_map<map::AlgoOrderInputMap>(m, "AlgoOrderInputMap");
   py::bind_map<map::AlgoOrderMap>(m, "AlgoOrderMap");
+  py::bind_map<map::FundingRateMap>(m, "FundingRateMap");
 }
 
 } // namespace kungfu::wingchun::pybind
