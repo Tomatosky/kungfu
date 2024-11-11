@@ -41,6 +41,7 @@ struct Book {
   map::TradeMap trades = {};
   map::AlgoOrderInputMap algo_order_inputs = {};
   map::AlgoOrderMap algo_orders = {};
+  map::FundingRateMap funding_rates = {};
   yijinjing::data::location_ptr home;
 
   Book(const map::CommissionMap &commissions_ref, const map::InstrumentMap &instruments_ref,
@@ -253,6 +254,8 @@ struct Book {
 
   void replace(const longfist::types::AlgoOrder &order);
 
+  void replace(const longfist::types::FundingRate &funding_rate);
+
   void mirror_position_from(const Book &book);
 
   [[nodiscard]] const map::InstrumentMap &get_instruments() const { return instruments; }
@@ -260,6 +263,8 @@ struct Book {
   [[nodiscard]] const map::InstrumentFactorMap &get_instrument_factors() const { return instrument_factors; }
 
   [[nodiscard]] const map::CommissionMap &get_commissions() const { return commissions; }
+
+  [[nodiscard]] const map::FundingRateMap &get_funding_rates() const { return funding_rates; }
 
   Book &operator=(const Book &book) { return *this; }
 };

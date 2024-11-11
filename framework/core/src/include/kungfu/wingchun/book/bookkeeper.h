@@ -62,6 +62,8 @@ public:
 
   void update_book(const event_ptr &event, const longfist::types::Asset &asset);
 
+  void update_book(const event_ptr &event, const longfist::types::FundingRate &funding_rate);
+
   void add_book_listener(const BookListener_ptr &book_listener);
 
   void mirror_positions(int64_t trigger_time, uint32_t strategy_uid);

@@ -172,6 +172,10 @@ void Book::replace(const AlgoOrderInput &input) { algo_order_inputs.insert_or_as
 
 void Book::replace(const AlgoOrder &order) { algo_orders.insert_or_assign(order.order_id, order); }
 
+void Book::replace(const FundingRate &funding_rate) {
+  funding_rates.insert_or_assign(hash_instrument(funding_rate.exchange_id, funding_rate.instrument_id), funding_rate);
+}
+
 void Book::mirror_position_from(const Book &book) {
   auto mirror_position = [&](const PositionMap &source_map) {
     for (auto &source_pair : source_map) {
