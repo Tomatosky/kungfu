@@ -11,12 +11,11 @@ on:
 
 jobs:
   release:
-    uses: kungfu-trader/workflows/.github/workflows/.release-new-version.yml@dev/v1/v1.2
+    uses: kungfu-trader/workflows/.github/workflows/.release-new-version.yml@v1
     with:
-      protect-dev-branches: true
+      protect-dev-branches: false
       need-qa-automated: true
       max-preview-links: 64
-      node-version: 18
     secrets:
       GITHUB_PUSH_TOKEN: ${{ secrets.KUNGFU_GITHUB_TOKEN }}
       AWS_CI_ACCESS_KEY_ID: ${{ secrets.AWS_CI_ACCESS_KEY_ID }}
