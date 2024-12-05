@@ -337,6 +337,9 @@ export default {
     OKX_SPOT: 'OKX',
     OKX_USD_FUTURE: 'OKX',
     OKX_COIN_FUTURE: 'OKX',
+    BINANCE_SPOT: 'BINANCE',
+    BINANCE_USD_FUTURE: 'BINANCE',
+    BINANCE_COIN_FUTURE: 'BINANCE',
 
     SP: 'SP',
     SPC: 'SPC',
