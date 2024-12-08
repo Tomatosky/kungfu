@@ -22,7 +22,9 @@ exports.getKungfuBuildInfo = () => {
     );
     const buildInfo = JSON.parse(buildInfoRaw);
     const pyVersion = buildInfo.pythonVersion;
-    const gitCommitVersion = buildInfo.git.revision;
+    const gitCommitVersion =
+      buildInfo?.git?.revision ||
+      require('child_process').execSync('git rev-parse HEAD').toString().trim();
     const buildTimeStamp = buildInfo.build.timestamp;
 
     return {
