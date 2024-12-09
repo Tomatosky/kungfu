@@ -11,12 +11,12 @@ on:
 
 jobs:
   try:
-    uses: kungfu-trader/workflows/.github/workflows/.release-verify.yml@v1
+    uses: kungfu-trader/workflows/.github/workflows/.release-verify.yml@dev/v1/v1.2
     with:
       build-runner-linux: kungfu-builder-linux
       build-runner-windows: kungfu-builder-windows
       build-runner-macos: macos-12-xl
-      builder-container: docker.io/kungfutrader/kungfu-builder-centos:v1.2.2
+      builder-container: docker.io/kungfutrader/kungfu-builder-ubuntu:v1.0.0-alpha.8
       use-pipenv: true
       build-timeout-minutes: 150
       max-build-attempts: 3
@@ -25,6 +25,7 @@ jobs:
       enable-windows: true
       code-signing-windows: true
       max-preview-links: 64
+      check-format: true
     secrets:
       AWS_CI_ACCESS_KEY_ID: ${{ secrets.AWS_CI_ACCESS_KEY_ID }}
       AWS_CI_SECRET_ACCESS_KEY: ${{ secrets.AWS_CI_SECRET_ACCESS_KEY }}

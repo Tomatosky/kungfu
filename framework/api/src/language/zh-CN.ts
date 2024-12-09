@@ -336,6 +336,9 @@ export default {
     OKX_SPOT: '欧易',
     OKX_USD_FUTURE: '欧易',
     OKX_COIN_FUTURE: '欧易',
+    BINANCE_SPOT: '币安',
+    BINANCE_USD_FUTURE: '币安',
+    BINANCE_COIN_FUTURE: '币安',
 
     SP: '大商所 跨期 SP',
     SPC: '大商所 跨品种 SPC',
