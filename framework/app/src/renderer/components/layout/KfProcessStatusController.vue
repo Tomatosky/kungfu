@@ -263,9 +263,9 @@ onMounted(() => {
       @close="processControllerBoardVisible = false"
     >
       <div
-        class="process-controller-item"
         v-for="category in categoryList"
         :key="category"
+        class="process-controller-item"
       >
         <template v-if="allKfConfigData[category].length">
           <div class="kf-config-list">
@@ -281,8 +281,8 @@ onMounted(() => {
                   </a-tag>
                 </div>
                 <div
-                  class="process-id info-item"
                   v-if="config.category === 'system'"
+                  class="process-id info-item"
                 >
                   {{
                     (SystemProcessName[config.name] || { name: config.name })
@@ -290,8 +290,8 @@ onMounted(() => {
                   }}
                 </div>
                 <div
-                  class="process-id info-item"
                   v-else-if="config.category !== 'strategy'"
+                  class="process-id info-item"
                 >
                   <div class="item">
                     <div>
@@ -312,7 +312,7 @@ onMounted(() => {
                     </div>
                   </div>
                 </div>
-                <div class="process-id info-item" v-else>
+                <div v-else class="process-id info-item">
                   {{ config.name }}
                 </div>
                 <Icon
@@ -328,7 +328,7 @@ onMounted(() => {
               </div>
               <div class="state-status">
                 <KfProcessStatus
-                  :statusName="getProcessStatusName(config)"
+                  :status-name="getProcessStatusName(config)"
                 ></KfProcessStatus>
               </div>
               <div class="switch">
@@ -346,14 +346,13 @@ onMounted(() => {
                       getProcessIdByKfLocation(config),
                     )
                   "
-                  @click="
-                                    (checked: boolean, Event: MouseEvent) => 
-                                        handleSwitchProcessStatus(
-                                            checked,
-                                            Event,
-                                            config,
-                                        )
-                                    "
+                  @click="(checked: boolean, Event: MouseEvent) =>
+                      handleSwitchProcessStatus(
+                        checked,
+                        Event,
+                        config,
+                      )
+                      "
                 ></a-switch>
               </div>
               <div class="cpu">
@@ -388,8 +387,8 @@ onMounted(() => {
                   @click.stop="handleOpenJournalView(config)"
                 ></EyeOutlined>
                 <FileTextOutlined
-                  @click="handleOpenLogview(config)"
                   style="font-size: 14px"
+                  @click="handleOpenLogview(config)"
                 ></FileTextOutlined>
               </div>
             </div>
@@ -400,8 +399,8 @@ onMounted(() => {
 
     <KfReplaySettingModal
       v-if="setReplayModalVisible"
-      :width="720"
       v-model:visible="setReplayModalVisible"
+      :width="720"
       :can-backtest="canBacktest"
       :session-options="sessionOptions"
       :session-info="replayConfig.session_info"
@@ -487,7 +486,7 @@ onMounted(() => {
       }
 
       .state-status {
-        width: 80px;
+        width: 96px;
       }
 
       .switch {

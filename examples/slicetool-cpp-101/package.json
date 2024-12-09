@@ -16,5 +16,8 @@
   },
   "devDependencies": {
     "@kungfu-trader/kungfu-sdk": "^3.0.9-alpha.2"
+  },
+  "repository": {
+    "url": "https://github.com/kungfu-trader/kungfu.git"
   }
 }

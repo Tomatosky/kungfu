@@ -81,7 +81,7 @@
         }
       },
       "en-US": {
-        "extensionManager": "Extensions",
+        "extensionManager": "Extension",
         "extensionStore": "Extension Store",
         "installed": "Installed",
         "uninstalled": "Uninstalled",
