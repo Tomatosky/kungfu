@@ -243,7 +243,6 @@ module.exports = {
   linux: {
     icon: icnsLogoPathResolved,
     target: [
-      ...(ifRpmTargetEnable ? ['rpm'] : []),
       ...(ifAppImageTargetEnable ? ['appimage'] : []),
       ...(ifZipTargetEnable('linux') ? ['zip'] : []),
     ],
