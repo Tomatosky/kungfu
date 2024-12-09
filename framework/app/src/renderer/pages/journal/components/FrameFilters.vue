@@ -191,9 +191,8 @@ function handleClearAll(value: number[]) {
       right: 1px;
       top: 1px;
       height: calc(100% - 2px);
-      width: 50px;
       color: #ffffff;
-      border-radius: 0;
+      border-radius: 0 2px 2px 0;
     }
 
     .not-inverse {

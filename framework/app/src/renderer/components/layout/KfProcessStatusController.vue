@@ -239,13 +239,10 @@ onMounted(() => {
 </script>
 
 <template>
-  <div
-    :class="{
-      'kf-process-status-controller__warp': true,
-      'some-process-error': !mainStatusWell,
-    }"
-    @click="handleOpenProcessControllerBoard"
-  >
+  <div :class="{
+    'kf-process-status-controller__warp': true,
+    'some-process-error': !mainStatusWell,
+  }" @click="handleOpenProcessControllerBoard">
     <div v-if="systemLoading" class="process-loading">
       <img :src="loadingGif" width="56" height="6" />
     </div>
@@ -253,57 +250,33 @@ onMounted(() => {
       <ClusterOutlined style="font-size: 14px; padding-right: 4px" />
       <span class="title">{{ $t('baseConfig.control_center') }}</span>
     </div>
-    <a-drawer
-      v-model:visible="processControllerBoardVisible"
-      :width="650"
-      class="kf-process-status-controller-board__warp"
-      :title="$t('baseConfig.control_center')"
-      :get-container="getContainer"
-      placement="right"
-      @close="processControllerBoardVisible = false"
-    >
-      <div
-        class="process-controller-item"
-        v-for="category in categoryList"
-        :key="category"
-      >
+    <a-drawer v-model:visible="processControllerBoardVisible" :width="650"
+      class="kf-process-status-controller-board__warp" :title="$t('baseConfig.control_center')"
+      :get-container="getContainer" placement="right" @close="processControllerBoardVisible = false">
+      <div class="process-controller-item" v-for="category in categoryList" :key="category">
         <template v-if="allKfConfigData[category].length">
           <div class="kf-config-list">
-            <div
-              v-for="config in allKfConfigData[category]"
-              :key="config"
-              class="kf-config-item"
-            >
+            <div v-for="config in allKfConfigData[category]" :key="config" class="kf-config-item">
               <div class="process-info">
                 <div class="category info-item">
                   <a-tag :color="getKfCategoryData(config.category).color">
                     {{ getKfCategoryData(config.category).name }}
                   </a-tag>
                 </div>
-                <div
-                  class="process-id info-item"
-                  v-if="config.category === 'system'"
-                >
+                <div class="process-id info-item" v-if="config.category === 'system'">
                   {{
                     (SystemProcessName[config.name] || { name: config.name })
                       .name || ''
                   }}
                 </div>
-                <div
-                  class="process-id info-item"
-                  v-else-if="config.category !== 'strategy'"
-                >
+                <div class="process-id info-item" v-else-if="config.category !== 'strategy'">
                   <div class="item">
                     <div>
-                      <a-tag
-                        v-if="isTdMd(config.category)"
-                        :color="
-                          getInstrumentTypeColor(
-                            tdExtTypeMap[config.group] ||
-                              mdExtTypeMap[config.group],
-                          )
-                        "
-                      >
+                      <a-tag v-if="isTdMd(config.category)" :color="getInstrumentTypeColor(
+                        tdExtTypeMap[config.group] ||
+                        mdExtTypeMap[config.group],
+                      )
+                        ">
                         {{ config.group }}
                       </a-tag>
                     </div>
@@ -315,46 +288,31 @@ onMounted(() => {
                 <div class="process-id info-item" v-else>
                   {{ config.name }}
                 </div>
-                <Icon
-                  v-if="
-                    prefixMap[getProcessIdByKfLocation(config)]?.prefixType ===
-                    'icon'
-                  "
-                  :component="
-                    prefixMap[getProcessIdByKfLocation(config)].prefix
-                  "
-                  style="font-size: 12px"
-                />
+                <Icon v-if="
+                  prefixMap[getProcessIdByKfLocation(config)]?.prefixType ===
+                  'icon'
+                " :component="prefixMap[getProcessIdByKfLocation(config)].prefix
+                  " style="font-size: 12px" />
               </div>
               <div class="state-status">
-                <KfProcessStatus
-                  :statusName="getProcessStatusName(config)"
-                ></KfProcessStatus>
+                <KfProcessStatus :statusName="getProcessStatusName(config)"></KfProcessStatus>
               </div>
               <div class="switch">
-                <a-switch
-                  size="small"
-                  :checked="
-                    getIfProcessRunning(
-                      processStatusData,
-                      getProcessIdByKfLocation(config),
-                    )
-                  "
-                  :loading="
-                    getIfProcessStopping(
-                      processStatusData,
-                      getProcessIdByKfLocation(config),
-                    )
-                  "
-                  @click="
-                                    (checked: boolean, Event: MouseEvent) => 
-                                        handleSwitchProcessStatus(
-                                            checked,
-                                            Event,
-                                            config,
-                                        )
-                                    "
-                ></a-switch>
+                <a-switch size="small" :checked="getIfProcessRunning(
+                  processStatusData,
+                  getProcessIdByKfLocation(config),
+                )
+                  " :loading="getIfProcessStopping(
+                    processStatusData,
+                    getProcessIdByKfLocation(config),
+                  )
+                    " @click="(checked: boolean, Event: MouseEvent) =>
+                      handleSwitchProcessStatus(
+                        checked,
+                        Event,
+                        config,
+                      )
+                      "></a-switch>
               </div>
               <div class="cpu">
                 CPU:
@@ -375,22 +333,12 @@ onMounted(() => {
                 }}
               </div>
               <div class="actions kf-actions__warp">
-                <HistoryOutlined
-                  v-if="
-                    testCase.replayEnabled[config.category] ||
-                    (config.category === 'system' && config.name === 'ledger')
-                  "
-                  style="font-size: 12px"
-                  @click.stop="handleClickReplay(config)"
-                ></HistoryOutlined>
-                <EyeOutlined
-                  style="font-size: 14px"
-                  @click.stop="handleOpenJournalView(config)"
-                ></EyeOutlined>
-                <FileTextOutlined
-                  @click="handleOpenLogview(config)"
-                  style="font-size: 14px"
-                ></FileTextOutlined>
+                <HistoryOutlined v-if="
+                  testCase.replayEnabled[config.category] ||
+                  (config.category === 'system' && config.name === 'ledger')
+                " style="font-size: 12px" @click.stop="handleClickReplay(config)"></HistoryOutlined>
+                <EyeOutlined style="font-size: 14px" @click.stop="handleOpenJournalView(config)"></EyeOutlined>
+                <FileTextOutlined @click="handleOpenLogview(config)" style="font-size: 14px"></FileTextOutlined>
               </div>
             </div>
           </div>
@@ -398,19 +346,11 @@ onMounted(() => {
       </div>
     </a-drawer>
 
-    <KfReplaySettingModal
-      v-if="setReplayModalVisible"
-      :width="720"
-      v-model:visible="setReplayModalVisible"
-      :can-backtest="canBacktest"
-      :session-options="sessionOptions"
-      :session-info="replayConfig.session_info"
-      :begin-time="replayConfig.begin_time"
-      :end-time="replayConfig.end_time ? replayConfig.end_time : ''"
-      :log-level="replayConfig.log_level"
-      @close="setReplayModalVisible = false"
-      @confirm="(event) => handleReplayModal(event)"
-    ></KfReplaySettingModal>
+    <KfReplaySettingModal v-if="setReplayModalVisible" :width="720" v-model:visible="setReplayModalVisible"
+      :can-backtest="canBacktest" :session-options="sessionOptions" :session-info="replayConfig.session_info"
+      :begin-time="replayConfig.begin_time" :end-time="replayConfig.end_time ? replayConfig.end_time : ''"
+      :log-level="replayConfig.log_level" @close="setReplayModalVisible = false"
+      @confirm="(event) => handleReplayModal(event)"></KfReplaySettingModal>
   </div>
 </template>
 
@@ -487,7 +427,7 @@ onMounted(() => {
       }
 
       .state-status {
-        width: 80px;
+        width: 96px;
       }
 
       .switch {

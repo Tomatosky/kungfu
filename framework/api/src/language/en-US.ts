@@ -228,8 +228,8 @@ export default {
     pause: 'Pause',
     pending_settlement: 'Pending Settlement',
 
-    long: 'Long',
-    short: 'Short',
+    long: 'L',
+    short: 'S',
 
     Limit: 'Limit',
     Market: 'Market',
@@ -727,29 +727,20 @@ export default {
     Visual: 'Visual',
 
     please_input_instrument_id: 'Please input instrument_id',
-
     time_range: 'Time Range',
-
     please_input_time: 'Please input time',
 
     account_info: 'Account Info',
-
     trade_related: 'Trade Related',
-
     query_related: 'Query Related',
-
     market_related: 'Market Related',
-
     market_subscription_related: 'Market subscription related',
-
     operator_related: 'Operator Related',
-
     strategy_related: 'Strategy Related',
-
     system_related: 'System related',
+    other: 'Other',
 
     select_channel: 'Filter channels',
-
     selete_msg_type: 'Filter MsgType',
     empty_export_data: 'No information to export',
 

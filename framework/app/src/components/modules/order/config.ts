@@ -43,7 +43,7 @@ export const getColumns = (
       {
         field: 'side',
         title: '',
-        width: 44,
+        width: 56,
         style: {
           color: (args) => {
             return defaultColorMap[dealSide(args.dataValue).color || 'default'];
@@ -56,7 +56,7 @@ export const getColumns = (
       {
         field: 'offset',
         title: '',
-        width: 44,
+        width: 64,
         style: {
           color: (args) => {
             return defaultColorMap[
