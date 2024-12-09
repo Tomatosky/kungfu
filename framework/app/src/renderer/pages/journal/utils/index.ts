@@ -23,6 +23,8 @@ import {
   ref,
 } from 'vue';
 import { filter } from 'rxjs';
+import VueI18n from '@kungfu-trader/kungfu-js-api/language';
+const { t } = VueI18n.global;
 
 const MSG_NUM = 10000;
 
@@ -76,37 +78,37 @@ export const getMsgResolved = (
 ): KungfuApi.KfTradeValueCommonData => {
   if (num > 100 && num < 200) {
     return {
-      name: '账户信息',
+      name: t('journalConfig.account_info'),
       color: 'blue',
     };
   } else if (num > 200 && num < 300) {
     return {
-      name: '交易相关',
+      name: t('journalConfig.trade_related'),
       color: '#FAAD14',
     };
   } else if (num > 300 && num < 400) {
     return {
-      name: '查询相关',
+      name: t('journalConfig.query_related'),
       color: 'default',
     };
   } else if (num > 400 && num < 500) {
     return {
-      name: '行情相关',
+      name: t('journalConfig.market_related'),
       color: 'green',
     };
   } else if (num > 500 && num < 600) {
     return {
-      name: '行情订阅相关',
+      name: t('journalConfig.market_subscription_related'),
       color: 'purple',
     };
   } else if (num > 600 && num < 700) {
     return {
-      name: '算子相关',
+      name: t('journalConfig.operator_related'),
       color: 'default',
     };
   } else {
     return {
-      name: '其他',
+      name: t('journalConfig.other'),
       color: 'default',
     };
   }
