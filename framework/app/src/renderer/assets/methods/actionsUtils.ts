@@ -86,6 +86,7 @@ import { Modal } from 'ant-design-vue';
 import { ExclamationCircleOutlined } from '@ant-design/icons-vue';
 
 import path from 'path';
+import Fuse from 'fuse.js';
 import { Proc } from 'pm2';
 import {
   computed,
@@ -939,6 +940,10 @@ export const showTradingDataDetail = <
   );
 };
 
+const InstrumentFuse = new Fuse<KungfuApi.InstrumentResolved>([], {
+  keys: ['id'],
+  includeScore: true,
+});
 export const useInstruments = (): {
   instruments: Ref<KungfuApi.InstrumentResolved[]>;
   subscribedInstrumentsByLocal: Ref<KungfuApi.InstrumentResolved[]>;
@@ -965,16 +970,6 @@ export const useInstruments = (): {
   handleSearchInstrument: (
     value: string,
   ) => Promise<{ value: string; label: string }[]>;
-  handleSearchByCustom: (
-    value: string,
-    customOptions: {
-      customInstruments?: KungfuApi.InstrumentResolved[];
-      customFilterCondition?: (
-        keywords: string,
-        pos: KungfuApi.InstrumentResolved,
-      ) => boolean;
-    },
-  ) => Promise<{ value: string; label: string }[]>;
   handleConfirmSearchInstrumentResult: (
     value: string,
     callback?: (value: string) => void,
@@ -982,6 +977,14 @@ export const useInstruments = (): {
 } => {
   const { instruments, subscribedInstrumentsByLocal } = storeToRefs(
     useGlobalStore(),
+  );
+
+  watch(
+    () => instruments.value.length,
+    () => {
+      InstrumentFuse.setCollection(instruments.value);
+    },
+    { immediate: true },
   );
 
   const subscribeAllInstrumentByMdProcessId = async (
@@ -1068,68 +1071,37 @@ export const useInstruments = (): {
     return Promise.resolve(searchInstrumnetOptions.value);
   };
 
-  const filterInstrumentsByKeyword = (
-    keywords: string,
-    curInstruments: KungfuApi.InstrumentResolved[],
-    filterCondition: (
-      keywords: string,
-      pos: KungfuApi.InstrumentResolved,
-    ) => boolean,
-  ) => {
-    return curInstruments
-      .filter((item) => filterCondition(keywords, item))
-      .slice(0, SearchResultsMaxCount)
+  const filterInstrumentsByKeyword = (keywords: string) => {
+    return InstrumentFuse.search(keywords, { limit: SearchResultsMaxCount })
       .sort((a, b) => {
-        const aPriority = PriorityInstrumentTypes.includes(a.instrumentType);
-        const bPriority = PriorityInstrumentTypes.includes(b.instrumentType);
+        const aItem = a.item,
+          aScore = Number(a.score);
+        const bItem = b.item,
+          bScore = Number(b.score);
+        const aPriority = +PriorityInstrumentTypes.includes(
+          aItem.instrumentType,
+        );
+        const bPriority = +PriorityInstrumentTypes.includes(
+          bItem.instrumentType,
+        );
 
-        const aLen = a.exchangeId.length + a.instrumentName.length;
-        const bLen = b.exchangeId.length + b.instrumentName.length;
-        const lenDiff = aLen - bLen < 0 ? -1 : 1;
-
-        return aPriority ? (bPriority ? lenDiff : -1) : bPriority ? 1 : lenDiff;
+        return aScore === bScore
+          ? bPriority - aPriority
+          : aScore < bScore
+          ? -1
+          : 1;
       })
-      .map((item) => ({
+      .map(({ item }) => ({
         value: buildInstrumentSelectOptionValue(item),
         label: buildInstrumentSelectOptionLabel(item),
       }));
   };
 
-  const defaultFilterCondition = (
-    keywords: string,
-    pos: KungfuApi.InstrumentResolved,
-  ) => {
-    const regexp = new RegExp(`${keywords}`, 'ig');
-    return !!keywords && regexp.test(pos.id);
-  };
-
-  const handleSearchByCustom = (
-    val: string,
-    customOptions: {
-      customInstruments?: KungfuApi.InstrumentResolved[];
-      customFilterCondition?: (
-        keywords: string,
-        pos: KungfuApi.InstrumentResolved,
-      ) => boolean;
-    },
-  ) => {
-    const { customInstruments, customFilterCondition } = customOptions;
-    const customInstrumentOptions = filterInstrumentsByKeyword(
-      val,
-      customInstruments || instruments.value,
-      customFilterCondition || defaultFilterCondition,
-    );
-    return Promise.resolve(customInstrumentOptions);
-  };
-
   const handleSearchInstrument = async (
     val: string,
   ): Promise<{ value: string; label: string }[]> => {
-    searchInstrumnetOptions.value = await handleSearchByCustom(val, {
-      customInstruments: instruments.value,
-      customFilterCondition: defaultFilterCondition,
-    });
-    return Promise.resolve(searchInstrumnetOptions.value);
+    const customInstrumentOptions = filterInstrumentsByKeyword(val);
+    return Promise.resolve(customInstrumentOptions);
   };
 
   const handleConfirmSearchInstrumentResult = (
@@ -1151,7 +1123,6 @@ export const useInstruments = (): {
     searchInstrumentResult,
     searchInstrumnetOptions,
     updateSearchInstrumnetOptions,
-    handleSearchByCustom,
     handleSearchInstrument,
     handleConfirmSearchInstrumentResult,
   };
