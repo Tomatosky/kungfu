@@ -1097,11 +1097,24 @@ export const useInstruments = (): {
       }));
   };
 
-  const handleSearchInstrument = async (
+  let preResolve: ((res: { value: string; label: string }[]) => void) | null =
+      null,
+    timer: NodeJS.Timeout | null = null;
+  const handleSearchInstrument = (
     val: string,
   ): Promise<{ value: string; label: string }[]> => {
-    const customInstrumentOptions = filterInstrumentsByKeyword(val);
-    return Promise.resolve(customInstrumentOptions);
+    return new Promise((resolve) => {
+      if (preResolve) preResolve(searchInstrumnetOptions.value);
+      if (timer) clearTimeout(timer);
+
+      preResolve = resolve;
+      timer = setTimeout(() => {
+        searchInstrumnetOptions.value = filterInstrumentsByKeyword(val);
+        resolve(searchInstrumnetOptions.value);
+        preResolve = null;
+        timer = null;
+      }, 250);
+    });
   };
 
   const handleConfirmSearchInstrumentResult = (
