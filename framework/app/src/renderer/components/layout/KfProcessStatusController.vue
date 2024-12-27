@@ -255,7 +255,7 @@ onMounted(() => {
     </div>
     <a-drawer
       v-model:visible="processControllerBoardVisible"
-      :width="650"
+      :width="750"
       class="kf-process-status-controller-board__warp"
       :title="$t('baseConfig.control_center')"
       :get-container="getContainer"
@@ -307,7 +307,7 @@ onMounted(() => {
                         {{ config.group }}
                       </a-tag>
                     </div>
-                    <div>
+                    <div class="name" :title="config.name">
                       {{ config.name }}
                     </div>
                   </div>
@@ -467,7 +467,7 @@ onMounted(() => {
         word-break: break-all;
 
         .process-id {
-          width: 112px;
+          width: 180px;
         }
 
         .info-item {
@@ -477,6 +477,13 @@ onMounted(() => {
             display: flex;
             justify-content: flex-start;
             align-items: center;
+
+            .name {
+              align-self: last baseline;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
           }
 
           &.category {
