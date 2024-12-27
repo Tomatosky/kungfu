@@ -51,7 +51,6 @@ import {
   getPrimaryKeys,
   MAX_PRECISION,
   dealKfDecimalPrecision,
-  debounce,
 } from '@kungfu-trader/kungfu-js-api/utils/commonUtils';
 import {
   dealPriceType,
@@ -340,15 +339,11 @@ function getInstrumentsSearchRelated(
 
       item1[key] = {
         searchInstrumnetOptions,
-        handleSearchInstrument: debounce(
-          (val) => {
-            handleSearchInstrument(val as string).then((options) => {
-              instrumentOptionsReactiveData.data[key] = options;
-            });
-          },
-          300,
-          true,
-        ),
+        handleSearchInstrument: (val) => {
+          handleSearchInstrument(val as string).then((options) => {
+            instrumentOptionsReactiveData.data[key] = options;
+          });
+        },
         updateSearchInstrumnetOptions,
         handleSearchInstrumentBlur: () => {
           updateSearchInstrumnetOptions(
