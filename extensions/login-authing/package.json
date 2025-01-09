@@ -1,6 +1,6 @@
 {
   "name": "@kungfu-trader/kfx-ui-login-authing",
-  "version": "3.0.9-alpha.4",
+  "version": "3.0.9",
   "description": "The extension for Kungfu log in by Authing.",
   "author": {
     "name": "kungfu-trader",
@@ -96,12 +96,12 @@
     }
   },
   "dependencies": {
-    "@kungfu-trader/kungfu-js-api": "^3.0.9-alpha.4",
+    "@kungfu-trader/kungfu-js-api": "^3.0.9",
     "authing-node-sdk": "^3.1.0"
   },
   "devDependencies": {
-    "@kungfu-trader/kfx-broker-sim": "^3.0.9-alpha.4",
-    "@kungfu-trader/kungfu-sdk": "^3.0.9-alpha.4",
-    "@kungfu-trader/kungfu-toolchain": "^3.0.9-alpha.4"
+    "@kungfu-trader/kfx-broker-sim": "^3.0.9",
+    "@kungfu-trader/kungfu-sdk": "^3.0.9",
+    "@kungfu-trader/kungfu-toolchain": "^3.0.9"
   }
 }
