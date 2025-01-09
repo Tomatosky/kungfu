@@ -340,7 +340,7 @@ function getInstrumentsSearchRelated(
       item1[key] = {
         searchInstrumnetOptions,
         handleSearchInstrument: (val) => {
-          handleSearchInstrument(val).then((options) => {
+          handleSearchInstrument(val as string).then((options) => {
             instrumentOptionsReactiveData.data[key] = options;
           });
         },

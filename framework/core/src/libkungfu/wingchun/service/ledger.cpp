@@ -307,6 +307,11 @@ void Ledger::write_strategy_data(int64_t trigger_time, uint32_t strategy_uid) {
     return;
   }
 
+  auto &first_book = bookkeeper_.get_books().begin()->second;
+  for (const auto &pair : first_book->get_funding_rates()) {
+    try_write_to(trigger_time, pair.second, strategy_uid);
+  }
+
   auto location = get_location(strategy_uid);
   for (const auto &pair : bookkeeper_.get_books()) {
     auto &book = pair.second;

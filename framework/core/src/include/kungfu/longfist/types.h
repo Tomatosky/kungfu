@@ -805,6 +805,26 @@ KF_DEFINE_PACK_TYPE(                                                 //
     (double, ask_volume)                      // 申卖量
 );
 
+KF_DEFINE_PACK_TYPE(                                                        //
+    FundingRate, 407, PK(instrument_id, exchange_id), TIMESTAMP(data_time), //
+
+    (int64_t, data_time), // 数据生成时间
+
+    (kungfu::array<char, INSTRUMENT_ID_LEN>, instrument_id), // 合约ID
+    (kungfu::array<char, EXCHANGE_ID_LEN>, exchange_id),     // 交易所代码
+
+    (enums::FundingPeriod, funding_period), // 资金费收取逻辑, 当期或跨期
+    (double, funding_rate),                 // 资金费率
+    (double, next_funding_rate),            // 下一期预测资金费率, 收取逻辑为当期时为空
+    (int64_t, funding_time),                // 资金费时间
+    (int64_t, next_funding_time),           // 下一期资金费时间
+    (double, min_funding_rate),             // 下一期的预测资金费率下限
+    (double, max_funding_rate),             // 下一期的预测资金费率上限
+    (enums::SettleState, settle_State),     // 资金费率结算状态, processing结算中, settled已结算
+    (double, settle_funding_rate), // 若processing代表本轮结算资金费率, 若settled代表上轮结算资金费率
+    (double, premium)              // 溢价, 为合约的中间价和指数价格的差异
+);
+
 KF_DEFINE_PACK_TYPE(                                         //
     InstrumentKey, 501, PK(key), PERPETUAL(),                //
     (uint32_t, key),                                         //

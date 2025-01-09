@@ -804,6 +804,9 @@ typedef std::unordered_map<uint64_t, longfist::types::AlgoOrderInput> AlgoOrderI
 // key = order_id
 typedef std::unordered_map<uint64_t, longfist::types::AlgoOrder> AlgoOrderMap;
 
+// key = hash_instrument(exchange_id, instrument_id)
+typedef std::unordered_map<uint32_t, longfist::types::FundingRate> FundingRateMap;
+
 } // namespace kungfu::wingchun::map
 
 #endif // WINGCHUN_COMMON_H

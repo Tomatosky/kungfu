@@ -336,6 +336,9 @@ export default {
     OKX_SPOT: '欧易',
     OKX_USD_FUTURE: '欧易',
     OKX_COIN_FUTURE: '欧易',
+    BINANCE_SPOT: '币安',
+    BINANCE_USD_FUTURE: '币安',
+    BINANCE_COIN_FUTURE: '币安',
 
     SP: '大商所 跨期 SP',
     SPC: '大商所 跨品种 SPC',
@@ -727,29 +730,20 @@ export default {
     Visual: '视图',
 
     please_input_instrument_id: '请输入标的名称',
-
     time_range: '时间范围',
-
     please_input_time: '请输入时间',
 
     account_info: '账户信息',
-
     trade_related: '交易相关',
-
     query_related: '查询相关',
-
     market_related: '行情相关',
-
     market_subscription_related: '行情订阅相关',
-
     operator_related: '算子相关',
-
     strategy_related: '策略相关',
-
     system_related: '系统相关',
+    other: '其他',
 
     select_channel: '过滤数据信道',
-
     selete_msg_type: '过滤消息类型',
     empty_export_data: '没有可导出的信息',
 

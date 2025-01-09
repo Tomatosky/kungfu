@@ -97,6 +97,7 @@ class Operator(wc.Operator):
             "on_depth",
             "on_tick",
             "on_synthetic_data",
+            "on_funding_rate",
         ]:
             self.__bind_on_func(func_name)
 

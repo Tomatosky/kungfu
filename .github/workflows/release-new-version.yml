@@ -13,7 +13,7 @@ jobs:
   release:
     uses: kungfu-trader/workflows/.github/workflows/.release-new-version.yml@v1
     with:
-      protect-dev-branches: true
+      protect-dev-branches: false
       need-qa-automated: true
       max-preview-links: 64
     secrets:
@@ -26,13 +26,13 @@ jobs:
       AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
 
   trigger-batch-pr:
-      needs: [release]
-      uses: kungfu-trader/workflows/.github/workflows/.batch-pull-request.yml@dev/v1/v1.2
-      with:
-        repo: group
-        pull-request-title: ${{ github.event.pull_request.title }}
-      secrets:
-        GITHUB_PUSH_TOKEN: ${{ secrets.KUNGFU_GITHUB_TOKEN }}
+    needs: [release]
+    uses: kungfu-trader/workflows/.github/workflows/.batch-pull-request.yml@dev/v1/v1.2
+    with:
+      repo: group
+      pull-request-title: ${{ github.event.pull_request.title }}
+    secrets:
+      GITHUB_PUSH_TOKEN: ${{ secrets.KUNGFU_GITHUB_TOKEN }}
 
   sync-release-page:
     needs: [release]

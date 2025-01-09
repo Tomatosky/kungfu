@@ -57,6 +57,7 @@ constexpr auto AllTypes = boost::hana::make_map( //
     TYPE_PAIR(Tree),                             // 404
     TYPE_PAIR(Depth),                            // 405
     TYPE_PAIR(Tick),                             // 406
+    TYPE_PAIR(FundingRate),                      // 407
     TYPE_PAIR(InstrumentKey),                    // 501
     TYPE_PAIR(CustomSubscribe),                  // 502
     TYPE_PAIR(SyntheticData),                    // 601
@@ -146,6 +147,7 @@ constexpr auto AllTypes = boost::hana::make_map( //
     TYPE_PAIR(Tree),                                                  // 404
     TYPE_PAIR(Depth),                                                 // 405
     TYPE_PAIR(Tick),                                                  // 406
+    TYPE_PAIR(FundingRate),                                           // 407
     TYPE_PAIR(InstrumentKey),                                         // 501
     TYPE_PAIR(CustomSubscribe),                                       // 502
     TYPE_PAIR(SyntheticData),                                         // 601
@@ -243,12 +245,13 @@ constexpr auto TradingDataTypes = boost::hana::make_map( //
 );
 
 constexpr auto MarketDataTypes = boost::hana::make_map( //
-    TYPE_PAIR(Quote),                                   //
-    TYPE_PAIR(Tree),                                    //
-    TYPE_PAIR(Entrust),                                 //
-    TYPE_PAIR(Transaction),                             //
-    TYPE_PAIR(Tick),                                    //
-    TYPE_PAIR(Depth)                                    //
+    TYPE_PAIR(Quote),                                   // 401
+    TYPE_PAIR(Entrust),                                 // 402
+    TYPE_PAIR(Transaction),                             // 403
+    TYPE_PAIR(Tree),                                    // 404
+    TYPE_PAIR(Depth),                                   // 405
+    TYPE_PAIR(Tick),                                    // 406
+    TYPE_PAIR(FundingRate)                              // 407
 );
 
 constexpr auto StaticDataTypes = boost::hana::make_map( //
