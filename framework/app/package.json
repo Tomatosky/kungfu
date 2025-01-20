@@ -4,7 +4,7 @@
     "name": "Kungfu Trader",
     "email": "info@kungfu.link"
   },
-  "version": "2.6.18-alpha.0",
+  "version": "2.6.18-alpha.1",
   "description": "Kungfu App Framework",
   "license": "Apache-2.0",
   "repository": {
@@ -34,7 +34,7 @@
   },
   "dependencies": {
     "@electron/remote": "^2.0.0",
-    "@kungfu-trader/kungfu-js-api": "^2.6.18-alpha.0",
+    "@kungfu-trader/kungfu-js-api": "^2.6.18-alpha.1",
     "@types/mark.js": "^8.11.8",
     "@vueuse/core": "^10.4.1",
     "ant-design-vue": "^3.2.20",
@@ -43,6 +43,7 @@
     "echarts": "^5.3.3",
     "electron": "19.1.8",
     "electron-updater": "^5.3.0",
+    "fuse.js": "^7.0.0",
     "iconv-lite": "^0.6.3",
     "jschardet": "^3.0.0",
     "mark.js": "^8.11.1",
@@ -52,7 +53,7 @@
     "vue": "^3.2.34"
   },
   "devDependencies": {
-    "@kungfu-trader/kungfu-toolchain": "^2.6.18-alpha.0",
+    "@kungfu-trader/kungfu-toolchain": "^2.6.18-alpha.1",
     "@types/echarts": "^4.9.16",
     "@types/markdown-it": "^12.2.3",
     "webpack-bundle-analyzer": "^4.6.1"

@@ -1,7 +1,7 @@
 {
   "name": "@kungfu-trader/examples-data-tool",
   "author": "kungfu-trader",
-  "version": "2.6.18-alpha.0",
+  "version": "2.6.18-alpha.1",
   "description": "KungFu Data Tool 101 - Demo",
   "license": "Apache-2.0",
   "private": true,
@@ -16,6 +16,6 @@
     "dev": "kfc -l debug tool -c md -g md -n md -t build/target/KungfuToolCpp.cp39-win_amd64.pyd  -b \"2022-01-01\" -e \"2024-01-01\""
   },
   "devDependencies": {
-    "@kungfu-trader/kungfu-sdk": "^2.6.18-alpha.0"
+    "@kungfu-trader/kungfu-sdk": "^2.6.18-alpha.1"
   }
 }
