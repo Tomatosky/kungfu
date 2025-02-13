@@ -48,6 +48,8 @@ class Exchange:
     JP_FUTURE = "JPFUT"  # 日期
     TSE = "TSE"  # 多股
     TSE_FUTURE = "TSEFUT"  # 多期
+    IN = "IN"  # 印度股
+    IN_FUTURE = "INFUT"  # 印度期
     XETRA = "XETRA"  # XETRA
 
     GLFX = "GLFX"  # 全球外汇: 41
