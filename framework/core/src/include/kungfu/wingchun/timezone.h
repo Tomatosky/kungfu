@@ -55,7 +55,7 @@ enum class ZoneTimeType : char {
   CET,  // CET - Central European Time	UTC +1:00
   CEST, // CEST - Central European Summer Time	UTC +2:00
   KRAT, // KRAT - Krasnoyarsk Time	UTC +7:00
-  KST,   // KST - Korea Standard Time	UTC +9:00
+  KST,  // KST - Korea Standard Time	UTC +9:00
   IST   // IST - India Standard Time	UTC +5:30
 };
 
