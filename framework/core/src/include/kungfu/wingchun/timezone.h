@@ -33,7 +33,8 @@ enum class LocationTimeType : char {
   Paris,            // UTC/GMT +1
   Switzerland,      // UTC+1
   Thailand,         // UTC/CMT +7
-  Toronto           // UTC/GMT -5
+  Toronto,          // UTC/GMT -5
+  India             // UTC/GMT +5.5
 };
 
 /*
@@ -43,10 +44,10 @@ enum class ZoneTimeType : char {
   BST,  //
   BDT,  //
   BJ,   //  UTC +8:00
-  JST,  //
+  JST,  //  JST - Japan Standard Time	UTC +9:00
   SGT,  //
   EST,  // EST - Eastern Standard Time	UTC -5:00
-  EDT,  //
+  EDT,  // EDT - Eastern Daylight Time	UTC -4:00
   CST,  //
   CDT,  //
   AEST, //
@@ -54,7 +55,8 @@ enum class ZoneTimeType : char {
   CET,  // CET - Central European Time	UTC +1:00
   CEST, // CEST - Central European Summer Time	UTC +2:00
   KRAT, // KRAT - Krasnoyarsk Time	UTC +7:00
-  KST   // KST - Korea Standard Time	UTC +9:00
+  KST,   // KST - Korea Standard Time	UTC +9:00
+  IST   // IST - India Standard Time	UTC +5:30
 };
 
 struct LocalTimeInfo {
@@ -124,6 +126,8 @@ translate_GMTime_to_localdate_by_exchange_id(time_t lTime, const std::string &ex
       {EXCHANGE_JP_FUTURE, LocationTimeType::Tokyo},             //
       {EXCHANGE_TSE, LocationTimeType::Toronto},                 //
       {EXCHANGE_TSE_FUTURE, LocationTimeType::Toronto},          //
+      {EXCHANGE_IN, LocationTimeType::India},                    //
+      {EXCHANGE_IN_FUTURE, LocationTimeType::India},             //
       {EXCHANGE_XETRA, LocationTimeType::Berlin},                //
       {EXCHANGE_GLFX, LocationTimeType::Beijing},                //
       {EXCHANGE_IPE, LocationTimeType::London},                  //

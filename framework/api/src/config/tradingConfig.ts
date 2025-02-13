@@ -958,6 +958,14 @@ export const ExchangeIds: Record<string, KungfuApi.KfTradeValueCommonData> = {
     name: t('tradingConfig.TSEFUT'),
     color: InstrumentType[InstrumentTypeEnum.future].color,
   },
+  IN: {
+    name: t('tradingConfig.IN'),
+    color: InstrumentType[InstrumentTypeEnum.stock].color,
+  },
+  INFUT: {
+    name: t('tradingConfig.INFUT'),
+    color: InstrumentType[InstrumentTypeEnum.future].color,
+  },
   XETRA: {
     name: t('tradingConfig.XETRA'),
     color: InstrumentType[InstrumentTypeEnum.stock].color,

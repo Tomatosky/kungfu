@@ -316,6 +316,8 @@ export default {
     JPFUT: 'JPFUT',
     TSE: 'TSE',
     TSEFUT: 'TSEFUT',
+    IN: 'IN',
+    INFUT: 'INFUT',
     XETRA: 'XETRA',
     GLFX: 'GLFX',
     IPE: 'IPE',
