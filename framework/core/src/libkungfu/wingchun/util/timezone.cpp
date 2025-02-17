@@ -96,15 +96,16 @@ const std::unordered_map<LocationTimeType, LocationTimeData> g_locationTimeMap =
     {LocationTimeType::Beijing, LocationTimeData(8, ZoneTimeType::BJ)},
     {LocationTimeType::Singapore, LocationTimeData(8, ZoneTimeType::SGT)},
     {LocationTimeType::Tokyo, LocationTimeData(9, ZoneTimeType::JST)},
-    {LocationTimeType::Amsterdam, LocationTimeData(9, ZoneTimeType::CET)},
-    {LocationTimeType::Finland, LocationTimeData(9, ZoneTimeType::CEST)},
-    {LocationTimeType::Jakarta, LocationTimeData(9, ZoneTimeType::KRAT)},
+    {LocationTimeType::Amsterdam, LocationTimeData(1, ZoneTimeType::CET)},
+    {LocationTimeType::Finland, LocationTimeData(2, ZoneTimeType::CEST)},
+    {LocationTimeType::Jakarta, LocationTimeData(7, ZoneTimeType::KRAT)},
     {LocationTimeType::Korea, LocationTimeData(9, ZoneTimeType::KST)},
     {LocationTimeType::Malaysia, LocationTimeData(9, ZoneTimeType::BJ)},
-    {LocationTimeType::Paris, LocationTimeData(9, ZoneTimeType::CET)},
-    {LocationTimeType::Switzerland, LocationTimeData(9, ZoneTimeType::CET)},
-    {LocationTimeType::Thailand, LocationTimeData(9, ZoneTimeType::KRAT)},
-    {LocationTimeType::Toronto, LocationTimeData(9, ZoneTimeType::EST)},
+    {LocationTimeType::Paris, LocationTimeData(1, ZoneTimeType::CET)},
+    {LocationTimeType::Switzerland, LocationTimeData(1, ZoneTimeType::CET)},
+    {LocationTimeType::Thailand, LocationTimeData(7, ZoneTimeType::KRAT)},
+    {LocationTimeType::Toronto, LocationTimeData(-5, ZoneTimeType::EST)},
+    {LocationTimeType::India, LocationTimeData(6, ZoneTimeType::IST)},
     {LocationTimeType::AmericaEastern,
      // 美东时间夏令时：[3月第二个星期日凌晨2点，11月第一个周日凌晨2点]
      LocationTimeData(-5, SummerDayTime(2, 2, 2), SummerDayTime(10, 1, 2), ZoneTimeType::EST, ZoneTimeType::EDT)},
@@ -154,7 +155,7 @@ time_t TimeToSeconds(int year, int month, int day, int hour, int minute, int sec
 const LocationTimeData &GetLocationTimeDataByType(LocationTimeType loc_type) {
   std::unordered_map<LocationTimeType, LocationTimeData>::const_iterator it = g_locationTimeMap.find(loc_type);
   if (it == g_locationTimeMap.end()) {
-    assert("find loc_type fail！");
+    assert("find loc_type fail!");
 
     // 找不到对应的Location，先按北京时间返回
     it = g_locationTimeMap.find(LocationTimeType::Beijing);

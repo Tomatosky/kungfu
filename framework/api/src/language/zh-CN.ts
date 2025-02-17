@@ -315,6 +315,8 @@ export default {
     JPFUT: '日期',
     TSE: '多股',
     TSEFUT: '多期',
+    IN: '印度股',
+    INFUT: '印度期',
     XETRA: 'XETRA',
     GLFX: '外汇',
     IPE: 'IPE',
