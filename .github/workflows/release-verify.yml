@@ -11,7 +11,7 @@ on:
 
 jobs:
   try:
-    uses: kungfu-systems/workflows/.github/workflows/.release-verify.yml@ci/selfhosted-workflow-gates
+    uses: kungfu-systems/workflows/.github/workflows/.release-verify.yml@dev/v1/v1.2
     with:
       build-runner-linux-labels: '["self-hosted","Linux","X64","agent-120","kungfu-build","linux-x64"]'
       build-runner-macos-labels: '["self-hosted","macOS","ARM64","mac-studio","kungfu-build","macos-arm64"]'
