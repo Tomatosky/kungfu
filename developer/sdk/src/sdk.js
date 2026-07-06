@@ -24,6 +24,7 @@ const KFX_CONTRACT_ENV = 'KUNGFU_KFX_CONTRACT';
 const CONTRACT_REGISTRY_FILE = 'kungfu-contracts.registry.json';
 const CONTRACT_REGISTRY_ENV = 'KUNGFU_CONTRACT_REGISTRY';
 const CONTRACT_REGISTRY_SCHEMA = 'kungfu.contract-registry/v1';
+const CONTRACT_FIXTURE_SCHEMA = 'kungfu.sdk.contract-drift-fixture/v1';
 const require = createRequire(import.meta.url);
 
 /**
@@ -39,6 +40,7 @@ function usage(code) {
       '       kungfu sdk create skill <directory> [options]',
       '       kungfu sdk contract adopt <surface> [--source <path>] [--json]',
       '       kungfu sdk contract render <surface> [--check | --write] [--json]',
+      '       kungfu sdk contract evidence [surface] [--json]',
       '       kungfu sdk contract add <surface> [--source <path>] [--json]',
       '       kungfu sdk kfx build | clean',
       '',
@@ -433,7 +435,16 @@ function registryEntryTemplate(surface, source) {
     file,
     source,
     artifact: `config/${file}`,
+    probeFixture: contractFixturePath(surface),
   };
+}
+
+/**
+ * @param {string} surface
+ * @returns {string}
+ */
+function contractFixturePath(surface) {
+  return `framework/contract/fixtures/${surface}.contract-evidence.json`;
 }
 
 /**
@@ -692,6 +703,139 @@ function contractRender(surface, options) {
 }
 
 /**
+ * @param {ReturnType<typeof loadContractSurface>} state
+ * @returns {Record<string, unknown>}
+ */
+function contractEvidenceRow(state) {
+  const source = rel(state.repoRoot, state.contractPath);
+  const rendered = renderJson(state.contract);
+  const surface = requiredString(state.entry, 'surface');
+  const fixture =
+    typeof state.entry.probeFixture === 'string'
+      ? state.entry.probeFixture
+      : contractFixturePath(surface);
+  const fixturePath = path.resolve(state.repoRoot, fixture);
+  const fixtureExists = fs.existsSync(fixturePath);
+  return {
+    surface,
+    source,
+    artifact: requiredString(state.entry, 'artifact'),
+    env: requiredString(state.entry, 'env'),
+    fixture: {
+      path: fixture,
+      exists: fixtureExists,
+      hash: fixtureExists ? sha256File(fixturePath) : null,
+    },
+    contract: {
+      id: state.contract.id,
+      schema: state.contract.schema,
+      version: state.contract.version,
+      weldedSurface: state.contract.weldedSurface,
+      sourceHash: sha256File(state.contractPath),
+      renderedHash: `sha256:${createHash('sha256').update(rendered).digest('hex')}`,
+      byteForByte: state.contractText === rendered,
+    },
+    extraArtifacts: extraArtifacts(state.entry).map((artifact) => ({
+      label: artifact.label,
+      source: artifact.source,
+      artifact: artifact.artifact,
+    })),
+  };
+}
+
+/**
+ * @param {string | undefined} surface
+ * @param {CliOptions} options
+ * @returns {void}
+ */
+function contractEvidence(surface, options) {
+  const repoRoot = locateRepoRoot(process.cwd());
+  const registryPath = resolveContractRegistryPath(repoRoot);
+  const registry = loadContractRegistry(registryPath);
+  const surfaces = surface
+    ? [surface]
+    : /** @type {Array<Record<string, unknown>>} */ (registry.contracts).map(
+        (entry) => requiredString(entry, 'surface'),
+      );
+  const contracts = surfaces.map((name) =>
+    contractEvidenceRow(loadContractSurface(name, options)),
+  );
+  const data = {
+    schema: 'kungfu.sdk.contract-evidence/v1',
+    ok: true,
+    registry: rel(repoRoot, registryPath),
+    releaseGate: {
+      kfd: 'KFD-1',
+      claim: 'contracts-must-not-drift',
+      role: 'local-evidence',
+      sourceOfTruth: rel(repoRoot, registryPath),
+      policy: 'advisory-only; this command does not enforce release policy',
+    },
+    summary: {
+      count: contracts.length,
+      surfaces: contracts.map((contract) => contract.surface),
+      byteForByte: contracts.every(
+        (contract) =>
+          isObject(contract.contract) && contract.contract.byteForByte === true,
+      ),
+      fixtures: contracts.filter(
+        (contract) =>
+          isObject(contract.fixture) && contract.fixture.exists === true,
+      ).length,
+    },
+    contracts,
+  };
+  if (options.json) {
+    process.stdout.write(renderJson(data));
+    return;
+  }
+  process.stdout.write(
+    [
+      `[contract] evidence surfaces=${data.summary.count} fixtures=${data.summary.fixtures}`,
+      `  registry: ${data.registry}`,
+      `  byte-for-byte: ${data.summary.byteForByte}`,
+      '',
+    ].join('\n'),
+  );
+}
+
+/**
+ * @param {string} surface
+ * @param {string} source
+ * @param {string} registry
+ * @param {Record<string, unknown>} contract
+ * @param {string} sourceHash
+ * @returns {Record<string, unknown>}
+ */
+function contractFixture(surface, source, registry, contract, sourceHash) {
+  return {
+    schema: CONTRACT_FIXTURE_SCHEMA,
+    surface,
+    source,
+    registry,
+    expected: {
+      id: contract.id,
+      schema: contract.schema,
+      version: contract.version,
+      weldedSurface: contract.weldedSurface,
+      sourceHash,
+      renderedHash: `sha256:${createHash('sha256').update(renderJson(contract)).digest('hex')}`,
+    },
+    probe: {
+      evidence: `kungfu sdk contract evidence ${surface} --json`,
+      renderCheck: `kungfu sdk contract render ${surface} --check --json`,
+      runtimeVerify: 'kungfu contract verify --json',
+    },
+    drift: {
+      updateRule:
+        'Intentional contract edits must update this fixture with the new source hash.',
+      failureSignal:
+        'A release gate can compare this fixture against contract evidence before claiming KFD-1 compatibility.',
+    },
+  };
+}
+
+/**
  * @param {string | undefined} surfaceArg
  * @param {CliOptions} options
  * @returns {void}
@@ -717,6 +861,23 @@ function contractAdd(surfaceArg, options) {
   registry.contracts.push(entry);
   fs.mkdirSync(path.dirname(contractPath), { recursive: true });
   fs.writeFileSync(contractPath, renderJson(contract));
+  const fixturePath = path.resolve(
+    repoRoot,
+    requiredString(entry, 'probeFixture'),
+  );
+  fs.mkdirSync(path.dirname(fixturePath), { recursive: true });
+  fs.writeFileSync(
+    fixturePath,
+    renderJson(
+      contractFixture(
+        surface,
+        source,
+        rel(repoRoot, registryPath),
+        contract,
+        sha256File(contractPath),
+      ),
+    ),
+  );
   fs.writeFileSync(registryPath, renderJson(registry));
   const data = {
     schema: 'kungfu.sdk.contract-add/v1',
@@ -733,9 +894,15 @@ function contractAdd(surfaceArg, options) {
       weldedSurface: contract.weldedSurface,
       hash: sha256File(contractPath),
     },
+    fixture: {
+      path: rel(repoRoot, fixturePath),
+      schema: CONTRACT_FIXTURE_SCHEMA,
+      hash: sha256File(fixturePath),
+    },
     next: {
       verify: `kungfu sdk contract adopt ${surface} --source ${source} --json`,
       renderCheck: `kungfu sdk contract render ${surface} --check --json`,
+      evidence: `kungfu sdk contract evidence ${surface} --json`,
       versioning: `register welded surface ${surface}-contract in docs/versioning.md`,
       knownLimits: `record maturity and limits for ${surface}-contract in docs/known-limits.md`,
     },
@@ -1117,9 +1284,12 @@ if (command === 'create') {
 } else if (command === 'contract') {
   if (kind === 'adopt') contractAdopt(directory, options);
   else if (kind === 'render') contractRender(directory, options);
+  else if (kind === 'evidence') contractEvidence(directory, options);
   else if (kind === 'add') contractAdd(directory, options);
   else
-    fail(`unknown contract command: ${kind} (supported: adopt, render, add)`);
+    fail(
+      `unknown contract command: ${kind} (supported: adopt, render, evidence, add)`,
+    );
 } else {
   fail(`unknown command: ${command}`);
 }

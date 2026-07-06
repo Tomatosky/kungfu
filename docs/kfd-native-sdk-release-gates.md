@@ -92,6 +92,7 @@ kungfu sdk contract adopt skill --source framework/skill/kungfu-skill.contract.j
 kungfu sdk contract render config --check --json
 kungfu sdk contract render kfx --check --json
 kungfu sdk contract render skill --check --json
+kungfu sdk contract evidence --json
 ```
 
 Then add explicit write/scaffold commands:
@@ -111,6 +112,18 @@ source contract. `contract add` should generate:
 - known-limits and versioning prompts.
 
 The verifier must read the same registry that packaged artifacts use.
+
+The current local evidence command is intentionally advisory:
+
+```sh
+kungfu sdk contract evidence [surface] --json
+```
+
+It reports the contract registry, source/rendered hashes, canonicalization
+status, artifact paths, extra artifacts, and generated drift fixtures. A future
+Buildchain gate can consume this output together with `kungfu contract verify
+--json`, but this stage still does not change release policy or enforce a
+release gate.
 
 ### Phase 2: KFD-2 Fact Surface Scaffold
 

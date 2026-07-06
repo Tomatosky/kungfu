@@ -55,6 +55,8 @@ kungfu sdk contract adopt skill --source framework/skill/kungfu-skill.contract.j
 kungfu sdk contract render config --check --json
 kungfu sdk contract render kfx --check --json
 kungfu sdk contract render skill --check --json
+
+kungfu sdk contract evidence --json
 ```
 
 `adopt` is read-only: the registry and contract files remain the source of
@@ -71,5 +73,12 @@ kungfu sdk contract add <surface> [--source framework/contract/<surface>.contrac
 
 `render --write` canonicalizes the registered source contract file and reports
 the previous and new hashes. `contract add` creates a minimal source contract
-and appends the matching registry entry. Neither command is used by default by
-the checks above.
+and appends the matching registry entry. It also writes a deterministic
+`framework/contract/fixtures/<surface>.contract-evidence.json` fixture that a
+future release gate can compare with `contract evidence`.
+
+`contract evidence [surface] --json` is read-only local evidence for KFD-1. It
+reports the registry source of truth, source/rendered hashes, byte-for-byte
+canonicalization status, extra artifacts, and any probe fixture. It is shaped
+for future Buildchain consumption but does not enforce release policy by itself.
+Neither write command is used by default by the read-only checks above.

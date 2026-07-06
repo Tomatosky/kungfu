@@ -81,6 +81,26 @@ for (const [surface, source] of [
   });
 }
 
+test('emits KFD-1 contract evidence for registered surfaces', () => {
+  const data = runJson(['contract', 'evidence', '--json']);
+  assert.equal(data.schema, 'kungfu.sdk.contract-evidence/v1');
+  assert.equal(data.ok, true);
+  assert.equal(data.releaseGate.kfd, 'KFD-1');
+  assert.equal(data.releaseGate.role, 'local-evidence');
+  assert.deepEqual(data.summary.surfaces, ['config', 'kfx', 'skill']);
+  assert.equal(data.summary.count, 3);
+  assert.equal(data.contracts.length, 3);
+  for (const contract of data.contracts) {
+    assert.match(contract.contract.sourceHash, /^sha256:[0-9a-f]{64}$/);
+    assert.match(contract.contract.renderedHash, /^sha256:[0-9a-f]{64}$/);
+    assert.equal(typeof contract.contract.byteForByte, 'boolean');
+  }
+
+  const skill = runJson(['contract', 'evidence', 'skill', '--json']);
+  assert.deepEqual(skill.summary.surfaces, ['skill']);
+  assert.equal(skill.contracts[0].surface, 'skill');
+});
+
 test('adopt refuses a source path that does not match the registry', () => {
   const result = spawnSync(
     process.execPath,
@@ -107,12 +127,26 @@ test('adds a new contract source and registry entry in a repo fixture', (t) => {
   assert.equal(data.source, 'framework/contract/demo-surface.contract.json');
   assert.equal(data.artifact, 'config/demo-surface.contract.json');
   assert.equal(data.env, 'KUNGFU_DEMO_SURFACE_CONTRACT');
+  assert.equal(
+    data.fixture.path,
+    'framework/contract/fixtures/demo-surface.contract-evidence.json',
+  );
+  assert.equal(data.fixture.schema, 'kungfu.sdk.contract-drift-fixture/v1');
+  assert.match(data.fixture.hash, /^sha256:[0-9a-f]{64}$/);
+  assert.match(data.next.evidence, /contract evidence demo-surface --json/);
   assert.match(data.next.versioning, /docs\/versioning\.md/);
   assert.match(data.next.knownLimits, /docs\/known-limits\.md/);
   assert.match(data.contract.hash, /^sha256:[0-9a-f]{64}$/);
 
   const sourcePath = join(root, data.source);
+  const fixturePath = join(root, data.fixture.path);
   assert.equal(existsSync(sourcePath), true);
+  assert.equal(existsSync(fixturePath), true);
+  const fixture = JSON.parse(readFileSync(fixturePath, 'utf8'));
+  assert.equal(fixture.schema, 'kungfu.sdk.contract-drift-fixture/v1');
+  assert.equal(fixture.surface, 'demo-surface');
+  assert.equal(fixture.source, data.source);
+  assert.match(fixture.expected.sourceHash, /^sha256:[0-9a-f]{64}$/);
   const registry = JSON.parse(
     readFileSync(
       join(root, 'framework', 'contract', 'kungfu-contracts.registry.json'),
@@ -121,12 +155,22 @@ test('adds a new contract source and registry entry in a repo fixture', (t) => {
   );
   assert.equal(registry.contracts.length, 1);
   assert.equal(registry.contracts[0].surface, 'demo-surface');
+  assert.equal(registry.contracts[0].probeFixture, data.fixture.path);
 
   const adopt = runJson(
     ['contract', 'adopt', 'demo-surface', '--source', data.source, '--json'],
     root,
   );
   assert.equal(adopt.ok, true);
+
+  const evidence = runJson(
+    ['contract', 'evidence', 'demo-surface', '--json'],
+    root,
+  );
+  assert.equal(evidence.schema, 'kungfu.sdk.contract-evidence/v1');
+  assert.equal(evidence.summary.fixtures, 1);
+  assert.equal(evidence.contracts[0].fixture.exists, true);
+  assert.equal(evidence.contracts[0].fixture.path, data.fixture.path);
 });
 
 test('add refuses an already registered surface', (t) => {
