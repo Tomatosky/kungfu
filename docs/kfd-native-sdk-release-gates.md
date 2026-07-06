@@ -56,20 +56,23 @@ generate files that join the existing contract, fact, and agent surfaces.
 
 ## First Implementation Decision
 
-The next code slice should be an end-to-end thin KFD-1 scaffold prototype:
+The first code slice should be an end-to-end thin KFD-1 adopt/check prototype
+before any rewrite or new third-party scaffold:
 
-1. `kungfu sdk add contract <surface>` generates a minimal contract scaffold.
-2. The generated scaffold joins the existing KFD-1 registry instead of creating
-   another registry.
-3. `kungfu contract verify --json` proves the scaffolded contract through the
-   same verifier used by packaged artifacts.
-4. The output is shaped so a future Buildchain release gate can consume it
+1. `kungfu sdk contract adopt <surface> --source <path>` adopts an existing
+   registered source contract file without overwriting it.
+2. `kungfu sdk contract render <surface> --check --json` proves the SDK can
+   reproduce that source file as canonical JSON evidence.
+3. `kungfu contract verify --json` continues to prove the registered contract
+   world through the runtime verifier used by packaged artifacts.
+4. The evidence is shaped so a future Buildchain release gate can consume it
    without becoming the source of truth.
 
 Do not start with a full Buildchain gate. Buildchain should consume evidence
-emitted by Kungfu; it should not define Kungfu's contract system. Do not start
-with KFD-2 or KFD-3 code either: those need one more agreement pass on fact and
-agent evidence vocabulary, while KFD-1 already has merged registry substrate.
+emitted by Kungfu; it should not define Kungfu's contract system. Do not let
+the first prototype rewrite existing config/kfx/skill source contract files. Direct
+`--write` rendering and `kungfu sdk add contract <surface>` should come only
+after the existing registry-backed surfaces pass adopt/check.
 
 ## Phased Plan
 
@@ -80,7 +83,18 @@ enforces nothing.
 
 ### Phase 1: KFD-1 Thin Slice
 
-Add `kungfu sdk add contract <surface>` and make it generate:
+First add read-only existing-surface adoption:
+
+```sh
+kungfu sdk contract adopt config --source framework/config/kungfu-config.contract.json --json
+kungfu sdk contract adopt kfx --source framework/kfx/kungfu-kfx.contract.json --json
+kungfu sdk contract adopt skill --source framework/skill/kungfu-skill.contract.json --json
+kungfu sdk contract render config --check --json
+kungfu sdk contract render kfx --check --json
+kungfu sdk contract render skill --check --json
+```
+
+Then add `kungfu sdk add contract <surface>` and make it generate:
 
 - a contract source file;
 - schema/version metadata;

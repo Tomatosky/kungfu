@@ -22,7 +22,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "node --check src/sdk.js"
+    "build": "node --check src/sdk.js && node --test tests/*.test.mjs"
   },
   "dependencies": {
     "ajv": "^8.20.0",

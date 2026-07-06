@@ -8,10 +8,11 @@
 // through the workspace when scaffolded inside the monorepo (--workspace).
 // @ts-check
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import Ajv2020 from 'ajv/dist/2020.js';
 
 const TEMPLATE_ROOT = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -20,6 +21,10 @@ const TEMPLATE_ROOT = path.join(
 );
 const KFX_CONTRACT_FILE = 'kungfu-kfx.contract.json';
 const KFX_CONTRACT_ENV = 'KUNGFU_KFX_CONTRACT';
+const CONTRACT_REGISTRY_FILE = 'kungfu-contracts.registry.json';
+const CONTRACT_REGISTRY_ENV = 'KUNGFU_CONTRACT_REGISTRY';
+const CONTRACT_REGISTRY_SCHEMA = 'kungfu.contract-registry/v1';
+const require = createRequire(import.meta.url);
 
 /**
  * Print CLI usage and exit with the given status code.
@@ -32,11 +37,18 @@ function usage(code) {
       'usage: kungfu sdk create app <directory> [options]',
       '       kungfu sdk create extension <directory> [options]',
       '       kungfu sdk create skill <directory> [options]',
+      '       kungfu sdk contract adopt <surface> [--source <path>] [--json]',
+      '       kungfu sdk contract render <surface> [--check] [--json]',
       '       kungfu sdk kfx build | clean',
       '',
       'create options:',
       '  --name <name>   product/view name (defaults to the directory basename)',
       '  --workspace     wire platform deps as workspace:* (inside the monorepo)',
+      '',
+      'contract options:',
+      '  --source <path>  require the registered surface to use this source file',
+      '  --check         compare rendered output with the current source file',
+      '  --json          machine-readable output for adopt/check evidence',
       '',
       'create extension scaffolds a view extension package (kfx): src/view/',
       'exports the View component, package.json carries the kungfuConfig',
@@ -54,6 +66,10 @@ function usage(code) {
       'containing only SKILL.md. It is instruction-only until it explicitly',
       'declares kfx dependencies or capabilities.',
       '',
+      'contract adopt/render are the KFD-1 SDK prototype: they adopt an existing',
+      'registered contract surface and prove the SDK can reproduce its current',
+      'mother file without writing over it.',
+      '',
     ].join('\n'),
   );
   process.exit(code);
@@ -70,24 +86,37 @@ function fail(message) {
 }
 
 /**
- * Parsed CLI options shared by the create verbs.
- * @typedef {{ workspace: boolean, name: string }} CreateOptions
+ * Parsed CLI options shared by SDK verbs.
+ * @typedef {{ workspace: boolean, name: string, source: string, check: boolean, json: boolean }} CliOptions
  */
 
 /**
  * Split argv into positional arguments and named options.
  * @param {string[]} argv
- * @returns {{ positional: string[], options: CreateOptions }}
+ * @returns {{ positional: string[], options: CliOptions }}
  */
 function parseArgs(argv) {
   const positional = [];
-  const options = { workspace: false, name: '' };
+  const options = {
+    workspace: false,
+    name: '',
+    source: '',
+    check: false,
+    json: false,
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--workspace') options.workspace = true;
     else if (arg === '--name') {
       i += 1;
       options.name = argv[i] || '';
+    } else if (arg === '--source') {
+      i += 1;
+      options.source = argv[i] || '';
+    } else if (arg === '--check') {
+      options.check = true;
+    } else if (arg === '--json') {
+      options.json = true;
     } else if (arg === '-h' || arg === '--help') usage(0);
     else if (arg.startsWith('-')) fail(`unknown option: ${arg}`);
     else positional.push(arg);
@@ -147,7 +176,7 @@ function scaffold(templateName, targetDir, replacements) {
 /**
  * Scaffold a complete Kungfu desktop app into `directory`.
  * @param {string | undefined} directory
- * @param {CreateOptions} options
+ * @param {CliOptions} options
  * @returns {void}
  */
 function createApp(directory, options) {
@@ -180,7 +209,7 @@ function createApp(directory, options) {
 /**
  * Scaffold a view extension package (kfx) into `directory`.
  * @param {string | undefined} directory
- * @param {CreateOptions} options
+ * @param {CliOptions} options
  * @returns {void}
  */
 function createExtension(directory, options) {
@@ -213,7 +242,7 @@ function createExtension(directory, options) {
 /**
  * Scaffold a minimum valid Kungfu Skill source into `directory`.
  * @param {string | undefined} directory
- * @param {CreateOptions} options
+ * @param {CliOptions} options
  * @returns {void}
  */
 function createSkill(directory, options) {
@@ -236,6 +265,299 @@ function createSkill(directory, options) {
       '',
     ].join('\n'),
   );
+}
+
+// ── KFD-1 contract prototype ───────────────────────────────────────────────
+// The first SDK contract slice adopts existing registered mother files. It is
+// deliberately read-only: the registry and contract files stay the truth source,
+// while the SDK proves it can resolve and reproduce them without drift.
+
+/**
+ * @param {unknown} value
+ * @returns {value is Record<string, unknown>}
+ */
+function isObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+/**
+ * @param {string} file
+ * @returns {unknown}
+ */
+function readJson(file) {
+  return JSON.parse(fs.readFileSync(file, 'utf8'));
+}
+
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
+function renderJson(value) {
+  return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+/**
+ * @param {string} file
+ * @returns {string}
+ */
+function sha256File(file) {
+  return `sha256:${createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`;
+}
+
+/**
+ * @param {string} startDir
+ * @returns {string}
+ */
+function locateRepoRoot(startDir) {
+  for (const dir of ancestorDirs(startDir)) {
+    const candidate = path.join(
+      dir,
+      'framework',
+      'contract',
+      CONTRACT_REGISTRY_FILE,
+    );
+    if (fs.existsSync(candidate)) return dir;
+  }
+  fail(`cannot locate ${CONTRACT_REGISTRY_FILE} from ${startDir}`);
+}
+
+/**
+ * @param {string} repoRoot
+ * @param {string} target
+ * @returns {string}
+ */
+function rel(repoRoot, target) {
+  return path.relative(repoRoot, target).split(path.sep).join('/');
+}
+
+/**
+ * @param {string} repoRoot
+ * @returns {string}
+ */
+function resolveContractRegistryPath(repoRoot) {
+  const explicit = process.env[CONTRACT_REGISTRY_ENV];
+  if (explicit) return path.resolve(explicit);
+  return path.join(repoRoot, 'framework', 'contract', CONTRACT_REGISTRY_FILE);
+}
+
+/**
+ * @param {string} registryPath
+ * @returns {Record<string, unknown>}
+ */
+function loadContractRegistry(registryPath) {
+  const registry = readJson(registryPath);
+  if (!isObject(registry)) {
+    fail(`contract registry must be a JSON object: ${registryPath}`);
+  }
+  if (registry.schema !== CONTRACT_REGISTRY_SCHEMA) {
+    fail(`contract registry schema mismatch: ${String(registry.schema)}`);
+  }
+  if (!Array.isArray(registry.contracts)) {
+    fail('contract registry must contain a contracts array');
+  }
+  return registry;
+}
+
+/**
+ * @param {Record<string, unknown>} registry
+ * @param {string} surface
+ * @returns {Record<string, unknown>}
+ */
+function findContractEntry(registry, surface) {
+  const matches = /** @type {unknown[]} */ (registry.contracts).filter(
+    (entry) => isObject(entry) && entry.surface === surface,
+  );
+  if (matches.length === 0) {
+    fail(`contract surface is not registered: ${surface}`);
+  }
+  if (matches.length > 1) {
+    fail(`contract surface is registered more than once: ${surface}`);
+  }
+  return /** @type {Record<string, unknown>} */ (matches[0]);
+}
+
+/**
+ * @param {Record<string, unknown>} entry
+ * @param {string} key
+ * @returns {string}
+ */
+function requiredString(entry, key) {
+  const value = entry[key];
+  if (typeof value !== 'string' || value.length === 0) {
+    fail(`contract registry entry missing string field: ${key}`);
+  }
+  return value;
+}
+
+/**
+ * @param {Record<string, unknown>} contract
+ * @param {string} key
+ * @returns {string | number}
+ */
+function requiredScalar(contract, key) {
+  const value = contract[key];
+  if (
+    (typeof value !== 'string' && typeof value !== 'number') ||
+    value === ''
+  ) {
+    fail(`contract file missing scalar field: ${key}`);
+  }
+  return value;
+}
+
+/**
+ * @param {string | undefined} surface
+ * @param {CliOptions} options
+ * @returns {{
+ *   repoRoot: string,
+ *   registryPath: string,
+ *   entry: Record<string, unknown>,
+ *   contractPath: string,
+ *   contractText: string,
+ *   contract: Record<string, unknown>,
+ * }}
+ */
+function loadContractSurface(surface, options) {
+  if (!surface) usage(1);
+  const repoRoot = locateRepoRoot(process.cwd());
+  const registryPath = resolveContractRegistryPath(repoRoot);
+  const registry = loadContractRegistry(registryPath);
+  const entry = findContractEntry(registry, surface);
+  const registeredSource = requiredString(entry, 'source');
+  const contractPath = path.resolve(repoRoot, registeredSource);
+  if (!fs.existsSync(contractPath)) {
+    fail(`registered contract source does not exist: ${registeredSource}`);
+  }
+  if (options.source) {
+    const requested = path.resolve(options.source);
+    if (requested !== contractPath) {
+      fail(
+        `--source does not match registry source for ${surface}: ${rel(repoRoot, requested)} != ${registeredSource}`,
+      );
+    }
+  }
+  const contractText = fs.readFileSync(contractPath, 'utf8');
+  const parsed = JSON.parse(contractText);
+  if (!isObject(parsed)) {
+    fail(`contract source must be a JSON object: ${registeredSource}`);
+  }
+  const contract = parsed;
+  const expected = {
+    schema: requiredString(entry, 'schema'),
+    id: requiredString(entry, 'id'),
+    weldedSurface: requiredString(entry, 'weldedSurface'),
+  };
+  for (const [key, value] of Object.entries(expected)) {
+    if (contract[key] !== value) {
+      fail(
+        `${surface} contract ${key} mismatch: ${String(contract[key])} != ${value}`,
+      );
+    }
+  }
+  requiredScalar(contract, 'version');
+  if (!isObject(contract.contractSchema)) {
+    fail(`${surface} contract missing contractSchema object`);
+  }
+  return {
+    repoRoot,
+    registryPath,
+    entry,
+    contractPath,
+    contractText,
+    contract,
+  };
+}
+
+/**
+ * @param {Record<string, unknown>} entry
+ * @returns {Array<Record<string, unknown>>}
+ */
+function extraArtifacts(entry) {
+  return Array.isArray(entry.extraArtifacts)
+    ? /** @type {Array<Record<string, unknown>>} */ (
+        entry.extraArtifacts.filter(isObject)
+      )
+    : [];
+}
+
+/**
+ * @param {string | undefined} surface
+ * @param {CliOptions} options
+ * @returns {void}
+ */
+function contractAdopt(surface, options) {
+  const state = loadContractSurface(surface, options);
+  const data = {
+    schema: 'kungfu.sdk.contract-adopt/v1',
+    ok: true,
+    surface,
+    registry: rel(state.repoRoot, state.registryPath),
+    source: rel(state.repoRoot, state.contractPath),
+    artifact: requiredString(state.entry, 'artifact'),
+    env: requiredString(state.entry, 'env'),
+    contract: {
+      id: state.contract.id,
+      schema: state.contract.schema,
+      version: state.contract.version,
+      weldedSurface: state.contract.weldedSurface,
+      hash: sha256File(state.contractPath),
+    },
+    render: {
+      mode: 'source-json-replay',
+      checkCommand: `kungfu sdk contract render ${surface} --check --json`,
+    },
+    extraArtifacts: extraArtifacts(state.entry).map((artifact) => ({
+      label: artifact.label,
+      source: artifact.source,
+      artifact: artifact.artifact,
+    })),
+  };
+  if (options.json) {
+    process.stdout.write(renderJson(data));
+    return;
+  }
+  process.stdout.write(
+    [
+      `[contract] adopted ${surface}`,
+      `  source: ${data.source}`,
+      `  artifact: ${data.artifact}`,
+      `  hash: ${data.contract.hash}`,
+      `  check: ${data.render.checkCommand}`,
+      '',
+    ].join('\n'),
+  );
+}
+
+/**
+ * @param {string | undefined} surface
+ * @param {CliOptions} options
+ * @returns {void}
+ */
+function contractRender(surface, options) {
+  const state = loadContractSurface(surface, options);
+  const rendered = renderJson(state.contract);
+  if (!options.check) {
+    process.stdout.write(rendered);
+    return;
+  }
+  const data = {
+    schema: 'kungfu.sdk.contract-render-check/v1',
+    ok: true,
+    surface,
+    source: rel(state.repoRoot, state.contractPath),
+    hash: sha256File(state.contractPath),
+    renderedHash: `sha256:${createHash('sha256').update(rendered).digest('hex')}`,
+    mode: 'canonical-json',
+    byteForByte: state.contractText === rendered,
+  };
+  if (options.json) {
+    process.stdout.write(renderJson(data));
+  } else if (data.ok) {
+    process.stdout.write(`[contract] ${surface} render check ok\n`);
+  } else {
+    process.stderr.write(`[contract] ${surface} render check failed\n`);
+  }
+  if (!data.ok) process.exit(1);
 }
 
 // ── kfx view extension build ──────────────────────────────────────────────
@@ -333,6 +655,7 @@ function loadKfxContract() {
  * @returns {void}
  */
 function validateWithSchema(value, schema, label) {
+  const Ajv2020 = require('ajv/dist/2020.js');
   const AjvCtor =
     /** @type {new (options: { allErrors: boolean, strict: boolean }) => { compile: (schema: unknown) => { (value: unknown): boolean, errors?: Array<{ instancePath?: string, message?: string }> } }} */ (
       /** @type {unknown} */ (Ajv2020)
@@ -596,6 +919,10 @@ if (command === 'create') {
   if (kind === 'build') await kfxBuild();
   else if (kind === 'clean') kfxClean();
   else fail(`unknown kfx command: ${kind} (supported: build, clean)`);
+} else if (command === 'contract') {
+  if (kind === 'adopt') contractAdopt(directory, options);
+  else if (kind === 'render') contractRender(directory, options);
+  else fail(`unknown contract command: ${kind} (supported: adopt, render)`);
 } else {
   fail(`unknown command: ${command}`);
 }

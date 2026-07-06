@@ -40,3 +40,24 @@ Options (both `create` targets):
 
 The generated app is self-contained: `pnpm pack` produces a distributable
 bundle with the kungfu runtime under `Resources/kungfu`.
+
+## KFD-1 Contract Prototype
+
+The first KFD-native SDK slice adopts existing contract source files without
+overwriting them. It proves that the SDK can resolve the single KFD-1 registry
+and reproduce the registered surfaces as canonical JSON evidence:
+
+```sh
+kungfu sdk contract adopt config --source framework/config/kungfu-config.contract.json --json
+kungfu sdk contract adopt kfx --source framework/kfx/kungfu-kfx.contract.json --json
+kungfu sdk contract adopt skill --source framework/skill/kungfu-skill.contract.json --json
+
+kungfu sdk contract render config --check --json
+kungfu sdk contract render kfx --check --json
+kungfu sdk contract render skill --check --json
+```
+
+`adopt` is read-only: the registry and contract files remain the source of
+truth. `render --check` reports canonical JSON equivalence and also exposes
+whether the current file is byte-for-byte identical to SDK-rendered output. The
+prototype intentionally does not provide `--write`.
