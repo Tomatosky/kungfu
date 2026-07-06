@@ -71,7 +71,7 @@ before any rewrite or new third-party scaffold:
 Do not start with a full Buildchain gate. Buildchain should consume evidence
 emitted by Kungfu; it should not define Kungfu's contract system. Do not let
 the first prototype rewrite existing config/kfx/skill source contract files. Direct
-`--write` rendering and `kungfu sdk add contract <surface>` should come only
+`--write` rendering and `kungfu sdk contract add <surface>` should come only
 after the existing registry-backed surfaces pass adopt/check.
 
 ## Phased Plan
@@ -94,11 +94,19 @@ kungfu sdk contract render kfx --check --json
 kungfu sdk contract render skill --check --json
 ```
 
-Then add `kungfu sdk add contract <surface>` and make it generate:
+Then add explicit write/scaffold commands:
+
+```sh
+kungfu sdk contract render <surface> --write --json
+kungfu sdk contract add <surface> --json
+```
+
+`render --write` should canonicalize only the explicitly selected registered
+source contract. `contract add` should generate:
 
 - a contract source file;
 - schema/version metadata;
-- a registry entry or reviewable patch plan;
+- a registry entry;
 - a drift probe fixture;
 - known-limits and versioning prompts.
 

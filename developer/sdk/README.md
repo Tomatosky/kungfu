@@ -60,4 +60,16 @@ kungfu sdk contract render skill --check --json
 `adopt` is read-only: the registry and contract files remain the source of
 truth. `render --check` reports canonical JSON equivalence and also exposes
 whether the current file is byte-for-byte identical to SDK-rendered output. The
-prototype intentionally does not provide `--write`.
+prototype keeps normal checks read-only.
+
+When a maintainer explicitly wants the SDK to write, two commands are available:
+
+```sh
+kungfu sdk contract render <surface> --write --json
+kungfu sdk contract add <surface> [--source framework/contract/<surface>.contract.json] --json
+```
+
+`render --write` canonicalizes the registered source contract file and reports
+the previous and new hashes. `contract add` creates a minimal source contract
+and appends the matching registry entry. Neither command is used by default by
+the checks above.

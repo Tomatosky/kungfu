@@ -38,7 +38,8 @@ function usage(code) {
       '       kungfu sdk create extension <directory> [options]',
       '       kungfu sdk create skill <directory> [options]',
       '       kungfu sdk contract adopt <surface> [--source <path>] [--json]',
-      '       kungfu sdk contract render <surface> [--check] [--json]',
+      '       kungfu sdk contract render <surface> [--check | --write] [--json]',
+      '       kungfu sdk contract add <surface> [--source <path>] [--json]',
       '       kungfu sdk kfx build | clean',
       '',
       'create options:',
@@ -48,7 +49,8 @@ function usage(code) {
       'contract options:',
       '  --source <path>  require the registered surface to use this source file',
       '  --check         compare rendered output with the current source file',
-      '  --json          machine-readable output for adopt/check evidence',
+      '  --write         explicitly write canonical rendered contract JSON',
+      '  --json          machine-readable output for contract evidence',
       '',
       'create extension scaffolds a view extension package (kfx): src/view/',
       'exports the View component, package.json carries the kungfuConfig',
@@ -68,7 +70,7 @@ function usage(code) {
       '',
       'contract adopt/render are the KFD-1 SDK prototype: they adopt an existing',
       'registered contract surface and prove the SDK can reproduce its current',
-      'mother file without writing over it.',
+      'source contract file without writing over it unless --write is explicit.',
       '',
     ].join('\n'),
   );
@@ -87,7 +89,7 @@ function fail(message) {
 
 /**
  * Parsed CLI options shared by SDK verbs.
- * @typedef {{ workspace: boolean, name: string, source: string, check: boolean, json: boolean }} CliOptions
+ * @typedef {{ workspace: boolean, name: string, source: string, check: boolean, write: boolean, json: boolean }} CliOptions
  */
 
 /**
@@ -102,6 +104,7 @@ function parseArgs(argv) {
     name: '',
     source: '',
     check: false,
+    write: false,
     json: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
@@ -115,6 +118,8 @@ function parseArgs(argv) {
       options.source = argv[i] || '';
     } else if (arg === '--check') {
       options.check = true;
+    } else if (arg === '--write') {
+      options.write = true;
     } else if (arg === '--json') {
       options.json = true;
     } else if (arg === '-h' || arg === '--help') usage(0);
@@ -332,6 +337,107 @@ function rel(repoRoot, target) {
 
 /**
  * @param {string} repoRoot
+ * @param {string} target
+ * @returns {string}
+ */
+function repoRelativePath(repoRoot, target) {
+  const relative = rel(repoRoot, path.resolve(target));
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    fail(`path must stay inside the repository: ${target}`);
+  }
+  return relative;
+}
+
+/**
+ * @param {string} surface
+ * @returns {string}
+ */
+function normalizeSurface(surface) {
+  const normalized = surface.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  if (!/^[a-z][a-z0-9-]*[a-z0-9]$/.test(normalized)) {
+    fail(`invalid contract surface: ${surface}`);
+  }
+  return normalized;
+}
+
+/**
+ * @param {string} surface
+ * @returns {string}
+ */
+function contractEnvName(surface) {
+  return `KUNGFU_${surface.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}_CONTRACT`;
+}
+
+/**
+ * @param {Record<string, unknown>} registry
+ * @param {string} surface
+ * @returns {boolean}
+ */
+function hasContractEntry(registry, surface) {
+  return /** @type {unknown[]} */ (registry.contracts).some(
+    (entry) => isObject(entry) && entry.surface === surface,
+  );
+}
+
+/**
+ * @param {string} surface
+ * @returns {Record<string, unknown>}
+ */
+function contractTemplate(surface) {
+  const schema = `kungfu.${surface}.contract/v1`;
+  const id = `kungfu-${surface}`;
+  const weldedSurface = `${surface}-contract`;
+  return {
+    schema,
+    id,
+    version: 1,
+    weldedSurface,
+    description: `KFD-1 contract source for ${surface}.`,
+    contractSchema: {
+      $schema: 'https://json-schema.org/draft/2020-12/schema',
+      type: 'object',
+      additionalProperties: true,
+      required: [
+        'schema',
+        'id',
+        'version',
+        'weldedSurface',
+        'description',
+        'contractSchema',
+      ],
+      properties: {
+        schema: { type: 'string', const: schema },
+        id: { type: 'string', const: id },
+        version: { type: 'integer', minimum: 1 },
+        weldedSurface: { type: 'string', const: weldedSurface },
+        description: { type: 'string' },
+        contractSchema: { type: 'object' },
+      },
+    },
+  };
+}
+
+/**
+ * @param {string} surface
+ * @param {string} source
+ * @returns {Record<string, unknown>}
+ */
+function registryEntryTemplate(surface, source) {
+  const file = path.basename(source);
+  return {
+    surface,
+    id: `kungfu-${surface}`,
+    schema: `kungfu.${surface}.contract/v1`,
+    weldedSurface: `${surface}-contract`,
+    env: contractEnvName(surface),
+    file,
+    source,
+    artifact: `config/${file}`,
+  };
+}
+
+/**
+ * @param {string} repoRoot
  * @returns {string}
  */
 function resolveContractRegistryPath(repoRoot) {
@@ -536,6 +642,31 @@ function contractAdopt(surface, options) {
 function contractRender(surface, options) {
   const state = loadContractSurface(surface, options);
   const rendered = renderJson(state.contract);
+  if (options.check && options.write) {
+    fail('contract render accepts either --check or --write, not both');
+  }
+  if (options.write) {
+    const previousHash = sha256File(state.contractPath);
+    fs.writeFileSync(state.contractPath, rendered);
+    const data = {
+      schema: 'kungfu.sdk.contract-render-write/v1',
+      ok: true,
+      surface,
+      source: rel(state.repoRoot, state.contractPath),
+      previousHash,
+      hash: sha256File(state.contractPath),
+      changed: state.contractText !== rendered,
+      mode: 'canonical-json',
+    };
+    if (options.json) {
+      process.stdout.write(renderJson(data));
+    } else {
+      process.stdout.write(
+        `[contract] ${surface} wrote ${data.source} changed=${data.changed}\n`,
+      );
+    }
+    return;
+  }
   if (!options.check) {
     process.stdout.write(rendered);
     return;
@@ -558,6 +689,70 @@ function contractRender(surface, options) {
     process.stderr.write(`[contract] ${surface} render check failed\n`);
   }
   if (!data.ok) process.exit(1);
+}
+
+/**
+ * @param {string | undefined} surfaceArg
+ * @param {CliOptions} options
+ * @returns {void}
+ */
+function contractAdd(surfaceArg, options) {
+  if (!surfaceArg) usage(1);
+  const surface = normalizeSurface(surfaceArg);
+  const repoRoot = locateRepoRoot(process.cwd());
+  const registryPath = resolveContractRegistryPath(repoRoot);
+  const registry = loadContractRegistry(registryPath);
+  if (hasContractEntry(registry, surface)) {
+    fail(`contract surface is already registered: ${surface}`);
+  }
+  const source = options.source
+    ? repoRelativePath(repoRoot, options.source)
+    : `framework/contract/${surface}.contract.json`;
+  const contractPath = path.resolve(repoRoot, source);
+  if (fs.existsSync(contractPath)) {
+    fail(`contract source already exists: ${source}`);
+  }
+  const contract = contractTemplate(surface);
+  const entry = registryEntryTemplate(surface, source);
+  registry.contracts.push(entry);
+  fs.mkdirSync(path.dirname(contractPath), { recursive: true });
+  fs.writeFileSync(contractPath, renderJson(contract));
+  fs.writeFileSync(registryPath, renderJson(registry));
+  const data = {
+    schema: 'kungfu.sdk.contract-add/v1',
+    ok: true,
+    surface,
+    registry: rel(repoRoot, registryPath),
+    source,
+    artifact: entry.artifact,
+    env: entry.env,
+    contract: {
+      id: contract.id,
+      schema: contract.schema,
+      version: contract.version,
+      weldedSurface: contract.weldedSurface,
+      hash: sha256File(contractPath),
+    },
+    next: {
+      verify: `kungfu sdk contract adopt ${surface} --source ${source} --json`,
+      renderCheck: `kungfu sdk contract render ${surface} --check --json`,
+      versioning: `register welded surface ${surface}-contract in docs/versioning.md`,
+      knownLimits: `record maturity and limits for ${surface}-contract in docs/known-limits.md`,
+    },
+  };
+  if (options.json) {
+    process.stdout.write(renderJson(data));
+    return;
+  }
+  process.stdout.write(
+    [
+      `[contract] added ${surface}`,
+      `  source: ${data.source}`,
+      `  registry: ${data.registry}`,
+      `  check: ${data.next.renderCheck}`,
+      '',
+    ].join('\n'),
+  );
 }
 
 // ── kfx view extension build ──────────────────────────────────────────────
@@ -922,7 +1117,9 @@ if (command === 'create') {
 } else if (command === 'contract') {
   if (kind === 'adopt') contractAdopt(directory, options);
   else if (kind === 'render') contractRender(directory, options);
-  else fail(`unknown contract command: ${kind} (supported: adopt, render)`);
+  else if (kind === 'add') contractAdd(directory, options);
+  else
+    fail(`unknown contract command: ${kind} (supported: adopt, render, add)`);
 } else {
   fail(`unknown command: ${command}`);
 }
