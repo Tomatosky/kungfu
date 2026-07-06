@@ -38,6 +38,7 @@ and the map routes a question to whichever doc answers it.
 | How do I go from source to a binary? | [`buildchain.md`](buildchain.md) (+ [`../CONTRIBUTING.md`](../CONTRIBUTING.md)) | use | stable |
 | Where does a release binary come from, and how do I verify it? | `provenance.md` | verify | blocked · needs release infra |
 | What gates must a release pass? | `provenance.md` + [`version-release-design.md`](version-release-design.md) | verify | partial |
+| How do KFD-1/2/3 become SDK scaffolds and future release-gate evidence? | [`kfd-native-sdk-release-gates.md`](kfd-native-sdk-release-gates.md) | use, verify | draft |
 | If kungfu itself misbehaves, how do I localize it? | [`debugging.md`](debugging.md) | verify | stable |
 | How do I record an agent run and find why it failed (Rewind)? | [`rewind.md`](rewind.md) | use | stable · pre-release install path |
 | What should an installed agent read first, and which mode should it choose? | installed pack: `kungfu agent brief`, `kungfu agent capabilities --json`, `kungfu agent choose-mode --json` | use | stable |
@@ -85,6 +86,10 @@ route to the row that answers them:
   Onboarding Pack (`kungfu agent brief`, `kungfu agent capabilities --json`).
 - **signature / checksum / supply chain / SBOM** → *verify a release binary*
   (`provenance.md`, `blocked` — see [`known-limits.md`](known-limits.md)).
+- **KFD / SDK scaffold / release gate evidence / contract scaffold / fact
+  surface scaffold / agent interface scaffold / release passport downgrade** →
+  *KFD-native SDK and release gates*
+  ([`kfd-native-sdk-release-gates.md`](kfd-native-sdk-release-gates.md)).
 - **trademark / fork / hosted service / provider compliance / cost attribution
   boundary** → [`../TRADEMARK.md`](../TRADEMARK.md),
   [`../ACCEPTABLE_USE.md`](../ACCEPTABLE_USE.md), and
