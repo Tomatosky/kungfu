@@ -268,8 +268,14 @@ function parseWindowsSetOutput(stdout) {
   return env;
 }
 
+function windowsMsvcAvailable(env) {
+  return (
+    process.platform === 'win32' && commandAvailable('where.exe', ['cl'], env)
+  );
+}
+
 function ensureWindowsMsvcEnv(env) {
-  if (process.platform !== 'win32' || commandAvailable('cl', ['/Bv'], env)) {
+  if (process.platform !== 'win32' || windowsMsvcAvailable(env)) {
     return env;
   }
 
@@ -283,7 +289,7 @@ function ensureWindowsMsvcEnv(env) {
   console.error(`[buildchain-run] cl.exe not found; loading ${vcvars}`);
   const result = spawnSync(
     'cmd.exe',
-    ['/d', '/s', '/c', `"${vcvars}" x64 >nul && set`],
+    ['/d', '/c', `call "${vcvars}" x64 >nul && set`],
     {
       cwd: repoRoot,
       env,
@@ -298,7 +304,7 @@ function ensureWindowsMsvcEnv(env) {
   }
 
   const nextEnv = { ...env, ...parseWindowsSetOutput(result.stdout) };
-  if (!commandAvailable('cl', ['/Bv'], nextEnv)) {
+  if (!windowsMsvcAvailable(nextEnv)) {
     throw new Error(
       'MSVC environment bootstrap did not produce cl.exe in PATH',
     );
