@@ -59,6 +59,16 @@ scans the install root at startup. During development, point
 source builds without installing (rebuild with `pnpm build`, reload the
 app).
 
+For the common single-package workflow, the SDK can do that wiring:
+
+```sh
+cd my-view-kfx
+kungfu sdk product gui dev
+```
+
+That command builds the current kfx, points the reference GUI at the package's
+extension root, and starts the GUI for inspection.
+
 ## The manifest (`kungfuConfig`)
 
 The static half of an extension lives in `package.json` — managers and
@@ -140,7 +150,8 @@ The loader scans extension roots in priority order — first occurrence of a
 key wins:
 
 1. `KF_EXTENSION_PATH` entries (path-separator list; in development this
-   defaults to the workspace `extensions/` tree);
+   defaults to the workspace `extensions/` tree, and in a packaged artifact it
+   defaults to `Resources/extensions`);
 2. `<home>/extensions` next to the runtime dir — the root
    `kungfu kfx install` populates.
 

@@ -17,7 +17,9 @@ import { fileURLToPath } from 'node:url';
 import { generateFirstPartyManifest } from '../src/main/first-party-manifest.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const extensionsRoot = join(here, '..', '..', '..', 'extensions');
+const extensionsRoot =
+  process.env.KF_FIRST_PARTY_SOURCE_ROOT ||
+  join(here, '..', '..', '..', 'extensions');
 const outPath = join(
   here,
   '..',

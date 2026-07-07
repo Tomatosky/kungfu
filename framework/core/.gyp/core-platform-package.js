@@ -12,9 +12,9 @@
  *  - Release/Debug is carried in the package name (CI defaults to Release).
  */
 
-const childProcess = require('child_process');
+const childProcess = require('node:child_process');
 const fs = require('fs-extra');
-const path = require('path');
+const path = require('node:path');
 const sywac = require('sywac');
 const {
   MODULE_NAME,
@@ -32,6 +32,32 @@ const stageDir = path.resolve(
 );
 const packageBuildDir = path.join(rootDir, 'build', 'npm');
 
+/**
+ * @typedef {{
+ *   name: string,
+ *   version: string,
+ *   description?: string,
+ *   license?: string,
+ *   author?: unknown,
+ *   repository?: unknown,
+ *   publishConfig?: unknown,
+ *   main?: string,
+ *   bin?: unknown,
+ *   config?: unknown,
+ *   dependencies?: Record<string, string>,
+ *   scripts?: Record<string, string>
+ * }} CorePackageJson
+ *
+ * @typedef {{
+ *   name: string,
+ *   key: string,
+ *   os?: string[],
+ *   cpu?: string[]
+ * }} PlatformDescriptor
+ *
+ * @typedef {{ command: string, args: string[] }} NpmCommand
+ */
+
 /** Release by default; developers/CI select Debug via build_type. */
 function configuration() {
   return process.env.npm_package_config_build_type === 'Debug'
@@ -39,19 +65,33 @@ function configuration() {
     : 'Release';
 }
 
+/**
+ * @param {string} file
+ * @returns {CorePackageJson}
+ */
 function readJson(file) {
   return fs.readJsonSync(path.join(rootDir, file));
 }
 
+/**
+ * @param {string} file
+ * @param {unknown} value
+ * @returns {void}
+ */
 function writeJson(file, value) {
   fs.writeJsonSync(file, value, { spaces: 2 });
   fs.appendFileSync(file, '\n');
 }
 
+/** @returns {CorePackageJson} */
 function rootPackageJson() {
   return readJson('package.json');
 }
 
+/**
+ * @param {string} packageName
+ * @returns {string}
+ */
 function packageDirName(packageName) {
   return packageName.replace(/^@/, '').replace('/', '-');
 }
@@ -70,6 +110,12 @@ function requireBindingTree() {
   }
 }
 
+/**
+ * @param {CorePackageJson} sourcePackageJson
+ * @param {string} name
+ * @param {string} description
+ * @returns {Record<string, unknown>}
+ */
 function basePackageJson(sourcePackageJson, name, description) {
   return {
     name,
@@ -82,6 +128,11 @@ function basePackageJson(sourcePackageJson, name, description) {
   };
 }
 
+/**
+ * @param {CorePackageJson} sourcePackageJson
+ * @param {string} config
+ * @returns {Record<string, string>}
+ */
 function optionalDependencyMap(sourcePackageJson, config) {
   return Object.fromEntries(
     platformPackages.map((item) => [
@@ -91,6 +142,12 @@ function optionalDependencyMap(sourcePackageJson, config) {
   );
 }
 
+/**
+ * @param {string} packageRoot
+ * @param {string} packageName
+ * @param {string} description
+ * @returns {void}
+ */
 function writePackageReadme(packageRoot, packageName, description) {
   fs.writeFileSync(
     path.join(packageRoot, 'README.md'),
@@ -98,6 +155,10 @@ function writePackageReadme(packageRoot, packageName, description) {
   );
 }
 
+/**
+ * @param {string} packageRoot
+ * @returns {void}
+ */
 function writePlatformIndex(packageRoot) {
   fs.writeFileSync(
     path.join(packageRoot, 'index.js'),
@@ -153,11 +214,20 @@ function prepareMainPackage() {
   return packageRoot;
 }
 
+/**
+ * @param {string} source
+ * @param {string} target
+ * @returns {void}
+ */
 function copyIfExists(source, target) {
   if (fs.existsSync(source))
     fs.copySync(source, target, { dereference: false });
 }
 
+/**
+ * @param {PlatformDescriptor} descriptor
+ * @returns {string}
+ */
 function preparePlatformPackage(descriptor) {
   requireBindingTree();
 
@@ -200,6 +270,10 @@ function preparePlatformPackage(descriptor) {
   return packageRoot;
 }
 
+/**
+ * @param {string} packageRoot
+ * @returns {void}
+ */
 function npmPack(packageRoot) {
   fs.ensureDirSync(stageDir);
   const { command, args } = npmCommand('pack', '--pack-destination', stageDir);
@@ -219,6 +293,10 @@ function npmPack(packageRoot) {
   }
 }
 
+/**
+ * @param {...string} args
+ * @returns {NpmCommand}
+ */
 function npmCommand(...args) {
   const nodeDir = path.dirname(process.execPath);
   const candidates =

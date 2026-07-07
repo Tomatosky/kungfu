@@ -1,16 +1,15 @@
-'use strict';
 // @ts-check
 
 // Build/dev entry points for the kungfu reference app, kept so the developer/sdk
-// `craft` flow (`require('@kungfu-tech/gui').electronBuild / .devRun`)
+// `product` flow (`require('@kungfu-tech/gui').electronBuild / .devRun`)
 // keeps resolving after the Vue/webpack -> electron-vite reborn.
 //
 // NOTE: generic product/extension packaging (the galaxy build that builds an
 // arbitrary app dir) is part of the class-D toolchain reborn and is not yet
 // reimplemented over electron-vite. These wrappers drive the reference app's own
 // electron-vite + electron-builder pipeline.
-const path = require('path');
-const { spawn } = require('child_process');
+const path = require('node:path');
+const { spawn } = require('node:child_process');
 
 const appDir = path.join(__dirname, '..');
 

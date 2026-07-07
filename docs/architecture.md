@@ -168,9 +168,11 @@ agent-ready packaging.
 
 ### Distribution — `artifact` (`@kungfu-tech/artifact-kungfu`)
 
-The dogfood installer: it bundles the runtime, both reference UIs and the SDK
-into one package, so installing it yields the reference GUI and TUI, the
-`kungfu` shell, and the SDK for zero-setup extension and product development.
+The dogfood installer: it bundles the runtime, both reference UIs, the SDK and
+all first-party kfx declared by `artifact/package.json` into one package.
+Installing it yields the reference GUI and TUI, the `kungfu` shell, and the SDK
+for zero-setup extension and product development. `./kungfu-code dist` is the
+single source-to-installer command; its outputs live under `artifact/dist`.
 
 ### Build tooling — `kungfu-code`
 

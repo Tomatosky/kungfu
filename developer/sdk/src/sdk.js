@@ -11,6 +11,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -36,6 +37,8 @@ const CONTRACT_FIXTURE_SCHEMA = 'kungfu.sdk.contract-drift-fixture/v1';
 const CANONICAL_POLICY_SCHEMA = 'kungfu.agent-first-canonical-policy/v1';
 const CANONICAL_POLICY_FILE = 'kungfu-agent-first-canonical-policy.json';
 const require = createRequire(import.meta.url);
+const SDK_CLI = fileURLToPath(import.meta.url);
+const isWin = process.platform === 'win32';
 
 /**
  * Print CLI usage and exit with the given status code.
@@ -56,10 +59,16 @@ function usage(code) {
       '       kungfu sdk contract audit [--json]',
       '       kungfu sdk contract add <surface> [--source <path>] [--json]',
       '       kungfu sdk kfx build | clean',
+      '       kungfu sdk product gui dev|build|pack|dist [--dir <app-dir>] [--dry-run]',
+      '       kungfu sdk product tui dev|build|bundle|dist [--dir <tui-dir>] [--dry-run]',
       '',
       'create options:',
       '  --name <name>   product/view name (defaults to the directory basename)',
       '  --workspace     wire platform deps as workspace:* (inside the monorepo)',
+      '',
+      'product options:',
+      '  --dir <path>    project directory (defaults to the current directory)',
+      '  --dry-run       print the underlying commands without running them',
       '',
       'contract options:',
       '  --source <path>  require the registered surface to use this source file',
@@ -107,8 +116,16 @@ function fail(message) {
 }
 
 /**
+ * @param {unknown} error
+ * @returns {string}
+ */
+function errorMessage(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
  * Parsed CLI options shared by SDK verbs.
- * @typedef {{ workspace: boolean, name: string, source: string, check: boolean, write: boolean, json: boolean }} CliOptions
+ * @typedef {{ workspace: boolean, name: string, source: string, dir: string, check: boolean, write: boolean, json: boolean, dryRun: boolean }} CliOptions
  */
 
 /**
@@ -122,9 +139,11 @@ function parseArgs(argv) {
     workspace: false,
     name: '',
     source: '',
+    dir: '',
     check: false,
     write: false,
     json: false,
+    dryRun: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -135,12 +154,17 @@ function parseArgs(argv) {
     } else if (arg === '--source') {
       i += 1;
       options.source = argv[i] || '';
+    } else if (arg === '--dir') {
+      i += 1;
+      options.dir = argv[i] || '';
     } else if (arg === '--check') {
       options.check = true;
     } else if (arg === '--write') {
       options.write = true;
     } else if (arg === '--json') {
       options.json = true;
+    } else if (arg === '--dry-run') {
+      options.dryRun = true;
     } else if (arg === '-h' || arg === '--help') usage(0);
     else if (arg.startsWith('-')) fail(`unknown option: ${arg}`);
     else positional.push(arg);
@@ -289,6 +313,736 @@ function createSkill(directory, options) {
       '',
     ].join('\n'),
   );
+}
+
+// ── product commands ───────────────────────────────────────────────────────
+// `product` is the SDK-distributed product loop: the same verbs that a repo-local
+// dogfood build uses are available to an external app/TUI project without
+// copying shell-specific electron-builder incantations into every package.json.
+
+/**
+ * @param {string} cwd
+ * @returns {string}
+ */
+function productCwd(cwd) {
+  const resolved = path.resolve(cwd || process.cwd());
+  if (!fs.existsSync(resolved))
+    fail(`project directory not found: ${resolved}`);
+  return resolved;
+}
+
+/**
+ * @param {string} cwd
+ * @returns {Record<string, unknown>}
+ */
+function readPackageJson(cwd) {
+  const packageJson = path.join(cwd, 'package.json');
+  if (!fs.existsSync(packageJson)) {
+    fail(`package.json not found: ${packageJson}`);
+  }
+  const parsed = JSON.parse(fs.readFileSync(packageJson, 'utf8'));
+  if (!isObject(parsed)) {
+    fail(`package.json must be a JSON object: ${packageJson}`);
+  }
+  return parsed;
+}
+
+/**
+ * @param {Record<string, unknown>} pkg
+ * @returns {Record<string, string>}
+ */
+function dependencyMap(pkg) {
+  return {
+    ...(isObject(pkg.dependencies)
+      ? /** @type {Record<string, string>} */ (pkg.dependencies)
+      : {}),
+    ...(isObject(pkg.devDependencies)
+      ? /** @type {Record<string, string>} */ (pkg.devDependencies)
+      : {}),
+  };
+}
+
+/**
+ * @param {Record<string, unknown>} pkg
+ * @returns {boolean}
+ */
+function isKfxManifest(pkg) {
+  return isObject(pkg.kungfuConfig);
+}
+
+/**
+ * @param {Record<string, unknown>} pkg
+ * @returns {boolean}
+ */
+function isProductArtifactManifest(pkg) {
+  if (isObject(pkg.kungfuProduct)) return true;
+  const deps = dependencyMap(pkg);
+  return (
+    Boolean(deps['@kungfu-tech/gui']) &&
+    Object.keys(deps).some((name) => name.startsWith('@kungfu-tech/kfx-'))
+  );
+}
+
+/**
+ * @param {Record<string, unknown>} pkg
+ * @returns {Record<string, string>}
+ */
+function scriptsOf(pkg) {
+  return isObject(pkg.scripts)
+    ? /** @type {Record<string, string>} */ (pkg.scripts)
+    : {};
+}
+
+/**
+ * @param {string} cwd
+ * @returns {{ cmd: string, argsForRun: (script: string) => string[] }}
+ */
+function packageRunner(cwd) {
+  const roots = ancestorDirs(cwd);
+  const manager = roots
+    .map((dir) => {
+      const pkgPath = path.join(dir, 'package.json');
+      if (!fs.existsSync(pkgPath)) return '';
+      try {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+        return isObject(pkg) ? String(pkg.packageManager || '') : '';
+      } catch {
+        return '';
+      }
+    })
+    .find(Boolean);
+  if (
+    manager?.startsWith('pnpm@') ||
+    roots.some((dir) => fs.existsSync(path.join(dir, 'pnpm-lock.yaml')))
+  ) {
+    return {
+      cmd: 'pnpm',
+      argsForRun: (script) => ['--dir', cwd, 'run', script],
+    };
+  }
+  if (
+    manager?.startsWith('yarn@') ||
+    roots.some((dir) => fs.existsSync(path.join(dir, 'yarn.lock')))
+  ) {
+    return { cmd: 'yarn', argsForRun: (script) => ['--cwd', cwd, script] };
+  }
+  return {
+    cmd: 'npm',
+    argsForRun: (script) => ['--prefix', cwd, 'run', script],
+  };
+}
+
+/**
+ * @param {string} cwd
+ * @param {string} bin
+ * @returns {string}
+ */
+function localBin(cwd, bin) {
+  return path.join(cwd, 'node_modules', '.bin', isWin ? `${bin}.cmd` : bin);
+}
+
+/**
+ * @param {string[]} parts
+ * @returns {string}
+ */
+function shellLine(parts) {
+  return parts
+    .map((part) => (/[\s"'$]/.test(part) ? JSON.stringify(part) : part))
+    .join(' ');
+}
+
+/**
+ * @param {string} cwd
+ * @param {string} bin
+ * @param {string[]} args
+ * @param {CliOptions} options
+ * @returns {void}
+ */
+function runLocalBin(cwd, bin, args, options) {
+  const cmd = localBin(cwd, bin);
+  if (options.dryRun) {
+    process.stdout.write(
+      `[dry-run] cd ${cwd}\n[dry-run] ${shellLine([cmd, ...args])}\n`,
+    );
+    return;
+  }
+  if (!fs.existsSync(cmd)) {
+    fail(
+      `local ${bin} not found at ${cmd}; run your package manager install first`,
+    );
+  }
+  const result = spawnSync(cmd, args, {
+    cwd,
+    stdio: 'inherit',
+    shell: isWin,
+  });
+  if (result.status !== 0) {
+    fail(
+      `${bin} failed with exit ${result.status ?? `signal ${result.signal}`}`,
+    );
+  }
+}
+
+/**
+ * @param {string} cwd
+ * @param {string} script
+ * @param {CliOptions} options
+ * @param {{ env?: NodeJS.ProcessEnv, optional?: boolean }} [runOptions]
+ * @returns {void}
+ */
+function runPackageScript(cwd, script, options, runOptions = {}) {
+  const pkg = readPackageJson(cwd);
+  if (!scriptsOf(pkg)[script]) {
+    if (runOptions.optional) return;
+    fail(`package ${String(pkg.name || cwd)} has no script: ${script}`);
+  }
+  const runner = packageRunner(cwd);
+  const args = runner.argsForRun(script);
+  if (options.dryRun) {
+    process.stdout.write(
+      `[dry-run] cd ${cwd}\n[dry-run] ${shellLine([runner.cmd, ...args])}\n`,
+    );
+    return;
+  }
+  const result = spawnSync(runner.cmd, args, {
+    cwd,
+    env: runOptions.env || process.env,
+    stdio: 'inherit',
+    shell: isWin,
+  });
+  if (result.status !== 0) {
+    fail(
+      `${runner.cmd} ${args.join(' ')} failed (exit ${result.status ?? `signal ${result.signal}`})`,
+    );
+  }
+}
+
+/**
+ * @param {string} cwd
+ * @param {string[]} args
+ * @param {CliOptions} options
+ * @param {{ env?: NodeJS.ProcessEnv }} [runOptions]
+ * @returns {void}
+ */
+function runSdkCommand(cwd, args, options, runOptions = {}) {
+  if (options.dryRun) {
+    process.stdout.write(
+      `[dry-run] cd ${cwd}\n[dry-run] ${shellLine([process.execPath, SDK_CLI, ...args])}\n`,
+    );
+    return;
+  }
+  const result = spawnSync(process.execPath, [SDK_CLI, ...args], {
+    cwd,
+    env: runOptions.env || process.env,
+    stdio: 'inherit',
+  });
+  if (result.status !== 0) {
+    fail(
+      `kungfu sdk ${args.join(' ')} failed (exit ${result.status ?? `signal ${result.signal}`})`,
+    );
+  }
+}
+
+/**
+ * @param {string} cwd
+ * @param {string} packageName
+ * @returns {string | null}
+ */
+function resolvePackageDir(cwd, packageName) {
+  const fromProject = () =>
+    path.dirname(
+      createRequire(path.join(cwd, 'package.json')).resolve(
+        `${packageName}/package.json`,
+      ),
+    );
+  const fromSdk = () =>
+    path.dirname(require.resolve(`${packageName}/package.json`));
+  for (const resolver of [fromProject, fromSdk]) {
+    try {
+      return resolver();
+    } catch {
+      // Try the next resolution base.
+    }
+  }
+  return null;
+}
+
+/**
+ * @param {string} startDir
+ * @returns {string | null}
+ */
+function findRepoRootWithExtensions(startDir) {
+  for (const dir of ancestorDirs(startDir)) {
+    if (
+      fs.existsSync(path.join(dir, 'framework', 'gui', 'package.json')) &&
+      fs.existsSync(path.join(dir, 'extensions'))
+    ) {
+      return dir;
+    }
+  }
+  return null;
+}
+
+/**
+ * @param {string} cwd
+ * @returns {string}
+ */
+function resolveReferenceGuiDir(cwd) {
+  const repoRoot = findRepoRootWithExtensions(cwd);
+  if (repoRoot) return path.join(repoRoot, 'framework', 'gui');
+  const resolved = resolvePackageDir(cwd, '@kungfu-tech/gui');
+  if (resolved) return resolved;
+  fail(
+    'cannot locate @kungfu-tech/gui; install @kungfu-tech/gui or run from a kungfu checkout',
+  );
+}
+
+/**
+ * @param {string} cwd
+ * @returns {string | null}
+ */
+function resolveReferenceExtensionsRoot(cwd) {
+  const repoRoot = findRepoRootWithExtensions(cwd);
+  return repoRoot ? path.join(repoRoot, 'extensions') : null;
+}
+
+/**
+ * @param {string} source
+ * @param {string} target
+ * @returns {void}
+ */
+function copyProductPackage(source, target) {
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  const sourceRoot = path.resolve(source);
+  fs.cpSync(source, target, {
+    recursive: true,
+    dereference: false,
+    filter: (src) => {
+      const resolved = path.resolve(src);
+      if (
+        resolved !== sourceRoot &&
+        fs.existsSync(path.join(resolved, 'package.json')) &&
+        fs.statSync(resolved).isDirectory()
+      ) {
+        return false;
+      }
+      const base = path.basename(src);
+      return ![
+        'node_modules',
+        'build',
+        '.venv',
+        '__pycache__',
+        '.DS_Store',
+      ].includes(base);
+    },
+  });
+}
+
+/**
+ * @param {Record<string, unknown>} pkg
+ * @param {string} fallback
+ * @returns {string}
+ */
+function packageInstallKey(pkg, fallback) {
+  const config = isObject(pkg.kungfuConfig) ? pkg.kungfuConfig : {};
+  const key = config.key;
+  return String(key || fallback).replace(/[^a-zA-Z0-9._-]+/g, '-');
+}
+
+/**
+ * @param {string} cwd
+ * @param {string[]} packageNames
+ * @param {string | null} extraPackageDir
+ * @param {CliOptions} options
+ * @param {{ temp?: boolean }} [assembleOptions]
+ * @returns {string}
+ */
+function assembleProductExtensions(
+  cwd,
+  packageNames,
+  extraPackageDir,
+  options,
+  assembleOptions = {},
+) {
+  const targetRoot = assembleOptions.temp
+    ? fs.mkdtempSync(path.join(os.tmpdir(), 'kungfu-product-extensions-'))
+    : path.join(cwd, 'extensions');
+  if (options.dryRun) {
+    process.stdout.write(`[dry-run] assemble kfx -> ${targetRoot}\n`);
+    return targetRoot;
+  }
+  fs.rmSync(targetRoot, { recursive: true, force: true });
+  fs.mkdirSync(targetRoot, { recursive: true });
+  const copied = new Set();
+  /**
+   * @param {string} sourceDir
+   * @returns {void}
+   */
+  const copyOne = (sourceDir) => {
+    const pkg = readPackageJson(sourceDir);
+    if (!isKfxManifest(pkg)) return;
+    const key = packageInstallKey(pkg, path.basename(sourceDir));
+    if (copied.has(key)) return;
+    copyProductPackage(sourceDir, path.join(targetRoot, key));
+    copied.add(key);
+  };
+  if (extraPackageDir) copyOne(extraPackageDir);
+  for (const name of packageNames) {
+    const sourceDir = resolvePackageDir(cwd, name);
+    if (!sourceDir) fail(`cannot resolve declared kfx dependency: ${name}`);
+    copyOne(sourceDir);
+  }
+  return targetRoot;
+}
+
+/**
+ * @param {string} cwd
+ * @returns {string[]}
+ */
+function declaredKfxDependencies(cwd) {
+  const pkg = readPackageJson(cwd);
+  return Object.keys(dependencyMap(pkg))
+    .filter((name) => name.startsWith('@kungfu-tech/kfx-'))
+    .sort();
+}
+
+/**
+ * @param {string} cwd
+ * @returns {boolean}
+ */
+function isBuildableKfxPackage(cwd) {
+  const pkg = readPackageJson(cwd);
+  const config = isObject(pkg.kungfuConfig) ? pkg.kungfuConfig : {};
+  const facets = isObject(config.config) ? config.config : {};
+  return (
+    Boolean(facets.view) ||
+    Boolean(facets.adapter) ||
+    Boolean(facets.service) ||
+    fs.existsSync(path.join(cwd, 'CMakeLists.txt')) ||
+    isObject(pkg.kungfuBuild)
+  );
+}
+
+/**
+ * @param {string} cwd
+ * @param {CliOptions} options
+ * @returns {string}
+ */
+function electronDist(cwd, options) {
+  try {
+    const projectRequire = createRequire(path.join(cwd, 'package.json'));
+    return `${path.dirname(projectRequire.resolve('electron'))}/dist`;
+  } catch (e) {
+    if (options.dryRun) return 'node_modules/electron/dist';
+    fail(
+      `cannot resolve electron from ${cwd}; install project dependencies first (${errorMessage(e)})`,
+    );
+  }
+}
+
+/**
+ * @param {string} cwd
+ * @returns {NodeJS.ProcessEnv}
+ */
+function kfxProductEnv(cwd) {
+  const referenceRoot = resolveReferenceExtensionsRoot(cwd);
+  const extensionRoot = referenceRoot
+    ? referenceRoot
+    : assembleProductExtensions(
+        cwd,
+        [],
+        cwd,
+        {
+          workspace: false,
+          name: '',
+          source: '',
+          dir: '',
+          check: false,
+          write: false,
+          json: false,
+          dryRun: false,
+        },
+        { temp: true },
+      );
+  const roots = [path.dirname(cwd)];
+  if (!roots.includes(extensionRoot)) roots.push(extensionRoot);
+  if (process.env.KF_EXTENSION_PATH) roots.push(process.env.KF_EXTENSION_PATH);
+  return {
+    ...process.env,
+    KF_EXTENSION_PATH: roots.join(path.delimiter),
+    KF_FIRST_PARTY_SOURCE_ROOT: extensionRoot,
+  };
+}
+
+/**
+ * @param {string} cwd
+ * @param {string} verb
+ * @param {CliOptions} options
+ * @returns {void}
+ */
+function productKfxGui(cwd, verb, options) {
+  if (verb === 'build') {
+    runSdkCommand(cwd, ['kfx', 'build'], options);
+    return;
+  }
+  if (verb !== 'dev') {
+    fail(
+      'kfx product gui supports dev and build; use an artifact product for pack/dist',
+    );
+  }
+  runSdkCommand(cwd, ['kfx', 'build'], options);
+  const guiDir = resolveReferenceGuiDir(cwd);
+  const env = options.dryRun ? process.env : kfxProductEnv(cwd);
+  if (options.dryRun) {
+    const referenceRoot =
+      resolveReferenceExtensionsRoot(cwd) || '<sdk bundled kfx>';
+    process.stdout.write(
+      `[dry-run] KF_EXTENSION_PATH=${path.dirname(cwd)}${path.delimiter}${referenceRoot}\n`,
+    );
+    process.stdout.write(
+      `[dry-run] KF_FIRST_PARTY_SOURCE_ROOT=${referenceRoot}\n`,
+    );
+  }
+  runPackageScript(guiDir, 'dev', options, { env });
+}
+
+/**
+ * @param {string} cwd
+ * @param {string} verb
+ * @param {CliOptions} options
+ * @returns {void}
+ */
+function productArtifactGui(cwd, verb, options) {
+  const kfxPackages = declaredKfxDependencies(cwd);
+  for (const name of kfxPackages) {
+    const packageDir = resolvePackageDir(cwd, name);
+    if (!packageDir) fail(`cannot resolve declared kfx dependency: ${name}`);
+    if (!isBuildableKfxPackage(packageDir)) continue;
+    runSdkCommand(packageDir, ['kfx', 'build'], options);
+  }
+
+  if (verb === 'dev') {
+    const extensionRoot = assembleProductExtensions(
+      cwd,
+      kfxPackages,
+      null,
+      options,
+    );
+    const guiDir =
+      resolvePackageDir(cwd, '@kungfu-tech/gui') || resolveReferenceGuiDir(cwd);
+    const env = {
+      ...process.env,
+      KF_EXTENSION_PATH: [extensionRoot, process.env.KF_EXTENSION_PATH]
+        .filter(Boolean)
+        .join(path.delimiter),
+      KF_FIRST_PARTY_SOURCE_ROOT: extensionRoot,
+    };
+    runPackageScript(guiDir, 'dev', options, { env });
+    return;
+  }
+
+  const extensionRoot = assembleProductExtensions(
+    cwd,
+    kfxPackages,
+    null,
+    options,
+  );
+  const tuiDir = resolvePackageDir(cwd, '@kungfu-tech/tui');
+  if (tuiDir) runPackageScript(tuiDir, 'bundle', options, { optional: true });
+
+  const guiDir =
+    resolvePackageDir(cwd, '@kungfu-tech/gui') || resolveReferenceGuiDir(cwd);
+  runPackageScript(guiDir, 'ensure-electron', options, { optional: true });
+  runPackageScript(guiDir, 'build', options);
+
+  if (verb === 'build') return;
+
+  const config = path.join(cwd, 'electron-builder.yml');
+  if (!fs.existsSync(config)) {
+    fail(`artifact product config not found: ${config}`);
+  }
+  const builderScript = path.join(
+    guiDir,
+    'scripts',
+    'run-electron-builder.mjs',
+  );
+  const args = [`--config=${config}`];
+  if (verb === 'pack') args.unshift('--dir');
+  if (options.dryRun) {
+    process.stdout.write(
+      `[dry-run] cd ${guiDir}\n[dry-run] KF_FIRST_PARTY_SOURCE_ROOT=${extensionRoot} ${shellLine([process.execPath, builderScript, ...args])}\n`,
+    );
+    return;
+  }
+  const result = spawnSync(process.execPath, [builderScript, ...args], {
+    cwd: guiDir,
+    env: {
+      ...process.env,
+      KF_FIRST_PARTY_SOURCE_ROOT: extensionRoot,
+    },
+    stdio: 'inherit',
+  });
+  if (result.status !== 0) {
+    fail(
+      `electron-builder failed (exit ${result.status ?? `signal ${result.signal}`})`,
+    );
+  }
+}
+
+/**
+ * @param {string} cwd
+ * @param {string} verb
+ * @param {CliOptions} options
+ * @returns {Promise<void>}
+ */
+async function productArtifactTui(cwd, verb, options) {
+  const tuiDir = resolvePackageDir(cwd, '@kungfu-tech/tui');
+  if (!tuiDir) fail('artifact product does not declare @kungfu-tech/tui');
+  if (verb === 'dev') {
+    runPackageScript(tuiDir, 'dev', options);
+    return;
+  }
+  if (verb === 'build') {
+    runPackageScript(tuiDir, 'build', options);
+    return;
+  }
+  if (verb === 'bundle' || verb === 'dist') {
+    runPackageScript(tuiDir, 'bundle', options);
+    return;
+  }
+  fail('unknown product tui command (supported: dev, build, bundle, dist)');
+}
+
+/**
+ * @param {string} verb
+ * @param {CliOptions} options
+ * @returns {void}
+ */
+function productGui(verb, options) {
+  const cwd = productCwd(options.dir);
+  const pkg = readPackageJson(cwd);
+  if (isKfxManifest(pkg)) {
+    productKfxGui(cwd, verb, options);
+    return;
+  }
+  if (isProductArtifactManifest(pkg)) {
+    productArtifactGui(cwd, verb, options);
+    return;
+  }
+  if (verb === 'dev') {
+    runLocalBin(cwd, 'electron-vite', ['dev'], options);
+    return;
+  }
+  if (verb === 'build') {
+    runLocalBin(cwd, 'electron-vite', ['build'], options);
+    return;
+  }
+  if (verb === 'pack' || verb === 'dist') {
+    runLocalBin(cwd, 'electron-vite', ['build'], options);
+    const args = [`--config.electronDist=${electronDist(cwd, options)}`];
+    if (verb === 'pack') args.unshift('--dir');
+    runLocalBin(cwd, 'electron-builder', args, options);
+    return;
+  }
+  fail('unknown product gui command (supported: dev, build, pack, dist)');
+}
+
+const TUI_BUNDLE_BANNER = [
+  "import { createRequire as __kfCreateRequire } from 'node:module';",
+  'const require = __kfCreateRequire(import.meta.url);',
+].join('\n');
+
+const stubDevtools = {
+  name: 'stub-react-devtools-core',
+  /**
+   * @param {any} build
+   * @returns {void}
+   */
+  setup(build) {
+    build.onResolve({ filter: /^react-devtools-core$/ }, () => ({
+      path: 'react-devtools-core',
+      namespace: 'stub',
+    }));
+    build.onLoad({ filter: /.*/, namespace: 'stub' }, () => ({
+      contents: 'export function connectToDevTools() {}\nexport default {};\n',
+      loader: 'js',
+    }));
+  },
+};
+
+/**
+ * @param {CliOptions} options
+ * @returns {Promise<void>}
+ */
+async function productTuiBundle(options) {
+  const cwd = productCwd(options.dir);
+  const entry = path.join(cwd, 'src', 'main.tsx');
+  const outfile = path.join(cwd, 'dist', 'tui.mjs');
+  if (options.dryRun) {
+    process.stdout.write(
+      `[dry-run] cd ${cwd}\n[dry-run] esbuild src/main.tsx --bundle --platform=node --format=esm --target=node20 --outfile=dist/tui.mjs\n`,
+    );
+    return;
+  }
+  if (!fs.existsSync(entry)) fail(`TUI entry not found: ${entry}`);
+  const esbuild = await import('esbuild');
+  await esbuild.build({
+    entryPoints: [entry],
+    bundle: true,
+    platform: 'node',
+    format: 'esm',
+    target: 'node20',
+    outfile,
+    plugins: [stubDevtools],
+    banner: { js: TUI_BUNDLE_BANNER },
+    logLevel: 'info',
+  });
+}
+
+/**
+ * @param {string} verb
+ * @param {CliOptions} options
+ * @returns {Promise<void>}
+ */
+async function productTui(verb, options) {
+  const cwd = productCwd(options.dir);
+  const pkg = readPackageJson(cwd);
+  if (isProductArtifactManifest(pkg)) {
+    await productArtifactTui(cwd, verb, options);
+    return;
+  }
+  if (verb === 'dev') {
+    runLocalBin(cwd, 'tsx', ['src/main.tsx'], options);
+    return;
+  }
+  if (verb === 'build') {
+    runLocalBin(cwd, 'tsc', [], options);
+    return;
+  }
+  if (verb === 'bundle' || verb === 'dist') {
+    await productTuiBundle(options);
+    return;
+  }
+  fail('unknown product tui command (supported: dev, build, bundle, dist)');
+}
+
+/**
+ * @param {string | undefined} surface
+ * @param {string | undefined} verb
+ * @param {CliOptions} options
+ * @returns {Promise<void>}
+ */
+async function product(surface, verb, options) {
+  if (!surface || !verb) usage(1);
+  if (surface === 'gui') {
+    productGui(verb, options);
+    return;
+  }
+  if (surface === 'tui') {
+    await productTui(verb, options);
+    return;
+  }
+  fail('unknown product target (supported: gui, tui)');
 }
 
 // ── KFD-1 contract prototype ───────────────────────────────────────────────
@@ -927,9 +1681,11 @@ function contractPolicySurface(entry) {
     workspace: false,
     name: '',
     source: '',
+    dir: '',
     check: false,
     write: false,
     json: true,
+    dryRun: false,
   });
   const rendered = renderJson(state.contract);
   return {
@@ -1781,6 +2537,8 @@ if (command === 'create') {
   if (kind === 'build') await kfxBuild();
   else if (kind === 'clean') kfxClean();
   else fail(`unknown kfx command: ${kind} (supported: build, clean)`);
+} else if (command === 'product') {
+  await product(kind, directory, options);
 } else if (command === 'contract') {
   if (kind === 'adopt') contractAdopt(directory, options);
   else if (kind === 'render') contractRender(directory, options);

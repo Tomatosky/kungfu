@@ -28,6 +28,15 @@ function runJson(args, cwd = repoRoot) {
   return JSON.parse(result.stdout);
 }
 
+function runText(args, cwd = repoRoot) {
+  const result = spawnSync(process.execPath, [sdk, ...args], {
+    cwd,
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  return result.stdout;
+}
+
 function makeContractRepo(t) {
   const root = mkdtempSync(join(tmpdir(), 'kungfu-sdk-contract-'));
   const contractDir = join(root, 'framework', 'contract');
@@ -177,6 +186,67 @@ test('packages the agent-first canonical policy through the contract registry he
         artifact.artifact === 'config/kungfu-agent-first-canonical-policy.json',
     ),
   );
+});
+
+test('product exposes dry-run commands for GUI and TUI products', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'kungfu-sdk-product-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  writeFileSync(join(root, 'package.json'), '{"name":"product-demo"}\n');
+  mkdirSync(join(root, 'src'), { recursive: true });
+  writeFileSync(join(root, 'src', 'main.tsx'), 'export default null;\n');
+
+  const gui = runText(['product', 'gui', 'dist', '--dir', root, '--dry-run']);
+  assert.match(gui, /electron-vite/);
+  assert.match(gui, /electron-builder/);
+  assert.match(gui, /config\.electronDist/);
+
+  const tui = runText(['product', 'tui', 'bundle', '--dir', root, '--dry-run']);
+  assert.match(tui, /esbuild src\/main\.tsx/);
+  assert.match(tui, /dist\/tui\.mjs/);
+});
+
+test('product gui dev dry-run supports a single kfx package directory', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'kungfu-sdk-kfx-product-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  writeFileSync(
+    join(root, 'package.json'),
+    `${JSON.stringify(
+      {
+        name: 'demo-kfx',
+        version: '0.1.0',
+        kungfuConfig: {
+          key: 'demo-kfx',
+          name: 'Demo KFX',
+          config: { view: { title: 'Demo KFX' } },
+        },
+      },
+      null,
+      2,
+    )}\n`,
+  );
+
+  const output = runText(['product', 'gui', 'dev', '--dir', root, '--dry-run']);
+  assert.match(output, /sdk\.js kfx build/);
+  assert.match(output, /KF_EXTENSION_PATH=/);
+  assert.match(output, /KF_FIRST_PARTY_SOURCE_ROOT=/);
+  assert.match(output, /run dev/);
+});
+
+test('product gui dist dry-run supports an artifact product directory', () => {
+  const output = runText([
+    'product',
+    'gui',
+    'dist',
+    '--dir',
+    join(repoRoot, 'artifact'),
+    '--dry-run',
+  ]);
+  assert.match(output, /system\/status/);
+  assert.match(output, /assemble kfx ->/);
+  assert.match(output, /framework\/tui/);
+  assert.match(output, /framework\/gui/);
+  assert.match(output, /run-electron-builder\.mjs/);
+  assert.match(output, /electron-builder\.yml/);
 });
 
 test('adopt refuses a source path that does not match the registry', () => {

@@ -74,7 +74,9 @@ the CLI and the kfx-manager view operate on the same facts.
 The loader scans, in priority order (first occurrence of a key wins):
 
 1. `KF_EXTENSION_PATH` entries — in development this defaults to the
-   workspace `extensions/` tree, so shipped views load from source builds;
+   workspace `extensions/` tree, so shipped views load from source builds; in a
+   packaged artifact it defaults to `Resources/extensions`, the bundled
+   first-party kfx assembly;
 2. `<home>/extensions` next to the runtime dir — the install root that
    `kungfu kfx install` populates.
 
@@ -129,8 +131,9 @@ contract in [`../../../docs/extensions.md`](../../../docs/extensions.md);
 
 A view runs at one of two tiers; `resolveRuntimeTier` and the source-authority
 helpers (`../../kfx/src/index.ts`) are the single decision path. Discovery roots
-such as `KF_EXTENSION_PATH` or `<home>/extensions` find packages; they do not
-grant trust. A manifest may ask to stay sandboxed, never to elevate.
+such as `Resources/extensions`, `KF_EXTENSION_PATH`, or `<home>/extensions` find
+packages; they do not grant trust. A manifest may ask to stay sandboxed, never
+to elevate.
 
 **node-integrated** (source-verified first-party/system views) shares the
 shell's renderer, React and capabilities. **sandboxed-ipc** (untrusted views)

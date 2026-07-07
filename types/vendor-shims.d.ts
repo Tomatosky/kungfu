@@ -4,3 +4,6 @@
 
 declare module 'sywac';
 declare module '@kungfu-tech/buildchain/kfd-gate';
+declare module 'glob';
+declare module '@kungfu-tech/libnode';
+declare module '@mapbox/node-pre-gyp';

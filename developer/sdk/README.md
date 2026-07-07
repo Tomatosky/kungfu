@@ -17,7 +17,8 @@ separate `kfs` command):
 kungfu sdk create app my-app   # scaffold into ./my-app
 cd my-app
 pnpm install
-pnpm dev                       # launch against a built @kungfu-tech/core
+kungfu sdk product gui dev       # launch against a built @kungfu-tech/core
+kungfu sdk product gui dist      # build a distributable Electron artifact
 ```
 
 It also scaffolds view extensions (kfx) — installable view packages the
@@ -31,6 +32,27 @@ pnpm install
 pnpm build                     # kungfu sdk kfx build → dist/view/index.js
 npm pack                       # the tgz installs via `kungfu kfx install`
 ```
+
+For product shells, `product` is the SDK-distributed dev/build surface:
+
+```sh
+kungfu sdk product gui dev|build|pack|dist
+kungfu sdk product tui dev|build|bundle|dist
+```
+
+Use `--dir <project>` to target another project directory and `--dry-run` to
+print the underlying electron-vite/electron-builder/tsx/tsc/esbuild command.
+
+`product` is context-aware:
+
+- inside a single kfx package, `kungfu sdk product gui dev` first runs
+  `kungfu sdk kfx build`, then launches the reference GUI with
+  `KF_EXTENSION_PATH` pointed at the package so the view can be inspected in the
+  shell.
+- inside an artifact/product package, `kungfu sdk product gui dist` resolves the
+  declared `@kungfu-tech/kfx-*` dependencies, builds and assembles them under
+  `extensions/`, bundles the TUI when present, builds the GUI, and runs
+  electron-builder from the artifact's `electron-builder.yml`.
 
 Options (both `create` targets):
 

@@ -24,6 +24,8 @@ node, conan, or cmake directly — go through it:
 ```sh
 ./kungfu-code sync      # install JS dependencies (frozen lockfile)
 ./kungfu-code build     # build all workspaces (C++ core + bindings + app)
+./kungfu-code product gui dev   # run the reference GUI through the product loop
+./kungfu-code dist      # build the distributable artifact under artifact/dist
 ./kungfu-code <task>    # any pnpm task, run under the pinned node
 ```
 

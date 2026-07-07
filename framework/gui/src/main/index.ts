@@ -54,6 +54,9 @@ const kungfuDir = app.isPackaged
     );
 
 const bindingPath = path.join(kungfuDir, 'kungfu_electron.node');
+const firstPartySourceRoot =
+  process.env.KF_FIRST_PARTY_SOURCE_ROOT ||
+  path.join(__dirname, '..', '..', '..', '..', 'extensions');
 
 // Export before the renderer process is created so both processes inherit them.
 // The default runtime home must be writable: userData when packaged (never
@@ -70,12 +73,16 @@ process.env.KUNGFU_KFX_CONTRACT =
 // Extension roots for the renderer's kfx loader. Installed extensions live
 // next to the runtime home (<home>/extensions, populated by `kungfu kfx
 // install`); in development the workspace extensions/ tree is the default
-// source so the System Suite and the built-in views load from source builds.
+// source so the System Suite and the built-in views load from source builds. A
+// packaged app always prepends its bundled first-party kfx root, so an inherited
+// KF_EXTENSION_PATH can extend the product without hiding the shipped views.
+const bundledExtensionRoot = app.isPackaged
+  ? path.join(process.resourcesPath, 'extensions')
+  : firstPartySourceRoot;
 process.env.KF_EXTENSION_PATH =
-  process.env.KF_EXTENSION_PATH ||
-  (app.isPackaged
-    ? ''
-    : path.join(__dirname, '..', '..', '..', '..', 'extensions'));
+  app.isPackaged && process.env.KF_EXTENSION_PATH
+    ? [bundledExtensionRoot, process.env.KF_EXTENSION_PATH].join(path.delimiter)
+    : process.env.KF_EXTENSION_PATH || bundledExtensionRoot;
 
 // The frozen first-party set (ADR-0013): which extension keys the renderer's
 // loader may trust with node-integrated tier. It is derived from a *fixed
@@ -96,15 +103,9 @@ if (!process.env.KF_FIRST_PARTY_MANIFEST) {
       'first-party.json',
     );
   } else if (process.env.KF_RUNTIME_DIR) {
-    const firstPartyRoot = path.join(
-      __dirname,
-      '..',
-      '..',
-      '..',
-      '..',
-      'extensions',
-    );
-    const manifest = generateFirstPartyManifest(firstPartyRoot, { pin: false });
+    const manifest = generateFirstPartyManifest(firstPartySourceRoot, {
+      pin: false,
+    });
     const manifestPath = firstPartyManifestPath(process.env.KF_RUNTIME_DIR);
     mkdirSync(path.dirname(manifestPath), { recursive: true });
     writeFileSync(manifestPath, JSON.stringify(manifest), 'utf8');

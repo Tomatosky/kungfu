@@ -65,8 +65,9 @@ cd kungfu
 
 ./kungfu-code sync          # install JS dependencies (frozen lockfile)
 ./kungfu-code build         # build all workspaces (C++ core + bindings + app)
-./kungfu-code freeze        # produce the standalone kungfu bundle
-./kungfu-code build:app     # build the desktop app bundle
+./kungfu-code product gui dev # run the reference GUI dev loop
+./kungfu-code product tui dev # run the reference TUI dev loop
+./kungfu-code dist          # rebuild core, freeze, build all bundled kfx, package artifact/dist
 ./kungfu-code app           # launch the desktop app
 ```
 

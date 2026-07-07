@@ -5,16 +5,17 @@
   "description": "__APP_NAME__ — a Kungfu application",
   "main": "out/main/index.js",
   "scripts": {
-    "dev": "electron-vite dev",
-    "build": "electron-vite build",
-    "pack": "electron-vite build && electron-builder --dir --config.electronDist=$(node -p \"require('path').dirname(require.resolve('electron'))+'/dist'\")",
-    "dist": "electron-vite build && electron-builder --config.electronDist=$(node -p \"require('path').dirname(require.resolve('electron'))+'/dist'\")",
+    "dev": "kungfu sdk product gui dev",
+    "build": "kungfu sdk product gui build",
+    "pack": "kungfu sdk product gui pack",
+    "dist": "kungfu sdk product gui dist",
     "lint": "biome check src",
     "format": "biome format --write src",
     "clean": "rimraf out dist node_modules/.vite"
   },
   "dependencies": {
     "@kungfu-tech/core": "__KF_DEP_VERSION__",
+    "@kungfu-tech/sdk": "__KF_DEP_VERSION__",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

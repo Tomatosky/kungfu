@@ -80,8 +80,9 @@ Python or C++ — as a guest process, never as the thing making the trust decisi
 ```
 
 1. **Discover** — the host scans its extension roots and reads each package's
-   `kungfuConfig` manifest. Roots are a dev override (`KF_EXTENSION_PATH`) and the
-   install root next to the runtime.
+   `kungfuConfig` manifest. Roots are the bundled first-party artifact root
+   (`Resources/extensions`), a dev override (`KF_EXTENSION_PATH`), and the install
+   root next to the runtime.
 2. **Plan** *(proposed: `planKfx`)* — the shared rule computes, per kfx, a neutral
    **load plan**: its key, facet, resolved **tier** (trusted → admitted;
    untrusted → sandboxed), entry, and declared capabilities. The plan
