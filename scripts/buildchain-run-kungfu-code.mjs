@@ -113,6 +113,16 @@ function withPathPrefixes(env, dirs) {
   };
 }
 
+function withWindowsFnmDir(env) {
+  if (process.platform !== 'win32' || env.FNM_DIR) {
+    return env;
+  }
+  return {
+    ...env,
+    FNM_DIR: path.join(repoRoot, '.buildchain', 'fnm'),
+  };
+}
+
 function commandAvailable(command, args, env) {
   const result = spawnSync(command, args, {
     cwd: repoRoot,
@@ -401,11 +411,77 @@ function createWindowsNodeShimDir(nodeExe) {
   return shimDir;
 }
 
+function pinnedNodeVersion() {
+  try {
+    return fs
+      .readFileSync(path.join(repoRoot, '.node-version'), 'utf8')
+      .trim()
+      .replace(/^v/, '');
+  } catch {
+    return '';
+  }
+}
+
+function windowsFnmRoots(env) {
+  if (process.platform !== 'win32') {
+    return [];
+  }
+
+  const home = env.USERPROFILE || env.HOME;
+  const roots = [
+    env.FNM_DIR,
+    env.APPDATA && path.join(env.APPDATA, 'fnm'),
+    home && path.join(home, 'AppData', 'Roaming', 'fnm'),
+  ];
+  const usersRoot = 'C:\\Users';
+  if (fs.existsSync(usersRoot)) {
+    for (const entry of fs.readdirSync(usersRoot, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        roots.push(
+          path.join(usersRoot, entry.name, 'AppData', 'Roaming', 'fnm'),
+        );
+      }
+    }
+  }
+
+  return roots.filter((root, index) => root && roots.indexOf(root) === index);
+}
+
+function findWindowsPinnedNode(env) {
+  const version = pinnedNodeVersion();
+  if (process.platform !== 'win32' || !version) {
+    return '';
+  }
+
+  const versions = [version, `v${version}`];
+  for (const root of windowsFnmRoots(env)) {
+    for (const candidateVersion of versions) {
+      const candidate = path.join(
+        root,
+        'node-versions',
+        candidateVersion,
+        'installation',
+        'node.exe',
+      );
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
+    }
+  }
+  return '';
+}
+
 function resolveWindowsPinnedNode(env) {
-  if (
-    process.platform !== 'win32' ||
-    !commandAvailable('fnm', ['--version'], env)
-  ) {
+  if (process.platform !== 'win32') {
+    return '';
+  }
+
+  const existingNode = findWindowsPinnedNode(env);
+  if (existingNode) {
+    return existingNode;
+  }
+
+  if (!commandAvailable('fnm', ['--version'], env)) {
     return '';
   }
 
@@ -426,7 +502,10 @@ function resolveWindowsPinnedNode(env) {
   }
 
   const nodeExe = result.stdout.trim().split(/\r?\n/).pop()?.trim() || '';
-  return nodeExe && fs.existsSync(nodeExe) ? nodeExe : '';
+  if (nodeExe && fs.existsSync(nodeExe)) {
+    return nodeExe;
+  }
+  return findWindowsPinnedNode(env);
 }
 
 function corepackJsForNode(nodeExe) {
@@ -477,7 +556,14 @@ let env = withPathPrefixes(process.env, [
   createPnpmShimDir(),
   ...windowsToolPathDirs(process.env),
 ]);
+env = withWindowsFnmDir(env);
 const pinnedWindowsNode = resolveWindowsPinnedNode(env);
+if (process.platform === 'win32' && !pinnedWindowsNode) {
+  console.error(
+    `[buildchain-run] pinned Node ${pinnedNodeVersion() || '(unknown)'} not found; install fnm or run fnm install before buildchain lifecycle`,
+  );
+  process.exit(1);
+}
 if (pinnedWindowsNode) {
   console.error(`[buildchain-run] using pinned Node ${pinnedWindowsNode}`);
   env = withPathPrefixes(
