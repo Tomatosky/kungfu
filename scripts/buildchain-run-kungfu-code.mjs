@@ -142,6 +142,170 @@ function psSingleQuoted(value) {
   return `'${value.replace(/'/g, "''")}'`;
 }
 
+function runAndCollect(command, args, env) {
+  return spawnSync(command, args, {
+    cwd: repoRoot,
+    env,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    shell: process.platform === 'win32',
+  });
+}
+
+function windowsProgramFilesRoots(env) {
+  return [
+    env.ProgramFiles,
+    env['ProgramFiles(x86)'],
+    env.ProgramW6432,
+    'C:\\Program Files',
+    'C:\\Program Files (x86)',
+  ].filter((dir, index, dirs) => dir && dirs.indexOf(dir) === index);
+}
+
+function windowsVisualStudioRoots(env) {
+  return windowsProgramFilesRoots(env).map((root) =>
+    path.join(root, 'Microsoft Visual Studio'),
+  );
+}
+
+function windowsVswhereCandidates(env) {
+  return windowsProgramFilesRoots(env)
+    .map((root) =>
+      path.join(root, 'Microsoft Visual Studio', 'Installer', 'vswhere.exe'),
+    )
+    .filter(
+      (candidate, index, candidates) =>
+        candidate && candidates.indexOf(candidate) === index,
+    );
+}
+
+function findFilesByName(roots, fileName, options = {}) {
+  const maxDepth = options.maxDepth ?? 5;
+  const maxMatches = options.maxMatches ?? 8;
+  const matches = [];
+  const wanted = fileName.toLowerCase();
+  const queue = roots
+    .filter((root) => root && fs.existsSync(root))
+    .map((root) => ({ dir: root, depth: 0 }));
+
+  while (queue.length && matches.length < maxMatches) {
+    const { dir, depth } = queue.shift();
+    let entries = [];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isFile() && entry.name.toLowerCase() === wanted) {
+        matches.push(fullPath);
+        if (matches.length >= maxMatches) break;
+      } else if (entry.isDirectory() && depth < maxDepth) {
+        queue.push({ dir: fullPath, depth: depth + 1 });
+      }
+    }
+  }
+
+  return matches;
+}
+
+function windowsVcvarsCandidates(env) {
+  if (process.platform !== 'win32') {
+    return [];
+  }
+  const candidates = [];
+  const add = (candidate) => {
+    if (candidate && !candidates.includes(candidate)) {
+      candidates.push(candidate);
+    }
+  };
+
+  const vsInstallDir = env.VSINSTALLDIR;
+  add(
+    vsInstallDir &&
+      path.join(vsInstallDir, 'VC', 'Auxiliary', 'Build', 'vcvars64.bat'),
+  );
+
+  for (const vswhere of windowsVswhereCandidates(env)) {
+    if (!fs.existsSync(vswhere)) continue;
+    const result = runAndCollect(
+      vswhere,
+      [
+        '-latest',
+        '-products',
+        '*',
+        '-requires',
+        'Microsoft.VisualStudio.Component.VC.Tools.x86.x64',
+        '-property',
+        'installationPath',
+      ],
+      env,
+    );
+    if (result.status === 0) {
+      for (const line of result.stdout.split(/\r?\n/)) {
+        add(path.join(line.trim(), 'VC', 'Auxiliary', 'Build', 'vcvars64.bat'));
+      }
+    }
+  }
+
+  for (const root of windowsVisualStudioRoots(env)) {
+    for (const vcvars of findFilesByName([root], 'vcvars64.bat')) {
+      add(vcvars);
+    }
+  }
+
+  return candidates.filter((candidate) => fs.existsSync(candidate));
+}
+
+function parseWindowsSetOutput(stdout) {
+  const env = {};
+  for (const line of stdout.split(/\r?\n/)) {
+    const index = line.indexOf('=');
+    if (index <= 0) continue;
+    env[line.slice(0, index)] = line.slice(index + 1);
+  }
+  return env;
+}
+
+function ensureWindowsMsvcEnv(env) {
+  if (process.platform !== 'win32' || commandAvailable('cl', ['/Bv'], env)) {
+    return env;
+  }
+
+  const vcvars = windowsVcvarsCandidates(env)[0];
+  if (!vcvars) {
+    throw new Error(
+      'MSVC cl.exe not found in PATH and vcvars64.bat could not be located',
+    );
+  }
+
+  console.error(`[buildchain-run] cl.exe not found; loading ${vcvars}`);
+  const result = spawnSync(
+    'cmd.exe',
+    ['/d', '/s', '/c', `"${vcvars}" x64 >nul && set`],
+    {
+      cwd: repoRoot,
+      env,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'inherit'],
+    },
+  );
+  if (result.status !== 0) {
+    throw new Error(
+      `MSVC environment bootstrap failed with exit ${result.status ?? 'signal'}`,
+    );
+  }
+
+  const nextEnv = { ...env, ...parseWindowsSetOutput(result.stdout) };
+  if (!commandAvailable('cl', ['/Bv'], nextEnv)) {
+    throw new Error(
+      'MSVC environment bootstrap did not produce cl.exe in PATH',
+    );
+  }
+  return nextEnv;
+}
+
 function ensureWindowsUv(env) {
   if (
     process.platform !== 'win32' ||
@@ -222,6 +386,7 @@ let env = withPathPrefixes(process.env, [
   ...windowsToolPathDirs(process.env),
 ]);
 env = ensureWindowsUv(env);
+env = ensureWindowsMsvcEnv(env);
 env.KUNGFU_BUILDCHAIN_NO_OPTIONAL = '1';
 env.KUNGFU_BUILDCHAIN_SOURCE_BUILD = '1';
 const result =
