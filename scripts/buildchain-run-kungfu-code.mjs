@@ -289,12 +289,13 @@ function ensureWindowsMsvcEnv(env) {
   console.error(`[buildchain-run] cl.exe not found; loading ${vcvars}`);
   const result = spawnSync(
     'cmd.exe',
-    ['/d', '/c', `call "${vcvars}" x64 >nul && set`],
+    ['/d', '/s', '/c', `""${vcvars}" x64 >nul && set"`],
     {
       cwd: repoRoot,
       env,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'inherit'],
+      windowsVerbatimArguments: true,
     },
   );
   if (result.status !== 0) {
