@@ -388,6 +388,30 @@ function createPnpmShimDir() {
   return shimDir;
 }
 
+function runWindowsPnpm(args, env) {
+  if (commandAvailable('fnm', ['--version'], env)) {
+    spawnSync('fnm', ['install'], {
+      cwd: repoRoot,
+      env,
+      stdio: 'ignore',
+      shell: true,
+    });
+    return spawnSync('fnm', ['exec', '--', 'corepack.cmd', 'pnpm', ...args], {
+      cwd: repoRoot,
+      env,
+      stdio: 'inherit',
+      shell: true,
+    });
+  }
+
+  return spawnSync('corepack.cmd', ['pnpm', ...args], {
+    cwd: repoRoot,
+    env,
+    stdio: 'inherit',
+    shell: true,
+  });
+}
+
 let env = withPathPrefixes(process.env, [
   createPnpmShimDir(),
   ...windowsToolPathDirs(process.env),
@@ -398,12 +422,7 @@ env.KUNGFU_BUILDCHAIN_NO_OPTIONAL = '1';
 env.KUNGFU_BUILDCHAIN_SOURCE_BUILD = '1';
 const result =
   process.platform === 'win32'
-    ? spawnSync('corepack.cmd', ['pnpm', ...argv], {
-        cwd: repoRoot,
-        env,
-        stdio: 'inherit',
-        shell: true,
-      })
+    ? runWindowsPnpm(argv, env)
     : spawnSync(path.join(repoRoot, 'kungfu-code'), argv, {
         cwd: repoRoot,
         env,
