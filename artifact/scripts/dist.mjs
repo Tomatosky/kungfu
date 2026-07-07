@@ -50,6 +50,14 @@ function runPnpm(label, args, options = {}) {
   run(label, 'pnpm', args, options);
 }
 
+function installArgs() {
+  const args = ['install', '--frozen-lockfile'];
+  if (process.env.KUNGFU_BUILDCHAIN_NO_OPTIONAL === '1') {
+    args.push('--no-optional');
+  }
+  return args;
+}
+
 function readJson(file) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
@@ -185,7 +193,7 @@ function main() {
   const kfxPackages = listKfxPackages();
   assertDeclaredKfx(kfxPackages);
 
-  runPnpm('sync dependencies', ['install', '--frozen-lockfile']);
+  runPnpm('sync dependencies', installArgs());
   runPnpm('rebuild core', ['--filter', '@kungfu-tech/core', 'run', 'rebuild']);
   runPnpm('freeze core runtime', [
     '--filter',

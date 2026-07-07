@@ -42,12 +42,14 @@ function createPnpmShimDir() {
 }
 
 const env = withPathPrefix(process.env, createPnpmShimDir());
+env.KUNGFU_BUILDCHAIN_NO_OPTIONAL = '1';
 const result =
   process.platform === 'win32'
     ? spawnSync('corepack.cmd', ['pnpm', ...argv], {
         cwd: repoRoot,
         env,
         stdio: 'inherit',
+        shell: true,
       })
     : spawnSync(path.join(repoRoot, 'kungfu-code'), argv, {
         cwd: repoRoot,
