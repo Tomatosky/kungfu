@@ -9,42 +9,14 @@ on:
       - alpha/v*/v*
       - release/v*/v*
 
+permissions:
+  contents: read
+
 jobs:
-  release:
-    uses: kungfu-trader/workflows/.github/workflows/.release-new-version.yml@v1
-    with:
-      protect-dev-branches: true
-      need-qa-automated: true
-      max-preview-links: 64
-    secrets:
-      GITHUB_PUSH_TOKEN: ${{ secrets.KUNGFU_GITHUB_TOKEN }}
-      AWS_CI_ACCESS_KEY_ID: ${{ secrets.AWS_CI_ACCESS_KEY_ID }}
-      AWS_CI_SECRET_ACCESS_KEY: ${{ secrets.AWS_CI_SECRET_ACCESS_KEY }}
-      AWS_USER_ACCESS_KEY_ID: ${{ secrets.AWS_USER_ACCESS_KEY_ID }}
-      AWS_USER_SECRET_ACCESS_KEY: ${{ secrets.AWS_USER_SECRET_ACCESS_KEY }}
-      MONDAY_API_KEY: ${{ secrets.MONDAY_API_KEY }}
-      AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
-
-  trigger-batch-pr:
-      needs: [release]
-      uses: kungfu-trader/workflows/.github/workflows/.batch-pull-request.yml@dev/v1/v1.2
-      with:
-        repo: group
-        pull-request-title: ${{ github.event.pull_request.title }}
-      secrets:
-        GITHUB_PUSH_TOKEN: ${{ secrets.KUNGFU_GITHUB_TOKEN }}
-
-  sync-release-page:
-    needs: [release]
-    uses: kungfu-trader/workflows/.github/workflows/.sync-release-page.yml@dev/v1/v1.2
-    with:
-      product: artifact-kungfu
-      cloudfront-id: E1FE73MM9VXU2T
-      release-url: https://releases.libkungfu.cc
-      repo: kungfu
-      release-path: artifact-kungfu
-      product-name: kungfu
-      lower-edge: 2.0.0
-    secrets:
-      GITHUB_PUSH_TOKEN: ${{ secrets.KUNGFU_GITHUB_TOKEN }}
-      AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
+  bootstrap:
+    if: ${{ github.event.pull_request.merged == true }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Bootstrap only
+        run: |
+          echo "Buildchain release promotion is intentionally disabled on the alpha workflow bootstrap PR."
