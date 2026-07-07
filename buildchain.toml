@@ -23,7 +23,7 @@ key = "version"
 # build workflow) and the runner preset that provides the fnm/uv/conan
 # prerequisites are wired in a later stage.
 [lifecycle.install]
-command = "node scripts/buildchain-run-kungfu-code.mjs sync"
+command = "node scripts/buildchain-run-kungfu-code.mjs install --frozen-lockfile --no-optional"
 
 [lifecycle.build]
 command = "node scripts/buildchain-run-kungfu-code.mjs dist"

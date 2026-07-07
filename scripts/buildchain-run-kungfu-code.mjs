@@ -18,9 +18,9 @@ const result =
         process.env.ComSpec || 'cmd.exe',
         [
           '/d',
-          '/s',
           '/c',
           [
+            'call',
             quoteCmdArg(path.join(repoRoot, 'kungfu-code.cmd')),
             ...argv.map(quoteCmdArg),
           ].join(' '),
