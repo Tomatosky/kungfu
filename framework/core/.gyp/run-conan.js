@@ -2,7 +2,7 @@
 // @ts-check
 
 const fse = require('fs-extra');
-const path = require('path');
+const path = require('node:path');
 const { shell } = require('../lib');
 
 /** @param {string[]} cmd */
@@ -14,16 +14,40 @@ function conan(cmd) {
   });
 }
 
+function ensureBuildchainConanProfile() {
+  if (process.env.KUNGFU_BUILDCHAIN_SOURCE_BUILD !== '1') {
+    return;
+  }
+  const env = { NODE_GYP_RUN: 'on', ...process.env };
+  const existing = shell.runAndCollect(
+    'uv',
+    ['run', '--frozen', 'conan', 'profile', 'path', 'default'],
+    { env, silent: true },
+  );
+  if (existing.status === 0) {
+    return;
+  }
+  shell.run(
+    'uv',
+    ['run', '--frozen', 'conan', 'profile', 'detect', '--force'],
+    true,
+    {
+      env,
+    },
+  );
+}
+
 function getNodeVersionOptions() {
   const packageJson = fse.readJsonSync(
     path.resolve(path.dirname(__dirname), 'package.json'),
   );
   // electron 从 devDependencies 读并去掉 ^/~ 前缀；node_version 从 config 读
   // (v4 起 @kungfu-tech/libnode 不再列为 devDep，dev 走 npm link，见 docs/conan2-migration.md)。
-  const electronVersion = String(
-    packageJson.devDependencies['electron'],
-  ).replace(/^[\^~]/, '');
-  const nodeVersion = packageJson.config['node_version'];
+  const electronVersion = String(packageJson.devDependencies.electron).replace(
+    /^[\^~]/,
+    '',
+  );
+  const nodeVersion = packageJson.config.node_version;
   return [
     '-o',
     `electron_version=${electronVersion}`,
@@ -41,7 +65,7 @@ function makeConanSetting(name) {
 
 /** @param {string[]} names */
 function makeConanSettings(names) {
-  return names.map(makeConanSetting).flat();
+  return names.flatMap(makeConanSetting);
 }
 
 // Windows 端口固化：conan profile detect 在 MSVC 上把 compiler.cppstd 探成 14，
@@ -60,11 +84,12 @@ function makeConanOption(name) {
 
 /** @param {string[]} names */
 function makeConanOptions(names) {
-  return names.map(makeConanOption).flat().concat(getNodeVersionOptions());
+  return names.flatMap(makeConanOption).concat(getNodeVersionOptions());
 }
 
 // conan2：-if/-bf → --output-folder；arch 是 setting 由 profile 自测，不再作 -o 选项。
 function conanInstall() {
+  ensureBuildchainConanProfile();
   const settings = [
     ...makeConanSettings(['build_type']),
     ...platformConanSettings(),

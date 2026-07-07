@@ -10,10 +10,35 @@ import { fileURLToPath } from 'node:url';
 const repoRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const argv = process.argv.slice(2);
 
-function withPathPrefix(env, dir) {
+function envPathKey(env) {
+  if (process.platform === 'win32' && Object.hasOwn(env, 'Path')) {
+    return 'Path';
+  }
+  return 'PATH';
+}
+
+function existingDirs(dirs) {
+  return dirs.filter((dir) => dir && fs.existsSync(dir));
+}
+
+function windowsToolPathDirs(env) {
+  if (process.platform !== 'win32') {
+    return [];
+  }
+  const home = env.USERPROFILE || env.HOME;
+  const localAppData = env.LOCALAPPDATA;
+  return existingDirs([
+    localAppData && path.join(localAppData, 'Microsoft', 'WinGet', 'Links'),
+    home && path.join(home, '.local', 'bin'),
+    home && path.join(home, '.cargo', 'bin'),
+  ]);
+}
+
+function withPathPrefixes(env, dirs) {
+  const pathKey = envPathKey(env);
   return {
     ...env,
-    PATH: [dir, env.PATH || env.Path || '']
+    [pathKey]: [...dirs, env[pathKey] || env.PATH || env.Path || '']
       .filter(Boolean)
       .join(path.delimiter),
   };
@@ -41,8 +66,12 @@ function createPnpmShimDir() {
   return shimDir;
 }
 
-const env = withPathPrefix(process.env, createPnpmShimDir());
+const env = withPathPrefixes(process.env, [
+  createPnpmShimDir(),
+  ...windowsToolPathDirs(process.env),
+]);
 env.KUNGFU_BUILDCHAIN_NO_OPTIONAL = '1';
+env.KUNGFU_BUILDCHAIN_SOURCE_BUILD = '1';
 const result =
   process.platform === 'win32'
     ? spawnSync('corepack.cmd', ['pnpm', ...argv], {

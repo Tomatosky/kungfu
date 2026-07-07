@@ -7,6 +7,7 @@
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -19,6 +20,7 @@ const CORE_DIST = path.join(ROOT, 'framework', 'core', 'dist', 'kungfu');
 const EXTENSIONS_ROOT = path.join(ROOT, 'extensions');
 const ASSEMBLED_EXTENSIONS = path.join(ARTIFACT_DIR, 'extensions');
 const isWin = process.platform === 'win32';
+const require = createRequire(import.meta.url);
 
 const builderArgs = process.argv.slice(2);
 
@@ -50,12 +52,88 @@ function runPnpm(label, args, options = {}) {
   run(label, 'pnpm', args, options);
 }
 
+function libnodePlatformPackageName() {
+  const packages = {
+    'darwin-arm64': '@kungfu-tech/libnode-darwin-arm64',
+    'linux-x64': '@kungfu-tech/libnode-linux-x64',
+    'win32-x64': '@kungfu-tech/libnode-win32-x64',
+  };
+  return packages[`${process.platform}-${process.arch}`];
+}
+
 function installArgs() {
   const args = ['install', '--frozen-lockfile'];
   if (process.env.KUNGFU_BUILDCHAIN_NO_OPTIONAL === '1') {
     args.push('--no-optional');
   }
   return args;
+}
+
+function canResolve(packageName) {
+  try {
+    require.resolve(`${packageName}/package.json`);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function buildchainSourceBuildEnv() {
+  if (process.env.KUNGFU_BUILDCHAIN_NO_OPTIONAL !== '1') {
+    return process.env;
+  }
+
+  const packageName = libnodePlatformPackageName();
+  if (!packageName) {
+    throw new Error(
+      `unsupported libnode platform: ${process.platform}-${process.arch}`,
+    );
+  }
+  if (canResolve(packageName)) {
+    return process.env;
+  }
+
+  const corePackage = readJson(
+    path.join(ROOT, 'framework', 'core', 'package.json'),
+  );
+  const libnodeVersion = corePackage.devDependencies?.['@kungfu-tech/libnode'];
+  if (!libnodeVersion) {
+    throw new Error('framework/core must declare @kungfu-tech/libnode');
+  }
+
+  const installRoot = path.join(
+    ROOT,
+    '.buildchain',
+    'libnode-platform',
+    `${process.platform}-${process.arch}`,
+  );
+  const nodePath = path.join(installRoot, 'node_modules');
+  const installedPackageJson = path.join(
+    nodePath,
+    ...packageName.split('/'),
+    'package.json',
+  );
+  if (!fs.existsSync(installedPackageJson)) {
+    fs.rmSync(installRoot, { recursive: true, force: true });
+    fs.mkdirSync(installRoot, { recursive: true });
+    run('install libnode platform package', 'npm', [
+      'install',
+      '--no-save',
+      '--package-lock=false',
+      '--ignore-scripts',
+      '--prefer-offline',
+      '--prefix',
+      installRoot,
+      `${packageName}@${libnodeVersion}`,
+    ]);
+  }
+
+  return {
+    ...process.env,
+    NODE_PATH: [nodePath, process.env.NODE_PATH || '']
+      .filter(Boolean)
+      .join(path.delimiter),
+  };
 }
 
 function readJson(file) {
@@ -193,8 +271,11 @@ function main() {
   const kfxPackages = listKfxPackages();
   assertDeclaredKfx(kfxPackages);
 
+  const buildEnv = buildchainSourceBuildEnv();
   runPnpm('sync dependencies', installArgs());
-  runPnpm('rebuild core', ['--filter', '@kungfu-tech/core', 'run', 'rebuild']);
+  runPnpm('rebuild core', ['--filter', '@kungfu-tech/core', 'run', 'rebuild'], {
+    env: buildEnv,
+  });
   runPnpm('freeze core runtime', [
     '--filter',
     '@kungfu-tech/core',
