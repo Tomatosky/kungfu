@@ -29,7 +29,7 @@ jobs:
       release-candidate-workflow-name: Build
       artifact-patterns: |
         kungfu-*
-      required-status-check: Build
+      required-status-check: build
       publish-target: custom
       publish-artifact-kind: kungfu-product
       publish-command: node scripts/buildchain-custom-publish-evidence.mjs
