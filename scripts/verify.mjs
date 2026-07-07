@@ -64,7 +64,7 @@ if (args.includes('--help') || args.includes('-h')) {
 const doFull = args.includes('--full');
 const withApp = args.includes('--with-app');
 
-// expected version: single source of truth is lerna.json (the version maintained by the org repo action-bump-version)
+// expected version: single source of truth is lerna.json (maintained by the release workflow)
 function expectedVersion() {
   const lerna = JSON.parse(
     fs.readFileSync(path.join(ROOT, 'lerna.json'), 'utf8'),

@@ -6,9 +6,9 @@
 ## Why this document exists
 
 At a glance the version/release setup looks like ordinary boilerplate: `lerna` plus a few
-thin GitHub workflows that delegate to `kungfu-systems/workflows` and
-`kungfu-systems/action-bump-version`. It is easy to read the code in seconds and conclude
-"this is replaceable scaffolding — just swap it for changesets / semantic-release."
+thin GitHub workflows that delegate release-candidate build and promotion to Buildchain.
+It is easy to read the code in seconds and conclude "this is replaceable scaffolding —
+just swap it for changesets / semantic-release."
 
 That conclusion is wrong, and the reason it is wrong is **not in the code** — it is in the
 *orchestration intent*, which no single file reveals. This document records that intent so
@@ -17,7 +17,7 @@ the mechanism is not mistaken for replaceable boilerplate.
 ## Core principle: the machine fits the human
 
 Version management here is designed around **human cognition**, not tool convenience. The
-governing constraint (see the `action-bump-version` README):
+governing constraint inherited from the original channel-based release machinery is:
 
 > Contributors are generally not fluent with git / npm / lerna / GitHub internals. The
 > pipeline must not require any of them to perform high-level tool operations. Releasing
@@ -201,12 +201,11 @@ If a candidate cannot preserve all four, it is a downgrade for this project, how
 
 ## Pointers
 
-- Thin workflows:
-  `.github/workflows/{bump-major-version,bump-minor-version,release-new-version,release-verify}.yml`
-  → reusable workflows in `kungfu-systems/workflows`.
-- Bump / release / publish logic and branch-protection setup:
-  `kungfu-systems/action-bump-version` (its README documents the full channel rules and the
-  original design goals).
+- Active Buildchain workflows:
+  `.github/workflows/buildchain-validate.yml`, `.github/workflows/build.yml`, and
+  `.github/workflows/release-new-version.yml`.
+- Release-candidate build and promotion logic:
+  `kungfu-systems/buildchain` reusable workflows and release-passport tooling.
 - Build & toolchain dependencies: see [`CONTRIBUTING.md`](../CONTRIBUTING.md)
   (a dedicated source-to-binary `buildchain` doc is planned — see [`MAP.md`](MAP.md)).
 - The compatibility invariant below the tag (longfist layout), its schema-evolution policy,
