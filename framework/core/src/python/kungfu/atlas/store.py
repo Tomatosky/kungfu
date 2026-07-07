@@ -22,6 +22,7 @@ from kungfu.atlas import (
     SCHEMA_VERSION,
     events,
     importer,
+    payloads,
 )
 from kungfu.atlas.fb.GoalSnapshot import GoalSnapshot
 from kungfu.atlas.fb.ImportBegin import ImportBegin
@@ -50,6 +51,10 @@ def _location(runtime_dir):
     )
 
 
+def store_dir(runtime_dir):
+    return os.path.join(runtime_dir, "atlas", "store")
+
+
 def _text(value):
     return value.decode() if value is not None else None
 
@@ -72,17 +77,26 @@ class ImportStore:
         # the binding takes the payload as a byte sequence (list[int])
         self.writer.write_bytes(0, msg_type, list(data), len(data))
 
-    def run_import(self, repo_root):
+    def run_import(
+        self,
+        repo_root,
+        *,
+        storage_source_id="atlas",
+        range_filter=None,
+    ):
         """Import one snapshot batch from repo_root. Returns a result dict."""
         repo_root = os.path.abspath(repo_root)
         import_id = "imp" + uuid.uuid4().hex[:8]
-        missions, goals, markers, warnings = importer.read_control_plane(repo_root)
+        repo_head = importer.repo_head(repo_root)
+        missions, goals, markers, source_records, warnings = (
+            importer.read_control_plane_with_sources(repo_root, window=range_filter)
+        )
         self._append(
             MSG_IMPORT_BEGIN,
             events.import_begin(
                 import_id,
                 repo_root,
-                importer.repo_head(repo_root),
+                repo_head,
                 SCHEMA_VERSION,
             ),
         )
@@ -98,18 +112,39 @@ class ImportStore:
                 import_id, len(missions), len(goals), len(markers), len(warnings)
             ),
         )
+        payloads.write_import_payloads(
+            self.store_dir(),
+            import_id=import_id,
+            repo_root=repo_root,
+            repo_head=repo_head,
+            source_records=source_records,
+            counts={
+                "missions": len(missions),
+                "goals": len(goals),
+                "markers": len(markers),
+            },
+            storage_source_id=storage_source_id,
+            source_type="atlas",
+            range_filter=range_filter,
+        )
         self.emit_manifest()
         return {
             "import_id": import_id,
+            "storage_source_id": storage_source_id,
+            "source_type": "atlas",
             "repo_root": repo_root,
+            "repo_head": repo_head,
+            "source_head": repo_head,
+            "range": payloads._serialize_range(range_filter),
             "missions": len(missions),
             "goals": len(goals),
             "markers": len(markers),
+            "payloads": len(source_records),
             "warnings": warnings,
         }
 
     def store_dir(self):
-        return os.path.join(self.runtime_dir, "atlas", "store")
+        return store_dir(self.runtime_dir)
 
     def emit_manifest(self):
         """Pin the store's schema bindings (content-addressed .bfbs + manifest)."""
@@ -252,3 +287,77 @@ def load(runtime_dir):
         return None
     completed.sort(key=lambda entry: entry[0])
     return batches[completed[-1][1]]
+
+
+def status(runtime_dir):
+    projection = load(runtime_dir)
+    manifest = payloads.load_latest_manifest(store_dir(runtime_dir))
+    if manifest is None:
+        return {
+            "ok": False,
+            "scope": "atlas",
+            "reason": "no completed payload manifest",
+        }
+    return {
+        "ok": projection is not None,
+        "scope": "atlas",
+        "import_id": manifest.get("import_id"),
+        "storage_source_id": manifest.get("storage_source_id", "atlas"),
+        "source_type": manifest.get("source_type", "atlas"),
+        "range": manifest.get("range"),
+        "repo_root": manifest.get("repo_root"),
+        "repo_head": manifest.get("repo_head"),
+        "source_head": manifest.get("source_head", manifest.get("repo_head")),
+        "payloads": len(manifest.get("entries", [])),
+        "missions": len(projection.get("missions", {})) if projection else 0,
+        "goals": len(projection.get("goals", {})) if projection else 0,
+        "markers": len(projection.get("markers", {})) if projection else 0,
+    }
+
+
+def fsck(runtime_dir):
+    return payloads.fsck_import(store_dir(runtime_dir), load(runtime_dir))
+
+
+def export_jsonl(
+    runtime_dir,
+    out_path,
+    *,
+    range_filter=None,
+    storage_source_id=None,
+):
+    records = payloads.export_records(
+        store_dir(runtime_dir),
+        range_filter=range_filter,
+        storage_source_id=storage_source_id,
+    )
+    payloads.write_jsonl(records, out_path)
+    return {
+        "ok": True,
+        "scope": "atlas",
+        "storage_source_id": storage_source_id,
+        "range": payloads._serialize_range(range_filter),
+        "format": "jsonl",
+        "out": os.path.abspath(out_path),
+        "records": len(records),
+    }
+
+
+def verify_against_repo(
+    runtime_dir, repo_root, *, range_filter=None, storage_source_id=None
+):
+    repo_root = os.path.abspath(repo_root)
+    _, _, _, source_records, warnings = importer.read_control_plane_with_sources(
+        repo_root, window=range_filter
+    )
+    report = payloads.verify_against_source(
+        store_dir(runtime_dir),
+        source_records,
+        storage_source_id=storage_source_id,
+    )
+    report["repo_root"] = repo_root
+    report["repo_head"] = importer.repo_head(repo_root)
+    report["storage_source_id"] = storage_source_id
+    report["range"] = payloads._serialize_range(range_filter)
+    report["warnings"] = warnings
+    return report

@@ -64,7 +64,7 @@ if (args.includes('--help') || args.includes('-h')) {
 const doFull = args.includes('--full');
 const withApp = args.includes('--with-app');
 
-// expected version: single source of truth is lerna.json (the version maintained by the org repo action-bump-version)
+// expected version: single source of truth is lerna.json (maintained by the release workflow)
 function expectedVersion() {
   const lerna = JSON.parse(
     fs.readFileSync(path.join(ROOT, 'lerna.json'), 'utf8'),
@@ -98,6 +98,14 @@ function sha256(file) {
 
 function exitLabel(status, signal) {
   return status == null ? `signal ${signal}` : status;
+}
+
+function outputTail(stdout, stderr, lines = 3) {
+  return `${stdout || ''}${stderr || ''}`
+    .trim()
+    .split('\n')
+    .slice(-lines)
+    .join(' | ');
 }
 
 function assertContractArtifact(distDir, artifact) {
@@ -188,14 +196,17 @@ function main() {
     },
   );
   if (mypy.status === 0) pass('python type check', 'mypy baseline clean');
-  else
+  else if (
+    isWin &&
+    `${mypy.stdout || ''}${mypy.stderr || ''}`.includes('os error 448')
+  ) {
+    console.log(
+      `  (skipped on Windows: uv interpreter discovery hit runner mount-point error 448; tail: ${outputTail(mypy.stdout, mypy.stderr)})`,
+    );
+  } else
     fail(
       'python type check',
-      `${mypy.stdout || ''}${mypy.stderr || ''}`
-        .trim()
-        .split('\n')
-        .slice(-3)
-        .join(' | ') || `mypy exited ${mypy.status}`,
+      outputTail(mypy.stdout, mypy.stderr) || `mypy exited ${mypy.status}`,
     );
 
   // ── Stage 0c: installed agent onboarding pack ────────────────────
@@ -214,6 +225,25 @@ function main() {
       'agent onboarding pack',
       `${agentPack.stdout || ''}${agentPack.stderr || ''}`.trim() ||
         `verify-agent-pack exited ${agentPack.status}`,
+    );
+
+  // ── Stage 0d: KFD-2 release claims registry ──────────────────────
+  // The release claims are product-owned facts. The verifier checks the source
+  // registry and Buildchain projection without writing generated .buildchain
+  // files.
+  console.log('\n[verify] stage 0d: KFD-2 release claims registry');
+  const kfd2Claims = spawnSync(
+    process.execPath,
+    [path.join(__dirname, 'kfd2-release-claims.mjs'), '--check'],
+    { encoding: 'utf8' },
+  );
+  if (kfd2Claims.status === 0)
+    pass('KFD-2 release claims registry', (kfd2Claims.stdout || '').trim());
+  else
+    fail(
+      'KFD-2 release claims registry',
+      `${kfd2Claims.stdout || ''}${kfd2Claims.stderr || ''}`.trim() ||
+        `kfd2-release-claims exited ${kfd2Claims.status}`,
     );
 
   // ── Stage 0: toolchain preflight (read-only) ──────────────────────

@@ -28,7 +28,8 @@ The first implementation should build on surfaces that already exist:
   registered contracts.
 - The work store and Rewind surfaces already provide append-first local facts.
 - The installed agent pack already exposes agent-readable docs, capabilities,
-  commands, and mode selection.
+  commands, and mode selection. It is Kungfu's current agent-first profile of a
+  more general KFD-3 collaboration interface.
 
 This means the SDK should not invent a second source of truth. It should
 generate files that join the existing contract, fact, and agent surfaces.
@@ -45,6 +46,15 @@ generate files that join the existing contract, fact, and agent surfaces.
   `experimental`, or `stable`, paired with known limits.
 - **Downgrade**: the release claim is lowered when evidence is missing or
   inconsistent.
+- **Participant**: a collaborator that needs to understand value, choices, and
+  constraints before cooperating. A participant can be a human, agent, operator,
+  extension author, API consumer, or service user.
+- **Collaboration interface**: the declared participant-facing interface for a
+  product surface. It includes minimal entrypoints, commands, docs, schemas,
+  choices, constraints, maturity labels, and known limits.
+- **Closure**: every reachable participant-facing entrypoint is classified in
+  the collaboration interface. An unclassified reachable entrypoint is a
+  build-time failure, not an undocumented public API.
 
 ## Design Map
 
@@ -52,7 +62,7 @@ generate files that join the existing contract, fact, and agent surfaces.
 |---|---|---|---|---|---|
 | KFD-1: contracts must not drift | `kungfu sdk add contract <surface>` | Contract source, schema/version metadata, registry entry, versioning/register prompt, drift fixture, known-limits stub | `kungfu contract verify --json`; future `kungfu contract show <surface> --json`; packaged contract hash list | Buildchain consumes the same registry and records `kfd1.contracts` evidence in a release passport | Downgrade if the surface is not registered, dev/runtime/frozen artifacts disagree, or known limits are missing |
 | KFD-2: trust starts from facts | `kungfu sdk add fact-surface <name>` | Event schema or `.fbs`, msg type allocation, append helper, projection/store stub, `show/list --json` API, append-fold-readback fixture | Local append -> fold -> readback probe; manifest with schema hash and responsibility fields such as status, next action, decision, validation, artifact, and linked run | Buildchain records a fact-surface proof bundle and export/reviewability artifact | Downgrade if the claim is only prose, no local readback exists, responsibility fields are absent, or cost/attribution certainty is ambiguous |
-| KFD-3: cooperation starts from transparent value | `kungfu sdk add agent-interface <surface>` | Agent docs entry, capabilities/commands metadata, mode-selection or onboarding hook, constraint declaration, CLI/API examples, known-limits stub | `kungfu agent capabilities --json`; `kungfu agent choose-mode --json`; probe that an agent can discover value, boundary, next action, and known limits | Buildchain verifies the agent-facing manifest and discovery command before a release claims the surface | Downgrade if the surface is GUI-only, prose-only, stale, hides constraints, or has no machine-readable entrypoint |
+| KFD-3: cooperation starts from transparent value | Current first slice: `kfd3_api.registry.json` + `@kfd3_api("<api-id>")`; future SDK scaffold may add new surfaces from the same registry model | Agent docs entry, capabilities/commands metadata, mode-selection or onboarding hook, constraint declaration, CLI/API examples, known-limits stub, and local registry/schema | `kungfu agent capabilities --json`; `kungfu agent choose-mode --json`; `kungfu agent verify --json`; probe that an agent can discover value, boundary, next action, known limits, and the declared control surface | Buildchain should consume Kungfu-emitted KFD-3 evidence after build; current repo verify checks the packaged agent pack without changing workflow wiring | Downgrade if the surface is GUI-only, prose-only, stale, hides constraints, has no machine-readable entrypoint, or exposes runtime commands not declared in the registry |
 
 ## First Implementation Decision
 
@@ -146,17 +156,218 @@ This still does not change Kungfu release policy by itself. It gives the
 build/release workflow declarative pre-build input that Buildchain can freeze
 and independently compare against post-build artifact bytes.
 
-### Phase 2: KFD-2 Fact Surface Scaffold
+### Phase 2: KFD-2 Release Claims And Fact Surface Scaffold
 
-Add `kungfu sdk add fact-surface <name>` after the evidence vocabulary is
-settled. The scaffold should produce an append-first event schema, projection,
-JSON read API, and append-fold-readback probe following the work/Rewind model.
+The first KFD-2 implementation slice is release-claim projection, not a full
+fact-surface scaffold. Kungfu owns the claim registry:
 
-### Phase 3: KFD-3 Agent Interface Scaffold
+```text
+framework/release/kfd-2/kungfu-release-claims.registry.json
+```
 
-Add `kungfu sdk add agent-interface <surface>` after the agent evidence
-vocabulary is settled. The scaffold should produce agent-readable docs,
-capabilities metadata, command maturity, constraints, and a discovery probe.
+The registry is the product fact source. Generated files under `.buildchain/`
+are release-time projections and should not become a second source of truth.
+
+Local commands:
+
+```sh
+node scripts/kfd2-release-claims.mjs --check
+node scripts/kfd2-release-claims.mjs --write
+```
+
+`--check` validates the registry, source paths, machine-readable evidence,
+audit boundaries, responsibility state, residual risk arrays, and the
+Buildchain-compatible projection without writing generated files. `--write`
+emits:
+
+```text
+.buildchain/kfd-2/release-claims.json
+.buildchain/kfd-2/claims/<claim-id>.json
+.buildchain/kfd-2/buildchain-claim-args.txt
+```
+
+The first file follows KFD's canonical `kfd-2-release-claims` wrapper. The
+per-claim files are the current Buildchain v2.8 input shape for
+`--kfd-2-claim-json`, because Buildchain accepts one raw claim object per input
+file.
+
+Manual release-passport collection can pass the generated claim files:
+
+```sh
+node scripts/kfd2-release-claims.mjs --write
+buildchain collect github-release \
+  --kfd-2-claim-json .buildchain/kfd-2/claims/agent-onboarding-pack.json \
+  --kfd-2-claim-json .buildchain/kfd-2/claims/codex-report-receipts.json \
+  --kfd-2-claim-json .buildchain/kfd-2/claims/remote-fact-boundary.json
+```
+
+This slice intentionally does not change release policy or workflow wiring.
+Enforcing KFD-2 in every release workflow remains a separate release-policy
+task after the claim vocabulary proves useful.
+
+After this, add `kungfu sdk add fact-surface <name>` once the scaffold
+vocabulary is settled. The scaffold should produce an append-first event
+schema, projection, JSON read API, and append-fold-readback probe following the
+work/Rewind model.
+
+### Phase 3: KFD-3 Collaboration Interface
+
+KFD-3 is about the cooperation relationship, not only about agents. Kungfu's
+first concrete profile is agent-first because the installed runtime already has
+non-human collaborators that need a minimal local entrypoint, machine-readable
+mode choice, and closeout/receipt rules. The implementation should still use
+participant-neutral terms internally where possible so the same mechanism can
+later cover human operators, extension authors, API consumers, hosted-service
+users, and other collaborators.
+
+The target shape is:
+
+```text
+KFD-owned schema:
+  kfd-3 collaboration-interface + witness
+
+Kungfu-owned fact source:
+  framework/agent/kungfu-agent-api.registry.json
+  framework/agent/kungfu-agent-api.schema.json
+
+Core runtime anchors:
+  @kfd3_api("<api-id>")
+  api_help("<api-id>")
+  kungfu agent verify --json
+
+Generated / checked projections:
+  framework/core/src/python/kungfu/agent/commands.json
+  framework/core/src/python/kungfu/agent/brief.md
+  framework/core/src/python/kungfu/agent/mode-selection.md
+  framework/core/src/python/kungfu/agent/safety.md
+  provider SKILL.md files
+  docs/MAP.md and operation-manual command references
+
+SDK tooling:
+  kungfu sdk collaboration-interface add ...
+  kungfu sdk collaboration-interface render --check --json
+  kungfu sdk collaboration-interface docs-lint --json
+  kungfu sdk collaboration-interface audit --json
+  kungfu sdk collaboration-interface witness --json
+```
+
+The registry is the single fact source for participant-facing Kungfu APIs. It
+should classify every shipped entrypoint that a participant can call or depend
+on:
+
+```json
+{
+  "id": "kungfu.agent.capabilities",
+  "kind": "cli-command",
+  "command": "kungfu agent capabilities --json",
+  "audience": "public-agent",
+  "maturity": "stable",
+  "purpose": "Print machine-readable local Kungfu capabilities for agents.",
+  "constraints": ["read-only", "local-facts"],
+  "jsonSchema": "kungfu.agent-capabilities/v1"
+}
+```
+
+Allowed audience/support classifications should include:
+
+- `public-agent`: safe for an agent to discover and use from the minimal entry.
+- `public-human`: human-facing and visible, but not an agent automation default.
+- `experimental`: visible with maturity and limits.
+- `deprecated`: visible with a migration path.
+- `internal`: implementation detail; not a supported participant API.
+- `unsupported`: reachable only for compatibility or diagnostics, not a public
+  cooperation surface.
+
+Any installed entrypoint reachable from `kungfu` must either be generated from
+the registry or be explicitly anchored to it in implementation code. A future
+core decorator should live in the runtime/CLI layer, not only in
+`developer/sdk`, because packaged `kungfu` must carry the anchor:
+
+```python
+@kfd3_api("kungfu.agent.capabilities")
+@agent.command(help=api_help("kungfu.agent.capabilities"))
+def capabilities(...):
+    ...
+```
+
+Build verification should enumerate the real Click command tree and fail when:
+
+- a reachable CLI command has no registry entry or `@kfd3_api` anchor;
+- the registry declares a command that no longer exists;
+- generated help/docs/commands drift from the registry;
+- a `public-agent` entry lacks purpose, maturity, constraints, next action, or
+  JSON schema when it emits JSON;
+- an `internal` or `unsupported` entry is recommended by the agent pack;
+- an unclassified reachable API exists.
+
+Markdown operating manuals are part of the KFD-3 surface because agents and
+humans share them. Operation-manual content should either be generated from the
+registry or use checked generated blocks:
+
+```md
+<!-- kungfu-agent-api:start commands audience=public-agent -->
+...
+<!-- kungfu-agent-api:end commands -->
+```
+
+The docs linter should scan Markdown command literals, API ids, mode names,
+schema ids, and maturity labels. A command reference that cannot be resolved to
+the registry should fail the build unless it is explicitly marked as historical
+or unsupported.
+
+The local runtime proof should be:
+
+```sh
+kungfu agent capabilities --json
+kungfu agent choose-mode --json
+kungfu agent verify --json
+kungfu sdk collaboration-interface audit --json
+kungfu sdk collaboration-interface docs-lint --json
+```
+
+The audit output should prove two properties:
+
+```json
+{
+  "schema": "kungfu.collaboration-interface-audit/v1",
+  "ok": true,
+  "discoverability": "passed",
+  "closure": "passed",
+  "unclassifiedEntrypoints": [],
+  "staleRegistryEntries": [],
+  "docDrift": [],
+  "hiddenUsableApis": []
+}
+```
+
+The Buildchain witness should be generated only after KFD publishes general
+KFD-3 collaboration-interface schema ids:
+
+```sh
+kungfu sdk collaboration-interface witness --json \
+  > .buildchain/kfd-3/collaboration-interface.witness.json
+```
+
+That witness should record registry hashes, generated artifact hashes, command
+tree hash, docs projection hashes, participant profiles, minimal entrypoints,
+and the audit result. Buildchain should freeze the witness and verify packaged
+artifact bytes, but Kungfu remains the source of truth for its concrete
+registry and CLI anchors.
+
+The first implementation should be a narrow agent-first slice:
+
+1. Create the Kungfu registry and schema for current `kungfu agent` commands.
+2. Add runtime anchors for the `agent` command group.
+3. Generate `commands.json` from the registry or check it byte-for-byte.
+4. Add reverse audit for the Click command tree.
+5. Add Markdown docs-lint for operation-manual command references.
+6. Add `kungfu agent verify --json`.
+7. Extend `scripts/verify-agent-pack.mjs` into the KFD-3 closure gate.
+8. Generate a draft witness once KFD exposes general KFD-3 schema ids.
+
+This phase must not make developers manually update many documents for one new
+command. Adding a participant-facing command should either go through SDK
+scaffolding or fail verification until it is registered and anchored.
 
 ### Phase 4: Buildchain Release Evidence
 
@@ -176,6 +387,21 @@ and post-build artifact byte checks. Kungfu owns only its registry, source
 contracts, policy file, and generated witness. Enforcing this in every release
 workflow remains a separate release-policy task.
 
+Buildchain v2.8 also consumes explicit KFD-2 release claims. Kungfu should
+generate those from its registry, then pass the generated raw-claim projection:
+
+```sh
+node scripts/kfd2-release-claims.mjs --write
+buildchain collect github-release \
+  --kfd-2-claim-json .buildchain/kfd-2/claims/agent-onboarding-pack.json \
+  --kfd-2-claim-json .buildchain/kfd-2/claims/codex-report-receipts.json \
+  --kfd-2-claim-json .buildchain/kfd-2/claims/remote-fact-boundary.json
+```
+
+Buildchain owns the release trust passport audit and pass/downgrade/fail
+classification. Kungfu owns the claim registry, source bindings, evidence
+files, audit boundaries, responsibility state, and residual risk.
+
 ## Non-Goals
 
 - No KFD text changes.
@@ -189,12 +415,14 @@ workflow remains a separate release-policy task.
 
 - Should SDK scaffolds mutate existing files directly, or emit a reviewable
   patch plan first?
-- Where should the eventual KFD capability evidence manifest live in the
-  repository?
-- Should the maturity vocabulary be shared with `docs/MAP.md`, or should it live
-  in a dedicated contract?
+- Should the KFD-3 source registry live under `framework/agent/` or beside the
+  installed pack under `framework/core/src/python/kungfu/agent/`?
+- Should the maturity vocabulary be shared with `docs/MAP.md`, the agent pack,
+  and KFD-3 witness schema, or should it live in a dedicated contract?
 - How should Buildchain represent a downgrade without making Buildchain the
   source of truth?
+- Which non-agent participant profiles should the first non-agent KFD-3 slice
+  cover: human operator, extension author, API consumer, or hosted service user?
 
 ## Future Acceptance Criteria
 

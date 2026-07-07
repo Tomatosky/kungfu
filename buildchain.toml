@@ -10,6 +10,8 @@ schema = 1
 
 [version]
 required = true
+strategy = "semver"
+next = "auto"
 
 [[version.files]]
 type = "json"
@@ -21,10 +23,13 @@ key = "version"
 # build workflow) and the runner preset that provides the fnm/uv/conan
 # prerequisites are wired in a later stage.
 [lifecycle.install]
-command = "./kungfu-code sync"
+command = "node scripts/buildchain-run-kungfu-code.mjs install --frozen-lockfile --no-optional"
 
 [lifecycle.build]
-command = "./kungfu-code build"
+command = "node scripts/buildchain-run-kungfu-code.mjs dist"
 
 [lifecycle.verify]
-command = "./kungfu-code verify"
+command = "node scripts/buildchain-run-kungfu-code.mjs verify"
+
+[lifecycle.publish]
+command = "node scripts/buildchain-custom-publish-evidence.mjs"

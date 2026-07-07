@@ -285,7 +285,7 @@ function freezeNuitka(bt) {
     const kungfuPath = path.join(distKfc, 'kungfu');
     if (fs.existsSync(binPath)) fs.renameSync(binPath, kungfuPath);
   } else {
-    const exePath = path.join(distKfc, 'kungfu.exe');
+    const exePath = path.join(distKfc, 'kungfu_cli.exe');
     const kungfuExe = path.join(distKfc, 'kungfu.exe');
     if (fs.existsSync(exePath)) fs.renameSync(exePath, kungfuExe);
   }
