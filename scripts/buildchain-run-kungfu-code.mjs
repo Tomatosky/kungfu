@@ -113,6 +113,88 @@ function withPathPrefixes(env, dirs) {
   };
 }
 
+function commandAvailable(command, args, env) {
+  const result = spawnSync(command, args, {
+    cwd: repoRoot,
+    env,
+    stdio: 'ignore',
+    shell: process.platform === 'win32',
+  });
+  return result.status === 0;
+}
+
+function powershellCommand() {
+  for (const command of ['pwsh.exe', 'powershell.exe']) {
+    if (
+      commandAvailable(
+        command,
+        ['-NoProfile', '-Command', '$PSVersionTable.PSVersion.ToString()'],
+        process.env,
+      )
+    ) {
+      return command;
+    }
+  }
+  return '';
+}
+
+function psSingleQuoted(value) {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
+function ensureWindowsUv(env) {
+  if (
+    process.platform !== 'win32' ||
+    commandAvailable('uv', ['--version'], env)
+  ) {
+    return env;
+  }
+
+  const installDir = path.join(repoRoot, '.buildchain', 'uv');
+  fs.mkdirSync(installDir, { recursive: true });
+  const ps = powershellCommand();
+  if (!ps) {
+    throw new Error(
+      'uv not found and PowerShell is unavailable to bootstrap it',
+    );
+  }
+
+  console.error(`[buildchain-run] uv not found; installing to ${installDir}`);
+  const result = spawnSync(
+    ps,
+    [
+      '-NoProfile',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-Command',
+      [
+        "$ErrorActionPreference = 'Stop'",
+        `$env:UV_INSTALL_DIR = ${psSingleQuoted(installDir)}`,
+        "$env:UV_UNMANAGED_INSTALL = '1'",
+        'irm https://astral.sh/uv/install.ps1 | iex',
+      ].join('; '),
+    ],
+    {
+      cwd: repoRoot,
+      env,
+      stdio: 'inherit',
+    },
+  );
+  if (result.status !== 0) {
+    throw new Error(
+      `uv bootstrap failed with exit ${result.status ?? 'signal'}`,
+    );
+  }
+
+  const nextEnv = withPathPrefixes(env, [installDir]);
+  if (!commandAvailable('uv', ['--version'], nextEnv)) {
+    throw new Error(
+      `uv bootstrap did not produce a runnable uv in ${installDir}`,
+    );
+  }
+  return nextEnv;
+}
+
 function createPnpmShimDir() {
   const shimDir = fs.mkdtempSync(
     path.join(os.tmpdir(), 'kungfu-buildchain-pnpm-'),
@@ -135,10 +217,11 @@ function createPnpmShimDir() {
   return shimDir;
 }
 
-const env = withPathPrefixes(process.env, [
+let env = withPathPrefixes(process.env, [
   createPnpmShimDir(),
   ...windowsToolPathDirs(process.env),
 ]);
+env = ensureWindowsUv(env);
 env.KUNGFU_BUILDCHAIN_NO_OPTIONAL = '1';
 env.KUNGFU_BUILDCHAIN_SOURCE_BUILD = '1';
 const result =
