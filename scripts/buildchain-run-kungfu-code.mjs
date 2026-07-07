@@ -33,10 +33,54 @@ function windowsUserToolPathDirs() {
       const home = path.join(usersRoot, entry.name);
       return [
         path.join(home, 'AppData', 'Local', 'Microsoft', 'WinGet', 'Links'),
+        path.join(home, 'AppData', 'Local', 'Microsoft', 'WinGet', 'Packages'),
         path.join(home, '.local', 'bin'),
         path.join(home, '.cargo', 'bin'),
+        path.join(home, 'scoop', 'shims'),
       ];
     });
+}
+
+function findExecutableDirs(roots, executableNames, options = {}) {
+  const maxDepth = options.maxDepth ?? 4;
+  const maxMatches = options.maxMatches ?? 16;
+  const matches = new Set();
+  const wanted = new Set(executableNames.map((name) => name.toLowerCase()));
+  const skipDirs = new Set([
+    '.git',
+    'node_modules',
+    'Package Cache',
+    'Temp',
+    'tmp',
+  ]);
+  const queue = roots
+    .filter((root) => root && fs.existsSync(root))
+    .map((root) => ({ dir: root, depth: 0 }));
+
+  while (queue.length && matches.size < maxMatches) {
+    const { dir, depth } = queue.shift();
+    let entries = [];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isFile() && wanted.has(entry.name.toLowerCase())) {
+        matches.add(dir);
+        if (matches.size >= maxMatches) break;
+      } else if (
+        entry.isDirectory() &&
+        depth < maxDepth &&
+        !skipDirs.has(entry.name)
+      ) {
+        queue.push({ dir: fullPath, depth: depth + 1 });
+      }
+    }
+  }
+
+  return [...matches];
 }
 
 function windowsToolPathDirs(env) {
@@ -45,12 +89,18 @@ function windowsToolPathDirs(env) {
   }
   const home = env.USERPROFILE || env.HOME;
   const localAppData = env.LOCALAPPDATA;
-  return existingDirs([
+  const candidateDirs = [
     localAppData && path.join(localAppData, 'Microsoft', 'WinGet', 'Links'),
+    localAppData && path.join(localAppData, 'Microsoft', 'WinGet', 'Packages'),
     home && path.join(home, '.local', 'bin'),
     home && path.join(home, '.cargo', 'bin'),
+    home && path.join(home, 'scoop', 'shims'),
     ...windowsUserToolPathDirs(),
-  ]);
+  ];
+  return [
+    ...existingDirs(candidateDirs),
+    ...findExecutableDirs(candidateDirs, ['uv.exe', 'uvx.exe']),
+  ];
 }
 
 function withPathPrefixes(env, dirs) {

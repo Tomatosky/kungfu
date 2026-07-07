@@ -28,6 +28,8 @@
     "clean": "node -e \"fs.rmSync('dist',{recursive:true,force:true});fs.rmSync('extensions',{recursive:true,force:true})\" && pnpm --filter @kungfu-tech/gui run clean"
   },
   "dependencies": {
+    "@kungfu-tech/core": "workspace:*",
+    "@kungfu-tech/gui": "workspace:*",
     "@kungfu-tech/kfx-adapter-langchain": "workspace:*",
     "@kungfu-tech/kfx-suite-system": "workspace:*",
     "@kungfu-tech/kfx-view-config-manager": "workspace:*",
@@ -39,12 +41,13 @@
     "@kungfu-tech/kfx-view-status": "workspace:*",
     "@kungfu-tech/kfx-view-terminal": "workspace:*",
     "@kungfu-tech/kfx-view-work-dashboard": "workspace:*",
-    "@kungfu-tech/gui": "workspace:*",
-    "@kungfu-tech/tui": "workspace:*",
-    "@kungfu-tech/core": "workspace:*",
-    "@kungfu-tech/sdk": "workspace:*"
+    "@kungfu-tech/sdk": "workspace:*",
+    "@kungfu-tech/tui": "workspace:*"
   },
   "repository": {
     "url": "https://github.com/kungfu-systems/kungfu.git"
+  },
+  "devDependencies": {
+    "@kungfu-tech/buildchain": "2.8.7"
   }
 }
