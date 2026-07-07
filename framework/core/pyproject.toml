@@ -24,6 +24,9 @@ dependencies = [
     # (==) because a version bump changes C++ formatting output; an exact pin keeps
     # the result byte-identical across machines instead of the ambient system one.
     "clang-format==20.1.8",
+    # Native build orchestrator. run-conan.js invokes `uv run --frozen conan`;
+    # keep Conan in the locked uv environment instead of relying on runner-global tools.
+    "conan>=2.22,<3.0.0",
     # Regenerate the native pykungfu .pyi stubs as a build step (.gyp/gen-stubs.js
     # after the addon compiles + libnode colocates) so committed stubs/ track the
     # C++ binding instead of drifting. Type-check env uses the committed text stubs.
