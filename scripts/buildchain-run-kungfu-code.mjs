@@ -44,15 +44,11 @@ function createPnpmShimDir() {
 const env = withPathPrefix(process.env, createPnpmShimDir());
 const result =
   process.platform === 'win32'
-    ? spawnSync(
-        'fnm',
-        ['exec', '--using-file', '--', 'corepack.cmd', 'pnpm', ...argv],
-        {
-          cwd: repoRoot,
-          env,
-          stdio: 'inherit',
-        },
-      )
+    ? spawnSync('corepack.cmd', ['pnpm', ...argv], {
+        cwd: repoRoot,
+        env,
+        stdio: 'inherit',
+      })
     : spawnSync(path.join(repoRoot, 'kungfu-code'), argv, {
         cwd: repoRoot,
         env,
