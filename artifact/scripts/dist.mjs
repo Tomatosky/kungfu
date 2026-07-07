@@ -23,6 +23,8 @@ const GUI_DIR = path.join(ROOT, 'framework', 'gui');
 const CORE_DIST = path.join(ROOT, 'framework', 'core', 'dist', 'kungfu');
 const EXTENSIONS_ROOT = path.join(ROOT, 'extensions');
 const ASSEMBLED_EXTENSIONS = path.join(ARTIFACT_DIR, 'extensions');
+const DIST_DIR = path.join(ARTIFACT_DIR, 'dist');
+const RELEASE_DIR = path.join(ARTIFACT_DIR, 'release');
 const isWin = process.platform === 'win32';
 const require = createRequire(import.meta.url);
 const buildchainLogger = createBuildchainLogger({
@@ -385,7 +387,7 @@ function assertSafeGeneratedDir(dir) {
   const resolved = path.resolve(dir);
   if (
     !resolved.startsWith(`${ARTIFACT_DIR}${path.sep}`) ||
-    path.basename(resolved) !== 'extensions'
+    !['extensions', 'release'].includes(path.basename(resolved))
   ) {
     throw new Error(`refusing to clean unexpected directory: ${resolved}`);
   }
@@ -466,6 +468,45 @@ function assembleKfx(packages) {
       }
       console.log(
         `[artifact] assembled kfx packages -> ${rel(ASSEMBLED_EXTENSIONS)}`,
+      );
+    },
+  );
+}
+
+function stageReleaseArtifacts() {
+  buildchainLogger.spanSync(
+    'artifact.release.stage',
+    {
+      phase: 'package',
+      attributes: {
+        source: rel(DIST_DIR),
+        output: rel(RELEASE_DIR),
+      },
+    },
+    () => {
+      if (!fs.existsSync(DIST_DIR)) {
+        throw new Error(`electron-builder did not produce ${rel(DIST_DIR)}`);
+      }
+      assertSafeGeneratedDir(RELEASE_DIR);
+      fs.rmSync(RELEASE_DIR, { recursive: true, force: true });
+      fs.mkdirSync(RELEASE_DIR, { recursive: true });
+
+      const stagedFiles = [];
+      for (const entry of fs.readdirSync(DIST_DIR, { withFileTypes: true })) {
+        if (!entry.isFile()) {
+          continue;
+        }
+        const source = path.join(DIST_DIR, entry.name);
+        const target = path.join(RELEASE_DIR, entry.name);
+        fs.copyFileSync(source, target);
+        stagedFiles.push(entry.name);
+      }
+      if (!stagedFiles.length) {
+        throw new Error(`no top-level release files found in ${rel(DIST_DIR)}`);
+      }
+      stagedFiles.sort();
+      console.log(
+        `[artifact] staged release files -> ${rel(RELEASE_DIR)} (${stagedFiles.join(', ')})`,
       );
     },
   );
@@ -566,10 +607,9 @@ function main() {
           event: 'artifact.electron-builder',
         },
       );
+      stageReleaseArtifacts();
 
-      console.log(
-        `\n[artifact] output -> ${rel(path.join(ARTIFACT_DIR, 'dist'))}`,
-      );
+      console.log(`\n[artifact] output -> ${rel(RELEASE_DIR)}`);
     },
   );
 }
