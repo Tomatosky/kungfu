@@ -471,6 +471,65 @@ function findWindowsPinnedNode(env) {
   return '';
 }
 
+function installWindowsNodeFromDist(env) {
+  const version = pinnedNodeVersion();
+  if (process.platform !== 'win32' || !version) {
+    return '';
+  }
+
+  const nodeDirName = `node-v${version}-win-x64`;
+  const installParent = path.join(repoRoot, '.buildchain', 'node');
+  const installDir = path.join(installParent, nodeDirName);
+  const nodeExe = path.join(installDir, 'node.exe');
+  if (fs.existsSync(nodeExe)) {
+    return nodeExe;
+  }
+
+  const ps = powershellCommand();
+  if (!ps) {
+    return '';
+  }
+
+  const downloadDir = path.join(repoRoot, '.buildchain', 'downloads');
+  const zipName = `${nodeDirName}.zip`;
+  const zipPath = path.join(downloadDir, zipName);
+  const baseUrl = (
+    env.FNM_NODE_DIST_MIRROR ||
+    env.NODEJS_ORG_MIRROR ||
+    'https://nodejs.org/dist'
+  ).replace(/\/+$/, '');
+  const url = `${baseUrl}/v${version}/${zipName}`;
+
+  console.error(
+    `[buildchain-run] downloading pinned Node ${version} to ${installDir}`,
+  );
+  const result = spawnSync(
+    ps,
+    [
+      '-NoProfile',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-Command',
+      [
+        "$ErrorActionPreference = 'Stop'",
+        `New-Item -ItemType Directory -Force ${psSingleQuoted(downloadDir)} | Out-Null`,
+        `New-Item -ItemType Directory -Force ${psSingleQuoted(installParent)} | Out-Null`,
+        `if (-not (Test-Path ${psSingleQuoted(zipPath)})) { Invoke-WebRequest -Uri ${psSingleQuoted(url)} -OutFile ${psSingleQuoted(zipPath)} }`,
+        `Expand-Archive -Path ${psSingleQuoted(zipPath)} -DestinationPath ${psSingleQuoted(installParent)} -Force`,
+      ].join('; '),
+    ],
+    {
+      cwd: repoRoot,
+      env,
+      stdio: 'inherit',
+    },
+  );
+  if (result.status !== 0) {
+    return '';
+  }
+  return fs.existsSync(nodeExe) ? nodeExe : '';
+}
+
 function resolveWindowsPinnedNode(env) {
   if (process.platform !== 'win32') {
     return '';
@@ -482,7 +541,7 @@ function resolveWindowsPinnedNode(env) {
   }
 
   if (!commandAvailable('fnm', ['--version'], env)) {
-    return '';
+    return installWindowsNodeFromDist(env);
   }
 
   spawnSync('fnm', ['install'], {
@@ -505,7 +564,7 @@ function resolveWindowsPinnedNode(env) {
   if (nodeExe && fs.existsSync(nodeExe)) {
     return nodeExe;
   }
-  return findWindowsPinnedNode(env);
+  return findWindowsPinnedNode(env) || installWindowsNodeFromDist(env);
 }
 
 function corepackJsForNode(nodeExe) {
