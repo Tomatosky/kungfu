@@ -100,6 +100,14 @@ function exitLabel(status, signal) {
   return status == null ? `signal ${signal}` : status;
 }
 
+function outputTail(stdout, stderr, lines = 3) {
+  return `${stdout || ''}${stderr || ''}`
+    .trim()
+    .split('\n')
+    .slice(-lines)
+    .join(' | ');
+}
+
 function assertContractArtifact(distDir, artifact) {
   const repoContract = path.join(ROOT, artifact.source);
   const distContract = path.join(distDir, artifact.artifact);
@@ -188,14 +196,17 @@ function main() {
     },
   );
   if (mypy.status === 0) pass('python type check', 'mypy baseline clean');
-  else
+  else if (
+    isWin &&
+    `${mypy.stdout || ''}${mypy.stderr || ''}`.includes('os error 448')
+  ) {
+    console.log(
+      `  (skipped on Windows: uv interpreter discovery hit runner mount-point error 448; tail: ${outputTail(mypy.stdout, mypy.stderr)})`,
+    );
+  } else
     fail(
       'python type check',
-      `${mypy.stdout || ''}${mypy.stderr || ''}`
-        .trim()
-        .split('\n')
-        .slice(-3)
-        .join(' | ') || `mypy exited ${mypy.status}`,
+      outputTail(mypy.stdout, mypy.stderr) || `mypy exited ${mypy.status}`,
     );
 
   // ── Stage 0c: installed agent onboarding pack ────────────────────
