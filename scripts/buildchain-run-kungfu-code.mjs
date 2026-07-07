@@ -2,34 +2,60 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const argv = process.argv.slice(2);
 
-function quoteCmdArg(arg) {
-  return `"${String(arg).replace(/"/g, '""')}"`;
+function withPathPrefix(env, dir) {
+  return {
+    ...env,
+    PATH: [dir, env.PATH || env.Path || '']
+      .filter(Boolean)
+      .join(path.delimiter),
+  };
 }
 
+function createPnpmShimDir() {
+  const shimDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'kungfu-buildchain-pnpm-'),
+  );
+
+  if (process.platform === 'win32') {
+    fs.writeFileSync(
+      path.join(shimDir, 'pnpm.cmd'),
+      '@echo off\r\ncorepack.cmd pnpm %*\r\n',
+      'utf8',
+    );
+  } else {
+    const shimPath = path.join(shimDir, 'pnpm');
+    fs.writeFileSync(shimPath, '#!/bin/sh\nexec corepack pnpm "$@"\n', {
+      encoding: 'utf8',
+      mode: 0o755,
+    });
+  }
+
+  return shimDir;
+}
+
+const env = withPathPrefix(process.env, createPnpmShimDir());
 const result =
   process.platform === 'win32'
     ? spawnSync(
-        process.env.ComSpec || 'cmd.exe',
-        [
-          '/d',
-          '/c',
-          [
-            'call',
-            quoteCmdArg(path.join(repoRoot, 'kungfu-code.cmd')),
-            ...argv.map(quoteCmdArg),
-          ].join(' '),
-        ],
-        { cwd: repoRoot, env: process.env, stdio: 'inherit' },
+        'fnm',
+        ['exec', '--using-file', '--', 'corepack.cmd', 'pnpm', ...argv],
+        {
+          cwd: repoRoot,
+          env,
+          stdio: 'inherit',
+        },
       )
     : spawnSync(path.join(repoRoot, 'kungfu-code'), argv, {
         cwd: repoRoot,
-        env: process.env,
+        env,
         stdio: 'inherit',
       });
 
