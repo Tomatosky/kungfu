@@ -388,6 +388,47 @@ function createPnpmShimDir() {
   return shimDir;
 }
 
+function createWindowsNodeShimDir(nodeExe) {
+  const shimDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'kungfu-buildchain-node-'),
+  );
+  const escapedNodeExe = nodeExe.replace(/%/g, '%%');
+  fs.writeFileSync(
+    path.join(shimDir, 'node.cmd'),
+    `@echo off\r\n"${escapedNodeExe}" %*\r\n`,
+    'utf8',
+  );
+  return shimDir;
+}
+
+function resolveWindowsPinnedNode(env) {
+  if (
+    process.platform !== 'win32' ||
+    !commandAvailable('fnm', ['--version'], env)
+  ) {
+    return '';
+  }
+
+  spawnSync('fnm', ['install'], {
+    cwd: repoRoot,
+    env,
+    stdio: 'ignore',
+    shell: true,
+  });
+
+  const result = runAndCollect(
+    'fnm',
+    ['exec', '--', 'node', '-p', 'process.execPath'],
+    env,
+  );
+  if (result.status !== 0) {
+    return '';
+  }
+
+  const nodeExe = result.stdout.trim().split(/\r?\n/).pop()?.trim() || '';
+  return nodeExe && fs.existsSync(nodeExe) ? nodeExe : '';
+}
+
 function runWindowsPnpm(args, env) {
   if (commandAvailable('fnm', ['--version'], env)) {
     spawnSync('fnm', ['install'], {
@@ -416,6 +457,21 @@ let env = withPathPrefixes(process.env, [
   createPnpmShimDir(),
   ...windowsToolPathDirs(process.env),
 ]);
+const pinnedWindowsNode = resolveWindowsPinnedNode(env);
+if (pinnedWindowsNode) {
+  console.error(`[buildchain-run] using pinned Node ${pinnedWindowsNode}`);
+  env = withPathPrefixes(
+    {
+      ...env,
+      npm_node_execpath: pinnedWindowsNode,
+      NODE: pinnedWindowsNode,
+    },
+    [
+      createWindowsNodeShimDir(pinnedWindowsNode),
+      path.dirname(pinnedWindowsNode),
+    ],
+  );
+}
 env = ensureWindowsUv(env);
 env = ensureWindowsMsvcEnv(env);
 env.KUNGFU_BUILDCHAIN_NO_OPTIONAL = '1';
