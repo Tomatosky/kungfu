@@ -21,6 +21,24 @@ function existingDirs(dirs) {
   return dirs.filter((dir) => dir && fs.existsSync(dir));
 }
 
+function windowsUserToolPathDirs() {
+  const usersRoot = 'C:\\Users';
+  if (!fs.existsSync(usersRoot)) {
+    return [];
+  }
+  return fs
+    .readdirSync(usersRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .flatMap((entry) => {
+      const home = path.join(usersRoot, entry.name);
+      return [
+        path.join(home, 'AppData', 'Local', 'Microsoft', 'WinGet', 'Links'),
+        path.join(home, '.local', 'bin'),
+        path.join(home, '.cargo', 'bin'),
+      ];
+    });
+}
+
 function windowsToolPathDirs(env) {
   if (process.platform !== 'win32') {
     return [];
@@ -31,6 +49,7 @@ function windowsToolPathDirs(env) {
     localAppData && path.join(localAppData, 'Microsoft', 'WinGet', 'Links'),
     home && path.join(home, '.local', 'bin'),
     home && path.join(home, '.cargo', 'bin'),
+    ...windowsUserToolPathDirs(),
   ]);
 }
 
