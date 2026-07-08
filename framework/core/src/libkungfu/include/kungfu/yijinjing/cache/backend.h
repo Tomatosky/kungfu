@@ -212,7 +212,7 @@ private:
 
   template <typename DataType>
   void restore(const yijinjing::journal::writer_ptr &writer, uint32_t dest, StateStoragePtr &storage) {
-    auto from = yijinjing::time::restore_start();
+    auto from = yijinjing::time::history_window_start();
     for (auto &data : time_spec<DataType>::get_all(storage, from, INT64_MAX)) {
       writer->write_as(0, data, location_->uid, dest);
     }
@@ -220,21 +220,21 @@ private:
 
   template <typename DataType>
   void restore(const yijinjing::journal::writer_ptr &writer, uint32_t dest, StateStoragePtr &storage, int limit) {
-    auto from = yijinjing::time::restore_start();
+    auto from = yijinjing::time::history_window_start();
     for (auto &data : time_spec<DataType>::get_all(storage, from, INT64_MAX, limit)) {
       writer->write_as(0, data, location_->uid, dest);
     }
   }
 
   template <typename DataType> void restore(cache::bank &bank, uint32_t dest, StateStoragePtr &storage) {
-    auto from = yijinjing::time::restore_start();
+    auto from = yijinjing::time::history_window_start();
     for (auto &data : time_spec<DataType>::get_all(storage, from, INT64_MAX)) {
       bank << state(location_->uid, dest, from, data);
     }
   }
 
   template <typename DataType> void restore(cache::bank &bank, uint32_t dest, StateStoragePtr &storage, int limit) {
-    auto from = yijinjing::time::restore_start();
+    auto from = yijinjing::time::history_window_start();
     for (auto &data : time_spec<DataType>::get_all(storage, from, INT64_MAX, limit)) {
       bank << state(location_->uid, dest, from, data);
     }

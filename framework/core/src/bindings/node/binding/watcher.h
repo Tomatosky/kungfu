@@ -14,8 +14,8 @@
 #include "io.h"
 #include "journal.h"
 #include "operators.h"
-// tracing-foundation Phase 1(goal 2026-06-25):wingchun(book/broker)已脱出。
-// 交易记账(bookkeeper/Book/SilentAutoClient/BookListener)随之移除,留 Phase 2「喂 agent 事件」新 Watcher 重建。
+// tracing-foundation Phase 1(goal 2026-06-25): the legacy book/broker stack is no longer owned here.
+// A future Watcher should expose agent events through the neutral action-recording surface.
 #include <kungfu/yijinjing/cache/runtime.h>
 #include <kungfu/yijinjing/practice/apprentice.h>
 
@@ -23,7 +23,7 @@ namespace kungfu::node {
 constexpr uint64_t ID_TRANC = 0x00000000FFFFFFFF;
 constexpr uint32_t PAGE_ID_MASK = 0x80000000;
 constexpr uint32_t TRANSFER_STATIC_DATA_LIMIT = 2000;
-constexpr uint32_t TRANSFER_TRADING_DATA_LIMIT = 2000;
+constexpr uint32_t TRANSFER_LEGACY_DATA_LIMIT = 2000;
 
 class Watcher : public Napi::ObjectWrap<Watcher>, public practice::apprentice {
 public:
@@ -99,14 +99,14 @@ public:
 
   bool is_reactable(const event_ptr &event) override;
 
-  void drain_from_trading_data_reader(uint32_t step_limit = 0);
+  void drain_from_legacy_data_reader(uint32_t step_limit = 0);
 
   bool is_step_continually();
 
 protected:
   const bool bypass_accounting_;
-  const bool bypass_trading_data_;
-  const bool refresh_trading_data_before_sync_;
+  const bool bypass_legacy_data_;
+  const bool refresh_legacy_data_before_sync_;
   const bool bypass_refresh_book_;
   const int milliseconds_sleep_after_step_;
   std::mutex feed_mutex_;
@@ -133,14 +133,14 @@ private:
   serialize::JsUpdateState update_ledger;
   serialize::JsResetCache reset_cache;
   cache::bank data_bank_;
-  cache::bank trading_data_bank_;
-  cache::deque_bank trading_data_cached_bank_;
+  cache::bank legacy_data_bank_;
+  cache::deque_bank legacy_data_cached_bank_;
   std::vector<kungfu::state<longfist::types::CacheReset>> reset_cache_states_;
   std::unordered_map<uint32_t, int> broker_states_map_ = {};
   std::unordered_map<uint32_t, longfist::types::StrategyStateUpdate> strategy_states_map_ = {};
 
-  yijinjing::journal::reader_ptr trading_data_reader_; // order, trade, orderStat
-  uint32_t trading_data_count_by_step_ = 0;
+  yijinjing::journal::reader_ptr legacy_data_reader_;
+  uint32_t legacy_data_count_by_step_ = 0;
 
   typedef longfist::enums::mode mode;
   typedef longfist::enums::location_role role;
@@ -152,15 +152,15 @@ private:
     });
   };
 
-  static constexpr auto is_trading_data = []() {
+  static constexpr auto is_legacy_data = []() {
     return rx::filter([&](const event_ptr &event) {
-      return longfist::RefreshRequiredDataTags.find(event->carrier_type()) != longfist::RefreshRequiredDataTags.end();
+      return longfist::LegacyRefreshDataTags.find(event->carrier_type()) != longfist::LegacyRefreshDataTags.end();
     });
   };
 
-  static constexpr auto not_trading_data = []() {
+  static constexpr auto not_legacy_data = []() {
     return rx::filter([&](const event_ptr &event) {
-      return longfist::RefreshRequiredDataTags.find(event->carrier_type()) == longfist::RefreshRequiredDataTags.end();
+      return longfist::LegacyRefreshDataTags.find(event->carrier_type()) == longfist::LegacyRefreshDataTags.end();
     });
   };
 
@@ -176,7 +176,7 @@ private:
 
   void InspectChannel(int64_t trigger_time, const longfist::types::Channel &channel);
 
-  void MonitorMarketData(int64_t trigger_time, const yijinjing::data::location_ptr &md_location);
+  void MonitorSourceHeartbeat(int64_t trigger_time, const yijinjing::data::location_ptr &source_location);
 
   void OnRegister(int64_t trigger_time, const longfist::types::Register &register_data);
 
@@ -195,11 +195,11 @@ private:
 
   void SyncLedger();
 
-  void TryRefreshTradingData();
+  void TryRefreshLegacyData();
 
-  void SyncTradingData();
+  void SyncLegacyData();
 
-  void SyncTradingDataFromCached();
+  void SyncLegacyDataFromCached();
 
   void SyncAppStates();
 
@@ -213,7 +213,7 @@ private:
 
   void CancelWorker();
 
-  void ResetTradingDataCount() { trading_data_count_by_step_ = 0; };
+  void ResetLegacyDataCount() { legacy_data_count_by_step_ = 0; };
 
   uint64_t MakeInstructionUID(yijinjing::journal::writer_ptr &writer, uint32_t dest, uint32_t client_id = 0) {
     uint64_t id_left = (uint64_t)(client_id xor dest) << 32u;
@@ -238,8 +238,8 @@ private:
     }
   }
 
-  // tracing-foundation Phase 1:UpdateTradingData / UpdateTradingDataFromCacheD(交易 longfist 类型已移出
-  // StateDataTypes 闭集,trading_data_bank_ 无法 at_key)已移除;交易数据 sync 留 Phase 2 新 Watcher。
+  // Legacy typed state refresh is intentionally separated from StateDataTypes.
+  // A future Watcher should rebuild this path on top of neutral agent events.
 
   template <typename Instruction>
   Napi::Value InteractWithLocation(const Napi::CallbackInfo &info, const Napi::Object &instruction_object) {

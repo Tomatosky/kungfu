@@ -1,0 +1,196 @@
+#!/usr/bin/env node
+// SPDX-License-Identifier: Apache-2.0
+//
+// Guard v4 yijinjing against reintroducing trading-era public runtime surfaces.
+// This is intentionally scoped to core exposure points, not to historical
+// generated schemas that still exist while the legacy longfist files are split.
+// @ts-check
+
+import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.resolve(__dirname, '..');
+const args = process.argv.slice(2);
+const stagedOnly = args.includes('--staged');
+const allFiles = args.includes('--all');
+
+const SOURCE_EXT = /\.(c|cc|cpp|cxx|h|hh|hpp|hxx|mjs|js|cjs|ts|tsx|py|pyi)$/;
+
+const RULES = [
+  {
+    name: 'python yijinjing typed AllDataTypes binding',
+    files: [
+      /^framework\/core\/src\/bindings\/python\/binding\/py-yijinjing\.cpp$/,
+    ],
+    re: /\bAllDataTypes\b|boost::hana::for_each\(AllDataTypes/g,
+    message:
+      'Python yijinjing must expose neutral raw/envelope APIs, not generated business typed helpers.',
+  },
+  {
+    name: 'legacy trading time API',
+    files: [
+      /^framework\/core\/src\/libyijinjing\//,
+      /^framework\/core\/src\/libkungfu\//,
+      /^framework\/core\/src\/bindings\//,
+      /^framework\/core\/stubs\/pykungfu\/yijinjing\.pyi$/,
+    ],
+    re: /\b(next_trading_day_end|trading_day_start|restore_start|KUNGFU_TRADING_DAY_FORMAT)\b/g,
+    message:
+      'Use neutral session/window time APIs: next_session_boundary, session_window_start, history_window_start.',
+  },
+  {
+    name: 'trading closed-set registry',
+    files: [
+      /^framework\/core\/src\/libkungfu\/include\/kungfu\/longfist\/longfist\.h$/,
+    ],
+    re: /\b(TradingDataTypes|TradingDataTags|MarketDataTypes|is_market_data)\b/g,
+    message:
+      'Do not keep trading/market closed sets in the v4 longfist core registry.',
+  },
+  {
+    name: 'dead trading feed helper',
+    files: [
+      /^framework\/core\/src\/libkungfu\/include\/kungfu\/yijinjing\/cache\/cached\.h$/,
+    ],
+    re: /\bfeed_trading_data\b/g,
+    message:
+      'Closed-set trading feed helpers must not live in the v4 cache API.',
+  },
+];
+
+function git(gitArgs) {
+  const result = spawnSync('git', gitArgs, {
+    cwd: ROOT,
+    encoding: 'utf8',
+  });
+  if (result.status !== 0) {
+    throw new Error(
+      `git ${gitArgs.join(' ')} failed: ${(result.stderr || '').trim()}`,
+    );
+  }
+  return result.stdout.trim();
+}
+
+function gitMaybe(gitArgs) {
+  const result = spawnSync('git', gitArgs, {
+    cwd: ROOT,
+    encoding: 'utf8',
+  });
+  return result.status === 0 ? result.stdout.trim() : null;
+}
+
+function splitLines(text) {
+  return text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function isFile(rel) {
+  try {
+    return fs.statSync(path.join(ROOT, rel)).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function mergeBase() {
+  const upstream = gitMaybe([
+    'rev-parse',
+    '--abbrev-ref',
+    '--symbolic-full-name',
+    '@{upstream}',
+  ]);
+  const candidates = [
+    upstream,
+    'origin/HEAD',
+    'nas/dev/v4/v4.0',
+    'origin/dev/v4/v4.0',
+    'dev/v4/v4.0',
+  ].filter(Boolean);
+  for (const ref of candidates) {
+    const base = gitMaybe(['merge-base', String(ref), 'HEAD']);
+    if (base) return base;
+  }
+  return null;
+}
+
+function selectedFiles() {
+  const files = new Set();
+  if (stagedOnly) {
+    for (const file of splitLines(
+      git(['diff', '--cached', '--name-only', '--diff-filter=ACM']),
+    )) {
+      files.add(file);
+    }
+  } else if (allFiles) {
+    for (const file of splitLines(git(['ls-files']))) {
+      files.add(file);
+    }
+  } else {
+    const base = mergeBase();
+    if (base) {
+      for (const file of splitLines(
+        git(['diff', '--name-only', '--diff-filter=ACM', `${base}...HEAD`]),
+      )) {
+        files.add(file);
+      }
+    }
+    for (const mode of [[], ['--cached']]) {
+      for (const file of splitLines(
+        git(['diff', ...mode, '--name-only', '--diff-filter=ACM']),
+      )) {
+        files.add(file);
+      }
+    }
+    for (const file of splitLines(
+      git(['ls-files', '--others', '--exclude-standard']),
+    )) {
+      files.add(file);
+    }
+  }
+  return [...files].filter((file) => SOURCE_EXT.test(file) && isFile(file));
+}
+
+function lineNumber(text, index) {
+  let line = 1;
+  for (let i = 0; i < index; i += 1) {
+    if (text.charCodeAt(i) === 10) line += 1;
+  }
+  return line;
+}
+
+const hits = [];
+for (const rel of selectedFiles()) {
+  const rules = RULES.filter((rule) => rule.files.some((re) => re.test(rel)));
+  if (!rules.length) continue;
+  const text = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+  for (const rule of rules) {
+    rule.re.lastIndex = 0;
+    for (const match of text.matchAll(rule.re)) {
+      hits.push({
+        file: rel,
+        line: lineNumber(text, match.index || 0),
+        rule: rule.name,
+        message: rule.message,
+        text: match[0],
+      });
+    }
+  }
+}
+
+if (hits.length) {
+  console.error(
+    '[yijinjing-greenfield] trading-era runtime surface is blocked.',
+  );
+  for (const hit of hits) {
+    console.error(`  ${hit.file}:${hit.line} (${hit.rule}) ${hit.text}`);
+    console.error(`    ${hit.message}`);
+  }
+  process.exit(1);
+}
+
+console.log('[yijinjing-greenfield] gate passed');

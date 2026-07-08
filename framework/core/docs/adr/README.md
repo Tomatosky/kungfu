@@ -41,6 +41,7 @@ A record's **Status** says where it stands:
 | [0023](ADR-0023-frame-integrity-and-msg-type-allocation-gates.md) | accepted | frame integrity starts at the C++ recorder and raw carrier_type allocation is gated |
 | [0024](ADR-0024-location-role-and-journal-page-policy.md) | accepted | location role replaces trading category and journal page size is storage policy |
 | [0025](ADR-0025-carrier-type-and-action-envelope-semantics.md) | accepted | carrier type is transport metadata and business semantics live in action envelopes |
+| [0026](ADR-0026-yijinjing-greenfield-core-surface.md) | accepted | yijinjing exposes a greenfield core surface, not trading typed helpers |
 
 ## Reading by theme
 
@@ -91,7 +92,10 @@ A record's **Status** says where it stands:
   identity), and
   [0025](ADR-0025-carrier-type-and-action-envelope-semantics.md) (the rename
   from `msg_type` to `carrier_type` and the rule that business semantics live
-  in action envelopes).
+  in action envelopes), and
+  [0026](ADR-0026-yijinjing-greenfield-core-surface.md) (the rule that yijinjing
+  bindings expose neutral raw/envelope/runtime APIs instead of generated
+  trading typed helpers).
 - **Cross-cutting principle** — [0009](ADR-0009-load-bearing-self-bootstrap.md)
   (load-bearing self-bootstrap), which also names the general law that
   [`docs/architecture.md` § The build dogfoods the SDK](../../../../docs/architecture.md)

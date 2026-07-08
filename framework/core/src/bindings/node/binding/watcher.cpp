@@ -23,7 +23,7 @@ using namespace kungfu::yijinjing::data;
 namespace kungfu::node {
 
 constexpr uint32_t STEP_INTERVAL = 10;
-constexpr uint32_t REFRESH_REQUIRED_DATA_LIMIT_BY_SYNC = 3000;
+constexpr uint32_t LEGACY_REFRESH_DATA_LIMIT_BY_SYNC = 3000;
 
 inline std::string format(uint32_t uid) { return fmt::format("{:08x}", uid); }
 
@@ -66,14 +66,14 @@ inline int GetMillisecondsSleepAfterStep(const Napi::CallbackInfo &info) {
 // initializer exceptions. A plain std::exception escaping this napi callback
 // terminates the whole process; convert to a JS-catchable error instead.
 Watcher::Watcher(const Napi::CallbackInfo &info) try
-    : ObjectWrap(info),                                    //
-      apprentice(GetWatcherLocation(info), true),          //
-      bypass_accounting_(GetBool(info, 3)),                //
-      bypass_trading_data_(GetBool(info, 4)),              //
-      refresh_trading_data_before_sync_(GetBool(info, 5)), //
-      bypass_refresh_book_(GetBool(info, 6)),              //
-      milliseconds_sleep_after_step_(GetNumber(info, 7)),  //
-      trading_data_reader_(std::make_shared<yijinjing::journal::reader>(
+    : ObjectWrap(info),                                   //
+      apprentice(GetWatcherLocation(info), true),         //
+      bypass_accounting_(GetBool(info, 3)),               //
+      bypass_legacy_data_(GetBool(info, 4)),              //
+      refresh_legacy_data_before_sync_(GetBool(info, 5)), //
+      bypass_refresh_book_(GetBool(info, 6)),             //
+      milliseconds_sleep_after_step_(GetNumber(info, 7)), //
+      legacy_data_reader_(std::make_shared<yijinjing::journal::reader>(
           true, false, std::make_shared<yijinjing::journal::bus>(false))),                        //
       ledger_ref_(Napi::ObjectReference::New(Napi::Object::New(info.Env()), 1)),                  //
       app_states_ref_(Napi::ObjectReference::New(Napi::Object::New(info.Env()), 1)),              //
@@ -84,7 +84,7 @@ Watcher::Watcher(const Napi::CallbackInfo &info) try
 
   serialize::InitStateMap(info, ledger_ref_, "ledger");
 
-  auto today = yijinjing::time::restore_start();
+  auto from = yijinjing::time::history_window_start();
   auto config_store = ConfigStore::Unwrap(config_ref_.Value());
 
   bool sync_schema = not get_io_device()->is_usable();
@@ -95,18 +95,18 @@ Watcher::Watcher(const Napi::CallbackInfo &info) try
   SPDLOG_INFO("Watcher created for {}", get_home_uname());
 
   // byPassRestore will be true after ui browserWindow reopen by crashed
-  if (GetBypassRestore(info) or bypass_trading_data_) {
+  if (GetBypassRestore(info) or bypass_legacy_data_) {
     return;
   }
 
   for (const auto &item : config_store->profile_.get_all(Location{})) {
     auto saved_location = location::make_shared(item, get_locator());
     add_location(now(), saved_location);
-    RestoreState(saved_location, today, INT64_MAX, sync_schema);
+    RestoreState(saved_location, from, INT64_MAX, sync_schema);
     // for hidden pos && asset
     // shift(saved_location) >> state_bank_;
   }
-  RestoreState(ledger_home_location_, today, INT64_MAX, sync_schema);
+  RestoreState(ledger_home_location_, from, INT64_MAX, sync_schema);
   // for hidden pos && asset
   // shift(ledger_home_location_) >> state_bank_; // Load positions to restore bookkeeper
 } catch (const Napi::Error &) {
@@ -226,25 +226,25 @@ Napi::Value Watcher::IssueCustomData(const Napi::CallbackInfo &info) {
   return InteractWithLocation<TimeKeyValue>(info, info[0].ToObject());
 }
 
-// tracing-foundation Phase 1:下单/撤单链(InteractWithTD→bookkeeper/Book)已移除,保签名 stub 返回 0;
-// 交易交互留 Phase 2「喂 agent 事件」新 Watcher 重建。
+// Legacy command handlers are kept as no-op compatibility shims until the next
+// Watcher rebuild exposes neutral agent-event commands.
 Napi::Value Watcher::IssueBlockMessage(const Napi::CallbackInfo &info) {
-  SPDLOG_INFO("issue block message ignored (trading disabled in tracing-foundation Phase 1)");
+  SPDLOG_INFO("issue block message ignored (legacy command shim)");
   return Napi::BigInt::New(info.Env(), std::uint64_t(0));
 }
 
 Napi::Value Watcher::IssueOrderTrigger(const Napi::CallbackInfo &info) {
-  SPDLOG_INFO("issue order trigger ignored (trading disabled in tracing-foundation Phase 1)");
+  SPDLOG_INFO("issue order trigger ignored (legacy command shim)");
   return Napi::BigInt::New(info.Env(), std::uint64_t(0));
 }
 
 Napi::Value Watcher::IssueOrder(const Napi::CallbackInfo &info) {
-  SPDLOG_INFO("issue order ignored (trading disabled in tracing-foundation Phase 1)");
+  SPDLOG_INFO("issue order ignored (legacy command shim)");
   return Napi::BigInt::New(info.Env(), std::uint64_t(0));
 }
 
 Napi::Value Watcher::IssueAlgoOrder(const Napi::CallbackInfo &info) {
-  SPDLOG_INFO("issue algo order ignored (trading disabled in tracing-foundation Phase 1)");
+  SPDLOG_INFO("issue algo order ignored (legacy command shim)");
   return Napi::BigInt::New(info.Env(), std::uint64_t(0));
 }
 
@@ -260,22 +260,22 @@ Napi::Value Watcher::IssueMark(const Napi::CallbackInfo &info) {
 }
 
 Napi::Value Watcher::CancelOrder(const Napi::CallbackInfo &info) {
-  SPDLOG_INFO("cancel order ignored (trading disabled in tracing-foundation Phase 1)");
+  SPDLOG_INFO("cancel order ignored (legacy command shim)");
   return Napi::BigInt::New(info.Env(), std::uint64_t(0));
 }
 
 Napi::Value Watcher::CancelAlgoOrder(const Napi::CallbackInfo &info) {
-  SPDLOG_INFO("cancel algo order ignored (trading disabled in tracing-foundation Phase 1)");
+  SPDLOG_INFO("cancel algo order ignored (legacy command shim)");
   return Napi::BigInt::New(info.Env(), std::uint64_t(0));
 }
 
 Napi::Value Watcher::CancelOrderTrigger(const Napi::CallbackInfo &info) {
-  SPDLOG_INFO("cancel order trigger ignored (trading disabled in tracing-foundation Phase 1)");
+  SPDLOG_INFO("cancel order trigger ignored (legacy command shim)");
   return Napi::BigInt::New(info.Env(), std::uint64_t(0));
 }
 
 Napi::Value Watcher::ToggleAlgoOrder(const Napi::CallbackInfo &info) {
-  SPDLOG_INFO("toggle algo order ignored (trading disabled in tracing-foundation Phase 1)");
+  SPDLOG_INFO("toggle algo order ignored (legacy command shim)");
   return Napi::BigInt::New(info.Env(), std::uint64_t(0));
 }
 
@@ -328,10 +328,10 @@ void Watcher::on_react() {
   events_ | is(Deregister::tag) | $$(OnDeregister(event->gen_time(), event->data<Deregister>()));
   // for receive history data
   auto before_start_events = events_ | take_until(events_ | is(RequestStart::tag));
-  // accept trading data from cached state, so even if ui reload, history data is able to be shown
-  before_start_events | is_trading_data() | skip_while(while_is(OrderInput::tag)) |
-      $$(cached::feed_state_data(event, trading_data_cached_bank_));
-  before_start_events | not_trading_data() | $$(cached::feed_state_data(event, data_bank_));
+  // accept legacy data from cached state, so even if ui reload, history data is able to be shown
+  before_start_events | is_legacy_data() | skip_while(while_is(OrderInput::tag)) |
+      $$(cached::feed_state_data(event, legacy_data_cached_bank_));
+  before_start_events | not_legacy_data() | $$(cached::feed_state_data(event, data_bank_));
 }
 
 bool Watcher::has_writer(uint32_t dest_id) const { return writers_.find(dest_id) != writers_.end(); }
@@ -344,11 +344,11 @@ yijinjing::journal::writer_ptr Watcher::get_writer(uint32_t dest_id) const {
 }
 
 void Watcher::on_start() {
-  // tracing-foundation Phase 1:wingchun 交易记账(broker_client_/bookkeeper_/book/BookListener)已移除。
-  // 仍缓存非交易 state(Config/Instrument/Strategy 等)供 ledger 视图;按 Quote/Order/Trade/Asset/Position 的
-  // bookkeeper 实时记账留待 Phase 2「喂 agent 事件」新 Watcher 重建。
-  if (not bypass_trading_data_) {
-    events_ | not_trading_data() | skip_while(while_is(Position::tag)) | $$(cached::feed_state_data(event, data_bank_));
+  // This Watcher only maintains the neutral state cache used by the ledger
+  // view. Legacy domain replay stays isolated until the agent-event Watcher
+  // rebuild lands.
+  if (not bypass_legacy_data_) {
+    events_ | not_legacy_data() | skip_while(while_is(Position::tag)) | $$(cached::feed_state_data(event, data_bank_));
   }
 
   events_ | is(Channel::tag) | $$(InspectChannel(event->gen_time(), event->data<Channel>()));
@@ -381,34 +381,34 @@ void Watcher::Sync(const Napi::CallbackInfo &info) {
   SyncAppStates();
   SyncStrategyStates();
   SyncLedger();
-  TryRefreshTradingData();
-  SyncTradingDataFromCached();
-  SyncTradingData();
-  ResetTradingDataCount();
+  TryRefreshLegacyData();
+  SyncLegacyDataFromCached();
+  SyncLegacyData();
+  ResetLegacyDataCount();
 }
 
 void Watcher::SyncLedger() {
   boost::hana::for_each(StateDataTypes, [&](auto it) {
-    // cause trading data saved in trading_data_bank, no need to filter at this point
+    // cause legacy data saved in legacy_data_bank, no need to filter at this point
     UpdateLedger(+boost::hana::second(it));
   });
 }
 
-void Watcher::TryRefreshTradingData() {
-  if (not refresh_trading_data_before_sync_) {
+void Watcher::TryRefreshLegacyData() {
+  if (not refresh_legacy_data_before_sync_) {
     return;
   }
 
-  serialize::RefreshTradingDataInStateMap(ledger_ref_, "ledger");
+  serialize::RefreshLegacyDataInStateMap(ledger_ref_, "ledger");
 }
 
-void Watcher::SyncTradingData() {
-  // tracing-foundation Phase 1:交易 longfist 类型(Order/Trade/OrderStat/OrderInput)已移出 StateDataTypes 闭集,
-  // trading_data_bank_ 无法按其 at_key;交易数据 sync 留 Phase 2「喂 agent 事件」新 Watcher。no-op。
+void Watcher::SyncLegacyData() {
+  // Legacy typed data is no longer part of StateDataTypes, so this compatibility
+  // shim intentionally stays a no-op.
 }
 
-void Watcher::SyncTradingDataFromCached() {
-  // tracing-foundation Phase 1:同上,交易数据 cached sync 留 Phase 2。no-op。
+void Watcher::SyncLegacyDataFromCached() {
+  // See SyncLegacyData().
 }
 
 void Watcher::SyncAppStates() {
@@ -486,7 +486,7 @@ location_ptr Watcher::FindLocation(const Napi::CallbackInfo &info) {
 }
 
 void Watcher::InspectChannel(int64_t trigger_time, const Channel &channel) {
-  if (bypass_trading_data_) {
+  if (bypass_legacy_data_) {
     return;
   }
 
@@ -499,35 +499,35 @@ void Watcher::InspectChannel(int64_t trigger_time, const Channel &channel) {
     auto dest_location = get_location(channel.dest_id);
 
     if (source_location->role == location_role::SINK) {
-      if (dest_location->group == "node") { // for as soon as possible to get trading data made by renderer process;
-        trading_data_reader_->join(source_location, channel.dest_id, get_begin_time(), 0, Priority::High);
+      if (dest_location->group == "node") { // for as soon as possible to get legacy data made by renderer process;
+        legacy_data_reader_->join(source_location, channel.dest_id, get_begin_time(), 0, Priority::High);
       } else {
-        trading_data_reader_->join(source_location, channel.dest_id, get_begin_time());
+        legacy_data_reader_->join(source_location, channel.dest_id, get_begin_time());
       }
     }
 
     // for order stat
     if (source_location->uid == ledger_home_location_->uid) {
-      trading_data_reader_->join(source_location, channel.dest_id, get_begin_time());
+      legacy_data_reader_->join(source_location, channel.dest_id, get_begin_time());
     }
   }
 }
 
-void Watcher::MonitorMarketData(int64_t trigger_time, const location_ptr &md_location) {
-  //  events_ | is(Quote::tag) | from(md_location->uid) | first() |
+void Watcher::MonitorSourceHeartbeat(int64_t trigger_time, const location_ptr &source_location) {
+  //  events_ | is(Quote::tag) | from(source_location->uid) | first() |
   //      $(
-  //          [&, trigger_time, md_location](const event_ptr &event) {
-  //            broker_states_map_.insert_or_assign(md_location->uid, int(BrokerState::Ready));
-  //            events_ | from(md_location->uid) | is(Quote::tag) |
+  //          [&, trigger_time, source_location](const event_ptr &event) {
+  //            broker_states_map_.insert_or_assign(source_location->uid, int(BrokerState::Ready));
+  //            events_ | from(source_location->uid) | is(Quote::tag) |
   //                timeout(std::chrono::seconds(15), get_timer_usage_count()) |
-  //                $(noop_event_handler(), [&, trigger_time, md_location](std::exception_ptr e) {
-  //                  if (is_location_live(md_location->uid)) {
-  //                    broker_states_map_.insert_or_assign(md_location->uid, int(BrokerState::Idle));
-  //                    MonitorMarketData(trigger_time, md_location);
+  //                $(noop_event_handler(), [&, trigger_time, source_location](std::exception_ptr e) {
+  //                  if (is_location_live(source_location->uid)) {
+  //                    broker_states_map_.insert_or_assign(source_location->uid, int(BrokerState::Idle));
+  //                    MonitorSourceHeartbeat(trigger_time, source_location);
   //                  }
   //                });
   //          },
-  //          error_handler_log(fmt::format("monitor md {}", md_location->uname)));
+  //          error_handler_log(fmt::format("monitor source {}", source_location->uname)));
 }
 
 void Watcher::OnRegister(int64_t trigger_time, const Register &register_data) {
@@ -543,11 +543,11 @@ void Watcher::OnRegister(int64_t trigger_time, const Register &register_data) {
   }
 
   if (app_location->role == location_role::SOURCE and app_location->mode == mode::LIVE) {
-    MonitorMarketData(trigger_time, app_location);
+    MonitorSourceHeartbeat(trigger_time, app_location);
   }
 
   if (app_location->role == location_role::SINK) {
-    trading_data_reader_->join(app_location, location::PUBLIC, get_begin_time());
+    legacy_data_reader_->join(app_location, location::PUBLIC, get_begin_time());
   }
 }
 
@@ -587,7 +587,7 @@ void Watcher::StartWorker() {
           }
 
           watcher->step(STEP_INTERVAL);
-          watcher->drain_from_trading_data_reader(STEP_INTERVAL);
+          watcher->drain_from_legacy_data_reader(STEP_INTERVAL);
         }
       } catch (const std::exception &ex) {
         SPDLOG_ERROR("watcher worker error, backing off: {}", ex.what());
@@ -648,7 +648,7 @@ void Watcher::AfterMasterDown(const Napi::CallbackInfo &info) {
   Napi::HandleScope scope(info.Env());
   //  disjoin(get_master_command_uid());
   reader_->clear();
-  trading_data_reader_->clear();
+  legacy_data_reader_->clear();
   writers_.clear();
   band_writers_.clear();
   serialize::InitObjectReference(info, app_states_ref_);
@@ -667,37 +667,37 @@ bool Watcher::is_reactable(const event_ptr &event) {
     return false;
   }
 
-  // is_started() is supposed to be accpeted RefreshRequiredDataTags from cached
-  if ((bypass_trading_data_ or (bypass_accounting_ and is_started())) and
-      longfist::RefreshRequiredDataTags.find(event->carrier_type()) != longfist::RefreshRequiredDataTags.end()) {
+  // is_started() is supposed to be accpeted LegacyRefreshDataTags from cached
+  if ((bypass_legacy_data_ or (bypass_accounting_ and is_started())) and
+      longfist::LegacyRefreshDataTags.find(event->carrier_type()) != longfist::LegacyRefreshDataTags.end()) {
     return false;
   }
 
-  // Phase 1:broker::map_is_own_event(wingchun broker 自有事件分发)已移除。
+  // Legacy broker-owned event routing has been removed from this Watcher.
   return not is_custom_event(event);
 }
 
-void Watcher::drain_from_trading_data_reader(uint32_t step_limit) {
+void Watcher::drain_from_legacy_data_reader(uint32_t step_limit) {
   std::size_t step_count = 0;
   while ((step_limit == 0 || step_count < step_limit) and
-         trading_data_count_by_step_ < REFRESH_REQUIRED_DATA_LIMIT_BY_SYNC and trading_data_reader_->data_available()) {
-    const yijinjing::journal::frame_ptr frame = trading_data_reader_->current_frame();
+         legacy_data_count_by_step_ < LEGACY_REFRESH_DATA_LIMIT_BY_SYNC and legacy_data_reader_->data_available()) {
+    const yijinjing::journal::frame_ptr frame = legacy_data_reader_->current_frame();
 
-    if (longfist::RefreshRequiredDataTags.find(frame->carrier_type()) != longfist::RefreshRequiredDataTags.end() and
+    if (longfist::LegacyRefreshDataTags.find(frame->carrier_type()) != longfist::LegacyRefreshDataTags.end() and
         frame->carrier_type() != OrderInput::tag) {
-      cached::feed_state_data(frame, trading_data_bank_);
-      trading_data_count_by_step_++;
+      cached::feed_state_data(frame, legacy_data_bank_);
+      legacy_data_count_by_step_++;
     }
     step_count++;
-    trading_data_reader_->next();
+    legacy_data_reader_->next();
   }
 }
 
 bool Watcher::is_step_continually() {
   bool default_reader_available = reader_->data_available();
-  bool trading_data_reader_available = trading_data_reader_->data_available();
-  bool is_read_enough = trading_data_count_by_step_ >= REFRESH_REQUIRED_DATA_LIMIT_BY_SYNC;
-  return default_reader_available || (trading_data_reader_available && not is_read_enough);
+  bool legacy_data_reader_available = legacy_data_reader_->data_available();
+  bool is_read_enough = legacy_data_count_by_step_ >= LEGACY_REFRESH_DATA_LIMIT_BY_SYNC;
+  return default_reader_available || (legacy_data_reader_available && not is_read_enough);
 }
 
 } // namespace kungfu::node

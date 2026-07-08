@@ -383,7 +383,7 @@ void InitObjectReference(const Napi::CallbackInfo &info, Napi::ObjectReference &
 
 void InitStateMap(const Napi::CallbackInfo &info, Napi::ObjectReference &state, const std::string &name);
 
-void RefreshTradingDataInStateMap(Napi::ObjectReference &state, const std::string &name);
+void RefreshLegacyDataInStateMap(Napi::ObjectReference &state, const std::string &name);
 } // namespace kungfu::node::serialize
 
 #endif // KUNGFU_NODE_SERIALIZE_H

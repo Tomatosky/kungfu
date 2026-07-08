@@ -115,15 +115,6 @@ public:
     });
   };
 
-  static constexpr auto feed_trading_data = [](const event_ptr &event, auto &receiver) {
-    boost::hana::for_each(longfist::TradingDataTypes, [&](auto it) {
-      using DataType = typename decltype(+boost::hana::second(it))::type;
-      if (DataType::tag == event->carrier_type()) {
-        receiver << typed_event_ptr<DataType>(event);
-      }
-    });
-  };
-
 private:
   index::session_builder session_builder_;
   std::unordered_map<uint32_t, yijinjing::data::location_ptr> locations_ = {};
@@ -140,7 +131,6 @@ private:
   std::mutex profile_store_mutex_;
   std::atomic<bool> m_quit_ = false;
   std::atomic_bool storage_pause_ = false;
-  bool is_otc_ = false;
 
   yijinjing::data::location_ptr ledger_home_location_;
 

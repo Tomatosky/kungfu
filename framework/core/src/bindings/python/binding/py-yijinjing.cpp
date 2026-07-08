@@ -138,8 +138,6 @@ public:
   void on_exit() override { PYBIND11_OVERLOAD_PURE(void, apprentice, on_exit); }
 };
 
-template <typename DataType> DataType event_to_data(const event &e) { return e.data<DataType>(); }
-
 void bind(pybind11::module &&m) {
   yijinjing::ensure_sqlite_initilize();
 
@@ -147,11 +145,11 @@ void bind(pybind11::module &&m) {
   m.def("now_in_nano", &yijinjing::time::now_in_nano);
   m.def("nano_hashed", &yijinjing::time::nano_hashed);
   m.def("next_minute", &yijinjing::time::next_minute);
-  m.def("next_trading_day_end", &yijinjing::time::next_trading_day_end);
+  m.def("next_session_boundary", &yijinjing::time::next_session_boundary);
   m.def("calendar_day_start", &yijinjing::time::calendar_day_start);
   m.def("today_start", &yijinjing::time::today_start);
-  m.def("trading_day_start", &yijinjing::time::trading_day_start);
-  m.def("restore_start", &yijinjing::time::restore_start);
+  m.def("session_window_start", &yijinjing::time::session_window_start);
+  m.def("history_window_start", &yijinjing::time::history_window_start);
   m.def("strftime", &yijinjing::time::strftime, py::arg("nanotime"), py::arg("format") = KUNGFU_TIMESTAMP_FORMAT);
   m.def("strptime", py::overload_cast<const std::string &, const std::string &>(&yijinjing::time::strptime),
         py::arg("timestr"), py::arg("format") = KUNGFU_TIMESTAMP_FORMAT);
@@ -210,10 +208,6 @@ void bind(pybind11::module &&m) {
       .def_property_readonly("data_as_byte_array", &event::data_as_byte_array)
       .def_property_readonly("data_as_string", &event::data_as_string)
       .def("to_string", &event::to_string);
-  boost::hana::for_each(AllDataTypes, [&](auto pair) {
-    using DataType = typename decltype(+boost::hana::second(pair))::type;
-    event_class.def(boost::hana::first(pair).c_str(), &event_to_data<DataType>);
-  });
 
   py::class_<frame, event, frame_ptr>(m, "frame")
       .def_property_readonly("frame_length", &frame::frame_length)
@@ -350,13 +344,6 @@ void bind(pybind11::module &&m) {
       .def("mark", &writer::mark)
       .def("mark_at", &writer::mark_at)
       .def("write_bytes", &writer::write_bytes);
-  boost::hana::for_each(AllDataTypes, [&](auto type) {
-    using DataType = typename decltype(+boost::hana::second(type))::type;
-    writer_class.def("write", py::overload_cast<int64_t, const DataType &, int32_t>(&writer::write<DataType>),
-                     py::arg("trigger_time"), py::arg("data"), py::arg("carrier_type") = DataType::tag);
-    writer_class.def("write_at", py::overload_cast<int64_t, int64_t, const DataType &>(&writer::write_at<DataType>),
-                     py::arg("gen_time"), py::arg("trigger_time"), py::arg("data"));
-  });
 
   py::class_<sink, PySink, sink_ptr>(m, "sink")
       .def(py::init())
@@ -389,18 +376,6 @@ void bind(pybind11::module &&m) {
            py::arg("carrier_type"), py::arg("end_time") = INT64_MAX, py::return_value_policy::move)
       .def("__plus__", &assemble::operator+)
       .def("__rshift__", &assemble::operator>>);
-  boost::hana::for_each(AllDataTypes, [&](auto type) {
-    using DataType = typename decltype(+boost::hana::second(type))::type;
-    assemble_class.def("read_all", py::overload_cast<const DataType &, int64_t>(&assemble::read_all<DataType>),
-                       py::arg("data"), py::arg("end_time") = INT64_MAX, py::return_value_policy::move);
-    assemble_class.def("read_header_data",
-                       py::overload_cast<const DataType &, int64_t>(&assemble::read_header_data<DataType>),
-                       py::arg("data"), py::arg("end_time") = INT64_MAX, py::return_value_policy::move);
-    assemble_class.def("read_headers", py::overload_cast<const DataType &, int64_t>(&assemble::read_headers<DataType>),
-                       py::arg("data") = DataType{}, py::arg("end_time") = INT64_MAX, py::return_value_policy::move);
-    assemble_class.def("read_bytes", py::overload_cast<const DataType &, int64_t>(&assemble::read_bytes<DataType>),
-                       py::arg("data") = DataType{}, py::arg("end_time") = INT64_MAX, py::return_value_policy::move);
-  });
 
   py::class_<io_device, yijinjing::io_device_ptr>(m, "io_device")
       .def(py::init<location_ptr, bool, bool>(), py::arg("home"), py::arg("low_latency") = false,

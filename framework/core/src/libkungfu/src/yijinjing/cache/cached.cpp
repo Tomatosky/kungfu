@@ -32,13 +32,6 @@ cached::cached(const yijinjing::io_device_ptr &io_device)
   profile_.setup();
   profile_get_all(profile_, profile_restore_bank_);
 
-  // for otc scenes
-  char *is_otc = std::getenv("IS_OTC_ACCOUNTING_TYPE");
-  std::string yes_str = "1";
-  if (is_otc != nullptr && strcmp(is_otc, yes_str.c_str()) == 0) {
-    is_otc_ = true;
-  }
-
   // 开放层 FB 投影器（默认 OFF，与 hana 闭集并存）：仅当 KF_OPEN_LAYER_SCHEMAS 指向 schemas 目录时启用。
   if (const char *schemas_dir = std::getenv("KF_OPEN_LAYER_SCHEMAS"); schemas_dir != nullptr) {
     try {
@@ -138,10 +131,6 @@ void cached::restore_states(const yijinjing::data::location_ptr &location,
           ensure_cached_storage(sink_location, location::PUBLIC);
           app_states_shift_.at(sink_location->uid).restore_to(StaticDataTypes, writer, location::PUBLIC);
 
-          // for trading task starting as quick as possible
-          if (IS_ACTOR and location->group != "default" and is_otc_) {
-            break;
-          }
         } catch (const std::exception &ex) {
           SPDLOG_ERROR("failed to write static data {} {} {} for target {}", sink_location->uname, location::PUBLIC,
                        ex.what(), location->uname);
@@ -150,7 +139,7 @@ void cached::restore_states(const yijinjing::data::location_ptr &location,
     }
   }
 
-  // restore all trading data from sinks, including static data
+  // Restore cached runtime state from sinks.
   if (IS_SYSTEM) {
     for (const auto &sink_location : location->locator->list_locations("sink", "*", "*", "live")) {
       for (auto dest : location->locator->list_location_dest_by_db(sink_location)) {
@@ -167,7 +156,7 @@ void cached::restore_states(const yijinjing::data::location_ptr &location,
     }
   }
 
-  // for watcher reload ledger written data (statisticdata (orerstat) after crash
+  // Restore ledger-written runtime statistics after crash.
   if (IS_NODE) {
     for (const auto &ledger_location : location->locator->list_locations("system", "service", "ledger", "live")) {
       for (auto dest : location->locator->list_location_dest_by_db(ledger_location)) {
@@ -257,7 +246,8 @@ void cached::cache_reset(const event_ptr &event) {
 
 void cached::feed(const event_ptr &event) {
   std::lock_guard<std::mutex> lock(feed_mutex_);
-  // only etf related data will be stored by cached, these data should be only store in td public.db, for CachedReset
+  // Basket profile payloads are handled by the state path so CacheReset can
+  // address them consistently.
   if (event->carrier_type() != BasketInstrument::tag and event->carrier_type() != Basket::tag) {
     feed_profile_data(event, profile_feed_bank_);
   }
@@ -309,9 +299,6 @@ void cached::store_states_feeds() {
   auto store_state_data_start_time = yijinjing::time::now_in_nano();
 
   feed_mutex_.lock();
-  // tracing-foundation Phase 1: 交易类型拆出闭集 cache,移除 TradingDataTypes transfer(states_feed_bank_
-  // 现仅含非交易 StateDataTypes);仅搬运非交易状态。trading_data_count 置 0 仅供下方日志保留。
-  auto trading_data_count = 0;
   auto others_data_count = transfer_from_bank<bank, location_bank>(StateDataTypes, states_feed_bank_, tmp_location_bank,
                                                                    DEFAULT_STORE_VOLUME_BY_INTERVAL);
   feed_mutex_.unlock();
@@ -352,9 +339,9 @@ void cached::store_states_feeds() {
   });
 
   auto store_state_data_end_time = yijinjing::time::now_in_nano();
-  if (trading_data_count + others_data_count > 0) {
-    SPDLOG_DEBUG("store states data take {}ns, trading data count {}, others data count {}",
-                 store_state_data_end_time - store_state_data_start_time, trading_data_count, others_data_count);
+  if (others_data_count > 0) {
+    SPDLOG_DEBUG("store states data take {}ns, count {}", store_state_data_end_time - store_state_data_start_time,
+                 others_data_count);
   }
 }
 
