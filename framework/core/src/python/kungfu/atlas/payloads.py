@@ -186,7 +186,7 @@ def fsck_import(
     projection: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     manifest = load_latest_manifest(store_dir)
-    report = {
+    report: dict[str, Any] = {
         "ok": True,
         "scope": "atlas",
         "import_id": None,
@@ -217,13 +217,17 @@ def fsck_import(
             report["ok"] = False
             report["errors"].append({"code": "manifest_entry_invalid"})
             continue
-        key = _entry_key(entry)
-        if key in seen:
+        entry_key = _entry_key(entry)
+        if entry_key in seen:
             report["ok"] = False
             report["errors"].append(
-                {"code": "duplicate_source", "kind": key[0], "source_id": key[1]}
+                {
+                    "code": "duplicate_source",
+                    "kind": entry_key[0],
+                    "source_id": entry_key[1],
+                }
             )
-        seen.add(key)
+        seen.add(entry_key)
 
         kind = str(entry.get("kind") or "")
         if kind in ("mission", "goal", "marker"):
@@ -252,62 +256,69 @@ def fsck_import(
                 }
             )
 
-    counts = manifest.get("counts") if isinstance(manifest.get("counts"), dict) else {}
-    for key in ("missions", "goals", "markers"):
-        expected = counts.get(key)
-        if expected is not None and expected != report["checked"][key]:
+    counts_value = manifest.get("counts")
+    counts: dict[str, Any] = counts_value if isinstance(counts_value, dict) else {}
+    for section in ("missions", "goals", "markers"):
+        expected = counts.get(section)
+        if expected is not None and expected != report["checked"][section]:
             report["ok"] = False
             report["errors"].append(
                 {
                     "code": "manifest_count_mismatch",
-                    "kind": key,
+                    "kind": section,
                     "expected": expected,
-                    "actual": report["checked"][key],
+                    "actual": report["checked"][section],
                 }
             )
 
     if projection is not None:
-        projection_keys = {
+        projection_keys: dict[str, set[tuple[str, str]]] = {
             "missions": {
-                ("mission", str(key)) for key in projection.get("missions", {})
+                ("mission", str(source_id))
+                for source_id in projection.get("missions", {})
             },
-            "goals": {("goal", str(key)) for key in projection.get("goals", {})},
-            "markers": {("marker", str(key)) for key in projection.get("markers", {})},
+            "goals": {
+                ("goal", str(source_id)) for source_id in projection.get("goals", {})
+            },
+            "markers": {
+                ("marker", str(source_id))
+                for source_id in projection.get("markers", {})
+            },
         }
-        manifest_keys = {
+        manifest_keys: dict[str, set[tuple[str, str]]] = {
             "missions": {key for key in seen if key[0] == "mission"},
             "goals": {key for key in seen if key[0] == "goal"},
             "markers": {key for key in seen if key[0] == "marker"},
         }
-        for key in ("missions", "goals", "markers"):
-            actual = len(projection_keys[key])
-            expected = len(manifest_keys[key])
+        for section in ("missions", "goals", "markers"):
+            actual = len(projection_keys[section])
+            expected = len(manifest_keys[section])
             if actual != expected:
                 report["ok"] = False
                 report["errors"].append(
                     {
                         "code": "projection_count_mismatch",
-                        "kind": key,
+                        "kind": section,
                         "expected": expected,
                         "actual": actual,
                     }
                 )
-            if projection_keys[key] != manifest_keys[key]:
+            if projection_keys[section] != manifest_keys[section]:
                 report["ok"] = False
                 report["errors"].append(
                     {
                         "code": "projection_id_mismatch",
-                        "kind": key,
+                        "kind": section,
                         "missing_in_projection": [
                             {"kind": kind, "source_id": source_id}
                             for kind, source_id in sorted(
-                                manifest_keys[key] - projection_keys[key]
+                                manifest_keys[section] - projection_keys[section]
                             )
                         ],
                         "extra_in_projection": [
                             {"kind": kind, "source_id": source_id}
                             for kind, source_id in sorted(
-                                projection_keys[key] - manifest_keys[key]
+                                projection_keys[section] - manifest_keys[section]
                             )
                         ],
                     }
