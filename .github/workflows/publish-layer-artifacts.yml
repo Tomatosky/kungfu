@@ -66,6 +66,17 @@ jobs:
         run: |
           npm install --global npm@11.5.1
           for package in publication/npm/*.tgz; do npm publish --dry-run "$package"; done
+      - name: Prove target registry versions and release assets are absent
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          # shifu-entry-contract: allow dependency-free publication preflight before the launcher is installed
+          node scripts/preflight-layer-publication.mjs \
+            --manifest publication/manifest.json \
+            --version "${{ steps.version.outputs.version }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "${{ inputs.release-tag }}" \
+            --report publication/preflight-report.json
       - uses: actions/upload-artifact@v4
         with:
           name: adr0049-publication-set
@@ -106,7 +117,7 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --target "${{ needs.prepare.outputs.source-sha }}" --title "Kungfu Episodes ${VERSION}" --notes "ADR-0049 qualified release ${VERSION}"
-          gh release upload "$TAG" publication-set/publication/github/* --clobber
+          gh release upload "$TAG" publication-set/publication/github/*
       - name: Preserve exact PyPI wheels for isolated publisher job
         uses: actions/upload-artifact@v4
         with:

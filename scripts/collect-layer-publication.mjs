@@ -64,7 +64,8 @@ function main() {
   const sourceRoot = path.resolve(input);
   const outputRoot = path.resolve(output);
   if (!fs.existsSync(sourceRoot)) fail(`input does not exist: ${sourceRoot}`);
-  fs.rmSync(outputRoot, { recursive: true, force: true });
+  if (fs.existsSync(outputRoot))
+    fail(`refusing to replace an existing output directory: ${outputRoot}`);
   const byName = new Map();
   for (const file of walk(sourceRoot)) {
     const kind = classify(file);
@@ -80,6 +81,7 @@ function main() {
     a.name.localeCompare(b.name),
   );
   expectedCounts(entries);
+  fs.mkdirSync(outputRoot, { recursive: true });
   for (const entry of entries) {
     const directory = path.join(outputRoot, entry.kind);
     fs.mkdirSync(directory, { recursive: true });
