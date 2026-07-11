@@ -365,19 +365,21 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
         lambda: service.episode_list(runtime_dir, limit=args.list_limit)
     )
     expected_page_count = min(args.list_limit, args.expected_count)
-    if int(page.get("episode_count", -1)) != expected_page_count:
+    page_count = len(page.get("episodes", []))
+    if page_count != expected_page_count:
         errors.append(
             _issue(
                 "list_page_count_mismatch",
                 expected=expected_page_count,
-                actual=page.get("episode_count"),
+                actual=page_count,
             )
         )
 
     all_episodes, list_all_ms = _timed(
         lambda: service.episode_list(runtime_dir, limit=0)
     )
-    actual_count = int(all_episodes.get("episode_count", -1))
+    episode_rows = all_episodes.get("episodes", [])
+    actual_count = len(episode_rows)
     if actual_count != args.expected_count:
         errors.append(
             _issue(
@@ -386,9 +388,7 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
                 actual=actual_count,
             )
         )
-    semantic_record_count = sum(
-        int(row.get("record_count", 0)) for row in all_episodes.get("episodes", [])
-    )
+    semantic_record_count = sum(len(row.get("records", [])) for row in episode_rows)
     # ADR-0043: every sealed Episode carries open + close + the root
     # committed at seal
     expected_records = args.expected_count * 3
@@ -420,23 +420,37 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
         )
         inspect_latency.append(latency)
         episode = inspected.get("episode", {})
+        opened = episode.get("open", {})
+        closed = episode.get("close", {})
+        close_status = {2: "ended", 3: "aborted", 4: "tombstoned"}.get(
+            closed.get("status"), "unknown"
+        )
         expected_subset = {
             "episode_id": expected["episode_id"],
-            "title": expected["title"],
-            "actor": expected["actor"],
-            "source": expected["source"],
-            "status": expected["status"],
             "opened": True,
             "closed": True,
-            "record_count": 3,
-            "frame_count": 0,
-            "ref_count": 0,
         }
         mismatched = {
             key: {"expected": value, "actual": episode.get(key)}
             for key, value in expected_subset.items()
             if episode.get(key) != value
         }
+        nested_subset = {
+            "title": (expected["title"], opened.get("title")),
+            "actor": (expected["actor"], opened.get("actor")),
+            "source": (expected["source"], opened.get("source")),
+            "status": (expected["status"], close_status),
+            "record_count": (3, len(episode.get("records", []))),
+            "frame_count": (0, closed.get("frame_count")),
+            "ref_count": (0, len(episode.get("ref_indices", []))),
+        }
+        mismatched.update(
+            {
+                key: {"expected": expected_value, "actual": actual_value}
+                for key, (expected_value, actual_value) in nested_subset.items()
+                if actual_value != expected_value
+            }
+        )
         record_kinds = [row.get("record_kind") for row in inspected.get("records", [])]
         expected_kinds = ["episode_open", "episode_closed", "episode_root_committed"]
         if record_kinds != expected_kinds:
@@ -506,12 +520,13 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
         )
 
     recovery, recovery_ms = _timed(lambda: service.episode_recover(runtime_dir))
-    if int(recovery.get("recovered_count", -1)) != 0:
+    recovered_count = len(recovery.get("recovered", []))
+    if recovered_count != 0:
         errors.append(
             _issue(
                 "unexpected_recovery",
                 expected=0,
-                actual=recovery.get("recovered_count"),
+                actual=recovered_count,
                 recovered=recovery.get("recovered", []),
             )
         )
@@ -544,8 +559,8 @@ def run_probe(args: argparse.Namespace) -> dict[str, Any]:
             "warning_codes": warning_codes,
         },
         "recovery": {
-            "recovered_count": recovery.get("recovered_count"),
-            "skipped_count": recovery.get("skipped_count"),
+            "recovered_count": recovered_count,
+            "skipped_count": len(recovery.get("skipped_open", [])),
         },
         "resources": {
             **_disk_observation(runtime_dir),
