@@ -47,6 +47,11 @@ export function installerKind(file) {
   fail(`unsupported desktop installer: ${file}`);
 }
 
+export function copyMacApplication(source, destination) {
+  fs.mkdirSync(path.dirname(destination), { recursive: true });
+  run('ditto', [source, destination]);
+}
+
 export function installDesktopArtifact(installer, tempRoot) {
   const kind = installerKind(installer);
   const installRoot = path.join(tempRoot, 'installed-desktop');
@@ -68,9 +73,7 @@ export function installDesktopArtifact(installer, tempRoot) {
         'DMG application',
       );
       fs.mkdirSync(installRoot, { recursive: true });
-      fs.cpSync(app, path.join(installRoot, path.basename(app)), {
-        recursive: true,
-      });
+      copyMacApplication(app, path.join(installRoot, path.basename(app)));
     } finally {
       run('hdiutil', ['detach', mount]);
     }
