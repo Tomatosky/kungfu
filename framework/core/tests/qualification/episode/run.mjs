@@ -194,7 +194,8 @@ function runtimeEnv() {
     process.platform === 'darwin'
       ? 'DYLD_FALLBACK_LIBRARY_PATH'
       : process.platform === 'win32'
-        ? 'PATH'
+        ? Object.keys(env).find((name) => name.toUpperCase() === 'PATH') ||
+          'Path'
         : 'LD_LIBRARY_PATH';
   env[key] = env[key] ? `${dist}${path.delimiter}${env[key]}` : dist;
   return env;
