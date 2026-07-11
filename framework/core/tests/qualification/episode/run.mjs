@@ -253,6 +253,9 @@ function runPython(args, resultPath, timeoutSeconds, scriptPath = workerPath) {
         env: runtimeEnv(),
         stdio: ['ignore', 'pipe', 'pipe'],
         detached,
+        // Windows tool bootstrap may expose uv through a cmd shim rather than
+        // a directly spawnable executable. The arguments are harness-owned.
+        shell: process.platform === 'win32',
       },
     );
     let stdout = '';

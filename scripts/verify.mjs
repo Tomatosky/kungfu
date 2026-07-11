@@ -358,7 +358,7 @@ function main() {
   const kfd2Claims = spawnSync(
     'pnpm',
     ['exec', 'buildchain', 'kfd', '2', 'product-claims', 'check'],
-    { encoding: 'utf8' },
+    { encoding: 'utf8', shell: isWin },
   );
   if (kfd2Claims.status === 0)
     pass('KFD-2 release claims registry', (kfd2Claims.stdout || '').trim());
@@ -948,6 +948,7 @@ function main() {
     const core = path.join(ROOT, 'framework', 'core');
     const fuzzSrc = path.join(core, 'fuzz');
     const prefix = conanPrefix(core);
+    const cmakePrefix = prefix?.replaceAll('\\', '/');
     // Discover fuzz targets from fuzz_<name>.cpp so a new untrusted-input surface
     // (registered via kungfu_add_fuzz in fuzz/CMakeLists.txt + a corpus/<name>/)
     // is picked up here with no edit. StandaloneFuzzMain.cpp is not a fuzz_*.cpp.
@@ -987,8 +988,8 @@ function main() {
           buildDir,
           '-DKUNGFU_WITH_SANITIZERS=ON',
           '-DCMAKE_BUILD_TYPE=Release',
-          `-DCMAKE_PREFIX_PATH=${prefix}`,
-          `-DCMAKE_MODULE_PATH=${prefix}`,
+          `-DCMAKE_PREFIX_PATH=${cmakePrefix}`,
+          `-DCMAKE_MODULE_PATH=${cmakePrefix}`,
         ],
         { stdio: 'inherit' },
       );
@@ -1046,8 +1047,8 @@ function main() {
         buildDir,
         '-DKUNGFU_WITH_FUZZ=ON',
         '-DCMAKE_BUILD_TYPE=Release',
-        `-DCMAKE_PREFIX_PATH=${prefix}`,
-        `-DCMAKE_MODULE_PATH=${prefix}`,
+        `-DCMAKE_PREFIX_PATH=${cmakePrefix}`,
+        `-DCMAKE_MODULE_PATH=${cmakePrefix}`,
       ];
       if (clang) cfgArgs.push(`-DCMAKE_CXX_COMPILER=${clang}`);
       const cfg = spawnSync('cmake', cfgArgs, { stdio: 'inherit' });
