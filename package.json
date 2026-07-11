@@ -82,7 +82,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
-    "@kungfu-tech/buildchain": "2.11.14-alpha.0",
+    "@kungfu-tech/buildchain": "2.12.1-alpha.4",
     "@types/fs-extra": "^11.0.4",
     "@types/node": "^22.0.0",
     "@types/npmlog": "^7.0.0",

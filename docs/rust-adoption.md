@@ -176,13 +176,15 @@ need one.
 per-platform special-casing) with one binary that:
 
 - discovers the repo root and loads the two-layer `build-local.env`;
-- ensures fnm (node side) and uv (python side), **bootstrapping pinned
-  prebuilt binaries** into the user-global cache when absent — a fresh clone
-  needs nothing preinstalled beyond curl; the bootstrap versions are pinned by
-  the repo data files `.fnm-version` / `.uv-version` (same shape as
+- ensures fnm (node side) and uv (python side), and acquires Buildchain only
+  when a declared script invokes it, **bootstrapping pinned prebuilt binaries**
+  into the user-global cache when absent — a fresh clone needs nothing
+  preinstalled beyond curl; the bootstrap versions are pinned by the repo data
+  files `.fnm-version` / `.uv-version` / `.buildchain-version` (same shape as
   `.node-version`; env override wins, a compiled fallback covers checkouts
   without the pin files);
-- pins node via `.node-version` and dispatches every task to the
+- pins Buildchain before PATH via `.buildchain-version`, pins node via
+  `.node-version`, and dispatches every task to the
   corepack-pinned pnpm (with a `pnpm -> corepack pnpm` shim so repo scripts
   spawning bare `pnpm` work without `corepack enable`);
 - delegates the rich subcommands (`build` / `rebuild` / `proxy` / `config`) to
@@ -234,7 +236,9 @@ and checklists. Two legs, one discipline each:
 - **bootstrap** — acquire pinned tools. `FetchSpec`/`fetch` is the engine
   (exact version + URL, optional pinned SHA-256 verified before the cache is
   touched, user-global cache placement); `Tool` is the launcher-flavored front
-  end (repo pin files, env overrides, mirror envs, release asset naming). A
+  end (repo pin files, env overrides, mirror envs, release asset naming).
+  Buildchain is pin-first because it is a reproducible build input; fnm and uv
+  retain PATH-first compatibility with user-managed installations. A
   failed fetch is a named error carrying the exact URL, the expected checksum,
   and the mirror override to set — self-diagnosing by construction.
 - **probe** — declarative environment checks (`label / probe / required /

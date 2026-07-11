@@ -24,8 +24,10 @@ sensitive material in issues or pull requests.
 Everything else is resolved by the `./shifu` entrypoint: node (via
 [fnm](https://github.com/Schniz/fnm) and the checked-in `.node-version`), the
 package manager (pnpm via Corepack), and the Python environment (via
-[uv](https://docs.astral.sh/uv/)) — bootstrapped automatically on first run
-when not already installed.
+[uv](https://docs.astral.sh/uv/)), plus the Buildchain binary pinned by
+`.buildchain-version`. They are bootstrapped automatically when needed. User
+fnm / uv installations remain eligible; Buildchain is pin-first so a global
+version cannot silently replace the repository's reproducible build input.
 
 Run `./shifu doctor` to check your environment: it reports every required
 tool with a version line or an install pointer (and exits non-zero when a

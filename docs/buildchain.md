@@ -5,20 +5,25 @@ is a *use* reference; for the day-to-day commands and prerequisites see
 [`CONTRIBUTING.md`](../CONTRIBUTING.md), and for why the release pipeline is
 shaped the way it is see [`version-release-design.md`](version-release-design.md).
 
-## The two-driver bootstrap
+## Pinned bootstrap drivers
 
-A fresh clone needs only two host tools — `fnm` and `uv` — installed once.
-Everything else is pinned and resolved automatically. The orchestrator is
-`./shifu` (the development entry point; see [`concepts.md`](concepts.md)):
+A fresh clone needs only `curl`. The orchestrator is `./shifu` (the development
+entry point; see [`concepts.md`](concepts.md)); it acquires pinned drivers into
+the user-global Kungfu cache when needed:
 
 - **Node side:** `fnm` selects the Node version pinned by `.node-version`, then
   Corepack provides the package manager (`pnpm`) at the version pinned in
   `package.json`.
 - **Python side (symmetric):** `uv` manages a standalone CPython plus `uv.lock`,
   and `uv run` drives the Python build tools (Conan, Nuitka).
+- **Build protocol:** Buildchain is selected by `.buildchain-version`, resolved
+  pin-first from its standalone three-platform release archives, and added to
+  child `PATH` when a declared package script invokes the bare `buildchain`
+  command. `buildchain layout --json` is the stable KFD registry question;
+  Shifu does not duplicate Buildchain's internal layout.
 
-So the toolchain is reproducible from checked-in pins, not from whatever Node or
-Python happens to be on the host. `./shifu <task>` runs any `pnpm` task
+So the toolchain is reproducible from checked-in pins, not from whatever Node,
+Python, or Buildchain happens to be on the host. `./shifu <task>` runs any `pnpm` task
 under those pinned tools.
 
 ## Source → binary

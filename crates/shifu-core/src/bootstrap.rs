@@ -27,18 +27,19 @@
 // Downloads shell out to platform tools (curl + tar/unzip on Unix,
 // curl.exe/PowerShell + tar.exe on Windows 10+) so the shifu role itself
 // stays dependency-free. Mirrors are configurable through build-local.env
-// (KUNGFU_FNM_DIST_MIRROR / KUNGFU_UV_DIST_MIRROR), and checksums can be
-// pinned per environment (KUNGFU_FNM_SHA256 / KUNGFU_UV_SHA256).
+// (KUNGFU_FNM_DIST_MIRROR / KUNGFU_UV_DIST_MIRROR /
+// KUNGFU_BUILDCHAIN_DIST_MIRROR), and checksums can be pinned per environment
+// (KUNGFU_FNM_SHA256 / KUNGFU_UV_SHA256 / KUNGFU_BUILDCHAIN_SHA256).
 //
 // A failed fetch is a named error (BootstrapError) carrying the exact URL,
 // the expected checksum, and the mirror override to set — self-diagnosing by
 // construction, so a consumer's failure report needs no archaeology.
 //
 // Bootstrap versions resolve like node's: the repo pins them in data files
-// (.fnm-version / .uv-version, same shape as .node-version). Precedence:
-// KUNGFU_FNM_VERSION / KUNGFU_UV_VERSION env override > repo pin file >
-// compiled default (the fallback that keeps a distributed binary working when
-// a checkout predates the pin files).
+// (.fnm-version / .uv-version / .buildchain-version, same shape as
+// .node-version). Precedence: per-tool env override > repo pin file > compiled
+// default (the fallback that keeps a distributed binary working when a
+// checkout predates the pin files).
 
 use std::env;
 use std::fmt;
@@ -54,9 +55,11 @@ use crate::probe::{Probe, Status};
 /// fnm / uv already on PATH is always used as-is regardless of version.
 const FNM_FALLBACK_VERSION: &str = "1.39.0";
 const UV_FALLBACK_VERSION: &str = "0.11.23";
+const BUILDCHAIN_FALLBACK_VERSION: &str = "2.12.1-alpha.4";
 
 const FNM_BASE: &str = "https://github.com/Schniz/fnm/releases/download";
 const UV_BASE: &str = "https://github.com/astral-sh/uv/releases/download";
+const BUILDCHAIN_BASE: &str = "https://github.com/kungfu-systems/buildchain/releases/download";
 
 /// Cache path segment naming the platform triple this process would fetch
 /// for, e.g. `macos-aarch64`. Part of the cache contract (see
@@ -252,6 +255,8 @@ pub struct Tool {
     checksum_env: &'static str,
     default_base: &'static str,
     install_hint: &'static str,
+    /// Ignore an unrelated executable on PATH and resolve the exact repo pin.
+    pin_first: bool,
 }
 
 pub const FNM: Tool = Tool {
@@ -263,6 +268,7 @@ pub const FNM: Tool = Tool {
     checksum_env: "KUNGFU_FNM_SHA256",
     default_base: FNM_BASE,
     install_hint: "https://github.com/Schniz/fnm",
+    pin_first: false,
 };
 
 pub const UV: Tool = Tool {
@@ -274,6 +280,21 @@ pub const UV: Tool = Tool {
     checksum_env: "KUNGFU_UV_SHA256",
     default_base: UV_BASE,
     install_hint: "https://docs.astral.sh/uv/",
+    pin_first: false,
+};
+
+/// Buildchain is a repo-pinned build input, so an unrelated global executable
+/// must never replace the version declared by `.buildchain-version`.
+pub const BUILDCHAIN: Tool = Tool {
+    name: "buildchain",
+    version_env: "KUNGFU_BUILDCHAIN_VERSION",
+    pin_file: ".buildchain-version",
+    default_version: BUILDCHAIN_FALLBACK_VERSION,
+    mirror_env: "KUNGFU_BUILDCHAIN_DIST_MIRROR",
+    checksum_env: "KUNGFU_BUILDCHAIN_SHA256",
+    default_base: BUILDCHAIN_BASE,
+    install_hint: "https://github.com/kungfu-systems/buildchain/releases",
+    pin_first: true,
 };
 
 impl Tool {
@@ -335,6 +356,15 @@ impl Tool {
             ("uv", "linux", "x86_64") => "uv-x86_64-unknown-linux-gnu.tar.gz".to_string(),
             ("uv", "linux", "aarch64") => "uv-aarch64-unknown-linux-gnu.tar.gz".to_string(),
             ("uv", "windows", "x86_64") => "uv-x86_64-pc-windows-msvc.zip".to_string(),
+            ("buildchain", "macos", "aarch64") => {
+                "buildchain-aarch64-apple-darwin.tar.gz".to_string()
+            }
+            ("buildchain", "linux", "x86_64") => {
+                "buildchain-x86_64-unknown-linux-gnu.tar.gz".to_string()
+            }
+            ("buildchain", "windows", "x86_64") => {
+                "buildchain-x86_64-pc-windows-msvc.zip".to_string()
+            }
             _ => return None,
         };
         Some(name)
@@ -359,7 +389,7 @@ impl Tool {
         };
         let tag = match self.name {
             // fnm tags are v-prefixed; uv tags are bare versions.
-            "fnm" => format!("v{version}"),
+            "fnm" | "buildchain" => format!("v{version}"),
             _ => version.to_string(),
         };
         let sha256 = env::var(self.checksum_env)
@@ -393,11 +423,11 @@ fn resolve_version(env_val: Option<&str>, file_text: Option<&str>, fallback: &st
 /// Resolve a tool without bootstrapping (PATH, then cache). Used where the sh
 /// entrypoint also degraded gracefully (e.g. rich-subcommand node resolution).
 pub fn find_tool(tool: &Tool, root: &Path) -> Option<PathBuf> {
-    if let Some(on_path) = host::find_on_path(tool.name) {
-        return Some(on_path);
-    }
     let cached = tool.cached_binary(root);
-    cached.is_file().then_some(cached)
+    if tool.pin_first {
+        return cached.is_file().then_some(cached);
+    }
+    host::find_on_path(tool.name).or_else(|| cached.is_file().then_some(cached))
 }
 
 /// Resolve a tool, bootstrapping the pinned prebuilt release when absent.
@@ -502,7 +532,21 @@ pub fn download_file(url: &str, dest: &Path) -> Result<(), String> {
 fn download(url: &str, dest: &Path) -> Result<(), String> {
     if let Some(curl) = host::find_on_path("curl") {
         let status = Command::new(curl)
-            .args(["-fsSL", "--retry", "2", "--connect-timeout", "20", "-o"])
+            .args([
+                "-fsSL",
+                "--retry",
+                "4",
+                "--retry-all-errors",
+                "--connect-timeout",
+                "20",
+                "--speed-limit",
+                "1024",
+                "--speed-time",
+                "30",
+                "--continue-at",
+                "-",
+                "-o",
+            ])
             .arg(dest)
             .arg(url)
             .status()
@@ -801,7 +845,7 @@ fn url_answers(url: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::resolve_version;
+    use super::{resolve_version, BUILDCHAIN};
 
     #[test]
     fn env_beats_pin_file_beats_fallback() {
@@ -821,5 +865,22 @@ mod tests {
             "0.11.23"
         );
         assert_eq!(resolve_version(Some(""), Some("\n"), "0.0.1"), "0.0.1");
+    }
+
+    #[test]
+    fn buildchain_is_pin_first_and_uses_release_archives() {
+        let spec = BUILDCHAIN
+            .fetch_spec("2.12.1-alpha.4")
+            .expect("supported CI platforms have a Buildchain archive");
+        assert!(spec.url.contains("/v2.12.1-alpha.4/buildchain-"));
+        assert!(spec.url.ends_with(".tar.gz") || spec.url.ends_with(".zip"));
+        assert_eq!(
+            spec.binary_name(),
+            if cfg!(windows) {
+                "buildchain.exe"
+            } else {
+                "buildchain"
+            }
+        );
     }
 }

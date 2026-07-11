@@ -75,7 +75,7 @@ pub fn run(root: Option<&Path>) -> ! {
         style::cyan("Bootstrap state (informational; never blocks):")
     );
     let mut bootstrap_section = vec![bootstrap::cache_probe()];
-    for tool in [&tools::FNM, &tools::UV] {
+    for tool in [&tools::FNM, &tools::UV, &tools::BUILDCHAIN] {
         bootstrap_section.push(bootstrap::mirror_probe(tool));
         bootstrap_section.push(bootstrap::pin_probe(tool, root));
     }
@@ -112,7 +112,7 @@ pub fn run(root: Option<&Path>) -> ! {
 /// the launcher bootstraps them on first use.
 fn managed_probes(root: Option<&Path>) -> Vec<Probe> {
     let root_buf = root.map(Path::to_path_buf);
-    let mut probes: Vec<Probe> = [&tools::FNM, &tools::UV]
+    let mut probes: Vec<Probe> = [&tools::FNM, &tools::UV, &tools::BUILDCHAIN]
         .into_iter()
         .map(|tool| {
             let root_buf = root_buf.clone();

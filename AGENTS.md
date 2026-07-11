@@ -37,8 +37,9 @@ node, conan, or cmake directly — go through it:
 There is nothing to preinstall beyond `curl`: on first run `./shifu`
 bootstraps the pinned toolchain automatically (node via
 [fnm](https://github.com/Schniz/fnm) and `.node-version`, python via
-[uv](https://docs.astral.sh/uv/)) into `~/.cache/kungfu`. An fnm / uv you
-already have on PATH is used as-is. See
+[uv](https://docs.astral.sh/uv/), and Buildchain via `.buildchain-version`) into
+`~/.cache/kungfu`. An fnm / uv you
+already have on PATH is used as-is; Buildchain remains pin-first. See
 [`docs/rust-adoption.md`](docs/rust-adoption.md) for how the launcher works.
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full toolchain, repository
