@@ -16,6 +16,10 @@ on:
         description: "Temporary Buildchain train or exact SHA for trusted manual validation"
         required: false
         default: ""
+      platforms-json:
+        description: "Optional custom platform matrix for isolated qualification reruns"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -29,7 +33,8 @@ jobs:
     secrets: inherit
     with:
       buildchain-ref: ${{ inputs.buildchain-ref || '' }}
-      runner-preset: kungfu-v4-self-hosted
+      runner-preset: ${{ inputs.platforms-json && 'custom' || 'kungfu-v4-self-hosted' }}
+      platforms-json: ${{ inputs.platforms-json || '' }}
       setup-rust: true
       rust-toolchain: "1.96.0"
       rustup-dist-server: https://rsproxy.cn
