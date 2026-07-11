@@ -106,6 +106,25 @@ function qualificationFor(report, artifactId, reportKind) {
     : undefined;
 }
 
+function requirePublicationCoordinate(row, id) {
+  if (!row.coordinate || !row.version || !row.digest || !row.url)
+    fail(`${id} publication evidence is incomplete`);
+  if (!/^[a-f0-9]{64}$/.test(row.digest))
+    fail(`${id} publication digest must be sha256`);
+  let url;
+  try {
+    url = new URL(row.url);
+  } catch {
+    fail(`${id} publication URL is invalid`);
+  }
+  if (
+    url.protocol !== 'https:' ||
+    url.hostname === 'localhost' ||
+    url.hostname.endsWith('.invalid')
+  )
+    fail(`${id} publication URL must be an external HTTPS coordinate`);
+}
+
 function main() {
   const options = parseArgs(process.argv.slice(2));
   const policy = readJson(POLICY, 'release policy');
@@ -144,13 +163,7 @@ function main() {
       fail(`${id} lacks passing publication evidence`);
     if (publicationRow.registry !== requirement.publication)
       fail(`${id} publication registry does not match policy`);
-    if (
-      !publicationRow.coordinate ||
-      !publicationRow.version ||
-      !publicationRow.digest ||
-      !publicationRow.url
-    )
-      fail(`${id} publication evidence is incomplete`);
+    requirePublicationCoordinate(publicationRow, id);
     if (publicationRow.version !== publication.release.version)
       fail(`${id} publication version does not match release version`);
 

@@ -57,7 +57,13 @@ jobs:
         SHIFU_NATIVE=1 SHIFU_REQUIRE_MSVC=1 KUNGFU_FUZZ_SECONDS=90
         ./shifu verify --fuzz &&
         ./shifu episode:qualify:release -- --output
-        product/release/qualification/episode-release-evidence.json"
+        product/release/qualification/episode-release-evidence.json &&
+        ./shifu pack:spec &&
+        ./shifu layers:qualify:format -- --report
+        product/release/qualification/layer-format-report.json &&
+        ./shifu pack:sdk &&
+        ./shifu layers:qualify:sdk -- --report
+        product/release/qualification/layer-sdk-report.json"
       release-candidate: true
       artifact-transfer-mode: s3-to-github-artifacts
       artifact-retention-days: 14

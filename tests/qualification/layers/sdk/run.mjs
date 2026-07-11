@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { runMeasured } from '../process-metrics.mjs';
 
 const DIR = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(DIR, '..', '..', '..', '..');
@@ -395,18 +396,26 @@ function interpolate(value, captures) {
   return value;
 }
 
-function qualifyAdapter(adapter, fixture, root) {
+async function qualifyAdapter(adapter, fixture, root) {
   const workspace = path.join(root, `${adapter.id}.kungfu`);
   const captures = {};
   const timings = [];
+  let peakResidentBytes = 0;
   for (const step of fixture.steps) {
     const request = interpolate(step.request, captures);
-    const result = run(
+    const result = await runMeasured(
       adapter.command,
       [...adapter.prefix, workspace, step.operation, JSON.stringify(request)],
-      { env: adapter.env },
+      {
+        cwd: ROOT,
+        env: {
+          ...adapter.env,
+          KUNGFU_QUALIFICATION_HOLD_MS: '100',
+        },
+      },
     );
     timings.push(result.durationMs);
+    peakResidentBytes = Math.max(peakResidentBytes, result.peakResidentBytes);
     let response;
     let parseError;
     for (const line of result.stdout.trim().split('\n')) {
@@ -461,16 +470,12 @@ function qualifyAdapter(adapter, fixture, root) {
       cold_start_ms: Math.round(timings[0] * 1000) / 1000,
       resident_runtime_count: 1,
       onboarding_concept_count: 4,
-      resident_memory_bytes: {
-        status: 'unverifiable',
-        reason:
-          'The adapter is intentionally one-shot; cross-platform peak-RSS sampling is not yet part of this gate.',
-      },
+      resident_memory_bytes: peakResidentBytes,
     },
   };
 }
 
-function main() {
+async function main() {
   const options = parseArgs(process.argv.slice(2));
   const fixture = readJson(FIXTURE);
   validateFixture(fixture);
@@ -503,8 +508,8 @@ function main() {
       ),
       setupRust(temp, artifacts.nativeDir),
     ];
-    const qualifications = adapters.map((adapter) =>
-      qualifyAdapter(adapter, fixture, temp),
+    const qualifications = await Promise.all(
+      adapters.map((adapter) => qualifyAdapter(adapter, fixture, temp)),
     );
     const report = {
       schema: 'kungfu.layer-qualification.sdk-report/v1',
@@ -561,7 +566,7 @@ function main() {
 }
 
 try {
-  main();
+  await main();
 } catch (error) {
   console.error(
     `[layers:qualify:sdk] failed: ${error instanceof Error ? error.message : String(error)}`,
