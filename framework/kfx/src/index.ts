@@ -52,7 +52,7 @@ export {
   emptyQueryChangelogState,
   parseSavedQueryView,
   queryRows,
-} from '@kungfu-tech/api/capability';
+} from '@kungfu-tech/api/query';
 
 // ── capability surface ────────────────────────────────────────────────────
 
