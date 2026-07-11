@@ -57,6 +57,31 @@ def _expect(actual: Any, expected: Any, label: str) -> None:
         raise AssertionError(f"{label}: expected {expected!r}, got {actual!r}")
 
 
+def _episode_lifecycle(episode: dict[str, Any]) -> str:
+    if not episode.get("opened"):
+        return "missing"
+    if not episode.get("closed"):
+        return "open"
+    return {2: "ended", 3: "aborted", 4: "tombstoned"}.get(
+        episode.get("close", {}).get("status"), "unknown"
+    )
+
+
+def _issue_codes(report: dict[str, Any], severity: str) -> set[str]:
+    return {
+        str(row.get("code"))
+        for row in report.get("issues", [])
+        if row.get("severity") == severity
+    }
+
+
+def _projection(report: dict[str, Any]) -> dict[str, Any]:
+    for row in report.get("projections", []):
+        if row.get("name") == "episode-manifest-sqlite":
+            return dict(row.get("verification", {}))
+    raise AssertionError("Episode projection verification is missing")
+
+
 def _begin(service: Any, runtime_dir: Path, episode_id: int, **values: Any) -> None:
     service.episode_begin(
         runtime_dir,
@@ -84,18 +109,18 @@ def _expect_capability_contract(
 ) -> dict[str, Any]:
     qualification = report["qualification"]
     expected = oracle.observe()
-    actual_safe = tuple(sorted(qualification["safe_capabilities"]))
+    rows = {row["name"]: row for row in qualification["capabilities"]}
+    actual_safe = tuple(sorted(name for name, row in rows.items() if row["safe"]))
     _expect(qualification["lifecycle"], expected.lifecycle, f"{label} lifecycle")
     _expect(qualification["status"], expected.status, f"{label} status")
     _expect(actual_safe, expected.safe_capabilities, f"{label} safe capabilities")
-    rows = {row["name"]: row for row in qualification["capabilities"]}
     _expect(
         tuple(sorted(name for name, row in rows.items() if row["safe"])),
         actual_safe,
         f"{label} safe row projection",
     )
     _expect(
-        tuple(sorted(row["capability"] for row in qualification["contractions"])),
+        tuple(sorted(name for name, row in rows.items() if not row["safe"])),
         tuple(sorted(name for name, row in rows.items() if not row["safe"])),
         f"{label} contraction projection",
     )
@@ -112,26 +137,30 @@ def _case_lifecycle_recovery(service: Any, _: Any, root: Path) -> dict[str, Any]
     oracle.begin()
     _begin(service, runtime_dir, 101)
     opened = service.episode_inspect(runtime_dir, episode_id=101)["episode"]
-    _expect(opened["status"], oracle.observe().lifecycle, "open lifecycle")
+    opened_status = _episode_lifecycle(opened)
+    _expect(opened_status, oracle.observe().lifecycle, "open lifecycle")
     _expect(opened["closed"], False, "open must not be presented as closed")
 
     _expect(oracle.recover(), True, "oracle first recovery")
     recovered = service.episode_recover(
         runtime_dir, episode_id=101, reason="semantic interrupted publication"
     )
-    _expect(recovered["recovered_count"], 1, "production first recovery")
+    recovered_count = len(recovered.get("recovered", []))
+    _expect(recovered_count, 1, "production first recovery")
     inspected = service.episode_inspect(runtime_dir, episode_id=101)["episode"]
-    _expect(inspected["status"], oracle.observe().lifecycle, "recovered lifecycle")
+    inspected_status = _episode_lifecycle(inspected)
+    _expect(inspected_status, oracle.observe().lifecycle, "recovered lifecycle")
     _expect(inspected["closed"], True, "recovered Episode closure")
 
     _expect(oracle.recover(), False, "oracle repeated recovery")
     repeated = service.episode_recover(runtime_dir, episode_id=101)
-    _expect(repeated["recovered_count"], 0, "production repeated recovery")
+    repeated_count = len(repeated.get("recovered", []))
+    _expect(repeated_count, 0, "production repeated recovery")
     return {
-        "open_status": opened["status"],
-        "recovered_status": inspected["status"],
-        "first_recovered_count": recovered["recovered_count"],
-        "second_recovered_count": repeated["recovered_count"],
+        "open_status": opened_status,
+        "recovered_status": inspected_status,
+        "first_recovered_count": recovered_count,
+        "second_recovered_count": repeated_count,
     }
 
 
@@ -157,13 +186,13 @@ def _case_content_repair(
     before_oracle = oracle.observe()
     _expect(before["status"], before_oracle.status, "open missing payload status")
     _expect(
-        "episode_payload_ref_missing" in {row["code"] for row in before["warnings"]},
+        "episode_payload_ref_missing" in _issue_codes(before, "warning"),
         True,
         "open missing payload evidence",
     )
-    records_before = service.episode_inspect(runtime_dir, episode_id=201)["episode"][
-        "record_count"
-    ]
+    records_before = len(
+        service.episode_inspect(runtime_dir, episode_id=201)["episode"]["records"]
+    )
 
     published = content_store.put_if_absent(
         runtime_dir, "payloads", raw, expected_hash=ref_hash
@@ -182,9 +211,9 @@ def _case_content_repair(
     )
     _expect(repeated["ok"], True, "repeated content publication")
     _expect(repeated["existed"], True, "put-if-absent idempotence")
-    records_after = service.episode_inspect(runtime_dir, episode_id=201)["episode"][
-        "record_count"
-    ]
+    records_after = len(
+        service.episode_inspect(runtime_dir, episode_id=201)["episode"]["records"]
+    )
     _expect(records_after, records_before, "repair must not rewrite manifest facts")
 
     rejected = content_store.put_if_absent(
@@ -230,9 +259,9 @@ def _case_dependency_containment(service: Any, _: Any, root: Path) -> dict[str, 
     dependent_before = service.fsck(runtime_dir, episode_id=301)
     independent_before = service.fsck(runtime_dir, episode_id=302)
     _expect(dependent_before["status"], dependent.observe().status, "dependent status")
-    missing_dependency_observed = "episode_dependency_missing" in {
-        row["code"] for row in dependent_before["warnings"]
-    }
+    missing_dependency_observed = "episode_dependency_missing" in _issue_codes(
+        dependent_before, "warning"
+    )
     _expect(
         missing_dependency_observed,
         True,
@@ -275,33 +304,34 @@ def _case_projection(service: Any, _: Any, root: Path) -> dict[str, Any]:
     oracle.end()
     _begin(service, runtime_dir, 401)
     _end(service, runtime_dir, 401)
-    absent = service.fsck(runtime_dir, episode_id=401)["episode_projection"]
+    absent = _projection(service.fsck(runtime_dir, episode_id=401))
     _expect(absent["status"], oracle.projection, "absent projection")
 
     rebuilt = service.episode_projection_rebuild(runtime_dir)
     oracle.rebuild_projection()
-    current = service.fsck(runtime_dir, episode_id=401)["episode_projection"]
+    current = _projection(service.fsck(runtime_dir, episode_id=401))
     _expect(current["status"], "ok", "rebuilt projection")
 
     _begin(service, runtime_dir, 402)
     _end(service, runtime_dir, 402)
     oracle.mark_projection_stale()
     stale_fsck = service.fsck(runtime_dir, episode_id=402)
-    stale = stale_fsck["episode_projection"]
+    stale = _projection(stale_fsck)
     _expect(stale["status"], "degraded", "stale projection")
     _expect(stale_fsck["status"], oracle.observe().status, "stale projection trust")
 
     service.episode_projection_rebuild(runtime_dir)
     oracle.rebuild_projection()
     healed = service.fsck(runtime_dir, episode_id=402)
-    _expect(healed["episode_projection"]["status"], "ok", "healed projection")
+    healed_projection = _projection(healed)
+    _expect(healed_projection["status"], "ok", "healed projection")
     _expect(healed["status"], oracle.observe().status, "healed projection trust")
     return {
         "projection_status_path": [
             absent["status"],
             current["status"],
             stale["status"],
-            healed["episode_projection"]["status"],
+            healed_projection["status"],
         ],
         "authority": rebuilt["authority"],
         "journal_records": rebuilt["journal_records"],
@@ -370,7 +400,10 @@ def _case_capability_contract(
         oracle, degraded, "degraded open Episode"
     )
     _expect(
-        "append" in degraded["qualification"]["safe_capabilities"],
+        any(
+            row.get("name") == "append" and row.get("safe")
+            for row in degraded["qualification"]["capabilities"]
+        ),
         True,
         "degradation must preserve append",
     )
