@@ -64,10 +64,12 @@ function main() {
 
   // pybind11-stubgen copies C++ parameter names verbatim; `from` is a Python
   // keyword, so `def f(self, from: int)` is invalid Python — rename to `from_`.
+  // It also emits spaces on otherwise blank docstring lines. Strip trailing
+  // whitespace so a build followed by the repository formatter is idempotent.
   for (const rel of glob.sync('**/*.pyi', { cwd: 'stubs/pykungfu' })) {
     const file = path.join('stubs', 'pykungfu', rel);
     const before = fs.readFileSync(file, 'utf8');
-    const after = before.replace(/\bfrom:/g, 'from_:');
+    const after = before.replace(/\bfrom:/g, 'from_:').replace(/[ \t]+$/gm, '');
     if (after !== before) fs.writeFileSync(file, after);
   }
 }
