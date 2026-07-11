@@ -60,7 +60,7 @@ registry mirror. Leaving it empty uses the official Cargo source; CI may set a
 reviewed mirror URL while Cargo still verifies the checksums pinned in each
 adapter's lockfile.
 
-The standalone spike pins Rust 1.95.0 with a minimal profile in its own
+The standalone spike pins Rust 1.96.0 with a minimal profile in its own
 directory. Wasmtime 46.0.1 requires Rust 1.94 and Wasmer 7.2.0 requires Rust
 1.93; the local pin keeps older self-hosted runner defaults from silently
 selecting an unsupported compiler without changing the root workspace policy.
