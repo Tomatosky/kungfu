@@ -22,14 +22,14 @@ function run(command, args, options = {}) {
   return result.stdout || '';
 }
 
-function findOne(root, predicate, label) {
+export function findOne(root, predicate, label) {
   const matches = [];
   const visit = (dir) => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const target = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         if (predicate(target, entry)) matches.push(target);
-        visit(target);
+        else visit(target);
       } else if (entry.isFile() && predicate(target, entry))
         matches.push(target);
     }
