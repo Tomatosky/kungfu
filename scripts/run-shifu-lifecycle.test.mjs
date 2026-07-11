@@ -5,9 +5,10 @@ import { test } from 'node:test';
 
 import { lifecycleEnvironment, runShifu } from './run-shifu-lifecycle.mjs';
 
-test('keeps a Cargo environment that already supports lockfile v4', () => {
+test('copies the lifecycle environment without mutating the caller', () => {
   const env = lifecycleEnvironment(process.env);
   assert.equal(env.PATH, process.env.PATH);
+  assert.notEqual(env, process.env);
 });
 
 test('runs the Unix shim without a shell', () => {
