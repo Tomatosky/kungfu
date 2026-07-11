@@ -87,3 +87,28 @@ binds artifact hashes, installed size, dependency count, first-call latency,
 and sibling-runtime deletion proofs. A source-built passing report does not
 claim that the artifact is published or qualified on unnamed platforms; those
 remain release-channel evidence.
+
+## Release evidence aggregation
+
+The final promotion gate consumes the exact reports produced above rather than
+trusting a hand-edited matrix status:
+
+```sh
+./shifu layers:qualify:release -- \
+  --format-report <format-report.json> \
+  --sdk-report <darwin-sdk-report.json> \
+  --sdk-report <linux-sdk-report.json> \
+  --sdk-report <windows-sdk-report.json> \
+  --surface-report <darwin-surface-report.json> \
+  --surface-report <linux-surface-report.json> \
+  --surface-report <windows-surface-report.json> \
+  --publication-report <publication-report.json> \
+  --report <release-report.json>
+```
+
+`release/policy.json` is the checked-in promotion predicate. All seven staged
+rows require clean-source exact artifacts, every named platform, numeric values
+for all six budgets, and immutable publication coordinates. CLI, GUI, and the
+assembled distribution additionally require installer-uninstall evidence. A
+missing platform, an `unverifiable` budget, or a publication placeholder is a
+hard failure; the aggregator never fills or infers absent evidence.
