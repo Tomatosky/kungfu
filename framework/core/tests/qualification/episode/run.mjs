@@ -719,7 +719,21 @@ async function main() {
   fs.mkdirSync(path.dirname(reportPath), { recursive: true });
 
   const sourceRevision = gitText(['rev-parse', 'HEAD']);
-  const sourceDirty = gitText(['status', '--porcelain']).length > 0;
+  // A locked CI checkout starts from the exact commit/tree, then install/build
+  // materializes untracked products before qualification. Those products are
+  // evidence inputs, not source drift; only tracked index/worktree changes can
+  // invalidate the commit-bound release claim.
+  const sourceStatus = gitText([
+    'status',
+    '--porcelain',
+    '--untracked-files=no',
+  ]);
+  const sourceDirty = sourceStatus.length > 0;
+  if (sourceDirty) {
+    console.error(
+      `[episode-qualify] tracked source drift: ${sourceStatus.split(/\r?\n/).slice(0, 20).join(' | ')}`,
+    );
+  }
   const started = Date.now();
   const scenarios = [];
   let semantic = null;
