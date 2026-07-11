@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
   extractTarGz,
   extractZip,
@@ -68,7 +68,7 @@ function parseArgs(argv) {
   return options;
 }
 
-function findArtifact(root, predicate, label) {
+export function findArtifact(root, predicate, label) {
   const matches = [];
   const visit = (dir) => {
     if (!fs.existsSync(dir)) return;
@@ -76,7 +76,7 @@ function findArtifact(root, predicate, label) {
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         if (predicate(full, entry)) matches.push(full);
-        visit(full);
+        else visit(full);
       } else if (entry.isFile() && predicate(full, entry)) matches.push(full);
     }
   };
@@ -467,11 +467,16 @@ async function main() {
   console.log(`[layers:qualify:surfaces] ${report.boundary}`);
 }
 
-try {
-  await main();
-} catch (error) {
-  console.error(
-    `[layers:qualify:surfaces] failed: ${error instanceof Error ? error.message : String(error)}`,
-  );
-  process.exit(1);
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
+  try {
+    await main();
+  } catch (error) {
+    console.error(
+      `[layers:qualify:surfaces] failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    process.exit(1);
+  }
 }

@@ -2,9 +2,13 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+
+import { findArtifact } from './run.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const runner = path.join(here, 'run.mjs');
@@ -18,4 +22,25 @@ test('surface qualification source contract validates without artifacts', () => 
   assert.equal(result.status, 0, result.stderr || result.stdout);
   assert.match(result.stdout, /source-valid/);
   assert.match(result.stdout, /does not qualify installed artifacts/);
+});
+
+test('desktop discovery treats a matched app bundle as one artifact root', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'kungfu-surface-find-'));
+  try {
+    const app = path.join(root, 'Kungfu Episodes.app');
+    fs.mkdirSync(
+      path.join(app, 'Contents', 'Frameworks', 'Kungfu Episodes Helper.app'),
+      { recursive: true },
+    );
+    assert.equal(
+      findArtifact(
+        root,
+        (target, entry) => entry.isDirectory() && target.endsWith('.app'),
+        'desktop directory',
+      ),
+      app,
+    );
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
