@@ -11,9 +11,13 @@ export function lifecycleEnvironment(env = process.env) {
   return { ...env };
 }
 
-function cmdCommand(shim, args) {
+export function cmdCommand(shim, args) {
+  if ([shim, ...args].some((value) => /[\r\n%!]/.test(String(value))))
+    throw new Error(
+      'Windows Shifu lifecycle arguments contain unsafe cmd syntax',
+    );
   const quote = (value) => `"${String(value).replaceAll('"', '""')}"`;
-  return `call ${[shim, ...args].map(quote).join(' ')}`;
+  return [shim, ...args].map(quote).join(' ');
 }
 
 /** Run the canonical repository shim without assuming bash exists on Windows. */
@@ -25,10 +29,11 @@ export function runShifu(args, options = {}) {
   if (platform === 'win32') {
     const command = options.comspec || env.ComSpec || env.COMSPEC || 'cmd.exe';
     const shim = path.join(root, 'shifu.cmd');
-    result = spawnSync(command, ['/d', '/s', '/c', cmdCommand(shim, args)], {
+    result = spawnSync(cmdCommand(shim, args), [], {
       cwd: root,
       env,
       stdio: options.stdio || 'inherit',
+      shell: command,
     });
   } else {
     result = spawnSync(path.join(root, 'shifu'), args, {
