@@ -12,8 +12,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { cmdCommand } from '../../../../../scripts/run-shifu-lifecycle.mjs';
-
 const __filename = fileURLToPath(import.meta.url);
 const harnessDir = path.dirname(__filename);
 const coreDir = path.resolve(harnessDir, '..', '..', '..');
@@ -202,6 +200,17 @@ function runtimeEnv() {
   return env;
 }
 
+function windowsShimCommand(command, args) {
+  if (!/^[a-z0-9_.-]+$/i.test(command)) {
+    fail(`unsafe Windows shim command '${command}'`);
+  }
+  if (args.some((value) => /[\r\n%!]/.test(String(value)))) {
+    fail('Windows Episode worker arguments contain unsafe cmd syntax');
+  }
+  const quote = (value) => `"${String(value).replaceAll('"', '""')}"`;
+  return [command, ...args.map(quote)].join(' ');
+}
+
 function assertNativeBinding() {
   const dist = path.join(coreDir, 'dist', 'kungfu');
   let entries = [];
@@ -251,7 +260,7 @@ function runPython(args, resultPath, timeoutSeconds, scriptPath = workerPath) {
     const uvArgs = ['run', '--frozen', 'python', scriptPath, ...args];
     const windows = process.platform === 'win32';
     const child = spawn(
-      windows ? cmdCommand('uv', uvArgs) : 'uv',
+      windows ? windowsShimCommand('uv', uvArgs) : 'uv',
       windows ? [] : uvArgs,
       {
         cwd: coreDir,
@@ -680,7 +689,7 @@ async function validateReport(reportPath) {
   ];
   const windows = process.platform === 'win32';
   const child = spawnSync(
-    windows ? cmdCommand('uv', uvArgs) : 'uv',
+    windows ? windowsShimCommand('uv', uvArgs) : 'uv',
     windows ? [] : uvArgs,
     {
       cwd: coreDir,

@@ -100,6 +100,16 @@ function(kungfu_add_fuzz _name)
     target_include_directories(fuzz_${_name}_sanitize PRIVATE ${_lk_inc})
     target_link_libraries(fuzz_${_name}_sanitize PRIVATE flatbuffers::flatbuffers SQLite::SQLite3)
     target_compile_options(fuzz_${_name}_sanitize PRIVATE ${_san_compile})
+    if (MSVC)
+      # Conan's FlatBuffers archive is built without MSVC STL container
+      # annotations. Match that ABI while retaining /fsanitize=address for the
+      # fuzz entry and view implementation; otherwise the linker rejects the
+      # mixed objects with LNK2038 annotate_string/vector/optional mismatches.
+      target_compile_definitions(fuzz_${_name}_sanitize PRIVATE
+        _DISABLE_STRING_ANNOTATION
+        _DISABLE_VECTOR_ANNOTATION
+        _DISABLE_OPTIONAL_ANNOTATION)
+    endif()
     if (_san_link)
       target_link_options(fuzz_${_name}_sanitize PRIVATE ${_san_link})
     endif()
