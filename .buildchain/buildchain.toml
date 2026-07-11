@@ -18,9 +18,10 @@ type = "json"
 path = "lerna.json"
 key = "version"
 
-# Lifecycle commands run through ./shifu, the pinned-toolchain entrypoint.
-# One command on every platform: stages run under bash (Git Bash on Windows
-# runners), where the shim resolves the native launcher — cached binary, then
+# Lifecycle commands run through the platform's shifu shim, the
+# pinned-toolchain entrypoint. The small Node dispatcher chooses ./shifu or
+# shifu.cmd without requiring Git Bash on Windows. The shim resolves the native
+# launcher — cached binary, then
 # prebuilt release download, then cargo, then the in-script bootstrap (the
 # runner preset's own fnm/uv) as the last fallback. The launcher bootstraps
 # missing prerequisites and loads the MSVC environment on Windows itself.
@@ -33,16 +34,16 @@ SHIFU_NATIVE = "1"
 SHIFU_REQUIRE_MSVC = "1"
 
 [lifecycle.install]
-shell = "bash"
-command = "./shifu install --frozen-lockfile --no-optional"
+# shifu-entry-contract: allow the cross-platform dispatcher to enter the canonical shifu shim
+command = "node scripts/run-shifu-lifecycle.mjs install --frozen-lockfile --no-optional"
 
 [lifecycle.build]
-shell = "bash"
-command = "./shifu dist"
+# shifu-entry-contract: allow the cross-platform dispatcher to enter the canonical shifu shim
+command = "node scripts/run-shifu-lifecycle.mjs dist"
 
 [lifecycle.verify]
-shell = "bash"
-command = "./shifu verify"
+# shifu-entry-contract: allow the cross-platform dispatcher to enter the canonical shifu shim
+command = "node scripts/run-shifu-lifecycle.mjs verify"
 
 [lifecycle.publish]
 # shifu-entry-contract: allow Buildchain publish adapter bootstraps before repository lifecycle dispatch

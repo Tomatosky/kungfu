@@ -48,24 +48,12 @@ jobs:
       # libFuzzer long-run is the Linux gate and soft-skips where libFuzzer is
       # absent. KUNGFU_FUZZ_SECONDS bounds the per-target run.
       #
-      # Wrapped in `bash -c`: an explicit verify-command runs under the
-      # platform default shell (cmd.exe on Windows) and does not inherit the
-      # lifecycle stage's shell or [lifecycle.env], so the shell and the env
-      # are inlined here to match the .buildchain/buildchain.toml stages.
-      verify-command: >-
-        bash -c "KUNGFU_BUILDCHAIN_NO_OPTIONAL=1 KUNGFU_BUILDCHAIN_SOURCE_BUILD=1
-        SHIFU_NATIVE=1 SHIFU_REQUIRE_MSVC=1 KUNGFU_FUZZ_SECONDS=90
-        ./shifu verify --fuzz &&
-        ./shifu episode:qualify:release -- --output
-        product/release/qualification/episode-release-evidence.json &&
-        ./shifu pack:spec &&
-        ./shifu layers:qualify:format -- --report
-        product/release/qualification/layer-format-report.json &&
-        ./shifu pack:sdk &&
-        ./shifu layers:qualify:sdk -- --report
-        product/release/qualification/layer-sdk-report.json &&
-        ./shifu layers:qualify:surfaces -- --report
-        product/release/qualification/layer-surface-report.json"
+      # An explicit verify command runs under the platform default shell and
+      # does not inherit [lifecycle.env]. This Node implementation adapter sets
+      # the same environment and enters the canonical shifu/shifu.cmd shim for
+      # every qualification stage without assuming bash exists on Windows.
+      # shifu-entry-contract: allow cross-platform release qualification dispatch into the canonical shifu shim
+      verify-command: node scripts/run-release-qualification.mjs
       release-candidate: true
       artifact-transfer-mode: s3-to-github-artifacts
       artifact-retention-days: 14
