@@ -24,9 +24,17 @@ const ebPkgPath = require.resolve('electron-builder/package.json');
 const ebPkg = require(ebPkgPath);
 const ebBin = join(dirname(ebPkgPath), ebPkg.bin['electron-builder']);
 
+const forwardedArgs = process.argv.slice(2);
+const publishArgs = forwardedArgs.some(
+  (arg) => arg === '--publish' || arg.startsWith('--publish='),
+)
+  ? []
+  : ['--publish=never'];
+
 const args = [
   ebBin,
-  ...process.argv.slice(2),
+  ...forwardedArgs,
+  ...publishArgs,
   `--config.electronDist=${electronDist}`,
 ];
 
