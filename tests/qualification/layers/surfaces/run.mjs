@@ -259,6 +259,7 @@ async function exactQualification(options, fixture) {
       'product-compatibility.json',
     );
     const compatibility = readJson(compatibilityPath);
+    const compatibilitySha256 = sha256File(compatibilityPath);
     const sourceHead = git(['rev-parse', 'HEAD']);
     if (git(['status', '--porcelain']))
       fail('exact qualification requires a clean source tree');
@@ -268,7 +269,7 @@ async function exactQualification(options, fixture) {
       );
     if (compatibility.schema !== fixture.assembled.compatibility_schema)
       fail('CLI compatibility schema mismatch');
-    if (sha256File(compatibilityPath) !== sha256File(desktopCompatibilityPath))
+    if (compatibilitySha256 !== sha256File(desktopCompatibilityPath))
       fail('CLI and GUI do not carry the same compatibility manifest');
     for (const component of fixture.assembled.required_components) {
       if (!compatibility.components[component]?.sha256)
@@ -426,7 +427,7 @@ async function exactQualification(options, fixture) {
         },
       },
       assembled: {
-        compatibility_sha256: sha256File(compatibilityPath),
+        compatibility_sha256: compatibilitySha256,
         components: compatibility.components,
         qualification_contracts: compatibility.qualification_contracts,
       },
