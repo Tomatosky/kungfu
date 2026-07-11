@@ -25,11 +25,13 @@ permissions:
 
 jobs:
   build:
-    uses: kungfu-systems/buildchain/.github/workflows/.build.yml@v2-alpha
+    uses: kungfu-systems/buildchain/.github/workflows/.build.yml@train/v2/v2.12/setup-rust-toolchain
     secrets: inherit
     with:
       buildchain-ref: ${{ inputs.buildchain-ref || '' }}
       runner-preset: kungfu-v4-self-hosted
+      setup-rust: true
+      rust-toolchain: "1.96.0"
       artifact-name: kungfu
       artifact-paths: |
         product/release
