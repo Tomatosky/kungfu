@@ -1358,7 +1358,10 @@ function verifyObservability() {
     requiredEvents.push('product.cli.smoke.start');
   }
   const report = verifyBuildchainLogEvents({
-    path: buildchainLogger.path,
+    // The persisted Buildchain log is shared by lifecycle processes and may
+    // survive a failed self-hosted runner job. Verify only this product
+    // invocation's events so an earlier run cannot poison a clean retry.
+    events: buildchainLogger.events,
     minEvents: 12,
     requireComponents: ['kungfu-product'],
     requirePhases: [
