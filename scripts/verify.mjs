@@ -228,9 +228,19 @@ function runEpisodeQualificationSmoke() {
       return;
     }
     if (process.env.CI && report.qualified !== true) {
+      const trackedStatus = spawnSync(
+        'git',
+        ['status', '--porcelain', '--untracked-files=no'],
+        { cwd: ROOT, encoding: 'utf8' },
+      );
+      const trackedDetail = (trackedStatus.stdout || '')
+        .trim()
+        .split(/\r?\n/)
+        .slice(0, 20)
+        .join(' | ');
       fail(
         'Episode qualification smoke',
-        `CI requires a clean-source qualified Trust Report; report retained at ${reportPath}`,
+        `CI requires a clean-source qualified Trust Report; tracked status: ${trackedDetail || 'clean'}; report retained at ${reportPath}`,
       );
       return;
     }
