@@ -12,6 +12,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { cmdCommand } from '../../../../../scripts/run-shifu-lifecycle.mjs';
+
 const __filename = fileURLToPath(import.meta.url);
 const harnessDir = path.dirname(__filename);
 const coreDir = path.resolve(harnessDir, '..', '..', '..');
@@ -245,17 +247,21 @@ function readResult(resultPath, fallback) {
 function runPython(args, resultPath, timeoutSeconds, scriptPath = workerPath) {
   return new Promise((resolve) => {
     const detached = process.platform !== 'win32';
+    const env = runtimeEnv();
+    const uvArgs = ['run', '--frozen', 'python', scriptPath, ...args];
+    const windows = process.platform === 'win32';
     const child = spawn(
-      'uv',
-      ['run', '--frozen', 'python', scriptPath, ...args],
+      windows ? cmdCommand('uv', uvArgs) : 'uv',
+      windows ? [] : uvArgs,
       {
         cwd: coreDir,
-        env: runtimeEnv(),
+        env,
         stdio: ['ignore', 'pipe', 'pipe'],
         detached,
         // Windows tool bootstrap may expose uv through a cmd shim rather than
-        // a directly spawnable executable. The arguments are harness-owned.
-        shell: process.platform === 'win32',
+        // a directly spawnable executable. Quote every harness-owned argument
+        // through the same tested command builder as the canonical Shifu shim.
+        shell: windows ? env.ComSpec || env.COMSPEC || 'cmd.exe' : false,
       },
     );
     let stdout = '';
@@ -307,6 +313,15 @@ function runPython(args, resultPath, timeoutSeconds, scriptPath = workerPath) {
           ...(result.errors || []),
           { code: 'scenario_timeout', timeout_seconds: timeoutSeconds },
         ];
+      }
+      if (!result.ok) {
+        console.error(
+          `[episode-qualify] worker failed: ${JSON.stringify({
+            kind: processResult.kind,
+            errors: result.errors || [],
+            process: processResult,
+          })}`,
+        );
       }
       resolve(result);
     });
@@ -651,23 +666,27 @@ function performanceScenario(scenario) {
 }
 
 async function validateReport(reportPath) {
+  const env = runtimeEnv();
+  const uvArgs = [
+    'run',
+    '--frozen',
+    'python',
+    workerPath,
+    'validate-report',
+    '--report',
+    reportPath,
+    '--schema',
+    schemaPath,
+  ];
+  const windows = process.platform === 'win32';
   const child = spawnSync(
-    'uv',
-    [
-      'run',
-      '--frozen',
-      'python',
-      workerPath,
-      'validate-report',
-      '--report',
-      reportPath,
-      '--schema',
-      schemaPath,
-    ],
+    windows ? cmdCommand('uv', uvArgs) : 'uv',
+    windows ? [] : uvArgs,
     {
       cwd: coreDir,
-      env: runtimeEnv(),
+      env,
       encoding: 'utf8',
+      shell: windows ? env.ComSpec || env.COMSPEC || 'cmd.exe' : false,
     },
   );
   return {
