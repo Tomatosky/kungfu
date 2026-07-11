@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -30,6 +31,10 @@ function measurements() {
   return Object.fromEntries(DIMENSIONS.map((key, index) => [key, index + 1]));
 }
 
+function digestFor(id, platform) {
+  return createHash('sha256').update(`${id}:${platform}`).digest('hex');
+}
+
 function write(root, name, value) {
   const file = path.join(root, name);
   fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
@@ -47,7 +52,7 @@ function fixture(root) {
     qualification: {
       id: 'format-spec',
       status: 'passing',
-      exact_artifact_sha256: 'format-digest',
+      exact_artifact_sha256: digestFor('format-spec', 'portable'),
       measurements: measurements(),
     },
   });
@@ -61,7 +66,7 @@ function fixture(root) {
       qualifications: ['pypi-sdk', 'npm-sdk', 'cargo-sdk'].map((id) => ({
         id,
         status: 'passing',
-        exact_artifact_sha256: `${id}-${platform}`,
+        exact_artifact_sha256: digestFor(id, `${platform}-${architecture}`),
         measurements: measurements(),
       })),
     }),
@@ -78,7 +83,7 @@ function fixture(root) {
           id,
           {
             status: 'passing',
-            exact_artifact_sha256: `${id}-${platform}`,
+            exact_artifact_sha256: digestFor(id, `${platform}-${architecture}`),
             measurements: measurements(),
             installer_uninstall: { status: 'passing' },
           },
@@ -101,17 +106,35 @@ function fixture(root) {
     source: { commit: COMMIT },
     release: { version: VERSION },
     artifacts: Object.fromEntries(
-      Object.entries(registries).map(([id, registry]) => [
-        id,
-        {
-          status: 'passing',
-          registry,
-          coordinate: id,
-          version: VERSION,
-          digest: 'a'.repeat(64),
-          url: `https://example.com/${id}`,
-        },
-      ]),
+      Object.entries(registries).map(([id, registry]) => {
+        const platforms =
+          id === 'format-spec'
+            ? ['portable']
+            : PLATFORMS.map(
+                ([platform, architecture]) => `${platform}-${architecture}`,
+              );
+        return [
+          id,
+          {
+            status: 'passing',
+            registry,
+            coordinate: id,
+            version: VERSION,
+            url: `https://example.com/${id}`,
+            assets: Object.fromEntries(
+              platforms.map((platform) => [
+                platform,
+                [
+                  {
+                    digest: digestFor(id, platform),
+                    url: `https://example.com/${id}/${platform}`,
+                  },
+                ],
+              ]),
+            ),
+          },
+        ];
+      }),
     ),
   });
   return { format, sdk, surface, publication };
@@ -179,6 +202,29 @@ test('rejects a surface without installer-uninstall proof', () => {
     const result = run(evidence);
     assert.equal(result.status, 1);
     assert.match(result.stderr, /lacks installer-uninstall evidence/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('rejects publication evidence that does not cover the qualified digest', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'kungfu-release-test-'));
+  try {
+    const evidence = fixture(root);
+    const report = JSON.parse(fs.readFileSync(evidence.publication, 'utf8'));
+    report.artifacts['pypi-sdk'].assets['darwin-arm64'][0].digest = 'a'.repeat(
+      64,
+    );
+    fs.writeFileSync(
+      evidence.publication,
+      `${JSON.stringify(report, null, 2)}\n`,
+    );
+    const result = run(evidence);
+    assert.equal(result.status, 1);
+    assert.match(
+      result.stderr,
+      /pypi-sdk\/darwin-arm64 exact qualified artifact is not published/,
+    );
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

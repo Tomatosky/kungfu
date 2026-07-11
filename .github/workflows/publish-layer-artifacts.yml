@@ -1,0 +1,168 @@
+# SPDX-License-Identifier: Apache-2.0
+
+name: Publish ADR-0049 layer artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      build-run-id:
+        description: Successful three-platform Build workflow run ID
+        required: true
+        type: string
+      release-tag:
+        description: Existing or new GitHub release tag for exact product assets
+        required: true
+        type: string
+      execute:
+        description: Irreversibly publish to npm, PyPI, crates.io, and GitHub Releases
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  actions: read
+  contents: write
+  id-token: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-22.04
+    outputs:
+      source-sha: ${{ steps.build.outputs.source-sha }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Resolve immutable build source
+        id: build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.build-run-id }}
+        run: |
+          conclusion="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}" --jq .conclusion)"
+          test "$conclusion" = success
+          sha="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}" --jq .head_sha)"
+          echo "source-sha=$sha" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.build.outputs.source-sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.14.0
+      - name: Read release version
+        id: version
+        run: |
+          # shifu-entry-contract: allow release control-plane metadata lookup before launcher dispatch
+          echo "version=$(node -p "require('./lerna.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.build-run-id }}
+          pattern: kungfu-*
+          path: evidence
+      - name: Collect the exact cross-platform publication set
+        run: |
+          # shifu-entry-contract: allow dependency-free publication bootstrap before the launcher is installed
+          node scripts/collect-layer-publication.mjs --input evidence --output publication
+      - name: Validate npm archives without publishing
+        run: |
+          npm install --global npm@11.5.1
+          for package in publication/npm/*.tgz; do npm publish --dry-run "$package"; done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: adr0049-publication-set
+          path: |
+            publication
+            evidence/**/product/release/qualification/*.json
+          if-no-files-found: error
+
+  publish:
+    needs: prepare
+    if: ${{ inputs.execute }}
+    runs-on: ubuntu-22.04
+    environment: adr0049-production-publication
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.source-sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.14.0
+          registry-url: https://registry.npmjs.org
+      - uses: actions/download-artifact@v4
+        with:
+          name: adr0049-publication-set
+          path: publication-set
+      - name: Publish exact npm archives with trusted publishing
+        run: |
+          npm install --global npm@11.5.1
+          for package in publication-set/publication/npm/*.tgz; do npm publish "$package"; done
+      - name: Publish Cargo SDK
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo publish --manifest-path crates/kungfu-sdk/Cargo.toml --locked
+      - name: Publish exact GitHub product assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.release-tag }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --target "${{ needs.prepare.outputs.source-sha }}" --title "Kungfu Episodes ${VERSION}" --notes "ADR-0049 qualified release ${VERSION}"
+          gh release upload "$TAG" publication-set/publication/github/* --clobber
+      - name: Preserve exact PyPI wheels for isolated publisher job
+        uses: actions/upload-artifact@v4
+        with:
+          name: adr0049-pypi-wheels
+          path: publication-set/publication/pypi/*.whl
+
+  publish-pypi:
+    needs: [prepare, publish]
+    if: ${{ inputs.execute }}
+    runs-on: ubuntu-22.04
+    environment: adr0049-production-publication
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: adr0049-pypi-wheels
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  verify-publication:
+    needs: [prepare, publish, publish-pypi]
+    if: ${{ inputs.execute }}
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.source-sha }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: adr0049-publication-set
+          path: publication-set
+      - name: Verify immutable public coordinates and compute the seven-row verdict
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          # shifu-entry-contract: allow dependency-free public registry verification in a clean checkout
+          node scripts/verify-layer-publication.mjs \
+            --evidence publication-set/evidence \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "${{ inputs.release-tag }}" \
+            --version "${{ needs.prepare.outputs.version }}" \
+            --report publication-report.json
+          format="$(find publication-set/evidence -name layer-format-report.json -type f | sort | head -n 1)"
+          mapfile -t sdks < <(find publication-set/evidence -name layer-sdk-report.json -type f | sort)
+          mapfile -t surfaces < <(find publication-set/evidence -name layer-surface-report.json -type f | sort)
+          args=(--format-report "$format")
+          for file in "${sdks[@]}"; do args+=(--sdk-report "$file"); done
+          for file in "${surfaces[@]}"; do args+=(--surface-report "$file"); done
+          # shifu-entry-contract: allow dependency-free final verdict in a clean checkout
+          node tests/qualification/layers/release/run.mjs "${args[@]}" \
+            --publication-report publication-report.json \
+            --report layer-release-report.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: adr0049-publication-verdict
+          path: |
+            publication-report.json
+            layer-release-report.json

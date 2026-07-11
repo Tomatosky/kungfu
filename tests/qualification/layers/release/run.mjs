@@ -107,10 +107,8 @@ function qualificationFor(report, artifactId, reportKind) {
 }
 
 function requirePublicationCoordinate(row, id) {
-  if (!row.coordinate || !row.version || !row.digest || !row.url)
+  if (!row.coordinate || !row.version || !row.url)
     fail(`${id} publication evidence is incomplete`);
-  if (!/^[a-f0-9]{64}$/.test(row.digest))
-    fail(`${id} publication digest must be sha256`);
   let url;
   try {
     url = new URL(row.url);
@@ -123,6 +121,34 @@ function requirePublicationCoordinate(row, id) {
     url.hostname.endsWith('.invalid')
   )
     fail(`${id} publication URL must be an external HTTPS coordinate`);
+}
+
+function requirePublishedPlatformArtifacts(row, platform, qualification, id) {
+  const assets = row.assets?.[platform];
+  if (!Array.isArray(assets) || assets.length === 0)
+    fail(`${id} lacks published assets for ${platform}`);
+  const publishedDigests = new Set();
+  for (const asset of assets) {
+    if (!/^[a-f0-9]{64}$/.test(asset?.digest || ''))
+      fail(`${id}/${platform} publication digest must be sha256`);
+    let url;
+    try {
+      url = new URL(asset.url);
+    } catch {
+      fail(`${id}/${platform} publication asset URL is invalid`);
+    }
+    if (url.protocol !== 'https:' || url.hostname === 'localhost')
+      fail(`${id}/${platform} publication asset URL must be external HTTPS`);
+    publishedDigests.add(asset.digest);
+  }
+  const requiredDigests = [
+    qualification.exact_artifact_sha256,
+    qualification.platform_artifact_sha256,
+  ].filter(Boolean);
+  for (const digest of requiredDigests) {
+    if (!publishedDigests.has(digest))
+      fail(`${id}/${platform} exact qualified artifact is not published`);
+  }
 }
 
 function main() {
@@ -190,6 +216,12 @@ function main() {
         qualification.installer_uninstall?.status !== 'passing'
       )
         fail(`${id}/${platform} lacks installer-uninstall evidence`);
+      requirePublishedPlatformArtifacts(
+        publicationRow,
+        platform,
+        qualification,
+        id,
+      );
       platforms.push({
         platform,
         artifact_sha256: qualification.exact_artifact_sha256,
