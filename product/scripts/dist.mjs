@@ -869,8 +869,12 @@ export function runInstalledKungfu({
   return result.stdout || '';
 }
 
-export function runInstalledCliSemanticSmoke({ installRoot, kungfuBin, env }) {
-  const home = path.join(installRoot, '.qualification-home');
+export function runInstalledCliSemanticSmoke({
+  installRoot,
+  kungfuBin,
+  env,
+  home = path.join(installRoot, '.qualification-home'),
+}) {
   const episodeId = 49003;
   const exportPath = path.join(installRoot, 'episode-export.json');
   runInstalledKungfu({

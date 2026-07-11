@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { extractTarGz } from '../../../../product/scripts/archive.mjs';
 import { runMeasured } from '../process-metrics.mjs';
 
 const DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -41,7 +42,7 @@ function usage() {
 Usage:
   ./shifu layers:qualify:sdk -- [--validate-only] [--report PATH]
       [--python-wheel PATH] [--npm-core PATH] [--npm-platform PATH]
-      [--native-dir PATH]
+      [--cargo-crate PATH] [--native-dir PATH]
 
 Without --validate-only, exact wheel, npm main/platform archives, a staged
 libkungfu directory, Cargo, uv, and npm are required. Build the core artifacts
@@ -55,6 +56,7 @@ function parseArgs(argv) {
     pythonWheel: null,
     npmCore: null,
     npmPlatform: null,
+    cargoCrate: null,
     nativeDir: path.join(CORE, 'dist', 'kungfu'),
   };
   const keys = {
@@ -62,6 +64,7 @@ function parseArgs(argv) {
     '--python-wheel': 'pythonWheel',
     '--npm-core': 'npmCore',
     '--npm-platform': 'npmPlatform',
+    '--cargo-crate': 'cargoCrate',
     '--native-dir': 'nativeDir',
   };
   for (let index = 0; index < argv.length; index += 1) {
@@ -155,6 +158,13 @@ function resolveArtifacts(options) {
           !/^kungfu-tech-storage-[0-9]/.test(name) &&
           name.endsWith('.tgz'),
         'npm core platform package',
+      ),
+    cargoCrate:
+      options.cargoCrate ||
+      findOne(
+        path.join(sdkStage, 'cargo'),
+        (name) => name.endsWith('.crate'),
+        'Cargo package',
       ),
     nativeDir: options.nativeDir,
   };
@@ -295,9 +305,19 @@ function setupNode(root, coreArchive, platformArchive, nativeDir) {
   };
 }
 
-function setupRust(root, nativeDir) {
-  const crateRoot = path.join(ROOT, 'crates', 'kungfu-sdk');
-  const manifest = path.join(crateRoot, 'Cargo.toml');
+function setupRust(root, nativeDir, exactCrate) {
+  const unpacked = path.join(root, 'cargo-source');
+  fs.mkdirSync(unpacked, { recursive: true });
+  extractTarGz({ archiveFile: exactCrate, targetDir: unpacked });
+  const packageDirs = fs
+    .readdirSync(unpacked, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => path.join(unpacked, entry.name));
+  if (packageDirs.length !== 1)
+    fail(
+      `Cargo package: expected one source root, found ${packageDirs.length}`,
+    );
+  const crateRoot = packageDirs[0];
   const cargoTarget = path.join(root, 'cargo-target');
   const installRoot = path.join(root, 'cargo-install');
   const env = {
@@ -305,18 +325,6 @@ function setupRust(root, nativeDir) {
     KUNGFU_NATIVE_DIR: nativeDir,
     CARGO_TARGET_DIR: cargoTarget,
   };
-  run(
-    'cargo',
-    [
-      'package',
-      '--manifest-path',
-      manifest,
-      '--allow-dirty',
-      '--target-dir',
-      cargoTarget,
-    ],
-    { env },
-  );
   run(
     'cargo',
     [
@@ -351,15 +359,6 @@ function setupRust(root, nativeDir) {
     )
   )
     fail('Cargo SDK binary reaches a forbidden sibling runtime');
-  const crate = findOne(
-    path.join(cargoTarget, 'package'),
-    (name) => name.endsWith('.crate'),
-    'Cargo package',
-  );
-  const cargoStage = path.join(CORE, 'build', 'stage', 'sdk', 'cargo');
-  fs.mkdirSync(cargoStage, { recursive: true });
-  const stagedCrate = path.join(cargoStage, path.basename(crate));
-  fs.copyFileSync(crate, stagedCrate);
   return {
     id: 'cargo-sdk',
     command: binary,
@@ -367,7 +366,7 @@ function setupRust(root, nativeDir) {
     env,
     installedSizeBytes: fs.statSync(binary).size,
     dependencyCount: 1,
-    exactArtifact: stagedCrate,
+    exactArtifact: exactCrate,
   };
 }
 
@@ -506,7 +505,7 @@ async function main() {
         artifacts.npmPlatform,
         artifacts.nativeDir,
       ),
-      setupRust(temp, artifacts.nativeDir),
+      setupRust(temp, artifacts.nativeDir, artifacts.cargoCrate),
     ];
     const qualifications = await Promise.all(
       adapters.map((adapter) => qualifyAdapter(adapter, fixture, temp)),

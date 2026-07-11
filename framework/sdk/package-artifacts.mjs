@@ -13,6 +13,13 @@ const ROOT = path.resolve(SDK, '..', '..');
 const CORE = path.join(ROOT, 'framework', 'core');
 const NATIVE = path.join(CORE, 'dist', 'kungfu');
 const STAGE = path.join(CORE, 'build', 'stage', 'sdk');
+const RELEASE = path.join(
+  ROOT,
+  'product',
+  'release',
+  'sdk',
+  `${process.platform}-${process.arch}`,
+);
 const VERSION = JSON.parse(
   fs.readFileSync(path.join(SDK, 'package.json')),
 ).version;
@@ -197,6 +204,42 @@ function packPython() {
   }
 }
 
+function packCargo() {
+  const cargoStage = path.join(STAGE, 'cargo');
+  const target = fs.mkdtempSync(path.join(os.tmpdir(), 'kungfu-cargo-pack-'));
+  fs.mkdirSync(cargoStage, { recursive: true });
+  try {
+    run(
+      'cargo',
+      [
+        'package',
+        '--manifest-path',
+        path.join(ROOT, 'crates', 'kungfu-sdk', 'Cargo.toml'),
+        '--allow-dirty',
+        '--target-dir',
+        target,
+      ],
+      ROOT,
+    );
+    const crate = fs
+      .readdirSync(path.join(target, 'package'))
+      .find((name) => name.endsWith('.crate'));
+    if (!crate) fail('Cargo package did not produce a .crate artifact');
+    fs.copyFileSync(
+      path.join(target, 'package', crate),
+      path.join(cargoStage, crate),
+    );
+  } finally {
+    fs.rmSync(target, { recursive: true, force: true });
+  }
+}
+
+function stageReleaseArtifacts() {
+  fs.rmSync(RELEASE, { recursive: true, force: true });
+  fs.mkdirSync(path.dirname(RELEASE), { recursive: true });
+  fs.cpSync(STAGE, RELEASE, { recursive: true });
+}
+
 function validate() {
   requireFile(path.join(SDK, 'index.js'));
   requireFile(path.join(SDK, 'python', 'kungfu_sdk', 'native.py'));
@@ -214,8 +257,10 @@ try {
     fs.rmSync(STAGE, { recursive: true, force: true });
     packNode();
     packPython();
+    packCargo();
+    stageReleaseArtifacts();
     console.log(
-      `[sdk:pack] staged exact artifacts under ${path.relative(ROOT, STAGE)}`,
+      `[sdk:pack] staged exact artifacts under ${path.relative(ROOT, STAGE)} and ${path.relative(ROOT, RELEASE)}`,
     );
   }
 } catch (error) {

@@ -63,7 +63,9 @@ jobs:
         product/release/qualification/layer-format-report.json &&
         ./shifu pack:sdk &&
         ./shifu layers:qualify:sdk -- --report
-        product/release/qualification/layer-sdk-report.json"
+        product/release/qualification/layer-sdk-report.json &&
+        ./shifu layers:qualify:surfaces -- --report
+        product/release/qualification/layer-surface-report.json"
       release-candidate: true
       artifact-transfer-mode: s3-to-github-artifacts
       artifact-retention-days: 14

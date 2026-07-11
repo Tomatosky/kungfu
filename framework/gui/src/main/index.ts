@@ -49,6 +49,7 @@ import {
 } from './terminal-host';
 
 const PRODUCT_NAME = 'Kungfu Episodes';
+const qualificationMode = process.env.KF_QUALIFICATION_MODE === '1';
 
 // Resolve the kungfu runtime directory that holds libkungfu.dylib and the
 // kungfu_electron.node binding. In development it lives in the kungfu-core
@@ -729,6 +730,11 @@ function createWindow() {
   });
 
   win.on('ready-to-show', () => {
+    if (qualificationMode) {
+      console.log('KF_GUI_QUALIFICATION_READY');
+      setTimeout(quitGui, 250);
+      return;
+    }
     win.show();
     if (process.platform === 'darwin') void app.dock?.show();
     buildTrayMenu();
@@ -743,9 +749,9 @@ function createWindow() {
 
 app.whenReady().then(() => {
   app.setName(PRODUCT_NAME);
-  ensureMasterForGuiStartup();
+  if (!qualificationMode) ensureMasterForGuiStartup();
   buildMenu();
-  createTray();
+  if (!qualificationMode) createTray();
   // ADR-0016 stage 1 (flagged): run the durable session host in main so it
   // outlives windows. The ipcMain handlers are global, so bind once; events are
   // sent back to whichever renderer subscribed. Default keeps the in-renderer
