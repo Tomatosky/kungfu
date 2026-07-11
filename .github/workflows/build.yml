@@ -32,6 +32,8 @@ jobs:
       runner-preset: kungfu-v4-self-hosted
       setup-rust: true
       rust-toolchain: "1.96.0"
+      rustup-dist-server: https://rsproxy.cn
+      rustup-update-root: https://rsproxy.cn/rustup
       artifact-name: kungfu
       artifact-paths: |
         product/release
