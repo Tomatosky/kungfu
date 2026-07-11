@@ -13,6 +13,24 @@ def _invoke(runner, home, *args):
     return runner.invoke(kfc, ["--home", str(home), "query", *args])
 
 
+def test_facts_cli_exposes_the_libkungfu_owned_contract(tmp_path):
+    result = CliRunner().invoke(
+        kfc, ["--home", str(tmp_path / "home"), "facts", "capabilities"]
+    )
+
+    assert result.exit_code == 0, result.output
+    contract = json.loads(result.output)
+    assert contract["schema"] == "kungfu.facts.domain-admission/v1"
+    assert contract["schema_owner"] == "flatbuffers"
+    assert contract["admission_outcomes"] == [
+        "admitted",
+        "unregistered-surface",
+        "incompatible-schema",
+        "ambiguous-authority",
+        "unverifiable",
+    ]
+
+
 def test_offline_agent_discovers_and_proves_query_in_three_commands(tmp_path):
     home = tmp_path / "home"
     runtime_dir = home / "runtime"
@@ -136,6 +154,69 @@ def test_query_cli_returns_stable_validation_error_code(tmp_path):
     error = json.loads(result.output)
     assert error["schema"] == "kungfu.query.error/v1"
     assert error["error"]["code"] == "KF_QUERY_VALIDATION"
+
+
+def test_query_cli_shares_saved_view_and_resumes_changelog(tmp_path):
+    home = tmp_path / "home"
+    runtime_dir = home / "runtime"
+    storage_service.episode_begin(runtime_dir, episode_id=48, begin_time=1000)
+    definition = storage_service.build_fact_query_definition(episode_id=48)
+    definition_path = tmp_path / "query.json"
+    definition_path.write_text(json.dumps(definition), encoding="utf-8")
+    saved_path = tmp_path / "saved-view.json"
+    saved_path.write_text(
+        json.dumps(
+            {
+                "schema": "kungfu.query.saved-view/v1",
+                "name": "episode-48",
+                "definition": definition,
+                "view": {
+                    "kind": "table",
+                    "columns": ["episode_id", "status", "content_root_status"],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+
+    inspected = _invoke(runner, home, "saved-view", "--file", str(saved_path), "--json")
+    first = _invoke(
+        runner,
+        home,
+        "changelog",
+        "--file",
+        str(definition_path),
+        "--max-messages",
+        "2",
+        "--json",
+    )
+
+    assert inspected.exit_code == 0, inspected.output
+    assert first.exit_code == 0, first.output
+    inspected_value = json.loads(inspected.output)
+    first_value = json.loads(first.output)
+    assert inspected_value["definition"] == definition
+    assert inspected_value["view"]["kind"] == "table"
+    assert first_value["complete"] is False
+    resume_path = tmp_path / "resume.json"
+    resume_path.write_text(json.dumps(first_value["resume_token"]), encoding="utf-8")
+
+    resumed = _invoke(
+        runner,
+        home,
+        "changelog",
+        "--file",
+        str(definition_path),
+        "--resume-file",
+        str(resume_path),
+        "--json",
+    )
+    assert resumed.exit_code == 0, resumed.output
+    resumed_value = json.loads(resumed.output)
+    assert resumed_value["batch_id"] == first_value["batch_id"]
+    assert resumed_value["complete"] is True
+    assert [message["type"] for message in resumed_value["messages"]] == ["SnapshotEnd"]
 
 
 def test_query_cli_compiles_bounded_sql_and_runs_sqlite_engine(tmp_path):

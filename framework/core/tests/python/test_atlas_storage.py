@@ -521,6 +521,12 @@ def test_runtime_storage_service_surface_is_bound_from_libkungfu(tmp_path):
         "query",
         "query_plan",
         "fact_query",
+        "fact_changelog",
+        "fact_contract",
+        "fact_declare_world",
+        "fact_declare_surface",
+        "fact_observe",
+        "fact_state",
         "layout",
         "episode_begin",
         "episode_heartbeat",
@@ -1188,6 +1194,305 @@ def test_fact_query_fails_closed_on_unregistered_or_changed_declarations(tmp_pat
     assert rejected["lineage"]["admission_outcomes"][0]["outcome"] == (
         "unregistered-surface"
     )
+
+
+def test_domain_fact_admission_replays_declaration_history_and_observation_lifecycle(
+    tmp_path,
+):
+    runtime_dir = tmp_path / "runtime"
+    schema_v1 = "sha256:" + "1" * 64
+    schema_v2 = "sha256:" + "2" * 64
+
+    world_v1 = storage_service.fact_declare_contract_world(
+        runtime_dir,
+        {
+            "id": "example.inventory",
+            "version": "1",
+            "effective_from": 100,
+            "effective_until": 200,
+            "fact_surface_ids": ["example.inventory.stock"],
+        },
+        system_time=90,
+    )
+    surface_v1 = storage_service.fact_declare_surface(
+        runtime_dir,
+        {
+            "id": "example.inventory.stock",
+            "version": "1",
+            "contract_world": world_v1["reference"],
+            "effective_from": 100,
+            "effective_until": 200,
+            "schema_owner_root": schema_v1,
+            "source_authorities": ["warehouse-a", "warehouse-b"],
+            "identity_policy": "subject-key/v1",
+            "valid_time_policy": "explicit-range/v1",
+            "system_time_policy": "journal-event-time/v1",
+            "causal_time_policy": "event-parent/v1",
+            "reducer_policy": "latest-admitted-per-source/v1",
+            "correction_policy": "explicit-target/v1",
+            "retraction_policy": "explicit-target/v1",
+            "conflict_policy": "preserve-source-claims/v1",
+            "redaction_policy": "hash-and-ref/v1",
+            "compatibility_policy": "exact-schema-root/v1",
+            "known_limits": ["single-writer admission journal"],
+        },
+        system_time=91,
+    )
+
+    def observe(observation_id, system_time, **overrides):
+        observation = {
+            "observation_id": observation_id,
+            "contract_world_id": "example.inventory",
+            "fact_surface_id": "example.inventory.stock",
+            "schema_owner_root": schema_v1,
+            "source_id": "warehouse-a",
+            "subject_key": "sku-42",
+            "valid_from": 1000,
+            "valid_until": 0,
+            "payload_hash": "sha256:" + observation_id[-1] * 64,
+            "payload_ref": f"content:{observation_id}",
+            "action": "assert",
+            "target_observation_id": "",
+        }
+        observation.update(overrides)
+        return storage_service.fact_observe(
+            runtime_dir, observation, system_time=system_time
+        )
+
+    admitted_v1 = observe("obs-a", 110, payload_hash="sha256:" + "a" * 64)
+    unregistered = observe("obs-b", 111, fact_surface_id="example.inventory.unknown")
+    incompatible = observe("obs-c", 112, schema_owner_root=schema_v2)
+    ambiguous = observe("obs-d", 113, source_id="")
+    unverifiable = observe("obs-e", 114, payload_hash="not-a-content-root")
+
+    assert [
+        admitted_v1["admission"]["outcome"],
+        unregistered["admission"]["outcome"],
+        incompatible["admission"]["outcome"],
+        ambiguous["admission"]["outcome"],
+        unverifiable["admission"]["outcome"],
+    ] == [
+        "admitted",
+        "unregistered-surface",
+        "incompatible-schema",
+        "ambiguous-authority",
+        "unverifiable",
+    ]
+
+    world_v2 = storage_service.fact_declare_contract_world(
+        runtime_dir,
+        {
+            "id": "example.inventory",
+            "version": "2",
+            "effective_from": 200,
+            "effective_until": 0,
+            "fact_surface_ids": ["example.inventory.stock"],
+        },
+        system_time=190,
+    )
+    surface_v2 = storage_service.fact_declare_surface(
+        runtime_dir,
+        {
+            **surface_v1["declaration"],
+            "version": "2",
+            "contract_world": world_v2["reference"],
+            "effective_from": 200,
+            "effective_until": 0,
+            "schema_owner_root": schema_v2,
+        },
+        system_time=191,
+    )
+
+    asserted_v2 = observe(
+        "obs-f",
+        205,
+        schema_owner_root=schema_v2,
+        payload_hash="sha256:" + "f" * 64,
+    )
+    corrected_v2 = observe(
+        "obs-1",
+        210,
+        schema_owner_root=schema_v2,
+        payload_hash="sha256:" + "3" * 64,
+        action="correct",
+        target_observation_id="obs-f",
+        valid_from=1010,
+    )
+    conflicting_v2 = observe(
+        "obs-2",
+        215,
+        schema_owner_root=schema_v2,
+        source_id="warehouse-b",
+        payload_hash="sha256:" + "4" * 64,
+        valid_from=1010,
+    )
+    cross_identity_correction = observe(
+        "obs-x",
+        216,
+        schema_owner_root=schema_v2,
+        source_id="warehouse-b",
+        subject_key="sku-other",
+        payload_hash="sha256:" + "7" * 64,
+        action="correct",
+        target_observation_id="obs-2",
+        valid_from=1010,
+    )
+    retracted_v2 = observe(
+        "obs-3",
+        220,
+        schema_owner_root=schema_v2,
+        source_id="warehouse-b",
+        payload_hash="sha256:" + "5" * 64,
+        action="retract",
+        target_observation_id="obs-2",
+        valid_from=1020,
+    )
+
+    assert asserted_v2["admission"]["outcome"] == "admitted"
+    assert corrected_v2["admission"]["outcome"] == "admitted"
+    with pytest.raises((RuntimeError, ValueError), match="already recorded"):
+        observe(
+            "obs-1",
+            211,
+            schema_owner_root=schema_v2,
+            payload_hash="sha256:" + "6" * 64,
+        )
+    assert conflicting_v2["admission"]["outcome"] == "admitted"
+    assert cross_identity_correction["admission"]["outcome"] == "unverifiable"
+    assert retracted_v2["admission"]["outcome"] == "admitted"
+
+    historical_v1 = storage_service.fact_state(
+        runtime_dir, cut_system_time=150, subject_key="sku-42"
+    )
+    historical_conflict = storage_service.fact_state(
+        runtime_dir, cut_system_time=219, subject_key="sku-42"
+    )
+    head = storage_service.fact_state(runtime_dir, subject_key="sku-42")
+    repeated = storage_service.fact_state(runtime_dir, subject_key="sku-42")
+
+    assert head == repeated
+    assert historical_v1["declarations"]["contract_world"] == world_v1["reference"]
+    assert historical_v1["declarations"]["fact_surface"] == surface_v1["reference"]
+    assert historical_v1["admission_outcomes"] == {
+        "admitted": 1,
+        "ambiguous-authority": 1,
+        "incompatible-schema": 1,
+        "unregistered-surface": 1,
+        "unverifiable": 1,
+    }
+    assert [fact["observation_id"] for fact in historical_v1["canonical_facts"]] == [
+        "obs-a"
+    ]
+    assert (
+        historical_conflict["declarations"]["contract_world"] == world_v2["reference"]
+    )
+    assert (
+        historical_conflict["declarations"]["fact_surface"] == surface_v2["reference"]
+    )
+    assert historical_conflict["conflicts"] == [
+        {
+            "subject_key": "sku-42",
+            "observation_ids": ["obs-1", "obs-2"],
+            "source_ids": ["warehouse-a", "warehouse-b"],
+        }
+    ]
+    assert head["conflicts"] == []
+    assert [fact["observation_id"] for fact in head["canonical_facts"]] == ["obs-1"]
+    assert head["canonical_facts"][0]["valid_time"] == {
+        "from": 1010,
+        "until": 0,
+    }
+    assert head["canonical_facts"][0]["system_time"] == 210
+    assert (
+        head["canonical_facts"][0]["causal_parent_event_id"]
+        == asserted_v2["observation_event_id"]
+    )
+    assert {event["action"] for event in head["observation_history"]} >= {
+        "assert",
+        "correct",
+        "retract",
+    }
+    assert all(event["episode_id"] for event in head["observation_history"])
+    assert head["proof"]["schema_owner"] == "flatbuffers"
+    assert head["proof"]["schema_root"].startswith("sha256:")
+
+
+def test_fact_changelog_resumes_pages_without_loss_or_duplication(tmp_path):
+    runtime_dir = tmp_path / "runtime"
+    storage_service.episode_begin(
+        runtime_dir, episode_id=8048, title="changelog", begin_time=1000
+    )
+    definition = storage_service.build_fact_query_definition(episode_id=8048)
+
+    first = storage_service.fact_changelog(runtime_dir, definition, max_messages=2)
+    assert first["schema"] == "kungfu.query.changelog/v1"
+    assert first["complete"] is False
+    assert [message["type"] for message in first["messages"]] == [
+        "SnapshotBegin",
+        "RowUpsert",
+    ]
+    assert len({message["message_id"] for message in first["messages"]}) == 2
+    assert int(first["resume_token"]["target"]["record_count"]) >= 1
+
+    tampered = json.loads(json.dumps(first["resume_token"]))
+    tampered["next_message_index"] += 1
+    with pytest.raises((RuntimeError, ValueError), match="integrity check failed"):
+        storage_service.fact_changelog(
+            runtime_dir, definition, resume_token=tampered, max_messages=2
+        )
+
+    second = storage_service.fact_changelog(
+        runtime_dir,
+        definition,
+        resume_token=first["resume_token"],
+        max_messages=2,
+    )
+    assert second["batch_id"] == first["batch_id"]
+    assert second["complete"] is True
+    assert [message["type"] for message in second["messages"]] == ["SnapshotEnd"]
+    assert [message["index"] for message in first["messages"] + second["messages"]] == [
+        0,
+        1,
+        2,
+    ]
+
+    steady = second["resume_token"]
+    unchanged = storage_service.fact_changelog(
+        runtime_dir, definition, resume_token=steady
+    )
+    assert unchanged["complete"] is True
+    assert [message["type"] for message in unchanged["messages"]] == ["Progress"]
+
+    storage_service.episode_end(
+        runtime_dir,
+        episode_id=8048,
+        end_time=1200,
+        reason="done",
+    )
+    changed = storage_service.fact_changelog(
+        runtime_dir, definition, resume_token=steady, max_messages=1
+    )
+    replay = storage_service.fact_changelog(
+        runtime_dir, definition, resume_token=steady, max_messages=1
+    )
+    assert changed == replay
+    assert changed["complete"] is False
+    assert changed["messages"][0]["type"] == "RowUpsert"
+    assert changed["messages"][0]["row"]["status"] == "ended"
+    assert changed["messages"][0]["evidence_ref"]["content_root_status"] in {
+        "verified",
+        "undefined",
+    }
+
+    finished = storage_service.fact_changelog(
+        runtime_dir,
+        definition,
+        resume_token=changed["resume_token"],
+        max_messages=10,
+    )
+    assert finished["complete"] is True
+    assert [message["type"] for message in finished["messages"]] == ["Progress"]
+    assert finished["messages"][0]["frontier"]["kind"] == "manifest_frame_uid"
 
 
 def test_query_planner_normalizes_defaults_and_exposes_one_semantic_root(tmp_path):
@@ -2660,6 +2965,140 @@ def test_source_registry_projection_fsck_detects_drift(tmp_path):
     )
     assert healed["ok"]
     assert healed["projection"]["status"] == "ok"
+
+
+def test_source_registry_projection_rebuild_rolls_back_as_one_transaction(tmp_path):
+    runtime = kungfu.__binding__.runtime
+    runtime_dir = str(tmp_path)
+    projection_db = tmp_path / "storage" / "projections" / "source-registry.sqlite"
+
+    runtime.run_storage_service_operation(
+        "source_register", runtime_dir, {"source_id": "s1", "register_time": 1000}
+    )
+    runtime.run_storage_service_operation("source_registry_rebuild", runtime_dir, {})
+    with sqlite3.connect(projection_db) as conn:
+        conn.execute(
+            "CREATE TRIGGER reject_projection_replay "
+            "BEFORE INSERT ON SourceRegistered "
+            "BEGIN SELECT RAISE(ABORT, 'injected projection replay failure'); END"
+        )
+        assert conn.execute("SELECT source_id FROM SourceRegistered").fetchall() == [
+            ("s1",)
+        ]
+
+    runtime.run_storage_service_operation(
+        "source_register", runtime_dir, {"source_id": "s2", "register_time": 1001}
+    )
+    with pytest.raises(RuntimeError):
+        runtime.run_storage_service_operation(
+            "source_registry_rebuild", runtime_dir, {}
+        )
+
+    # DELETE and replay are in one transaction: the injected insert failure
+    # cannot expose an empty or half-rebuilt projection to readers.
+    with sqlite3.connect(projection_db) as conn:
+        assert conn.execute("SELECT source_id FROM SourceRegistered").fetchall() == [
+            ("s1",)
+        ]
+        conn.execute("DROP TRIGGER reject_projection_replay")
+
+    runtime.run_storage_service_operation("source_registry_rebuild", runtime_dir, {})
+    healed = runtime.run_storage_service_operation(
+        "source_registry_fsck", runtime_dir, {}
+    )
+    assert healed["projection"]["status"] == "ok"
+    assert healed["projection"]["rows"]["source_registered"] == 2
+
+
+def test_source_registry_projection_fsck_detects_same_count_content_drift(tmp_path):
+    runtime = kungfu.__binding__.runtime
+    runtime_dir = str(tmp_path)
+    projection_db = tmp_path / "storage" / "projections" / "source-registry.sqlite"
+
+    runtime.run_storage_service_operation(
+        "source_register", runtime_dir, {"source_id": "s1", "register_time": 1000}
+    )
+    runtime.run_storage_service_operation("source_registry_rebuild", runtime_dir, {})
+    with sqlite3.connect(projection_db) as conn:
+        conn.execute("UPDATE SourceRegistered SET location_uid = location_uid + 1")
+
+    fsck = runtime.run_storage_service_operation(
+        "source_registry_fsck", runtime_dir, {}
+    )
+    drift = {row["table"]: row for row in fsck["projection"]["drift"]}
+    assert drift["source_registered"]["projection_rows"] == 1
+    assert drift["source_registered"]["journal_distinct"] == 1
+    assert drift["source_registered"]["reason"] == "content_mismatch"
+    assert drift["source_registered"]["projection_digest"]
+    assert drift["source_registered"]["journal_digest"]
+    assert (
+        drift["source_registered"]["projection_digest"]
+        != drift["source_registered"]["journal_digest"]
+    )
+
+
+def test_source_registry_projection_fsck_does_not_create_missing_schema(tmp_path):
+    runtime = kungfu.__binding__.runtime
+    runtime_dir = str(tmp_path)
+    projection_db = tmp_path / "storage" / "projections" / "source-registry.sqlite"
+
+    runtime.run_storage_service_operation(
+        "source_register", runtime_dir, {"source_id": "s1", "register_time": 1000}
+    )
+    projection_db.parent.mkdir(parents=True)
+    with sqlite3.connect(projection_db):
+        pass
+
+    fsck = runtime.run_storage_service_operation(
+        "source_registry_fsck", runtime_dir, {}
+    )
+    assert fsck["projection"]["status"] == "degraded"
+    assert fsck["projection"]["drift"][0]["reason"] == "schema_unreadable"
+    with sqlite3.connect(projection_db) as conn:
+        assert (
+            conn.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            ).fetchall()
+            == []
+        )
+
+
+def test_manifest_projection_allows_export_lag_but_detects_export_corruption(tmp_path):
+    runtime = kungfu.__binding__.runtime
+    runtime_dir = tmp_path / "runtime"
+    storage_service.write_synthetic_source(
+        runtime_dir,
+        source_id="local-synth",
+        manifest_id="imp-synth",
+        source_head="head-1",
+        records=[],
+    )
+    storage_service.rebuild_index(runtime_dir, source_id="local-synth")
+
+    # Export receipts are append-only read-path audit records, so a projection
+    # captured before a later export remains a valid (stale) subset.
+    runtime.run_storage_service_operation(
+        "export_bundle",
+        str(runtime_dir),
+        {"scope": "source", "source_id": "local-synth"},
+    )
+    status = storage_service.status(runtime_dir, source_id="local-synth")
+    manifest_projection = next(
+        row for row in status["projections"] if row["name"] == "manifest-catalog-sqlite"
+    )
+    assert manifest_projection["verification"]["status"] == "ok"
+
+    storage_service.rebuild_index(runtime_dir, source_id="local-synth")
+    projection_db = runtime_dir / "storage/projections/manifest-catalog.sqlite"
+    with sqlite3.connect(projection_db) as conn:
+        conn.execute("UPDATE ExportBundleRecorded SET location_uid = location_uid + 1")
+
+    status = storage_service.status(runtime_dir, source_id="local-synth")
+    manifest_projection = next(
+        row for row in status["projections"] if row["name"] == "manifest-catalog-sqlite"
+    )
+    drift = {row["table"]: row for row in manifest_projection["verification"]["drift"]}
+    assert drift["export_bundle_recorded"]["reason"] == "content_mismatch"
 
 
 def test_payload_bodies_are_opaque_content_addressed_bytes(tmp_path):

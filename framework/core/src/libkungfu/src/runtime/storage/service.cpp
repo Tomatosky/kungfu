@@ -24,6 +24,7 @@
 #include <vector>
 
 #include <kungfu/runtime/action_recorder.h>
+#include <kungfu/runtime/facts/fact_admission.h>
 #include <kungfu/runtime/query/fact_query.h>
 #include <kungfu/runtime/storage/episode_manifest_projection.h>
 #include <kungfu/runtime/storage/manifest_catalog_projection.h>
@@ -1294,7 +1295,10 @@ nlohmann::json projection_verification_json(const storage_projection_verify_resu
     for (const auto &item : report.drift) {
       rendered["drift"].push_back({{"table", item.table},
                                    {"projection_rows", item.projection_rows},
-                                   {"journal_distinct", item.journal_distinct}});
+                                   {"journal_distinct", item.journal_distinct},
+                                   {"reason", item.reason},
+                                   {"projection_digest", item.projection_digest},
+                                   {"journal_digest", item.journal_digest}});
     }
     rendered["rows"] = nlohmann::json::object();
     for (const auto &item : report.rows) {
@@ -2012,7 +2016,10 @@ nlohmann::json episode_qualification_issue_detail_json(const episode_qualificati
             for (const auto &item : detail.drift) {
               rendered["drift"].push_back({{"table", item.table},
                                            {"projection_rows", item.projection_rows},
-                                           {"journal_distinct", item.journal_distinct}});
+                                           {"journal_distinct", item.journal_distinct},
+                                           {"reason", item.reason},
+                                           {"projection_digest", item.projection_digest},
+                                           {"journal_digest", item.journal_digest}});
             }
           }
           return rendered;
@@ -4617,6 +4624,40 @@ public:
     throw std::invalid_argument("query engine must be authority or sqlite");
   }
 
+  [[nodiscard]] nlohmann::json fact_changelog(const storage_service_options &options) const {
+    const auto definition = query::parse_query_definition(options.query_definition);
+    const auto plan = query::plan_query(definition);
+    const auto resume_token = object_or_empty(options.operation_options, "resume_token");
+    const auto max_messages = uint64_or(options.operation_options, "max_messages", 100);
+    return query::changelog_page_json(
+        query::run_episode_changelog(options.runtime_dir, plan, resume_token, max_messages));
+  }
+
+  [[nodiscard]] nlohmann::json fact_contract(const storage_service_options &options) const {
+    (void)options;
+    return facts::fact_contract_json();
+  }
+
+  [[nodiscard]] nlohmann::json fact_declare_world(const storage_service_options &options) const {
+    return facts::declare_contract_world(options.runtime_dir, object_or_empty(options.operation_options, "declaration"),
+                                         int64_or(options.operation_options, "system_time"));
+  }
+
+  [[nodiscard]] nlohmann::json fact_declare_surface(const storage_service_options &options) const {
+    return facts::declare_fact_surface(options.runtime_dir, object_or_empty(options.operation_options, "declaration"),
+                                       int64_or(options.operation_options, "system_time"));
+  }
+
+  [[nodiscard]] nlohmann::json fact_observe(const storage_service_options &options) const {
+    return facts::record_observation(options.runtime_dir, object_or_empty(options.operation_options, "observation"),
+                                     int64_or(options.operation_options, "system_time"));
+  }
+
+  [[nodiscard]] nlohmann::json fact_state(const storage_service_options &options) const {
+    return facts::query_fact_state(options.runtime_dir, int64_or(options.operation_options, "cut_system_time"),
+                                   text_or(options.operation_options, "subject_key"));
+  }
+
   [[nodiscard]] nlohmann::json episode_begin(const storage_service_options &options) const {
     return episode_record_body_json(
         episode_store(options).begin(parse_episode_begin_options(options.operation_options)));
@@ -5408,7 +5449,10 @@ nlohmann::json render_storage_fsck_issue(const storage_fsck_issue &issue, storag
             for (const auto &drift : detail.verification.drift) {
               row["drift"].push_back({{"table", drift.table},
                                       {"projection_rows", drift.projection_rows},
-                                      {"journal_distinct", drift.journal_distinct}});
+                                      {"journal_distinct", drift.journal_distinct},
+                                      {"reason", drift.reason},
+                                      {"projection_digest", drift.projection_digest},
+                                      {"journal_digest", drift.journal_digest}});
             }
           }
           return row;
@@ -5614,7 +5658,10 @@ nlohmann::json render_storage_rebuild_index_result(const storage_rebuild_index_r
               for (const auto &drift : detail.drift) {
                 row["drift"].push_back({{"table", drift.table},
                                         {"projection_rows", drift.projection_rows},
-                                        {"journal_distinct", drift.journal_distinct}});
+                                        {"journal_distinct", drift.journal_distinct},
+                                        {"reason", drift.reason},
+                                        {"projection_digest", drift.projection_digest},
+                                        {"journal_digest", drift.journal_digest}});
               }
               row["rows"] = nlohmann::json::object();
               for (const auto &count : detail.rows) {
@@ -5907,6 +5954,12 @@ std::vector<std::string> storage_operation_names() {
       storage_operation_name(storage_operation::Query),
       storage_operation_name(storage_operation::QueryPlan),
       storage_operation_name(storage_operation::FactQuery),
+      storage_operation_name(storage_operation::FactChangelog),
+      storage_operation_name(storage_operation::FactContract),
+      storage_operation_name(storage_operation::FactDeclareWorld),
+      storage_operation_name(storage_operation::FactDeclareSurface),
+      storage_operation_name(storage_operation::FactObserve),
+      storage_operation_name(storage_operation::FactState),
       storage_operation_name(storage_operation::Layout),
       storage_operation_name(storage_operation::EpisodeBegin),
       storage_operation_name(storage_operation::EpisodeHeartbeat),
@@ -5958,6 +6011,18 @@ std::string storage_operation_name(storage_operation operation) {
     return "query_plan";
   case storage_operation::FactQuery:
     return "fact_query";
+  case storage_operation::FactChangelog:
+    return "fact_changelog";
+  case storage_operation::FactContract:
+    return "fact_contract";
+  case storage_operation::FactDeclareWorld:
+    return "fact_declare_world";
+  case storage_operation::FactDeclareSurface:
+    return "fact_declare_surface";
+  case storage_operation::FactObserve:
+    return "fact_observe";
+  case storage_operation::FactState:
+    return "fact_state";
   case storage_operation::Layout:
     return "layout";
   case storage_operation::EpisodeBegin:
@@ -6040,6 +6105,24 @@ storage_operation parse_storage_operation(const std::string &operation) {
   }
   if (operation == "fact_query") {
     return storage_operation::FactQuery;
+  }
+  if (operation == "fact_changelog") {
+    return storage_operation::FactChangelog;
+  }
+  if (operation == "fact_contract") {
+    return storage_operation::FactContract;
+  }
+  if (operation == "fact_declare_world") {
+    return storage_operation::FactDeclareWorld;
+  }
+  if (operation == "fact_declare_surface") {
+    return storage_operation::FactDeclareSurface;
+  }
+  if (operation == "fact_observe") {
+    return storage_operation::FactObserve;
+  }
+  if (operation == "fact_state") {
+    return storage_operation::FactState;
   }
   if (operation == "layout") {
     return storage_operation::Layout;
@@ -6130,7 +6213,8 @@ nlohmann::json make_storage_service_request(const std::string &operation, const 
     request["query"] = parsed_options.query;
     request["kind"] = parsed_options.kind.empty() ? nlohmann::json(nullptr) : nlohmann::json(parsed_options.kind);
     request["limit"] = parsed_options.limit;
-  } else if (parsed_operation == storage_operation::QueryPlan || parsed_operation == storage_operation::FactQuery) {
+  } else if (parsed_operation == storage_operation::QueryPlan || parsed_operation == storage_operation::FactQuery ||
+             parsed_operation == storage_operation::FactChangelog) {
     request["definition"] = parsed_options.query_definition;
     request["action"] = text_or(parsed_options.operation_options, "action");
   } else if (parsed_operation == storage_operation::Layout) {
@@ -6185,6 +6269,18 @@ nlohmann::json run_storage_service_operation(const std::string &operation, const
     return storage_json_edge_service_instance().query_plan(parsed_options);
   case storage_operation::FactQuery:
     return storage_json_edge_service_instance().fact_query(parsed_options);
+  case storage_operation::FactChangelog:
+    return storage_json_edge_service_instance().fact_changelog(parsed_options);
+  case storage_operation::FactContract:
+    return storage_json_edge_service_instance().fact_contract(parsed_options);
+  case storage_operation::FactDeclareWorld:
+    return storage_json_edge_service_instance().fact_declare_world(parsed_options);
+  case storage_operation::FactDeclareSurface:
+    return storage_json_edge_service_instance().fact_declare_surface(parsed_options);
+  case storage_operation::FactObserve:
+    return storage_json_edge_service_instance().fact_observe(parsed_options);
+  case storage_operation::FactState:
+    return storage_json_edge_service_instance().fact_state(parsed_options);
   case storage_operation::Layout:
     return storage_json_edge_service_instance().layout(parsed_options);
   case storage_operation::EpisodeBegin:
@@ -6434,6 +6530,12 @@ nlohmann::json storage_service_capabilities() {
              {"path", "journal/system/storage/episode-manifest/live/*.journal"},
              {"query_tables", nlohmann::json::array({"episodes", "episode_records", "episode_frames", "episode_refs"})},
              {"export_schema", "kungfu.storage.episode-bundle/v1"},
+             {"rebuildable", false}},
+            {{"name", "domain-fact-admission"},
+             {"schema", facts::DOMAIN_FACT_EVENT_SCHEMA_V1},
+             {"authority", "yijinjing-journal"},
+             {"path", "journal/system/facts/admission/live/*.journal"},
+             {"contract", facts::fact_contract_json()},
              {"rebuildable", false}}})},
       {"notes",
        nlohmann::json::array({

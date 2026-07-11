@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
-name: Embedding membrane spike
+name: Embedding membrane spikes
 
 on:
   pull_request:
@@ -14,7 +14,9 @@ on:
       - "framework/core/src/libkungfu/src/runtime/native_storage.cpp"
       - "framework/core/slices/shared-embedding-membrane/**"
       - "framework/core/slices/native-storage-closure/**"
+      - "framework/core/slices/libwasm-shared-membrane/**"
       - "framework/core/slices/CMakeLists.txt"
+      - "crates/libwasm-spike/**"
       - ".github/workflows/embedding-membrane-spike.yml"
 
 permissions:
@@ -57,7 +59,7 @@ jobs:
 
   native-membrane:
     name: ${{ matrix.name }}
-    # Never execute untrusted fork code on the self-hosted build fleet.
+    # Keep executable source-delta handling restricted to same-repo PRs.
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     needs: source-delta
     strategy:
@@ -65,14 +67,14 @@ jobs:
       matrix:
         include:
           - name: Linux x64
-            runner: '["self-hosted","Linux","X64","kungfu-build-v4-linux-x64"]'
-            source_mode: mirror
+            runner: '"ubuntu-22.04"'
+            source_mode: github
           - name: macOS ARM64
             runner: '"macos-15"'
             source_mode: github
           - name: Windows x64
-            runner: '["self-hosted","Windows","X64","kungfu-build-v4-windows-x64"]'
-            source_mode: mirror
+            runner: '"windows-2022"'
+            source_mode: github
     runs-on: ${{ fromJSON(matrix.runner) }}
     env:
       KUNGFU_BUILDCHAIN_NO_OPTIONAL: "1"
@@ -132,26 +134,17 @@ jobs:
           test "$(git -C "$SOURCE_ROOT" write-tree)" = "$expected_tree"
           test -f "$SOURCE_ROOT/shifu"
 
+      - name: Verify pinned spike Rust toolchain
+        shell: bash
+        run: |
+          cd "$SOURCE_ROOT/crates/libwasm-spike"
+          rustc --version
+          cargo --version
+
       - name: Install frozen workspace (POSIX)
         if: ${{ runner.os != 'Windows' }}
         shell: bash
         run: cd "$SOURCE_ROOT" && ./shifu install --frozen-lockfile --no-optional
-
-      - name: Rebind frozen Python registry metadata
-        if: ${{ matrix.source_mode == 'github' }}
-        shell: bash
-        run: |
-          cd "$SOURCE_ROOT/framework/core"
-          uv_version="$(tr -d '\r\n' < ../../.uv-version)"
-          uv_bin="$HOME/.cache/kungfu/tools/uv/$uv_version/macos-aarch64/uv"
-          test -x "$uv_bin"
-          fingerprint() {
-            python3 -c 'import hashlib,json,sys,tomllib; d=tomllib.load(open(sys.argv[1],"rb")); rows=[]; [(rows.append((p.get("name"),p.get("version"),("registry" if "registry" in p.get("source",{}) else json.dumps(p.get("source",{}),sort_keys=True)),sorted([x.get("hash","") for x in ([p.get("sdist",{})] if p.get("sdist") else [])+p.get("wheels",[])])))) for p in d.get("package",[])]; print(hashlib.sha256(json.dumps(sorted(rows),separators=(",",":")).encode()).hexdigest())' "$1"
-          }
-          before="$(fingerprint uv.lock)"
-          "$uv_bin" lock --refresh --default-index https://pypi.org/simple
-          after="$(fingerprint uv.lock)"
-          test "$before" = "$after"
 
       - name: Install frozen workspace (Windows)
         if: ${{ runner.os == 'Windows' }}
@@ -159,6 +152,35 @@ jobs:
         run: |
           Set-Location $env:SOURCE_ROOT
           .\shifu.cmd install --frozen-lockfile --no-optional
+
+      - name: Rebind frozen Python registry metadata
+        if: ${{ matrix.source_mode == 'github' }}
+        shell: bash
+        run: |
+          cd "$SOURCE_ROOT/framework/core"
+          uv_version="$(tr -d '\r\n' < ../../.uv-version)"
+          uv_bin="$(command -v uv || true)"
+          if [ -z "$uv_bin" ]; then
+            case "$RUNNER_OS" in
+              Linux) uv_target="linux-x86_64"; uv_name="uv" ;;
+              macOS) uv_target="macos-$(uname -m | sed 's/arm64/aarch64/')"; uv_name="uv" ;;
+              Windows) uv_target="windows-x86_64"; uv_name="uv.exe" ;;
+            esac
+            uv_bin="$HOME/.cache/kungfu/tools/uv/$uv_version/$uv_target/$uv_name"
+          fi
+          test -x "$uv_bin"
+          fingerprint() {
+            {
+              grep -E '^(\[\[package\]\]|name = |version = |source = )' "$1" |
+                sed -E 's#source = \{ registry = "[^"]+" \}#source = { registry = "<registry>" }#'
+              grep -E '^(sdist = |[[:space:]]+\{ url = ).*hash = ' "$1" |
+                sed -E 's#.*hash = "([^"]+)".*#hash = "\1"#'
+            } | git hash-object --stdin
+          }
+          before="$(fingerprint uv.lock)"
+          "$uv_bin" lock --refresh --default-index https://pypi.org/simple
+          after="$(fingerprint uv.lock)"
+          test "$before" = "$after"
 
       - name: Generate core toolchain (POSIX)
         if: ${{ runner.os != 'Windows' }}
@@ -172,7 +194,7 @@ jobs:
           Set-Location $env:SOURCE_ROOT
           .\shifu.cmd --filter @kungfu-tech/core configure
 
-      - name: Build and run native membrane consumers
+      - name: Build and run membrane consumers
         shell: bash
         run: |
           cd "$SOURCE_ROOT"
@@ -186,16 +208,21 @@ jobs:
             -DCMAKE_POLICY_DEFAULT_CMP0091=NEW \
             -DCMAKE_BUILD_TYPE=Release \
             -DPYTHON_EXECUTABLE="$spike_python" \
-            -DKUNGFU_WITH_SLICES=ON
+            -DKUNGFU_WITH_SLICES=ON \
+            -DKF_LIBWASM_CARGO_REGISTRY='sparse+https://rsproxy.cn/index/'
           # shifu-entry-contract: allow the isolated spike targets are not product-level Shifu tasks
           cmake --build framework/core/build --config Release --parallel 2 \
-            --target shared_embedding_host shared_embedding_native_kfx native_storage_closure_host
+            --target shared_embedding_host shared_embedding_native_kfx \
+              native_storage_closure_host libwasm_shared_membrane_host
           if [ "$RUNNER_OS" = "macOS" ]; then
             test "$(uname -m)" = "arm64"
           fi
           # Keep the latency gate separate from sustained compiler load on the
           # build runner.  This is one fixed settle, not a benchmark retry.
           sleep 60
+          # shifu-entry-contract: allow the spike harness must inspect platform-specific binaries directly
+          # shifu-entry-contract: allow the libwasm spike harness must inspect engine cdylibs directly
+          node framework/core/slices/libwasm-shared-membrane/run.mjs framework/core/build
           # shifu-entry-contract: allow the spike harness must inspect platform-specific binaries directly
           node framework/core/slices/shared-embedding-membrane/run.mjs framework/core/build
           # shifu-entry-contract: allow the native closure harness must inspect platform-specific binaries directly
