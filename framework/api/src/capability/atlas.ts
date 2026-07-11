@@ -331,7 +331,30 @@ export type OpenAtlasOptions = {
 };
 
 function parseJson<T>(text: string): T {
-  return JSON.parse(text) as T;
+  const trimmed = text.trim();
+  try {
+    return JSON.parse(trimmed) as T;
+  } catch (originalError) {
+    // Native runtime diagnostics can precede the CLI's JSON on stdout. Search
+    // backwards for a complete object/array at a line boundary so those
+    // diagnostics do not make GUI capabilities fail, while malformed payloads
+    // still raise the original parse error.
+    for (let index = trimmed.length - 1; index > 0; index -= 1) {
+      const current = trimmed[index];
+      const previous = trimmed[index - 1];
+      if (
+        (current === '{' || current === '[') &&
+        (previous === '\n' || previous === '\r')
+      ) {
+        try {
+          return JSON.parse(trimmed.slice(index)) as T;
+        } catch {
+          // A nested JSON line is not a complete suffix; keep searching.
+        }
+      }
+    }
+    throw originalError;
+  }
 }
 
 function cliEnv(
