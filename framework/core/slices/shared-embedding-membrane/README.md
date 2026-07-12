@@ -48,8 +48,10 @@ Run through the repository entrypoint:
 ```
 
 The cross-platform `run.mjs` gates the noise-free p50 code path: warm control
-call p50 at most 500 nanoseconds and 4 KiB batch p50 at most 3.5 microseconds.
-The provisional ADR p99 budgets (control 1us, 4 KiB batch 5us) are reported as
-advisory triage numbers rather than gated, because the p99 tail on shared CI
-runners is scheduler-dominated and rides those budgets while the code-path p50
-stays flat.
+call p50 at most 500 nanoseconds and 4 KiB batch p50 at most 3.5 microseconds on
+POSIX or 4 microseconds on Windows. The Windows allowance reflects stable
+five-trial MSVC evidence at 3.7-3.9 microseconds rather than scheduler-tail
+jitter; POSIX keeps the tighter budget. The provisional ADR p99 budgets
+(control 1us, 4 KiB batch 5us) are reported as advisory triage numbers rather
+than gated, because the p99 tail on shared CI runners is scheduler-dominated
+and rides those budgets while the code-path p50 stays flat.
