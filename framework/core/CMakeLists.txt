@@ -26,6 +26,16 @@ find_package(xxHash REQUIRED)
 find_package(tabulate REQUIRED)
 find_package(pybind11 REQUIRED)
 
+# RxCpp 4.1.1 assigns to a const error_ptr in rx-notification.hpp. Conan's
+# generated compatibility copy deletes that impossible assignment operator so
+# clean GCC builds do not depend on a mutated shared package cache.
+if(NOT DEFINED KUNGFU_RXCPP_COMPAT_INCLUDE_DIR OR
+   NOT EXISTS "${KUNGFU_RXCPP_COMPAT_INCLUDE_DIR}/rxcpp/rx-notification.hpp")
+  message(FATAL_ERROR "missing generated RxCpp compatibility include tree")
+endif()
+target_include_directories(rxcpp::rxcpp BEFORE INTERFACE
+  "${KUNGFU_RXCPP_COMPAT_INCLUDE_DIR}")
+
 set(CONAN_LIBS
     fmt::fmt-header-only
     spdlog::spdlog_header_only

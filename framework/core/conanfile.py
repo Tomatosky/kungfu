@@ -23,8 +23,48 @@ from conan.tools.build import build_jobs
 from conan.tools.cmake import CMakeToolchain, CMakeDeps
 from conan.tools.files import copy
 
-with open(path.join("package.json"), "r") as package_json_file:
+_CONANFILE_DIR = path.dirname(path.realpath(__file__))
+
+with open(path.join(_CONANFILE_DIR, "package.json"), "r") as package_json_file:
     package_json = json.load(package_json_file)
+
+
+_RXCPP_INVALID_ASSIGNMENT = (
+    "on_error_notification& operator=(on_error_notification o) "
+    "{ ep = std::move(o.ep); return *this; }"
+)
+_RXCPP_DELETED_ASSIGNMENT = (
+    "on_error_notification& operator=(on_error_notification) = delete;"
+)
+
+
+def _prepare_rxcpp_compat(source_include_dir, destination_include_dir):
+    """Copy RxCpp and remove its invalid assignment to a const error_ptr.
+
+    RxCpp 4.1.1 and upstream main still declare ``ep`` const while assigning to
+    it in a non-template-dependent operator body. GCC rejects the header during
+    a clean build. Keep Conan's package immutable and patch a generated include
+    overlay instead; fail closed if the pinned upstream source changes.
+    """
+    source_rxcpp_dir = path.join(source_include_dir, "rxcpp")
+    destination_rxcpp_dir = path.join(destination_include_dir, "rxcpp")
+    if path.exists(destination_rxcpp_dir):
+        shutil.rmtree(destination_rxcpp_dir)
+    shutil.copytree(source_rxcpp_dir, destination_rxcpp_dir)
+
+    notification_header = path.join(destination_rxcpp_dir, "rx-notification.hpp")
+    with open(notification_header, "r", encoding="utf-8") as source_file:
+        source = source_file.read()
+    if source.count(_RXCPP_INVALID_ASSIGNMENT) != 1:
+        raise RuntimeError(
+            "RxCpp compatibility patch no longer matches exactly once: "
+            f"{notification_header}"
+        )
+    with open(notification_header, "w", encoding="utf-8") as destination_file:
+        destination_file.write(
+            source.replace(_RXCPP_INVALID_ASSIGNMENT, _RXCPP_DELETED_ASSIGNMENT)
+        )
+    return destination_include_dir
 
 
 def _detected_os():
@@ -107,7 +147,7 @@ class KungfuCoreConan(ConanFile):
         ".deps/*",
         "dist/*",
     )
-    conanfile_dir = path.dirname(path.realpath(__file__))
+    conanfile_dir = _CONANFILE_DIR
     build_info_file = "kungfubuildinfo.json"
     build_dir = path.join(conanfile_dir, "build")
     dist_dir = path.join(conanfile_dir, "dist")
@@ -124,11 +164,19 @@ class KungfuCoreConan(ConanFile):
             pass
 
     def generate(self):
+        rxcpp_package_folder = self.dependencies["rxcpp"].package_folder
+        if rxcpp_package_folder is None:
+            raise RuntimeError("RxCpp dependency has no Conan package folder")
+        rxcpp_compat_include_dir = _prepare_rxcpp_compat(
+            path.join(rxcpp_package_folder, "include"),
+            path.join(self.build_folder, "compat", "rxcpp-4.1.1"),
+        )
         deps = CMakeDeps(self)
         deps.generate()
         tc = CMakeToolchain(self, generator="Ninja")
         # 把自身 options 透传给 CMake（主 CMakeLists 用 ${CONAN_LIBS} 桥接 + SPDLOG 等级）。
         tc.variables["SPDLOG_LOG_LEVEL_COMPILE"] = self.__spdlog_level()
+        tc.variables["KUNGFU_RXCPP_COMPAT_INCLUDE_DIR"] = rxcpp_compat_include_dir
         tc.generate()
         if self.gyp_call:
             self.__touch_lockfile()
