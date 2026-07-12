@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <kungfu/runtime/crash_recovery.h>
+#include <kungfu/runtime/storage/service.h>
 #include <kungfu/yijinjing/ownership.h>
 
 #include <algorithm>
@@ -14,6 +15,7 @@
 namespace fs = std::filesystem;
 using namespace kungfu::runtime::durability;
 using namespace kungfu::runtime::recovery;
+using namespace kungfu::runtime::storage_service_api;
 using kungfu::yijinjing::ownership::lease;
 
 namespace {
@@ -69,6 +71,51 @@ std::vector<std::pair<std::string, std::string>> file_bytes(const fs::path &dire
   return result;
 }
 
+std::vector<std::pair<std::string, std::string>> recursive_file_bytes(const fs::path &directory) {
+  std::vector<std::pair<std::string, std::string>> result;
+  for (const auto &entry : fs::recursive_directory_iterator(directory)) {
+    if (!entry.is_regular_file()) {
+      continue;
+    }
+    std::ifstream input(entry.path(), std::ios::binary);
+    result.emplace_back(fs::relative(entry.path(), directory).generic_string(),
+                        std::string(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()));
+  }
+  std::sort(result.begin(), result.end());
+  return result;
+}
+
+void begin_episode(const fs::path &root, uint64_t episode_id) {
+  storage_episode_begin_request request{};
+  request.runtime_dir = root.string();
+  request.options.episode_id = episode_id;
+  request.options.location_uid = 1;
+  request.options.begin_time = 1000 + static_cast<int64_t>(episode_id);
+  request.options.title = "crash-recovery-fixture";
+  const auto opened = default_storage_service().episode_begin(request);
+  require(opened.episode_id == episode_id, "Episode fixture opened the wrong identity");
+}
+
+void end_episode(const fs::path &root, uint64_t episode_id) {
+  storage_episode_close_request request{};
+  request.runtime_dir = root.string();
+  request.options.episode_id = episode_id;
+  request.options.location_uid = 1;
+  request.options.end_time = 2000 + static_cast<int64_t>(episode_id);
+  const auto closed = default_storage_service().episode_end(request);
+  require(closed.close.episode_id == episode_id, "Episode fixture closed the wrong identity");
+}
+
+const episode_qualification_capability &capability(const episode_qualification_result &qualification,
+                                                   const std::string &name) {
+  const auto found = std::find_if(qualification.capabilities.begin(), qualification.capabilities.end(),
+                                  [&name](const auto &candidate) { return candidate.name == name; });
+  if (found == qualification.capabilities.end()) {
+    throw std::runtime_error("missing episode capability: " + name);
+  }
+  return *found;
+}
+
 void test_clean_frontier_is_ready_and_repeatable() {
   temp_tree tree;
   fixture_owners owners(tree.root());
@@ -108,6 +155,73 @@ void test_complete_unknown_tail_is_degraded_without_promotion() {
               report.durable_record_count == 1 && report.unacknowledged_tail_bytes > 0 &&
               report.unacknowledged_tail_integrity == tail_integrity::CompleteRecords,
           "complete unknown tail was promoted, hidden, or misclassified");
+}
+
+void test_interrupted_episode_reuses_typed_qualification_without_mutation() {
+  temp_tree tree;
+  fixture_owners owners(tree.root());
+  {
+    durable_ingest_log log(options(tree.root()));
+    log.append(position(1), 1001, "durable", owners.service, owners.writer);
+    require(log.barrier(1, durability_profile::DurableGroup, owners.service, owners.writer).receipt.status ==
+                receipt_status::Succeeded,
+            "interrupted Episode fixture barrier failed");
+  }
+  begin_episode(tree.root(), 41);
+  const auto before = recursive_file_bytes(tree.root());
+
+  recovery_engine engine(options(tree.root()));
+  const auto first = engine.inspect();
+  const auto repeated = engine.inspect();
+
+  require(first == repeated, "interrupted Episode fold was not deterministic");
+  require(recursive_file_bytes(tree.root()) == before, "interrupted Episode inspection mutated the data root");
+  require(first.outcome == recovery_outcome::Degraded && first.episode_unknown_record_count == 0 &&
+              first.interrupted_episodes.size() == 1,
+          "interrupted Episode was not classified as degraded retained evidence");
+  const auto &qualification = first.interrupted_episodes.front();
+  require(qualification.episode_id == 41 && qualification.lifecycle == "open" && qualification.status == "ok",
+          "recovery did not reuse the typed Episode qualification contract");
+  require(capability(qualification, "append").safe && !capability(qualification, "replay").safe &&
+              !capability(qualification, "depend_on").safe,
+          "interrupted Episode capabilities diverged from ADR-0042 qualification semantics");
+}
+
+void test_invalid_interrupted_episode_blocks_recovery() {
+  temp_tree tree;
+  fixture_owners owners(tree.root());
+  {
+    durable_ingest_log log(options(tree.root()));
+    log.append(position(1), 1001, "durable", owners.service, owners.writer);
+    require(log.barrier(1, durability_profile::DurableGroup, owners.service, owners.writer).receipt.status ==
+                receipt_status::Succeeded,
+            "invalid Episode fixture barrier failed");
+  }
+  begin_episode(tree.root(), 42);
+  begin_episode(tree.root(), 42);
+
+  const auto report = recovery_engine(options(tree.root())).inspect();
+  require(report.outcome == recovery_outcome::Blocked && report.interrupted_episodes.size() == 1 &&
+              report.interrupted_episodes.front().status == "failed",
+          "invalid interrupted Episode did not fail recovery closed");
+}
+
+void test_closed_episode_does_not_degrade_recovery() {
+  temp_tree tree;
+  fixture_owners owners(tree.root());
+  {
+    durable_ingest_log log(options(tree.root()));
+    log.append(position(1), 1001, "durable", owners.service, owners.writer);
+    require(log.barrier(1, durability_profile::DurableGroup, owners.service, owners.writer).receipt.status ==
+                receipt_status::Succeeded,
+            "closed Episode fixture barrier failed");
+  }
+  begin_episode(tree.root(), 43);
+  end_episode(tree.root(), 43);
+
+  const auto report = recovery_engine(options(tree.root())).inspect();
+  require(report.outcome == recovery_outcome::Ready && report.interrupted_episodes.empty(),
+          "closed Episode was misclassified as interrupted recovery evidence");
 }
 
 void test_torn_tail_is_degraded_and_frontier_stays_at_checkpoint() {
@@ -235,6 +349,10 @@ int main() {
   const std::pair<const char *, void (*)()> tests[] = {
       {"clean frontier is ready and repeatable", test_clean_frontier_is_ready_and_repeatable},
       {"complete unknown tail is degraded without promotion", test_complete_unknown_tail_is_degraded_without_promotion},
+      {"interrupted Episode reuses typed qualification without mutation",
+       test_interrupted_episode_reuses_typed_qualification_without_mutation},
+      {"invalid interrupted Episode blocks recovery", test_invalid_interrupted_episode_blocks_recovery},
+      {"closed Episode does not degrade recovery", test_closed_episode_does_not_degrade_recovery},
       {"torn tail is degraded at checkpoint frontier", test_torn_tail_is_degraded_and_frontier_stays_at_checkpoint},
       {"no provable checkpoint is blocked", test_no_provable_checkpoint_is_blocked},
       {"quarantine retains exact evidence idempotently",

@@ -93,6 +93,9 @@ bool retained_package_matches(const fs::path &package, const quarantine_preview 
 using durability::durable_ingest_log;
 using durability::ingest_error;
 using durability::tail_integrity;
+using storage_service_api::storage_episode_list_request;
+using storage_service_api::storage_fsck_request;
+using storage_service_api::storage_fsck_scope;
 
 recovery_engine::recovery_engine(durability::ingest_options options) : options_(std::move(options)) {
   options_.read_only = true;
@@ -106,24 +109,50 @@ recovery_report recovery_engine::inspect() const {
   report.completed_phases.push_back(recovery_phase::Discover);
   try {
     durable_ingest_log log(options_);
-    report.completed_phases.push_back(recovery_phase::Verify);
     const auto status = log.status();
     report.durable_frontier = status.durable_watermark;
     report.durable_record_count = log.read_durable_records().size();
-    report.completed_phases.push_back(recovery_phase::Select);
     report.unacknowledged_tail_bytes = status.unacknowledged_tail_bytes;
     report.unacknowledged_tail_integrity = status.unacknowledged_tail_integrity;
     report.evidence_error = status.last_error;
     report.evidence_message = status.last_error_message;
     report.qualification_profile = status.qualification_profile;
     report.qualification_passed = status.qualification_passed;
+    const auto &storage = storage_service_api::default_storage_service();
+    const auto episodes = storage.episode_list(storage_episode_list_request{options_.data_root, 0, 0});
+    report.episode_unknown_record_count = episodes.unknown_record_count;
+    for (const auto &episode : episodes.episodes) {
+      if (!episode.opened || episode.closed) {
+        continue;
+      }
+      storage_fsck_request request{};
+      request.runtime_dir = options_.data_root;
+      request.scope = storage_fsck_scope::Episode;
+      request.episode_id = episode.episode_id;
+      request.verify_frames = true;
+      const auto fsck = storage.fsck(request);
+      if (!fsck.qualification.has_value()) {
+        throw std::runtime_error("recovery_episode_qualification_missing");
+      }
+      report.interrupted_episodes.push_back(*fsck.qualification);
+    }
+    report.completed_phases.push_back(recovery_phase::Verify);
+    report.completed_phases.push_back(recovery_phase::Select);
     report.completed_phases.push_back(recovery_phase::Classify);
 
-    if (!status.available ||
+    const bool episode_blocked =
+        report.episode_unknown_record_count != 0 ||
+        std::any_of(report.interrupted_episodes.begin(), report.interrupted_episodes.end(),
+                    [](const auto &qualification) { return qualification.status == "failed"; });
+    const bool episode_degraded =
+        !report.interrupted_episodes.empty() ||
+        std::any_of(report.interrupted_episodes.begin(), report.interrupted_episodes.end(),
+                    [](const auto &qualification) { return qualification.status == "degraded"; });
+    if (!status.available || episode_blocked ||
         (!status.durable_watermark.has_value() && status.last_error == ingest_error::CheckpointCorrupt)) {
       report.outcome = recovery_outcome::Blocked;
     } else if (status.unacknowledged_tail_integrity != tail_integrity::None ||
-               status.last_error != ingest_error::None) {
+               status.last_error != ingest_error::None || episode_degraded) {
       report.outcome = recovery_outcome::Degraded;
     } else {
       report.outcome = recovery_outcome::Ready;

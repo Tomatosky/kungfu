@@ -300,6 +300,8 @@ struct episode_frame_field_mismatch {
   std::string field = {};
   episode_frame_field_value claimed = uint64_t{0};
   episode_frame_field_value actual = uint64_t{0};
+
+  friend bool operator==(const episode_frame_field_mismatch &, const episode_frame_field_mismatch &) = default;
 };
 
 struct episode_frame_verification_issue {
@@ -314,6 +316,8 @@ struct episode_frame_verification_issue {
   std::optional<uint64_t> actual_payload_checksum = {};
   std::optional<uint64_t> claimed_frame_checksum = {};
   std::optional<uint64_t> actual_frame_checksum = {};
+
+  friend bool operator==(const episode_frame_verification_issue &, const episode_frame_verification_issue &) = default;
 };
 
 struct episode_frame_verification {
@@ -327,6 +331,8 @@ struct episode_qualification_evidence {
   std::string name = {};
   std::string state = {};
   std::vector<std::string> issue_codes = {};
+
+  friend bool operator==(const episode_qualification_evidence &, const episode_qualification_evidence &) = default;
 };
 
 using episode_qualification_issue_detail =
@@ -338,6 +344,8 @@ struct episode_qualification_issue {
   std::string code = {};
   std::string evidence = {};
   episode_qualification_issue_detail detail = yijinjing::storage::episode_fsck_issue{};
+
+  friend bool operator==(const episode_qualification_issue &, const episode_qualification_issue &) = default;
 };
 
 struct episode_qualification_capability {
@@ -345,6 +353,8 @@ struct episode_qualification_capability {
   bool safe = false;
   std::vector<std::string> required_evidence = {};
   std::vector<std::string> blocked_by = {};
+
+  friend bool operator==(const episode_qualification_capability &, const episode_qualification_capability &) = default;
 };
 
 struct episode_repair_subject {
@@ -355,6 +365,8 @@ struct episode_repair_subject {
   std::optional<std::string> ref_id = {};
   std::optional<std::string> ref_hash = {};
   std::optional<std::string> role = {};
+
+  friend bool operator==(const episode_repair_subject &, const episode_repair_subject &) = default;
 };
 
 struct episode_repair_prerequisite {
@@ -362,6 +374,8 @@ struct episode_repair_prerequisite {
   std::string action = {};
   std::vector<std::string> required_inputs = {};
   episode_repair_subject subject = {};
+
+  friend bool operator==(const episode_repair_prerequisite &, const episode_repair_prerequisite &) = default;
 };
 
 struct episode_qualification_result {
@@ -372,6 +386,8 @@ struct episode_qualification_result {
   std::vector<episode_qualification_issue> issues = {};
   std::vector<episode_qualification_capability> capabilities = {};
   std::vector<episode_repair_prerequisite> repair_prerequisites = {};
+
+  friend bool operator==(const episode_qualification_result &, const episode_qualification_result &) = default;
 };
 
 enum class storage_fsck_scope { All, Source, Episode };
