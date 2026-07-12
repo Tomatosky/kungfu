@@ -5,6 +5,7 @@ import test from 'node:test';
 import {
   platformCommand,
   platformCommandOptions,
+  prependEnvironmentPath,
 } from './platform-command.mjs';
 
 test('resolves package-manager shims on Windows only', () => {
@@ -16,4 +17,14 @@ test('resolves package-manager shims on Windows only', () => {
   assert.deepEqual(platformCommandOptions('npm', 'win32'), { shell: true });
   assert.deepEqual(platformCommandOptions('cargo', 'win32'), { shell: false });
   assert.deepEqual(platformCommandOptions('npm', 'linux'), { shell: false });
+});
+
+test('prepends Windows Path without creating a case-variant duplicate', () => {
+  const environment = prependEnvironmentPath(
+    { Path: 'C:\\Rust\\bin;C:\\Windows', HOME: 'C:\\Users\\runner' },
+    'D:\\native',
+    'win32',
+  );
+  assert.equal(environment.Path, 'D:\\native;C:\\Rust\\bin;C:\\Windows');
+  assert.equal('PATH' in environment, false);
 });

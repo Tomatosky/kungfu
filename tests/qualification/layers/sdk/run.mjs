@@ -12,6 +12,7 @@ import { extractTarGz } from '../../../../product/scripts/archive.mjs';
 import {
   platformCommand,
   platformCommandOptions,
+  prependEnvironmentPath,
 } from '../../../../scripts/platform-command.mjs';
 import { qualificationHoldMs, runMeasured } from '../process-metrics.mjs';
 
@@ -230,7 +231,7 @@ function commandVersion(command) {
 }
 
 function runtimeEnv(nativeDir) {
-  const env = { ...process.env };
+  let env = { ...process.env };
   if (process.platform === 'darwin')
     env.DYLD_LIBRARY_PATH = [nativeDir, env.DYLD_LIBRARY_PATH]
       .filter(Boolean)
@@ -239,7 +240,7 @@ function runtimeEnv(nativeDir) {
     env.LD_LIBRARY_PATH = [nativeDir, env.LD_LIBRARY_PATH]
       .filter(Boolean)
       .join(path.delimiter);
-  else env.PATH = [nativeDir, env.PATH].filter(Boolean).join(path.delimiter);
+  else env = prependEnvironmentPath(env, nativeDir);
   return env;
 }
 

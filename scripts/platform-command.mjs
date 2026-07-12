@@ -13,3 +13,20 @@ export function platformCommandOptions(command, platform = process.platform) {
     shell: platform === 'win32' && WINDOWS_SHIMS.has(command),
   };
 }
+
+export function prependEnvironmentPath(
+  environment,
+  directory,
+  platform = process.platform,
+) {
+  const result = { ...environment };
+  const key =
+    platform === 'win32'
+      ? Object.keys(result).find((name) => name.toLowerCase() === 'path') ||
+        'Path'
+      : 'PATH';
+  result[key] = [directory, result[key]]
+    .filter(Boolean)
+    .join(platform === 'win32' ? ';' : ':');
+  return result;
+}
