@@ -109,8 +109,8 @@ The 2026-07-12 baseline used source `175e5b7694aa`:
 | Platform | Primary facts | Build facts |
 | --- | --- | --- |
 | macOS arm64 | Apple Clang 21.0.0, libc++, CMake 4.3.2, uv Ninja 1.13.0, macOS SDK 26.5 | clean core 135.47 s; warm 32.08 s; single-source incremental 28.83 s; mmap tests pass |
-| Ubuntu 24.04 x64 | GCC 13.3 observed (below the adopted GCC 14 floor), Clang 18.1.3, CMake 3.28.3, Ninja 1.11.1 | upgrade and post-change qualification required |
-| Windows 11 x64 | MSVC 19.51.36248, clang-cl 22.1.7, CMake 4.3.3, Ninja 1.13.2, Windows SDK 10.0.26100.0 | post-change qualification required in an isolated worktree |
+| Ubuntu 24.04 x64 | GCC 14.2.0, libstdc++, CMake 3.28.3, uv Ninja 1.13.0 | strict C++23 core/Node/Electron/Python/wheel build, mmap/content-hash tests, and changed-scope gate pass |
+| Windows 11 x64 | MSVC 19.51.36248, MSVC DLL CRT, CMake 4.3.3, uv Ninja 1.13.0, Windows SDK 10.0.26100.0 | strict C++23 core/Node/Electron/Python/wheel build and mmap/content-hash tests pass |
 
 The first named-module run exposed two decisive facts:
 
@@ -119,10 +119,15 @@ The first named-module run exposed two decisive facts:
 - Homebrew Clang 22.1.6 can build the 48-consumer slice, but its module compile
   took 1376.6 ms versus 508.0 ms for the equivalent header build (-171.0%).
 
-The production gate is therefore **hold**. Linux GCC 14 and Windows MSVC runs
-still qualify infrastructure portability, but cannot promote modules while a
-primary platform is unsupported and the available secondary result is far
-below the benefit threshold.
+Linux GCC 14 compiled the module slice in 147.6 ms versus 154.0 ms for the
+header slice (+4.2%). Windows MSVC compiled it in 777.3 ms versus 815.3 ms
+(+4.7%). Both execute correctly, but neither clears the 15% threshold.
+
+The production gate is therefore **hold**. Linux GCC 14 and Windows MSVC prove
+the qualification infrastructure is portable, but cannot promote modules
+while macOS production Apple Clang is unsupported and every measured result is
+below the benefit threshold (with the available secondary macOS result much
+worse).
 
 ## Consequences
 

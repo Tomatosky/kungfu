@@ -64,7 +64,7 @@ for (const relative of FORBIDDEN_PATHS) {
 for (const sourceRoot of SOURCE_ROOTS) {
   for (const file of walk(path.join(ROOT, sourceRoot))) {
     if (!/\.(?:h|hpp|cpp|cc|cxx|py|pyi|js|mjs|ts|tsx)$/.test(file)) continue;
-    const relative = path.relative(ROOT, file);
+    const relative = path.relative(ROOT, file).split(path.sep).join('/');
     if (COMPATIBILITY_FILES.has(relative)) continue;
     const text = fs.readFileSync(file, 'utf8');
     for (const pattern of RETIRED_TEXT) {

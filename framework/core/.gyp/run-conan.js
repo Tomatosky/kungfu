@@ -2,6 +2,7 @@
 // @ts-check
 
 const fse = require('fs-extra');
+const os = require('node:os');
 const path = require('node:path');
 const { shell } = require('../lib');
 
@@ -44,8 +45,25 @@ function ensureBuildchainConanProfile() {
 // clean cache builds the same audited package revision instead of mutating a
 // shared Conan cache after installation.
 function ensureKungfuConanRecipes() {
-  const recipe = path.join(__dirname, '..', '.conan', 'recipes', 'rxcpp');
-  conan(['export', recipe, '--version', '4.1.1']);
+  const source = path.join(__dirname, '..', '.conan', 'recipes', 'rxcpp');
+  const recipe = fse.mkdtempSync(path.join(os.tmpdir(), 'kungfu-rxcpp-'));
+  try {
+    fse.copySync(source, recipe);
+    for (const relative of [
+      'conanfile.py',
+      'conandata.yml',
+      path.join('patches', '0001-fix-notification-assignment.patch'),
+    ]) {
+      const file = path.join(recipe, relative);
+      fse.writeFileSync(
+        file,
+        fse.readFileSync(file, 'utf8').replace(/\r\n/g, '\n'),
+      );
+    }
+    conan(['export', recipe, '--version', '4.1.1']);
+  } finally {
+    fse.removeSync(recipe);
+  }
 }
 
 function getNodeVersionOptions() {
