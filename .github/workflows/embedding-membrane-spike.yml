@@ -213,7 +213,7 @@ jobs:
             spike_python="$PWD/framework/core/.venv/Scripts/python.exe"
           fi
           # shifu-entry-contract: allow the isolated spike configure is not a product-level Shifu task
-          cmake -S framework/core -B framework/core/build \
+          cmake -S framework/core -B framework/core/build -G Ninja \
             -DCMAKE_TOOLCHAIN_FILE="$PWD/framework/core/build/conan_toolchain.cmake" \
             -DCMAKE_POLICY_DEFAULT_CMP0091=NEW \
             -DCMAKE_BUILD_TYPE=Release \
