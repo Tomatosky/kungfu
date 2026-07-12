@@ -78,17 +78,18 @@ uint64_t writer::current_frame_uid() {
   return frame_id_base_ | ((page_part | frame_part) xor writer_start_time_32int_);
 }
 
-writer::frame_transaction::frame_transaction(writer &owner, frame_ptr frame, bool replay) noexcept
-    : owner_(&owner), frame_(std::move(frame)), replay_(replay) {}
+writer::frame_transaction::frame_transaction(writer &owner, struct frame *frame, bool replay) noexcept
+    : owner_(&owner), frame_(frame), replay_(replay) {}
 
 writer::frame_transaction::frame_transaction(frame_transaction &&other) noexcept
-    : owner_(std::exchange(other.owner_, nullptr)), frame_(std::move(other.frame_)), replay_(other.replay_) {}
+    : owner_(std::exchange(other.owner_, nullptr)), frame_(std::exchange(other.frame_, nullptr)),
+      replay_(other.replay_) {}
 
 writer::frame_transaction &writer::frame_transaction::operator=(frame_transaction &&other) noexcept {
   if (this != &other) {
     abort();
     owner_ = std::exchange(other.owner_, nullptr);
-    frame_ = std::move(other.frame_);
+    frame_ = std::exchange(other.frame_, nullptr);
     replay_ = other.replay_;
   }
   return *this;
@@ -106,7 +107,7 @@ void writer::frame_transaction::abort() noexcept {
     owner_->writer_mtx_.unlock();
   }
   owner_ = nullptr;
-  frame_.reset();
+  frame_ = nullptr;
 }
 
 void writer::frame_transaction::commit(size_t data_length, int64_t gen_time) {
@@ -128,7 +129,7 @@ void writer::frame_transaction::commit(size_t data_length, int64_t gen_time) {
   }
 
   owner_ = nullptr;
-  frame_.reset();
+  frame_ = nullptr;
   owner->writer_mtx_.unlock();
   owner->publisher_->notify();
 }
@@ -140,9 +141,9 @@ writer::frame_transaction writer::reserve_frame(int64_t trigger_time, int32_t ca
   }
 
   try {
-    auto frame = open_frame_unserialized(trigger_time, carrier_type, data_length, stream_id);
+    auto *frame = open_frame_unserialized(trigger_time, carrier_type, data_length, stream_id);
     on_frame_opened(trigger_time, frame);
-    return frame_transaction(*this, std::move(frame));
+    return frame_transaction(*this, frame);
   } catch (...) {
     abort_frame_unserialized();
     writer_mtx_.unlock();
@@ -150,14 +151,14 @@ writer::frame_transaction writer::reserve_frame(int64_t trigger_time, int32_t ca
   }
 }
 
-frame_ptr writer::open_frame_unserialized(int64_t trigger_time, int32_t carrier_type, size_t data_length,
-                                          uint64_t stream_id) {
+struct frame *writer::open_frame_unserialized(int64_t trigger_time, int32_t carrier_type, size_t data_length,
+                                              uint64_t stream_id) {
   data_length = verify_cpu_word_length(data_length);
   assert(sizeof(frame_header) + data_length + sizeof(frame_header) <= journal_->page_->get_page_size());
   if (journal_->current_frame()->address() + sizeof(frame_header) + data_length >= journal_->page_->address_border()) {
     close_page(trigger_time);
   }
-  auto frame = journal_->current_frame();
+  auto &frame = journal_->current_frame();
   frame->set_header_length();
   frame->set_trigger_time(trigger_time);
   frame->set_carrier_type(carrier_type);
@@ -166,12 +167,13 @@ frame_ptr writer::open_frame_unserialized(int64_t trigger_time, int32_t carrier_
   frame->set_dest(journal_->dest_id_);
   frame->set_stream_id(stream_id);
   size_to_write_ = data_length;
-  return frame;
+  return frame.get();
 }
 
 frame_ptr writer::open_frame_lock_free(int64_t trigger_time, int32_t carrier_type, size_t data_length,
                                        uint64_t stream_id) {
-  return open_frame_unserialized(trigger_time, carrier_type, data_length, stream_id);
+  open_frame_unserialized(trigger_time, carrier_type, data_length, stream_id);
+  return journal_->current_frame();
 }
 
 frame_ptr writer::open_frame(int64_t trigger_time, int32_t carrier_type, size_t data_length, uint64_t stream_id) {
@@ -179,9 +181,9 @@ frame_ptr writer::open_frame(int64_t trigger_time, int32_t carrier_type, size_t 
     throw journal_error("Can not lock writer for " + journal_->location_->uname);
   }
   try {
-    auto frame = open_frame_unserialized(trigger_time, carrier_type, data_length, stream_id);
+    auto *frame = open_frame_unserialized(trigger_time, carrier_type, data_length, stream_id);
     on_frame_opened(trigger_time, frame);
-    return frame;
+    return journal_->current_frame();
   } catch (...) {
     abort_frame_unserialized();
     writer_mtx_.unlock();
@@ -215,7 +217,7 @@ void writer::close_frame_lock_free(size_t data_length, int64_t gen_time) {
 
 void writer::close_frame(size_t data_length, int64_t gen_time) {
   try {
-    on_frame_closing(gen_time, journal_->current_frame());
+    on_frame_closing(gen_time, journal_->current_frame().get());
     close_frame_unserialized(data_length, gen_time);
   } catch (...) {
     abort_frame_unserialized();
@@ -284,12 +286,12 @@ void writer::write_raw_at_as(int64_t gen_time, int64_t trigger_time, uint32_t so
 
 void writer::close_data(int64_t gen_time) { close_frame(size_to_write_, gen_time); }
 
-void writer::on_frame_opened(int64_t trigger_time, const frame_ptr &frame) {
+void writer::on_frame_opened(int64_t trigger_time, struct frame *frame) {
   (void)trigger_time;
   (void)frame;
 }
 
-void writer::on_frame_closing(int64_t gen_time, const frame_ptr &frame) {
+void writer::on_frame_closing(int64_t gen_time, struct frame *frame) {
   (void)gen_time;
   (void)frame;
 }

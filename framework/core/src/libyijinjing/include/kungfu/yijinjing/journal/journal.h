@@ -273,18 +273,18 @@ public:
     frame_transaction &operator=(const frame_transaction &) = delete;
     ~frame_transaction();
 
-    [[nodiscard]] frame_ptr frame() const { return frame_; }
+    [[nodiscard]] ::kungfu::yijinjing::journal::frame *frame() const { return frame_; }
     [[nodiscard]] void *data() const { return const_cast<void *>(frame_->data_address()); }
     void commit(size_t data_length, int64_t gen_time = time::now_in_nano());
 
   private:
     friend class writer;
     friend class replay_writer;
-    frame_transaction(writer &owner, frame_ptr frame, bool replay = false) noexcept;
+    frame_transaction(writer &owner, ::kungfu::yijinjing::journal::frame *frame, bool replay = false) noexcept;
     void abort() noexcept;
 
     writer *owner_;
-    frame_ptr frame_;
+    ::kungfu::yijinjing::journal::frame *frame_;
     bool replay_{false};
   };
 
@@ -460,9 +460,10 @@ protected:
   int64_t last_gen_time_;
   uint32_t writer_start_time_32int_;
 
-  virtual void on_frame_opened(int64_t trigger_time, const frame_ptr &frame);
-  virtual void on_frame_closing(int64_t gen_time, const frame_ptr &frame);
-  frame_ptr open_frame_unserialized(int64_t trigger_time, int32_t carrier_type, size_t length, uint64_t stream_id);
+  virtual void on_frame_opened(int64_t trigger_time, ::kungfu::yijinjing::journal::frame *frame);
+  virtual void on_frame_closing(int64_t gen_time, ::kungfu::yijinjing::journal::frame *frame);
+  ::kungfu::yijinjing::journal::frame *open_frame_unserialized(int64_t trigger_time, int32_t carrier_type,
+                                                               size_t length, uint64_t stream_id);
   void close_frame_unserialized(size_t data_length, int64_t gen_time);
   void abort_frame_unserialized() noexcept;
   void close_page(int64_t trigger_time);
@@ -491,8 +492,8 @@ public:
       : writer(location, dest_id, lazy, std::move(publisher), low_latency, bus, page_size), hook_(std::move(hook)) {}
 
 private:
-  void on_frame_opened(int64_t trigger_time, const frame_ptr &frame) override;
-  void on_frame_closing(int64_t gen_time, const frame_ptr &frame) override;
+  void on_frame_opened(int64_t trigger_time, ::kungfu::yijinjing::journal::frame *frame) override;
+  void on_frame_closing(int64_t gen_time, ::kungfu::yijinjing::journal::frame *frame) override;
   writer_hook_ptr hook_;
 };
 

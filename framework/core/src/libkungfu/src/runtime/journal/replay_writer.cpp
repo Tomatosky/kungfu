@@ -75,7 +75,7 @@ writer::frame_transaction replay_writer::reserve_frame(int64_t trigger_time, int
   }
   try {
     auto frame = open_frame(trigger_time, carrier_type, length, stream_id);
-    return frame_transaction(*this, std::move(frame), true);
+    return frame_transaction(*this, frame.get(), true);
   } catch (...) {
     writer_mtx_.unlock();
     throw;

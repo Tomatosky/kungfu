@@ -153,14 +153,14 @@ public:
   bool throw_on_commit{false};
 
 protected:
-  void on_frame_opened(int64_t trigger_time, const frame_ptr &frame) override {
+  void on_frame_opened(int64_t trigger_time, kungfu::yijinjing::journal::frame *frame) override {
     writer::on_frame_opened(trigger_time, frame);
     if (std::exchange(throw_on_reserve, false)) {
       throw std::runtime_error("injected reservation failure");
     }
   }
 
-  void on_frame_closing(int64_t gen_time, const frame_ptr &frame) override {
+  void on_frame_closing(int64_t gen_time, kungfu::yijinjing::journal::frame *frame) override {
     if (std::exchange(throw_on_commit, false)) {
       throw std::runtime_error("injected commit failure");
     }
