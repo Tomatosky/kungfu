@@ -629,6 +629,76 @@ void test_state_service_owns_shadow_ingest_lifecycle() {
           "stopped state service did not return typed service-unavailable");
 }
 
+void test_read_only_recovery_inspection_classifies_complete_tail_without_mutation() {
+  temp_tree tree;
+  owners owner(tree.root());
+  auto writable = options(tree.root());
+  {
+    durable_ingest_log log(writable);
+    log.append(position(1), 1001, "durable", owner.service, owner.writer);
+    require(log.barrier(600, durability_profile::DurableGroup, owner.service, owner.writer).receipt.status ==
+                receipt_status::Succeeded,
+            "recovery fixture barrier failed");
+    log.append(position(2), 1001, "complete-tail", owner.service, owner.writer);
+  }
+  const auto directory = tree.root() / "durable" / "streams" / "7" / "11";
+  std::vector<std::pair<std::string, uint64_t>> before;
+  for (const auto &entry : fs::directory_iterator(directory)) {
+    if (entry.is_regular_file()) {
+      before.emplace_back(entry.path().filename().string(), entry.file_size());
+    }
+  }
+  std::sort(before.begin(), before.end());
+  auto inspection = writable;
+  inspection.read_only = true;
+  durable_ingest_log read_only(inspection);
+  require(read_only.status().durable_watermark == position(1) && read_only.status().unacknowledged_tail_bytes > 0 &&
+              read_only.status().unacknowledged_tail_integrity == tail_integrity::CompleteRecords,
+          "read-only recovery did not classify the complete unacknowledged tail");
+  bool append_refused = false;
+  try {
+    read_only.append(position(2), 1001, "forbidden", owner.service, owner.writer);
+  } catch (const std::logic_error &) {
+    append_refused = true;
+  }
+  require(append_refused, "read-only recovery accepted append");
+  const auto barrier = read_only.barrier(601, durability_profile::DurableGroup, owner.service, owner.writer);
+  require(barrier.receipt.status == receipt_status::Failed && barrier.error == ingest_error::InvalidArgument,
+          "read-only recovery accepted a barrier");
+  std::vector<std::pair<std::string, uint64_t>> after;
+  for (const auto &entry : fs::directory_iterator(directory)) {
+    if (entry.is_regular_file()) {
+      after.emplace_back(entry.path().filename().string(), entry.file_size());
+    }
+  }
+  std::sort(after.begin(), after.end());
+  require(after == before, "read-only recovery inspection changed durable evidence files");
+}
+
+void test_read_only_recovery_classifies_torn_tail() {
+  temp_tree tree;
+  owners owner(tree.root());
+  auto writable = options(tree.root());
+  fs::path tail_path;
+  {
+    durable_ingest_log log(writable);
+    log.append(position(1), 1001, "durable", owner.service, owner.writer);
+    require(log.barrier(602, durability_profile::DurableGroup, owner.service, owner.writer).receipt.status ==
+                receipt_status::Succeeded,
+            "torn-tail fixture barrier failed");
+    log.append(position(2), 1001, "tear-me", owner.service, owner.writer);
+    const auto directory = tree.root() / "durable" / "streams" / "7" / "11";
+    tail_path = directory / ("active-" + std::to_string(log.status().active_segment_id) + ".kfdl");
+  }
+  fs::resize_file(tail_path, fs::file_size(tail_path) - 1);
+  auto inspection = writable;
+  inspection.read_only = true;
+  durable_ingest_log read_only(inspection);
+  require(read_only.status().durable_watermark == position(1) &&
+              read_only.status().unacknowledged_tail_integrity == tail_integrity::TornOrCorrupt,
+          "read-only recovery did not classify a torn tail");
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
@@ -700,6 +770,9 @@ int main(int argc, char **argv) {
       {"published hot frame matches inspected durable record after restart",
        test_published_hot_frame_matches_inspected_durable_record_after_restart},
       {"state service owns shadow ingest lifecycle", test_state_service_owns_shadow_ingest_lifecycle},
+      {"read-only recovery classifies complete tail without mutation",
+       test_read_only_recovery_inspection_classifies_complete_tail_without_mutation},
+      {"read-only recovery classifies torn tail", test_read_only_recovery_classifies_torn_tail},
   };
   int failed = 0;
   for (const auto &[name, test] : tests) {

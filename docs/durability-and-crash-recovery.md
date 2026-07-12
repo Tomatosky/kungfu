@@ -91,6 +91,14 @@ bootstraps, and hydrates typed peer state in a fresh process.
 This is shadow/cutover evidence: the production coordinator compatibility
 restore remains active and public durable profiles remain disabled.
 
+A test-only read-only recovery inspector now runs
+`DISCOVER -> VERIFY -> SELECT -> CLASSIFY -> REPORT` over KFDL v2 without
+creating a replacement active segment. It deterministically reports READY for
+a clean checkpoint, DEGRADED for complete or torn unacknowledged tails, and
+BLOCKED when checkpoint evidence exists but no frontier is provable. It never
+promotes or deletes tail bytes and records the required local restart order as
+supervisor, state service, projection, then peers.
+
 Do not interpret `MAP_SHARED`, `msync`, `FlushViewOfFile`, SQLite WAL, process
 residency, or a successful write call as a power-loss guarantee. A guarantee is
 made only by a named profile with retained qualification evidence.

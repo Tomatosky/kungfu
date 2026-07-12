@@ -30,6 +30,8 @@ enum class ingest_fault_point : uint8_t {
   BeforeDirectorySync,
 };
 
+enum class tail_integrity : uint8_t { None, CompleteRecords, TornOrCorrupt, Unverifiable };
+
 enum class ingest_error : uint8_t {
   None,
   InvalidArgument,
@@ -53,6 +55,7 @@ struct ingest_options {
   std::string qualification_profile = {};
   bool qualification_passed = false;
   uint64_t segment_max_bytes = 64ULL * 1024ULL * 1024ULL;
+  bool read_only = false;
 };
 
 struct ingest_status {
@@ -65,6 +68,7 @@ struct ingest_status {
   uint64_t pending_records = 0;
   uint64_t pending_bytes = 0;
   uint64_t unacknowledged_tail_bytes = 0;
+  tail_integrity unacknowledged_tail_integrity = tail_integrity::None;
   uint64_t last_barrier_id = 0;
   uint64_t last_barrier_duration_ns = 0;
   std::optional<stream_position> durable_watermark = std::nullopt;

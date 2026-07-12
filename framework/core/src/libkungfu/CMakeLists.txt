@@ -102,6 +102,11 @@ if(KUNGFU_WITH_CORE_TESTS)
   target_link_libraries(kungfu_projection_bootstrap_tests PRIVATE ${LIBKUNGFU_NAME} Threads::Threads)
   target_compile_features(kungfu_projection_bootstrap_tests PRIVATE cxx_std_20)
   add_test(NAME kungfu_projection_bootstrap_tests COMMAND kungfu_projection_bootstrap_tests)
+
+  add_executable(kungfu_crash_recovery_tests tests/crash_recovery_tests.cpp)
+  target_link_libraries(kungfu_crash_recovery_tests PRIVATE ${LIBKUNGFU_NAME} Threads::Threads)
+  target_compile_features(kungfu_crash_recovery_tests PRIVATE cxx_std_20)
+  add_test(NAME kungfu_crash_recovery_tests COMMAND kungfu_crash_recovery_tests)
 endif()
 
 # Windows AppContainer guest launcher (ADR-0014) lives in the runtime sandbox

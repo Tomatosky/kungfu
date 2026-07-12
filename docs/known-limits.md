@@ -87,6 +87,12 @@ Production bootstrap still uses the coordinator-triggered
 compatibility restore; business joins/restore cutover and public projection
 capability remain pending.
 
+KFDL v2 also has a test-only read-only recovery inspector and typed report for
+clean, complete-tail, torn-tail, and unprovable-checkpoint cases. Repair,
+quarantine, Episode folding, consistent export/empty-root restore, and a
+qualified production profile remain pending; the inspector performs no
+mutation and is not yet a public recovery command.
+
 SQLite WAL, a mapped-region flush, or a resident process is not a substitute for
 that evidence. See [Strong durability and crash recovery](durability-and-crash-recovery.md)
 for the current status and [ADR-0068](../framework/core/docs/adr/ADR-0068-tiered-durability-and-crash-recovery.md)

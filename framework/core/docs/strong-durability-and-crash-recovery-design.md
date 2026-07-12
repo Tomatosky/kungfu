@@ -429,6 +429,15 @@ START
   -> READY (or DEGRADED / BLOCKED)
 ```
 
+The first executable slice implements the read-only prefix through `REPORT`.
+KFDL opens in an explicit inspection mode that refuses append/barrier calls and
+does not create, truncate, rename, or extend any evidence file. It selects only
+the checkpoint-covered frontier and classifies bytes beyond it as complete
+records, torn/corrupt, or unverifiable. Clean evidence reports `READY`; any
+unacknowledged tail reports `DEGRADED`; checkpoint evidence with no provable
+frontier reports `BLOCKED`. Repeated inspection is byte-state preserving and
+returns the same typed report.
+
 Recovery is read-only through `CLASSIFY`. Any truncation, replacement, or
 repair is an explicit maintenance action with preview, retained evidence, and
 idempotence checks. Normal startup may ignore an untrusted tail for service

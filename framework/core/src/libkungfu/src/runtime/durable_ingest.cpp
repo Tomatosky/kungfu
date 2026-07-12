@@ -524,10 +524,20 @@ struct durable_ingest_log::impl {
         this->options.writer_resource_id.empty() || this->options.segment_max_bytes <= SEGMENT_HEADER_SIZE) {
       throw std::invalid_argument("durable_ingest_options_invalid");
     }
-    create_directory_chain_durably(root, {"durable", "streams", std::to_string(this->options.stream_id),
-                                          std::to_string(this->options.container_epoch)});
+    if (this->options.read_only) {
+      if (!fs::is_directory(directory)) {
+        throw std::runtime_error("durable_ingest_read_only_stream_missing");
+      }
+    } else {
+      create_directory_chain_durably(root, {"durable", "streams", std::to_string(this->options.stream_id),
+                                            std::to_string(this->options.container_epoch)});
+    }
     load_checkpoint();
-    prepare_active_segment();
+    if (this->options.read_only) {
+      inspect_tail_read_only();
+    } else {
+      prepare_active_segment();
+    }
   }
 
   void inject(ingest_fault_point point) {
@@ -673,6 +683,49 @@ struct durable_ingest_log::impl {
     return result;
   }
 
+  void inspect_tail_read_only() {
+    const auto max_segment_id = max_existing_segment_id();
+    current_status.active_segment_id = max_segment_id;
+    if (checkpoint_blocked) {
+      current_status.unacknowledged_tail_bytes = later_segment_bytes(0);
+      current_status.unacknowledged_tail_integrity =
+          current_status.unacknowledged_tail_bytes == 0 ? tail_integrity::None : tail_integrity::Unverifiable;
+      return;
+    }
+
+    uint64_t chain_start = 1;
+    uint64_t earlier_bytes = 0;
+    if (current_status.durable_watermark.has_value()) {
+      chain_start = durable_checkpoint.chain_start_segment_id;
+      earlier_bytes = earlier_segment_bytes(chain_start);
+      const auto checkpoint_segment = existing_segment(durable_checkpoint.segment_id);
+      const auto checkpoint_size = fs::file_size(checkpoint_segment);
+      current_status.unacknowledged_tail_bytes = earlier_bytes + checkpoint_size - durable_checkpoint.durable_offset +
+                                                 later_segment_bytes(durable_checkpoint.segment_id);
+    } else {
+      current_status.unacknowledged_tail_bytes = later_segment_bytes(0);
+    }
+    if (current_status.unacknowledged_tail_bytes == 0) {
+      current_status.unacknowledged_tail_integrity = tail_integrity::None;
+      return;
+    }
+    if (earlier_bytes > 0) {
+      current_status.unacknowledged_tail_integrity = tail_integrity::Unverifiable;
+      return;
+    }
+    try {
+      std::optional<stream_position> verified_position = std::nullopt;
+      for (uint64_t segment_id = chain_start; segment_id <= max_segment_id; ++segment_id) {
+        const auto segment = existing_segment(segment_id);
+        verified_position = verify_segment_prefix(segment, segment_id, options.stream_id, options.container_epoch,
+                                                  fs::file_size(segment), verified_position);
+      }
+      current_status.unacknowledged_tail_integrity = tail_integrity::CompleteRecords;
+    } catch (...) {
+      current_status.unacknowledged_tail_integrity = tail_integrity::TornOrCorrupt;
+    }
+  }
+
   void create_segment(uint64_t segment_id) {
     const auto path = active_segment_path(directory, segment_id);
     native_file file(path, true);
@@ -787,6 +840,9 @@ struct durable_ingest_log::impl {
   void append(const stream_position &position, int32_t carrier_type, const durable_frame_context &frame,
               const void *payload, size_t payload_size, const lease &service_owner, const evidence &writer_generation) {
     std::lock_guard lock(mutex);
+    if (options.read_only) {
+      throw std::logic_error("durable_ingest_read_only");
+    }
     if (!current_status.available) {
       throw std::logic_error("durable_ingest_is_unavailable");
     }
@@ -872,6 +928,12 @@ struct durable_ingest_log::impl {
     result.receipt.requested_profile = profile;
     result.receipt.status = receipt_status::Failed;
     result.receipt.error = durability_error_code::InvalidRequest;
+    if (options.read_only) {
+      result.error = ingest_error::InvalidArgument;
+      result.message = "durable_ingest_read_only";
+      result.status = current_status;
+      return result;
+    }
     const auto set_current_error = [&](ingest_error error, const std::string &message) {
       current_status.last_error = error;
       current_status.last_error_message = message;
