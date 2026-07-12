@@ -2,14 +2,19 @@
 
 import hashlib
 import json
+import os
 import sqlite3
+import subprocess
 from datetime import datetime, timezone
 
 import kungfu
 import pytest
 
-from kungfu.atlas import importer, payloads
+from kungfu import runtime_service
+from kungfu.atlas import importer, mission_bundle, mission_control, payloads
+from kungfu.atlas import store as atlas_store
 from kungfu.atlas import CARRIER_ATLAS_ACTION
+from kungfu.rewind import reporting as rewind_reporting
 from kungfu.sources import store as source_store
 from kungfu.storage import service as storage_service
 
@@ -17,6 +22,70 @@ from kungfu.storage import service as storage_service
 def _write_json(path, data):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def _sha256_root(value: str) -> str:
+    return "sha256:" + hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _sealed_work_episode(runtime_dir, *, episode_id=5200):
+    storage_service.episode_begin(
+        runtime_dir,
+        episode_id=episode_id,
+        begin_time=1000,
+        title="assessment work",
+        actor="pytest",
+        source="adr-0052-test",
+    )
+    closed = storage_service.episode_end(
+        runtime_dir,
+        episode_id=episode_id,
+        end_time=1100,
+        reason="work sealed before assessment",
+    )
+    return "sha256:" + closed["content_root"]["root_value"]
+
+
+def _assessment_request(work_episode_root, *, episode_id=5200, evidence=None):
+    return {
+        "claim_id": "claim-release-ready",
+        "claim_type": "release-readiness",
+        "purpose": "release-gate",
+        "work_episode_id": episode_id,
+        "work_episode_root": work_episode_root,
+        "query_definition_root": _sha256_root("query-definition"),
+        "query_proof_root": _sha256_root("query-proof"),
+        "contract_world": {
+            "id": "kungfu-runtime",
+            "version": "v1",
+            "root": _sha256_root("contract-world"),
+        },
+        "fact_surfaces": [
+            {
+                "id": "release-facts",
+                "version": "v1",
+                "root": _sha256_root("release-facts"),
+            }
+        ],
+        "policy": {
+            "id": "deterministic-assessor",
+            "version": "v1",
+            "root": _sha256_root("deterministic-assessor"),
+        },
+        "evidence": evidence
+        or {
+            "canonical_fact_count": 3,
+            "conflict_count": 0,
+            "admitted_count": 3,
+            "unregistered_surface_count": 0,
+            "incompatible_schema_count": 0,
+            "ambiguous_authority_count": 0,
+            "unverifiable_count": 0,
+        },
+        "deadline": 0,
+        "responsibility": "workspace-coordinator",
+        "residual_risks": ["first built-in assessor only"],
+    }
 
 
 def _atlas_fixture(root):
@@ -192,6 +261,624 @@ def test_atlas_source_records_filter_by_window(tmp_path):
     }
     assert ("mission", "mission-b") in {
         (record["kind"], record["source_id"]) for record in source_records
+    }
+
+
+def test_atlas_import_admits_mission_and_go_into_shared_fact_state(tmp_path):
+    repo = tmp_path / "atlas"
+    runtime_dir = tmp_path / "runtime"
+    _atlas_fixture(repo)
+
+    first = atlas_store.ImportStore(runtime_dir).run_import(str(repo))
+    admitted = first["mission_control"]
+    assert admitted["status"] == "admitted", admitted.get("error", admitted)
+    assert admitted["authority_mode"] == "atlas-bridge"
+    assert admitted["contract_world"] == {
+        "id": mission_control.CONTRACT_WORLD_ID,
+        "version": mission_control.CONTRACT_VERSION,
+    }
+    assert admitted["admitted"] == 2
+    assert admitted["already_present"] == 0
+    assert admitted["outcomes"] == {"admitted": 2}
+    assert admitted["import_episode_id"] == first["episode_id"]
+    assert admitted["import_episode_root"].startswith("sha256:")
+
+    state = storage_service.fact_state(runtime_dir)
+    assert len(state["canonical_facts"]) == 2
+    assert {row["fact_surface_id"] for row in state["canonical_facts"]} == {
+        mission_control.MISSION_SURFACE_ID,
+        mission_control.GO_SURFACE_ID,
+    }
+    material = storage_service.fact_material_list(runtime_dir)
+    bodies = list(material["payloads"].values())
+    assert {body["source"]["authority_mode"] for body in bodies} == {"atlas-bridge"}
+    assert {body["source"]["import_episode_root"] for body in bodies} == {
+        admitted["import_episode_root"]
+    }
+    goal_body = next(body for body in bodies if body["source"]["kind"] == "goal")
+    assert goal_body["links"] == {"mission_id": "atlas:mission-a"}
+    assert goal_body["record"]["goal_id"] == "goal-a"
+
+    second = atlas_store.ImportStore(runtime_dir).run_import(str(repo))
+    assert second["mission_control"]["status"] == "admitted"
+    assert second["mission_control"]["admitted"] == 0
+    assert second["mission_control"]["already_present"] == 2
+    assert len(storage_service.fact_state(runtime_dir)["canonical_facts"]) == 2
+
+    goal_path = repo / "agent-journal/goals/registry/active/goal-a.json"
+    changed = json.loads(goal_path.read_text(encoding="utf-8"))
+    changed["status"] = "ready"
+    changed["updated_at"] = "2026-07-09T00:00:00Z"
+    _write_json(goal_path, changed)
+    third = atlas_store.ImportStore(runtime_dir).run_import(str(repo))
+    assert third["mission_control"]["status"] == "admitted", third["mission_control"]
+    assert third["mission_control"]["admitted"] == 1
+    assert third["mission_control"]["already_present"] == 1
+    goal_material = storage_service.fact_material_list(
+        runtime_dir,
+        type_id=mission_control.GO_SURFACE_ID,
+        subject_key="atlas:goal-a",
+    )
+    latest = goal_material["state"]["canonical_facts"]
+    assert len(latest) == 1
+    latest_body = goal_material["payloads"][latest[0]["payload_hash"]]
+    assert latest_body["record"]["status"] == "ready"
+
+
+def test_mission_control_queries_and_assesses_progress_at_pinned_cuts(tmp_path):
+    repo = tmp_path / "atlas"
+    runtime_dir = tmp_path / "runtime"
+    _atlas_fixture(repo)
+    atlas_store.ImportStore(runtime_dir).run_import(str(repo))
+
+    definition = mission_control.build_state_query(
+        str(runtime_dir), mission_id="mission-a"
+    )
+    assert definition["object"] == "fact-state"
+    assert definition["subject_keys"] == ["atlas:goal-a", "atlas:mission-a"]
+    assert definition["basis"]["scope"] == "domain-fact-ledger"
+
+    first_state = mission_control.query_state(str(runtime_dir), mission_id="mission-a")
+    assert first_state["canonical_state"] is True
+    assert first_state["query_definition_root"].startswith("sha256:")
+    assert first_state["query_proof_root"].startswith("sha256:")
+    assert first_state["mission"]["payload"]["record"]["mission_id"] == "mission-a"
+    assert [row["payload"]["record"]["goal_id"] for row in first_state["goals"]] == [
+        "goal-a"
+    ]
+    assert first_state["lineage"]["conflicts"] == []
+    assert len(first_state["lineage"]["episode_content_roots"]) == 2
+
+    rewind_reporting.begin_run(
+        str(runtime_dir),
+        run_id="goal-a-run",
+        provider="codex",
+        cwd=None,
+        work_id="goal-a",
+    )
+    rewind_reporting.report_cost(
+        str(runtime_dir),
+        run_id="goal-a-run",
+        provider="codex",
+        surface="exec-json",
+        source="codex-exec-json",
+        attribution="exact_run",
+        work_id="goal-a",
+        model="test-model",
+        input_tokens=120,
+        output_tokens=30,
+    )
+    rewind_reporting.end_run(
+        str(runtime_dir),
+        run_id="goal-a-run",
+        status="succeeded",
+        exit_code=0,
+    )
+    rewind_episodes = [
+        row
+        for row in storage_service.episode_list(runtime_dir)["episodes"]
+        if row["open"]["source"] == "rewind:goal-a-run"
+    ]
+    assert len(rewind_episodes) == 1
+    assert rewind_episodes[0]["unique_frame_count"] == 3
+    assert rewind_episodes[0]["root"]["root_value"]
+    first_report = mission_control.assess_progress(
+        str(runtime_dir), mission_id="mission-a"
+    )
+    assert first_report["fitness"] == "fit"
+    assert first_report["assessment"]["state"] == "fresh"
+    assert first_report["assessment"]["report"]["purpose"] == "operator-review"
+    assert (
+        first_report["assessment"]["report"]["query_proof_root"]
+        == first_state["query_proof_root"]
+    )
+    profile = first_report["profile"]
+    assert profile["schema"] == ("kungfu.profile.delegated-work-cost-state-proof/v1")
+    assert profile["profile_hash"].startswith("sha256:")
+    assert profile["state"]["value"] == "active"
+    assert profile["cost"]["status"] == "partial"
+    assert profile["cost"]["observation_count"] == 1
+    assert profile["cost"]["tokens"]["input_tokens"] == 120
+    assert profile["cost"]["tokens"]["output_tokens"] == 30
+    assert profile["cost"]["cost_usd"] is None
+    assert profile["cost"]["cost_usd_known"] is False
+    assert profile["cost"]["attribution"] == {
+        "best": "exact-run",
+        "worst": "exact-run",
+        "ambiguous": False,
+    }
+    assert profile["cost"]["proof_episodes"], profile["cost"]
+    assert profile["cost"]["proof_episodes"][0]["run_id"] == "goal-a-run"
+    assert profile["cost"]["proof_episodes"][0]["episode_root"].startswith("sha256:")
+    assert profile["proof"]["query_proof_root"] == first_state["query_proof_root"]
+    assert profile["proof"]["assessment_report_hash"] == first_report["report_hash"]
+    repeated = mission_control.assess_progress(str(runtime_dir), mission_id="mission-a")
+    assert repeated["assessment_key"] == first_report["assessment_key"]
+    assert repeated["assessment"]["reused"] is True
+
+    from click.testing import CliRunner
+    from kungfu.cli.commands import __registry__  # noqa: F401
+    from kungfu.cli.commands import kfc
+
+    runner = CliRunner()
+    cli = runner.invoke(
+        kfc,
+        ["atlas", "assess-mission", "mission-a", "--json"],
+        env={"KF_RUNTIME_DIR": str(runtime_dir)},
+    )
+    assert cli.exit_code == 0, cli.output
+    cli_report = json.loads(cli.output)
+    assert cli_report["fitness"] == "fit"
+    assert cli_report["assessment_key"] == first_report["assessment_key"]
+
+    historical_cut = int(first_state["cut"]["resolved"]["system_time"])
+    goal_path = repo / "agent-journal/goals/registry/active/goal-a.json"
+    changed = json.loads(goal_path.read_text(encoding="utf-8"))
+    changed["status"] = "blocked"
+    changed["updated_at"] = "2026-07-09T00:00:00Z"
+    _write_json(goal_path, changed)
+    atlas_store.ImportStore(runtime_dir).run_import(str(repo))
+
+    current_report = mission_control.assess_progress(
+        str(runtime_dir), mission_id="mission-a"
+    )
+    assert current_report["fitness"] == "warning"
+    assert current_report["assessment_key"] != first_report["assessment_key"]
+    historical_report = mission_control.assess_progress(
+        str(runtime_dir),
+        mission_id="mission-a",
+        cut_system_time=historical_cut,
+    )
+    assert historical_report["fitness"] == "fit"
+    assert (
+        historical_report["state"]["goals"][0]["payload"]["record"]["status"]
+        == "active"
+    )
+    assert historical_report["profile"]["cost"]["status"] == "missing"
+    assert historical_report["profile"]["cost"]["observation_count"] == 0
+
+
+def test_mission_control_native_go_completion_claim_fails_closed_then_passes(
+    tmp_path,
+):
+    repo = tmp_path / "atlas"
+    runtime_dir = tmp_path / "runtime"
+    _atlas_fixture(repo)
+    atlas_store.ImportStore(runtime_dir).run_import(str(repo))
+
+    created = mission_control.create_go(
+        str(runtime_dir),
+        mission_id="mission-a",
+        goal_id="native-go",
+        title="Native Go",
+        objective="Prove the Mission Control completion loop",
+        actor="test-agent",
+        actor_type="agent",
+    )
+    assert created["authority_mode"] == "kungfu-native"
+    assert created["mission_subject"] == "atlas:mission-a"
+    assert created["go_subject"] == "kungfu:native-go"
+    assert created["receipt"]["status"] == "admitted"
+
+    state = mission_control.query_state(str(runtime_dir), mission_id="mission-a")
+    assert [row["payload"]["record"]["goal_id"] for row in state["goals"]] == [
+        "goal-a",
+        "native-go",
+    ]
+
+    no_evidence = mission_control.claim_completion(
+        str(runtime_dir),
+        mission_id="mission-a",
+        goal_id="native-go",
+        statement="The loop is implemented",
+        actor="test-agent",
+        actor_type="agent",
+    )
+    assert no_evidence["claim"]["evidence_episodes"] == []
+    insufficient = mission_control.assess_completion(
+        str(runtime_dir), mission_id="mission-a", goal_id="native-go"
+    )
+    assert insufficient["fitness"] == "insufficient"
+    assert insufficient["assessment"]["state"] in {
+        "insufficient-evidence",
+        "unverifiable",
+    }
+    assert insufficient["profile"]["state"]["value"] == "claimed-complete"
+
+    rewind_reporting.begin_run(
+        str(runtime_dir),
+        run_id="native-go-run",
+        provider="codex",
+        cwd=None,
+        work_id="native-go",
+    )
+    rewind_reporting.report_cost(
+        str(runtime_dir),
+        run_id="native-go-run",
+        provider="codex",
+        surface="exec-json",
+        source="codex-exec-json",
+        attribution="exact_run",
+        work_id="native-go",
+        input_tokens=80,
+        output_tokens=20,
+        cost_usd=0.25,
+    )
+    rewind_reporting.end_run(
+        str(runtime_dir),
+        run_id="native-go-run",
+        status="succeeded",
+        exit_code=0,
+    )
+    work_episode = next(
+        row
+        for row in storage_service.episode_list(runtime_dir)["episodes"]
+        if row["open"]["source"] == "rewind:native-go-run"
+    )
+    claimed = mission_control.claim_completion(
+        str(runtime_dir),
+        mission_id="mission-a",
+        goal_id="native-go",
+        statement="The loop is implemented with sealed work evidence",
+        actor="test-agent",
+        actor_type="agent",
+        evidence_episode_ids=[int(work_episode["episode_id"])],
+    )
+    assert len(claimed["claim"]["evidence_episodes"]) == 1
+    assert claimed["claim"]["evidence_episodes"][0]["episode_root"].startswith(
+        "sha256:"
+    )
+
+    completed = mission_control.assess_completion(
+        str(runtime_dir), mission_id="mission-a", goal_id="native-go"
+    )
+    assert completed["fitness"] == "fit"
+    assert completed["assessment"]["state"] == "fresh"
+    assert completed["claim"]["type"] == "task-completed"
+    assert len(completed["composite_proof"]["verified_evidence"]) == 1
+    assert completed["profile"]["cost"]["status"] == "attributed", completed["profile"][
+        "cost"
+    ]
+    assert completed["profile"]["cost"]["cost_usd"] == 0.25
+    assert completed["profile"]["cost"]["tokens"]["input_tokens"] == 80
+    assert completed["query_proof_root"].startswith("sha256:")
+    assert (
+        completed["assessment"]["report"]["query_proof_root"]
+        == completed["query_proof_root"]
+    )
+
+    from click.testing import CliRunner
+    from kungfu.cli.commands import __registry__  # noqa: F401
+    from kungfu.cli.commands import kfc
+
+    runner = CliRunner()
+    create_cli = runner.invoke(
+        kfc,
+        [
+            "atlas",
+            "create-go",
+            "mission-a",
+            "native-go",
+            "--title",
+            "Native Go",
+            "--objective",
+            "Prove the Mission Control completion loop",
+            "--actor",
+            "test-agent",
+            "--json",
+        ],
+        env={"KF_RUNTIME_DIR": str(runtime_dir)},
+    )
+    assert create_cli.exit_code == 0, create_cli.output
+    assert json.loads(create_cli.output)["receipt"]["reused"] is True
+
+    claim_cli = runner.invoke(
+        kfc,
+        [
+            "atlas",
+            "claim-completion",
+            "mission-a",
+            "native-go",
+            "--statement",
+            "The loop is implemented with sealed work evidence",
+            "--actor",
+            "test-agent",
+            "--evidence-episode",
+            str(work_episode["episode_id"]),
+            "--json",
+        ],
+        env={"KF_RUNTIME_DIR": str(runtime_dir)},
+    )
+    assert claim_cli.exit_code == 0, claim_cli.output
+    assert json.loads(claim_cli.output)["receipt"]["reused"] is True
+
+    cli = runner.invoke(
+        kfc,
+        [
+            "atlas",
+            "assess-completion",
+            "mission-a",
+            "native-go",
+            "--json",
+        ],
+        env={"KF_RUNTIME_DIR": str(runtime_dir)},
+    )
+    assert cli.exit_code == 0, cli.output
+    cli_report = json.loads(cli.output)
+    assert cli_report["fitness"] == "fit"
+    assert cli_report["assessment_key"] == completed["assessment_key"]
+
+
+def test_native_only_workspace_keeps_optional_atlas_projection_stdout_clean(
+    tmp_path, capfd
+):
+    runtime_dir = tmp_path / "runtime"
+    mission_control.create_mission(
+        str(runtime_dir),
+        mission_id="native-only",
+        title="Native only",
+        intent="Keep JSON output machine-readable without an Atlas import",
+        actor="test-user",
+        actor_type="user",
+    )
+
+    assert atlas_store.load(str(runtime_dir)) is None
+    captured = capfd.readouterr()
+    assert captured.out == ""
+
+
+def test_native_mission_full_bundle_roundtrip_and_thin_degraded_import(tmp_path):
+    source = tmp_path / "source-runtime"
+    destination = tmp_path / "destination-runtime"
+    thin_destination = tmp_path / "thin-destination-runtime"
+
+    created = mission_control.create_mission(
+        str(source),
+        mission_id="native-mission",
+        title="Native Mission",
+        intent="Preserve a long-running purpose with proof",
+        actor="test-user",
+        actor_type="user",
+    )
+    assert created["mission_subject"] == "kungfu:native-mission"
+    assert mission_control.list_missions(str(source))[0]["authority_mode"] == (
+        "kungfu-native"
+    )
+    mission_control.create_go(
+        str(source),
+        mission_id="native-mission",
+        goal_id="portable-go",
+        title="Portable Go",
+        objective="Prove full and thin Mission transfer",
+        actor="test-agent",
+        actor_type="agent",
+    )
+    rewind_reporting.begin_run(
+        str(source),
+        run_id="portable-go-run",
+        provider="codex",
+        cwd=None,
+        work_id="portable-go",
+    )
+    rewind_reporting.report_cost(
+        str(source),
+        run_id="portable-go-run",
+        provider="codex",
+        surface="exec-json",
+        source="test",
+        attribution="exact_run",
+        work_id="portable-go",
+        input_tokens=40,
+        output_tokens=10,
+        cost_usd=0.1,
+    )
+    rewind_reporting.end_run(
+        str(source), run_id="portable-go-run", status="succeeded", exit_code=0
+    )
+    evidence = next(
+        row
+        for row in storage_service.episode_list(source, limit=0)["episodes"]
+        if row["open"]["source"] == "rewind:portable-go-run"
+    )
+    mission_control.claim_completion(
+        str(source),
+        mission_id="native-mission",
+        goal_id="portable-go",
+        statement="The portable Mission loop is complete",
+        actor="test-agent",
+        actor_type="agent",
+        evidence_episode_ids=[int(evidence["episode_id"])],
+    )
+    source_report = mission_control.assess_completion(
+        str(source), mission_id="native-mission", goal_id="portable-go"
+    )
+    assert source_report["fitness"] == "fit"
+
+    full = mission_bundle.build_mission_bundle(
+        str(source), mission_id="native-mission", mode="full"
+    )
+    thin = mission_bundle.build_mission_bundle(
+        str(source), mission_id="native-mission", mode="thin"
+    )
+    assert full["status"] == "portable", full["closure"]
+    assert full["closure"]["full_closure"] is True
+    assert full["closure"]["source_provenance_included"] is False
+    assert thin["status"] == "degraded"
+    assert thin["closure"]["full_closure"] is False
+    assert all(not row["self_contained"] for row in thin["episodes"])
+
+    imported = mission_bundle.import_mission_bundle(
+        str(destination), full, execute=True
+    )
+    assert imported["status"] == "imported", imported
+    assert imported["accepted"] is True
+    assert imported["state_verification"]["ok"] is True
+    assert mission_control.list_missions(str(destination))[0]["mission_id"] == (
+        "native-mission"
+    )
+    destination_report = mission_control.assess_completion(
+        str(destination), mission_id="native-mission", goal_id="portable-go"
+    )
+    assert destination_report["fitness"] == "fit"
+    assert destination_report["profile"]["cost"]["cost_usd"] == 0.1
+    assert destination_report["profile"]["cost"]["tokens"]["input_tokens"] == 40
+
+    degraded = mission_bundle.import_mission_bundle(
+        str(thin_destination), thin, execute=True
+    )
+    assert degraded["status"] == "degraded"
+    assert degraded["accepted"] is False
+    assert degraded["materialized"] is False
+    assert "require a full bundle" in degraded["diagnosis"]
+    assert mission_control.list_missions(str(thin_destination)) == []
+
+    tampered = json.loads(json.dumps(full))
+    tampered["mission_id"] = "tampered"
+    with pytest.raises(ValueError, match="bundle root mismatch"):
+        mission_bundle.import_mission_bundle(str(tmp_path / "tampered"), tampered)
+
+    from click.testing import CliRunner
+    from kungfu.cli.commands import __registry__  # noqa: F401
+    from kungfu.cli.commands import kfc
+
+    bundle_path = tmp_path / "native-mission.kfmission.json"
+    runner = CliRunner()
+    create_cli = runner.invoke(
+        kfc,
+        [
+            "atlas",
+            "create-mission",
+            "native-mission",
+            "--title",
+            "Native Mission",
+            "--intent",
+            "Preserve a long-running purpose with proof",
+            "--actor",
+            "test-user",
+            "--actor-type",
+            "user",
+            "--json",
+        ],
+        env={"KF_RUNTIME_DIR": str(source)},
+    )
+    assert create_cli.exit_code == 0, create_cli.output
+    assert json.loads(create_cli.output)["receipt"]["reused"] is True
+    exported = runner.invoke(
+        kfc,
+        [
+            "atlas",
+            "export-mission",
+            "native-mission",
+            "--out",
+            str(bundle_path),
+            "--mode",
+            "full",
+            "--json",
+        ],
+        env={"KF_RUNTIME_DIR": str(source)},
+    )
+    assert exported.exit_code == 0, exported.output
+    assert json.loads(exported.output)["status"] == "portable"
+    listed = runner.invoke(
+        kfc,
+        ["atlas", "show", "missions", "--json"],
+        env={"KF_RUNTIME_DIR": str(source)},
+    )
+    assert listed.exit_code == 0, listed.output
+    assert json.loads(listed.output)[0]["mission_id"] == "native-mission"
+
+
+def test_mission_control_batches_large_mission_state_queries(tmp_path):
+    repo = tmp_path / "atlas"
+    runtime_dir = tmp_path / "runtime"
+    _atlas_fixture(repo)
+    for index in range(260):
+        _write_json(
+            repo / f"agent-journal/goals/registry/active/large-go-{index:03d}.json",
+            {
+                "goal_id": f"large-go-{index:03d}",
+                "status": "active",
+                "updated_at": "2026-07-08T01:00:00Z",
+                "title": f"Large Go {index:03d}",
+                "mission_id": "mission-a",
+                "next_action": "keep the query bounded",
+            },
+        )
+    atlas_store.ImportStore(runtime_dir).run_import(str(repo))
+
+    state = mission_control.query_state(str(runtime_dir), mission_id="mission-a")
+
+    assert len(state["goals"]) == 261
+    assert state["canonical_state"] is True
+    assert state["definition"]["schema"] == (
+        "kungfu.mission-control.batched-state-query/v1"
+    )
+    assert state["logical_plan"] == {
+        "engine": "mission-control-batched-fact-state/v1",
+        "batch_size": 256,
+        "subquery_count": 2,
+    }
+    assert len(state["lineage"]["subqueries"]) == 2
+    assert state["query_proof_root"].startswith("sha256:")
+
+
+@pytest.mark.parametrize("legacy_version", mission_control.LEGACY_CONTRACT_VERSIONS)
+def test_mission_control_legacy_data_root_requires_explicit_migration(
+    tmp_path, legacy_version
+):
+    runtime_dir = tmp_path / "runtime"
+    storage_service.fact_declare_contract_world(
+        runtime_dir,
+        {
+            "id": mission_control.CONTRACT_WORLD_ID,
+            "version": legacy_version,
+            "effective_from": 100,
+            "effective_until": 0,
+            "fact_surface_ids": [
+                mission_control.MISSION_SURFACE_ID,
+                mission_control.GO_SURFACE_ID,
+            ],
+        },
+        system_time=100,
+    )
+
+    with pytest.raises(RuntimeError, match="explicit migration or re-import"):
+        mission_control.create_go(
+            str(runtime_dir),
+            mission_id="mission-a",
+            goal_id="native-go",
+            title="Native Go",
+            objective="Must not overlap v1 declarations",
+            actor="test-agent",
+            actor_type="agent",
+        )
+
+    catalog = storage_service.fact_type_list(runtime_dir)
+    assert {(row["id"], row["version"]) for row in catalog["contract_worlds"]} == {
+        (
+            mission_control.CONTRACT_WORLD_ID,
+            legacy_version,
+        )
     }
 
 
@@ -522,11 +1209,26 @@ def test_runtime_storage_service_surface_is_bound_from_libkungfu(tmp_path):
         "query_plan",
         "fact_query",
         "fact_changelog",
+        "saved_query_catalog",
         "fact_contract",
         "fact_declare_world",
         "fact_declare_surface",
         "fact_observe",
         "fact_state",
+        "fact_library_contract",
+        "fact_type_create",
+        "fact_type_list",
+        "fact_material_put",
+        "fact_material_list",
+        "fact_library_export",
+        "fact_library_import",
+        "assessment_contract",
+        "assessment_request",
+        "assessment_execute",
+        "assessment_status",
+        "assessment_list",
+        "assessment_invalidate",
+        "trust_require",
         "layout",
         "episode_begin",
         "episode_heartbeat",
@@ -1196,6 +1898,17 @@ def test_fact_query_fails_closed_on_unregistered_or_changed_declarations(tmp_pat
     )
 
 
+def test_domain_fact_state_is_empty_before_the_admission_journal_exists(tmp_path):
+    state = storage_service.fact_state(tmp_path / "runtime")
+
+    assert state["declarations"] == {
+        "contract_world": None,
+        "fact_surface": None,
+    }
+    assert state["canonical_facts"] == []
+    assert state["observation_history"] == []
+
+
 def test_domain_fact_admission_replays_declaration_history_and_observation_lifecycle(
     tmp_path,
 ):
@@ -1417,6 +2130,135 @@ def test_domain_fact_admission_replays_declaration_history_and_observation_lifec
     assert head["proof"]["schema_root"].startswith("sha256:")
 
 
+def test_managed_fact_library_roundtrips_types_material_and_owned_content(tmp_path):
+    runtime_dir = tmp_path / "source" / "runtime"
+    definition = {
+        "id": "goal-status",
+        "version": "1",
+        "source_authorities": ["agent", "human"],
+        "schema": {
+            "type": "object",
+            "properties": {
+                "status": {"type": "string"},
+                "ready_for_handoff": {"type": "boolean"},
+            },
+            "required": ["status", "ready_for_handoff"],
+            "additionalProperties": False,
+        },
+    }
+
+    created = storage_service.fact_type_create(runtime_dir, definition, system_time=100)
+    recovered = storage_service.fact_type_create(
+        runtime_dir, definition, system_time=101
+    )
+    assert created["status"] == "created"
+    assert recovered["status"] == "already_present"
+    assert created["schema_hash"].startswith("sha256:")
+    with pytest.raises(
+        (RuntimeError, ValueError), match="different immutable definition"
+    ):
+        storage_service.fact_type_create(
+            runtime_dir,
+            {**definition, "source_authorities": ["agent"]},
+            system_time=102,
+        )
+
+    catalog = storage_service.fact_type_list(runtime_dir)
+    assert [row["id"] for row in catalog["fact_types"]] == ["goal-status"]
+    assert catalog["fact_types"][0]["episode_id"]
+
+    with pytest.raises(
+        (RuntimeError, ValueError), match="missing required ready_for_handoff"
+    ):
+        storage_service.fact_material_put(
+            runtime_dir,
+            {
+                "type_id": "goal-status",
+                "type_version": "1",
+                "source_id": "agent",
+                "subject_key": "invalid-goal",
+                "payload": {"status": "ready"},
+            },
+            system_time=150,
+        )
+
+    written = storage_service.fact_material_put(
+        runtime_dir,
+        {
+            "type_id": "goal-status",
+            "type_version": "1",
+            "source_id": "agent",
+            "subject_key": "fact-library-goal",
+            "payload": {
+                "status": "ready",
+                "ready_for_handoff": True,
+            },
+        },
+        system_time=200,
+    )
+    assert written["ok"] is True
+    assert written["receipt"]["admission"]["outcome"] == "admitted"
+
+    material = storage_service.fact_material_list(
+        runtime_dir, type_id="goal-status", subject_key="fact-library-goal"
+    )
+    history = material["state"]["observation_history"]
+    assert len(history) == 1
+    assert material["payloads"][history[0]["payload_hash"]] == {
+        "ready_for_handoff": True,
+        "status": "ready",
+    }
+
+    full = storage_service.fact_library_export(runtime_dir)
+    thin = storage_service.fact_library_export(runtime_dir, thin=True)
+    assert full["schema"] == "kungfu.facts.library-bundle/v1"
+    assert full["mode"] == "full"
+    assert full["self_contained"] is True
+    assert full["material"]["missing_frame_count"] == 0
+    assert full["episode_count"] == 3
+    namespaces = {
+        row["content_namespace"]
+        for episode in full["episodes"]
+        for row in episode.get("ref_payloads", [])
+    }
+    assert namespaces == {"payloads", "schemas"}
+    assert thin["mode"] == "thin"
+    assert all("self_contained" not in episode for episode in thin["episodes"])
+
+    imported_runtime = tmp_path / "imported" / "runtime"
+    preview = storage_service.fact_library_import(imported_runtime, full)
+    applied = storage_service.fact_library_import(imported_runtime, full, dry_run=False)
+    repeated = storage_service.fact_library_import(
+        imported_runtime, full, dry_run=False
+    )
+    assert preview["ok"] is True and preview["dry_run"] is True
+    assert applied["ok"] is True and applied["receipt_count"] == 3
+    assert len(applied["preflight_receipts"]) == 3
+    assert repeated["ok"] is True
+    assert {receipt["status"] for receipt in repeated["receipts"]} == {
+        "already_present"
+    }
+    imported = storage_service.fact_material_list(
+        imported_runtime, type_id="goal-status"
+    )
+    assert len(imported["state"]["canonical_facts"]) == 1
+    imported_hash = imported["state"]["canonical_facts"][0]["payload_hash"]
+    assert imported["payloads"][imported_hash]["ready_for_handoff"] is True
+
+    tampered = json.loads(json.dumps(full))
+    schema_payload = next(
+        row
+        for episode in tampered["episodes"]
+        for row in episode.get("ref_payloads", [])
+        if row["content_namespace"] == "schemas"
+    )
+    schema_payload["content_namespace"] = "payloads"
+    with pytest.raises(
+        (RuntimeError, ValueError), match="ref_payload_namespace_mismatch"
+    ):
+        storage_service.fact_library_import(tmp_path / "tampered" / "runtime", tampered)
+
+
 def test_fact_changelog_resumes_pages_without_loss_or_duplication(tmp_path):
     runtime_dir = tmp_path / "runtime"
     storage_service.episode_begin(
@@ -1495,6 +2337,197 @@ def test_fact_changelog_resumes_pages_without_loss_or_duplication(tmp_path):
     assert finished["messages"][0]["frontier"]["kind"] == "manifest_frame_uid"
 
 
+def test_temporal_attention_pattern_is_reproducible_and_retracts_on_late_terminal(
+    tmp_path,
+):
+    runtime_dir = tmp_path / "runtime"
+    buildchain_events = [
+        (1, "alpha_published", "feature-agent", 1000),
+        (2, "gate_failed", "release-infra", 1100),
+        (3, "alpha_published", "feature-agent", 1200),
+        (4, "gate_failed", "release-infra", 1300),
+        # This event is beyond the declared as_of cut and must not contaminate it.
+        (5, "alpha_published", "future-agent", 3000),
+    ]
+    for episode_id, title, actor, begin_time in buildchain_events:
+        storage_service.episode_begin(
+            runtime_dir,
+            episode_id=episode_id,
+            title=title,
+            actor=actor,
+            source="buildchain-feature-42",
+            begin_time=begin_time,
+        )
+
+    definition = storage_service.build_fact_query_definition(limit=10)
+    definition["temporal_pattern"] = {
+        "schema": "kungfu.query.temporal-pattern/v1",
+        "partition_by": "source",
+        "order_by": "begin_time",
+        "sequence": [
+            {"field": "title", "equals": "alpha_published"},
+            {"field": "title", "equals": "gate_failed"},
+        ],
+        "repeat": {"min": 2, "max": 8},
+        "within_ns": "1000",
+        "as_of_time": "2000",
+        "absence": {"field": "title", "equals": "stable_published"},
+    }
+
+    plan = storage_service.query_plan(
+        runtime_dir, action="validate", definition=definition
+    )
+    explanation = storage_service.query_plan(
+        runtime_dir, action="explain", definition=definition
+    )
+    assert [
+        operator["kind"] for operator in explanation["logical_plan"]["operators"]
+    ] == [
+        "authority_scan",
+        "temporal_match",
+        "limit",
+        "project",
+        "evidence",
+    ]
+    result = storage_service.fact_query_definition(runtime_dir, definition)
+    assert result["result_schema"]["schema"] == ("kungfu.query.temporal-match-row/v1")
+    assert len(result["rows"]) == 1
+    match = result["rows"][0]
+    assert match["partition_key"] == "buildchain-feature-42"
+    assert match["repeat_count"] == 2
+    assert match["matched_episode_ids"] == [1, 2, 3, 4]
+    assert match["attribution_counts"] == {
+        "feature-agent": 2,
+        "release-infra": 2,
+    }
+    assert match["attention_required"] is True
+    assert result["lineage"]["canonical_state"] is True
+
+    sql = """SELECT * FROM episodes MATCH_RECOGNIZE (
+      PARTITION BY source ORDER BY begin_time ASC
+      PATTERN ((A B){2,8})
+      DEFINE A AS title = 'alpha_published', B AS title = 'gate_failed'
+      WITHIN 1000 AS OF 2000 ABSENT title = 'stable_published'
+    ) LIMIT 10"""
+    compilation = storage_service.compile_fact_query_sql(
+        runtime_dir,
+        sql=sql,
+        definition=storage_service.build_fact_query_definition(limit=10),
+    )
+    assert compilation["definition"] == plan["definition"]
+    assert compilation["logical_plan_hash"] == plan["logical_plan_hash"]
+
+    storage_service.episode_projection_rebuild(runtime_dir)
+    conformance = storage_service.fact_query_conformance(runtime_dir, definition)
+    assert conformance["ok"] is True
+
+    snapshot = storage_service.fact_changelog(runtime_dir, definition)
+    assert [message["type"] for message in snapshot["messages"]] == [
+        "SnapshotBegin",
+        "RowUpsert",
+        "SnapshotEnd",
+    ]
+    steady = snapshot["resume_token"]
+    storage_service.episode_begin(
+        runtime_dir,
+        episode_id=6,
+        title="stable_published",
+        actor="release-infra",
+        source="buildchain-feature-42",
+        begin_time=1500,
+    )
+    correction = storage_service.fact_changelog(
+        runtime_dir, definition, resume_token=steady
+    )
+    assert [message["type"] for message in correction["messages"]] == [
+        "RowRetract",
+        "Progress",
+    ]
+    assert correction["messages"][0]["key"] == match["match_id"]
+    assert correction["messages"][0]["evidence_ref"]["evidence_refs"]
+
+
+def test_temporal_pattern_reuses_the_same_algebra_for_non_buildchain_work(tmp_path):
+    runtime_dir = tmp_path / "runtime"
+    for episode_id, title, actor, begin_time in [
+        (10, "stage_started", "ingest-agent", 1000),
+        (11, "validation_failed", "source-data", 1100),
+        (12, "stage_started", "ingest-agent", 1200),
+        (13, "validation_failed", "schema-drift", 1300),
+    ]:
+        storage_service.episode_begin(
+            runtime_dir,
+            episode_id=episode_id,
+            title=title,
+            actor=actor,
+            source="corpus-import-7",
+            begin_time=begin_time,
+        )
+    definition = storage_service.build_fact_query_definition(limit=10)
+    definition["temporal_pattern"] = {
+        "schema": "kungfu.query.temporal-pattern/v1",
+        "partition_by": "source",
+        "order_by": "begin_time",
+        "sequence": [
+            {"field": "title", "equals": "stage_started"},
+            {"field": "title", "equals": "validation_failed"},
+        ],
+        "repeat": {"min": 2, "max": 4},
+        "within_ns": "1000",
+        "as_of_time": "2000",
+        "absence": {"field": "title", "equals": "human_decision_required"},
+    }
+
+    result = storage_service.fact_query_definition(runtime_dir, definition)
+    assert len(result["rows"]) == 1
+    assert result["rows"][0]["partition_key"] == "corpus-import-7"
+    assert result["rows"][0]["attribution_counts"] == {
+        "ingest-agent": 2,
+        "schema-drift": 1,
+        "source-data": 1,
+    }
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        (lambda pattern: pattern.pop("as_of_time"), "requires field: as_of_time"),
+        (
+            lambda pattern: pattern.update(repeat={"min": 0, "max": 2}),
+            "1 <= min <= max <= 16",
+        ),
+        (
+            lambda pattern: pattern.update(order_by="record_count"),
+            "order_by must be begin_time or end_time",
+        ),
+        (
+            lambda pattern: pattern["sequence"][0].update(field="private_field"),
+            "unsupported Episode field",
+        ),
+    ],
+)
+def test_temporal_pattern_fails_closed_outside_bounded_algebra(
+    tmp_path, mutation, message
+):
+    definition = storage_service.build_fact_query_definition()
+    pattern = {
+        "schema": "kungfu.query.temporal-pattern/v1",
+        "partition_by": "source",
+        "order_by": "begin_time",
+        "sequence": [
+            {"field": "title", "equals": "stage_started"},
+            {"field": "title", "equals": "validation_failed"},
+        ],
+        "repeat": {"min": 2, "max": 4},
+        "within_ns": "1000",
+        "as_of_time": "2000",
+    }
+    mutation(pattern)
+    definition["temporal_pattern"] = pattern
+    with pytest.raises((RuntimeError, ValueError), match=message):
+        storage_service.query_plan(tmp_path, action="validate", definition=definition)
+
+
 def test_query_planner_normalizes_defaults_and_exposes_one_semantic_root(tmp_path):
     runtime_dir = tmp_path / "runtime"
     explicit = storage_service.build_fact_query_definition(episode_id=48, limit=10)
@@ -1554,8 +2587,11 @@ def test_query_planner_normalizes_defaults_and_exposes_one_semantic_root(tmp_pat
         "root"
     ].startswith("sha256:")
     assert capabilities["formats"] == ["json", "ndjson", "tsv"]
+    assert capabilities["temporal_patterns"]["sequence_steps"] == 2
+    assert capabilities["temporal_patterns"]["repeat"] == "1..16"
     assert definition_schema["$schema"].endswith("/draft/2020-12/schema")
     assert definition_schema["additionalProperties"] is False
+    assert "temporal_pattern" in definition_schema["properties"]
     assert definition_schema["properties"]["basis"]["additionalProperties"] is False
     assert "contract_world" in definition_schema["properties"]["basis"]["required"]
     assert "fact_surfaces" in definition_schema["properties"]["basis"]["required"]
@@ -1813,6 +2849,7 @@ def test_episode_fsck_reports_degraded_causal_dependencies(tmp_path):
     assert "episode_dependency_missing" in warning_codes
     assert "episode_root_trigger_frame_missing" in warning_codes
     assert "episode_trigger_frame_missing" in warning_codes
+
     error_codes = {
         issue["code"] for issue in fsck["issues"] if issue["severity"] == "error"
     }
@@ -2354,7 +3391,9 @@ def test_storage_maintenance_rebuild_gc_compact_and_sync_check(tmp_path):
     with sqlite3.connect(sqlite_path) as db:
         tables = {
             row[0]
-            for row in db.execute("select name from sqlite_master where type = 'table'")
+            for row in db.execute(
+                "select name from sqlite_coordinator where type = 'table'"
+            )
         }
         assert {
             "ImportManifestAccepted",
@@ -3057,7 +4096,7 @@ def test_source_registry_projection_fsck_does_not_create_missing_schema(tmp_path
     with sqlite3.connect(projection_db) as conn:
         assert (
             conn.execute(
-                "SELECT name FROM sqlite_master WHERE type = 'table'"
+                "SELECT name FROM sqlite_coordinator WHERE type = 'table'"
             ).fetchall()
             == []
         )
@@ -3144,3 +4183,238 @@ def test_payload_bodies_are_opaque_content_addressed_bytes(tmp_path):
     # The runtime still verifies the body by hash + length regardless of naming.
     runtime = kungfu.__binding__.runtime
     assert runtime.verify_storage_payload(raw, digest, entry["byte_len"]) == ""
+
+
+def test_assessment_job_is_durable_idempotent_and_does_not_mutate_work_episode(
+    tmp_path,
+):
+    runtime_dir = tmp_path / "runtime"
+    work_root = _sealed_work_episode(runtime_dir)
+    work_before = storage_service.episode_inspect(runtime_dir, episode_id=5200)[
+        "content_root"
+    ]
+
+    requested = storage_service.assessment_request(
+        runtime_dir,
+        _assessment_request(work_root),
+        system_time=1200,
+    )
+    assert requested["state"] == "pending"
+    assert requested["parent_episode_id"] == 5200
+    assert requested["reused"] is False
+
+    # A fresh edge call folds the journaled request, proving this is not an
+    # in-memory callback or append-hot-path assessment.
+    pending = storage_service.assessment_status(
+        runtime_dir, requested["assessment_key"]
+    )
+    assert pending["found"] is True
+    assert pending["state"] == "pending"
+    timed_out = storage_service.trust_await(
+        runtime_dir,
+        requested["assessment_key"],
+        purpose="release-gate",
+        timeout_seconds=0,
+    )
+    assert timed_out["allowed"] is False
+    assert timed_out["reason"] == "trust-timeout"
+    assert (
+        storage_service.episode_inspect(runtime_dir, episode_id=5200)["content_root"]
+        == work_before
+    )
+
+    completed = storage_service.assessment_execute(
+        runtime_dir,
+        requested["assessment_key"],
+        executor_profile="process",
+        system_time=1300,
+    )
+    assert completed["state"] == "fresh"
+    assert completed["execution"]["executor_profile"] == "process"
+    assert completed["report"]["deterministic"] is True
+    assert completed["report"]["report_hash"].startswith("sha256:")
+    assert completed["parent_episode_id"] == 5200
+
+    result_episode = storage_service.episode_inspect(
+        runtime_dir, episode_id=completed["assessment_episode_id"]
+    )
+    request_episode = storage_service.episode_inspect(
+        runtime_dir, episode_id=requested["assessment_episode_id"]
+    )
+    assert result_episode["episode"]["open"]["parent_episode_id"] == 5200
+    assert result_episode["episode"]["open"]["source"] == (
+        "adr-0052-assessment-runtime"
+    )
+    assert (
+        result_episode["episode"]["open"]["location_uid"]
+        != (request_episode["episode"]["open"]["location_uid"])
+    )
+
+    repeated = storage_service.assessment_execute(
+        runtime_dir,
+        requested["assessment_key"],
+        executor_profile="thread",
+        system_time=1400,
+    )
+    assert repeated["reused"] is True
+    assert repeated["report"]["report_hash"] == completed["report"]["report_hash"]
+    assert repeated["assessment_episode_id"] == completed["assessment_episode_id"]
+
+    assert (
+        storage_service.trust_require(
+            runtime_dir, requested["assessment_key"], purpose="release-gate"
+        )["allowed"]
+        is True
+    )
+    assert storage_service.trust_require(
+        runtime_dir, requested["assessment_key"], purpose="different-purpose"
+    ) == {
+        "schema": "kungfu.trust.assessment/v1",
+        "allowed": False,
+        "reason": "purpose-mismatch",
+    }
+    assert (
+        storage_service.trust_require(
+            runtime_dir, _sha256_root("missing-assessment"), purpose="release-gate"
+        )["reason"]
+        == "assessment-not-found"
+    )
+
+
+def test_assessment_request_rejects_a_claim_about_the_wrong_episode_root(tmp_path):
+    runtime_dir = tmp_path / "runtime"
+    work_root = _sealed_work_episode(runtime_dir)
+    request = _assessment_request(work_root)
+    request["work_episode_root"] = _sha256_root("not-the-sealed-episode")
+
+    with pytest.raises(
+        (RuntimeError, ValueError), match="does not match the sealed Episode"
+    ):
+        storage_service.assessment_request(runtime_dir, request, system_time=1200)
+
+
+def test_assessment_process_and_thread_executors_have_identical_report_hashes(
+    tmp_path,
+):
+    results = {}
+    for executor_profile in ("process", "thread"):
+        runtime_dir = tmp_path / executor_profile
+        work_root = _sealed_work_episode(runtime_dir)
+        requested = storage_service.assessment_request(
+            runtime_dir,
+            _assessment_request(work_root),
+            system_time=1200,
+        )
+        if executor_profile == "process":
+            child = subprocess.run(
+                runtime_service.assessment_worker_command(
+                    str(runtime_dir), requested["assessment_key"]
+                ),
+                check=False,
+                capture_output=True,
+                text=True,
+                env=dict(os.environ),
+            )
+            assert child.returncode == 0, child.stderr
+            results[executor_profile] = storage_service.assessment_status(
+                runtime_dir, requested["assessment_key"]
+            )
+        else:
+            results[executor_profile] = storage_service.assessment_execute(
+                runtime_dir,
+                requested["assessment_key"],
+                executor_profile=executor_profile,
+                system_time=1300,
+            )
+
+    assert results["process"]["assessment_key"] == results["thread"]["assessment_key"]
+    assert results["process"]["report"] == results["thread"]["report"]
+    assert (
+        results["process"]["report"]["report_hash"]
+        == results["thread"]["report"]["report_hash"]
+    )
+    assert results["process"]["execution"]["executor_profile"] == "process"
+    assert results["thread"]["execution"]["executor_profile"] == "thread"
+    assert results["process"]["execution"]["separate_thread_dispatch"] is False
+    assert results["thread"]["execution"]["separate_thread_dispatch"] is True
+
+
+def test_assessment_invalidation_is_precise_and_subscription_list_is_folded(
+    tmp_path,
+):
+    runtime_dir = tmp_path / "runtime"
+    work_root = _sealed_work_episode(runtime_dir)
+    requested = storage_service.assessment_request(
+        runtime_dir, _assessment_request(work_root), system_time=1200
+    )
+    storage_service.assessment_execute(
+        runtime_dir, requested["assessment_key"], system_time=1300
+    )
+
+    irrelevant = storage_service.assessment_invalidate(
+        runtime_dir,
+        requested["assessment_key"],
+        changed_root=_sha256_root("unrelated-fact-surface"),
+        reason="unrelated evidence changed",
+        system_time=1400,
+    )
+    assert irrelevant["invalidated"] is False
+    assert irrelevant["relevant"] is False
+    assert (
+        storage_service.assessment_status(runtime_dir, requested["assessment_key"])[
+            "state"
+        ]
+        == "fresh"
+    )
+
+    relevant = storage_service.assessment_invalidate(
+        runtime_dir,
+        requested["assessment_key"],
+        changed_root=_sha256_root("release-facts"),
+        reason="bound fact surface changed",
+        system_time=1500,
+    )
+    assert relevant["invalidated"] is True
+    assert relevant["relevant"] is True
+    assert (
+        storage_service.assessment_status(runtime_dir, requested["assessment_key"])[
+            "state"
+        ]
+        == "stale"
+    )
+
+    listed = storage_service.assessment_list(runtime_dir)
+    assert listed["assessment_count"] == 1
+    assert listed["assessments"][0]["state"] == "stale"
+
+
+@pytest.mark.parametrize(
+    ("evidence", "expected_state"),
+    [
+        ({"canonical_fact_count": 0}, "insufficient-evidence"),
+        ({"canonical_fact_count": 2, "conflict_count": 1}, "conflicted"),
+        ({"canonical_fact_count": 2, "unverifiable_count": 1}, "unverifiable"),
+    ],
+)
+def test_assessment_fails_closed_for_nonfresh_evidence(
+    tmp_path, evidence, expected_state
+):
+    runtime_dir = tmp_path / expected_state
+    work_root = _sealed_work_episode(runtime_dir)
+    requested = storage_service.assessment_request(
+        runtime_dir,
+        _assessment_request(work_root, evidence=evidence),
+        system_time=1200,
+    )
+    completed = storage_service.assessment_execute(
+        runtime_dir,
+        requested["assessment_key"],
+        executor_profile="process",
+        system_time=1300,
+    )
+    assert completed["state"] == expected_state
+    gate = storage_service.trust_require(
+        runtime_dir, requested["assessment_key"], purpose="release-gate"
+    )
+    assert gate["allowed"] is False
+    assert gate["reason"] == "assessment-not-fresh"

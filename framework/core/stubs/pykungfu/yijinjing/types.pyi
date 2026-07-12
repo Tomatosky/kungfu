@@ -1,7 +1,7 @@
 from __future__ import annotations
 import pykungfu.yijinjing.enums
 import typing
-__all__: list[str] = ['AcceptedRangeRecorded', 'Band', 'CacheReset', 'Channel', 'ChannelCursorUpdated', 'ChannelRequest', 'Config', 'Deregister', 'EpisodeClosed', 'EpisodeFrameAttached', 'EpisodeHeartbeat', 'EpisodeOpen', 'EpisodeRefAttached', 'ExportBundleRecorded', 'ImportManifestAccepted', 'Location', 'ManifestEntryRecorded', 'OperatorStateUpdate', 'OutputKey', 'Register', 'RequestCachedDone', 'RequestReadFrom', 'RequestReadFromOthers', 'RequestReadFromPublic', 'RequestReadFromSync', 'RequestWriteTo', 'RequestWriteToBand', 'Session', 'SourceHeadUpdated', 'SourceRegistered', 'SyntheticData', 'TimeKeyValue', 'TimeRequest', 'TimeReset', 'TimeValue', 'frame_header', 'page_header']
+__all__: list[str] = ['AcceptedRangeRecorded', 'Band', 'CacheReset', 'Channel', 'ChannelCursorUpdated', 'ChannelRequest', 'Config', 'Deregister', 'EpisodeClosed', 'EpisodeFrameAttached', 'EpisodeHeartbeat', 'EpisodeOpen', 'EpisodeRefAttached', 'ExportBundleRecorded', 'ImportManifestAccepted', 'Location', 'ManifestEntryRecorded', 'OperatorStateUpdate', 'OutputKey', 'Register', 'RequestCachedDone', 'RequestReadFrom', 'RequestReadFromOthers', 'RequestReadFromPublic', 'RequestReadFromSync', 'RequestWriteTo', 'RequestWriteToBand', 'SourceHeadUpdated', 'SourceRegistered', 'SyntheticData', 'TimeKeyValue', 'TimeRequest', 'TimeReset', 'TimeValue', 'frame_header', 'page_header']
 class AcceptedRangeRecorded:
     __has_data__: typing.ClassVar[bool] = True
     __tag__: typing.ClassVar[int] = 10903
@@ -550,7 +550,6 @@ class Register:
     __has_data__: typing.ClassVar[bool] = True
     __tag__: typing.ClassVar[int] = 10101
     checkin_time: int
-    last_active_time: int
     location_uid: int
     mode: pykungfu.yijinjing.enums.mode
     name: str
@@ -724,38 +723,6 @@ class RequestWriteToBand:
     seed: int
     uid64: int
     def __eq__(self, arg0: RequestWriteToBand) -> bool:
-        ...
-    def __hash__(self) -> int:
-        ...
-    @typing.overload
-    def __init__(self) -> None:
-        ...
-    @typing.overload
-    def __init__(self, arg0: str) -> None:
-        ...
-    def __parse__(self, arg0: str) -> None:
-        ...
-    def __repr__(self) -> str:
-        ...
-    @property
-    def __uid__(self) -> int:
-        ...
-class Session:
-    __has_data__: typing.ClassVar[bool] = True
-    __tag__: typing.ClassVar[int] = 10103
-    begin_time: int
-    data_size: int
-    end_time: int
-    frame_count: int
-    location_uid: int
-    mode: pykungfu.yijinjing.enums.mode
-    name: str
-    namespace: str
-    role: pykungfu.yijinjing.enums.location_role
-    seed: int
-    uid64: int
-    update_time: int
-    def __eq__(self, arg0: Session) -> bool:
         ...
     def __hash__(self) -> int:
         ...

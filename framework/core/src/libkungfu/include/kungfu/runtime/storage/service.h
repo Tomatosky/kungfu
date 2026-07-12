@@ -154,7 +154,6 @@ struct storage_layout_request {
 struct storage_layout_paths_view {
   std::string data_home = {};
   std::string runtime_dir = {};
-  std::string archive_dir = {};
   std::string dataset_dir = {};
   std::string inbox_dir = {};
   std::string journal_dir = {};
@@ -168,7 +167,7 @@ struct storage_layout_paths_view {
   std::string manifest_catalog_projection = {};
   std::string episode_manifest_journal_dir = {};
   std::string episode_manifest_journal = {};
-  std::string master_state = {};
+  std::string coordinator_state = {};
   std::string remote_mirrors = {};
   std::string atlas_store = {};
 };
@@ -663,6 +662,7 @@ struct episode_journal_material {
 };
 
 struct episode_ref_payload_material {
+  std::string content_namespace = "payloads";
   std::string ref_hash = {};
   uint64_t byte_len = 0;
   std::string bytes = {};

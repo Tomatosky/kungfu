@@ -46,6 +46,16 @@ def _location(runtime_dir):
     )
 
 
+def _journal_exists(runtime_dir):
+    journal_dir = os.path.join(
+        os.fspath(runtime_dir), "journal", "system", ATLAS_GROUP, ATLAS_NAME, "live"
+    )
+    try:
+        return any(name.endswith(".journal") for name in os.listdir(journal_dir))
+    except OSError:
+        return False
+
+
 def store_dir(runtime_dir):
     return os.path.join(runtime_dir, "atlas", "store")
 
@@ -286,7 +296,7 @@ class ImportStore:
                 self.runtime_dir, manifest["storage_manifest"]
             )
             self.emit_manifest()
-            storage_service.episode_end(
+            closed = storage_service.episode_end(
                 self.runtime_dir,
                 episode_id=episode_id,
                 location_uid=location_uid,
@@ -303,6 +313,36 @@ class ImportStore:
                 reason=f"{type(error).__name__}: {error}"[:256],
             )
             raise
+        content_root = closed.get("content_root", {})
+        import_episode_root = str(content_root.get("root_value") or "")
+        if import_episode_root and not import_episode_root.startswith("sha256:"):
+            import_episode_root = "sha256:" + import_episode_root
+        try:
+            from kungfu.atlas import mission_control
+
+            mission_control_receipt = mission_control.admit_import(
+                self.runtime_dir,
+                import_id=import_id,
+                import_episode_id=episode_id,
+                import_episode_root=import_episode_root,
+                repo_head=repo_head,
+                storage_source_id=storage_source_id,
+                entries=enriched_records,
+            )
+        except Exception as error:  # sealed import remains durable and inspectable
+            mission_control_receipt = {
+                "schema": "kungfu.mission-control.atlas-admission/v1",
+                "status": "failed",
+                "authority_mode": "atlas-bridge",
+                "import_id": import_id,
+                "import_episode_id": episode_id,
+                "import_episode_root": import_episode_root,
+                "error": f"{type(error).__name__}: {error}"[:512],
+            }
+            warnings.append(
+                "mission-control admission failed after sealed Atlas import: "
+                + mission_control_receipt["error"]
+            )
         return {
             "import_id": import_id,
             "episode_id": episode_id,
@@ -317,6 +357,7 @@ class ImportStore:
             "goals": len(goals),
             "markers": len(markers),
             "payloads": len(source_records),
+            "mission_control": mission_control_receipt,
             "warnings": warnings,
         }
 
@@ -361,6 +402,12 @@ class ImportStore:
 
 def read_frames(runtime_dir):
     """All import action frames in gen_time order: (gen_time, action_type, envelope)."""
+    # Native assemble logs a missing page to stdout before raising.  Besides
+    # being noisy, that corrupts every `--json` command in a native-Mission-only
+    # workspace.  Absence of the optional Atlas import journal is an ordinary
+    # empty projection, so detect it before crossing the native boundary.
+    if not _journal_exists(runtime_dir):
+        return []
     location = _location(runtime_dir)
     frames = []
     try:
@@ -452,6 +499,8 @@ def _checksum_frame(
 
 def read_action_frame_index(runtime_dir):
     """Action frame identity index keyed by (frame_uid, gen_time)."""
+    if not _journal_exists(runtime_dir):
+        return {}
     location = _location(runtime_dir)
     index = {}
     try:

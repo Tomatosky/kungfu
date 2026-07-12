@@ -28,6 +28,11 @@ and the map routes a question to whichever doc answers it.
 | Why is it built this way? What is load-bearing? | [`design-philosophy.md`](design-philosophy.md) | why | stable |
 | Why compare Kungfu to SQLite, Git, and a flight recorder — and why is it neither observability nor blockchain? | [`design-philosophy.md`](design-philosophy.md#the-missing-infrastructure-layer-runtime-facts) | why | stable |
 | Why does Kungfu start from accountability? | [`facts-before-trust.md`](facts-before-trust.md) | why | stable |
+| How do Missions, delegated Go work, runtime facts, proof, and decisions become one product? | [`mission-control.md`](mission-control.md) + [`mission-control-workspaces.md`](mission-control-workspaces.md) + [ADR-0059](../framework/core/docs/adr/ADR-0059-mission-control-mission-go-responsibility-model.md) | why, use, verify | draft · mechanisms implemented; workspace product composition and five-question Mission Home designed |
+| How does Desktop open and remember a workspace without creating `.kungfu` on read? | [`mission-control-workspaces.md`](mission-control-workspaces.md) + [ADR-0060](../framework/core/docs/adr/ADR-0060-desktop-workspace-selection-and-lazy-data-home.md) | why, use, verify | proposed · product design complete; implementation sliced |
+| How can a first-time user manage agent work without a repository or predeclared Mission? | [`mission-control-workspaces.md`](mission-control-workspaces.md) + [ADR-0060](../framework/core/docs/adr/ADR-0060-desktop-workspace-selection-and-lazy-data-home.md) | why, use, verify | proposed · Home Workspace and unassigned inbox designed |
+| Why is agent-mediated guidance a first-class product interface rather than a later CLI integration? | [ADR-0061](../framework/core/docs/adr/ADR-0061-agent-mediated-guidance-is-a-first-class-product-interface.md) + [`mission-control-workspaces.md`](mission-control-workspaces.md) | why, use, verify | proposed · dual-first advice/action/receipt contract designed |
+| Why does the commercial product lead with Cost/State/Proof, and what does that profile guarantee? | [`cost-state-proof-profile.md`](cost-state-proof-profile.md) | why, use, verify | draft · first progress and completion qualification implemented |
 | Why this versioning / release design (don't replace it naively)? | [`version-release-design.md`](version-release-design.md) | why | stable |
 | When must a change open a minor or major (and when must it not)? | [`versioning.md`](versioning.md) (rule: KFD-1, adopted by ADR-0010) | verify | stable |
 | Why was a past decision made? | [`../framework/core/docs/adr/`](../framework/core/docs/adr) | why | stable |
@@ -42,10 +47,11 @@ and the map routes a question to whichever doc answers it.
 | What does Rewind replay, and what must it never silently re-execute? | [ADR-0020](../framework/core/docs/adr/ADR-0020-agent-action-timeline-and-replay-boundary.md) + [`rewind.md`](rewind.md) | why, verify | stable |
 | How does Kungfu persist user facts, sync sources, and maintain storage over time? | [`runtime-storage-service.md`](runtime-storage-service.md) | use, verify | draft |
 | How do my domain facts enter Kungfu's declared fact world, remain replayable, and become eligible for trust assessment? | [`fact-surface-admission.md`](fact-surface-admission.md) + [ADR-0051](../framework/core/docs/adr/ADR-0051-kfd-contract-world-fact-admission-and-trust.md) | why, use, verify | draft · semantics accepted; implementation staged |
-| When does KFD-2 assess a claim, what does the workspace master do, and how do Desktop processes and embedded threads share the model? | [`kfd2-trust-assessment.md`](kfd2-trust-assessment.md) + [ADR-0052](../framework/core/docs/adr/ADR-0052-kfd2-assessment-lifecycle-and-executors.md) | why, use, verify | draft · semantics accepted; implementation staged |
+| How do I manage a long-running Mission, delegate Go work, inspect Cost/State/Proof, and move the evidence to another data root? | [`mission-control.md`](mission-control.md) + [ADR-0059](../framework/core/docs/adr/ADR-0059-mission-control-mission-go-responsibility-model.md) | why, use, verify | pre-release · native authoring and local full/thin bundle roundtrip implemented |
+| When does KFD-2 assess a claim, what does the workspace coordinator do, and how do Desktop processes and embedded threads share the model? | [`kfd2-trust-assessment.md`](kfd2-trust-assessment.md) + [ADR-0052](../framework/core/docs/adr/ADR-0052-kfd2-assessment-lifecycle-and-executors.md) | why, use, verify | draft · semantics accepted; implementation staged |
 | How do I query current or historical runtime facts, and what proves the answer? | [`querying-runtime-facts.md`](querying-runtime-facts.md) + [ADR-0048](../framework/core/docs/adr/ADR-0048-runtime-fact-query-semantics-and-changelog.md) | use, verify | draft · semantics accepted; implementation staged |
 | What is an Episode, why is it the atomic trust boundary, and how is that claim qualified under faults and load? | [`episode-object-model.md`](episode-object-model.md) + [`episode-atomicity-qualification.md`](episode-atomicity-qualification.md) + [ADR-0033](../framework/core/docs/adr/ADR-0033-episode-causal-segment-object.md) + [ADR-0034](../framework/core/docs/adr/ADR-0034-yijinjing-episode-manifest-journal.md) + [ADR-0042](../framework/core/docs/adr/ADR-0042-episode-atomic-safety-and-qualification.md) | why, use, verify | draft |
-| What is the supervisor/master topology, and how can the master stay alive after the GUI closes? | [`master-service.md`](master-service.md) + [ADR-0036](../framework/core/docs/adr/ADR-0036-supervisor-and-workspace-master-topology.md) | use, verify | draft |
+| What is the supervisor/coordinator topology, and how can the coordinator stay alive after the GUI closes? | [`runtime-service.md`](runtime-service.md) + [ADR-0036](../framework/core/docs/adr/ADR-0036-supervisor-and-workspace-master-topology.md) | use, verify | draft |
 | How can a multi-machine timeline stay stable without one global clock? | [ADR-0021](../framework/core/docs/adr/ADR-0021-observer-relative-timeline-projection.md) + [`event-model.md`](event-model.md) | why, verify | stable |
 | Where must action-recording semantics live across C++ / Python / Node? | [ADR-0022](../framework/core/docs/adr/ADR-0022-core-action-recording-surface.md) + [`event-model.md`](event-model.md) | why, use | stable |
 | What is a location role, and why does it not decide journal page size? | [ADR-0024](../framework/core/docs/adr/ADR-0024-location-role-and-journal-page-policy.md) + [`event-model.md`](event-model.md) | why, use | stable |
@@ -98,6 +104,13 @@ route to the row that answers them:
   ([ADR-0021](../framework/core/docs/adr/ADR-0021-observer-relative-timeline-projection.md)).
 - **accountability / facts before trust / local proof before control** → *why
   does Kungfu start from accountability* ([`facts-before-trust.md`](facts-before-trust.md)).
+- **Mission Control / Mission / Go / delegated responsibility / progress drift /
+  completion claim / Atlas bridge / Cost State Proof / cost management profile**
+  → *how Missions and delegated work become one proof-backed product*
+  ([`mission-control.md`](mission-control.md)), *how the workspace product and
+  five-question Mission Home behave* ([`mission-control-workspaces.md`](mission-control-workspaces.md)), then *what the first commercial
+  profile packages* ([`cost-state-proof-profile.md`](cost-state-proof-profile.md))
+  and [ADR-0059](../framework/core/docs/adr/ADR-0059-mission-control-mission-go-responsibility-model.md).
 - **SQLite / Git for runs / flight recorder / runtime fact infrastructure /
   observability / OpenTelemetry / blockchain / polyglot semantic core** → *why
   Kungfu occupies a distinct runtime-fact layer*
@@ -138,12 +151,20 @@ route to the row that answers them:
 - **config / `.kungfu` / `~/.kungfu-config` / `KF_CONFIG_HOME` / `KF_HOME` / UI font / UI scale /
   shortcuts / agent entrypoint** → *Kungfu config* ([`config.md`](config.md)).
 - **workspace data home / `.kungfu/` / data root / Git worktree data /
-  machine fallback / config home rename** → *Kungfu config*
+  machine fallback / Home Workspace / Agent Work Inbox / config home
+  rename / Open Workspace / recent workspace / lazy initialization** → *Kungfu
+  config and Desktop workspace product*
   ([`config.md`](config.md)) and
-  [ADR-0035](../framework/core/docs/adr/ADR-0035-workspace-local-kungfu-data-home.md).
-- **supervisor / per-user supervisor / workspace master / data-root master /
-  master singleton / live registry / idle shutdown / daemonless storage** →
-  *Kungfu supervisor and master service* ([`master-service.md`](master-service.md))
+  [`mission-control-workspaces.md`](mission-control-workspaces.md),
+  [ADR-0035](../framework/core/docs/adr/ADR-0035-workspace-local-kungfu-data-home.md),
+  and [ADR-0060](../framework/core/docs/adr/ADR-0060-desktop-workspace-selection-and-lazy-data-home.md).
+- **agent-mediated guidance / dual-first UX / advice / impact preview /
+  authorization / execution receipt / stale advice / agent-operable product** →
+  *Mission Control workspace product* ([`mission-control-workspaces.md`](mission-control-workspaces.md))
+  and [ADR-0061](../framework/core/docs/adr/ADR-0061-agent-mediated-guidance-is-a-first-class-product-interface.md).
+- **supervisor / per-user supervisor / workspace coordinator / data-root coordinator /
+  coordinator singleton / live registry / idle shutdown / daemonless storage** →
+  *Kungfu supervisor and coordinator service* ([`runtime-service.md`](runtime-service.md))
   and [ADR-0036](../framework/core/docs/adr/ADR-0036-supervisor-and-workspace-master-topology.md).
 - **SKILL.md / agent skill / skill catalog / context injection / Node manager /
   Python manager / skill audit / skill-manager view / kfx dependency binding** →

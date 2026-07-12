@@ -3,6 +3,10 @@
 version = 3
 
 [[package]]
+name = "kungfu-embedding"
+version = "4.0.0-alpha.0"
+
+[[package]]
 name = "kungfu-sdk"
 version = "4.0.0-alpha.0"
 
@@ -10,6 +14,7 @@ version = "4.0.0-alpha.0"
 name = "kungfu-trunk"
 version = "4.0.0-alpha.0"
 dependencies = [
+ "kungfu-embedding",
  "shifu-core",
 ]
 

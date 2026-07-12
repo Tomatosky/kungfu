@@ -49,6 +49,12 @@ struct recorded_episode {
   std::vector<action::record_receipt> receipts = {};
 };
 
+struct owned_ref {
+  yy::enums::EpisodeRefKind kind = yy::enums::EpisodeRefKind::Payload;
+  std::string id = {};
+  std::string hash = {};
+};
+
 std::string content_root(const std::string &value) {
   return yy_storage::format_content_hash(yy_storage::compute_content_hash(value));
 }
@@ -241,7 +247,7 @@ view::action::envelope wrap_event(const nlohmann::json &event, std::vector<uint8
 }
 
 recorded_episode append_episode(const std::string &runtime_dir, std::vector<nlohmann::json> events, int64_t system_time,
-                                const std::string &title) {
+                                const std::string &title, const std::vector<owned_ref> &owned_refs = {}) {
   action::action_recorder recorder(runtime_dir, FACT_NAMESPACE, FACT_NAME);
   yy_storage::episode_manifest_store episodes(runtime_dir);
   yy_storage::episode_begin_options begin_options{};
@@ -291,6 +297,17 @@ recorded_episode append_episode(const std::string &runtime_dir, std::vector<nloh
   schema_ref.ref_hash = domain_schema().root;
   (void)episodes.attach_ref(schema_ref);
 
+  for (const auto &ref : owned_refs) {
+    yy_storage::episode_ref_attach_options content_ref{};
+    content_ref.episode_id = episode_id;
+    content_ref.location_uid = recorder.get_location()->uid;
+    content_ref.ref_kind = ref.kind;
+    content_ref.update_time = system_time;
+    content_ref.ref_id = ref.id;
+    content_ref.ref_hash = ref.hash;
+    (void)episodes.attach_ref(content_ref);
+  }
+
   yy_storage::episode_close_options close_options{};
   close_options.episode_id = episode_id;
   close_options.location_uid = recorder.get_location()->uid;
@@ -308,6 +325,9 @@ std::vector<fact_record> read_events(const std::string &runtime_dir, int64_t cut
   auto locator = std::make_shared<yy::data::locator>(runtime_dir);
   auto location = yy::data::location::make_shared(yy::enums::mode::LIVE, yy::enums::location_role::SYSTEM,
                                                   FACT_NAMESPACE, FACT_NAME, locator);
+  if (locator->list_page_id(location, yy::data::location::PUBLIC).empty()) {
+    return records;
+  }
   try {
     yy::journal::assemble reader(location, yy::data::location::PUBLIC, yy::enums::AssembleMode::Channel, 0);
     while (reader.data_available()) {
@@ -613,6 +633,21 @@ nlohmann::json active_declaration_projection(const std::vector<nlohmann::json> &
   return nlohmann::json(nullptr);
 }
 
+nlohmann::json declaration_catalog(const std::vector<fact_record> &records, const char *field) {
+  auto catalog = nlohmann::json::array();
+  for (const auto &record : records) {
+    if (!record.event.contains(field) || !record.event.at(field).is_object()) {
+      continue;
+    }
+    auto declaration = record.event.at(field);
+    declaration["event_id"] = text_or(record.event, "event_id");
+    declaration["episode_id"] = unsigned_value(record.event, "episode_id");
+    declaration["system_time"] = integer_value(record.event, "system_time", record.frame_gen_time);
+    catalog.push_back(std::move(declaration));
+  }
+  return catalog;
+}
+
 } // namespace
 
 nlohmann::json fact_contract_json() {
@@ -652,7 +687,7 @@ nlohmann::json declare_contract_world(const std::string &runtime_dir, const nloh
 }
 
 nlohmann::json declare_fact_surface(const std::string &runtime_dir, const nlohmann::json &declaration,
-                                    int64_t system_time) {
+                                    int64_t system_time, const std::string &owned_schema_hash) {
   const auto event_time = system_time == 0 ? yy::time::now_in_nano() : system_time;
   const auto normalized = normalize_surface(declaration);
   const auto records = read_events(runtime_dir, event_time);
@@ -666,8 +701,15 @@ nlohmann::json declare_fact_surface(const std::string &runtime_dir, const nlohma
   if (!world_registered) {
     throw std::invalid_argument("fact surface references an unregistered contract-world declaration");
   }
+  std::vector<owned_ref> owned_refs;
+  if (!owned_schema_hash.empty()) {
+    if (owned_schema_hash != text_or(normalized, "schema_owner_root")) {
+      throw std::invalid_argument("owned schema hash must match schema_owner_root");
+    }
+    owned_refs.push_back({yy::enums::EpisodeRefKind::Schema, text_or(normalized, "id"), owned_schema_hash});
+  }
   const auto recorded = append_episode(runtime_dir, {event_shell("FactSurfaceDeclared", event_time, normalized)},
-                                       event_time, "fact surface declaration");
+                                       event_time, "fact surface declaration", owned_refs);
   return {{"schema", DOMAIN_FACT_CONTRACT_V1},
           {"declaration", normalized},
           {"reference", declaration_reference(normalized)},
@@ -676,7 +718,7 @@ nlohmann::json declare_fact_surface(const std::string &runtime_dir, const nlohma
 }
 
 nlohmann::json record_observation(const std::string &runtime_dir, const nlohmann::json &observation,
-                                  int64_t system_time) {
+                                  int64_t system_time, const std::string &owned_payload_hash) {
   const auto event_time = system_time == 0 ? yy::time::now_in_nano() : system_time;
   const auto normalized = normalize_observation(observation);
   const auto records = read_events(runtime_dir, event_time);
@@ -707,8 +749,17 @@ nlohmann::json record_observation(const std::string &runtime_dir, const nlohmann
                               {"proof_hash", content_root(proof_basis.dump())}};
   const auto admission_event =
       event_shell("AdmissionDecided", event_time, admission, observation_event.at("event_id").get<std::string>());
-  const auto recorded = append_episode(runtime_dir, {observation_event, admission_event}, event_time,
-                                       "observation admission " + normalized.at("observation_id").get<std::string>());
+  std::vector<owned_ref> owned_refs;
+  if (!owned_payload_hash.empty()) {
+    if (owned_payload_hash != text_or(normalized, "payload_hash")) {
+      throw std::invalid_argument("owned payload hash must match payload_hash");
+    }
+    owned_refs.push_back(
+        {yy::enums::EpisodeRefKind::Payload, text_or(normalized, "observation_id"), owned_payload_hash});
+  }
+  const auto recorded =
+      append_episode(runtime_dir, {observation_event, admission_event}, event_time,
+                     "observation admission " + normalized.at("observation_id").get<std::string>(), owned_refs);
   auto edge_admission = admission;
   edge_admission["outcome"] = verdict.outcome;
   return {{"schema", DOMAIN_FACT_CONTRACT_V1},
@@ -781,8 +832,12 @@ nlohmann::json query_fact_state(const std::string &runtime_dir, int64_t cut_syst
         {{"observation_id", id},
          {"action", action_name},
          {"outcome", outcome},
+         {"contract_world_id", observation.at("contract_world_id")},
+         {"fact_surface_id", observation.at("fact_surface_id")},
          {"subject_key", observation.at("subject_key")},
          {"source_id", observation.at("source_id")},
+         {"payload_hash", observation.at("payload_hash")},
+         {"payload_ref", observation.at("payload_ref")},
          {"valid_time",
           {{"from", integer_value(observation, "valid_from")}, {"until", integer_value(observation, "valid_until")}}},
          {"system_time", observation_times.at(id)},
@@ -821,6 +876,7 @@ nlohmann::json query_fact_state(const std::string &runtime_dir, int64_t cut_syst
          {"valid_time",
           {{"from", integer_value(observation, "valid_from")}, {"until", integer_value(observation, "valid_until")}}},
          {"system_time", observation_times.at(id)},
+         {"episode_id", observation_episode_ids.at(id)},
          {"causal_parent_event_id", observation_causal_parent_ids.at(id)}});
     active_by_subject[text_or(observation, "contract_world_id") + "\n" + text_or(observation, "fact_surface_id") +
                       "\n" + text_or(observation, "subject_key")]
@@ -861,6 +917,9 @@ nlohmann::json query_fact_state(const std::string &runtime_dir, int64_t cut_syst
           {"declarations",
            {{"contract_world", active_declaration_projection(worlds, resolved_cut)},
             {"fact_surface", active_declaration_projection(surfaces, resolved_cut)}}},
+          {"catalog",
+           {{"contract_worlds", declaration_catalog(records, "contract_world_declaration")},
+            {"fact_surfaces", declaration_catalog(records, "fact_surface_declaration")}}},
           {"canonical_facts", canonical_facts},
           {"observation_history", history},
           {"conflicts", conflicts},

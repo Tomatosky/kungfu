@@ -22,12 +22,17 @@ import {
   DESTROY_CHANNEL,
   ENSURE_CHANNEL,
   HIDE_CHANNEL,
-  MASTER_STATUS_GET_CHANNEL,
+  RUNTIME_STATUS_GET_CHANNEL,
   SET_BOUNDS_CHANNEL,
   SHOW_CHANNEL,
   WINDOW_CHROME_CONTROL_CHANNEL,
   WINDOW_CHROME_GET_CHANNEL,
   WINDOW_CHROME_STATE_CHANNEL,
+  WORKSPACE_CREATE_MISSION_CHANNEL,
+  WORKSPACE_GET_CHANNEL,
+  WORKSPACE_OPEN_CHANNEL,
+  WORKSPACE_SELECT_HOME_CHANNEL,
+  WORKSPACE_SELECT_RECENT_CHANNEL,
 } from '../sandbox/channels';
 import {
   firstPartyManifestPath,
@@ -47,6 +52,11 @@ import {
   bindElectronTerminalHost,
   createMainTerminalHost,
 } from './terminal-host';
+import {
+  defaultHomeDesktopWorkspace,
+  listRecentDesktopWorkspaces,
+  resolveLastDesktopWorkspace,
+} from './workspace-selection';
 
 const PRODUCT_NAME = 'Kungfu Episodes';
 const qualificationMode = process.env.KF_QUALIFICATION_MODE === '1';
@@ -79,6 +89,13 @@ function resolveHomePath(value: string): string {
   return path.resolve(expandHomePath(value));
 }
 
+function defaultConfigHome(): string {
+  return resolveHomePath(
+    process.env.KF_CONFIG_HOME ||
+      path.join(app.getPath('home'), '.kungfu-config'),
+  );
+}
+
 // A product launcher may set KF_INSTANCE_HOME to make a second Kungfu process
 // independent from the default user-global homes. Keep the same mental model as
 // the default install: config and runtime home are separate directories.
@@ -106,6 +123,45 @@ if (process.env.KF_INSTANCE_HOME) {
   process.env.KF_HOME = resolveHomePath(process.env.KF_DEV_HOME);
   process.env.KF_RUNTIME_DIR = path.join(process.env.KF_HOME, 'runtime');
 }
+
+if (
+  !process.env.KF_INSTANCE_HOME &&
+  !process.env.KF_HOME &&
+  !process.env.KF_RUNTIME_DIR
+) {
+  const configHome = defaultConfigHome();
+  process.env.KF_CONFIG_HOME = configHome;
+  const selected =
+    resolveLastDesktopWorkspace(configHome) ??
+    defaultHomeDesktopWorkspace(app.getPath('home'));
+  process.env.KF_WORKSPACE_ID = selected.workspaceId;
+  process.env.KF_WORKSPACE_KIND = selected.workspaceKind;
+  process.env.KF_WORKSPACE_ROOT = selected.workspaceRoot || '';
+  process.env.KF_WORKSPACE_DISPLAY_PATH = selected.displayPath;
+  process.env.KF_WORKSPACE_RESOLUTION_REASON = selected.resolutionReason;
+  process.env.KF_WORKSPACE_STATE = selected.state;
+  process.env.KF_WORKSPACE_DIAGNOSIS = selected.diagnosis || '';
+  process.env.KF_HOME = selected.dataHome;
+  process.env.KF_RUNTIME_DIR = selected.runtimeDir;
+}
+
+if (
+  process.env.KF_HOME &&
+  !process.env.KF_WORKSPACE_STATE &&
+  (process.env.KF_WORKSPACE_ROOT ||
+    path.basename(process.env.KF_HOME) === '.kungfu')
+) {
+  process.env.KF_WORKSPACE_STATE = existsSync(process.env.KF_HOME)
+    ? 'ready'
+    : 'selected-uninitialized';
+}
+
+// Explicit instance/runtime homes are compatibility execution roots rather
+// than Desktop project selections. Preserve their existing eager-runtime
+// behavior while the Workspace product path remains lazy.
+process.env.KF_WORKSPACE_STATE = process.env.KF_WORKSPACE_STATE || 'ready';
+
+const workspaceRuntimeReady = process.env.KF_WORKSPACE_STATE === 'ready';
 
 type WindowChromePlatform = 'darwin' | 'win32' | 'linux' | 'other';
 type WindowChromeMode = 'native' | 'integrated' | 'custom';
@@ -199,7 +255,7 @@ process.env.KF_EXTENSION_PATH =
 //        trusted (safe by default). The pinned resource is baked at build time
 //        by scripts/gen-first-party-manifest.mjs into dist/kungfu, which ships to
 //        Resources/kungfu alongside the runtime.
-if (!process.env.KF_FIRST_PARTY_MANIFEST) {
+if (!process.env.KF_FIRST_PARTY_MANIFEST && workspaceRuntimeReady) {
   if (app.isPackaged) {
     process.env.KF_FIRST_PARTY_MANIFEST = path.join(
       process.resourcesPath,
@@ -217,7 +273,11 @@ if (!process.env.KF_FIRST_PARTY_MANIFEST) {
   }
 }
 
-if (!process.env.KF_SKILL_CONTEXT_FILE && process.env.KF_RUNTIME_DIR) {
+if (
+  !process.env.KF_SKILL_CONTEXT_FILE &&
+  process.env.KF_RUNTIME_DIR &&
+  workspaceRuntimeReady
+) {
   try {
     process.env.KF_SKILL_CONTEXT_FILE = writeGuiSkillContextFile({
       home: process.env.KF_RUNTIME_DIR,
@@ -230,7 +290,11 @@ if (!process.env.KF_SKILL_CONTEXT_FILE && process.env.KF_RUNTIME_DIR) {
   }
 }
 
-if (!process.env.KF_SKILL_MANAGER_FILE && process.env.KF_RUNTIME_DIR) {
+if (
+  !process.env.KF_SKILL_MANAGER_FILE &&
+  process.env.KF_RUNTIME_DIR &&
+  workspaceRuntimeReady
+) {
   try {
     process.env.KF_SKILL_MANAGER_FILE = writeGuiSkillManagerViewFile({
       home: process.env.KF_RUNTIME_DIR,
@@ -280,7 +344,7 @@ let manager: SandboxManager | null = null;
 // stage 2) can push layout snapshots back to it for persistence.
 let shellWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
-let lastMasterStatus: MasterStatusResult | null = null;
+let lastRuntimeStatus: RuntimeStatusResult | null = null;
 
 // Set once the app is quitting; the session-window host reads it so window
 // closes during shutdown do not overwrite the persisted layout restore needs.
@@ -291,7 +355,7 @@ function kungfuBinPath(): string {
   return path.join(path.dirname(process.env.KFE_PATH || bindingPath), binName);
 }
 
-type MasterStatusPayload = {
+type RuntimeStatusPayload = {
   status?: string;
   configHome?: string;
   dataRoot?: string;
@@ -302,80 +366,113 @@ type MasterStatusPayload = {
     warnings?: string[];
   };
   supervisor?: { pid?: number | null; running?: boolean };
-  master?: { pid?: number | null; running?: boolean };
+  coordinator?: { pid?: number | null; running?: boolean };
   route?: { routeId?: string; registered?: boolean; stale?: boolean };
   routes?: { count?: number; staleCount?: number };
+  assessments?: {
+    assessment_count?: number;
+    counts?: Record<string, number>;
+    assessments?: Array<{
+      state?: string;
+      assessment_key?: string;
+      request?: { claim_id?: string; purpose?: string };
+      report?: { residual_risks?: string[]; query_proof_root?: string };
+    }>;
+  };
 };
 
-type MasterStatusResult = {
+type RuntimeStatusResult = {
   ok: boolean;
-  payload: MasterStatusPayload | null;
+  payload: RuntimeStatusPayload | null;
   error: string;
   updatedAt: number;
 };
 
-function readMasterStatus(): MasterStatusResult {
+function readRuntimeStatus(): RuntimeStatusResult {
+  if (!workspaceRuntimeReady) {
+    return {
+      ok: false,
+      payload: null,
+      error: 'Workspace selected but not initialized',
+      updatedAt: Date.now(),
+    };
+  }
   try {
-    const out = execFileSync(kungfuBinPath(), ['master', 'status', '--json'], {
+    const out = execFileSync(kungfuBinPath(), ['runtime', 'status', '--json'], {
       env: process.env,
       timeout: 10000,
     });
-    const payload = JSON.parse(out.toString()) as MasterStatusPayload;
-    lastMasterStatus = {
+    const payload = JSON.parse(out.toString()) as RuntimeStatusPayload;
+    try {
+      const assessmentOut = execFileSync(
+        kungfuBinPath(),
+        ['runtime', 'assessments', '--json'],
+        { env: process.env, timeout: 10000 },
+      );
+      payload.assessments = JSON.parse(assessmentOut.toString());
+    } catch {
+      // Assessment visibility degrades independently; runtime health still
+      // renders and the next status poll retries the progressive trust view.
+    }
+    lastRuntimeStatus = {
       ok: true,
       payload,
       error: '',
       updatedAt: Date.now(),
     };
-    return lastMasterStatus;
+    return lastRuntimeStatus;
   } catch (e) {
-    lastMasterStatus = {
+    lastRuntimeStatus = {
       ok: false,
       payload: null,
       error: (e as Error).message,
       updatedAt: Date.now(),
     };
-    return lastMasterStatus;
+    return lastRuntimeStatus;
   }
 }
 
-function ensureMasterForGuiStartup() {
+function ensureRuntimeForGuiStartup() {
+  if (!workspaceRuntimeReady) {
+    console.log('KF_RUNTIME_ENSURE_DEFERRED workspace selected-uninitialized');
+    return;
+  }
   try {
-    const out = execFileSync(kungfuBinPath(), ['master', 'ensure', '--json'], {
+    const out = execFileSync(kungfuBinPath(), ['runtime', 'ensure', '--json'], {
       env: process.env,
       timeout: 15000,
     });
-    lastMasterStatus = {
+    lastRuntimeStatus = {
       ok: true,
-      payload: JSON.parse(out.toString()) as MasterStatusPayload,
+      payload: JSON.parse(out.toString()) as RuntimeStatusPayload,
       error: '',
       updatedAt: Date.now(),
     };
-    console.log('KF_MASTER_ENSURE_OK');
+    console.log('KF_RUNTIME_ENSURE_OK');
   } catch (e) {
-    lastMasterStatus = {
+    lastRuntimeStatus = {
       ok: false,
       payload: null,
       error: (e as Error).message,
       updatedAt: Date.now(),
     };
-    console.log(`KF_MASTER_ENSURE_FAIL ${lastMasterStatus.error}`);
+    console.log(`KF_RUNTIME_ENSURE_FAIL ${lastRuntimeStatus.error}`);
   }
 }
 
-function masterStatusLabel(result = lastMasterStatus ?? readMasterStatus()) {
-  if (!result.ok || !result.payload) return 'Master: unavailable';
+function runtimeStatusLabel(result = lastRuntimeStatus ?? readRuntimeStatus()) {
+  if (!result.ok || !result.payload) return 'Runtime: unavailable';
   const lifecycle = result.payload.lifecycle?.state || result.payload.status;
-  if (lifecycle === 'stale-route') return 'Master: stale route';
-  if (lifecycle === 'degraded') return 'Master: degraded';
-  if (lifecycle === 'dead') return 'Master: dead pid';
-  if (lifecycle === 'orphan-master') return 'Master: orphan';
+  if (lifecycle === 'stale-route') return 'Runtime: stale route';
+  if (lifecycle === 'degraded') return 'Runtime: degraded';
+  if (lifecycle === 'dead') return 'Runtime: dead pid';
+  if (lifecycle === 'orphan-coordinator') return 'Runtime: orphan';
   const supervisor = result.payload.supervisor?.running;
-  const master = result.payload.master?.running;
-  if (supervisor && master) return 'Master: running';
-  if (supervisor) return 'Master: waiting';
-  if (master) return 'Master: orphan';
-  return 'Master: stopped';
+  const runtime = result.payload.coordinator?.running;
+  if (supervisor && runtime) return 'Runtime: running';
+  if (supervisor) return 'Runtime: waiting';
+  if (runtime) return 'Runtime: orphan';
+  return 'Runtime: stopped';
 }
 
 function showShellWindow() {
@@ -427,9 +524,9 @@ function quitGui() {
   app.quit();
 }
 
-async function stopMasterAndQuit() {
+async function stopRuntimeAndQuit() {
   try {
-    execFileSync(kungfuBinPath(), ['master', 'stop', '--json'], {
+    execFileSync(kungfuBinPath(), ['runtime', 'stop', '--json'], {
       env: process.env,
       timeout: 10000,
     });
@@ -437,7 +534,7 @@ async function stopMasterAndQuit() {
   } catch (e) {
     await dialog.showMessageBox({
       type: 'error',
-      message: 'Could not stop Kungfu Master',
+      message: 'Could not stop Kungfu Runtime',
       detail: (e as Error).message,
     });
   }
@@ -470,7 +567,7 @@ function buildTrayMenu() {
   if (!tray) return;
   const visible =
     shellWindow && !shellWindow.isDestroyed() ? shellWindow.isVisible() : false;
-  const status = readMasterStatus();
+  const status = readRuntimeStatus();
   const payload = status.payload;
   const statusDetail =
     status.ok && payload
@@ -481,7 +578,7 @@ function buildTrayMenu() {
   tray.setContextMenu(
     Menu.buildFromTemplate([
       {
-        label: masterStatusLabel(status),
+        label: runtimeStatusLabel(status),
         enabled: false,
       },
       {
@@ -501,30 +598,30 @@ function buildTrayMenu() {
       },
       { type: 'separator' },
       {
-        label: 'Master Status',
+        label: 'Runtime Status',
         click: () =>
           void showCommandResult(
-            'Could not read Kungfu Master status',
-            ['master', 'status', '--json'],
-            'Kungfu Master Status',
+            'Could not read Kungfu Runtime status',
+            ['runtime', 'status', '--json'],
+            'Kungfu Runtime Status',
           ),
       },
       {
-        label: 'Start Master',
+        label: 'Start Runtime',
         click: () =>
           void showCommandResult(
-            'Could not start Kungfu Master',
-            ['master', 'start', '--json'],
-            'Kungfu Master started',
+            'Could not start Kungfu Runtime',
+            ['runtime', 'start', '--json'],
+            'Kungfu Runtime started',
           ),
       },
       {
-        label: 'Stop Master',
+        label: 'Stop Runtime',
         click: () =>
           void showCommandResult(
-            'Could not stop Kungfu Master',
-            ['master', 'stop', '--json'],
-            'Kungfu Master stopped',
+            'Could not stop Kungfu Runtime',
+            ['runtime', 'stop', '--json'],
+            'Kungfu Runtime stopped',
           ),
       },
       { type: 'separator' },
@@ -533,8 +630,8 @@ function buildTrayMenu() {
         click: quitGui,
       },
       {
-        label: 'Stop Master and Quit',
-        click: () => void stopMasterAndQuit(),
+        label: 'Stop Runtime and Quit',
+        click: () => void stopRuntimeAndQuit(),
       },
     ]),
   );
@@ -612,7 +709,127 @@ ipcMain.handle(WINDOW_CHROME_CONTROL_CHANNEL, (event, payload) => {
   };
 });
 
-ipcMain.handle(MASTER_STATUS_GET_CHANNEL, () => readMasterStatus());
+ipcMain.handle(RUNTIME_STATUS_GET_CHANNEL, () => readRuntimeStatus());
+
+function workspaceSnapshot() {
+  return {
+    current: {
+      workspaceId: process.env.KF_WORKSPACE_ID || '',
+      workspaceKind: process.env.KF_WORKSPACE_KIND || 'home',
+      workspaceRoot: process.env.KF_WORKSPACE_ROOT || null,
+      displayPath: process.env.KF_WORKSPACE_DISPLAY_PATH || 'Home Workspace',
+      dataHome: process.env.KF_HOME || '',
+      state: process.env.KF_WORKSPACE_STATE || 'unavailable',
+      diagnosis: process.env.KF_WORKSPACE_DIAGNOSIS || '',
+    },
+    recent: listRecentDesktopWorkspaces(defaultConfigHome()),
+  };
+}
+
+function relaunchWithWorkspaceSelection(args: string[]) {
+  const out = execFileSync(kungfuBinPath(), args, {
+    env: { ...process.env, KF_CONFIG_HOME: defaultConfigHome() },
+    timeout: 10000,
+  });
+  const selected = JSON.parse(out.toString());
+  setImmediate(() => {
+    app.relaunch();
+    app.exit(0);
+  });
+  return { ok: true, selected };
+}
+
+ipcMain.handle(WORKSPACE_GET_CHANNEL, () => workspaceSnapshot());
+ipcMain.handle(WORKSPACE_SELECT_HOME_CHANNEL, () =>
+  relaunchWithWorkspaceSelection(['workspace', 'select-home', '--json']),
+);
+ipcMain.handle(WORKSPACE_OPEN_CHANNEL, async () => {
+  const result = await dialog.showOpenDialog({
+    title: 'Open Kungfu Workspace',
+    properties: ['openDirectory'],
+  });
+  if (result.canceled || !result.filePaths[0]) return { ok: false };
+  return relaunchWithWorkspaceSelection([
+    'workspace',
+    'select',
+    result.filePaths[0],
+    '--json',
+  ]);
+});
+ipcMain.handle(WORKSPACE_SELECT_RECENT_CHANNEL, (_event, payload) => {
+  const workspaceId = String(
+    (payload as { workspaceId?: unknown })?.workspaceId || '',
+  );
+  const selected = listRecentDesktopWorkspaces(defaultConfigHome()).find(
+    (item) => item.workspace_id === workspaceId,
+  );
+  if (!selected) throw new Error('recent workspace was not found');
+  if (selected.workspace_kind === 'home') {
+    return relaunchWithWorkspaceSelection([
+      'workspace',
+      'select-home',
+      '--json',
+    ]);
+  }
+  if (!selected.workspace_root || !existsSync(selected.workspace_root)) {
+    throw new Error('recent project workspace is unavailable');
+  }
+  return relaunchWithWorkspaceSelection([
+    'workspace',
+    'select',
+    selected.workspace_root,
+    '--json',
+  ]);
+});
+ipcMain.handle(WORKSPACE_CREATE_MISSION_CHANNEL, (_event, payload) => {
+  const input = payload as {
+    missionId?: unknown;
+    title?: unknown;
+    intent?: unknown;
+  };
+  const missionId = String(input.missionId || '').trim();
+  const title = String(input.title || '').trim();
+  const intent = String(input.intent || '').trim();
+  if (!missionId || !title || !intent) {
+    throw new Error('Mission id, title, and intent are required');
+  }
+  const ensureArgs = ['workspace', 'ensure'];
+  if (process.env.KF_WORKSPACE_KIND === 'home') ensureArgs.push('--home');
+  else if (process.env.KF_WORKSPACE_ROOT)
+    ensureArgs.push(process.env.KF_WORKSPACE_ROOT);
+  else throw new Error('selected project workspace root is unavailable');
+  ensureArgs.push('--reason', 'create-mission', '--json');
+  execFileSync(kungfuBinPath(), ensureArgs, {
+    env: process.env,
+    timeout: 10000,
+  });
+  const out = execFileSync(
+    kungfuBinPath(),
+    [
+      'atlas',
+      'create-mission',
+      missionId,
+      '--title',
+      title,
+      '--intent',
+      intent,
+      '--actor',
+      'desktop-user',
+      '--actor-type',
+      'user',
+      '--status',
+      'active',
+      '--json',
+    ],
+    { env: process.env, timeout: 15000 },
+  );
+  const receipt = JSON.parse(out.toString());
+  setImmediate(() => {
+    app.relaunch();
+    app.exit(0);
+  });
+  return { ok: true, receipt };
+});
 
 // Application menu with the VS Code-style "Install 'kungfu' Command in PATH"
 // action, so a real user who installed Kungfu Episodes.app can use `kungfu` in a shell.
@@ -749,7 +966,7 @@ function createWindow() {
 
 app.whenReady().then(() => {
   app.setName(PRODUCT_NAME);
-  if (!qualificationMode) ensureMasterForGuiStartup();
+  if (!qualificationMode) ensureRuntimeForGuiStartup();
   buildMenu();
   if (!qualificationMode) createTray();
   // ADR-0016 stage 1 (flagged): run the durable session host in main so it

@@ -14,15 +14,15 @@
 #include "io.h"
 #include "journal.h"
 #include "operators.h"
-#include <kungfu/runtime/cache/runtime.h>
-#include <kungfu/runtime/practice/apprentice.h>
+#include <kungfu/runtime/live/peer.h>
+#include <kungfu/runtime/state_cache/model.h>
 
 namespace kungfu::node {
 constexpr uint64_t ID_TRANC = 0x00000000FFFFFFFF;
 constexpr uint32_t PAGE_ID_MASK = 0x80000000;
 constexpr uint32_t TRANSFER_STATIC_DATA_LIMIT = 2000;
 
-class Watcher : public Napi::ObjectWrap<Watcher>, public runtime::practice::apprentice {
+class Watcher : public Napi::ObjectWrap<Watcher>, public runtime::live::peer {
 public:
   explicit Watcher(const Napi::CallbackInfo &info);
 
@@ -66,7 +66,7 @@ public:
 
   void Quit(const Napi::CallbackInfo &info);
 
-  void AfterMasterDown(const Napi::CallbackInfo &info);
+  void AfterCoordinatorDown(const Napi::CallbackInfo &info);
 
   void RequestDeregister();
 
@@ -102,7 +102,7 @@ private:
   Napi::ObjectReference config_ref_;
   serialize::JsUpdateState update_ledger;
   serialize::JsResetCache reset_cache;
-  runtime::cache::bank data_bank_;
+  runtime::state_cache::bank data_bank_;
   std::vector<kungfu::state<yijinjing::types::CacheReset>> reset_cache_states_;
 
   typedef yijinjing::enums::mode mode;
@@ -164,8 +164,9 @@ private:
     try {
       auto target_location = IODevice::ExtractLocation(info, 1, get_locator());
 
-      if (target_location->role == yijinjing::enums::location_role::SYSTEM && target_location->namespace_ == "master") {
-        target_location = master_cmd_location_;
+      if (target_location->role == yijinjing::enums::location_role::SYSTEM &&
+          runtime::live::is_coordinator_wire_namespace(target_location->namespace_)) {
+        target_location = coordinator_cmd_location_;
       }
 
       if (not is_location_live(target_location->uid) or not has_writer(target_location->uid)) {

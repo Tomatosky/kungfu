@@ -44,7 +44,7 @@ The Node surface is an N-API addon (`kungfu_node.node`) — entry point
 `kungfu_node.cpp` — exposing the journal, IO, history, schema registry, and the in-memory
 state stores. The `watcher` (`watcher.cpp`) is the component that consumes the
 journal and presents state to JavaScript for the reference UIs; it is an
-`apprentice` (see [`concepts.md`](concepts.md)). N-API is used as the stability
+`peer` (see [`concepts.md`](concepts.md)). N-API is used as the stability
 layer so the addon is decoupled from V8 ABI churn.
 
 Source: [`framework/core/src/bindings/node/binding/`](../framework/core/src/bindings/node/binding)
@@ -67,5 +67,6 @@ hot path. The boundaries that are **not** zero-copy:
 
 - across processes, frames travel through the mmap journal (still no per-frame
   serialization, but a different mechanism than in-process sharing);
-- any export out of the system (e.g. `kungfu journal show -o file.csv`, see
+- any export out of the system (for example `kungfu storage export --scope
+  episode --episode-id <id> --format bundle-json --out <file>`, see
   [`debugging.md`](debugging.md)) is an explicit, non-zero-copy conversion.

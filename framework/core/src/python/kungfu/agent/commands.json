@@ -89,7 +89,61 @@
       "apiId": "kungfu.managed-run.start",
       "name": "kungfu managed-run --provider <provider> --prompt <task>",
       "maturity": "experimental",
-      "purpose": "Run a provider CLI under Kungfu supervision, skill context, and cost/audit capture."
+      "purpose": "Run a provider CLI under Kungfu supervision and capture it into an explicit, discovered, or no-project Home workspace with a receipt."
+    },
+    {
+      "apiId": "kungfu.managed-run.start",
+      "name": "kungfu managed-run --provider <provider> --prompt <task> [--workspace <path>|--home-workspace]",
+      "maturity": "experimental",
+      "purpose": "Run a provider CLI with an explicit Home or project target when ambient discovery should not decide."
+    },
+    {
+      "apiId": "kungfu.workspace.inspect",
+      "name": "kungfu workspace inspect --home --json",
+      "maturity": "experimental",
+      "purpose": "Inspect a Home or project workspace candidate without initializing it."
+    },
+    {
+      "apiId": "kungfu.workspace.advise",
+      "name": "kungfu workspace advise --home --source <path> --json",
+      "maturity": "experimental",
+      "purpose": "Return deterministic evidence-backed project-workspace advice without changing state."
+    },
+    {
+      "apiId": "kungfu.workspace.preview",
+      "name": "kungfu workspace preview --home --source <path> --intent create-project-workspace --json",
+      "maturity": "experimental",
+      "purpose": "Preview exact workspace effects, skipped Git effects, freshness cut, and authorization class."
+    },
+    {
+      "apiId": "kungfu.workspace.authorize",
+      "name": "kungfu workspace authorize --home --source <path> --intent create-project-workspace --preview-id <id> --decision approve --authorized-by <actor> --json",
+      "maturity": "experimental",
+      "purpose": "Record one bounded decision for the exact current preview; mismatched or stale agent input fails closed."
+    },
+    {
+      "apiId": "kungfu.workspace.apply",
+      "name": "kungfu workspace apply --home --source <path> --authorization-id <id> --json",
+      "maturity": "experimental",
+      "purpose": "Execute one approved idempotent workspace intent and reject stale previews or denied authority."
+    },
+    {
+      "apiId": "kungfu.workspace.verify",
+      "name": "kungfu workspace verify --home --receipt-id <id> --json",
+      "maturity": "experimental",
+      "purpose": "Verify a workspace action receipt against its authorization and resulting filesystem effects."
+    },
+    {
+      "apiId": "kungfu.storage.episode-import",
+      "name": "kungfu storage import --from <episode-bundle.json> --execute --json",
+      "maturity": "experimental",
+      "purpose": "Validate then capture an Episode into an explicit, discovered, or no-project Home workspace and return its Inbox receipt."
+    },
+    {
+      "apiId": "kungfu.storage.episode-import",
+      "name": "kungfu storage import --from <episode-bundle.json> --execute [--workspace <path>|--home-workspace] --json",
+      "maturity": "experimental",
+      "purpose": "Capture an Episode with an explicit Home or project target when ambient discovery should not decide."
     },
     {
       "apiId": "kungfu.work.create",
@@ -134,6 +188,48 @@
       "purpose": "Snapshot an Atlas-style control-plane repo into Kungfu's local read-only projection."
     },
     {
+      "apiId": "kungfu.atlas.create-mission",
+      "name": "kungfu atlas create-mission <mission-id> --title <title> --intent <intent> --actor <actor> --json",
+      "maturity": "experimental",
+      "purpose": "Create a Kungfu-native long-running Mission in the shared Fact Library."
+    },
+    {
+      "apiId": "kungfu.atlas.export-mission",
+      "name": "kungfu atlas export-mission <mission-id> --out <bundle.json> --mode <full|thin> --json",
+      "maturity": "experimental",
+      "purpose": "Export a bounded Mission closure with proof coordinates and full or thin Episode material."
+    },
+    {
+      "apiId": "kungfu.atlas.import-mission",
+      "name": "kungfu atlas import-mission --from <bundle.json> [--execute] --json",
+      "maturity": "experimental",
+      "purpose": "Verify a portable Mission bundle and explicitly materialize full closures while thin bundles remain degraded references."
+    },
+    {
+      "apiId": "kungfu.atlas.assess-mission",
+      "name": "kungfu atlas assess-mission <mission-id> --json",
+      "maturity": "experimental",
+      "purpose": "Query admitted Mission/Go facts and persist a purpose-bound progress TrustReport."
+    },
+    {
+      "apiId": "kungfu.atlas.create-go",
+      "name": "kungfu atlas create-go <mission-id> <goal-id> --title <title> --objective <objective> --actor <actor> --json",
+      "maturity": "experimental",
+      "purpose": "Create a Kungfu-native Go linked to an admitted Mission without writing back to the bridged source."
+    },
+    {
+      "apiId": "kungfu.atlas.claim-completion",
+      "name": "kungfu atlas claim-completion <mission-id> <goal-id> --statement <statement> --actor <actor> --evidence-episode <id> --json",
+      "maturity": "experimental",
+      "purpose": "Record an explicit completion claim with independently verifiable Episode evidence."
+    },
+    {
+      "apiId": "kungfu.atlas.assess-completion",
+      "name": "kungfu atlas assess-completion <mission-id> <goal-id> --json",
+      "maturity": "experimental",
+      "purpose": "Assess a Go completion claim for a declared purpose and fail closed on missing evidence."
+    },
+    {
       "apiId": "kungfu.atlas.show.import",
       "name": "kungfu atlas show import --json",
       "maturity": "stable",
@@ -143,7 +239,7 @@
       "apiId": "kungfu.atlas.show.missions",
       "name": "kungfu atlas show missions --json",
       "maturity": "stable",
-      "purpose": "List imported Atlas mission cards from the latest projection."
+      "purpose": "List admitted Atlas and Kungfu-native Mission facts from the selected data root."
     },
     {
       "apiId": "kungfu.atlas.show.goals",
@@ -278,6 +374,60 @@
       "purpose": "Inspect the same QueryDefinition and presentation-only ViewSpec artifact used by the GUI."
     },
     {
+      "apiId": "kungfu.query.saved-catalog",
+      "name": "kungfu query saved list --json",
+      "maturity": "experimental",
+      "purpose": "Discover the workspace-local journal-backed saved query catalog shared with the GUI."
+    },
+    {
+      "apiId": "kungfu.query.saved-catalog",
+      "name": "kungfu query saved import --file saved-view.json --json",
+      "maturity": "experimental",
+      "purpose": "Create a durable workspace saved query from the portable saved-view artifact."
+    },
+    {
+      "apiId": "kungfu.query.saved-catalog",
+      "name": "kungfu query saved show <id> --json",
+      "maturity": "experimental",
+      "purpose": "Inspect the current definition, view, revision, and content hash for one saved query."
+    },
+    {
+      "apiId": "kungfu.query.saved-catalog",
+      "name": "kungfu query saved update <id> --expected-revision <n> --file saved-view.json --json",
+      "maturity": "experimental",
+      "purpose": "Append an optimistic-concurrency-checked saved query revision."
+    },
+    {
+      "apiId": "kungfu.query.saved-catalog",
+      "name": "kungfu query saved run <id> --json",
+      "maturity": "experimental",
+      "purpose": "Run the current saved query revision and bind its id, revision, and content hash to the proof result."
+    },
+    {
+      "apiId": "kungfu.query.saved-catalog",
+      "name": "kungfu query saved export <id>",
+      "maturity": "experimental",
+      "purpose": "Export portable kungfu.query.saved-view/v1 JSON without copying raw workspace storage."
+    },
+    {
+      "apiId": "kungfu.query.saved-catalog",
+      "name": "kungfu query saved history <id> --json",
+      "maturity": "experimental",
+      "purpose": "Inspect the complete create, update, and delete revision history."
+    },
+    {
+      "apiId": "kungfu.query.saved-catalog",
+      "name": "kungfu query saved delete <id> --expected-revision <n> --json",
+      "maturity": "experimental",
+      "purpose": "Append a tombstone revision without erasing prior saved query facts."
+    },
+    {
+      "apiId": "kungfu.query.saved-catalog",
+      "name": "kungfu query saved rebuild --json",
+      "maturity": "experimental",
+      "purpose": "Rebuild and verify the current catalog projection from authoritative journal events."
+    },
+    {
       "apiId": "kungfu.facts.capabilities",
       "name": "kungfu facts capabilities",
       "maturity": "experimental",
@@ -306,6 +456,48 @@
       "name": "kungfu facts state --cut-system-time <ns> --subject-key <key>",
       "maturity": "experimental",
       "purpose": "Fold admitted facts at head or a historical declaration cut while preserving correction, retraction, and source conflict history."
+    },
+    {
+      "apiId": "kungfu.facts.library",
+      "name": "kungfu facts library",
+      "maturity": "stable",
+      "purpose": "Discover the supported managed Fact Library profile, content stores, portability modes, and known limits."
+    },
+    {
+      "apiId": "kungfu.facts.type-create",
+      "name": "kungfu facts type create --id <id> --version <version> --source <source> --schema-file <schema.json>",
+      "maturity": "stable",
+      "purpose": "Create or idempotently recover an exact versioned fact type with an owned content-addressed JSON schema."
+    },
+    {
+      "apiId": "kungfu.facts.type-list",
+      "name": "kungfu facts type list",
+      "maturity": "stable",
+      "purpose": "List reusable fact types and their exact declaration, schema, authority, Episode, and proof coordinates in the selected data root."
+    },
+    {
+      "apiId": "kungfu.facts.material-put",
+      "name": "kungfu facts material put --type <id> --type-version <version> --source <source> --subject <key> --payload-file <payload.json>",
+      "maturity": "stable",
+      "purpose": "Store JSON material and append its admitted observation through one intent-level operation."
+    },
+    {
+      "apiId": "kungfu.facts.material-list",
+      "name": "kungfu facts material list --type <id> --subject <key>",
+      "maturity": "stable",
+      "purpose": "Read current and historical fact material with hydrated content-addressed payloads."
+    },
+    {
+      "apiId": "kungfu.facts.export",
+      "name": "kungfu facts export --out <bundle.json> [--thin]",
+      "maturity": "stable",
+      "purpose": "Export the selected Fact Library as a full self-contained or explicitly thin Episode bundle."
+    },
+    {
+      "apiId": "kungfu.facts.import",
+      "name": "kungfu facts import --file <bundle.json> [--execute]",
+      "maturity": "stable",
+      "purpose": "Verify a Fact Library bundle by default and append it only with explicit execute intent."
     },
     {
       "apiId": "kungfu.remote.add",
@@ -351,8 +543,8 @@
     },
     "atlas-projection": {
       "maturity": "stable",
-      "next": "kungfu atlas import --repo <atlas-repo> --json; kungfu storage fsck --scope all --json; kungfu storage verify-sync --source <source-id> --json; kungfu atlas show missions --json; kungfu atlas show goals --json",
-      "when": "The user asks to sync, import, inspect, or visualize an Atlas-style mission/goal/worktree control-plane repo inside Kungfu."
+      "next": "kungfu atlas show missions --json; create or import a Mission when needed; use kungfu atlas export-mission <mission-id> --out <bundle.json> --mode full --json for transfer",
+      "when": "The user asks to create, import, inspect, assess, visualize, preserve, or transfer Mission/Go facts inside Kungfu."
     },
     "trace": {
       "maturity": "stable",

@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+import time
 from pathlib import Path
 from typing import Any
 
@@ -742,6 +743,17 @@ def fact_changelog(
     )
 
 
+def saved_query_catalog(
+    runtime_dir: str | Path, action: str = "list", **kwargs: Any
+) -> dict[str, Any]:
+    """Operate the workspace-local journal-backed saved-query catalog."""
+    return dict(
+        _runtime().run_storage_service_operation(
+            "saved_query_catalog", str(runtime_dir), {"action": action, **kwargs}
+        )
+    )
+
+
 def fact_contract(runtime_dir: str | Path = "") -> dict[str, Any]:
     """Return the C++-owned ADR-0051 declaration/admission contract."""
 
@@ -808,6 +820,254 @@ def fact_state(
             {"cut_system_time": cut_system_time, "subject_key": subject_key},
         )
     )
+
+
+def fact_library_contract(runtime_dir: str | Path = "") -> dict[str, Any]:
+    """Return the supported end-user Fact Library contract."""
+
+    return dict(
+        _runtime().run_storage_service_operation(
+            "fact_library_contract", str(runtime_dir), {}
+        )
+    )
+
+
+def fact_type_create(
+    runtime_dir: str | Path,
+    definition: dict[str, Any],
+    *,
+    system_time: int = 0,
+) -> dict[str, Any]:
+    """Create or idempotently recover one versioned managed fact type."""
+
+    return dict(
+        _runtime().run_storage_service_operation(
+            "fact_type_create",
+            str(runtime_dir),
+            {"definition": definition, "system_time": system_time},
+        )
+    )
+
+
+def fact_type_list(
+    runtime_dir: str | Path,
+    *,
+    cut_system_time: int = 0,
+    scope: str = "selected-data-root",
+) -> dict[str, Any]:
+    return dict(
+        _runtime().run_storage_service_operation(
+            "fact_type_list",
+            str(runtime_dir),
+            {"cut_system_time": cut_system_time, "scope": scope},
+        )
+    )
+
+
+def fact_material_put(
+    runtime_dir: str | Path,
+    material: dict[str, Any],
+    *,
+    system_time: int = 0,
+) -> dict[str, Any]:
+    """Store JSON material and record its admitted observation in one intent."""
+
+    return dict(
+        _runtime().run_storage_service_operation(
+            "fact_material_put",
+            str(runtime_dir),
+            {"material": material, "system_time": system_time},
+        )
+    )
+
+
+def fact_material_list(
+    runtime_dir: str | Path,
+    *,
+    type_id: str = "",
+    subject_key: str = "",
+    cut_system_time: int = 0,
+) -> dict[str, Any]:
+    return dict(
+        _runtime().run_storage_service_operation(
+            "fact_material_list",
+            str(runtime_dir),
+            {
+                "type_id": type_id,
+                "subject_key": subject_key,
+                "cut_system_time": cut_system_time,
+            },
+        )
+    )
+
+
+def fact_library_export(
+    runtime_dir: str | Path,
+    *,
+    thin: bool = False,
+) -> dict[str, Any]:
+    return dict(
+        _runtime().run_storage_service_operation(
+            "fact_library_export", str(runtime_dir), {"thin": thin}
+        )
+    )
+
+
+def fact_library_import(
+    runtime_dir: str | Path,
+    library_bundle: dict[str, Any],
+    *,
+    dry_run: bool = True,
+) -> dict[str, Any]:
+    return dict(
+        _runtime().run_storage_service_operation(
+            "fact_library_import",
+            str(runtime_dir),
+            {"library_bundle": _binding_json(library_bundle), "dry_run": dry_run},
+        )
+    )
+
+
+def assessment_contract(runtime_dir: str | Path = "") -> dict[str, Any]:
+    """Return the C++-owned ADR-0052 assessment contract."""
+
+    return dict(
+        _runtime().run_storage_service_operation(
+            "assessment_contract", str(runtime_dir), {}
+        )
+    )
+
+
+def assessment_request(
+    runtime_dir: str | Path,
+    request: dict[str, Any],
+    *,
+    system_time: int = 0,
+) -> dict[str, Any]:
+    """Persist an assessment intent without blocking the work Episode seal."""
+
+    return dict(
+        _runtime().run_storage_service_operation(
+            "assessment_request",
+            str(runtime_dir),
+            {"request": request, "system_time": system_time},
+        )
+    )
+
+
+def assessment_execute(
+    runtime_dir: str | Path,
+    assessment_key: str,
+    *,
+    executor_profile: str = "process",
+    system_time: int = 0,
+) -> dict[str, Any]:
+    """Execute or deduplicate a durable assessment job."""
+
+    return dict(
+        _runtime().run_storage_service_operation(
+            "assessment_execute",
+            str(runtime_dir),
+            {
+                "assessment_key": assessment_key,
+                "executor_profile": executor_profile,
+                "system_time": system_time,
+            },
+        )
+    )
+
+
+def assessment_status(runtime_dir: str | Path, assessment_key: str) -> dict[str, Any]:
+    """Fold the durable lifecycle of one assessment key."""
+
+    return dict(
+        _runtime().run_storage_service_operation(
+            "assessment_status",
+            str(runtime_dir),
+            {"assessment_key": assessment_key},
+        )
+    )
+
+
+def assessment_list(runtime_dir: str | Path) -> dict[str, Any]:
+    """List durable assessment lifecycle folds for workspace scheduling."""
+
+    return dict(
+        _runtime().run_storage_service_operation(
+            "assessment_list", str(runtime_dir), {}
+        )
+    )
+
+
+def assessment_invalidate(
+    runtime_dir: str | Path,
+    assessment_key: str,
+    *,
+    changed_root: str,
+    reason: str = "",
+    system_time: int = 0,
+) -> dict[str, Any]:
+    """Mark a report stale only when the changed root is one of its inputs."""
+
+    return dict(
+        _runtime().run_storage_service_operation(
+            "assessment_invalidate",
+            str(runtime_dir),
+            {
+                "assessment_key": assessment_key,
+                "changed_root": changed_root,
+                "reason": reason,
+                "system_time": system_time,
+            },
+        )
+    )
+
+
+def trust_require(
+    runtime_dir: str | Path, assessment_key: str, *, purpose: str
+) -> dict[str, Any]:
+    """Fail closed unless a fresh report is bound to the requested purpose."""
+
+    return dict(
+        _runtime().run_storage_service_operation(
+            "trust_require",
+            str(runtime_dir),
+            {"assessment_key": assessment_key, "purpose": purpose},
+        )
+    )
+
+
+def trust_await(
+    runtime_dir: str | Path,
+    assessment_key: str,
+    *,
+    purpose: str,
+    timeout_seconds: float,
+    poll_interval_seconds: float = 0.05,
+) -> dict[str, Any]:
+    """Wait a bounded time, then fail closed without changing Episode seal state."""
+
+    deadline = time.monotonic() + max(timeout_seconds, 0.0)
+    while True:
+        result = trust_require(runtime_dir, assessment_key, purpose=purpose)
+        if result["allowed"] or result["reason"] not in {
+            "assessment-not-found",
+            "assessment-not-fresh",
+        }:
+            return result
+        status = assessment_status(runtime_dir, assessment_key)
+        if status.get("state") not in {None, "pending", "running"}:
+            return result
+        if time.monotonic() >= deadline:
+            return {
+                "schema": "kungfu.trust.assessment/v1",
+                "allowed": False,
+                "reason": "trust-timeout",
+                "assessment_key": assessment_key,
+                "purpose": purpose,
+                "state": status.get("state", "missing"),
+            }
+        time.sleep(max(poll_interval_seconds, 0.001))
 
 
 def compile_fact_query_sql(

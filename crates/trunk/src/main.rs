@@ -8,9 +8,12 @@
 // Failures are named and self-diagnosing (exact URL, expected checksum, the
 // mirror override to set) — the wrong-runtime spirit applied to downloads.
 
+mod doctor;
 mod envs;
+mod help;
 mod launch;
 mod pins;
+mod variant;
 
 use std::env;
 use std::process::exit;
@@ -29,6 +32,8 @@ usage:
   kungfu-trunk env run [--env <name>] [-- <cmd>...]
                                                run a command inside an env (default: python)
   kungfu-trunk prewarm                         pre-fetch the pinned uv + satellite CPython
+  kungfu-trunk doctor [--read <ns> <name>]     read-only runtime inspection via the
+                                               embedding membrane (product build)
   kungfu-trunk --version | --help
 
 envs live under <KF_HOME>/envs; the default env is named 'default'.
@@ -37,15 +42,41 @@ envs live under <KF_HOME>/envs; the default env is named 'default'.
 const DEFAULT_ENV: &str = "default";
 
 fn main() {
+    // KUNGFU_AS_VARIANT asks this process to *be* a runtime variant (e.g. node),
+    // so it is decided before any subcommand interpretation. When the trunk can
+    // own the variant natively (node, without booting CPython) it runs it here and
+    // exits; otherwise it falls through to the normal path, where the Python
+    // variant table still handles it (ADR-0046 stage 3).
+    if let Some(code) = variant::dispatch() {
+        exit(code);
+    }
+
     let args: Vec<String> = env::args().skip(1).collect();
     // Installed as `kungfu`, this binary is the assembled product's front
     // door: the trunk keeps only the subtrees it implements (env, prewarm)
     // and execs the assembled interpreter for everything else, verbatim —
     // argv-transparent per the layering law (ADR-0046 stage 2).
     if launch::invoked_as_kungfu() {
-        let result = match args.first().map(String::as_str) {
+        // Root help renders the unified command surface from the shipped manifest
+        // without waking a satellite (ADR-0046 stage 4). Only the root form is
+        // intercepted — `kungfu <command> --help` stays the command's own help,
+        // routed to the satellite. If the manifest is absent (a dev build), fall
+        // through to the launch path, where the Python CLI prints its own help.
+        let first = args.first().map(String::as_str);
+        if matches!(first, None | Some("--help" | "-h" | "help")) {
+            if let Some(text) = help::render() {
+                print!("{text}");
+                return;
+            }
+        }
+
+        // doctor is owned by the trunk at the front door on purpose: it is the
+        // diagnostic that must run even when the domain runtime is broken, so it
+        // never forwards to the assembled interpreter (ADR-0046 driver 1).
+        let result = match first {
             Some("env") => dispatch_env(&args[1..]),
             Some("prewarm") => envs::prewarm(),
+            Some("doctor") => doctor::run(&args[1..]),
             _ => launch::launch(&args),
         };
         if let Err(msg) = result {
@@ -57,6 +88,7 @@ fn main() {
     let result = match args.first().map(String::as_str) {
         Some("env") => dispatch_env(&args[1..]),
         Some("prewarm") => envs::prewarm(),
+        Some("doctor") => doctor::run(&args[1..]),
         Some("--version" | "-V" | "version") => {
             println!("kungfu-trunk {}", env!("CARGO_PKG_VERSION"));
             Ok(())

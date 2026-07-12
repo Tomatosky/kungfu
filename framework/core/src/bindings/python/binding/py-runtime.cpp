@@ -8,13 +8,12 @@
 #include <pybind11/stl.h>
 
 #include <kungfu/runtime/action_recorder.h>
-#include <kungfu/runtime/cache/profile.h>
-#include <kungfu/runtime/index/session.h>
 #include <kungfu/runtime/io.h>
+#include <kungfu/runtime/live/coordinator.h>
+#include <kungfu/runtime/live/peer.h>
 #include <kungfu/runtime/nanomsg/socket.h>
-#include <kungfu/runtime/practice/apprentice.h>
-#include <kungfu/runtime/practice/master.h>
 #include <kungfu/runtime/schema/schema_compiler.h>
+#include <kungfu/runtime/state_cache/profile.h>
 #include <kungfu/runtime/storage/binding_reflection.h>
 #include <kungfu/runtime/storage/hana_view.h>
 #include <kungfu/runtime/storage/json_edge.h>
@@ -34,12 +33,11 @@
 using namespace kungfu::yijinjing;
 using namespace kungfu::yijinjing::types;
 using namespace kungfu::yijinjing::enums;
-using namespace kungfu::runtime::cache;
+using namespace kungfu::runtime::state_cache;
 using namespace kungfu::yijinjing::data;
-using namespace kungfu::runtime::index;
 using namespace kungfu::runtime::journal;
 using namespace kungfu::runtime::nanomsg;
-using namespace kungfu::runtime::practice;
+using namespace kungfu::runtime::live;
 
 namespace py = pybind11;
 using namespace pybind11::literals;
@@ -361,30 +359,30 @@ public:
   void close() override { PYBIND11_OVERLOAD(void, sink, close); }
 };
 
-class PyMaster : public master {
+class PyCoordinator : public coordinator {
 public:
-  using master::master;
+  using coordinator::coordinator;
 
-  void on_exit() override { PYBIND11_OVERLOAD(void, master, on_exit); }
+  void on_exit() override { PYBIND11_OVERLOAD(void, coordinator, on_exit); }
 
   void on_register(int64_t gen_time, const Register &register_data) override {
-    PYBIND11_OVERLOAD_PURE(void, master, on_register, gen_time, register_data);
+    PYBIND11_OVERLOAD_PURE(void, coordinator, on_register, gen_time, register_data);
   }
 
   bool check_register(int64_t gen_time, const Register &register_data) override {
-    PYBIND11_OVERLOAD_PURE(bool, master, check_register, gen_time, register_data);
+    PYBIND11_OVERLOAD_PURE(bool, coordinator, check_register, gen_time, register_data);
   }
 
   void on_interval_check(int64_t nanotime) override {
-    PYBIND11_OVERLOAD_PURE(void, master, on_interval_check, nanotime);
+    PYBIND11_OVERLOAD_PURE(void, coordinator, on_interval_check, nanotime);
   }
 };
 
-class PyApprentice : public apprentice {
+class PyPeer : public peer {
 public:
-  using apprentice::apprentice;
+  using peer::peer;
 
-  void on_exit() override { PYBIND11_OVERLOAD_PURE(void, apprentice, on_exit); }
+  void on_exit() override { PYBIND11_OVERLOAD_PURE(void, peer, on_exit); }
 };
 
 void bind(pybind11::module &&m) {
@@ -1224,8 +1222,11 @@ void bind(pybind11::module &&m) {
       .def("__rshift__", &assemble::operator>>);
 
   py::class_<io_device, kungfu::runtime::io_device_ptr>(m, "io_device")
-      .def(py::init<location_ptr, bool, bool>(), py::arg("home"), py::arg("low_latency") = false,
-           py::arg("lazy") = true)
+      .def(py::init([](location_ptr home, bool low_latency, bool lazy) {
+             return std::make_shared<io_device>(std::move(home), low_latency,
+                                                kungfu::runtime::io_mapping_policy::from_legacy_lazy(lazy));
+           }),
+           py::arg("home"), py::arg("low_latency") = false, py::arg("lazy") = true)
       .def_property_readonly("publisher", &io_device::get_publisher)
       .def_property_readonly("bus", &io_device::get_bus)
       .def_property_readonly("observer", &io_device::get_observer)
@@ -1237,28 +1238,12 @@ void bind(pybind11::module &&m) {
       .def("open_reader_to_subscribe", &io_device::open_reader_to_subscribe)
       .def("open_writer", &io_device::open_writer);
 
-  py::class_<kungfu::runtime::io_device_master, io_device, io_device_master_ptr>(m, "kungfu::runtime::io_device_master")
+  py::class_<kungfu::runtime::io_device_coordinator, io_device, io_device_coordinator_ptr>(
+      m, "kungfu::runtime::io_device_coordinator")
       .def(py::init<location_ptr, bool>(), py::arg("home"), py::arg("low_latency"));
 
-  py::class_<kungfu::runtime::io_device_client, io_device, io_device_client_ptr>(m, "kungfu::runtime::io_device_client")
+  py::class_<kungfu::runtime::io_device_peer, io_device, io_device_peer_ptr>(m, "kungfu::runtime::io_device_peer")
       .def(py::init<location_ptr, bool>(), py::arg("home"), py::arg("low_latency"));
-
-  py::class_<kungfu::runtime::io_device_console, io_device, io_device_console_ptr>(m,
-                                                                                   "kungfu::runtime::io_device_console")
-      .def(py::init<location_ptr, uint32_t, uint32_t>(), py::arg("home"), py::arg("width"), py::arg("height"))
-      .def("trace", &kungfu::runtime::io_device_console::trace)
-      .def("show", &kungfu::runtime::io_device_console::show);
-
-  py::class_<session_finder, std::shared_ptr<session_finder>>(m, "session_finder")
-      .def(py::init<kungfu::runtime::io_device_ptr>())
-      .def("find_sessions", &session_finder::find_sessions, py::arg("from") = 0, py::arg("to") = INT64_MAX)
-      .def("find_sessions_for", &session_finder::find_sessions_for, py::arg("source"), py::arg("from") = 0,
-           py::arg("to") = INT64_MAX);
-
-  py::class_<session_builder, session_finder, std::shared_ptr<session_builder>>(m, "session_builder")
-      .def(py::init<kungfu::runtime::io_device_ptr>())
-      .def("rebuild_index_db", &session_builder::rebuild_index_db)
-      .def("update_index_db", &session_builder::update_index_db);
 
   auto profile_class = py::class_<profile, std::shared_ptr<profile>>(m, "profile");
   profile_class.def(py::init<const locator_ptr &>());
@@ -1270,49 +1255,49 @@ void bind(pybind11::module &&m) {
     profile_class.def("remove", &profile::remove<DataType>);
   });
 
-  py::class_<master, PyMaster>(m, "master")
+  py::class_<coordinator, PyCoordinator>(m, "coordinator")
       .def(py::init<location_ptr, bool>(), py::arg("home"), py::arg("low_latency") = false)
-      .def_property_readonly("io_device", &master::get_io_device)
-      .def_property_readonly("home", &master::get_home)
-      .def_property_readonly("live", &master::is_live)
-      .def("get_begin_time", &master::get_begin_time)
-      .def("get_end_time", &master::get_end_time)
-      .def("get_home_uid", &master::get_home_uid)
-      .def("get_home_uname", &master::get_home_uname)
-      .def("now", &master::now)
-      .def("run", &master::run, py::arg("step_limit") = 0)
-      .def("pre_setup", &master::pre_setup)
-      .def("setup", &master::setup)
-      .def("step", &master::step)
-      .def("is_live", &master::is_live)
-      .def("on_exit", &master::on_exit)
-      .def("on_register", &master::on_register)
-      .def("check_register", &master::check_register)
-      .def("on_interval_check", &master::on_interval_check)
-      .def("deregister_app", &master::deregister_app);
+      .def_property_readonly("io_device", &coordinator::get_io_device)
+      .def_property_readonly("home", &coordinator::get_home)
+      .def_property_readonly("live", &coordinator::is_live)
+      .def("get_begin_time", &coordinator::get_begin_time)
+      .def("get_end_time", &coordinator::get_end_time)
+      .def("get_home_uid", &coordinator::get_home_uid)
+      .def("get_home_uname", &coordinator::get_home_uname)
+      .def("now", &coordinator::now)
+      .def("run", &coordinator::run, py::arg("step_limit") = 0)
+      .def("pre_setup", &coordinator::pre_setup)
+      .def("setup", &coordinator::setup)
+      .def("step", &coordinator::step)
+      .def("is_live", &coordinator::is_live)
+      .def("on_exit", &coordinator::on_exit)
+      .def("on_register", &coordinator::on_register)
+      .def("check_register", &coordinator::check_register)
+      .def("on_interval_check", &coordinator::on_interval_check)
+      .def("deregister_peer", &coordinator::deregister_peer);
 
-  py::class_<apprentice, PyApprentice, apprentice_ptr>(m, "apprentice")
+  py::class_<peer, PyPeer, peer_ptr>(m, "peer")
       .def(py::init<location_ptr, bool, std::string>(), py::arg("home"), py::arg("low_latency") = false,
            py::arg("arguments") = "{}")
-      .def_property_readonly("io_device", &apprentice::get_io_device)
-      .def_property_readonly("home", &apprentice::get_home)
-      .def_property_readonly("live", &apprentice::is_live)
-      .def("set_begin_time", &apprentice::set_begin_time)
-      .def("set_end_time", &apprentice::set_end_time)
-      .def("get_begin_time", &apprentice::get_begin_time)
-      .def("get_end_time", &apprentice::get_end_time)
-      .def("get_location", &apprentice::get_location)
-      .def("get_home_uid", &apprentice::get_home_uid)
-      .def("get_home_uname", &apprentice::get_home_uname)
-      .def("now", &apprentice::now)
-      .def("run", &apprentice::run, py::arg("step_limit") = 0)
-      .def("pre_setup", &apprentice::pre_setup)
-      .def("setup", &apprentice::setup)
-      .def("step", &apprentice::step)
-      .def("is_live", &apprentice::is_live)
-      .def("is_started", &apprentice::is_started)
-      .def("has_writer", &apprentice::has_writer)
-      .def("get_writer", &apprentice::get_writer)
-      .def("on_exit", &apprentice::on_exit);
+      .def_property_readonly("io_device", &peer::get_io_device)
+      .def_property_readonly("home", &peer::get_home)
+      .def_property_readonly("live", &peer::is_live)
+      .def("set_begin_time", &peer::set_begin_time)
+      .def("set_end_time", &peer::set_end_time)
+      .def("get_begin_time", &peer::get_begin_time)
+      .def("get_end_time", &peer::get_end_time)
+      .def("get_location", &peer::get_location)
+      .def("get_home_uid", &peer::get_home_uid)
+      .def("get_home_uname", &peer::get_home_uname)
+      .def("now", &peer::now)
+      .def("run", &peer::run, py::arg("step_limit") = 0)
+      .def("pre_setup", &peer::pre_setup)
+      .def("setup", &peer::setup)
+      .def("step", &peer::step)
+      .def("is_live", &peer::is_live)
+      .def("is_started", &peer::is_started)
+      .def("has_writer", &peer::has_writer)
+      .def("get_writer", &peer::get_writer)
+      .def("on_exit", &peer::on_exit);
 }
 } // namespace kungfu::runtime

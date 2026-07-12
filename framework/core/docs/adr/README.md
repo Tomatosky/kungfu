@@ -19,7 +19,7 @@ A record's **Status** says where it stands:
 
 | ADR | Status | Title |
 |---|---|---|
-| [0001](ADR-0001-yijinjing-publish-barrier.md) | accepted | yijinjing journal publish protocol → `atomic_ref` release/acquire |
+| [0001](ADR-0001-yijinjing-publish-barrier.md) | accepted | yijinjing journal frame/page publish protocol → `atomic_ref` release/acquire |
 | [0002](ADR-0002-yijinjing-schema-runtime-layout.md) | superseded | historical FlatBuffers-over-POD runtime-schema decision; schema scope replaced by ADR-0047 |
 | [0003](ADR-0003-control-axis-python-coroutine-integration.md) | proposed | control axis — the Python coroutine integration layer (continue / redesign / drop) |
 | [0004](ADR-0004-control-axis-node-watcher-snapshot-model.md) | proposed | control axis — the Node watcher snapshot model |
@@ -53,7 +53,7 @@ A record's **Status** says where it stands:
 | [0033](ADR-0033-episode-causal-segment-object.md) | accepted | Episode is the first-class causal segment object |
 | [0034](ADR-0034-yijinjing-episode-manifest-journal.md) | accepted | Episode manifest records live in the yijinjing journal format |
 | [0035](ADR-0035-workspace-local-kungfu-data-home.md) | accepted | Workspace-local `.kungfu` is the default fact ledger home |
-| [0036](ADR-0036-supervisor-and-workspace-master-topology.md) | accepted | Per-user supervisor manages per-data-root masters |
+| [0036](ADR-0036-supervisor-and-workspace-coordinator-topology.md) | superseded by 0057 | Established the per-user supervisor and per-data-root coordinator topology |
 | [0037](ADR-0037-storage-records-hana-core-kernel-metadata.md) | accepted | ADR-0018 storage-service records are Hana-core kernel metadata; JSON is an edge projection, not the contract |
 | [0038](ADR-0038-location-namespace-terminology.md) | accepted | Location middle identity segment is namespace |
 | [0039](ADR-0039-unified-view-interface-encapsulates-flatbuffers.md) | proposed | a single kungfu view interface is the sole FlatBuffers access point; raw FB is not called elsewhere |
@@ -69,8 +69,17 @@ A record's **Status** says where it stands:
 | [0049](ADR-0049-layer-complete-products-and-domain-neutral-core.md) | accepted; staged | every product layer is independently complete and the core remains domain-neutral |
 | [0050](ADR-0050-assembled-runtime-stdlib-pruning-policy.md) | accepted | stdlib pruning policy for the assembled runtime — family-level subtraction, declarative fail-closed manifest |
 | [0051](ADR-0051-kfd-contract-world-fact-admission-and-trust.md) | accepted; staged | KFD contract worlds govern fact admission, historical interpretation, and trust assessment |
-| [0052](ADR-0052-kfd2-assessment-lifecycle-and-executors.md) | accepted; staged | KFD-2 assessments are claim-triggered jobs coordinated by the workspace master |
+| [0052](ADR-0052-kfd2-assessment-lifecycle-and-executors.md) | accepted; staged | KFD-2 assessments are claim-triggered jobs coordinated by the workspace coordinator |
 | [0053](ADR-0053-self-contained-episode-bundles.md) | proposed | Episode bundles carry their owned bytes, and import materializes them |
+| [0054](ADR-0054-libwasm-production-runtime-and-release.md) | accepted | libwasm is a governed product runtime, not a copied spike library |
+| [0055](ADR-0055-retire-journal-session-and-separate-runtime-state-from-projection.md) | accepted | retire journal Session; separate live state from schema projections |
+| [0056](ADR-0056-retire-legacy-journal-cli-lifecycle-tools.md) | accepted | journal lifecycle management belongs to Storage and Episode boundaries |
+| [0057](ADR-0057-domain-neutral-live-runtime-terminology.md) | accepted | live runtime internals use reactor, peer, and coordinator; the public command is `kungfu runtime` |
+| [0058](ADR-0058-yijinjing-explicit-mapping-policies.md) | accepted | yijinjing mmap behavior uses explicit access, creation, residency, and durability policies |
+| [0059](ADR-0059-mission-control-mission-go-responsibility-model.md) | accepted | Mission Control composes Mission and Go responsibility over runtime facts; Atlas starts as a bridged authority |
+| [0060](ADR-0060-desktop-workspace-selection-and-lazy-data-home.md) | proposed | Desktop and CLI select Home or a project workspace and create its data home only on qualified write intent |
+| [0061](ADR-0061-agent-mediated-guidance-is-a-first-class-product-interface.md) | proposed | Agent-mediated guidance is a first-class interface over shared advice, preview, authorization, action, and receipt contracts |
+| [0062](ADR-0062-journal-container-epoch-and-offline-conversion.md) | accepted; not yet implemented | the journal container epoch is derived from its layout; cross-epoch replay is deferred offline conversion, not an online adapter |
 
 ## Reading by theme
 
@@ -79,6 +88,13 @@ A record's **Status** says where it stands:
   (the closed POD layout as a compatibility invariant), and
   [0047](ADR-0047-authoritative-facts-hana-pod-or-flatbuffers.md) (one schema
   owner per structured fact: Hana POD closed set or FlatBuffers open layer).
+  [0058](ADR-0058-yijinjing-explicit-mapping-policies.md) separates mmap
+  authority from residency and durability requests without changing the wire
+  or POD layouts.
+  [0062](ADR-0062-journal-container-epoch-and-offline-conversion.md) derives the
+  journal container epoch from the page/frame header layout itself, so an
+  unversioned layout change cannot ship, and keeps cross-epoch replay off the hot
+  path as deferred offline conversion.
   [0002](ADR-0002-yijinjing-schema-runtime-layout.md) is retained as the
   superseded historical decision that preceded this split.
 - **Control / event axis** — [0003](ADR-0003-control-axis-python-coroutine-integration.md)
@@ -154,7 +170,7 @@ A record's **Status** says where it stands:
   [0035](ADR-0035-workspace-local-kungfu-data-home.md) (workspace-local
   `.kungfu/` as the default Episode/fact ledger home, with `~/.kungfu-config`
   as the user config home and `KF_HOME` retained as machine fallback), and
-  [0036](ADR-0036-supervisor-and-workspace-master-topology.md) (a per-user
+  [0036](ADR-0036-supervisor-and-workspace-coordinator-topology.md) (a per-user
   supervisor routes CLI/GUI/TUI entrypoints to per-data-root masters while
   storage remains daemonless), and
   [0037](ADR-0037-storage-records-hana-core-kernel-metadata.md) (the ADR-0018
@@ -174,8 +190,23 @@ A record's **Status** says where it stands:
   declaration, replayable fact-admission, historical interpretation, and KFD-2
   trust-assessment path),
   [0052](ADR-0052-kfd2-assessment-lifecycle-and-executors.md) (claim-triggered
-  assessment jobs, workspace-master coordination, Assessment Episodes, and
+  assessment jobs, workspace-coordinator coordination, Assessment Episodes, and
   equivalent process/thread executors), and
+  [0059](ADR-0059-mission-control-mission-go-responsibility-model.md) (the
+  Mission/Go responsibility domain, Atlas bridge authority, and Cost/State/Proof
+  profile composition),
+  [0060](ADR-0060-desktop-workspace-selection-and-lazy-data-home.md) (Desktop
+  Home/project workspace selection, global recent-workspace state,
+  first-run Agent Work Inbox, and write-intent-bound data-home initialization),
+  [0061](ADR-0061-agent-mediated-guidance-is-a-first-class-product-interface.md)
+  (the dual-first inspect/advice/preview/authorize/action/receipt protocol), and
+  [0055](ADR-0055-retire-journal-session-and-separate-runtime-state-from-projection.md)
+  (Episode replaces the retired Session replay anchor), and
+  [0056](ADR-0056-retire-legacy-journal-cli-lifecycle-tools.md) (journal
+  lifecycle management belongs to Storage/Episode rather than loose-file CLI
+  archive and clean commands),
+  [0058](ADR-0058-yijinjing-explicit-mapping-policies.md) (explicit mapping and
+  page-open policies, with coordinator-only pre-creation), and
   [0042](ADR-0042-episode-atomic-safety-and-qualification.md) (Episode atomic
   safety as evidence-bounded capability, graceful degradation, monotonic repair,
   fault containment, and qualification under scale).
@@ -183,7 +214,10 @@ A record's **Status** says where it stands:
   (what installed launcher binaries bake in forever) and
   [0046](ADR-0046-rust-host-trunk-and-assembled-runtime.md) (the target host
   topology: Rust trunk over satellite runtimes, the CLI layering law, and the
-  assembled exact-runtime distribution contract that retires the freezer).
+  assembled exact-runtime distribution contract that retires the freezer), and
+  [0054](ADR-0054-libwasm-production-runtime-and-release.md) (the governed
+  dual-engine WASM runtime, explicit capability grant, fact receipts, and
+  release artifact qualification contract).
 - **Cross-cutting principle** — [0009](ADR-0009-load-bearing-self-bootstrap.md)
   (load-bearing self-bootstrap), which also names the general law that
   [`docs/architecture.md` § The build dogfoods the SDK](../../../../docs/architecture.md)
@@ -207,6 +241,10 @@ A record's **Status** says where it stands:
 - [`docs/episode-object-model.md`](../../../../docs/episode-object-model.md) —
   the Episode object model, causal closure invariant, and storage migration
   direction.
+- [`docs/journal-page-sizing-and-episode-reclamation.md`](../../../../docs/journal-page-sizing-and-episode-reclamation.md) —
+  the design judgment constraining the future Episode-aware physical layout:
+  page-size variation only for max-frame, packing over per-Episode pages, and
+  tombstone-then-cold-path GC (ADR-0033/0034, ADR-0055/0056).
 - [`docs/episode-atomicity-qualification.md`](../../../../docs/episode-atomicity-qualification.md) —
   the evolving semantic oracle, fault matrix, scale tiers, metrics, and Episode
   Trust Report design required by ADR-0042.
@@ -216,7 +254,7 @@ A record's **Status** says where it stands:
   how product and user facts enter a KFD-declared contract world and become
   eligible for historical query and trust assessment.
 - [`docs/kfd2-trust-assessment.md`](../../../../docs/kfd2-trust-assessment.md) —
-  when KFD-2 runs, how the workspace master coordinates it, and how Desktop and
+  when KFD-2 runs, how the workspace coordinator coordinates it, and how Desktop and
   embedded executors share one contract.
 - [`docs/product-layers.md`](../../../../docs/product-layers.md) — independent
   adoption products and their qualification boundaries.

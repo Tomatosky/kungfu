@@ -26,15 +26,18 @@
 #include <kungfu/runtime/action_recorder.h>
 #include <kungfu/runtime/facts/fact_admission.h>
 #include <kungfu/runtime/query/fact_query.h>
+#include <kungfu/runtime/query/saved_query_catalog.h>
 #include <kungfu/runtime/storage/episode_manifest_projection.h>
 #include <kungfu/runtime/storage/manifest_catalog_projection.h>
 #include <kungfu/runtime/storage/source_registry_projection.h>
+#include <kungfu/runtime/trust/assessment_runtime.h>
 #include <kungfu/yijinjing/storage/content_hash.h>
 #include <kungfu/yijinjing/storage/content_store.h>
 #include <kungfu/yijinjing/storage/episode_manifest.h>
 #include <kungfu/yijinjing/storage/manifest_catalog.h>
 #include <kungfu/yijinjing/storage/source_registry.h>
 #include <kungfu/yijinjing/storage/sync_root.h>
+#include <kungfu/yijinjing/time.h>
 #include <rocksdb/db.h>
 #include <rocksdb/iterator.h>
 #include <sqlite3.h>
@@ -52,6 +55,8 @@ inline constexpr const char *PAYLOAD_STATE_REDACTED = "redacted";
 inline constexpr const char *PAYLOAD_STATE_ABSENT = "absent";
 inline constexpr const char *CONTENT_TYPE_JSON = "application/json";
 
+nlohmann::json content_result_json(const yy_storage::content_store_result &result);
+
 template <size_t N> std::string fixed_string(const kungfu::array<char, N> &value) {
   size_t length = 0;
   while (length < N && value.value[length] != '\0') {
@@ -61,9 +66,7 @@ template <size_t N> std::string fixed_string(const kungfu::array<char, N> &value
 }
 
 template <size_t N> void assign_fixed(kungfu::array<char, N> &target, const std::string &value) {
-  std::fill(std::begin(target.value), std::end(target.value), '\0');
-  const auto length = std::min(value.size(), N - 1);
-  std::copy_n(value.data(), length, target.value);
+  kungfu::copy_string(target, value.c_str());
 }
 
 // ADR-0053: frame bytes cross the JSON edge as base64. The codec lives here
@@ -199,6 +202,66 @@ std::string text_or(const nlohmann::json &object, const std::string &field, cons
     return fallback;
   }
   return value.dump(-1, ' ', false);
+}
+
+std::string required_text(const nlohmann::json &object, const std::string &field) {
+  const auto value = text_or(object, field);
+  if (value.empty()) {
+    throw std::invalid_argument(field + " is required");
+  }
+  return value;
+}
+
+nlohmann::json object_or_empty(const nlohmann::json &object, const std::string &field);
+nlohmann::json array_or_empty(const nlohmann::json &object, const std::string &field);
+
+bool managed_json_type_matches(const nlohmann::json &value, const std::string &type) {
+  if (type == "object")
+    return value.is_object();
+  if (type == "array")
+    return value.is_array();
+  if (type == "string")
+    return value.is_string();
+  if (type == "boolean")
+    return value.is_boolean();
+  if (type == "integer")
+    return value.is_number_integer() || value.is_number_unsigned();
+  if (type == "number")
+    return value.is_number();
+  if (type == "null")
+    return value.is_null();
+  return false;
+}
+
+void validate_managed_json_value(const nlohmann::json &schema, const nlohmann::json &value, const std::string &path) {
+  const auto type = text_or(schema, "type");
+  if (type.empty() || !managed_json_type_matches(value, type)) {
+    throw std::invalid_argument("fact payload schema validation failed at " + path + ": expected " +
+                                (type.empty() ? "declared type" : type));
+  }
+  if (type == "object") {
+    const auto properties = object_or_empty(schema, "properties");
+    for (const auto &required : array_or_empty(schema, "required")) {
+      if (!required.is_string() || !value.contains(required.get<std::string>())) {
+        throw std::invalid_argument("fact payload schema validation failed at " + path + ": missing required " +
+                                    (required.is_string() ? required.get<std::string>() : std::string("field")));
+      }
+    }
+    for (auto iter = value.begin(); iter != value.end(); ++iter) {
+      if (!properties.contains(iter.key())) {
+        if (schema.value("additionalProperties", true) == false) {
+          throw std::invalid_argument("fact payload schema validation failed at " + path + ": unexpected " +
+                                      iter.key());
+        }
+        continue;
+      }
+      validate_managed_json_value(properties.at(iter.key()), iter.value(), path + "." + iter.key());
+    }
+  } else if (type == "array" && schema.contains("items") && schema.at("items").is_object()) {
+    for (size_t index = 0; index < value.size(); ++index) {
+      validate_managed_json_value(schema.at("items"), value.at(index), path + "[" + std::to_string(index) + "]");
+    }
+  }
 }
 
 bool bool_or(const nlohmann::json &object, const std::string &field, bool fallback) {
@@ -984,7 +1047,7 @@ std::unique_ptr<storage_provider> make_provider(const std::string &provider_name
 // reintroduce the open/close races this cache removes, and a background
 // eviction thread is out of scope by design. The engine's own lock keeps
 // rejecting a second process on the same database path — holding the write
-// handle for the process lifetime is that decision made visible, and hero's
+// handle for the process lifetime is that decision made visible, and reactor's
 // location-metadata engine lives under layout::MAP, a disjoint path from
 // this provider's storage/rocksdb, so no path ever has two in-process owners.
 class provider_cache {
@@ -1115,7 +1178,6 @@ storage_layout_result workspace_episode_layout_typed(const storage_layout_reques
   result.provider_cache = provider_cache::instance().stats();
   result.paths = {home.string(),
                   runtime.string(),
-                  (home / "archive").string(),
                   (home / "dataset").string(),
                   (home / "inbox").string(),
                   journal_dir.string(),
@@ -1129,7 +1191,7 @@ storage_layout_result workspace_episode_layout_typed(const storage_layout_reques
                   manifest_catalog_projection(runtime.string()).sqlite_path(),
                   episode_manifest_dir.string(),
                   (episode_manifest_dir / "*.journal").string(),
-                  (runtime / "master").string(),
+                  (runtime / "coordinator").string(),
                   (runtime / "remotes" / "<source-id>" / "runtime").string(),
                   (runtime / "atlas" / "store").string()};
   result.episodes = {"yijinjing-journal",
@@ -1174,7 +1236,6 @@ nlohmann::json workspace_episode_layout_json(const storage_layout_result &result
           {"paths",
            {{"data_home", result.paths.data_home},
             {"runtime_dir", result.paths.runtime_dir},
-            {"archive_dir", result.paths.archive_dir},
             {"dataset_dir", result.paths.dataset_dir},
             {"inbox_dir", result.paths.inbox_dir},
             {"journal_dir", result.paths.journal_dir},
@@ -1188,7 +1249,7 @@ nlohmann::json workspace_episode_layout_json(const storage_layout_result &result
             {"manifest_catalog_projection", result.paths.manifest_catalog_projection},
             {"episode_manifest_journal_dir", result.paths.episode_manifest_journal_dir},
             {"episode_manifest_journal", result.paths.episode_manifest_journal},
-            {"master_state", result.paths.master_state},
+            {"coordinator_state", result.paths.coordinator_state},
             {"remote_mirrors", result.paths.remote_mirrors},
             {"atlas_store", result.paths.atlas_store}}},
           {"episodes",
@@ -2219,22 +2280,33 @@ void collect_episode_bundle_material(const storage_service_options &options, sto
   std::unordered_set<std::string> exported_hashes;
   for (const auto index : bundle.manifest.ref_indices) {
     const auto &claim = std::get<yjj::types::EpisodeRefAttached>(bundle.manifest.records.at(index).body);
-    if (claim.ref_kind != yy_enums::EpisodeRefKind::Payload) {
+    if (claim.ref_kind != yy_enums::EpisodeRefKind::Payload && claim.ref_kind != yy_enums::EpisodeRefKind::Schema) {
       continue;
     }
+    const auto content_namespace =
+        claim.ref_kind == yy_enums::EpisodeRefKind::Schema ? std::string("schemas") : std::string("payloads");
     const auto ref_hash = fixed_string(claim.ref_hash);
-    if (ref_hash.empty() || !exported_hashes.insert(ref_hash).second) {
+    const auto content_key = content_namespace + "\n" + ref_hash;
+    if (ref_hash.empty() || !exported_hashes.insert(content_key).second) {
       continue;
     }
-    const auto separator = ref_hash.find(':');
-    const auto digest = separator == std::string::npos ? ref_hash : ref_hash.substr(separator + 1);
-    if (digest.empty() || !provider->payload_exists(digest)) {
+    yy_storage::content_hash parsed_hash{};
+    try {
+      parsed_hash = ref_hash.find(':') == std::string::npos ? yy_storage::make_content_hash(ref_hash)
+                                                            : yy_storage::parse_content_hash(ref_hash);
+    } catch (const std::exception &) {
+      ++bundle.material_missing_ref_payload_count;
+      continue;
+    }
+    const auto stored = provider->content_store().get(content_namespace, parsed_hash);
+    if (!stored.ok()) {
       ++bundle.material_missing_ref_payload_count;
       continue;
     }
     episode_ref_payload_material material{};
+    material.content_namespace = content_namespace;
     material.ref_hash = ref_hash;
-    material.bytes = provider->read_payload(digest);
+    material.bytes = stored.bytes;
     material.byte_len = material.bytes.size();
     bundle.ref_payloads.push_back(std::move(material));
   }
@@ -2577,6 +2649,7 @@ storage_episode_bundle_result parse_storage_episode_bundle(const nlohmann::json 
   }
   for (const auto &value : array_or_empty(bundle, "ref_payloads")) {
     episode_ref_payload_material payload{};
+    payload.content_namespace = text_or(value, "content_namespace", "payloads");
     payload.ref_hash = text_or(value, "ref_hash");
     payload.bytes = base64_decode(text_or(value, "bytes"));
     payload.byte_len = payload.bytes.size();
@@ -2584,6 +2657,23 @@ storage_episode_bundle_result parse_storage_episode_bundle(const nlohmann::json 
       throw std::invalid_argument("episode_bundle_ref_payload_malformed");
     }
     parsed.ref_payloads.push_back(std::move(payload));
+  }
+  std::unordered_map<std::string, std::string> expected_ref_namespaces;
+  for (const auto &record : array_or_empty(bundle, "records")) {
+    if (text_or(record, "record_kind") != "episode_ref_attached")
+      continue;
+    const auto ref_kind = text_or(record, "ref_kind");
+    if (ref_kind == "schema") {
+      expected_ref_namespaces[text_or(record, "ref_hash")] = "schemas";
+    } else if (ref_kind == "payload") {
+      expected_ref_namespaces[text_or(record, "ref_hash")] = "payloads";
+    }
+  }
+  for (const auto &payload : parsed.ref_payloads) {
+    const auto expected = expected_ref_namespaces.find(payload.ref_hash);
+    if (expected == expected_ref_namespaces.end() || expected->second != payload.content_namespace) {
+      throw std::invalid_argument("episode_bundle_ref_payload_namespace_mismatch");
+    }
   }
   const auto material = object_or_empty(bundle, "material");
   parsed.material_missing_frame_count = uint64_or(material, "missing_frame_count");
@@ -2834,15 +2924,30 @@ nlohmann::json materialize_episode_bundle_material(const storage_service_options
       rejected.push_back({{"kind", "ref_payload"}, {"reason", error}, {"ref_hash", payload.ref_hash}});
       continue;
     }
-    if (provider->payload_exists(digest)) {
-      skipped.push_back({{"kind", "ref_payload"}, {"reason", "already_present"}, {"ref_hash", payload.ref_hash}});
+    const auto expected = yy_storage::content_hash{algorithm, digest};
+    if (provider->content_store().has(payload.content_namespace, expected)) {
+      skipped.push_back({{"kind", "ref_payload"},
+                         {"content_namespace", payload.content_namespace},
+                         {"reason", "already_present"},
+                         {"ref_hash", payload.ref_hash}});
       continue;
     }
     if (write) {
-      provider->write_payload(digest, payload.bytes);
-      applied.push_back({{"kind", "ref_payload"}, {"ref_hash", payload.ref_hash}});
+      const auto stored = provider->content_store().put_if_absent(payload.content_namespace, payload.bytes, expected);
+      if (!stored.ok()) {
+        rejected.push_back({{"kind", "ref_payload"},
+                            {"content_namespace", payload.content_namespace},
+                            {"reason", stored.message},
+                            {"ref_hash", payload.ref_hash}});
+        continue;
+      }
+      applied.push_back(
+          {{"kind", "ref_payload"}, {"content_namespace", payload.content_namespace}, {"ref_hash", payload.ref_hash}});
     } else {
-      applied.push_back({{"kind", "ref_payload"}, {"ref_hash", payload.ref_hash}, {"dry_run", true}});
+      applied.push_back({{"kind", "ref_payload"},
+                         {"content_namespace", payload.content_namespace},
+                         {"ref_hash", payload.ref_hash},
+                         {"dry_run", true}});
     }
   }
 
@@ -3554,6 +3659,10 @@ nlohmann::json episode_import_bundle_impl(const storage_service_options &options
   if (!options.dry_run) {
     return episode_import_bundle_execute_impl(options);
   }
+  // Dry-run is the import gate, not a shape-only preview. Decode the complete
+  // typed bundle so frame headers, byte lengths, and ref namespaces are
+  // checked before any multi-Episode caller is allowed to start writing.
+  const auto parsed = parse_storage_episode_bundle(options.bundle);
   const auto manifest = object_or_empty(options.bundle, "manifest");
   if (manifest.empty()) {
     throw std::invalid_argument("episode_bundle_manifest_missing");
@@ -3570,7 +3679,7 @@ nlohmann::json episode_import_bundle_impl(const storage_service_options &options
       {"ok", true},
       {"schema", "kungfu.storage.episode-import/v1"},
       {"scope", "episode"},
-      {"episode_id", uint64_or(options.bundle, "episode_id", uint64_or(manifest, "episode_id"))},
+      {"episode_id", parsed.episode_id},
       {"dry_run", true},
       {"accepted", false},
       {"status", "validated"},
@@ -4596,11 +4705,16 @@ public:
       if (engine != "authority" && engine != "sqlite") {
         throw std::invalid_argument("query engine must be authority or sqlite");
       }
+      const auto authority_engine =
+          definition.object == "fact-state" ? "fact-authority-scan/v1" : "episode-authority-scan/v1";
+      if (definition.object == "fact-state" && engine == "sqlite") {
+        throw std::invalid_argument("object=fact-state currently supports only the authority engine");
+      }
       return {{"schema", query::QUERY_EXPLAIN_SCHEMA_V1},
               {"definition", query::query_definition_json(definition)},
               {"logical_plan", query::logical_plan_json(plan)},
               {"physical",
-               {{"engine", engine == "authority" ? "episode-authority-scan/v1" : "episode-sqlite-projection/v1"},
+               {{"engine", engine == "authority" ? authority_engine : "episode-sqlite-projection/v1"},
                 {"bounded", true},
                 {"limit", definition.limit},
                 {"cost",
@@ -4616,9 +4730,15 @@ public:
     const auto plan = query::plan_query(definition);
     const auto engine = text_or(options.operation_options, "engine", "authority");
     if (engine == "authority") {
+      if (definition.object == "fact-state") {
+        return query::query_result_json(query::run_fact_state_authority_scan(options.runtime_dir, plan));
+      }
       return query::query_result_json(query::run_episode_authority_scan(options.runtime_dir, plan));
     }
     if (engine == "sqlite") {
+      if (definition.object != "episodes") {
+        throw std::invalid_argument("object=fact-state currently supports only the authority engine");
+      }
       return query::query_result_json(query::run_episode_sqlite_projection(options.runtime_dir, plan));
     }
     throw std::invalid_argument("query engine must be authority or sqlite");
@@ -4626,11 +4746,46 @@ public:
 
   [[nodiscard]] nlohmann::json fact_changelog(const storage_service_options &options) const {
     const auto definition = query::parse_query_definition(options.query_definition);
+    if (definition.object != "episodes") {
+      throw std::invalid_argument("fact-state changelog is not implemented; request a proof snapshot");
+    }
     const auto plan = query::plan_query(definition);
     const auto resume_token = object_or_empty(options.operation_options, "resume_token");
     const auto max_messages = uint64_or(options.operation_options, "max_messages", 100);
     return query::changelog_page_json(
         query::run_episode_changelog(options.runtime_dir, plan, resume_token, max_messages));
+  }
+
+  [[nodiscard]] nlohmann::json saved_query_catalog(const storage_service_options &options) const {
+    const auto action = text_or(options.operation_options, "action", "list");
+    if (action == "contract") {
+      return query::saved_query_catalog_contract();
+    }
+    if (action == "put") {
+      return query::saved_query_put(options.runtime_dir, object_or_empty(options.operation_options, "saved_view"),
+                                    text_or(options.operation_options, "query_id"),
+                                    uint64_or(options.operation_options, "expected_revision"),
+                                    int64_or(options.operation_options, "system_time"));
+    }
+    if (action == "get") {
+      return query::saved_query_get(options.runtime_dir, text_or(options.operation_options, "query_id"),
+                                    bool_or(options.operation_options, "include_deleted", false));
+    }
+    if (action == "list") {
+      return query::saved_query_list(options.runtime_dir, bool_or(options.operation_options, "include_deleted", false));
+    }
+    if (action == "history") {
+      return query::saved_query_history(options.runtime_dir, text_or(options.operation_options, "query_id"));
+    }
+    if (action == "delete") {
+      return query::saved_query_delete(options.runtime_dir, text_or(options.operation_options, "query_id"),
+                                       uint64_or(options.operation_options, "expected_revision"),
+                                       int64_or(options.operation_options, "system_time"));
+    }
+    if (action == "rebuild") {
+      return query::saved_query_rebuild(options.runtime_dir);
+    }
+    throw std::invalid_argument("unsupported saved-query catalog action: " + action);
   }
 
   [[nodiscard]] nlohmann::json fact_contract(const storage_service_options &options) const {
@@ -4656,6 +4811,380 @@ public:
   [[nodiscard]] nlohmann::json fact_state(const storage_service_options &options) const {
     return facts::query_fact_state(options.runtime_dir, int64_or(options.operation_options, "cut_system_time"),
                                    text_or(options.operation_options, "subject_key"));
+  }
+
+  [[nodiscard]] nlohmann::json fact_library_contract(const storage_service_options &options) const {
+    (void)options;
+    return {
+        {"schema", "kungfu.facts.library-contract/v1"},
+        {"owner", "libkungfu"},
+        {"authority", "yijinjing-journal"},
+        {"content_store", {{"schemas", "schemas"}, {"payloads", "payloads"}}},
+        {"schema_validation",
+         {{"profile", "json-schema-object-subset/v1"},
+          {"keywords", nlohmann::json::array({"type", "properties", "required", "items", "additionalProperties"})}}},
+        {"semantic_profile",
+         {{"id", "declared-facts-v1"},
+          {"identity_policy", "subject-key/v1"},
+          {"valid_time_policy", "explicit-range/v1"},
+          {"system_time_policy", "journal-event-time/v1"},
+          {"causal_time_policy", "event-parent/v1"},
+          {"reducer_policy", "latest-admitted-per-source/v1"},
+          {"correction_policy", "explicit-target/v1"},
+          {"retraction_policy", "explicit-target/v1"},
+          {"conflict_policy", "preserve-source-claims/v1"},
+          {"redaction_policy", "hash-and-ref/v1"},
+          {"compatibility_policy", "exact-schema-root/v1"}}},
+        {"operations", nlohmann::json::array({"type-create", "type-list", "material-put", "material-list"})},
+        {"portability", {{"full", "owned schema and payload bytes"}, {"thin", "declared refs only"}}},
+        {"known_limits", nlohmann::json::array({"one fixed semantic profile", "bounded JSON Schema object subset",
+                                                "no mutable global-latest workspace binding"})}};
+  }
+
+  [[nodiscard]] nlohmann::json fact_type_list(const storage_service_options &options) const {
+    const auto state =
+        facts::query_fact_state(options.runtime_dir, int64_or(options.operation_options, "cut_system_time"));
+    const auto catalog = object_or_empty(state, "catalog");
+    return {{"schema", "kungfu.facts.type-catalog/v1"},
+            {"scope", text_or(options.operation_options, "scope", "selected-data-root")},
+            {"semantic_profile", "declared-facts-v1"},
+            {"contract_worlds", array_or_empty(catalog, "contract_worlds")},
+            {"fact_types", array_or_empty(catalog, "fact_surfaces")},
+            {"proof", state.at("proof")}};
+  }
+
+  [[nodiscard]] nlohmann::json fact_type_create(const storage_service_options &options) const {
+    const auto definition = object_or_empty(options.operation_options, "definition");
+    const auto type_id = required_text(definition, "id");
+    const auto version = required_text(definition, "version");
+    const auto sources = array_or_empty(definition, "source_authorities");
+    if (sources.empty()) {
+      throw std::invalid_argument("source_authorities requires at least one source id");
+    }
+    const auto schema = object_or_empty(definition, "schema");
+    if (schema.empty()) {
+      throw std::invalid_argument("schema must be a non-empty JSON object");
+    }
+    if (text_or(schema, "type") != "object") {
+      throw std::invalid_argument("managed fact schema must use the supported top-level object profile");
+    }
+    const auto raw_schema = canonical_json(schema);
+    const auto schema_hash = yy_storage::format_content_hash(yy_storage::compute_content_hash(raw_schema));
+    const auto effective_from =
+        int64_or(definition, "effective_from",
+                 int64_or(options.operation_options, "system_time", kungfu::yijinjing::time::now_in_nano()));
+    const auto effective_until = int64_or(definition, "effective_until");
+    const auto world_id = text_or(definition, "contract_world_id", type_id + ".world");
+
+    const auto existing = fact_type_list(options);
+    const auto provider = shared_provider(options);
+    nlohmann::json world_reference;
+    for (const auto &world : array_or_empty(existing, "contract_worlds")) {
+      if (text_or(world, "id") == world_id && text_or(world, "version") == version) {
+        world_reference = {{"id", world.at("id")}, {"version", world.at("version")}, {"root", world.at("root")}};
+        break;
+      }
+    }
+    for (const auto &type : array_or_empty(existing, "fact_types")) {
+      if (text_or(type, "id") == type_id && text_or(type, "version") == version) {
+        if (text_or(type, "schema_owner_root") != schema_hash) {
+          throw std::invalid_argument("fact type version already exists with a different schema root");
+        }
+        if (canonical_json(array_or_empty(type, "source_authorities")) != canonical_json(sources) ||
+            text_or(object_or_empty(type, "contract_world"), "id") != world_id) {
+          throw std::invalid_argument("fact type version already exists with a different immutable definition");
+        }
+        const auto stored =
+            provider->content_store().put_if_absent("schemas", raw_schema, yy_storage::parse_content_hash(schema_hash));
+        if (!stored.ok()) {
+          throw std::runtime_error("fact schema store failed: " + stored.message);
+        }
+        return {{"schema", "kungfu.facts.type-write/v1"},
+                {"ok", true},
+                {"status", "already_present"},
+                {"definition", type},
+                {"schema_hash", schema_hash},
+                {"schema_store", content_result_json(stored)}};
+      }
+    }
+
+    const auto stored =
+        provider->content_store().put_if_absent("schemas", raw_schema, yy_storage::parse_content_hash(schema_hash));
+    if (!stored.ok()) {
+      throw std::runtime_error("fact schema store failed: " + stored.message);
+    }
+    nlohmann::json world_receipt = nullptr;
+    if (world_reference.is_null() || world_reference.empty()) {
+      world_receipt = facts::declare_contract_world(options.runtime_dir,
+                                                    {{"id", world_id},
+                                                     {"version", version},
+                                                     {"effective_from", effective_from},
+                                                     {"effective_until", effective_until},
+                                                     {"fact_surface_ids", nlohmann::json::array({type_id})}},
+                                                    effective_from);
+      world_reference = world_receipt.at("reference");
+    }
+    nlohmann::json surface = {{"id", type_id},
+                              {"version", version},
+                              {"contract_world", world_reference},
+                              {"effective_from", effective_from},
+                              {"effective_until", effective_until},
+                              {"schema_owner_root", schema_hash},
+                              {"source_authorities", sources},
+                              {"identity_policy", "subject-key/v1"},
+                              {"valid_time_policy", "explicit-range/v1"},
+                              {"system_time_policy", "journal-event-time/v1"},
+                              {"causal_time_policy", "event-parent/v1"},
+                              {"reducer_policy", "latest-admitted-per-source/v1"},
+                              {"correction_policy", "explicit-target/v1"},
+                              {"retraction_policy", "explicit-target/v1"},
+                              {"conflict_policy", "preserve-source-claims/v1"},
+                              {"redaction_policy", "hash-and-ref/v1"},
+                              {"compatibility_policy", "exact-schema-root/v1"},
+                              {"known_limits", nlohmann::json::array({"declared-facts-v1 fixed semantic profile"})}};
+    const auto receipt = facts::declare_fact_surface(options.runtime_dir, surface, effective_from, schema_hash);
+    return {{"schema", "kungfu.facts.type-write/v1"},
+            {"ok", true},
+            {"status", "created"},
+            {"definition", receipt.at("declaration")},
+            {"schema_hash", schema_hash},
+            {"schema_store", content_result_json(stored)},
+            {"world", world_receipt},
+            {"receipt", receipt}};
+  }
+
+  [[nodiscard]] nlohmann::json fact_material_put(const storage_service_options &options) const {
+    const auto material = object_or_empty(options.operation_options, "material");
+    const auto type_id = required_text(material, "type_id");
+    const auto type_version = required_text(material, "type_version");
+    const auto source_id = required_text(material, "source_id");
+    const auto subject_key = required_text(material, "subject_key");
+    if (!material.contains("payload") || !material.at("payload").is_object()) {
+      throw std::invalid_argument("payload must be a JSON object");
+    }
+    const auto types = fact_type_list(options);
+    nlohmann::json selected;
+    for (const auto &type : array_or_empty(types, "fact_types")) {
+      if (text_or(type, "id") == type_id && text_or(type, "version") == type_version) {
+        selected = type;
+        break;
+      }
+    }
+    if (selected.is_null() || selected.empty()) {
+      throw std::invalid_argument("fact type version is not registered in the selected data root");
+    }
+    const auto provider = shared_provider(options);
+    const auto schema_hash = required_text(selected, "schema_owner_root");
+    const auto stored_schema = provider->content_store().get("schemas", yy_storage::parse_content_hash(schema_hash));
+    if (!stored_schema.ok()) {
+      throw std::runtime_error("fact type schema content is unavailable: " + schema_hash);
+    }
+    const auto schema = nlohmann::json::parse(stored_schema.bytes);
+    validate_managed_json_value(schema, material.at("payload"), "$");
+    const auto raw_payload = canonical_json(material.at("payload"));
+    const auto payload_hash = yy_storage::format_content_hash(yy_storage::compute_content_hash(raw_payload));
+    const auto stored =
+        provider->content_store().put_if_absent("payloads", raw_payload, yy_storage::parse_content_hash(payload_hash));
+    if (!stored.ok()) {
+      throw std::runtime_error("fact payload store failed: " + stored.message);
+    }
+    const auto system_time = int64_or(options.operation_options, "system_time", kungfu::yijinjing::time::now_in_nano());
+    auto observation_id = text_or(material, "observation_id");
+    if (observation_id.empty()) {
+      const auto identity = canonical_json({{"type_id", type_id},
+                                            {"type_version", type_version},
+                                            {"source_id", source_id},
+                                            {"subject_key", subject_key},
+                                            {"payload_hash", payload_hash},
+                                            {"system_time", system_time}});
+      const auto identity_hash = yy_storage::compute_content_hash(identity).value;
+      observation_id = "obs-" + identity_hash.substr(0, 24);
+    }
+    const auto world = object_or_empty(selected, "contract_world");
+    nlohmann::json observation = {{"observation_id", observation_id},
+                                  {"contract_world_id", required_text(world, "id")},
+                                  {"fact_surface_id", type_id},
+                                  {"schema_owner_root", required_text(selected, "schema_owner_root")},
+                                  {"source_id", source_id},
+                                  {"subject_key", subject_key},
+                                  {"valid_from", int64_or(material, "valid_from", system_time)},
+                                  {"valid_until", int64_or(material, "valid_until")},
+                                  {"payload_hash", payload_hash},
+                                  {"payload_ref", "content:payloads/" + payload_hash},
+                                  {"action", text_or(material, "action", "assert")},
+                                  {"target_observation_id", text_or(material, "target_observation_id")}};
+    const auto receipt = facts::record_observation(options.runtime_dir, observation, system_time, payload_hash);
+    return {{"schema", "kungfu.facts.material-write/v1"},
+            {"ok", receipt.at("admission").at("outcome") == "admitted"},
+            {"payload_hash", payload_hash},
+            {"payload_store", content_result_json(stored)},
+            {"receipt", receipt}};
+  }
+
+  [[nodiscard]] nlohmann::json fact_material_list(const storage_service_options &options) const {
+    auto state = facts::query_fact_state(options.runtime_dir, int64_or(options.operation_options, "cut_system_time"),
+                                         text_or(options.operation_options, "subject_key"));
+    const auto type_id = text_or(options.operation_options, "type_id");
+    auto filter = [&type_id](nlohmann::json rows) {
+      if (type_id.empty())
+        return rows;
+      nlohmann::json selected = nlohmann::json::array();
+      for (const auto &row : rows) {
+        if (text_or(row, "fact_surface_id") == type_id)
+          selected.push_back(row);
+      }
+      return selected;
+    };
+    state["canonical_facts"] = filter(array_or_empty(state, "canonical_facts"));
+    state["observation_history"] = filter(array_or_empty(state, "observation_history"));
+    nlohmann::json payloads = nlohmann::json::object();
+    const auto provider = shared_provider(options);
+    for (const auto &row : state.at("observation_history")) {
+      const auto hash_text = text_or(row, "payload_hash");
+      if (hash_text.empty() || payloads.contains(hash_text))
+        continue;
+      const auto stored = provider->content_store().get("payloads", yy_storage::parse_content_hash(hash_text));
+      if (stored.ok()) {
+        payloads[hash_text] = nlohmann::json::parse(stored.bytes);
+      }
+    }
+    return {{"schema", "kungfu.facts.material-catalog/v1"},
+            {"type_id", type_id.empty() ? nlohmann::json(nullptr) : nlohmann::json(type_id)},
+            {"state", state},
+            {"payloads", payloads}};
+  }
+
+  [[nodiscard]] nlohmann::json fact_library_export(const storage_service_options &options) const {
+    std::vector<uint64_t> episode_ids;
+    std::unordered_set<uint64_t> seen;
+    const auto push_episode = [&episode_ids, &seen](uint64_t episode_id) {
+      if (episode_id != 0 && seen.insert(episode_id).second)
+        episode_ids.push_back(episode_id);
+    };
+    const auto types = fact_type_list(options);
+    for (const auto &world : array_or_empty(types, "contract_worlds"))
+      push_episode(uint64_or(world, "episode_id"));
+    for (const auto &type : array_or_empty(types, "fact_types"))
+      push_episode(uint64_or(type, "episode_id"));
+    const auto materials = fact_material_list(options);
+    const auto state = object_or_empty(materials, "state");
+    for (const auto &row : array_or_empty(state, "observation_history"))
+      push_episode(uint64_or(row, "episode_id"));
+    const auto assessments = trust::list_assessments(options.runtime_dir);
+    for (const auto &row : array_or_empty(assessments, "assessments")) {
+      push_episode(uint64_or(row, "parent_episode_id"));
+      push_episode(uint64_or(row, "assessment_episode_id"));
+    }
+    nlohmann::json bundles = nlohmann::json::array();
+    uint64_t missing_frame_count = 0;
+    uint64_t missing_ref_payload_count = 0;
+    bool episodes_self_contained = true;
+    for (const auto episode_id : episode_ids) {
+      auto export_options = options;
+      export_options.scope = "episode";
+      export_options.episode_id = episode_id;
+      export_options.operation_options["episode_id"] = episode_id;
+      auto rendered = render_storage_episode_bundle_result(episode_export_bundle_typed_impl(export_options));
+      const auto material = object_or_empty(rendered, "material");
+      missing_frame_count += uint64_or(material, "missing_frame_count");
+      missing_ref_payload_count += uint64_or(material, "missing_ref_payload_count");
+      episodes_self_contained = episodes_self_contained && bool_or(rendered, "self_contained", false);
+      bundles.push_back(std::move(rendered));
+    }
+    const auto thin = bool_or(options.operation_options, "thin", false);
+    const auto self_contained = !thin && episodes_self_contained;
+    return {{"schema", "kungfu.facts.library-bundle/v1"},
+            {"mode", thin ? "thin" : "full"},
+            {"self_contained", self_contained},
+            {"semantic_profile", "declared-facts-v1"},
+            {"episode_count", bundles.size()},
+            {"material",
+             {{"missing_frame_count", missing_frame_count}, {"missing_ref_payload_count", missing_ref_payload_count}}},
+            {"episodes", bundles},
+            {"catalog", types},
+            {"assessments", assessments}};
+  }
+
+  [[nodiscard]] nlohmann::json fact_library_import(const storage_service_options &options) const {
+    const auto bundle = object_or_empty(options.operation_options, "library_bundle");
+    if (text_or(bundle, "schema") != "kungfu.facts.library-bundle/v1") {
+      throw std::invalid_argument("fact_library_bundle_invalid");
+    }
+    const auto dry_run = bool_or(options.operation_options, "dry_run", true);
+    nlohmann::json preflight_receipts = nlohmann::json::array();
+    bool ok = true;
+    for (const auto &episode : array_or_empty(bundle, "episodes")) {
+      auto import_options = options;
+      import_options.scope = "episode";
+      import_options.bundle = episode;
+      import_options.dry_run = true;
+      const auto receipt = episode_import_bundle_impl(import_options);
+      ok = ok && receipt.value("ok", false);
+      preflight_receipts.push_back(receipt);
+    }
+    if (dry_run || !ok) {
+      return {{"schema", "kungfu.facts.library-import/v1"},
+              {"ok", ok},
+              {"dry_run", true},
+              {"source_mode", text_or(bundle, "mode")},
+              {"receipt_count", preflight_receipts.size()},
+              {"receipts", preflight_receipts}};
+    }
+    nlohmann::json receipts = nlohmann::json::array();
+    for (const auto &episode : array_or_empty(bundle, "episodes")) {
+      auto import_options = options;
+      import_options.scope = "episode";
+      import_options.bundle = episode;
+      import_options.dry_run = false;
+      const auto receipt = episode_import_bundle_impl(import_options);
+      ok = ok && receipt.value("ok", false);
+      receipts.push_back(receipt);
+      if (!receipt.value("ok", false))
+        break;
+    }
+    return {{"schema", "kungfu.facts.library-import/v1"},
+            {"ok", ok},
+            {"dry_run", false},
+            {"source_mode", text_or(bundle, "mode")},
+            {"receipt_count", receipts.size()},
+            {"receipts", receipts},
+            {"preflight_receipts", preflight_receipts}};
+  }
+
+  [[nodiscard]] nlohmann::json assessment_contract(const storage_service_options &options) const {
+    (void)options;
+    return trust::assessment_contract_json();
+  }
+
+  [[nodiscard]] nlohmann::json assessment_request(const storage_service_options &options) const {
+    return trust::request_assessment(options.runtime_dir, object_or_empty(options.operation_options, "request"),
+                                     int64_or(options.operation_options, "system_time"));
+  }
+
+  [[nodiscard]] nlohmann::json assessment_execute(const storage_service_options &options) const {
+    return trust::execute_assessment(options.runtime_dir, text_or(options.operation_options, "assessment_key"),
+                                     text_or(options.operation_options, "executor_profile", "process"),
+                                     int64_or(options.operation_options, "system_time"));
+  }
+
+  [[nodiscard]] nlohmann::json assessment_status(const storage_service_options &options) const {
+    return trust::query_assessment(options.runtime_dir, text_or(options.operation_options, "assessment_key"));
+  }
+
+  [[nodiscard]] nlohmann::json assessment_list(const storage_service_options &options) const {
+    return trust::list_assessments(options.runtime_dir);
+  }
+
+  [[nodiscard]] nlohmann::json assessment_invalidate(const storage_service_options &options) const {
+    return trust::invalidate_assessment(options.runtime_dir, text_or(options.operation_options, "assessment_key"),
+                                        text_or(options.operation_options, "changed_root"),
+                                        text_or(options.operation_options, "reason"),
+                                        int64_or(options.operation_options, "system_time"));
+  }
+
+  [[nodiscard]] nlohmann::json trust_require(const storage_service_options &options) const {
+    return trust::require_trust(options.runtime_dir, text_or(options.operation_options, "assessment_key"),
+                                text_or(options.operation_options, "purpose"));
   }
 
   [[nodiscard]] nlohmann::json episode_begin(const storage_service_options &options) const {
@@ -5209,8 +5738,10 @@ nlohmann::json render_storage_episode_bundle_result(const storage_episode_bundle
   rendered["journals"] = std::move(journals);
   nlohmann::json ref_payloads = nlohmann::json::array();
   for (const auto &payload : result.ref_payloads) {
-    ref_payloads.push_back(
-        {{"ref_hash", payload.ref_hash}, {"byte_len", payload.byte_len}, {"bytes", base64_encode(payload.bytes)}});
+    ref_payloads.push_back({{"content_namespace", payload.content_namespace},
+                            {"ref_hash", payload.ref_hash},
+                            {"byte_len", payload.byte_len},
+                            {"bytes", base64_encode(payload.bytes)}});
   }
   rendered["ref_payloads"] = std::move(ref_payloads);
   rendered["material"] = {{"missing_frame_count", result.material_missing_frame_count},
@@ -5955,11 +6486,26 @@ std::vector<std::string> storage_operation_names() {
       storage_operation_name(storage_operation::QueryPlan),
       storage_operation_name(storage_operation::FactQuery),
       storage_operation_name(storage_operation::FactChangelog),
+      storage_operation_name(storage_operation::SavedQueryCatalog),
       storage_operation_name(storage_operation::FactContract),
       storage_operation_name(storage_operation::FactDeclareWorld),
       storage_operation_name(storage_operation::FactDeclareSurface),
       storage_operation_name(storage_operation::FactObserve),
       storage_operation_name(storage_operation::FactState),
+      storage_operation_name(storage_operation::FactLibraryContract),
+      storage_operation_name(storage_operation::FactTypeCreate),
+      storage_operation_name(storage_operation::FactTypeList),
+      storage_operation_name(storage_operation::FactMaterialPut),
+      storage_operation_name(storage_operation::FactMaterialList),
+      storage_operation_name(storage_operation::FactLibraryExport),
+      storage_operation_name(storage_operation::FactLibraryImport),
+      storage_operation_name(storage_operation::AssessmentContract),
+      storage_operation_name(storage_operation::AssessmentRequest),
+      storage_operation_name(storage_operation::AssessmentExecute),
+      storage_operation_name(storage_operation::AssessmentStatus),
+      storage_operation_name(storage_operation::AssessmentList),
+      storage_operation_name(storage_operation::AssessmentInvalidate),
+      storage_operation_name(storage_operation::TrustRequire),
       storage_operation_name(storage_operation::Layout),
       storage_operation_name(storage_operation::EpisodeBegin),
       storage_operation_name(storage_operation::EpisodeHeartbeat),
@@ -6013,6 +6559,8 @@ std::string storage_operation_name(storage_operation operation) {
     return "fact_query";
   case storage_operation::FactChangelog:
     return "fact_changelog";
+  case storage_operation::SavedQueryCatalog:
+    return "saved_query_catalog";
   case storage_operation::FactContract:
     return "fact_contract";
   case storage_operation::FactDeclareWorld:
@@ -6023,6 +6571,34 @@ std::string storage_operation_name(storage_operation operation) {
     return "fact_observe";
   case storage_operation::FactState:
     return "fact_state";
+  case storage_operation::FactLibraryContract:
+    return "fact_library_contract";
+  case storage_operation::FactTypeCreate:
+    return "fact_type_create";
+  case storage_operation::FactTypeList:
+    return "fact_type_list";
+  case storage_operation::FactMaterialPut:
+    return "fact_material_put";
+  case storage_operation::FactMaterialList:
+    return "fact_material_list";
+  case storage_operation::FactLibraryExport:
+    return "fact_library_export";
+  case storage_operation::FactLibraryImport:
+    return "fact_library_import";
+  case storage_operation::AssessmentContract:
+    return "assessment_contract";
+  case storage_operation::AssessmentRequest:
+    return "assessment_request";
+  case storage_operation::AssessmentExecute:
+    return "assessment_execute";
+  case storage_operation::AssessmentStatus:
+    return "assessment_status";
+  case storage_operation::AssessmentList:
+    return "assessment_list";
+  case storage_operation::AssessmentInvalidate:
+    return "assessment_invalidate";
+  case storage_operation::TrustRequire:
+    return "trust_require";
   case storage_operation::Layout:
     return "layout";
   case storage_operation::EpisodeBegin:
@@ -6109,6 +6685,9 @@ storage_operation parse_storage_operation(const std::string &operation) {
   if (operation == "fact_changelog") {
     return storage_operation::FactChangelog;
   }
+  if (operation == "saved_query_catalog") {
+    return storage_operation::SavedQueryCatalog;
+  }
   if (operation == "fact_contract") {
     return storage_operation::FactContract;
   }
@@ -6123,6 +6702,48 @@ storage_operation parse_storage_operation(const std::string &operation) {
   }
   if (operation == "fact_state") {
     return storage_operation::FactState;
+  }
+  if (operation == "fact_library_contract") {
+    return storage_operation::FactLibraryContract;
+  }
+  if (operation == "fact_type_create") {
+    return storage_operation::FactTypeCreate;
+  }
+  if (operation == "fact_type_list") {
+    return storage_operation::FactTypeList;
+  }
+  if (operation == "fact_material_put") {
+    return storage_operation::FactMaterialPut;
+  }
+  if (operation == "fact_material_list") {
+    return storage_operation::FactMaterialList;
+  }
+  if (operation == "fact_library_export") {
+    return storage_operation::FactLibraryExport;
+  }
+  if (operation == "fact_library_import") {
+    return storage_operation::FactLibraryImport;
+  }
+  if (operation == "assessment_contract") {
+    return storage_operation::AssessmentContract;
+  }
+  if (operation == "assessment_request") {
+    return storage_operation::AssessmentRequest;
+  }
+  if (operation == "assessment_execute") {
+    return storage_operation::AssessmentExecute;
+  }
+  if (operation == "assessment_status") {
+    return storage_operation::AssessmentStatus;
+  }
+  if (operation == "assessment_list") {
+    return storage_operation::AssessmentList;
+  }
+  if (operation == "assessment_invalidate") {
+    return storage_operation::AssessmentInvalidate;
+  }
+  if (operation == "trust_require") {
+    return storage_operation::TrustRequire;
   }
   if (operation == "layout") {
     return storage_operation::Layout;
@@ -6214,7 +6835,8 @@ nlohmann::json make_storage_service_request(const std::string &operation, const 
     request["kind"] = parsed_options.kind.empty() ? nlohmann::json(nullptr) : nlohmann::json(parsed_options.kind);
     request["limit"] = parsed_options.limit;
   } else if (parsed_operation == storage_operation::QueryPlan || parsed_operation == storage_operation::FactQuery ||
-             parsed_operation == storage_operation::FactChangelog) {
+             parsed_operation == storage_operation::FactChangelog ||
+             parsed_operation == storage_operation::SavedQueryCatalog) {
     request["definition"] = parsed_options.query_definition;
     request["action"] = text_or(parsed_options.operation_options, "action");
   } else if (parsed_operation == storage_operation::Layout) {
@@ -6271,6 +6893,8 @@ nlohmann::json run_storage_service_operation(const std::string &operation, const
     return storage_json_edge_service_instance().fact_query(parsed_options);
   case storage_operation::FactChangelog:
     return storage_json_edge_service_instance().fact_changelog(parsed_options);
+  case storage_operation::SavedQueryCatalog:
+    return storage_json_edge_service_instance().saved_query_catalog(parsed_options);
   case storage_operation::FactContract:
     return storage_json_edge_service_instance().fact_contract(parsed_options);
   case storage_operation::FactDeclareWorld:
@@ -6281,6 +6905,34 @@ nlohmann::json run_storage_service_operation(const std::string &operation, const
     return storage_json_edge_service_instance().fact_observe(parsed_options);
   case storage_operation::FactState:
     return storage_json_edge_service_instance().fact_state(parsed_options);
+  case storage_operation::FactLibraryContract:
+    return storage_json_edge_service_instance().fact_library_contract(parsed_options);
+  case storage_operation::FactTypeCreate:
+    return storage_json_edge_service_instance().fact_type_create(parsed_options);
+  case storage_operation::FactTypeList:
+    return storage_json_edge_service_instance().fact_type_list(parsed_options);
+  case storage_operation::FactMaterialPut:
+    return storage_json_edge_service_instance().fact_material_put(parsed_options);
+  case storage_operation::FactMaterialList:
+    return storage_json_edge_service_instance().fact_material_list(parsed_options);
+  case storage_operation::FactLibraryExport:
+    return storage_json_edge_service_instance().fact_library_export(parsed_options);
+  case storage_operation::FactLibraryImport:
+    return storage_json_edge_service_instance().fact_library_import(parsed_options);
+  case storage_operation::AssessmentContract:
+    return storage_json_edge_service_instance().assessment_contract(parsed_options);
+  case storage_operation::AssessmentRequest:
+    return storage_json_edge_service_instance().assessment_request(parsed_options);
+  case storage_operation::AssessmentExecute:
+    return storage_json_edge_service_instance().assessment_execute(parsed_options);
+  case storage_operation::AssessmentStatus:
+    return storage_json_edge_service_instance().assessment_status(parsed_options);
+  case storage_operation::AssessmentList:
+    return storage_json_edge_service_instance().assessment_list(parsed_options);
+  case storage_operation::AssessmentInvalidate:
+    return storage_json_edge_service_instance().assessment_invalidate(parsed_options);
+  case storage_operation::TrustRequire:
+    return storage_json_edge_service_instance().trust_require(parsed_options);
   case storage_operation::Layout:
     return storage_json_edge_service_instance().layout(parsed_options);
   case storage_operation::EpisodeBegin:

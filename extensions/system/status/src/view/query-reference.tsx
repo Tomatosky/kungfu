@@ -3,6 +3,7 @@ import {
   type QueryChangelogState,
   type QueryResumeToken,
   type QueryViewSpec,
+  type SavedQueryEntry,
   type SavedQueryView,
   applyQueryChangelogPage,
   emptyQueryChangelogState,
@@ -13,8 +14,6 @@ import {
   queryRows,
 } from '@kungfu-tech/kfx';
 import React from 'react';
-
-const SAVED_QUERY_KEY = 'kungfu.query.saved-view/v1:system-status';
 
 function cell(value: unknown): string {
   if (value === null || value === undefined) return '—';
@@ -27,6 +26,10 @@ function evidenceLabel(state: QueryChangelogState, key: string): string {
   const status = String(evidence.content_root_status ?? 'unverifiable');
   const determinism = String(evidence.determinism ?? 'unverifiable');
   return `${status} · ${determinism}`;
+}
+
+function rowKey(row: Record<string, unknown>): string {
+  return String(row.match_id ?? row.episode_id ?? 'unknown');
 }
 
 export function QueryTableReference({
@@ -51,7 +54,7 @@ export function QueryTableReference({
       </thead>
       <tbody>
         {rows.map((row) => {
-          const key = String(row.episode_id ?? 'unknown');
+          const key = rowKey(row);
           return (
             <tr key={key}>
               {spec.columns.map((column) => (
@@ -98,7 +101,7 @@ export function QueryTimelineReference({
   return (
     <ol style={{ ...mono, margin: 0, paddingLeft: 24 }}>
       {rows.map((row) => {
-        const key = String(row.episode_id ?? 'unknown');
+        const key = rowKey(row);
         return (
           <li key={key} style={{ padding: '4px 0' }}>
             <span style={{ color: '#9cdcfe' }}>
@@ -176,6 +179,43 @@ export function QueryCausalGraphReference({
   );
 }
 
+export function QueryAttentionReference({
+  state,
+  spec,
+}: {
+  state: QueryChangelogState;
+  spec: Extract<QueryViewSpec, { kind: 'attention' }>;
+}) {
+  return (
+    <div style={mono}>
+      {queryRows(state).map((row) => {
+        const key = rowKey(row);
+        return (
+          <article
+            key={key}
+            style={{ padding: 8, borderLeft: '3px solid #dcdcaa', margin: 6 }}
+          >
+            <strong style={{ color: '#dcdcaa' }}>attention required</strong>{' '}
+            <span style={{ color: '#9cdcfe' }}>
+              {cell(row[spec.partitionField])}
+            </span>
+            <div>
+              {cell(row[spec.repeatField])} repeats · elapsed{' '}
+              {cell(row[spec.elapsedField])} ns
+            </div>
+            <div>recorded attribution: {cell(row[spec.attributionField])}</div>
+            <div>matched evidence: {cell(row[spec.evidenceField])}</div>
+            <div style={{ color: '#858585' }}>
+              Temporal qualification only; no causal claim is inferred.
+            </div>
+            <div style={{ color: '#dcdcaa' }}>{evidenceLabel(state, key)}</div>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
 function referenceView(state: QueryChangelogState, spec: QueryViewSpec) {
   switch (spec.kind) {
     case 'table':
@@ -186,6 +226,8 @@ function referenceView(state: QueryChangelogState, spec: QueryViewSpec) {
       return <QueryDiffReference state={state} spec={spec} />;
     case 'causal-graph':
       return <QueryCausalGraphReference state={state} spec={spec} />;
+    case 'attention':
+      return <QueryAttentionReference state={state} spec={spec} />;
   }
 }
 
@@ -217,31 +259,88 @@ const specs: Record<QueryViewSpec['kind'], QueryViewSpec> = {
     parentField: 'parent_episode_id',
     labelField: 'status',
   },
+  attention: {
+    kind: 'attention',
+    partitionField: 'partition_key',
+    repeatField: 'repeat_count',
+    elapsedField: 'elapsed_ns',
+    attributionField: 'attribution_counts',
+    evidenceField: 'matched_episode_ids',
+  },
 };
 
 export function QueryReferencePanel({ caps }: { caps: KfxCapabilities }) {
-  const [savedText, setSavedText] = React.useState(
-    () => window.localStorage.getItem(SAVED_QUERY_KEY) ?? '',
-  );
+  const [savedText, setSavedText] = React.useState('');
   const [saved, setSaved] = React.useState<SavedQueryView | null>(null);
+  const [catalog, setCatalog] = React.useState<SavedQueryEntry[]>([]);
+  const [catalogEntry, setCatalogEntry] =
+    React.useState<SavedQueryEntry | null>(null);
   const [state, setState] = React.useState(emptyQueryChangelogState);
   const [error, setError] = React.useState('');
 
-  const loadExample = () => {
+  const refreshCatalog = () => {
+    try {
+      setCatalog(caps.storage.savedQueries().entries);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
+  };
+
+  React.useEffect(() => {
+    try {
+      setCatalog(caps.storage.savedQueries().entries);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
+  }, [caps]);
+
+  const selectCatalogEntry = (queryId: string) => {
+    try {
+      const entry = caps.storage.savedQuery(queryId);
+      setCatalogEntry(entry);
+      setSaved(entry.saved_view);
+      setSavedText(JSON.stringify(entry.saved_view, null, 2));
+      setError('');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
+  };
+
+  const persistArtifact = (value: SavedQueryView) => {
+    const entry = caps.storage.putSavedQuery(
+      value,
+      catalogEntry?.query_id,
+      catalogEntry?.revision,
+    );
+    setCatalogEntry(entry);
+    setSaved(entry.saved_view);
+    setSavedText(JSON.stringify(entry.saved_view, null, 2));
+    refreshCatalog();
+  };
+
+  const loadExample = (
+    name = 'episode-head',
+    view: QueryViewSpec = specs.table,
+  ) => {
     try {
       const examples = caps.storage.queryExamples() as {
-        examples?: { definition?: SavedQueryView['definition'] }[];
+        examples?: {
+          name?: string;
+          definition?: SavedQueryView['definition'];
+        }[];
       };
-      const definition = examples.examples?.[0]?.definition;
+      const definition = examples.examples?.find(
+        (example) => example.name === name,
+      )?.definition;
       if (!definition) throw new Error('query example unavailable');
       const value: SavedQueryView = {
         schema: 'kungfu.query.saved-view/v1',
-        name: 'episode-head',
+        name,
         definition,
-        view: specs.table,
+        view,
       };
       const text = JSON.stringify(value, null, 2);
-      window.localStorage.setItem(SAVED_QUERY_KEY, text);
+      setCatalogEntry(null);
       setSavedText(text);
       setSaved(value);
       setError('');
@@ -253,11 +352,7 @@ export function QueryReferencePanel({ caps }: { caps: KfxCapabilities }) {
   const applyArtifact = () => {
     try {
       const value = parseSavedQueryView(JSON.parse(savedText));
-      window.localStorage.setItem(
-        SAVED_QUERY_KEY,
-        JSON.stringify(value, null, 2),
-      );
-      setSaved(value);
+      persistArtifact(value);
       setError('');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -267,10 +362,12 @@ export function QueryReferencePanel({ caps }: { caps: KfxCapabilities }) {
   const selectView = (kind: QueryViewSpec['kind']) => {
     if (!saved) return;
     const value = { ...saved, view: specs[kind] } as SavedQueryView;
-    const text = JSON.stringify(value, null, 2);
-    window.localStorage.setItem(SAVED_QUERY_KEY, text);
-    setSaved(value);
-    setSavedText(text);
+    try {
+      persistArtifact(value);
+      setError('');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
   };
 
   const refresh = () => {
@@ -280,7 +377,7 @@ export function QueryReferencePanel({ caps }: { caps: KfxCapabilities }) {
       let token: QueryResumeToken | undefined;
       // The reference intentionally asks the public changelog for a complete
       // bounded snapshot. Rows stay in memory; only definition + ViewSpec are
-      // persisted in localStorage.
+      // persisted in the workspace catalog.
       for (let pageCount = 0; pageCount < 100; pageCount += 1) {
         const page = caps.storage.factChangelog(saved.definition, token, 100);
         next = applyQueryChangelogPage(next, page);
@@ -305,6 +402,23 @@ export function QueryReferencePanel({ caps }: { caps: KfxCapabilities }) {
         }}
       >
         <div>
+          <label style={{ ...mono, display: 'block', marginBottom: 6 }}>
+            Workspace catalog{' '}
+            <select
+              aria-label="Workspace saved query catalog"
+              value={catalogEntry?.query_id ?? ''}
+              onChange={(event) => {
+                if (event.target.value) selectCatalogEntry(event.target.value);
+              }}
+            >
+              <option value="">New / imported artifact</option>
+              {catalog.map((entry) => (
+                <option value={entry.query_id} key={entry.query_id}>
+                  {entry.saved_view.name} · r{entry.revision}
+                </option>
+              ))}
+            </select>
+          </label>
           <textarea
             aria-label="Saved QueryDefinition and ViewSpec"
             value={savedText}
@@ -321,8 +435,16 @@ export function QueryReferencePanel({ caps }: { caps: KfxCapabilities }) {
           <div
             style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}
           >
-            <button type="button" onClick={loadExample}>
-              Load example
+            <button type="button" onClick={() => loadExample()}>
+              Load Episode example
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                loadExample('buildchain-release-attention', specs.attention)
+              }
+            >
+              Load attention example
             </button>
             <label style={{ ...mono, display: 'inline-block' }}>
               Import JSON{' '}
@@ -343,7 +465,31 @@ export function QueryReferencePanel({ caps }: { caps: KfxCapabilities }) {
               />
             </label>
             <button type="button" onClick={applyArtifact}>
-              Apply artifact
+              {catalogEntry ? 'Save revision' : 'Save to workspace'}
+            </button>
+            <button
+              type="button"
+              disabled={!catalogEntry}
+              onClick={() => {
+                if (!catalogEntry) return;
+                try {
+                  caps.storage.deleteSavedQuery(
+                    catalogEntry.query_id,
+                    catalogEntry.revision,
+                  );
+                  setCatalogEntry(null);
+                  setSaved(null);
+                  setSavedText('');
+                  refreshCatalog();
+                  setError('');
+                } catch (cause) {
+                  setError(
+                    cause instanceof Error ? cause.message : String(cause),
+                  );
+                }
+              }}
+            >
+              Delete
             </button>
             <button type="button" onClick={refresh} disabled={!saved}>
               Run changelog
@@ -357,7 +503,7 @@ export function QueryReferencePanel({ caps }: { caps: KfxCapabilities }) {
             }}
           >
             {error ||
-              'Persisted locally: QueryDefinition + ViewSpec only; rows and proof are rebuilt.'}
+              'Persisted in workspace .kungfu: QueryDefinition + ViewSpec only; rows and proof are rebuilt.'}
           </div>
         </div>
         <div>

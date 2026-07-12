@@ -17,8 +17,8 @@ fallback. The architecture decision is
 The matching live process topology is
 [ADR-0036](../framework/core/docs/adr/ADR-0036-supervisor-and-workspace-master-topology.md):
 a per-user `supervisor` is a router/process manager, while each resolved
-workspace or fallback data root can have its own `master`. The supervisor may
-keep small routing/runtime state under the user config area; workspace master
+workspace or fallback data root can have its own `coordinator`. The supervisor may
+keep small routing/runtime state under the user config area; workspace coordinator
 process-control state belongs under the resolved data root.
 
 The split is intentional. Runtime data can be large and stateful; workspace
@@ -129,6 +129,14 @@ Use `kungfu storage layout --json` when the question is not "which config wins"
 but "where do workspace Episode journals, payloads, provider state, and
 projections live under the resolved data home". That layout is reported by the
 C++ storage service and keeps `KF_CONFIG_HOME` separate from workspace data.
+
+`Fact Manager` and `kungfu facts type|material|export|import` use this same
+resolved data root. Personal and workspace libraries therefore have identical
+on-disk semantics: the difference is only which root was selected. Workspaces
+pin exact fact-type versions into their own `.kungfu/`; they never follow a
+mutable type from another root implicitly. Full bundles are the transfer path
+when schema/payload closure must travel; thin bundles are explicit references,
+not backups.
 
 ## Isolated product instances
 

@@ -14,6 +14,7 @@ import {
   type Terminal,
   type TmuxBinding,
   type Work,
+  type WorkspaceGuidance,
   managedTmuxSocket,
   openAtlas,
   openDomainState,
@@ -23,6 +24,7 @@ import {
   openStorage,
   openTerminal,
   openWork,
+  openWorkspaceGuidance,
 } from '@kungfu-tech/api/capability';
 import { type IpcRendererLike, createTerminalProxy } from './terminal-proxy';
 
@@ -125,6 +127,7 @@ export type Runtime = {
   terminal: Terminal | null;
   work: Work | null;
   atlas: Atlas | null;
+  workspace: WorkspaceGuidance | null;
 };
 
 function readSchemaTypes(
@@ -143,7 +146,15 @@ function readSchemaTypes(
   });
 }
 
+let bootedRuntime: Runtime | null = null;
+
 export function bootRuntime(): Runtime {
+  if (bootedRuntime) return bootedRuntime;
+  bootedRuntime = createRuntime();
+  return bootedRuntime;
+}
+
+function createRuntime(): Runtime {
   const env = window.process.env;
   const runtimeDir = env.KF_RUNTIME_DIR || '';
   const base: Omit<Runtime, 'ok' | 'message'> = {
@@ -162,7 +173,15 @@ export function bootRuntime(): Runtime {
     terminal: null,
     work: null,
     atlas: null,
+    workspace: null,
   };
+  if (env.KF_WORKSPACE_STATE === 'selected-uninitialized') {
+    return {
+      ...base,
+      ok: false,
+      message: 'workspace selected but not initialized',
+    };
+  }
   try {
     const bindingPath = env.KFE_PATH;
     if (!bindingPath) {
@@ -204,7 +223,7 @@ export function bootRuntime(): Runtime {
       skillManager = null;
     }
     // Joining initializes a fresh runtime home's layout and connects to a
-    // live master when one is running; the domain handle needs the layout.
+    // live coordinator when one is running; the domain handle needs the layout.
     const ledger = openLedger({
       binding,
       locator: { runtimeDir },
@@ -228,10 +247,14 @@ export function bootRuntime(): Runtime {
       execFileSync: (
         file: string,
         args: string[],
-        options: { encoding: 'utf8'; env: Record<string, string | undefined> },
+        options: {
+          encoding: 'utf8';
+          env: Record<string, string | undefined>;
+          maxBuffer?: number;
+        },
       ) => string;
     };
-    const atlas = openAtlas({
+    const cliOptions = {
       runtimeDir,
       execFileSync: childProcess.execFileSync,
       env: window.process.env as Record<string, string | undefined>,
@@ -242,7 +265,9 @@ export function bootRuntime(): Runtime {
           bindingDir,
           process.platform === 'win32' ? 'kungfu.exe' : 'kungfu',
         ),
-    });
+    };
+    const atlas = openAtlas(cliOptions);
+    const workspace = openWorkspaceGuidance(cliOptions);
     const remoteWork = openRemoteWork({
       binding,
       locator: { runtimeDir },
@@ -293,6 +318,7 @@ export function bootRuntime(): Runtime {
       terminal,
       work,
       atlas,
+      workspace,
     };
   } catch (e) {
     return { ...base, ok: false, message: (e as Error).message };

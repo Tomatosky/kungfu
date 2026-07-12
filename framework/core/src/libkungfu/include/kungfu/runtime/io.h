@@ -19,6 +19,22 @@ namespace journal {
 void install_typed_frame_dumper();
 } // namespace journal
 
+struct io_mapping_policy {
+  yijinjing::journal::reader_policy reader;
+  bool resource_manager_required;
+  bool legacy_lazy_value;
+
+  [[nodiscard]] static constexpr io_mapping_policy peer() noexcept {
+    return {yijinjing::journal::reader_policy::peer(), true, true};
+  }
+  [[nodiscard]] static constexpr io_mapping_policy coordinator() noexcept {
+    return {yijinjing::journal::reader_policy::coordinator(), false, false};
+  }
+  [[nodiscard]] static constexpr io_mapping_policy from_legacy_lazy(bool lazy) noexcept {
+    return lazy ? peer() : coordinator();
+  }
+};
+
 FORWARD_DECLARE_CLASS_PTR(session)
 
 #define SETUP_TIMEOUT 50
@@ -29,13 +45,16 @@ FORWARD_DECLARE_CLASS_PTR(session)
 
 class io_device : public resource {
 public:
+  io_device(data::location_ptr home, bool low_latency, io_mapping_policy policy);
+
+  [[deprecated("use io_mapping_policy")]]
   io_device(data::location_ptr home, bool low_latency, bool lazy);
 
   ~io_device() override = default;
 
   bool is_usable() override { return publisher_ and observer_ and publisher_->is_usable() and observer_->is_usable(); }
 
-  [[nodiscard]] bool is_lazy() const { return lazy_; }
+  [[nodiscard]] bool is_lazy() const { return mapping_policy_.legacy_lazy_value; }
 
   bool setup() override {
     bool prc = publisher_->setup();
@@ -52,7 +71,8 @@ public:
   [[nodiscard]] bool is_low_latency() const { return low_latency_; }
 
   [[nodiscard]] bool is_resource_manager_required() const {
-    return low_latency_ && lazy_ && home_->mode == kungfu::yijinjing::enums::mode::LIVE;
+    return low_latency_ && mapping_policy_.resource_manager_required &&
+           home_->mode == kungfu::yijinjing::enums::mode::LIVE;
   }
 
   [[nodiscard]] const journal::bus_ptr &get_bus() const { return bus_; }
@@ -86,7 +106,7 @@ protected:
   data::location_ptr home_;
   data::location_ptr live_home_;
   const bool low_latency_;
-  const bool lazy_;
+  const io_mapping_policy mapping_policy_;
   int64_t begin_time_;
   nanomsg::url_factory_ptr url_factory_;
   publisher_ptr publisher_;
@@ -96,38 +116,23 @@ protected:
 
 DECLARE_PTR(io_device)
 
-class io_device_master : public io_device {
+class io_device_coordinator : public io_device {
 public:
-  io_device_master(data::location_ptr home, bool low_latency);
+  io_device_coordinator(data::location_ptr home, bool low_latency);
 };
 
-DECLARE_PTR(io_device_master)
+DECLARE_PTR(io_device_coordinator)
 
-class io_device_client : public io_device {
+class io_device_peer : public io_device {
 public:
-  io_device_client(data::location_ptr home, bool low_latency);
+  io_device_peer(data::location_ptr home, bool low_latency);
 
   bool is_usable() override;
 
   bool setup() override;
 };
 
-DECLARE_PTR(io_device_client)
-
-class io_device_console : public io_device {
-public:
-  io_device_console(data::location_ptr home, int32_t console_width, int32_t console_height);
-
-  void trace(int64_t begin_time, int64_t end_time, bool in, bool out, std::string csv);
-
-  void show(int64_t begin_time, int64_t end_time, bool in, bool out, std::string csv);
-
-private:
-  int32_t console_width_;
-  int32_t console_height_;
-};
-
-DECLARE_PTR(io_device_console)
+DECLARE_PTR(io_device_peer)
 
 void handle_sql_error(int rc, const std::string &error_tip);
 void ensure_sqlite_initilize();

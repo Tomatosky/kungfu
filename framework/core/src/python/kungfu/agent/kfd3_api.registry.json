@@ -167,7 +167,79 @@
       "id": "kungfu.managed-run.start",
       "surface": "cli",
       "name": "kungfu managed-run --provider <provider> --prompt <task>",
-      "purpose": "Run a provider CLI under Kungfu supervision, skill context, and cost/audit capture.",
+      "aliases": ["kungfu managed-run --provider <provider> --prompt <task> [--workspace <path>|--home-workspace]"],
+      "purpose": "Run a provider CLI under Kungfu supervision and capture it into an explicit, discovered, or no-project Home workspace with a receipt.",
+      "maturity": "experimental",
+      "visibility": "adjacent-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc"]
+    },
+    {
+      "id": "kungfu.workspace.inspect",
+      "surface": "cli",
+      "name": "kungfu workspace inspect --home --json",
+      "purpose": "Inspect a Home or project workspace candidate without initializing it.",
+      "maturity": "experimental",
+      "visibility": "adjacent-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc"]
+    },
+    {
+      "id": "kungfu.workspace.advise",
+      "surface": "cli",
+      "name": "kungfu workspace advise --home --source <path> --json",
+      "purpose": "Return deterministic evidence-backed project-workspace advice without changing state.",
+      "maturity": "experimental",
+      "visibility": "adjacent-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc"]
+    },
+    {
+      "id": "kungfu.workspace.preview",
+      "surface": "cli",
+      "name": "kungfu workspace preview --home --source <path> --intent create-project-workspace --json",
+      "purpose": "Preview exact workspace effects, skipped Git effects, freshness cut, and authorization class.",
+      "maturity": "experimental",
+      "visibility": "adjacent-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc"]
+    },
+    {
+      "id": "kungfu.workspace.authorize",
+      "surface": "cli",
+      "name": "kungfu workspace authorize --home --source <path> --intent create-project-workspace --preview-id <id> --decision approve --authorized-by <actor> --json",
+      "purpose": "Record one bounded decision for the exact current preview; mismatched or stale agent input fails closed.",
+      "maturity": "experimental",
+      "visibility": "adjacent-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc"]
+    },
+    {
+      "id": "kungfu.workspace.apply",
+      "surface": "cli",
+      "name": "kungfu workspace apply --home --source <path> --authorization-id <id> --json",
+      "purpose": "Execute one approved idempotent workspace intent and reject stale previews or denied authority.",
+      "maturity": "experimental",
+      "visibility": "adjacent-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc"]
+    },
+    {
+      "id": "kungfu.workspace.verify",
+      "surface": "cli",
+      "name": "kungfu workspace verify --home --receipt-id <id> --json",
+      "purpose": "Verify a workspace action receipt against its authorization and resulting filesystem effects.",
+      "maturity": "experimental",
+      "visibility": "adjacent-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc"]
+    },
+    {
+      "id": "kungfu.storage.episode-import",
+      "surface": "cli",
+      "name": "kungfu storage import --from <episode-bundle.json> --execute --json",
+      "aliases": ["kungfu storage import --from <episode-bundle.json> --execute [--workspace <path>|--home-workspace] --json"],
+      "purpose": "Validate then capture an Episode into an explicit, discovered, or no-project Home workspace and return its Inbox receipt.",
       "maturity": "experimental",
       "visibility": "adjacent-agent",
       "anchor": { "kind": "catalog" },
@@ -244,6 +316,76 @@
       "projections": ["commands.json", "agent-pack-doc", "provider-skill"]
     },
     {
+      "id": "kungfu.atlas.create-mission",
+      "surface": "cli",
+      "name": "kungfu atlas create-mission <mission-id> --title <title> --intent <intent> --actor <actor> --json",
+      "purpose": "Create a Kungfu-native long-running Mission in the shared Fact Library.",
+      "maturity": "experimental",
+      "visibility": "adjacent-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill"]
+    },
+    {
+      "id": "kungfu.atlas.export-mission",
+      "surface": "cli",
+      "name": "kungfu atlas export-mission <mission-id> --out <bundle.json> --mode <full|thin> --json",
+      "purpose": "Export a bounded Mission closure with proof coordinates and full or thin Episode material.",
+      "maturity": "experimental",
+      "visibility": "adjacent-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill"]
+    },
+    {
+      "id": "kungfu.atlas.import-mission",
+      "surface": "cli",
+      "name": "kungfu atlas import-mission --from <bundle.json> [--execute] --json",
+      "purpose": "Verify a portable Mission bundle and explicitly materialize full closures while thin bundles remain degraded references.",
+      "maturity": "experimental",
+      "visibility": "adjacent-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill"]
+    },
+    {
+      "id": "kungfu.atlas.assess-mission",
+      "surface": "cli",
+      "name": "kungfu atlas assess-mission <mission-id> --json",
+      "purpose": "Query admitted Mission/Go facts and persist a purpose-bound progress TrustReport.",
+      "maturity": "experimental",
+      "visibility": "adjacent-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill"]
+    },
+    {
+      "id": "kungfu.atlas.create-go",
+      "surface": "cli",
+      "name": "kungfu atlas create-go <mission-id> <goal-id> --title <title> --objective <objective> --actor <actor> --json",
+      "purpose": "Create a Kungfu-native Go linked to an admitted Mission without writing back to the bridged source.",
+      "maturity": "experimental",
+      "visibility": "adjacent-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill"]
+    },
+    {
+      "id": "kungfu.atlas.claim-completion",
+      "surface": "cli",
+      "name": "kungfu atlas claim-completion <mission-id> <goal-id> --statement <statement> --actor <actor> --evidence-episode <id> --json",
+      "purpose": "Record an explicit completion claim with independently verifiable Episode evidence.",
+      "maturity": "experimental",
+      "visibility": "adjacent-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill"]
+    },
+    {
+      "id": "kungfu.atlas.assess-completion",
+      "surface": "cli",
+      "name": "kungfu atlas assess-completion <mission-id> <goal-id> --json",
+      "purpose": "Assess a Go completion claim for a declared purpose and fail closed on missing evidence.",
+      "maturity": "experimental",
+      "visibility": "adjacent-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill"]
+    },
+    {
       "id": "kungfu.atlas.show.import",
       "surface": "cli",
       "name": "kungfu atlas show import --json",
@@ -257,7 +399,7 @@
       "id": "kungfu.atlas.show.missions",
       "surface": "cli",
       "name": "kungfu atlas show missions --json",
-      "purpose": "List imported Atlas mission cards from the latest projection.",
+      "purpose": "List admitted Atlas and Kungfu-native Mission facts from the selected data root.",
       "maturity": "stable",
       "visibility": "adjacent-agent",
       "anchor": { "kind": "catalog" },
@@ -475,6 +617,26 @@
       "projections": ["commands.json", "agent-pack-doc", "provider-skill"]
     },
     {
+      "id": "kungfu.query.saved-catalog",
+      "surface": "cli",
+      "name": "kungfu query saved list --json",
+      "aliases": [
+        "kungfu query saved import --file saved-view.json --json",
+        "kungfu query saved show <id> --json",
+        "kungfu query saved update <id> --expected-revision <n> --file saved-view.json --json",
+        "kungfu query saved run <id> --json",
+        "kungfu query saved export <id>",
+        "kungfu query saved history <id> --json",
+        "kungfu query saved delete <id> --expected-revision <n> --json",
+        "kungfu query saved rebuild --json"
+      ],
+      "purpose": "Manage the workspace-local journal-backed saved query catalog shared by CLI, GUI, and agents.",
+      "maturity": "experimental",
+      "visibility": "adjacent-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill"]
+    },
+    {
       "id": "kungfu.facts.capabilities",
       "surface": "cli",
       "name": "kungfu facts capabilities",
@@ -523,6 +685,76 @@
       "visibility": "adjacent-agent",
       "anchor": { "kind": "catalog" },
       "projections": ["commands.json", "agent-pack-doc", "provider-skill"]
+    },
+    {
+      "id": "kungfu.facts.library",
+      "surface": "cli",
+      "name": "kungfu facts library",
+      "purpose": "Discover the supported managed Fact Library profile, content stores, portability modes, and known limits.",
+      "maturity": "stable",
+      "visibility": "adjacent-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc"]
+    },
+    {
+      "id": "kungfu.facts.type-create",
+      "surface": "cli",
+      "name": "kungfu facts type create --id <id> --version <version> --source <source> --schema-file <schema.json>",
+      "purpose": "Create or idempotently recover an exact versioned fact type with an owned content-addressed JSON schema.",
+      "maturity": "stable",
+      "visibility": "adjacent-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc"]
+    },
+    {
+      "id": "kungfu.facts.type-list",
+      "surface": "cli",
+      "name": "kungfu facts type list",
+      "purpose": "List reusable fact types and their exact declaration, schema, authority, Episode, and proof coordinates in the selected data root.",
+      "maturity": "stable",
+      "visibility": "adjacent-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc"]
+    },
+    {
+      "id": "kungfu.facts.material-put",
+      "surface": "cli",
+      "name": "kungfu facts material put --type <id> --type-version <version> --source <source> --subject <key> --payload-file <payload.json>",
+      "purpose": "Store JSON material and append its admitted observation through one intent-level operation.",
+      "maturity": "stable",
+      "visibility": "adjacent-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc"]
+    },
+    {
+      "id": "kungfu.facts.material-list",
+      "surface": "cli",
+      "name": "kungfu facts material list --type <id> --subject <key>",
+      "purpose": "Read current and historical fact material with hydrated content-addressed payloads.",
+      "maturity": "stable",
+      "visibility": "adjacent-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc"]
+    },
+    {
+      "id": "kungfu.facts.export",
+      "surface": "cli",
+      "name": "kungfu facts export --out <bundle.json> [--thin]",
+      "purpose": "Export the selected Fact Library as a full self-contained or explicitly thin Episode bundle.",
+      "maturity": "stable",
+      "visibility": "adjacent-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc"]
+    },
+    {
+      "id": "kungfu.facts.import",
+      "surface": "cli",
+      "name": "kungfu facts import --file <bundle.json> [--execute]",
+      "purpose": "Verify a Fact Library bundle by default and append it only with explicit execute intent.",
+      "maturity": "stable",
+      "visibility": "adjacent-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc"]
     },
     {
       "id": "kungfu.remote.add",

@@ -2,8 +2,9 @@
 //
 // Task dispatch — the launcher's actual job.
 //
-//   run_pnpm:     ensure fnm + uv, pin node (`fnm install`), then run the task
-//                 under the pinned toolchain via `fnm exec -- corepack pnpm`.
+//   run_pnpm:     ensure fnm + uv and demand-load Buildchain for scripts that
+//                 invoke it, pin node (`fnm install`), then run the task under
+//                 the pinned toolchain via `fnm exec -- corepack pnpm`.
 //   delegate_l2:  rich subcommands (build/rebuild/proxy/config) go to the L2
 //                 node implementation (shifu.mjs), never to pnpm.
 //
@@ -15,11 +16,18 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use shifu_core::json;
+
 use crate::{registrar, tools, util};
 
 pub fn run_pnpm(root: &Path, args: &[String]) -> ! {
     let fnm = tools::ensure_tool(&tools::FNM, root);
     let uv = tools::ensure_tool(&tools::UV, root);
+    let buildchain = if task_uses_buildchain(root, args) {
+        Some(tools::ensure_tool(&tools::BUILDCHAIN, root))
+    } else {
+        tools::find_tool(&tools::BUILDCHAIN, root)
+    };
     tools::default_fnm_dir_if_bootstrapped(&fnm);
 
     // Idempotent: make sure the node pinned by .node-version is installed.
@@ -38,7 +46,10 @@ pub fn run_pnpm(root: &Path, args: &[String]) -> ! {
         .args(args)
         .env("SHIFU_ENTRYPOINT", "1")
         .current_dir(root);
-    prepend_child_path(&mut cmd, tool_dirs_for_child(&fnm, &uv));
+    prepend_child_path(
+        &mut cmd,
+        tool_dirs_for_child(&[&fnm, &uv, buildchain.as_deref().unwrap_or(Path::new(""))]),
+    );
 
     // Tasks with a KFD-declared registration plan need the launcher alive
     // after the task: run them spawned (Windows semantics everywhere) and
@@ -62,6 +73,7 @@ pub fn run_pnpm(root: &Path, args: &[String]) -> ! {
 
 pub fn delegate_l2(root: &Path, args: &[String]) -> ! {
     let l2 = root.join("shifu.mjs");
+    let buildchain = tools::find_tool(&tools::BUILDCHAIN, root);
 
     // Prefer the pinned node via an fnm that is already present (PATH or
     // cache); fall back to any system node so `config` can run before the
@@ -78,7 +90,10 @@ pub fn delegate_l2(root: &Path, args: &[String]) -> ! {
             .args(args)
             .env("SHIFU_ENTRYPOINT", "1")
             .current_dir(root);
-        prepend_child_path(&mut cmd, tool_dirs_for_child(&fnm, Path::new("")));
+        prepend_child_path(
+            &mut cmd,
+            tool_dirs_for_child(&[&fnm, buildchain.as_deref().unwrap_or(Path::new(""))]),
+        );
         util::exec_or_exit(cmd)
     }
     if let Some(node) = util::find_on_path("node") {
@@ -101,19 +116,22 @@ pub fn delegate_l2(root: &Path, args: &[String]) -> ! {
         .args(args)
         .env("SHIFU_ENTRYPOINT", "1")
         .current_dir(root);
-    prepend_child_path(&mut cmd, tool_dirs_for_child(&fnm, Path::new("")));
+    prepend_child_path(
+        &mut cmd,
+        tool_dirs_for_child(&[&fnm, buildchain.as_deref().unwrap_or(Path::new(""))]),
+    );
     util::exec_or_exit(cmd)
 }
 
 /// Directories to prepend to the child's PATH: the pnpm shim plus the dirs of
 /// cache-resolved tools (so `uv` / `fnm` invoked by build scripts resolve even
 /// though they are not on the user's PATH).
-fn tool_dirs_for_child(fnm: &Path, uv: &Path) -> Vec<PathBuf> {
+fn tool_dirs_for_child(tools: &[&Path]) -> Vec<PathBuf> {
     let mut dirs = Vec::new();
     if let Ok(shim) = make_pnpm_shim_dir() {
         dirs.push(shim);
     }
-    for tool in [fnm, uv] {
+    for tool in tools {
         if tool.as_os_str().is_empty() {
             continue;
         }
@@ -124,6 +142,36 @@ fn tool_dirs_for_child(fnm: &Path, uv: &Path) -> Vec<PathBuf> {
         }
     }
     dirs
+}
+
+/// Buildchain is acquired only for a script that actually invokes it. This
+/// keeps ordinary `sync` / `check` startup light while preserving the fresh-
+/// machine guarantee for Buildchain-backed tasks without a duplicated task
+/// allowlist in Rust.
+fn task_uses_buildchain(root: &Path, args: &[String]) -> bool {
+    let Some(task) = args.first() else {
+        return false;
+    };
+    let Ok(text) = fs::read_to_string(root.join("package.json")) else {
+        return false;
+    };
+    script_uses_buildchain(&text, task)
+}
+
+fn script_uses_buildchain(text: &str, task: &str) -> bool {
+    let Ok(package) = json::parse(text) else {
+        return false;
+    };
+    package
+        .get("scripts")
+        .map(|scripts| {
+            scripts.str_of(task).split_whitespace().any(|word| {
+                word == "buildchain"
+                    || word.ends_with("/buildchain")
+                    || word.ends_with("\\buildchain.exe")
+            })
+        })
+        .unwrap_or(false)
 }
 
 fn prepend_child_path(cmd: &mut Command, dirs: Vec<PathBuf>) {
@@ -155,4 +203,21 @@ fn make_pnpm_shim_dir() -> std::io::Result<PathBuf> {
         fs::set_permissions(&shim, fs::Permissions::from_mode(0o755))?;
     }
     Ok(dir)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::script_uses_buildchain;
+
+    #[test]
+    fn buildchain_bootstrap_is_demand_driven_by_the_declared_script() {
+        let package = r#"{
+          "scripts": {
+            "check": "node scripts/check.mjs",
+            "kfd2:claims": "buildchain kfd 2 product-claims write"
+          }
+        }"#;
+        assert!(!script_uses_buildchain(package, "check"));
+        assert!(script_uses_buildchain(package, "kfd2:claims"));
+    }
 }

@@ -17,14 +17,17 @@ inline constexpr const char *LOGICAL_PLAN_SCHEMA_V1 = "kungfu.query.logical-plan
 inline constexpr const char *QUERY_RESULT_SCHEMA_V1 = "kungfu.query.result/v1";
 inline constexpr const char *QUERY_LINEAGE_SCHEMA_V1 = "kungfu.query.lineage/v1";
 inline constexpr const char *QUERY_RESULT_ROW_SCHEMA_V1 = "kungfu.query.episode-row/v1";
+inline constexpr const char *QUERY_FACT_STATE_ROW_SCHEMA_V1 = "kungfu.query.fact-state-row/v1";
 inline constexpr const char *QUERY_CAPABILITIES_SCHEMA_V1 = "kungfu.query.capabilities/v1";
 inline constexpr const char *QUERY_VALIDATION_SCHEMA_V1 = "kungfu.query.validation/v1";
 inline constexpr const char *QUERY_EXPLAIN_SCHEMA_V1 = "kungfu.query.explain/v1";
 inline constexpr const char *QUERY_CHANGELOG_SCHEMA_V1 = "kungfu.query.changelog/v1";
 inline constexpr const char *QUERY_RESUME_TOKEN_SCHEMA_V1 = "kungfu.query.resume-token/v1";
 inline constexpr const char *QUERY_VIEW_SCHEMA_V1 = "kungfu.query.saved-view/v1";
+inline constexpr const char *QUERY_TEMPORAL_PATTERN_SCHEMA_V1 = "kungfu.query.temporal-pattern/v1";
+inline constexpr const char *QUERY_TEMPORAL_MATCH_ROW_SCHEMA_V1 = "kungfu.query.temporal-match-row/v1";
 
-enum class cut_kind { Head, ManifestFrameUid };
+enum class cut_kind { Head, ManifestFrameUid, SystemTime };
 
 enum class admission_outcome {
   Admitted,
@@ -50,6 +53,7 @@ struct admission_evidence {
 struct cut {
   cut_kind kind = cut_kind::Head;
   uint64_t manifest_frame_uid = 0;
+  int64_t system_time = 0;
 };
 
 struct query_policy {
@@ -76,12 +80,37 @@ struct query_basis {
   std::string causal_time = "manifest-order-and-episode-refs";
 };
 
+struct event_predicate {
+  std::string field = {};
+  std::string equals = {};
+};
+
+// Q4 deliberately admits one bounded pattern family. Events are partitioned,
+// ordered on one declared time field, matched as a repeated two-step sequence,
+// and optionally suppressed when a terminal event is present by as_of_time.
+// This is enough to qualify attention churn without introducing an EPL root.
+struct temporal_pattern {
+  std::string schema = QUERY_TEMPORAL_PATTERN_SCHEMA_V1;
+  std::string partition_by = "source";
+  std::string order_by = "begin_time";
+  std::vector<event_predicate> sequence = {};
+  uint64_t repeat_min = 1;
+  uint64_t repeat_max = 1;
+  uint64_t within_ns = 0;
+  int64_t as_of_time = 0;
+  bool has_absence = false;
+  event_predicate absence = {};
+};
+
 struct query_definition {
   std::string schema = QUERY_DEFINITION_SCHEMA_V1;
   query_basis basis = {};
   std::string object = "episodes";
+  std::vector<std::string> subject_keys = {};
   uint64_t limit = 100;
   std::string evidence = "proof";
+  bool has_temporal_pattern = false;
+  temporal_pattern pattern = {};
 };
 
 struct result_field {
@@ -127,6 +156,7 @@ struct lineage {
   std::vector<nlohmann::json> episode_content_roots = {};
   std::vector<nlohmann::json> missing_inputs = {};
   std::vector<nlohmann::json> unverifiable_inputs = {};
+  std::vector<nlohmann::json> conflicts = {};
   std::string query_definition_hash = {};
   std::string logical_plan_hash = {};
 };
@@ -256,6 +286,8 @@ struct changelog_page {
                                                    uint64_t max_messages = 100);
 
 [[nodiscard]] query_result run_episode_authority_scan(const std::string &runtime_dir, const logical_plan &plan);
+
+[[nodiscard]] query_result run_fact_state_authority_scan(const std::string &runtime_dir, const logical_plan &plan);
 
 [[nodiscard]] query_result run_episode_sqlite_projection(const std::string &runtime_dir, const logical_plan &plan);
 

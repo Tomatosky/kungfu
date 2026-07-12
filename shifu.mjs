@@ -34,6 +34,9 @@ const KEYS = [
   'SHIFU_DIST_MIRROR',
   'KUNGFU_FNM_DIST_MIRROR',
   'KUNGFU_UV_DIST_MIRROR',
+  'KUNGFU_BUILDCHAIN_DIST_MIRROR',
+  'KUNGFU_BUILDCHAIN_VERSION',
+  'KUNGFU_BUILDCHAIN_SHA256',
   // compile params (cap per machine, to avoid memory thrash on many-core machines)
   'KUNGFU_BUILD_JOBS',
 ];

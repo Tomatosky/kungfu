@@ -91,7 +91,6 @@ interface StorageLayoutResult {
   paths: {
     data_home: string;
     runtime_dir: string;
-    archive_dir: string;
     dataset_dir: string;
     inbox_dir: string;
     journal_dir: string;
@@ -105,7 +104,7 @@ interface StorageLayoutResult {
     manifest_catalog_projection: string;
     episode_manifest_journal_dir: string;
     episode_manifest_journal: string;
-    master_state: string;
+    coordinator_state: string;
     remote_mirrors: string;
     atlas_store: string;
   };

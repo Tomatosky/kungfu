@@ -29,7 +29,7 @@ permissions:
 
 jobs:
   build:
-    uses: kungfu-systems/buildchain/.github/workflows/.build.yml@train/v2/v2.12/setup-rust-toolchain
+    uses: kungfu-systems/buildchain/.github/workflows/.build.yml@b0733e799eeb1c44caccd6da92ebae4646a1bde4
     secrets: inherit
     with:
       buildchain-ref: ${{ inputs.buildchain-ref || '' }}
@@ -39,6 +39,7 @@ jobs:
       rust-toolchain: "1.96.0"
       rustup-dist-server: https://rsproxy.cn
       rustup-update-root: https://rsproxy.cn/rustup
+      cargo-registry-index: ${{ vars.BUILDCHAIN_CARGO_REGISTRY_INDEX }}
       artifact-name: kungfu
       artifact-paths: |
         product/release
@@ -64,6 +65,7 @@ jobs:
       # shifu-entry-contract: allow cross-platform release qualification dispatch into the canonical shifu shim
       verify-command: node scripts/run-release-qualification.mjs
       release-candidate: true
+      publish-channel: ${{ github.event_name == 'pull_request' && (startsWith(github.base_ref, 'release/') && 'release' || 'alpha') || 'none' }}
       artifact-transfer-mode: s3-to-github-artifacts
       artifact-retention-days: 14
       checkout-cache-mode: auto

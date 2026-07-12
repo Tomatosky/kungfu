@@ -9,13 +9,6 @@
       "projection_route": "hana-sqlite-orm"
     },
     {
-      "identity": "kungfu.kernel.session",
-      "owner": "hana",
-      "symbol": "SessionDataTypes",
-      "declaration": "framework/core/src/libyijinjing/include/kungfu/yijinjing/schema/registry.h",
-      "projection_route": "hana-sqlite-orm"
-    },
-    {
       "identity": "kungfu.kernel.state",
       "owner": "hana",
       "symbol": "StateDataTypes",
@@ -55,6 +48,20 @@
       "owner": "flatbuffers",
       "declaration": "framework/core/src/libkungfu/schemas/domain_fact_event.fbs",
       "derived_schema": "framework/core/src/libkungfu/schemas/domain_fact_event.bfbs",
+      "projection_route": "flatbuffers-bfbs"
+    },
+    {
+      "identity": "kungfu.trust.assessment-events",
+      "owner": "flatbuffers",
+      "declaration": "framework/core/src/libkungfu/schemas/assessment_event.fbs",
+      "derived_schema": "framework/core/src/libkungfu/schemas/assessment_event.bfbs",
+      "projection_route": "flatbuffers-bfbs"
+    },
+    {
+      "identity": "kungfu.query.saved-query-events",
+      "owner": "flatbuffers",
+      "declaration": "framework/core/src/libkungfu/schemas/saved_query_catalog_event.fbs",
+      "derived_schema": "framework/core/src/libkungfu/schemas/saved_query_catalog_event.bfbs",
       "projection_route": "flatbuffers-bfbs"
     },
     {
@@ -108,5 +115,5 @@
       "remove_when": "The json_edge.h compatibility surface is retired."
     }
   ],
-  "flatbuffers_projection_boundary": "framework/core/src/libkungfu/include/kungfu/runtime/cache/fb_schema_registry.h"
+  "flatbuffers_projection_boundary": "framework/core/src/libkungfu/include/kungfu/runtime/projection/flatbuffer_schema_registry.h"
 }

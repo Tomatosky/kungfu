@@ -38,6 +38,11 @@ import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  assertLibwasmArtifact,
+  runLibwasmArtifactSelfTest,
+  runLibwasmExecutionQualification,
+} from '../product/scripts/libwasm-artifact.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -431,7 +436,7 @@ function main() {
       // `kungfu sdk kfx build`, which launches the product kungfu runtime — so
       // dist/kungfu must exist first. (Before the kfs→`kungfu sdk` move the
       // probe used a plain-node bin and could run pre-freeze; it can't now.)
-      runPnpm('freeze'); // platform leg (macOS assemble / others nuitka) → framework/core/dist/kungfu
+      runPnpm('freeze'); // assemble leg (every platform, ADR-0046 stage 2) → framework/core/dist/kungfu
       // C++ dogfood probe: compile the reference cpp kfx against the freshly
       // built libkungfu (headers + shared lib + FlatBuffers) into a native
       // module. If a core capability regresses, this build breaks here.
@@ -500,6 +505,25 @@ function main() {
     for (const artifact of contractArtifacts()) {
       assertContractArtifact(distDir, artifact);
     }
+    try {
+      const files = assertLibwasmArtifact(distDir);
+      pass('production libwasm artifact', `${files.length} required files`);
+      const receipt = runLibwasmArtifactSelfTest(distDir);
+      pass(
+        'production libwasm metering',
+        `wasmtime=${receipt.engines.wasmtime.status} wasmer=${receipt.engines.wasmer.status}`,
+      );
+      const executions = runLibwasmExecutionQualification(distDir);
+      pass(
+        'production libwasm execution receipts',
+        `wasmtime=${executions.wasmtime.frame_count} wasmer=${executions.wasmer.frame_count}`,
+      );
+    } catch (error) {
+      fail(
+        'production libwasm artifact',
+        error instanceof Error ? error.message : String(error),
+      );
+    }
     kungfuBin = path.join(distDir, isWin ? 'kungfu.exe' : 'kungfu');
     if (fs.existsSync(kungfuBin) && fs.statSync(kungfuBin).isFile()) {
       const detail = path.relative(ROOT, kungfuBin);
@@ -523,9 +547,16 @@ function main() {
     // execs. A frozen dist has no python/ tree and skips this assertion.
     const assembledTree = path.join(distDir, 'python');
     if (fs.existsSync(assembledTree)) {
+      // The tree's interpreter is at python.exe on Windows, bin/python3 on
+      // POSIX (same fork as run-freeze.js assembleLayout and the trunk's
+      // tree_python) — it is the real sys.executable the entry execs.
+      const treePython =
+        process.platform === 'win32'
+          ? path.join(assembledTree, 'python.exe')
+          : path.join(assembledTree, 'bin', 'python3');
       const required = [
         path.join(assembledTree, 'kungfu-host.json'),
-        path.join(assembledTree, 'bin', 'python3'),
+        treePython,
       ];
       const missing = required.filter((p) => !fs.existsSync(p));
       if (!missing.length) {

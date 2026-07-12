@@ -18,6 +18,11 @@ import {
 } from '@kungfu-tech/buildchain/logging';
 import { extractTarGz, extractZip, writeTarGz, writeZip } from './archive.mjs';
 import { writeCompatibilityManifest } from './compatibility.mjs';
+import {
+  assertLibwasmArtifact,
+  runLibwasmArtifactSelfTest,
+  runLibwasmExecutionQualification,
+} from './libwasm-artifact.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -600,10 +605,14 @@ function assertCoreFrozen() {
   // tree's python3 is the real sys.executable the entry execs.
   const tree = path.join(CORE_DIST, 'python');
   if (fs.existsSync(tree)) {
-    for (const required of [
-      path.join(tree, 'kungfu-host.json'),
-      path.join(tree, 'bin', 'python3'),
-    ]) {
+    // The interpreter is python.exe at the tree root on Windows, bin/python3 on
+    // POSIX (same fork as run-freeze.js assembleLayout and the trunk's
+    // tree_python) — the real sys.executable the entry execs.
+    const treePython =
+      process.platform === 'win32'
+        ? path.join(tree, 'python.exe')
+        : path.join(tree, 'bin', 'python3');
+    for (const required of [path.join(tree, 'kungfu-host.json'), treePython]) {
       if (!fs.existsSync(required)) {
         throw new Error(`assembled runtime tree incomplete: ${rel(required)}`);
       }
@@ -621,6 +630,9 @@ function assertCoreFrozen() {
       `no pykungfu wheel under ${rel(wheels)}; the install surface would ship unusable`,
     );
   }
+  assertLibwasmArtifact(CORE_DIST);
+  runLibwasmArtifactSelfTest(CORE_DIST);
+  runLibwasmExecutionQualification(CORE_DIST);
 }
 
 // ADR-0046 stage 1: kungfu-trunk (the product trunk carrying the kungfu-owned

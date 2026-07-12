@@ -29,13 +29,18 @@ import * as ReactDOM from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import * as jsxRuntime from 'react/jsx-runtime';
 import {
-  MASTER_STATUS_GET_CHANNEL,
+  RUNTIME_STATUS_GET_CHANNEL,
   SESSION_WINDOW_OPEN_CHANNEL,
   SESSION_WINDOW_RESTORE_CHANNEL,
   SESSION_WINDOW_SNAPSHOT_CHANNEL,
   WINDOW_CHROME_CONTROL_CHANNEL,
   WINDOW_CHROME_GET_CHANNEL,
   WINDOW_CHROME_STATE_CHANNEL,
+  WORKSPACE_CREATE_MISSION_CHANNEL,
+  WORKSPACE_GET_CHANNEL,
+  WORKSPACE_OPEN_CHANNEL,
+  WORKSPACE_SELECT_HOME_CHANNEL,
+  WORKSPACE_SELECT_RECENT_CHANNEL,
 } from '../../sandbox/channels';
 import {
   loadKungfuConfig,
@@ -106,6 +111,7 @@ function subsetCaps(runtime: Runtime, entry: KfxEntry): KfxCapabilities | null {
     terminal: runtime.terminal,
     work: runtime.work,
     atlas: runtime.atlas,
+    workspace: runtime.workspace,
   } as Record<string, unknown>;
   const subset: Record<string, unknown> = {};
   for (const key of entry.capabilities) {
@@ -134,6 +140,7 @@ function sandboxSubset(
     terminal: runtime.terminal,
     work: runtime.work,
     atlas: runtime.atlas,
+    workspace: runtime.workspace,
   };
   const subset: Record<string, Record<string, unknown>> = {};
   for (const key of entry.capabilities) {
@@ -206,7 +213,7 @@ function statusColor(severity: StatusBarSeverity | undefined): string {
   return '#cccccc';
 }
 
-type MasterStatusPayload = {
+type RuntimeStatusPayload = {
   status?: string;
   configHome?: string;
   dataRoot?: string;
@@ -217,35 +224,45 @@ type MasterStatusPayload = {
     warnings?: string[];
   };
   supervisor?: { pid?: number | null; running?: boolean };
-  master?: { pid?: number | null; running?: boolean };
+  coordinator?: { pid?: number | null; running?: boolean };
   route?: { routeId?: string; registered?: boolean; stale?: boolean };
   routes?: { count?: number; staleCount?: number };
+  assessments?: {
+    assessment_count?: number;
+    counts?: Record<string, number>;
+    assessments?: Array<{
+      state?: string;
+      assessment_key?: string;
+      request?: { claim_id?: string; purpose?: string };
+      report?: { residual_risks?: string[]; query_proof_root?: string };
+    }>;
+  };
 };
 
-type MasterStatusResult = {
+type RuntimeStatusResult = {
   ok: boolean;
-  payload: MasterStatusPayload | null;
+  payload: RuntimeStatusPayload | null;
   error: string;
   updatedAt: number;
 };
 
-function masterStatusText(status: MasterStatusResult | null): string {
-  if (!status) return 'master checking';
-  if (!status.ok || !status.payload) return 'master unavailable';
+function runtimeStatusText(status: RuntimeStatusResult | null): string {
+  if (!status) return 'runtime checking';
+  if (!status.ok || !status.payload) return 'runtime unavailable';
   const lifecycle = status.payload.lifecycle?.state || status.payload.status;
-  if (lifecycle === 'stale-route') return 'master stale route';
-  if (lifecycle === 'degraded') return 'master degraded';
-  if (lifecycle === 'dead') return 'master dead pid';
-  if (lifecycle === 'orphan-master') return 'master orphan';
+  if (lifecycle === 'stale-route') return 'runtime stale route';
+  if (lifecycle === 'degraded') return 'runtime degraded';
+  if (lifecycle === 'dead') return 'runtime dead pid';
+  if (lifecycle === 'orphan-coordinator') return 'runtime orphan';
   const supervisor = status.payload.supervisor?.running;
-  const master = status.payload.master?.running;
-  if (supervisor && master) return 'master live';
-  if (supervisor) return 'master starting';
-  if (master) return 'master orphan';
-  return 'master offline';
+  const runtime = status.payload.coordinator?.running;
+  if (supervisor && runtime) return 'runtime live';
+  if (supervisor) return 'runtime starting';
+  if (runtime) return 'runtime orphan';
+  return 'runtime offline';
 }
 
-function supervisorStatusText(status: MasterStatusResult | null): string {
+function supervisorStatusText(status: RuntimeStatusResult | null): string {
   if (!status) return 'supervisor checking';
   if (!status.ok || !status.payload) return 'supervisor unavailable';
   const lifecycle = status.payload.lifecycle?.state || status.payload.status;
@@ -256,8 +273,8 @@ function supervisorStatusText(status: MasterStatusResult | null): string {
     : 'supervisor stopped';
 }
 
-function statusTooltip(status: MasterStatusResult | null): string {
-  if (!status) return 'Supervisor/master status is being checked';
+function statusTooltip(status: RuntimeStatusResult | null): string {
+  if (!status) return 'Supervisor/runtime status is being checked';
   if (!status.ok || !status.payload)
     return status.error || 'Status unavailable';
   const payload = status.payload;
@@ -273,6 +290,39 @@ function statusTooltip(status: MasterStatusResult | null): string {
     }${payload.route?.stale ? ' stale' : ''}`,
     `Stale routes: ${String(payload.routes?.staleCount ?? 0)}`,
   ].join('\n');
+}
+
+function trustStatusText(status: RuntimeStatusResult | null): string {
+  const assessments = status?.payload?.assessments;
+  if (!assessments) return 'trust unavailable';
+  const counts = assessments.counts ?? {};
+  const blocked =
+    (counts.stale ?? 0) +
+    (counts['insufficient-evidence'] ?? 0) +
+    (counts.conflicted ?? 0) +
+    (counts.unverifiable ?? 0) +
+    (counts['failed-retryable'] ?? 0);
+  if (blocked > 0) return `trust blocked ${String(blocked)}`;
+  if ((counts.pending ?? 0) + (counts.running ?? 0) > 0)
+    return `trust pending ${String((counts.pending ?? 0) + (counts.running ?? 0))}`;
+  return `trust fresh ${String(counts.fresh ?? 0)}`;
+}
+
+function trustTooltip(status: RuntimeStatusResult | null): string {
+  const assessments = status?.payload?.assessments?.assessments;
+  if (!assessments) return 'Assessment subscription is unavailable';
+  if (assessments.length === 0) return 'No load-bearing claims assessed';
+  return assessments
+    .map((assessment) => {
+      const request = assessment.request ?? {};
+      const risks = assessment.report?.residual_risks?.join('; ') || '-';
+      return `${assessment.state || '-'}: ${request.claim_id || '-'} for ${
+        request.purpose || '-'
+      }\nresidual risk: ${risks}\nproof: ${
+        assessment.report?.query_proof_root || '-'
+      }`;
+    })
+    .join('\n\n');
 }
 
 function notificationColor(level: ShellNotification['level']): string {
@@ -390,9 +440,11 @@ function ShellTitleBar({
   commandText,
   commandOptions,
   settingsOpen,
+  workspaceLabel,
   onCommandChange,
   onCommandSubmit,
   onOpenSettings,
+  onOpenWorkspace,
   onWindowControl,
 }: {
   chrome: WindowChromeConfig;
@@ -400,9 +452,11 @@ function ShellTitleBar({
   commandText: string;
   commandOptions: { id: string; title: string }[];
   settingsOpen: boolean;
+  workspaceLabel: string;
   onCommandChange: (value: string) => void;
   onCommandSubmit: () => void;
   onOpenSettings: () => void;
+  onOpenWorkspace: () => void;
   onWindowControl: (control: WindowChromeControl) => void;
 }) {
   const dragRegion: ElectronChromeStyle = {
@@ -534,6 +588,29 @@ function ShellTitleBar({
       >
         <button
           type="button"
+          aria-label="Open workspace switcher"
+          title={workspaceLabel}
+          onClick={onOpenWorkspace}
+          style={{
+            ...interactiveRegion,
+            ...mono,
+            maxWidth: 180,
+            height: 28,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            border: '1px solid #3c3c3c',
+            borderRadius: 6,
+            cursor: 'pointer',
+            background: '#252526',
+            color: '#9cdcfe',
+            padding: '0 8px',
+          }}
+        >
+          {workspaceLabel}
+        </button>
+        <button
+          type="button"
           aria-label="Open settings"
           onClick={onOpenSettings}
           style={{
@@ -574,6 +651,173 @@ function ShellTitleBar({
   );
 }
 
+type WorkspaceSnapshot = {
+  current: {
+    workspaceId: string;
+    workspaceKind: 'home' | 'project';
+    workspaceRoot: string | null;
+    displayPath: string;
+    dataHome: string;
+    state: 'ready' | 'selected-uninitialized' | 'unavailable';
+    diagnosis: string;
+  };
+  recent: Array<{
+    workspace_id?: string;
+    workspace_kind?: 'home' | 'project';
+    workspace_root?: string | null;
+    display_path?: string;
+    data_home?: string;
+  }>;
+};
+
+function workspaceIpc() {
+  const ipcRenderer = (
+    window.require('electron') as {
+      ipcRenderer: {
+        invoke: (channel: string, payload?: unknown) => Promise<unknown>;
+      };
+    }
+  ).ipcRenderer;
+  return {
+    get: () =>
+      ipcRenderer.invoke(WORKSPACE_GET_CHANNEL) as Promise<WorkspaceSnapshot>,
+    open: () => ipcRenderer.invoke(WORKSPACE_OPEN_CHANNEL),
+    home: () => ipcRenderer.invoke(WORKSPACE_SELECT_HOME_CHANNEL),
+    recent: (workspaceId: string) =>
+      ipcRenderer.invoke(WORKSPACE_SELECT_RECENT_CHANNEL, { workspaceId }),
+    createMission: (missionId: string, title: string, intent: string) =>
+      ipcRenderer.invoke(WORKSPACE_CREATE_MISSION_CHANNEL, {
+        missionId,
+        title,
+        intent,
+      }),
+  };
+}
+
+function WorkspacePanel() {
+  const bridge = React.useMemo(workspaceIpc, []);
+  const [snapshot, setSnapshot] = React.useState<WorkspaceSnapshot | null>(
+    null,
+  );
+  const [error, setError] = React.useState<string | null>(null);
+  const [missionId, setMissionId] = React.useState('');
+  const [missionTitle, setMissionTitle] = React.useState('');
+  const [missionIntent, setMissionIntent] = React.useState('');
+  React.useEffect(() => {
+    void bridge
+      .get()
+      .then(setSnapshot)
+      .catch((e) => setError((e as Error).message));
+  }, [bridge]);
+  const run = (action: () => Promise<unknown>) => {
+    setError(null);
+    void action().catch((e) => setError((e as Error).message));
+  };
+  return (
+    <section style={{ ...panelStyle, width: 'min(680px, 100%)' }}>
+      <h2 style={{ margin: '0 0 8px', fontSize: 15 }}>Workspace</h2>
+      {snapshot && (
+        <div style={{ ...mono, color: '#9cdcfe', marginBottom: 10 }}>
+          {snapshot.current.displayPath} · {snapshot.current.state}
+          {snapshot.current.diagnosis ? ` · ${snapshot.current.diagnosis}` : ''}
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+        <button
+          type="button"
+          onClick={() => run(bridge.open)}
+          style={{ ...mono, padding: '6px 10px' }}
+        >
+          Open Workspace…
+        </button>
+        <button
+          type="button"
+          onClick={() => run(bridge.home)}
+          style={{ ...mono, padding: '6px 10px' }}
+        >
+          Use Home Workspace
+        </button>
+      </div>
+      <div style={{ ...mono, color: '#858585', marginBottom: 6 }}>
+        Opening or selecting is read-only. The first fact-bearing action creates
+        the selected `.kungfu` data home.
+      </div>
+      {snapshot?.current.state === 'selected-uninitialized' && (
+        <div
+          style={{
+            display: 'grid',
+            gap: 5,
+            padding: 8,
+            marginBottom: 10,
+            border: '1px solid #3c3c3c',
+            borderRadius: 5,
+          }}
+        >
+          <div style={{ ...mono, color: '#9cdcfe' }}>
+            First fact-bearing action · Create Mission
+          </div>
+          <input
+            value={missionId}
+            placeholder="stable Mission id"
+            onChange={(event) => setMissionId(event.target.value)}
+            style={{ ...mono, padding: '5px 7px' }}
+          />
+          <input
+            value={missionTitle}
+            placeholder="Mission title"
+            onChange={(event) => setMissionTitle(event.target.value)}
+            style={{ ...mono, padding: '5px 7px' }}
+          />
+          <input
+            value={missionIntent}
+            placeholder="What are we trying to achieve?"
+            onChange={(event) => setMissionIntent(event.target.value)}
+            style={{ ...mono, padding: '5px 7px' }}
+          />
+          <button
+            type="button"
+            onClick={() =>
+              run(() =>
+                bridge.createMission(missionId, missionTitle, missionIntent),
+              )
+            }
+            style={{ ...mono, padding: '6px 10px' }}
+          >
+            Create Mission and initialize Workspace
+          </button>
+        </div>
+      )}
+      {snapshot?.recent.map((recent) => (
+        <button
+          key={recent.workspace_id}
+          type="button"
+          disabled={
+            recent.workspace_kind === 'project' && !recent.workspace_root
+          }
+          onClick={() =>
+            recent.workspace_id &&
+            run(() => bridge.recent(recent.workspace_id as string))
+          }
+          style={{
+            ...mono,
+            display: 'block',
+            width: '100%',
+            padding: '5px 7px',
+            border: 'none',
+            background: 'transparent',
+            color: '#cccccc',
+            textAlign: 'left',
+            cursor: 'pointer',
+          }}
+        >
+          {recent.display_path || recent.workspace_root || 'Home Workspace'}
+        </button>
+      ))}
+      {error && <div style={{ ...mono, color: '#f48771' }}>{error}</div>}
+    </section>
+  );
+}
+
 function App() {
   const [runtime] = React.useState(bootRuntime);
   const [loaded] = React.useState<KfxLoadResult>(() =>
@@ -588,15 +832,16 @@ function App() {
   );
   const [params, setParams] = React.useState<Record<string, string>>({});
   const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const [workspaceOpen, setWorkspaceOpen] = React.useState(false);
   const [commandText, setCommandText] = React.useState('');
   const [windowChrome, controlWindow] = useWindowChrome();
   const [config, setConfig] = React.useState<KungfuResolvedConfig | null>(null);
   const [configError, setConfigError] = React.useState('');
-  const [masterLive, setMasterLive] = React.useState(
+  const [runtimeLive, setRuntimeLive] = React.useState(
     () => runtime.ledger?.health().live ?? false,
   );
-  const [masterStatus, setMasterStatus] =
-    React.useState<MasterStatusResult | null>(null);
+  const [runtimeStatus, setRuntimeStatus] =
+    React.useState<RuntimeStatusResult | null>(null);
   const [statusBarItems, setStatusBarItems] = React.useState<
     Record<string, StatusBarItem>
   >({});
@@ -615,19 +860,20 @@ function App() {
   }, []);
 
   React.useEffect(() => {
-    const refresh = () => setMasterLive(runtime.ledger?.health().live ?? false);
+    const refresh = () =>
+      setRuntimeLive(runtime.ledger?.health().live ?? false);
     refresh();
     const timer = setInterval(refresh, 5000);
     return () => clearInterval(timer);
   }, [runtime.ledger]);
 
   React.useEffect(() => {
-    type MasterStatusIpc = {
-      invoke: (channel: string) => Promise<MasterStatusResult>;
+    type RuntimeStatusIpc = {
+      invoke: (channel: string) => Promise<RuntimeStatusResult>;
     };
-    let ipc: MasterStatusIpc | null = null;
+    let ipc: RuntimeStatusIpc | null = null;
     try {
-      ipc = (window.require('electron') as { ipcRenderer: MasterStatusIpc })
+      ipc = (window.require('electron') as { ipcRenderer: RuntimeStatusIpc })
         .ipcRenderer;
     } catch {
       ipc = null;
@@ -636,13 +882,13 @@ function App() {
     let cancelled = false;
     const refresh = () => {
       void ipc
-        .invoke(MASTER_STATUS_GET_CHANNEL)
+        .invoke(RUNTIME_STATUS_GET_CHANNEL)
         .then((next) => {
-          if (!cancelled) setMasterStatus(next);
+          if (!cancelled) setRuntimeStatus(next);
         })
         .catch((e: unknown) => {
           if (cancelled) return;
-          setMasterStatus({
+          setRuntimeStatus({
             ok: false,
             payload: null,
             error: e instanceof Error ? e.message : String(e),
@@ -923,7 +1169,7 @@ function App() {
       message: runtime.message,
       runtimeDir: runtime.runtimeDir,
       kungfuVersion: runtime.kungfuVersion,
-      masterStatus,
+      runtimeStatus,
       buildInfo: runtime.buildInfo,
       skillManager: runtime.skillManager,
       exports: runtime.exports,
@@ -1008,27 +1254,36 @@ function App() {
     setCommandText('');
   }, [commandText, enabled, openKfx, showNotification]);
 
-  const supervisorRunning = masterStatus?.payload?.supervisor?.running === true;
-  const masterRunning =
-    masterStatus?.payload?.master?.running === true ||
-    (!masterStatus?.ok && masterLive);
+  const supervisorRunning =
+    runtimeStatus?.payload?.supervisor?.running === true;
+  const coordinatorRunning =
+    runtimeStatus?.payload?.coordinator?.running === true ||
+    (!runtimeStatus?.ok && runtimeLive);
   const lifecycleState =
-    masterStatus?.payload?.lifecycle?.state || masterStatus?.payload?.status;
-  const lifecycleHealthy = masterStatus?.payload?.lifecycle?.healthy === true;
+    runtimeStatus?.payload?.lifecycle?.state || runtimeStatus?.payload?.status;
+  const lifecycleHealthy = runtimeStatus?.payload?.lifecycle?.healthy === true;
   const lifecycleDegraded =
     lifecycleState === 'stale-route' ||
     lifecycleState === 'degraded' ||
     lifecycleState === 'dead' ||
-    lifecycleState === 'orphan-master';
-  const masterSeverity: StatusBarSeverity = lifecycleHealthy
+    lifecycleState === 'orphan-coordinator';
+  const runtimeSeverity: StatusBarSeverity = lifecycleHealthy
     ? 'ok'
     : lifecycleDegraded || supervisorRunning
       ? 'warning'
       : 'error';
+  const trustCounts = runtimeStatus?.payload?.assessments?.counts ?? {};
+  const trustBlocked =
+    (trustCounts.stale ?? 0) +
+    (trustCounts['insufficient-evidence'] ?? 0) +
+    (trustCounts.conflicted ?? 0) +
+    (trustCounts.unverifiable ?? 0) +
+    (trustCounts['failed-retryable'] ?? 0);
+  const trustPending = (trustCounts.pending ?? 0) + (trustCounts.running ?? 0);
   const systemStatusItems: StatusBarItem[] = [
     {
       id: 'system.supervisor',
-      text: supervisorStatusText(masterStatus),
+      text: supervisorStatusText(runtimeStatus),
       icon: supervisorRunning ? '●' : '○',
       severity:
         lifecycleState === 'dead'
@@ -1038,17 +1293,17 @@ function App() {
             : 'warning',
       side: 'left',
       priority: -110,
-      tooltip: statusTooltip(masterStatus),
+      tooltip: statusTooltip(runtimeStatus),
       command: { kind: 'open-kfx', kfxId: 'status' },
     },
     {
-      id: 'system.master',
-      text: masterStatusText(masterStatus),
-      icon: masterRunning ? '●' : '○',
-      severity: masterSeverity,
+      id: 'system.coordinator',
+      text: runtimeStatusText(runtimeStatus),
+      icon: coordinatorRunning ? '●' : '○',
+      severity: runtimeSeverity,
       side: 'left',
       priority: -100,
-      tooltip: statusTooltip(masterStatus),
+      tooltip: statusTooltip(runtimeStatus),
       command: { kind: 'open-kfx', kfxId: 'status' },
     },
     {
@@ -1059,6 +1314,17 @@ function App() {
       side: 'left',
       priority: -90,
       tooltip: 'Runtime binding status',
+      command: { kind: 'open-kfx', kfxId: 'status' },
+    },
+    {
+      id: 'system.trust',
+      text: trustStatusText(runtimeStatus),
+      icon: trustBlocked > 0 ? '!' : trustPending > 0 ? '◐' : '✓',
+      severity:
+        trustBlocked > 0 ? 'error' : trustPending > 0 ? 'warning' : 'ok',
+      side: 'left',
+      priority: -85,
+      tooltip: trustTooltip(runtimeStatus),
       command: { kind: 'open-kfx', kfxId: 'status' },
     },
     {
@@ -1293,9 +1559,10 @@ function App() {
 
   React.useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && settingsOpen) {
+      if (event.key === 'Escape' && (settingsOpen || workspaceOpen)) {
         event.preventDefault();
         setSettingsOpen(false);
+        setWorkspaceOpen(false);
         return;
       }
       if (event.key === ',' && (event.metaKey || event.ctrlKey)) {
@@ -1305,7 +1572,29 @@ function App() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [settingsOpen]);
+  }, [settingsOpen, workspaceOpen]);
+
+  const workspaceOverlay = workspaceOpen ? (
+    <div
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) setWorkspaceOpen(false);
+      }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1100,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 24,
+        background: 'rgba(0, 0, 0, 0.5)',
+        boxSizing: 'border-box',
+      }}
+    >
+      <WorkspacePanel />
+    </div>
+  ) : null;
 
   const settingsOverlay = settingsOpen ? (
     <div
@@ -1426,9 +1715,13 @@ function App() {
         commandText={commandText}
         commandOptions={commandOptions}
         settingsOpen={settingsOpen}
+        workspaceLabel={
+          window.process.env.KF_WORKSPACE_DISPLAY_PATH || 'Home Workspace'
+        }
         onCommandChange={setCommandText}
         onCommandSubmit={submitCommand}
         onOpenSettings={() => setSettingsOpen(true)}
+        onOpenWorkspace={() => setWorkspaceOpen(true)}
         onWindowControl={controlWindow}
       />
       <div style={chromeBodyStyle}>
@@ -1554,12 +1847,29 @@ function App() {
             </div>
           </div>
         ) : (
-          <p style={{ ...mono, color: '#f48771' }}>
-            binding unavailable — set KFE_PATH to a built kungfu_electron.node
-          </p>
+          <div
+            style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {window.process.env.KF_WORKSPACE_STATE ===
+              'selected-uninitialized' ||
+            window.process.env.KF_WORKSPACE_STATE === 'unavailable' ? (
+              <WorkspacePanel />
+            ) : (
+              <p style={{ ...mono, color: '#f48771' }}>
+                binding unavailable — set KFE_PATH to a built
+                kungfu_electron.node
+              </p>
+            )}
+          </div>
         )}
       </div>
       {notificationToasts}
+      {workspaceOverlay}
       {settingsOverlay}
       {statusBar}
     </div>

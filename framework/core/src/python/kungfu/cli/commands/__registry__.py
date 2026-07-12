@@ -2,7 +2,6 @@
 
 from . import engage
 from . import env
-from . import journal
 from . import cockpit
 from . import trace
 from . import managed_run
@@ -24,12 +23,12 @@ from . import skill
 from . import codex
 from . import sdk
 from . import kfd
-from . import master
+from . import runtime
+from . import workspace
 
 __all__ = [
     "engage",
     "env",
-    "journal",
     "cockpit",
     "trace",
     "managed_run",
@@ -51,5 +50,6 @@ __all__ = [
     "codex",
     "sdk",
     "kfd",
-    "master",
+    "runtime",
+    "workspace",
 ]

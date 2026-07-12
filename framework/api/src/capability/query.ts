@@ -1,12 +1,30 @@
-// ADR-0048 Q3 public query/changelog/view contracts. QueryDefinition remains
+// ADR-0048 public query/changelog/view contracts. QueryDefinition remains
 // the semantic owner; ViewSpec only selects a presentation of returned rows.
+
+export type QueryEventPredicate = {
+  field: string;
+  equals: string;
+};
+
+export type QueryTemporalPattern = {
+  schema: 'kungfu.query.temporal-pattern/v1';
+  partition_by: string;
+  order_by: string;
+  sequence: [QueryEventPredicate, QueryEventPredicate];
+  repeat: { min: number; max: number };
+  within_ns: string;
+  as_of_time: string;
+  absence?: QueryEventPredicate;
+};
 
 export type QueryDefinition = {
   schema: 'kungfu.query.definition/v1';
   basis: Record<string, unknown>;
-  object: string;
+  object: 'episodes' | 'fact-state';
+  subject_keys?: string[];
   limit: number;
   evidence: string;
+  temporal_pattern?: QueryTemporalPattern;
 };
 
 export type QueryFrontier =
@@ -110,17 +128,46 @@ export type CausalGraphViewSpec = {
   parentField: string;
   labelField: string;
 };
+export type AttentionViewSpec = {
+  kind: 'attention';
+  partitionField: string;
+  repeatField: string;
+  elapsedField: string;
+  attributionField: string;
+  evidenceField: string;
+};
 export type QueryViewSpec =
   | TableViewSpec
   | TimelineViewSpec
   | DiffViewSpec
-  | CausalGraphViewSpec;
+  | CausalGraphViewSpec
+  | AttentionViewSpec;
 
 export type SavedQueryView = {
   schema: 'kungfu.query.saved-view/v1';
   name: string;
   definition: QueryDefinition;
   view: QueryViewSpec;
+};
+
+export type SavedQueryEntry = {
+  schema: 'kungfu.query.saved-query-entry/v1';
+  query_id: string;
+  revision: number;
+  previous_revision: number;
+  state: 'active' | 'deleted';
+  event_id: string;
+  system_time: number;
+  saved_view_hash: string;
+  journal_frame_uid: number;
+  saved_view: SavedQueryView;
+};
+
+export type SavedQueryCatalog = {
+  schema: 'kungfu.query.saved-query-catalog/v1';
+  runtime_dir: string;
+  entries: SavedQueryEntry[];
+  count: number;
 };
 
 export type QueryChangelogState = {
@@ -238,7 +285,9 @@ export function parseSavedQueryView(value: unknown): SavedQueryView {
   }
   if (
     !saved.view ||
-    !['table', 'timeline', 'diff', 'causal-graph'].includes(saved.view.kind)
+    !['table', 'timeline', 'diff', 'causal-graph', 'attention'].includes(
+      saved.view.kind,
+    )
   ) {
     throw new Error('saved query view requires a supported ViewSpec');
   }

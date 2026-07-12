@@ -7,7 +7,9 @@
 
 use std::path::{Path, PathBuf};
 
-pub use shifu_core::bootstrap::{default_fnm_dir_if_bootstrapped, find_tool, Tool, FNM, UV};
+pub use shifu_core::bootstrap::{
+    default_fnm_dir_if_bootstrapped, find_tool, Tool, BUILDCHAIN, FNM, UV,
+};
 
 use crate::util;
 

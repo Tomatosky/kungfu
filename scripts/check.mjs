@@ -236,12 +236,11 @@ function checkPythonFiles(label, files) {
 // Rust format + lint check, workspace-scoped whenever any crates/ file is in
 // the given list: the workspace is a few small crates, cargo fmt reads the
 // edition from Cargo.toml, and clippy compiles whole targets by nature — so
-// per-file scoping buys nothing, and running the exact two commands shifu CI
-// runs (fmt --all --check, clippy -D warnings) means the local gate cannot
-// drift from CI. Read-only: fixes live in fix.mjs. A missing cargo warns and
-// skips — rustc is deliberately outside shifu's bootstrap scope (doctor
-// reports it as optional), and CI backstops crates/ edits made without a
-// local Rust toolchain.
+// per-file scoping buys nothing. Formatting, clippy, and workspace unit tests
+// keep source shape, lint, and launcher dispatch behavior in one gate.
+// Read-only: fixes live in fix.mjs. A missing cargo warns and skips — rustc is
+// deliberately outside shifu's bootstrap scope (doctor reports it as
+// optional), and CI backstops crates/ edits made without a local toolchain.
 function checkRustFiles(label, files, { force = false } = {}) {
   const rust = files.filter((file) => file.startsWith('crates/'));
   if (!force && !rust.length) {
@@ -264,6 +263,9 @@ function checkRustFiles(label, files, { force = false } = {}) {
     ['clippy', '--workspace', '--all-targets', '--', '-D', 'warnings'],
     { cwd: crates },
   );
+  run(`${label} Rust unit tests`, 'cargo', ['test', '--workspace'], {
+    cwd: crates,
+  });
 }
 
 function checkNoBashStaged() {
@@ -284,6 +286,29 @@ function checkNoBashTree() {
       .map((hit) => `  ${hit}`)
       .join('\n')}`,
   );
+}
+
+function checkPlatformMacros() {
+  const files = splitLines(git(['ls-files', 'framework/core'])).filter((file) =>
+    /\.(?:c|cc|cpp|cxx|h|hh|hpp|hxx)$/.test(file),
+  );
+  const findings = [];
+  for (const file of files) {
+    const lines = fs.readFileSync(path.join(ROOT, file), 'utf8').split(/\r?\n/);
+    for (let index = 0; index < lines.length; index += 1) {
+      if (/\b_WINDOWS\b/.test(lines[index])) {
+        findings.push(
+          `${file}:${index + 1}: use the compiler-standard _WIN32 macro`,
+        );
+      }
+    }
+  }
+  if (findings.length) {
+    throw new Error(
+      `non-standard Windows platform macros:\n${findings.join('\n')}`,
+    );
+  }
+  log('[check] Windows platform macros use _WIN32');
 }
 
 function checkShifuVersionSync() {
@@ -361,6 +386,49 @@ function testSchemaAuthority() {
   ]);
 }
 
+function checkJournalAuthorityBoundary() {
+  run('journal authority boundary gate', 'node', [
+    path.join('scripts', 'check-journal-authority-boundary.mjs'),
+  ]);
+}
+
+function checkLiveRuntimeTerminology() {
+  run('live runtime terminology gate', 'node', [
+    path.join('scripts', 'check-live-runtime-terminology.mjs'),
+  ]);
+}
+
+function checkAdrIdentities() {
+  const adrDir = path.join(ROOT, 'framework', 'core', 'docs', 'adr');
+  const files = fs
+    .readdirSync(adrDir)
+    .filter((file) => /^ADR-\d{4}-.+\.md$/.test(file))
+    .sort();
+  /** @type {Map<string, string[]>} */
+  const byId = new Map();
+  /** @type {string[]} */
+  const errors = [];
+  for (const file of files) {
+    const id = file.slice(4, 8);
+    const siblings = byId.get(id) || [];
+    siblings.push(file);
+    byId.set(id, siblings);
+    const text = fs.readFileSync(path.join(adrDir, file), 'utf8');
+    if (!text.includes(`# ADR-${id}:`)) {
+      errors.push(`${file} heading does not match ADR-${id}`);
+    }
+  }
+  for (const [id, siblings] of byId) {
+    if (siblings.length > 1) {
+      errors.push(`ADR-${id} is duplicated: ${siblings.join(', ')}`);
+    }
+  }
+  if (errors.length) {
+    throw new Error(`ADR identity violations:\n${errors.join('\n')}`);
+  }
+  log('[check] ADR identities unique and filename/heading pairs match');
+}
+
 function touchesBuildchainKfdEvidence(files) {
   return files.some(
     (file) =>
@@ -396,11 +464,15 @@ function checkBuildchainKfdEvidence(files = [], { force = false } = {}) {
 
 function checkStaged() {
   checkNoBashStaged();
+  checkPlatformMacros();
   checkShifuVersionSync();
   checkShifuEntryContract();
   checkCarrierActionEnvelope(['--staged']);
   checkRuntimeGreenfield(['--staged']);
   checkSchemaAuthority();
+  checkJournalAuthorityBoundary();
+  checkLiveRuntimeTerminology();
+  checkAdrIdentities();
   const files = stagedFiles();
   if (!files.length) {
     log('[check] no staged source files');
@@ -445,6 +517,15 @@ function checkStaged() {
 function checkShared() {
   testShifuEntryContract();
   testSchemaAuthority();
+  checkJournalAuthorityBoundary();
+  checkLiveRuntimeTerminology();
+  checkAdrIdentities();
+  run('journal manager type check', 'pnpm', [
+    '--filter',
+    '@kungfu-tech/kfx-view-journal-manager',
+    'run',
+    'check',
+  ]);
   checkLayerQualification();
   run('tooling type check', 'pnpm', ['run', 'check:types']);
   run('SDK unit tests', 'pnpm', [
@@ -463,11 +544,14 @@ function checkShared() {
 
 function checkChanged() {
   checkNoBashTree();
+  checkPlatformMacros();
   checkShifuVersionSync();
   checkShifuEntryContract();
   checkCarrierActionEnvelope();
   checkRuntimeGreenfield();
   checkSchemaAuthority();
+  checkJournalAuthorityBoundary();
+  checkLiveRuntimeTerminology();
   const files = changedFiles();
   checkPythonFiles('changed', files);
   checkBiomeFiles('changed', files);
@@ -479,11 +563,14 @@ function checkChanged() {
 
 function checkAll() {
   checkNoBashTree();
+  checkPlatformMacros();
   checkShifuVersionSync();
   checkShifuEntryContract();
   checkCarrierActionEnvelope(['--all']);
   checkRuntimeGreenfield(['--all']);
   checkSchemaAuthority();
+  checkJournalAuthorityBoundary();
+  checkLiveRuntimeTerminology();
   run('repo lint + format check', 'pnpm', ['run', 'lint']);
   checkRustFiles('all', [], { force: true });
   checkBuildchainKfdEvidence([], { force: true });
