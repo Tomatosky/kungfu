@@ -26,7 +26,9 @@ on:
       - "product/scripts/compatibility.mjs"
       - "product/scripts/compatibility.test.mjs"
       - "product/scripts/dist.mjs"
+      - "scripts/qualify-embedding-membranes.mjs"
       - "scripts/verify.mjs"
+      - "package.json"
       - ".github/workflows/embedding-membrane-spike.yml"
 
 permissions:
@@ -213,37 +215,14 @@ jobs:
           Set-Location $env:SOURCE_ROOT
           .\shifu.cmd --filter @kungfu-tech/core configure
 
-      - name: Build and run membrane consumers
+      - name: Build and run membrane consumers (POSIX)
+        if: ${{ runner.os != 'Windows' }}
         shell: bash
+        run: cd "$SOURCE_ROOT" && ./shifu qualify:embedding-membranes
+
+      - name: Build and run membrane consumers (Windows)
+        if: ${{ runner.os == 'Windows' }}
+        shell: pwsh
         run: |
-          cd "$SOURCE_ROOT"
-          spike_python="$PWD/framework/core/.venv/bin/python3"
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            spike_python="$PWD/framework/core/.venv/Scripts/python.exe"
-          fi
-          # shifu-entry-contract: allow the isolated spike configure is not a product-level Shifu task
-          cmake -S framework/core -B framework/core/build -G Ninja \
-            -DCMAKE_TOOLCHAIN_FILE="$PWD/framework/core/build/conan_toolchain.cmake" \
-            -DCMAKE_POLICY_DEFAULT_CMP0091=NEW \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DPYTHON_EXECUTABLE="$spike_python" \
-            -DKUNGFU_WITH_SLICES=ON \
-            -DKF_LIBWASM_CARGO_REGISTRY='sparse+https://rsproxy.cn/index/'
-          # shifu-entry-contract: allow the isolated spike targets are not product-level Shifu tasks
-          cmake --build framework/core/build --config Release --parallel 2 \
-            --target shared_embedding_host shared_embedding_native_kfx \
-              native_storage_closure_host libwasm_shared_membrane_host \
-              kungfu_libwasm_self_test
-          if [ "$RUNNER_OS" = "macOS" ]; then
-            test "$(uname -m)" = "arm64"
-          fi
-          # Keep the latency gate separate from sustained compiler load on the
-          # build runner.  This is one fixed settle, not a benchmark retry.
-          sleep 60
-          # shifu-entry-contract: allow the spike harness must inspect platform-specific binaries directly
-          # shifu-entry-contract: allow the libwasm spike harness must inspect engine cdylibs directly
-          node framework/core/slices/libwasm-shared-membrane/run.mjs framework/core/build
-          # shifu-entry-contract: allow the spike harness must inspect platform-specific binaries directly
-          node framework/core/slices/shared-embedding-membrane/run.mjs framework/core/build
-          # shifu-entry-contract: allow the native closure harness must inspect platform-specific binaries directly
-          node framework/core/slices/native-storage-closure/run.mjs framework/core/build
+          Set-Location $env:SOURCE_ROOT
+          .\shifu.cmd qualify:embedding-membranes
