@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // SPDX-License-Identifier: Apache-2.0
 
+import { pathToFileURL } from 'node:url';
+
 import { lifecycleEnvironment, runShifu } from './run-shifu-lifecycle.mjs';
 
 const env = lifecycleEnvironment({
@@ -12,37 +14,47 @@ const env = lifecycleEnvironment({
   KUNGFU_FUZZ_SECONDS: '90',
 });
 
-const stages = [
-  ['verify', '--fuzz'],
-  [
-    'episode:qualify:release',
-    '--',
-    '--output',
-    'product/release/qualification/episode-release-evidence.json',
-  ],
-  ['pack:spec'],
-  [
-    'layers:qualify:format',
-    '--',
-    '--report',
-    'product/release/qualification/layer-format-report.json',
-  ],
-  ['pack:sdk'],
-  [
-    'layers:qualify:sdk',
-    '--',
-    '--report',
-    'product/release/qualification/layer-sdk-report.json',
-  ],
-  [
-    'layers:qualify:surfaces',
-    '--',
-    '--report',
-    'product/release/qualification/layer-surface-report.json',
-  ],
-];
-
-for (const args of stages) {
-  const status = runShifu(args, { env });
-  if (status !== 0) process.exit(status);
+export function releaseQualificationStages(platform = process.platform) {
+  const stages = [['verify', '--fuzz']];
+  if (platform === 'linux')
+    stages.push([
+      'episode:qualify:release',
+      '--',
+      '--output',
+      'product/release/qualification/episode-release-evidence.json',
+    ]);
+  stages.push(
+    ['pack:spec'],
+    [
+      'layers:qualify:format',
+      '--',
+      '--report',
+      'product/release/qualification/layer-format-report.json',
+    ],
+    ['pack:sdk'],
+    [
+      'layers:qualify:sdk',
+      '--',
+      '--report',
+      'product/release/qualification/layer-sdk-report.json',
+    ],
+    [
+      'layers:qualify:surfaces',
+      '--',
+      '--report',
+      'product/release/qualification/layer-surface-report.json',
+    ],
+  );
+  return stages;
 }
+
+export function main() {
+  for (const args of releaseQualificationStages()) {
+    const status = runShifu(args, { env });
+    if (status !== 0) return status;
+  }
+  return 0;
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
+  process.exit(main());

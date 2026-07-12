@@ -20,7 +20,11 @@ import {
   runInstalledKungfu,
 } from '../../../../product/scripts/dist.mjs';
 import { runMeasured } from '../process-metrics.mjs';
-import { findGuiExecutable, installDesktopArtifact } from './installer.mjs';
+import {
+  findGuiExecutable,
+  guiQualificationArgs,
+  installDesktopArtifact,
+} from './installer.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..', '..', '..');
@@ -303,7 +307,7 @@ async function exactQualification(options, fixture) {
     );
     const guiExecutable = findGuiExecutable(desktopInstall.installRoot);
     const guiStarted = process.hrtime.bigint();
-    const guiMemory = await runMeasured(guiExecutable, [], {
+    const guiMemory = await runMeasured(guiExecutable, guiQualificationArgs(), {
       cwd: desktopInstall.installRoot,
       env: {
         ...process.env,

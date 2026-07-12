@@ -309,6 +309,7 @@ function testShifuEntryContract() {
 function checkLayerQualification() {
   run('ADR-0049 layer qualification harness tests', 'node', [
     '--test',
+    path.join('scripts', 'run-release-qualification.test.mjs'),
     path.join('tests', 'qualification', 'layers', 'run.test.mjs'),
     path.join('tests', 'qualification', 'layers', 'surfaces', 'run.test.mjs'),
     path.join(

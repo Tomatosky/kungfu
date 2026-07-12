@@ -132,3 +132,11 @@ export function findGuiExecutable(installRoot) {
     'Linux GUI executable',
   );
 }
+
+export function guiQualificationArgs(platform = process.platform) {
+  // Extracted AppImages cannot retain a root-owned mode-4755 chrome-sandbox in
+  // an unprivileged clean environment. Qualification mode is bounded and does
+  // not load user content, so use Electron's supported no-sandbox launch for
+  // this installer smoke only. Shipped user launches remain unchanged.
+  return platform === 'linux' ? ['--no-sandbox'] : [];
+}

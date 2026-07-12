@@ -8,6 +8,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { guiQualificationArgs } from './installer.mjs';
 import { findArtifact } from './run.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -43,4 +44,10 @@ test('desktop discovery treats a matched app bundle as one artifact root', () =>
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
+});
+
+test('Linux clean-install GUI smoke uses the bounded Electron sandbox escape', () => {
+  assert.deepEqual(guiQualificationArgs('linux'), ['--no-sandbox']);
+  assert.deepEqual(guiQualificationArgs('darwin'), []);
+  assert.deepEqual(guiQualificationArgs('win32'), []);
 });
