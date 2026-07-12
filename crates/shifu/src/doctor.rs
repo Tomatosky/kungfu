@@ -592,18 +592,6 @@ fn version_less(found: &str, required: &str) -> bool {
     found < required
 }
 
-#[cfg(test)]
-mod tests {
-    use super::version_less;
-
-    #[test]
-    fn compares_dotted_tool_versions() {
-        assert!(version_less("3.27.9", "3.28.0"));
-        assert!(!version_less("3.28.3", "3.28.0"));
-        assert!(!version_less("4.3.2", "3.28.0"));
-    }
-}
-
 #[cfg(windows)]
 fn msvc_probe() -> Probe {
     Probe {
@@ -633,5 +621,17 @@ fn msvc_probe() -> Probe {
         hint: "install Visual Studio Build Tools with the C++ workload: https://visualstudio.microsoft.com/downloads/"
             .to_string(),
         repair_cmd: None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::version_less;
+
+    #[test]
+    fn compares_dotted_tool_versions() {
+        assert!(version_less("3.27.9", "3.28.0"));
+        assert!(!version_less("3.28.3", "3.28.0"));
+        assert!(!version_less("4.3.2", "3.28.0"));
     }
 }
