@@ -57,6 +57,15 @@ third-party/generated headers are isolated as system inputs. The assembled
 runtime keeps shared output/RPATH settings because Node, Electron, Python and
 libkungfu must relocate as one artifact closure.
 
+`KF_LIBWASM_CARGO_REGISTRY` selects an optional sparse Cargo mirror for the
+production libwasm adapters. Shifu carries it through the Conan/cmake-js
+boundary into CMake, so a managed build can use a local or regional transport
+without changing Cargo package identity. For example:
+
+```sh
+KF_LIBWASM_CARGO_REGISTRY=sparse+https://rsproxy.cn/index/ ./shifu build:core
+```
+
 Use only Shifu entrypoints. The CMake and Conan commands behind them are
 implementation details, not a second contributor workflow.
 

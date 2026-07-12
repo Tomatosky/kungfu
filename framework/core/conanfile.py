@@ -325,6 +325,12 @@ class KungfuCoreConan(ConanFile):
         elif runtime == "node":
             environ["KUNGFU_BUILD_SKIP_KUNGFU_NODE"] = "on"
             environ["KUNGFU_BUILD_SKIP_PYKUNGFU"] = "on"
+            cargo_registry = os.environ.get("KF_LIBWASM_CARGO_REGISTRY", "")
+            cargo_registry_option = (
+                [f"-DKF_LIBWASM_CARGO_REGISTRY={cargo_registry}"]
+                if cargo_registry
+                else []
+            )
             self.__run_cmake(
                 "-S",
                 ".." if self.gyp_call else ".",
@@ -332,6 +338,7 @@ class KungfuCoreConan(ConanFile):
                 "../build" if self.gyp_call else ".",
                 "-DCMAKE_BUILD_TYPE=Release",
                 f"-DSPDLOG_LOG_LEVEL_COMPILE={self.__spdlog_level()}",
+                *cargo_registry_option,
             )
             self.__run_cmake("--build", ".", "--config", "Release", *parallel_opt)
 
@@ -423,6 +430,12 @@ class KungfuCoreConan(ConanFile):
         # conan2：把生成的 conan_toolchain.cmake 透传给 cmake-js，让 conan 依赖(CMakeDeps)与
         # cmake-js 的 runtime headers 共存(取代 conan1 的 conanbuildinfo.cmake 自动注入)。
         toolchain = path.join(self.generators_folder, "conan_toolchain.cmake")
+        cargo_registry = os.environ.get("KF_LIBWASM_CARGO_REGISTRY", "")
+        cargo_registry_option = (
+            [f"--CDKF_LIBWASM_CARGO_REGISTRY={cargo_registry}"]
+            if cargo_registry
+            else []
+        )
         return (
             [
                 "cmake-js",
@@ -438,6 +451,7 @@ class KungfuCoreConan(ConanFile):
                 f"--CDSPDLOG_LOG_LEVEL_COMPILE={log_level}",
                 f"--CDCMAKE_BUILD_PARALLEL_LEVEL={parallel_level}",
             ]
+            + cargo_registry_option
             + build_option
             + debug_option
             + [cmd]
