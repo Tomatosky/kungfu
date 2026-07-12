@@ -67,6 +67,7 @@ struct profile {
   std::vector<uint32_t> seek_page_counts;
   size_t seek_iterations;
   size_t writer_api_iterations;
+  size_t writer_api_trials;
 };
 
 struct run_options {
@@ -416,7 +417,7 @@ json seek_journal(const journal_fixture &fixture, uint32_t page_count, const pro
 
 struct writer_api_sample {
   uint64_t total_ns;
-  uint64_t ns_per_frame;
+  double ns_per_frame;
   double frames_per_second;
   json resources;
 };
@@ -443,7 +444,7 @@ writer_api_sample run_writer_api(const temp_tree &tree, const profile &config, b
   }
   const auto total_ns = elapsed_ns(start);
   const auto after = resources();
-  return {total_ns, total_ns / config.writer_api_iterations,
+  return {total_ns, static_cast<double>(total_ns) / static_cast<double>(config.writer_api_iterations),
           static_cast<double>(config.writer_api_iterations) * 1e9 / static_cast<double>(total_ns),
           resource_delta(before, after)};
 }
@@ -451,15 +452,19 @@ writer_api_sample run_writer_api(const temp_tree &tree, const profile &config, b
 json compare_writer_apis(const temp_tree &tree, const profile &config) {
   std::vector<uint64_t> legacy_ns_per_frame;
   std::vector<uint64_t> transaction_ns_per_frame;
+  std::vector<double> paired_overhead_percent;
   json trials = json::array();
-  for (size_t trial = 0; trial < 3; ++trial) {
+  for (size_t trial = 0; trial < config.writer_api_trials; ++trial) {
     const bool transaction_first = trial % 2 == 1;
     const auto first = run_writer_api(tree, config, transaction_first, trial * 2);
     const auto second = run_writer_api(tree, config, !transaction_first, trial * 2 + 1);
     const auto &legacy = transaction_first ? second : first;
     const auto &transaction = transaction_first ? first : second;
-    legacy_ns_per_frame.push_back(legacy.ns_per_frame);
-    transaction_ns_per_frame.push_back(transaction.ns_per_frame);
+    legacy_ns_per_frame.push_back(static_cast<uint64_t>(std::llround(legacy.ns_per_frame)));
+    transaction_ns_per_frame.push_back(static_cast<uint64_t>(std::llround(transaction.ns_per_frame)));
+    const auto paired_overhead =
+        (static_cast<double>(transaction.total_ns) / static_cast<double>(legacy.total_ns) - 1.0) * 100.0;
+    paired_overhead_percent.push_back(paired_overhead);
     trials.push_back({{"legacy",
                        {{"total_ns", legacy.total_ns},
                         {"ns_per_frame", legacy.ns_per_frame},
@@ -469,16 +474,19 @@ json compare_writer_apis(const temp_tree &tree, const profile &config) {
                        {{"total_ns", transaction.total_ns},
                         {"ns_per_frame", transaction.ns_per_frame},
                         {"frames_per_second", transaction.frames_per_second},
-                        {"resources", transaction.resources}}}});
+                        {"resources", transaction.resources}}},
+                      {"paired_overhead_percent", paired_overhead}});
   }
 
   const auto legacy_distribution = distribution(legacy_ns_per_frame);
   const auto transaction_distribution = distribution(transaction_ns_per_frame);
-  const auto legacy_p50 = legacy_distribution.at("p50_ns").get<double>();
-  const auto transaction_p50 = transaction_distribution.at("p50_ns").get<double>();
-  const auto overhead_percent = (transaction_p50 / legacy_p50 - 1.0) * 100.0;
+  std::sort(paired_overhead_percent.begin(), paired_overhead_percent.end());
+  const auto overhead_percent = paired_overhead_percent.at(paired_overhead_percent.size() / 2);
   return {{"comparison_scope", "same-binary deprecated split adapter versus RAII transaction"},
           {"iterations_per_trial", config.writer_api_iterations},
+          {"trial_count", config.writer_api_trials},
+          {"order_policy", "alternating within paired trials"},
+          {"decision_statistic", "median of paired total-duration overhead percentages"},
           {"payload_bytes", WRITER_API_PAYLOAD_SIZE},
           {"trials", std::move(trials)},
           {"legacy_ns_per_frame", legacy_distribution},
@@ -505,10 +513,10 @@ run_options parse_options(int argc, char **argv) {
     }
   }
   if (requested == "smoke") {
-    return {{requested, 8 * MB, 12, 2, {4, 16}, 12, 30'000}, output};
+    return {{requested, 8 * MB, 12, 2, {4, 16}, 12, 30'000, 7}, output};
   }
   if (requested == "baseline") {
-    return {{requested, 64 * MB, 80, 2, {8, 32, 128}, 80, 200'000}, output};
+    return {{requested, 64 * MB, 80, 2, {8, 32, 128}, 80, 200'000, 11}, output};
   }
   throw std::runtime_error("unknown profile: " + requested);
 }
