@@ -252,7 +252,35 @@ fn command_output(program: &str, args: &[&str]) -> Option<String> {
         .map(|line| line.trim().to_string())
 }
 
+fn command_banner(program: &str, args: &[&str]) -> Option<String> {
+    let output = std::process::Command::new(program)
+        .args(args)
+        .output()
+        .ok()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    stdout
+        .lines()
+        .chain(stderr.lines())
+        .find(|line| !line.trim().is_empty())
+        .map(|line| line.trim().to_string())
+}
+
+fn compiler_version() -> String {
+    if cfg!(windows) {
+        command_banner("cl", &[])
+            .or_else(|| command_output("clang-cl", &["--version"]))
+            .unwrap_or_else(|| "not found".into())
+    } else {
+        let compiler = std::env::var("CXX").unwrap_or_else(|_| "c++".into());
+        command_output(&compiler, &["--version"]).unwrap_or_else(|| "not found".into())
+    }
+}
+
 fn linker_version() -> String {
+    if cfg!(windows) {
+        return command_banner("link", &["/?"]).unwrap_or_else(|| "not found".into());
+    }
     command_output("ld", &["--version"])
         .or_else(|| command_output("ld", &["-v"]))
         .or_else(|| command_output("link", &["/?"]))
@@ -304,11 +332,7 @@ fn json_escape(value: &str) -> String {
 }
 
 fn print_json(root: Option<&Path>) {
-    let compiler = if cfg!(windows) {
-        command_version(&["cl", "clang-cl"])
-    } else {
-        command_version(&["c++", "clang++", "g++"])
-    };
+    let compiler = compiler_version();
     let cmake = command_version(&["cmake"]);
     let (ninja, conan, contract, node, electron, python) = root.map_or_else(
         || {
@@ -455,7 +479,11 @@ fn cpp_compiler_probe(root: Option<&Path>) -> Probe {
                     "c++".into()
                 }
             });
-            let evidence = probe::version_line(&command);
+            let evidence = if cfg!(windows) && command.eq_ignore_ascii_case("cl") {
+                command_banner("cl", &[])
+            } else {
+                probe::version_line(&command)
+            };
             let Some(evidence) = evidence else {
                 #[cfg(windows)]
                 if crate::msvc::vcvars_available() {
