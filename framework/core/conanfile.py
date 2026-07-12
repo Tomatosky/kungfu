@@ -118,6 +118,10 @@ class KungfuCoreConan(ConanFile):
             self.options.rm_safe("vs_toolset")
 
     def configure(self):
+        # The Conan package-id and CMake language mode must describe the same
+        # contract.  Previously Conan selected gnu17 and CMake silently changed
+        # it to C++23, allowing incompatible dependency binaries to share a key.
+        self.settings.compiler.cppstd = "23"
         if _detected_os() != "Windows":
             # 与历史一致：非 Windows 用 libstdc++（注：旧码写 libstdc++，conan2 profile 通常
             # 用 libstdc++11；此处沿用 profile 设定，不在 recipe 强行覆盖以免与 LAN 缓存包不一致）。
@@ -129,6 +133,9 @@ class KungfuCoreConan(ConanFile):
         tc = CMakeToolchain(self, generator="Ninja")
         # 把自身 options 透传给 CMake（主 CMakeLists 用 ${CONAN_LIBS} 桥接 + SPDLOG 等级）。
         tc.variables["SPDLOG_LOG_LEVEL_COMPILE"] = self.__spdlog_level()
+        tc.variables["CMAKE_CXX_STANDARD"] = 23
+        tc.variables["CMAKE_CXX_STANDARD_REQUIRED"] = True
+        tc.variables["CMAKE_CXX_EXTENSIONS"] = False
         tc.generate()
         if self.gyp_call:
             self.__touch_lockfile()

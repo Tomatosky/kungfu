@@ -46,11 +46,12 @@ add_library_object(kungfu_optim "${KUNGFU_OPTIM_SOURCE_FILES}" "${COMPILER_OPTIM
 
 # the OBJECT libraries compile independently of the final target, so they
 # need the runtime headers, the vendored sqlite_orm, and the yijinjing core
-# usage requirements (headers, hana, cxx_std_23) at their own scope
+# usage requirements (headers, hana, public C++20 contract) at their own scope
 set(LIBKUNGFU_SQLITE_ORM_INCLUDE ${PROJECT_SOURCE_DIR}/../../.deps/sqlite_orm-1.7.1/include)
 foreach(_kf_obj kungfu_state_cache kungfu_optim)
-  target_include_directories(${_kf_obj} PRIVATE ${PROJECT_SOURCE_DIR}/include ${KUNGFU_GENERATED_INCLUDE_DIR} ${LIBKUNGFU_SQLITE_ORM_INCLUDE})
-  target_link_libraries(${_kf_obj} PRIVATE yijinjing)
+  target_include_directories(${_kf_obj} PRIVATE ${PROJECT_SOURCE_DIR}/include ${KUNGFU_GENERATED_INCLUDE_DIR})
+  target_include_directories(${_kf_obj} SYSTEM PRIVATE ${LIBKUNGFU_SQLITE_ORM_INCLUDE})
+  target_link_libraries(${_kf_obj} PRIVATE yijinjing kungfu_compile_contract ${CONAN_LIBS})
 endforeach()
 
 # Windows: 用 STATIC。libkungfu 含 rocksdb/boost::hana/sqlite_orm 大量模板实例化，作为 SHARED DLL 时
@@ -70,8 +71,10 @@ target_compile_options(${LIBKUNGFU_NAME} PRIVATE "$<$<CONFIG:Release>:${COMPILER
 # PUBLIC so bindings linking libkungfu inherit the core usage requirements.
 # The runtime headers and sqlite_orm are PUBLIC for the same reason: binding
 # sources include the state-cache/live headers directly.
-target_include_directories(${LIBKUNGFU_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include ${KUNGFU_GENERATED_INCLUDE_DIR} ${LIBKUNGFU_SQLITE_ORM_INCLUDE})
-target_link_libraries(${LIBKUNGFU_NAME} PUBLIC yijinjing ${CONAN_LIBS})
+target_include_directories(${LIBKUNGFU_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include ${KUNGFU_GENERATED_INCLUDE_DIR})
+target_include_directories(${LIBKUNGFU_NAME} SYSTEM PUBLIC ${LIBKUNGFU_SQLITE_ORM_INCLUDE})
+target_link_libraries(${LIBKUNGFU_NAME} PUBLIC yijinjing ${CONAN_LIBS} PRIVATE kungfu_compile_contract)
+kungfu_strip_release_local_symbols(${LIBKUNGFU_NAME})
 
 # Windows AppContainer guest launcher (ADR-0014) lives in the runtime sandbox
 # layer, not the standalone yijinjing core.

@@ -18,7 +18,10 @@ sensitive material in issues or pull requests.
 
 ## Prerequisites
 
-- A C++23 toolchain and [CMake](https://cmake.org/) (>= 3.20)
+- A compiler in the native matrix (Apple Clang on macOS, GCC on Linux, MSVC on
+  Windows) and [CMake](https://cmake.org/) >= 3.28. Linux Clang and Windows
+  clang-cl are secondary qualification compilers. Exact floors live only in
+  [`toolchain.contract.json`](toolchain.contract.json).
 - [Conan 2](https://conan.io/) for C++ dependencies
 
 Everything else is resolved by the `./shifu` entrypoint: node (via
@@ -32,6 +35,8 @@ version cannot silently replace the repository's reproducible build input.
 Run `./shifu doctor` to check your environment: it reports every required
 tool with a version line or an install pointer (and exits non-zero when a
 required tool is missing, so it can gate scripts).
+Use `./shifu doctor --json` when a machine-readable compiler/CMake/Ninja/Conan
+fact record is needed. See [`docs/cpp-toolchain.md`](docs/cpp-toolchain.md).
 
 ## Repository layout
 

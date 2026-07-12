@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
-cmake_minimum_required(VERSION 3.15)
-project(kungfu)
+cmake_minimum_required(VERSION 3.28)
+project(kungfu LANGUAGES C CXX)
 
 ##########################################################################
 
 include(${PROJECT_SOURCE_DIR}/.cmake/editor.cmake)
 include(${PROJECT_SOURCE_DIR}/.cmake/compiler.cmake)
+include(${PROJECT_SOURCE_DIR}/.cmake/toolchain-contract.cmake)
 include(${PROJECT_SOURCE_DIR}/.cmake/libnode.cmake)
 
 ##########################################################################
@@ -24,6 +25,11 @@ find_package(SQLite3 REQUIRED)
 find_package(RocksDB REQUIRED)
 find_package(xxHash REQUIRED)
 find_package(tabulate REQUIRED)
+# pybind11 2.13 still uses FindPythonLibsNew for the shipping Python 3.13
+# binding. CMake 3.28 would otherwise select CMP0148 NEW and change the module
+# initialization/link contract. Keep this one policy OLD until pybind11's
+# modern FindPython path passes the three-platform import/stub smoke.
+cmake_policy(SET CMP0148 OLD)
 find_package(pybind11 REQUIRED)
 
 set(CONAN_LIBS
@@ -37,18 +43,6 @@ set(CONAN_LIBS
     RocksDB::rocksdb
     xxHash::xxhash
     tabulate::tabulate)
-
-# conan2 的 object 库靠 target usage-requirement 传播 include；libkungfu 走 OBJECT
-# 库分别编译，需在定义 target 前全局挂上依赖 include（复刻旧 conan_basic_setup 行为）。
-link_libraries(${CONAN_LIBS})
-
-##########################################################################
-
-add_compile_definitions(HAVE_USLEEP=1)
-
-add_compile_definitions(SPDLOG_ACTIVE_LEVEL=${SPDLOG_LOG_LEVEL_COMPILE})
-add_compile_definitions(SPDLOG_NO_NAME)
-add_compile_definitions(SPDLOG_NO_ATOMIC_LEVELS)
 
 ##########################################################################
 
@@ -74,10 +68,6 @@ endif()
 
 set(KUNGFU_BUILD_DIR ${CMAKE_BINARY_DIR})
 set(KUNGFU_BUILD_LIBRARY_DIR ${KUNGFU_BUILD_DIR}/${CMAKE_BUILD_TYPE})
-
-link_directories(${KUNGFU_BUILD_LIBRARY_DIR})
-
-##########################################################################
 
 if(DEFINED ENV{LIBKUNGFU_NAME})
   set(LIBKUNGFU_NAME $ENV{LIBKUNGFU_NAME})

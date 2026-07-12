@@ -34,7 +34,7 @@ SHIFU_REQUIRE_MSVC = "1"
 
 [lifecycle.install]
 shell = "bash"
-command = "./shifu install --frozen-lockfile --no-optional"
+command = "./shifu doctor && ./shifu install --frozen-lockfile --no-optional"
 
 [lifecycle.build]
 shell = "bash"

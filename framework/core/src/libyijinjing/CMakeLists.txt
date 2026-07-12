@@ -15,7 +15,7 @@
 # FetchContent from another project) the fallbacks kick in. The embedding
 # contract is documented in EMBEDDING.md next to this file.
 
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.20)
 project(yijinjing CXX)
 
 # header-only dependencies -- resolved here only when no enclosing build
@@ -38,7 +38,10 @@ file(GLOB_RECURSE YIJINJING_SOURCE_FILES ${PROJECT_SOURCE_DIR}/src/*.cpp)
 add_library(yijinjing STATIC ${YIJINJING_SOURCE_FILES})
 # the ADR-0001 publication protocol uses std::atomic_ref; a target-level
 # requirement holds even when the embedder's global standard is older
-target_compile_features(yijinjing PUBLIC cxx_std_23)
+target_compile_features(yijinjing PUBLIC cxx_std_20)
+if(TARGET kungfu_compile_contract)
+  target_link_libraries(yijinjing PRIVATE kungfu_compile_contract)
+endif()
 # linked into the SHARED libkungfu on Mac/Linux
 set_target_properties(yijinjing PROPERTIES POSITION_INDEPENDENT_CODE ON)
 if(DEFINED KUNGFU_BUILD_DIR)
@@ -51,7 +54,7 @@ target_include_directories(yijinjing PUBLIC ${PROJECT_SOURCE_DIR}/include)
 # <boost/hana.hpp> some other way. PUBLIC so every consumer of the core's
 # yijinjing schema leaf inherits it.
 if(EXISTS ${PROJECT_SOURCE_DIR}/../../.deps/hana-1.80.0/include)
-  target_include_directories(yijinjing PUBLIC ${PROJECT_SOURCE_DIR}/../../.deps/hana-1.80.0/include)
+  target_include_directories(yijinjing SYSTEM PUBLIC ${PROJECT_SOURCE_DIR}/../../.deps/hana-1.80.0/include)
 endif()
 
 target_link_libraries(yijinjing PUBLIC
@@ -64,14 +67,19 @@ option(YIJINJING_BUILD_TESTS "build yijinjing native correctness tests" OFF)
 if(YIJINJING_BUILD_TESTS)
   add_executable(yijinjing_mmap_tests tests/mmap_tests.cpp)
   target_link_libraries(yijinjing_mmap_tests PRIVATE yijinjing)
-  target_compile_features(yijinjing_mmap_tests PRIVATE cxx_std_23)
+  target_compile_features(yijinjing_mmap_tests PRIVATE cxx_std_20)
   add_test(NAME yijinjing_mmap_tests COMMAND yijinjing_mmap_tests)
+
+  add_executable(yijinjing_content_hash_tests tests/content_hash_tests.cpp)
+  target_link_libraries(yijinjing_content_hash_tests PRIVATE yijinjing)
+  target_compile_features(yijinjing_content_hash_tests PRIVATE cxx_std_20)
+  add_test(NAME yijinjing_content_hash_tests COMMAND yijinjing_content_hash_tests)
 
   # Evidence tool only: this executable exercises the qualified production
   # surface but is not linked into or shipped with the runtime.
   add_executable(yijinjing_mmap_qualification tests/mmap_qualification.cpp)
   target_link_libraries(yijinjing_mmap_qualification PRIVATE yijinjing)
-  target_compile_features(yijinjing_mmap_qualification PRIVATE cxx_std_23)
+  target_compile_features(yijinjing_mmap_qualification PRIVATE cxx_std_20)
 endif()
 
 if(DEFINED COMPILER_OPTIMIZE_ON_OPTIONS AND NOT "${COMPILER_OPTIMIZE_ON_OPTIONS}" STREQUAL "")

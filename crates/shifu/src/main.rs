@@ -171,7 +171,7 @@ fn main() {
         self_update::run(None, &args[1..]);
     }
     if is_doctor {
-        doctor::run(root.as_deref());
+        doctor::run(root.as_deref(), &args[1..]);
     }
     if is_promote {
         promote::run_promote(&args[1..]);
