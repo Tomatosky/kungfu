@@ -7,8 +7,8 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 
-function toEsmEntrypointSpecifier(entryPath) {
-  return pathToFileURL(entryPath).href;
+function toEsmEntrypointSpecifier(entryPath, platform = process.platform) {
+  return platform === 'win32' ? pathToFileURL(entryPath).href : entryPath;
 }
 
 exports.default = async function beforePack() {
