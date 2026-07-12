@@ -13,6 +13,17 @@ def _invoke(runner, home, *args):
     return runner.invoke(kfc, ["--home", str(home), "query", *args])
 
 
+def test_storage_layout_lazy_context_keeps_all_runtime_paths(tmp_path):
+    home = tmp_path / "home"
+    result = CliRunner().invoke(
+        kfc, ["--home", str(home), "storage", "layout", "--json"]
+    )
+
+    assert result.exit_code == 0, result.output
+    layout = json.loads(result.output)
+    assert layout["runtime_dir"] == str(home / "runtime")
+
+
 def test_facts_cli_exposes_the_libkungfu_owned_contract(tmp_path):
     result = CliRunner().invoke(
         kfc, ["--home", str(tmp_path / "home"), "facts", "capabilities"]
