@@ -347,6 +347,7 @@ function checkLayerQualification() {
     path.join('tests', 'qualification', 'layers', 'release', 'run.test.mjs'),
     path.join('tests', 'qualification', 'layers', 'process-metrics.test.mjs'),
     path.join('framework', 'spec', 'index.test.js'),
+    path.join('framework', 'gui', 'scripts', 'before-pack.test.cjs'),
     path.join('product', 'scripts', 'compatibility.test.mjs'),
     path.join('product', 'scripts', 'dist.test.mjs'),
   ]);
