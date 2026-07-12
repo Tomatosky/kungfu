@@ -129,7 +129,7 @@ def build_mission_bundle(
     if report:
         add_episode(report["assessment"].get("assessment_episode_id"), "assessment")
 
-    entries = []
+    entries: list[dict[str, Any]] = []
     missing_episodes = []
     for episode_id in episode_roles:
         try:
