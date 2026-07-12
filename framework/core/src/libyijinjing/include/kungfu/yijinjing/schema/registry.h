@@ -234,10 +234,10 @@ namespace manifest_layout_welds {
 // the coverage guard, so a new versioned record cannot ship unwelded.
 template <typename DataType> struct expected_fingerprint;
 
-#define KF_MANIFEST_LAYOUT_WELD(DataType, Fingerprint)                                                                  \
-  template <> struct expected_fingerprint<types::DataType> {                                                            \
-    static constexpr uint64_t value = (Fingerprint);                                                                    \
-  };                                                                                                                    \
+#define KF_MANIFEST_LAYOUT_WELD(DataType, Fingerprint)                                                                 \
+  template <> struct expected_fingerprint<types::DataType> {                                                           \
+    static constexpr uint64_t value = (Fingerprint);                                                                   \
+  };                                                                                                                   \
   static_assert(journal::layout_fingerprint_detail::layout_fingerprint<types::DataType>() == (Fingerprint),            \
                 #DataType " manifest layout changed without updating its schema_version fingerprint (ADR-0067)")
 
