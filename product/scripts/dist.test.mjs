@@ -3,11 +3,7 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
-import {
-  cliArchiveBase,
-  desktopBuilderArgs,
-  verifyProductObservabilityEvents,
-} from './dist.mjs';
+import { cliArchiveBase, verifyProductObservabilityEvents } from './dist.mjs';
 
 const require = createRequire(import.meta.url);
 const {
@@ -21,12 +17,6 @@ test('CLI product archive name uses the Kungfu Episodes product prefix', () => {
   );
   assert.equal(cliArchiveBase('linux-x64'), 'kungfu-episodes-cli-linux-x64');
   assert.equal(cliArchiveBase('win32-x64'), 'kungfu-episodes-cli-win32-x64');
-});
-
-test('desktop packaging disables electron-builder implicit CI publishing', () => {
-  const args = desktopBuilderArgs(['--linux', 'AppImage']);
-  assert.match(args[0], /product[/\\]electron-builder\.yml$/);
-  assert.deepEqual(args.slice(1), ['--linux', 'AppImage', '--publish=never']);
 });
 
 test('product observability ignores errors from sibling components', () => {

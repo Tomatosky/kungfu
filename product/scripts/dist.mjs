@@ -58,14 +58,6 @@ const buildchainLogger = createBuildchainLogger({
   },
 });
 
-export function desktopBuilderArgs(extraArgs = []) {
-  return [
-    `--config=${path.join(PRODUCT_DIR, 'electron-builder.yml')}`,
-    ...extraArgs,
-    '--publish=never',
-  ];
-}
-
 const parsedArgs = parseArgs(process.argv.slice(2));
 const builderArgs = parsedArgs.builderArgs;
 const productTarget = parsedArgs.product;
@@ -1339,7 +1331,8 @@ function main() {
           process.execPath,
           [
             path.join(GUI_DIR, 'scripts', 'run-electron-builder.mjs'),
-            ...desktopBuilderArgs(builderArgs),
+            `--config=${path.join(PRODUCT_DIR, 'electron-builder.yml')}`,
+            ...builderArgs,
           ],
           {
             cwd: GUI_DIR,
