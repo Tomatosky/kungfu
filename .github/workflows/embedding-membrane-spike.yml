@@ -230,7 +230,13 @@ jobs:
       - name: Build and run membrane consumers (POSIX)
         if: ${{ runner.os != 'Windows' }}
         shell: bash
-        run: cd "$SOURCE_ROOT" && ./shifu qualify:embedding-membranes
+        run: |
+          cd "$SOURCE_ROOT"
+          if ! ./shifu qualify:embedding-membranes; then
+            echo "primary Cargo mirror unavailable; retrying through crates.io"
+            KF_LIBWASM_CARGO_REGISTRY="sparse+https://index.crates.io/" \
+              ./shifu qualify:embedding-membranes
+          fi
 
       - name: Build and run membrane consumers (Windows)
         if: ${{ runner.os == 'Windows' }}
@@ -238,6 +244,12 @@ jobs:
         run: |
           Set-Location $env:SOURCE_ROOT
           .\shifu.cmd qualify:embedding-membranes
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "primary Cargo mirror unavailable; retrying through crates.io"
+            $env:KF_LIBWASM_CARGO_REGISTRY = "sparse+https://index.crates.io/"
+            .\shifu.cmd qualify:embedding-membranes
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
 
       - name: Build and run crash recovery (POSIX)
         if: ${{ runner.os != 'Windows' }}
