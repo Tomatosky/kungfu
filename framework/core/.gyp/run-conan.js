@@ -5,8 +5,34 @@ const fse = require('fs-extra');
 const path = require('node:path');
 const { shell } = require('../lib');
 
+const CORE_DIR = path.dirname(__dirname);
+
+function repairInvalidUvEnvironment(
+  coreDir = CORE_DIR,
+  platform = process.platform,
+) {
+  const venvDir = path.join(coreDir, '.venv');
+  if (!fse.existsSync(venvDir)) return false;
+  const python = path.join(
+    venvDir,
+    platform === 'win32' ? 'Scripts' : 'bin',
+    platform === 'win32' ? 'python.exe' : 'python',
+  );
+  if (fse.existsSync(python)) return false;
+  const stat = fse.lstatSync(venvDir);
+  if (!stat.isDirectory() || stat.isSymbolicLink()) {
+    throw new Error(`refusing to replace invalid uv environment: ${venvDir}`);
+  }
+  fse.removeSync(venvDir);
+  console.warn(
+    `[core] removed incomplete generated uv environment: ${venvDir}`,
+  );
+  return true;
+}
+
 /** @param {string[]} cmd */
 function conan(cmd) {
+  repairInvalidUvEnvironment();
   // uv 接管 env（S1 阶段 A）：在 uv 项目 venv 中运行全局 conan2；--frozen 不偷改 uv.lock。
   const uv_args = ['run', '--frozen', 'conan', ...cmd];
   shell.run('uv', uv_args, true, {
@@ -153,5 +179,6 @@ module.exports.cli = cli;
 module.exports.main = main;
 module.exports.conanInstall = conanInstall;
 module.exports.conanBuild = conanBuild;
+module.exports.repairInvalidUvEnvironment = repairInvalidUvEnvironment;
 
 if (require.main === module) main().catch(shell.utils.exitOnError);
