@@ -257,8 +257,12 @@ function copyPyBindingWin(bt) {
   const storageDll = fs.existsSync(btStorageDll)
     ? btStorageDll
     : findFileShallow(buildDir, /^kungfu\.dll$/i);
+  const btStorageImport = path.join(buildDir, bt, 'kungfu_native_storage.lib');
+  const storageImport = fs.existsSync(btStorageImport)
+    ? btStorageImport
+    : findFileShallow(buildDir, /^kungfu_native_storage\.lib$/i);
   let n = 0;
-  for (const src of [pyd, dll, storageDll]) {
+  for (const src of [pyd, dll, storageDll, storageImport]) {
     if (!src) continue;
     fs.copyFileSync(src, path.join(distKfc, path.basename(src)));
     n++;
@@ -271,7 +275,11 @@ function copyPyBindingWin(bt) {
   if (!dll) console.error('[freeze] Win 警告：build 树未找到 libnode.dll');
   if (!storageDll)
     console.error('[freeze] Win 错误：build 树未找到 kungfu.dll');
-  if (!storageDll) process.exit(1);
+  if (!storageImport)
+    console.error(
+      '[freeze] Win 错误：build 树未找到 kungfu_native_storage.lib',
+    );
+  if (!storageDll || !storageImport) process.exit(1);
   console.log(
     `[freeze] Win：补拷 python binding / SDK ABI → dist/kungfu：${n} 项`,
   );

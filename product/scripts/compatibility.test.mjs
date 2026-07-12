@@ -48,7 +48,14 @@ test('Windows ships a narrow shared native-storage ABI with symbols', () => {
     'utf8',
   );
   assert.match(freeze, /findFileShallow\(buildDir, \/\^kungfu\\\.dll\$\/i\)/);
+  assert.match(freeze, /\^kungfu_native_storage\\\.lib\$\/i/);
   assert.match(freeze, /copyPdbSibling\(storageDll, distKfc\)/);
+
+  const rustBuild = fs.readFileSync(
+    path.join(repoRoot, 'crates/kungfu-sdk/build.rs'),
+    'utf8',
+  );
+  assert.match(rustBuild, /cargo:rustc-link-lib=dylib=kungfu_native_storage/);
 });
 
 test('compatibility tree hash is path-stable and content-sensitive', () => {
