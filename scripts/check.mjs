@@ -331,6 +331,19 @@ function testShifuEntryContract() {
   ]);
 }
 
+function checkShifuCacheContract() {
+  run('Shifu cache contract gate', 'node', [
+    path.join('scripts', 'check-shifu-cache-contract.mjs'),
+  ]);
+}
+
+function testShifuCacheContract() {
+  run('Shifu cache contract tests', 'node', [
+    '--test',
+    path.join('scripts', 'check-shifu-cache-contract.test.mjs'),
+  ]);
+}
+
 function checkLayerQualification() {
   run('ADR-0049 layer qualification harness tests', 'node', [
     '--test',
@@ -451,11 +464,28 @@ function checkBuildchainKfdEvidence(files = [], { force = false } = {}) {
   ]);
 }
 
+function checkLibwasmCargoCache(files = [], { force = false } = {}) {
+  const touched = files.some(
+    (file) =>
+      file === 'framework/core/.cmake/libwasm-cargo-cache.cmake' ||
+      file === 'scripts/libwasm-cargo-cache.test.mjs' ||
+      file === 'scripts/qualify-libwasm-cargo-cache.mjs' ||
+      file.endsWith('/libwasm/CMakeLists.txt') ||
+      file.includes('/libwasm-shared-membrane/'),
+  );
+  if (!force && !touched) return;
+  run('libwasm Cargo cache contract tests', 'node', [
+    '--test',
+    path.join('scripts', 'libwasm-cargo-cache.test.mjs'),
+  ]);
+}
+
 function checkStaged() {
   checkNoBashStaged();
   checkPlatformMacros();
   checkShifuVersionSync();
   checkShifuEntryContract();
+  checkShifuCacheContract();
   checkCarrierActionEnvelope(['--staged']);
   checkRuntimeGreenfield(['--staged']);
   checkSchemaAuthority();
@@ -499,12 +529,14 @@ function checkStaged() {
   checkBiomeFiles('staged', files);
   checkRustFiles('staged', files);
   checkBuildchainKfdEvidence(files);
+  checkLibwasmCargoCache(files);
 
   log('\n[check] staged gate passed');
 }
 
 function checkShared() {
   testShifuEntryContract();
+  testShifuCacheContract();
   testSchemaAuthority();
   checkJournalAuthorityBoundary();
   checkLiveRuntimeTerminology();
@@ -546,6 +578,7 @@ function checkChanged() {
   checkBiomeFiles('changed', files);
   checkRustFiles('changed', files);
   checkBuildchainKfdEvidence(files);
+  checkLibwasmCargoCache(files);
   checkShared();
   log('\n[check] changed-scope gate passed');
 }
@@ -563,6 +596,7 @@ function checkAll() {
   run('repo lint + format check', 'pnpm', ['run', 'lint']);
   checkRustFiles('all', [], { force: true });
   checkBuildchainKfdEvidence([], { force: true });
+  checkLibwasmCargoCache([], { force: true });
   checkShared();
   log('\n[check] whole-tree gate passed');
 }
