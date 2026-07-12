@@ -839,9 +839,6 @@ function App() {
   const [windowChrome, controlWindow] = useWindowChrome();
   const [config, setConfig] = React.useState<KungfuResolvedConfig | null>(null);
   const [configError, setConfigError] = React.useState('');
-  const [runtimeLive, setRuntimeLive] = React.useState(
-    () => runtime.ledger?.health().live ?? false,
-  );
   const [runtimeStatus, setRuntimeStatus] =
     React.useState<RuntimeStatusResult | null>(null);
   const [statusBarItems, setStatusBarItems] = React.useState<
@@ -880,14 +877,6 @@ function App() {
     ipc.on(SHELL_REFRESH_CHANNEL, refreshProductData);
     return () => ipc?.removeListener(SHELL_REFRESH_CHANNEL, refreshProductData);
   }, [refreshProductData]);
-
-  React.useEffect(() => {
-    const refresh = () =>
-      setRuntimeLive(runtime.ledger?.health().live ?? false);
-    refresh();
-    const timer = setInterval(refresh, 5000);
-    return () => clearInterval(timer);
-  }, [runtime.ledger]);
 
   React.useEffect(() => {
     type RuntimeStatusIpc = {
@@ -1279,8 +1268,7 @@ function App() {
   const supervisorRunning =
     runtimeStatus?.payload?.supervisor?.running === true;
   const coordinatorRunning =
-    runtimeStatus?.payload?.coordinator?.running === true ||
-    (!runtimeStatus?.ok && runtimeLive);
+    runtimeStatus?.payload?.coordinator?.running === true;
   const lifecycleState =
     runtimeStatus?.payload?.lifecycle?.state || runtimeStatus?.payload?.status;
   const lifecycleHealthy = runtimeStatus?.payload?.lifecycle?.healthy === true;

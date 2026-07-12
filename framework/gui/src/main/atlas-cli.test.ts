@@ -20,6 +20,16 @@ test('main registers Atlas CLI with the shared channel constant', () => {
   assert.match(source, /ipcMain\.handle\(ATLAS_CLI_EXEC_CHANNEL/);
 });
 
+test('renderer runtime status does not poll native ledger health', () => {
+  const source = readFileSync(
+    new URL('../renderer/src/main.tsx', import.meta.url),
+    'utf8',
+  );
+
+  assert.doesNotMatch(source, /ledger\?\.health\(\)/);
+  assert.match(source, /\.invoke\(RUNTIME_STATUS_GET_CHANNEL\)/);
+});
+
 test('Atlas CLI transport rejects non-Atlas commands before process startup', async () => {
   let called = false;
   const result = await executeAtlasCli(
