@@ -46,18 +46,20 @@ using namespace boost::hana::literals;
 //------------------------------------------------------------------------
 // pack struct for fixing data length in journal
 #ifdef _WIN32
+#define KF_EMPTY_BASES __declspec(empty_bases)
 #define KF_PACK_TYPE_BEGIN __pragma(pack(push, 8))
 #define KF_PACK_TYPE_END                                                                                               \
   ;                                                                                                                    \
   __pragma(pack(pop))
 #else
+#define KF_EMPTY_BASES
 #define KF_PACK_TYPE_BEGIN
 #define KF_PACK_TYPE_END __attribute__((aligned(8)));
 #endif
 //------------------------------------------------------------------------
 
 #define KF_DEFINE_DATA_TYPE(NAME, TAG, PRIMARY_KEYS, TIMESTAMP_KEY, ...)                                               \
-  struct NAME : public kungfu::data<NAME> {                                                                            \
+  struct KF_EMPTY_BASES NAME : public kungfu::data<NAME> {                                                             \
     static constexpr int32_t tag = TAG;                                                                                \
     static constexpr auto type_name = HANA_STR(#NAME);                                                                 \
     static constexpr auto primary_keys = PRIMARY_KEYS;                                                                 \
