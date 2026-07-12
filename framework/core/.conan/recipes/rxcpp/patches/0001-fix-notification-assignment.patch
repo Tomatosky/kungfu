@@ -7,8 +7,7 @@
 -        const T value;
 +        T value;
      };
-@@ -167,6 +167,6 @@ private:
-     struct on_error_notification : public base {
+@@ -167,5 +167,5 @@ private:
          virtual void accept(const typename base::observer_type& o) const {
              o.on_error(ep);
          }

@@ -132,11 +132,11 @@ function mergeBase() {
     '@{upstream}',
   ]);
   const candidates = [
-    upstream,
-    'origin/HEAD',
-    'nas/dev/v4/v4.0',
     'origin/dev/v4/v4.0',
+    'nas/dev/v4/v4.0',
     'dev/v4/v4.0',
+    'origin/HEAD',
+    upstream,
   ].filter(Boolean);
   for (const ref of candidates) {
     const base = gitMaybe(['merge-base', String(ref), 'HEAD']);
