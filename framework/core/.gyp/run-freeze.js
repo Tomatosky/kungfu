@@ -232,7 +232,8 @@ function findFileShallow(root, re) {
   return null;
 }
 
-// Windows only：把 python binding(pykungfu) 与 libnode 运行库补拷进 dist/kungfu。
+// Windows only：把 python binding(pykungfu)、libnode 运行库与窄 C ABI
+// kungfu.dll 补拷进 dist/kungfu。
 //
 // 缘由：MSVC 多配置生成器与 Mac/Linux 单配置生成器的产物布局不一致——Win 把
 // pykungfu.<abi>.pyd 产在 build/ 根、libnode.dll 产在 build/<bt>；而 Nuitka freeze 用
@@ -252,8 +253,12 @@ function copyPyBindingWin(bt) {
   const dll = fs.existsSync(btDll)
     ? btDll
     : findFileShallow(buildDir, /^libnode\.dll$/i);
+  const btStorageDll = path.join(buildDir, bt, 'kungfu.dll');
+  const storageDll = fs.existsSync(btStorageDll)
+    ? btStorageDll
+    : findFileShallow(buildDir, /^kungfu\.dll$/i);
   let n = 0;
-  for (const src of [pyd, dll]) {
+  for (const src of [pyd, dll, storageDll]) {
     if (!src) continue;
     fs.copyFileSync(src, path.join(distKfc, path.basename(src)));
     n++;
@@ -261,9 +266,15 @@ function copyPyBindingWin(bt) {
   // pykungfu.pdb ships the symbols for the python binding + statically-linked
   // core; libnode.dll is third-party and carries no PDB of ours.
   if (pyd) copyPdbSibling(pyd, distKfc);
+  if (storageDll) copyPdbSibling(storageDll, distKfc);
   if (!pyd) console.error('[freeze] Win 警告：build 树未找到 pykungfu*.pyd');
   if (!dll) console.error('[freeze] Win 警告：build 树未找到 libnode.dll');
-  console.log(`[freeze] Win：补拷 python binding → dist/kungfu：${n} 项`);
+  if (!storageDll)
+    console.error('[freeze] Win 错误：build 树未找到 kungfu.dll');
+  if (!storageDll) process.exit(1);
+  console.log(
+    `[freeze] Win：补拷 python binding / SDK ABI → dist/kungfu：${n} 项`,
+  );
 }
 
 // --------------------------------------------------------------- assemble

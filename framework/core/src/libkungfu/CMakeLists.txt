@@ -73,6 +73,22 @@ target_compile_options(${LIBKUNGFU_NAME} PRIVATE "$<$<CONFIG:Release>:${COMPILER
 target_include_directories(${LIBKUNGFU_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include ${KUNGFU_GENERATED_INCLUDE_DIR} ${LIBKUNGFU_SQLITE_ORM_INCLUDE})
 target_link_libraries(${LIBKUNGFU_NAME} PUBLIC yijinjing ${CONAN_LIBS})
 
+# The production Windows core stays static to avoid the COFF export-table
+# ceiling above, but the public storage SDK still needs one loadable C ABI.
+# Compile only that adapter into a narrow DLL and link its implementation to
+# the static core. The explicit dllexport macro keeps this target to the single
+# version-negotiated bootstrap instead of re-enabling export-all-symbols.
+if (WIN32)
+  add_library(kungfu_native_storage_shared SHARED src/runtime/native_storage.cpp)
+  target_compile_definitions(kungfu_native_storage_shared PRIVATE KF_NATIVE_STORAGE_BUILD_SHARED=1)
+  target_link_libraries(kungfu_native_storage_shared PRIVATE ${LIBKUNGFU_NAME})
+  set_target_properties(kungfu_native_storage_shared PROPERTIES
+    OUTPUT_NAME kungfu
+    ARCHIVE_OUTPUT_NAME kungfu_native_storage
+    WINDOWS_EXPORT_ALL_SYMBOLS OFF
+  )
+endif ()
+
 # Windows AppContainer guest launcher (ADR-0014) lives in the runtime sandbox
 # layer, not the standalone yijinjing core.
 if(WIN32)
