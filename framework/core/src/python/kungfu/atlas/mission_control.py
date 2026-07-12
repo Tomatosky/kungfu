@@ -43,7 +43,7 @@ ATTRIBUTION_NAMES = {
     3: "observed-window",
     4: "manual-estimate",
 }
-PROGRESS_POLICY = {
+PROGRESS_POLICY: dict[str, Any] = {
     "id": "kungfu.mission-control.reasonable-progress",
     "version": "1",
     "rules": {
@@ -1150,7 +1150,7 @@ def _cost_profile(runtime_dir: str, state: dict[str, Any]) -> dict[str, Any]:
         }.values()
     )
     rewind_root = Path(runtime_dir) / "rewind"
-    observations = []
+    observations: list[dict[str, Any]] = []
     unreadable_runs = []
     episode_id_by_run = {}
     episode_by_run = {}
