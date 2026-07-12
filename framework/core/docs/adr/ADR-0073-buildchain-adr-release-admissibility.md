@@ -3,7 +3,10 @@ metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
 adr_id: ADR-0073
 decision_status: accepted
-implementation_status: not-started
+implementation_status: implemented
+implementation_commits: [c00c68059c217c0ded26de1b8acbdcbc38c13368]
+closure_commit: c00c68059c217c0ded26de1b8acbdcbc38c13368
+qualification_refs: [scripts/adr-release-gate.test.mjs]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-decision]
