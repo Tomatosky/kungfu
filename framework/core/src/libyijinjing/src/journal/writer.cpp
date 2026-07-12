@@ -78,84 +78,76 @@ uint64_t writer::current_frame_uid() {
   return frame_id_base_ | ((page_part | frame_part) xor writer_start_time_32int_);
 }
 
-writer::frame_transaction::frame_transaction(writer &owner, std::unique_lock<std::timed_mutex> lock,
-                                             frame_ptr frame) noexcept
-    : owner_(&owner), lock_(std::move(lock)), frame_(std::move(frame)) {}
+writer::frame_transaction::frame_transaction(writer &owner, frame_ptr frame, bool replay) noexcept
+    : owner_(&owner), frame_(std::move(frame)), replay_(replay) {}
 
 writer::frame_transaction::frame_transaction(frame_transaction &&other) noexcept
-    : owner_(std::exchange(other.owner_, nullptr)), lock_(std::move(other.lock_)), frame_(std::move(other.frame_)),
-      committed_(std::exchange(other.committed_, true)) {}
+    : owner_(std::exchange(other.owner_, nullptr)), frame_(std::move(other.frame_)), replay_(other.replay_) {}
 
 writer::frame_transaction &writer::frame_transaction::operator=(frame_transaction &&other) noexcept {
   if (this != &other) {
     abort();
     owner_ = std::exchange(other.owner_, nullptr);
-    lock_ = std::move(other.lock_);
     frame_ = std::move(other.frame_);
-    committed_ = std::exchange(other.committed_, true);
+    replay_ = other.replay_;
   }
   return *this;
 }
 
-writer::frame_transaction::~frame_transaction() { abort(); }
+writer::frame_transaction::~frame_transaction() {
+  if (owner_ != nullptr) {
+    abort();
+  }
+}
 
 void writer::frame_transaction::abort() noexcept {
-  if (owner_ != nullptr && !committed_) {
+  if (owner_ != nullptr) {
     owner_->abort_frame_unserialized();
-  }
-  if (lock_.owns_lock()) {
-    lock_.unlock();
+    owner_->writer_mtx_.unlock();
   }
   owner_ = nullptr;
   frame_.reset();
 }
 
 void writer::frame_transaction::commit(size_t data_length, int64_t gen_time) {
-  if (owner_ == nullptr || committed_) {
+  if (owner_ == nullptr) {
     throw journal_error("Can not commit an inactive frame transaction");
   }
 
   auto *owner = owner_;
   try {
-    owner->commit_transaction_unserialized(data_length, gen_time, frame_);
+    if (replay_) {
+      owner->close_frame(data_length, gen_time);
+    } else {
+      owner->on_frame_closing(gen_time, frame_);
+      owner->close_frame_unserialized(data_length, gen_time);
+    }
   } catch (...) {
     abort();
     throw;
   }
 
-  committed_ = true;
   owner_ = nullptr;
   frame_.reset();
-  lock_.unlock();
+  owner->writer_mtx_.unlock();
   owner->publisher_->notify();
 }
 
 writer::frame_transaction writer::reserve_frame(int64_t trigger_time, int32_t carrier_type, size_t data_length,
                                                 uint64_t stream_id) {
-  std::unique_lock<std::timed_mutex> lock(writer_mtx_, std::defer_lock);
-  if (!lock.try_lock_for(std::chrono::seconds(30))) {
+  if (!writer_mtx_.try_lock_for(std::chrono::seconds(30))) {
     throw journal_error("Can not lock writer for " + journal_->location_->uname);
   }
 
   try {
-    auto frame = begin_transaction_unserialized(trigger_time, carrier_type, data_length, stream_id);
-    return frame_transaction(*this, std::move(lock), std::move(frame));
+    auto frame = open_frame_unserialized(trigger_time, carrier_type, data_length, stream_id);
+    on_frame_opened(trigger_time, frame);
+    return frame_transaction(*this, std::move(frame));
   } catch (...) {
     abort_frame_unserialized();
+    writer_mtx_.unlock();
     throw;
   }
-}
-
-frame_ptr writer::begin_transaction_unserialized(int64_t trigger_time, int32_t carrier_type, size_t data_length,
-                                                 uint64_t stream_id) {
-  auto frame = open_frame_unserialized(trigger_time, carrier_type, data_length, stream_id);
-  on_frame_opened(trigger_time, frame);
-  return frame;
-}
-
-void writer::commit_transaction_unserialized(size_t data_length, int64_t gen_time, const frame_ptr &frame) {
-  on_frame_closing(gen_time, frame);
-  close_frame_unserialized(data_length, gen_time);
 }
 
 frame_ptr writer::open_frame_unserialized(int64_t trigger_time, int32_t carrier_type, size_t data_length,

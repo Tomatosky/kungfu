@@ -87,14 +87,14 @@ int32_t peer::add_time_interval(int64_t duration, const std::function<void(const
 
 void peer::release_page() {
   reader_->release_page();
-  for (auto &iter : writers_) {
+  for (auto &iter : get_writers()) {
     iter.second->release_page();
   }
 }
 
 void peer::preload_next_page() {
   reader_->preload_next_page();
-  for (auto &iter : writers_) {
+  for (auto &iter : get_writers()) {
     iter.second->preload_next_page();
   }
 }
@@ -169,9 +169,16 @@ void peer::react() {
     fs::remove_all(coordinator_cmd_dir);
     auto peer_cmd_writer = get_io_device()->open_writer_at(coordinator_cmd_location_, get_home_uid());
 
-    writers_.insert_or_assign(get_home_uid(), peer_cmd_writer);
+    {
+      std::lock_guard<std::mutex> lock(writers_mtx_);
+      writers_.insert_or_assign(get_home_uid(), peer_cmd_writer);
+    }
     reader_->join(coordinator_cmd_location_, get_home_uid(), begin_time_);
-    writers_.insert_or_assign(location::PUBLIC, get_io_device()->open_writer(location::PUBLIC));
+    auto public_writer = get_io_device()->open_writer(location::PUBLIC);
+    {
+      std::lock_guard<std::mutex> lock(writers_mtx_);
+      writers_.insert_or_assign(location::PUBLIC, std::move(public_writer));
+    }
     reader_->join(get_home(), location::PUBLIC, begin_time_);
     started_ = true;
     on_start();
@@ -233,8 +240,12 @@ void peer::on_request_read_from_others(const event_ptr &event) {
 void peer::on_write_to(const event_ptr &event) {
   const auto &request = event->data<RequestWriteTo>();
   auto dest_id = request.dest_id;
-  if (writers_.find(dest_id) == writers_.end()) {
-    writers_.emplace(dest_id, get_io_device()->open_writer(dest_id, request.page_size));
+  if (not has_writer(dest_id)) {
+    auto writer = get_io_device()->open_writer(dest_id, request.page_size);
+    {
+      std::lock_guard<std::mutex> lock(writers_mtx_);
+      writers_.emplace(dest_id, std::move(writer));
+    }
     if (dest_id == get_coordinator_command_uid()) {
       coordinator_cmd_writer_for_thread_ = get_writer(dest_id);
     }

@@ -153,20 +153,18 @@ public:
   bool throw_on_commit{false};
 
 protected:
-  frame_ptr begin_transaction_unserialized(int64_t trigger_time, int32_t carrier_type, size_t length,
-                                           uint64_t stream_id) override {
-    auto frame = writer::begin_transaction_unserialized(trigger_time, carrier_type, length, stream_id);
+  void on_frame_opened(int64_t trigger_time, const frame_ptr &frame) override {
+    writer::on_frame_opened(trigger_time, frame);
     if (std::exchange(throw_on_reserve, false)) {
       throw std::runtime_error("injected reservation failure");
     }
-    return frame;
   }
 
-  void commit_transaction_unserialized(size_t data_length, int64_t gen_time, const frame_ptr &frame) override {
+  void on_frame_closing(int64_t gen_time, const frame_ptr &frame) override {
     if (std::exchange(throw_on_commit, false)) {
       throw std::runtime_error("injected commit failure");
     }
-    writer::commit_transaction_unserialized(data_length, gen_time, frame);
+    writer::on_frame_closing(gen_time, frame);
   }
 };
 

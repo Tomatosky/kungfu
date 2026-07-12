@@ -279,13 +279,13 @@ public:
 
   private:
     friend class writer;
-    frame_transaction(writer &owner, std::unique_lock<std::timed_mutex> lock, frame_ptr frame) noexcept;
+    friend class replay_writer;
+    frame_transaction(writer &owner, frame_ptr frame, bool replay = false) noexcept;
     void abort() noexcept;
 
     writer *owner_;
-    std::unique_lock<std::timed_mutex> lock_;
     frame_ptr frame_;
-    bool committed_{false};
+    bool replay_{false};
   };
 
   explicit writer(const data::location_ptr &location, uint32_t dest_id, publisher_ptr publisher, bool low_latency,
@@ -328,8 +328,8 @@ public:
 
   virtual uint64_t current_frame_uid();
 
-  [[nodiscard]] frame_transaction reserve_frame(int64_t trigger_time, int32_t carrier_type, size_t length,
-                                                uint64_t stream_id = 0);
+  [[nodiscard]] virtual frame_transaction reserve_frame(int64_t trigger_time, int32_t carrier_type, size_t length,
+                                                        uint64_t stream_id = 0);
 
   [[deprecated("use reserve_frame(); split open/close ownership is not exception-safe for caller abandonment")]]
   virtual frame_ptr open_frame(int64_t trigger_time, int32_t carrier_type, size_t length, uint64_t stream_id = 0);
@@ -445,10 +445,6 @@ protected:
 
   virtual void on_frame_opened(int64_t trigger_time, const frame_ptr &frame);
   virtual void on_frame_closing(int64_t gen_time, const frame_ptr &frame);
-  virtual frame_ptr begin_transaction_unserialized(int64_t trigger_time, int32_t carrier_type, size_t length,
-                                                   uint64_t stream_id);
-  virtual void commit_transaction_unserialized(size_t data_length, int64_t gen_time, const frame_ptr &frame);
-
   frame_ptr open_frame_unserialized(int64_t trigger_time, int32_t carrier_type, size_t length, uint64_t stream_id);
   void close_frame_unserialized(size_t data_length, int64_t gen_time);
   void abort_frame_unserialized() noexcept;
@@ -492,12 +488,12 @@ public:
 
   void close_frame(size_t data_length, int64_t gen_time) override;
 
+  frame_transaction reserve_frame(int64_t trigger_time, int32_t carrier_type, size_t length,
+                                  uint64_t stream_id = 0) override;
+
   uint64_t current_frame_uid() override;
 
 private:
-  frame_ptr begin_transaction_unserialized(int64_t trigger_time, int32_t carrier_type, size_t length,
-                                           uint64_t stream_id) override;
-  void commit_transaction_unserialized(size_t data_length, int64_t gen_time, const frame_ptr &frame) override;
   reader_ptr reader_for_write_;
   cloned_frame_ptr cloned_frame_ = std::make_shared<cloned_frame>();
 };

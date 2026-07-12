@@ -93,7 +93,9 @@ public:
 
   [[nodiscard]] virtual yijinjing::journal::writer_ptr get_band_writer(uint32_t dest_id) const;
 
-  [[nodiscard]] const WriterMap &get_writers() const;
+  /// Returns a stable management snapshot. The caller may iterate it without
+  /// racing writer membership changes on the reactor thread.
+  [[nodiscard]] WriterMap get_writers() const;
 
   [[nodiscard]] bool has_location(uint32_t uid) const;
 
@@ -182,6 +184,7 @@ protected:
   yijinjing::journal::reader_ptr reader_;
   WriterMap writers_ = {};
   WriterMap band_writers_ = {};
+  mutable std::mutex writers_mtx_{};
   mutable std::mutex band_mtx_{};
   const size_t main_thread_id_{};
   std::set<std::string> location_uid64s_ = {};

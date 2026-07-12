@@ -36,7 +36,11 @@ void coordinator::pre_setup() {
     try_add_location(begin_time_, location::make_shared(config, get_locator()));
   }
 
-  writers_.insert_or_assign(location::PUBLIC, get_io_device()->open_writer(location::PUBLIC));
+  auto public_writer = get_io_device()->open_writer(location::PUBLIC);
+  {
+    std::lock_guard<std::mutex> lock(writers_mtx_);
+    writers_.insert_or_assign(location::PUBLIC, std::move(public_writer));
+  }
   state_cache_.run_store_workers();
 }
 
@@ -97,7 +101,10 @@ void coordinator::register_peer(const event_ptr &event) {
   try_add_location(event->gen_time(), coordinator_cmd_location);
 
   auto peer_cmd_writer = get_io_device()->open_writer_at(coordinator_cmd_location, peer_location->uid);
-  writers_.insert_or_assign(peer_location->uid, peer_cmd_writer);
+  {
+    std::lock_guard<std::mutex> lock(writers_mtx_);
+    writers_.insert_or_assign(peer_location->uid, peer_cmd_writer);
+  }
   reader_->join(peer_location, location::PUBLIC, now);
   reader_->join(peer_location, location::SYNC, now); // create sync journal
   disjoin_channel(peer_location, location::SYNC);    // no need to deal feed from sync
@@ -141,7 +148,10 @@ void coordinator::deregister_peer(int64_t trigger_time, uint32_t peer_location_u
   deregister_band(peer_location_uid);
   deregister_location(trigger_time, peer_location_uid);
   disjoin(location);
-  writers_.erase(peer_location_uid);
+  {
+    std::lock_guard<std::mutex> lock(writers_mtx_);
+    writers_.erase(peer_location_uid);
+  }
   timer_tasks_.erase(peer_location_uid);
   const Deregister deregister = location->to<Deregister>();
   SPDLOG_DEBUG("Deregister: {}", deregister.to_string());

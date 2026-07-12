@@ -111,7 +111,14 @@ reactor::reactor(kungfu::runtime::io_device_ptr io_device)
 }
 
 reactor::~reactor() {
-  writers_.clear();
+  {
+    std::lock_guard<std::mutex> lock(writers_mtx_);
+    writers_.clear();
+  }
+  {
+    std::lock_guard<std::mutex> lock(band_mtx_);
+    band_writers_.clear();
+  }
   reader_.reset();
   io_device_.reset();
   ensure_sqlite_shutdown();
@@ -212,9 +219,10 @@ uint32_t reactor::get_live_home_uid() const { return get_io_device()->get_live_h
 reader_ptr reactor::get_reader() const { return reader_; }
 
 bool reactor::has_writer(uint32_t dest_id) const {
-  if (util::get_thread_id() != main_thread_id_) {
-    return has_band_writer(dest_id) or writers_.find(dest_id) != writers_.end();
+  if (util::get_thread_id() != main_thread_id_ and has_band_writer(dest_id)) {
+    return true;
   }
+  std::lock_guard<std::mutex> lock(writers_mtx_);
   return writers_.find(dest_id) != writers_.end();
 }
 
@@ -226,14 +234,21 @@ writer_ptr reactor::get_writer(uint32_t dest_id) const {
       SPDLOG_WARN("Unexpected exception by get_band_writer for dest_id {}:{}, {}", dest_id, get_location_uname(dest_id),
                   e.what());
     }
-  } else if (band_writers_.find(dest_id) != band_writers_.end()) {
-    return band_writers_.at(dest_id);
+  } else {
+    std::lock_guard<std::mutex> lock(band_mtx_);
+    auto band_writer = band_writers_.find(dest_id);
+    if (band_writer != band_writers_.end()) {
+      return band_writer->second;
+    }
   }
 
-  if (writers_.find(dest_id) == writers_.end()) {
+  std::lock_guard<std::mutex> lock(writers_mtx_);
+  auto writer = writers_.find(dest_id);
+  if (writer == writers_.end()) {
     SPDLOG_ERROR("no writer for {}", get_location_uname(dest_id));
+    return writers_.at(dest_id);
   }
-  return writers_.at(dest_id);
+  return writer->second;
 }
 
 bool reactor::has_band_writer(uint32_t dest_id) const {
@@ -249,7 +264,18 @@ writer_ptr reactor::get_band_writer(uint32_t dest_id) const {
   return band_writers_.at(dest_id);
 }
 
-const WriterMap &reactor::get_writers() const { return writers_; }
+WriterMap reactor::get_writers() const {
+  WriterMap snapshot;
+  {
+    std::lock_guard<std::mutex> lock(writers_mtx_);
+    snapshot = writers_;
+  }
+  {
+    std::lock_guard<std::mutex> lock(band_mtx_);
+    snapshot.insert(band_writers_.begin(), band_writers_.end());
+  }
+  return snapshot;
+}
 
 bool reactor::has_location(uint32_t uid) const { return locations_.find(uid) != locations_.end(); }
 
