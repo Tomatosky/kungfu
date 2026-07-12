@@ -238,3 +238,15 @@ jobs:
         run: |
           Set-Location $env:SOURCE_ROOT
           .\shifu.cmd qualify:embedding-membranes
+
+      - name: Build and run crash recovery (POSIX)
+        if: ${{ runner.os != 'Windows' }}
+        shell: bash
+        run: cd "$SOURCE_ROOT" && ./shifu test:crash-recovery
+
+      - name: Build and run crash recovery (Windows)
+        if: ${{ runner.os == 'Windows' }}
+        shell: pwsh
+        run: |
+          Set-Location $env:SOURCE_ROOT
+          .\shifu.cmd test:crash-recovery
