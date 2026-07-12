@@ -37,6 +37,17 @@ function ensureBuildchainConanProfile() {
   );
 }
 
+// GCC 14 correctly rejects two assignment operators in RxCpp 4.1.1 that
+// write through const data members. ConanCenter marks the release unsupported
+// on GCC 14, but Kungfu's production compiler floor is newer than that legacy
+// header. Export our source-patched recipe before resolution so every host and
+// clean cache builds the same audited package revision instead of mutating a
+// shared Conan cache after installation.
+function ensureKungfuConanRecipes() {
+  const recipe = path.join(__dirname, '..', '.conan', 'recipes', 'rxcpp');
+  conan(['export', recipe, '--version', '4.1.1']);
+}
+
 function getNodeVersionOptions() {
   const packageJson = fse.readJsonSync(
     path.resolve(path.dirname(__dirname), 'package.json'),
@@ -92,6 +103,7 @@ function makeConanOptions(names) {
 // 形态选择（含 macOS 平台默认 assemble）完全由 run-freeze.js 决定。
 function conanInstall() {
   ensureBuildchainConanProfile();
+  ensureKungfuConanRecipes();
   const settings = [
     ...makeConanSettings(['build_type']),
     ...platformConanSettings(),

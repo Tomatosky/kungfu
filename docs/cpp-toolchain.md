@@ -66,6 +66,12 @@ without changing Cargo package identity. For example:
 KF_LIBWASM_CARGO_REGISTRY=sparse+https://rsproxy.cn/index/ ./shifu build:core
 ```
 
+The build exports Kungfu's pinned RxCpp 4.1.1 Conan recipe before dependency
+resolution. Its single portability patch makes the notification payloads
+assignable, matching their declared assignment operators and allowing the
+header to compile under GCC 14. The recipe downloads the upstream release by
+fixed SHA-256; it never edits an installed or shared Conan cache in place.
+
 Use only Shifu entrypoints. The CMake and Conan commands behind them are
 implementation details, not a second contributor workflow.
 

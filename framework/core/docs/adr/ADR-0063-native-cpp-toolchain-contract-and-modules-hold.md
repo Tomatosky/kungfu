@@ -94,6 +94,13 @@ node-addon-api and public embedding surface are poor first module boundaries.
    depends on `FindPythonLibsNew`. Remove the island only after the modern
    `FindPython` path passes Node, Electron and Python import/stub smoke on all
    three primary platforms.
+9. RxCpp 4.1.1 remains pinned, but Kungfu exports an in-repository Conan recipe
+   with one source patch before dependency resolution. The patch removes
+   `const` from two notification payloads that already declare mutating copy
+   assignment operators; GCC 14 otherwise correctly rejects those operators.
+   The recipe verifies the upstream archive SHA-256 and produces a distinct
+   Conan recipe/package revision. It must not patch a shared cache in place,
+   and can be removed when an upstream release compiles unchanged on GCC 14.
 
 ## Baseline and qualification evidence
 
