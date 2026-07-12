@@ -13,6 +13,7 @@
 #include <kungfu/yijinjing/time.h>
 #include <mutex>
 #include <queue>
+#include <thread>
 
 namespace kungfu::yijinjing::journal {
 
@@ -132,12 +133,11 @@ protected:
   page_ptr pre_create_page_ = {};
   page_ptr page_ = {};
   page_ptr preload_page_ = {};
-  std::recursive_mutex load_page_mtx_ = {};
+  std::mutex load_page_mtx_ = {};
   std::vector<page_ptr> passed_page_collector_ = {};
-  std::recursive_mutex passed_page_collector_mtx_ = {};
+  std::mutex passed_page_collector_mtx_ = {};
   frame_ptr frame_ = {};
   uint64_t page_frame_nb_ = 0;
-  bool replica_ = false;
   bool keep_page_ = false;
   uint32_t max_pre_create_size_ = 0;
 
@@ -184,17 +184,38 @@ public:
 
   virtual void disjoin_channel(const data::location_ptr &location, uint32_t dest_id);
 
-  [[nodiscard]] frame_ptr current_frame() const { return current_->current_frame(); }
+  /**
+   * The cursor surface is single-consumer and thread-affine. Journal membership
+   * may be snapshotted concurrently, but advancing or inspecting this cursor
+   * from multiple threads is unsupported.
+   */
+  [[nodiscard]] frame_ptr current_frame() const {
+    assert_cursor_thread(true);
+    return current_->current_frame();
+  }
 
-  [[nodiscard]] uint64_t current_frame_id() const { return current_->current_frame_id(); }
+  [[nodiscard]] uint64_t current_frame_id() const {
+    assert_cursor_thread(true);
+    return current_->current_frame_id();
+  }
 
-  [[nodiscard]] page_ptr current_page() const { return current_->current_page(); }
+  [[nodiscard]] page_ptr current_page() const {
+    assert_cursor_thread(true);
+    return current_->current_page();
+  }
 
-  [[nodiscard]] uint32_t current_page_id() const { return current_->current_page_id(); }
+  [[nodiscard]] uint32_t current_page_id() const {
+    assert_cursor_thread(true);
+    return current_->current_page_id();
+  }
 
-  [[nodiscard]] const JournalMap &get_journals() const { return journals_; }
+  /** Snapshot safe for concurrent management iteration. */
+  [[nodiscard]] JournalMap get_journals() const;
 
-  [[nodiscard]] journal_ptr get_current_journal() const { return current_; }
+  [[nodiscard]] journal_ptr get_current_journal() const {
+    assert_cursor_thread(true);
+    return current_;
+  }
 
   [[nodiscard]] journal_ptr get_journal(const data::location_ptr &location, uint32_t dest_id);
 
@@ -217,6 +238,8 @@ public:
   static uint64_t find_page_size(const data::location_ptr &location, uint32_t dest_id);
 
 protected:
+  void assert_cursor_thread(bool claim) const;
+  [[nodiscard]] std::vector<journal_ptr> journal_snapshot() const;
   void sort_without_buffer();
 
   void build_buffer();
@@ -233,7 +256,11 @@ protected:
   bool buffer_built_{false};
   std::vector<journal_ptr> no_data_journals_buffer_{};
   std::priority_queue<journal_ptr, std::vector<journal_ptr>, later> has_data_journals_heap_{};
-  std::recursive_mutex mtx_{};
+  mutable std::mutex journals_mtx_{};
+#ifndef NDEBUG
+  mutable std::mutex cursor_owner_mtx_{};
+  mutable std::thread::id cursor_owner_thread_{};
+#endif
 };
 
 class writer {

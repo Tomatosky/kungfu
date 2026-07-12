@@ -45,6 +45,7 @@ using kungfu::yijinjing::journal::noop_publisher;
 using kungfu::yijinjing::journal::page;
 using kungfu::yijinjing::journal::page_open_policy;
 using kungfu::yijinjing::journal::page_precreation;
+using kungfu::yijinjing::journal::reader;
 using kungfu::yijinjing::journal::reader_policy;
 using kungfu::yijinjing::journal::writer;
 using kungfu::yijinjing::journal::writer_hook;
@@ -611,6 +612,76 @@ void test_writer_transaction_recovers_from_page_rollover_failure() {
   require(frame_is_published_at(published_address), "writer did not recover after page rollover failure");
 }
 
+void test_page_release_does_not_poll_external_lease() {
+  temp_tree tree;
+  auto loc = make_location(tree.root());
+  auto bus = std::make_shared<kungfu::yijinjing::journal::bus>(true);
+  auto backing =
+      std::make_shared<journal>(loc, location::PUBLIC, journal_open_policy::writer(), true, bus, TEST_PAGE_SIZE);
+  writer target(loc, location::PUBLIC, std::make_shared<noop_publisher>(), true, bus, backing, 0);
+  constexpr size_t LARGE_PAYLOAD = TEST_PAGE_SIZE / 2;
+
+  auto first = target.reserve_frame(1, 1501, LARGE_PAYLOAD);
+  first.commit(LARGE_PAYLOAD, 2);
+  auto external_lease = target.get_current_page();
+  const auto first_page_id = external_lease->get_page_id();
+
+  auto second = target.reserve_frame(3, 1502, LARGE_PAYLOAD);
+  second.commit(LARGE_PAYLOAD, 4);
+  require(target.get_current_page()->get_page_id() != first_page_id, "fixture did not roll to the next page");
+
+  std::weak_ptr<page> released_page = external_lease;
+  const auto start = std::chrono::steady_clock::now();
+  target.release_page();
+  const auto elapsed = std::chrono::steady_clock::now() - start;
+  require(elapsed < std::chrono::milliseconds(50), "page release waited for an external shared owner");
+  require(!released_page.expired() && external_lease->get_page_id() == first_page_id,
+          "page release invalidated an active external lease");
+
+  external_lease.reset();
+  require(released_page.expired(), "final external release did not destroy the passed page exactly once");
+}
+
+void test_reader_management_uses_membership_snapshots() {
+  temp_tree tree;
+  auto loc = make_location(tree.root());
+  auto writer_bus = make_bus();
+  writer seed(loc, location::PUBLIC, std::make_shared<noop_publisher>(), false, writer_bus, TEST_PAGE_SIZE);
+  seed.mark(1, 1601);
+
+  auto management_bus = std::make_shared<kungfu::yijinjing::journal::bus>(true);
+  reader target(reader_policy::peer(), true, management_bus);
+  target.join(loc, location::PUBLIC, 0, TEST_PAGE_SIZE);
+  const auto retained_snapshot = target.get_journals();
+  require(retained_snapshot.size() == 1, "reader snapshot omitted joined journal");
+
+  std::exception_ptr management_error;
+  std::thread manager([&] {
+    try {
+      for (int i = 0; i < 200; ++i) {
+        (void)target.get_journals();
+        target.preload_next_page();
+        target.release_page();
+      }
+    } catch (...) {
+      management_error = std::current_exception();
+    }
+  });
+
+  for (int i = 0; i < 50; ++i) {
+    target.disjoin_channel(loc, location::PUBLIC);
+    target.join(loc, location::PUBLIC, 0, TEST_PAGE_SIZE);
+  }
+  manager.join();
+  if (management_error) {
+    std::rethrow_exception(management_error);
+  }
+
+  target.disjoin_channel(loc, location::PUBLIC);
+  require(target.get_journals().empty(), "reader membership snapshot retained a disjoined journal");
+  require(retained_snapshot.size() == 1, "previous reader snapshot aliased the mutable journal map");
+}
+
 } // namespace
 
 int main() {
@@ -636,6 +707,8 @@ int main() {
       {"writer transaction hook recovery", test_writer_transaction_recovers_from_hook_failures},
       {"writer transaction publisher recovery", test_writer_transaction_unlocks_before_publisher_notification},
       {"writer transaction page rollover recovery", test_writer_transaction_recovers_from_page_rollover_failure},
+      {"page release does not poll external lease", test_page_release_does_not_poll_external_lease},
+      {"reader management membership snapshots", test_reader_management_uses_membership_snapshots},
   };
 
   int failed = 0;
