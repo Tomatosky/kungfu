@@ -245,10 +245,15 @@ fn command_output(program: &str, args: &[&str]) -> Option<String> {
     }
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    stdout
+    let lines: Vec<_> = stdout
         .lines()
         .chain(stderr.lines())
-        .find(|line| !line.trim().is_empty())
+        .filter(|line| !line.trim().is_empty())
+        .collect();
+    lines
+        .iter()
+        .find(|line| line.to_ascii_lowercase().contains("version"))
+        .or_else(|| lines.first())
         .map(|line| line.trim().to_string())
 }
 
