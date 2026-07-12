@@ -118,6 +118,24 @@ reachability from the checked-out mainline, and contradictions such as evidence
 on a `not-started` ADR. It cannot prove that code semantically fulfills a
 decision. That judgment remains a review responsibility.
 
+## Release admissibility projection
+
+Metadata consistency and release admissibility are related but separate gates.
+This document defines what an ADR implementation claim means and how its
+evidence is represented. The
+[version and release mechanism](version-release-design.md#adr-implementation-and-release-admissibility)
+defines when those claims are allowed to enter `dev`, settle at `alpha`, and
+become obligations for `stable`.
+
+The release gate reads ADR frontmatter; it does not infer completion from commit
+messages. A development feature PR declares a bounded delivery intent, an alpha
+promotion reconciles the declaration with the changed ADR projection after full
+qualification, and a stable promotion fails on every accepted ADR that is not
+implemented and qualified, not applicable, or covered by an exact-release
+administrator waiver. The machine contract is
+`docs/adr-release.contract.json`; waivers live in the separately owned
+`docs/adr-release-waivers.json` ledger.
+
 Implemented, staged, and partial legacy ADRs without reconstructed immutable
 evidence must appear in the contract's reviewed exemption ledger. New claims do
 not silently inherit that exemption. Stale exemptions fail the gate once the
