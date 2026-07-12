@@ -11,6 +11,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <shared_mutex>
 #include <string>
@@ -175,7 +176,7 @@ private:
   uint64_t stream_id_;
   yijinjing::data::location_ptr location_ = nullptr;
   yijinjing::journal::writer_ptr writer_ = nullptr;
-  yijinjing::journal::frame_ptr current_frame_ = nullptr;
+  std::optional<yijinjing::journal::writer::frame_transaction> current_write_;
 };
 DECLARE_PTR(stream)
 

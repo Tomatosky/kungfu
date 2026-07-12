@@ -19,6 +19,7 @@
 #include <string>
 #include <thread>
 #include <type_traits>
+#include <utility>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -35,11 +36,18 @@ using kungfu::yijinjing::data::location;
 using kungfu::yijinjing::data::locator;
 using kungfu::yijinjing::enums::location_role;
 using kungfu::yijinjing::enums::mode;
+using kungfu::yijinjing::journal::frame_ptr;
+using kungfu::yijinjing::journal::hookable_writer;
+using kungfu::yijinjing::journal::journal;
 using kungfu::yijinjing::journal::journal_format_epoch;
+using kungfu::yijinjing::journal::journal_open_policy;
+using kungfu::yijinjing::journal::noop_publisher;
 using kungfu::yijinjing::journal::page;
 using kungfu::yijinjing::journal::page_open_policy;
 using kungfu::yijinjing::journal::page_precreation;
 using kungfu::yijinjing::journal::reader_policy;
+using kungfu::yijinjing::journal::writer;
+using kungfu::yijinjing::journal::writer_hook;
 using kungfu::yijinjing::platform::mapped_region;
 using kungfu::yijinjing::platform::mapping_access;
 using kungfu::yijinjing::platform::mapping_creation;
@@ -85,6 +93,11 @@ void require_throws(const std::function<void()> &fn, const std::string &message)
   throw std::runtime_error(message);
 }
 
+bool frame_is_published_at(uintptr_t address) {
+  auto *header = reinterpret_cast<frame_header *>(address);
+  return std::atomic_ref<uint32_t>(header->length).load(std::memory_order_acquire) > 0 && header->carrier_type > 0;
+}
+
 size_t process_resource_count() {
 #ifdef _WIN32
   DWORD count = 0;
@@ -100,6 +113,75 @@ auto make_location(const fs::path &root) {
   auto page_locator = std::make_shared<locator>(root.string());
   return location::make_shared(mode::LIVE, location_role::SYSTEM, "mmap_test", "writer", page_locator);
 }
+
+auto make_bus() { return std::make_shared<kungfu::yijinjing::journal::bus>(false); }
+
+class one_shot_hook : public writer_hook {
+public:
+  bool throw_on_open{false};
+  bool throw_on_close{false};
+
+  void on_open_frame(int64_t, frame_ptr) override {
+    if (std::exchange(throw_on_open, false)) {
+      throw std::runtime_error("injected open hook failure");
+    }
+  }
+
+  void on_close_frame(int64_t, frame_ptr) override {
+    if (std::exchange(throw_on_close, false)) {
+      throw std::runtime_error("injected close hook failure");
+    }
+  }
+};
+
+class one_shot_publisher : public noop_publisher {
+public:
+  bool throw_on_notify{true};
+  int notify() override {
+    if (std::exchange(throw_on_notify, false)) {
+      throw std::runtime_error("injected publisher failure");
+    }
+    return 0;
+  }
+};
+
+class injectable_writer : public writer {
+public:
+  using writer::writer;
+  bool throw_on_reserve{false};
+  bool throw_on_commit{false};
+
+protected:
+  frame_ptr begin_transaction_unserialized(int64_t trigger_time, int32_t carrier_type, size_t length,
+                                           uint64_t stream_id) override {
+    auto frame = writer::begin_transaction_unserialized(trigger_time, carrier_type, length, stream_id);
+    if (std::exchange(throw_on_reserve, false)) {
+      throw std::runtime_error("injected reservation failure");
+    }
+    return frame;
+  }
+
+  void commit_transaction_unserialized(size_t data_length, int64_t gen_time, const frame_ptr &frame) override {
+    if (std::exchange(throw_on_commit, false)) {
+      throw std::runtime_error("injected commit failure");
+    }
+    writer::commit_transaction_unserialized(data_length, gen_time, frame);
+  }
+};
+
+class rollover_journal : public journal {
+public:
+  using journal::journal;
+  bool throw_on_rollover{false};
+
+protected:
+  void close_page(int64_t trigger_time, int64_t last_gen_time) override {
+    if (std::exchange(throw_on_rollover, false)) {
+      throw std::runtime_error("injected page rollover failure");
+    }
+    journal::close_page(trigger_time, last_gen_time);
+  }
+};
 
 std::string create_page_path(const kungfu::yijinjing::data::location_ptr &loc) {
   (void)loc->locator->layout_dir(loc, kungfu::yijinjing::enums::layout::JOURNAL, true);
@@ -129,6 +211,8 @@ void test_wire_layout_invariants() {
   static_assert(offsetof(frame_header, length) == 0, "frame publication token offset changed");
   static_assert(std::is_move_constructible_v<mapped_region>);
   static_assert(!std::is_copy_constructible_v<mapped_region>);
+  static_assert(std::is_move_constructible_v<writer::frame_transaction>);
+  static_assert(!std::is_copy_constructible_v<writer::frame_transaction>);
 }
 
 void test_mapping_policy_truth_table() {
@@ -410,6 +494,123 @@ void test_page_lookup_uses_ordered_begin_times() {
   require(page::find_page_id(loc, location::PUBLIC, 1'000) == 4, "lookup selected a pre-open tail page");
 }
 
+void test_writer_transaction_recovers_from_reservation_and_commit_failures() {
+  temp_tree tree;
+  auto loc = make_location(tree.root());
+  auto bus = make_bus();
+  injectable_writer target(loc, location::PUBLIC, std::make_shared<noop_publisher>(), false, bus, TEST_PAGE_SIZE);
+
+  target.throw_on_reserve = true;
+  require_throws([&] { (void)target.reserve_frame(1, 1001, 8); }, "injected reservation failure did not escape");
+
+  target.throw_on_commit = true;
+  require_throws(
+      [&] {
+        auto tx = target.reserve_frame(2, 1002, 8);
+        tx.commit(8, 3);
+      },
+      "injected commit failure did not escape");
+
+  auto recovered = target.reserve_frame(4, 1003, 8);
+  const auto published_address = recovered.frame()->address();
+  recovered.commit(8, 5);
+  require(frame_is_published_at(published_address), "writer did not recover after reservation/commit failures");
+}
+
+void test_writer_transaction_aborts_abandonment_and_payload_failure() {
+  temp_tree tree;
+  auto loc = make_location(tree.root());
+  auto bus = make_bus();
+  writer target(loc, location::PUBLIC, std::make_shared<noop_publisher>(), false, bus, TEST_PAGE_SIZE);
+
+  uintptr_t abandoned_address = 0;
+  {
+    auto tx = target.reserve_frame(1, 1101, 8);
+    abandoned_address = tx.frame()->address();
+    require(!tx.frame()->has_data(), "reservation published length before commit");
+  }
+
+  require_throws(
+      [&] {
+        auto tx = target.reserve_frame(2, 1102, 8);
+        require(tx.frame()->address() == abandoned_address, "abandonment advanced the journal cursor");
+        throw std::runtime_error("injected payload construction failure");
+      },
+      "injected payload construction failure did not escape");
+
+  auto recovered = target.reserve_frame(3, 1103, 8);
+  require(recovered.frame()->address() == abandoned_address, "payload failure advanced the journal cursor");
+  const auto published_address = recovered.frame()->address();
+  recovered.commit(8, 4);
+  require(frame_is_published_at(published_address), "writer did not recover after abandoned transactions");
+}
+
+void test_writer_transaction_recovers_from_hook_failures() {
+  temp_tree tree;
+  auto loc = make_location(tree.root());
+  auto bus = make_bus();
+  auto hook = std::make_shared<one_shot_hook>();
+  hookable_writer target(loc, location::PUBLIC, std::make_shared<noop_publisher>(), false, bus, TEST_PAGE_SIZE, hook);
+
+  hook->throw_on_open = true;
+  require_throws([&] { (void)target.reserve_frame(1, 1201, 8); }, "open hook failure did not escape");
+
+  hook->throw_on_close = true;
+  require_throws(
+      [&] {
+        auto tx = target.reserve_frame(2, 1202, 8);
+        tx.commit(8, 3);
+      },
+      "close hook failure did not escape");
+
+  auto recovered = target.reserve_frame(4, 1203, 8);
+  const auto published_address = recovered.frame()->address();
+  recovered.commit(8, 5);
+  require(frame_is_published_at(published_address), "writer did not recover after hook failures");
+}
+
+void test_writer_transaction_unlocks_before_publisher_notification() {
+  temp_tree tree;
+  auto loc = make_location(tree.root());
+  auto bus = make_bus();
+  auto publisher = std::make_shared<one_shot_publisher>();
+  writer target(loc, location::PUBLIC, publisher, false, bus, TEST_PAGE_SIZE);
+
+  uintptr_t published_address = 0;
+  require_throws(
+      [&] {
+        auto tx = target.reserve_frame(1, 1301, 8);
+        published_address = tx.frame()->address();
+        tx.commit(8, 2);
+      },
+      "publisher notification failure did not escape");
+  require(frame_is_published_at(published_address), "publisher failure rolled back an already published frame");
+
+  auto recovered = target.reserve_frame(3, 1302, 8);
+  recovered.commit(8, 4);
+}
+
+void test_writer_transaction_recovers_from_page_rollover_failure() {
+  temp_tree tree;
+  auto loc = make_location(tree.root());
+  auto bus = make_bus();
+  auto backing = std::make_shared<rollover_journal>(loc, location::PUBLIC, journal_open_policy::writer(), false, bus,
+                                                    TEST_PAGE_SIZE);
+  writer target(loc, location::PUBLIC, std::make_shared<noop_publisher>(), false, bus, backing, 0);
+  constexpr size_t LARGE_PAYLOAD = TEST_PAGE_SIZE / 2;
+
+  auto first = target.reserve_frame(1, 1401, LARGE_PAYLOAD);
+  first.commit(LARGE_PAYLOAD, 2);
+
+  backing->throw_on_rollover = true;
+  require_throws([&] { (void)target.reserve_frame(3, 1402, LARGE_PAYLOAD); }, "page rollover failure did not escape");
+
+  auto recovered = target.reserve_frame(4, 1403, 8);
+  const auto published_address = recovered.frame()->address();
+  recovered.commit(8, 5);
+  require(frame_is_published_at(published_address), "writer did not recover after page rollover failure");
+}
+
 } // namespace
 
 int main() {
@@ -428,6 +629,13 @@ int main() {
       {"corrupt page header facts are rejected", test_corrupt_page_header_facts_are_rejected},
       {"page header publication", test_page_header_publication},
       {"page lookup uses ordered begin times", test_page_lookup_uses_ordered_begin_times},
+      {"writer transaction reservation and commit recovery",
+       test_writer_transaction_recovers_from_reservation_and_commit_failures},
+      {"writer transaction abandonment and payload recovery",
+       test_writer_transaction_aborts_abandonment_and_payload_failure},
+      {"writer transaction hook recovery", test_writer_transaction_recovers_from_hook_failures},
+      {"writer transaction publisher recovery", test_writer_transaction_unlocks_before_publisher_notification},
+      {"writer transaction page rollover recovery", test_writer_transaction_recovers_from_page_rollover_failure},
   };
 
   int failed = 0;

@@ -32,16 +32,16 @@ stream::~stream() {
 uint64_t stream::get_stream_id() const { return stream_id_; }
 
 void stream::close_data() {
-  if (current_frame_) {
-    writer_->close_frame_lock_free(1024);
-    current_frame_.reset();
+  if (current_write_) {
+    current_write_->commit(1024);
+    current_write_.reset();
   }
 }
 
 void stream::open_data(nng_iov &iov) {
-  current_frame_ = writer_->open_frame_lock_free(yijinjing::time::now_in_nano(), SocketData::tag, 1024);
-  iov.iov_buf = const_cast<void *>(current_frame_->data_address());
-  iov.iov_len = current_frame_->data_length();
+  current_write_.emplace(writer_->reserve_frame(yijinjing::time::now_in_nano(), SocketData::tag, 1024));
+  iov.iov_buf = current_write_->data();
+  iov.iov_len = 1024;
 }
 
 const yijinjing::data::location_ptr &stream::get_location() const { return location_; }

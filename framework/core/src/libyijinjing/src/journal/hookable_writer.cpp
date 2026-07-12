@@ -7,15 +7,12 @@
 
 namespace kungfu::yijinjing::journal {
 
-frame_ptr hookable_writer::open_frame(int64_t trigger_time, int32_t carrier_type, size_t length, uint64_t stream_id) {
-  frame_ptr frame = writer::open_frame(trigger_time, carrier_type, length, stream_id);
+void hookable_writer::on_frame_opened(int64_t trigger_time, const frame_ptr &frame) {
   hook_->on_open_frame(trigger_time, frame);
-  return frame;
 }
 
-void hookable_writer::close_frame(size_t data_length, int64_t gen_time) {
-  hook_->on_close_frame(gen_time, journal_->current_frame());
-  writer::close_frame(data_length, gen_time);
+void hookable_writer::on_frame_closing(int64_t gen_time, const frame_ptr &frame) {
+  hook_->on_close_frame(gen_time, frame);
 }
 
 } // namespace kungfu::yijinjing::journal

@@ -23,6 +23,14 @@ constexpr uint32_t CRC32C_INITIAL = 0xffffffffu;
 constexpr uint32_t CRC32C_XOR_OUT = 0xffffffffu;
 constexpr uint32_t CRC32C_REVERSED_POLY = 0x82f63b78u;
 
+class trigger_frame_scope {
+public:
+  explicit trigger_frame_scope(uint64_t frame_uid) { bus::set_trigger_frame_uid(frame_uid); }
+  trigger_frame_scope(const trigger_frame_scope &) = delete;
+  trigger_frame_scope &operator=(const trigger_frame_scope &) = delete;
+  ~trigger_frame_scope() { bus::set_trigger_frame_uid(0); }
+};
+
 uint32_t align_frame_payload_length(uint32_t length) {
   return static_cast<uint32_t>((length + (sizeof(uintptr_t) - 1)) & ~(sizeof(uintptr_t) - 1));
 }
@@ -216,8 +224,9 @@ record_receipt action_recorder::record_payload(int32_t carrier_type, const uint8
   const auto stream_id = options.stream_id != 0 ? options.stream_id : default_stream_id_;
   const auto gen_time = options.gen_time != 0 ? options.gen_time : time::now_in_nano();
 
-  bus::set_trigger_frame_uid(parent_frame_uid);
-  auto frame = writer_->open_frame(options.trigger_time, carrier_type, payload_length, stream_id);
+  const trigger_frame_scope trigger_scope(parent_frame_uid);
+  auto tx = writer_->reserve_frame(options.trigger_time, carrier_type, payload_length, stream_id);
+  auto frame = tx.frame();
   frame->set_data_type(options.data_type);
   if (payload_length > 0) {
     std::memcpy(const_cast<void *>(frame->data_address()), payload, payload_length);
@@ -231,9 +240,7 @@ record_receipt action_recorder::record_payload(int32_t carrier_type, const uint8
   const auto checksum_algorithm = frame_checksum_algorithm_for_integrity_version(DEFAULT_FRAME_INTEGRITY_VERSION);
   const auto payload_checksum = checksum_payload(payload, payload_length, checksum_algorithm);
   const auto frame_checksum = checksum_frame(checksum_header, payload, payload_length, checksum_algorithm);
-  writer_->close_frame(payload_length, gen_time);
-  bus::set_trigger_frame_uid(0);
-
+  tx.commit(payload_length, gen_time);
   record_receipt receipt{};
   receipt.frame_uid = frame_uid;
   receipt.trigger_frame_uid = parent_frame_uid;

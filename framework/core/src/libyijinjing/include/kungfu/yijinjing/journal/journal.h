@@ -3,6 +3,7 @@
 #ifndef YIJINJING_JOURNAL_H
 #define YIJINJING_JOURNAL_H
 
+#include <chrono>
 #include <kungfu/common.h>
 #include <kungfu/yijinjing/journal/bus.h>
 #include <kungfu/yijinjing/journal/common.h>
@@ -237,6 +238,29 @@ protected:
 
 class writer {
 public:
+  class frame_transaction {
+  public:
+    frame_transaction(frame_transaction &&other) noexcept;
+    frame_transaction &operator=(frame_transaction &&other) noexcept;
+    frame_transaction(const frame_transaction &) = delete;
+    frame_transaction &operator=(const frame_transaction &) = delete;
+    ~frame_transaction();
+
+    [[nodiscard]] frame_ptr frame() const { return frame_; }
+    [[nodiscard]] void *data() const { return const_cast<void *>(frame_->data_address()); }
+    void commit(size_t data_length, int64_t gen_time = time::now_in_nano());
+
+  private:
+    friend class writer;
+    frame_transaction(writer &owner, std::unique_lock<std::timed_mutex> lock, frame_ptr frame) noexcept;
+    void abort() noexcept;
+
+    writer *owner_;
+    std::unique_lock<std::timed_mutex> lock_;
+    frame_ptr frame_;
+    bool committed_{false};
+  };
+
   explicit writer(const data::location_ptr &location, uint32_t dest_id, publisher_ptr publisher, bool low_latency,
                   const bus_ptr &bus);
 
@@ -277,13 +301,20 @@ public:
 
   virtual uint64_t current_frame_uid();
 
+  [[nodiscard]] frame_transaction reserve_frame(int64_t trigger_time, int32_t carrier_type, size_t length,
+                                                uint64_t stream_id = 0);
+
+  [[deprecated("use reserve_frame(); split open/close ownership is not exception-safe for caller abandonment")]]
   virtual frame_ptr open_frame(int64_t trigger_time, int32_t carrier_type, size_t length, uint64_t stream_id = 0);
 
+  [[deprecated("unserialized compatibility API; it is not generally lock-free")]]
   virtual frame_ptr open_frame_lock_free(int64_t trigger_time, int32_t carrier_type, size_t length,
                                          uint64_t stream_id = 0);
 
+  [[deprecated("use frame_transaction::commit()")]]
   virtual void close_frame(size_t data_length, int64_t gen_time = time::now_in_nano());
 
+  [[deprecated("unserialized compatibility API; it is not generally lock-free")]]
   virtual void close_frame_lock_free(size_t data_length, int64_t gen_time = time::now_in_nano());
 
   virtual void copy_frame(const frame_ptr &source);
@@ -325,66 +356,75 @@ public:
 
   template <typename T>
   std::enable_if_t<size_fixed_v<T>> write(int64_t trigger_time, const T &data, int32_t carrier_type = T::tag) {
-    auto frame = open_frame(trigger_time, carrier_type, sizeof(T));
-    auto size = frame->copy_data(data);
-    close_frame(size);
+    auto tx = reserve_frame(trigger_time, carrier_type, sizeof(T));
+    auto size = tx.frame()->copy_data(data);
+    tx.commit(size);
   }
 
   template <typename T>
   std::enable_if_t<size_unfixed_v<T>> write(int64_t trigger_time, const T &data, int32_t carrier_type = T::tag) {
     auto s = data.to_string();
     auto size = s.length();
-    auto frame = open_frame(trigger_time, carrier_type, size);
-    memcpy(const_cast<void *>(frame->data_address()), s.c_str(), size);
-    close_frame(size);
+    auto tx = reserve_frame(trigger_time, carrier_type, size);
+    memcpy(tx.data(), s.c_str(), size);
+    tx.commit(size);
   }
 
   // this function can not be used for remote journal
   template <typename T>
   std::enable_if_t<size_fixed_v<T>> write_as(int64_t trigger_time, const T &data, uint32_t source, uint32_t dest) {
-    auto frame = open_frame(trigger_time, T::tag, sizeof(T));
-    auto size = frame->copy_data(data);
-    frame->set_source(source);
-    frame->set_dest(dest);
-    close_frame(size);
+    auto tx = reserve_frame(trigger_time, T::tag, sizeof(T));
+    auto size = tx.frame()->copy_data(data);
+    tx.frame()->set_source(source);
+    tx.frame()->set_dest(dest);
+    tx.commit(size);
   }
 
   template <typename T>
   std::enable_if_t<size_unfixed_v<T>> write_as(int64_t trigger_time, const T &data, uint32_t source, uint32_t dest) {
     auto s = data.to_string();
     auto size = s.length();
-    auto frame = open_frame(trigger_time, T::tag, size);
-    memcpy(const_cast<void *>(frame->data_address()), s.c_str(), size);
-    frame->set_source(source);
-    frame->set_dest(dest);
-    close_frame(size);
+    auto tx = reserve_frame(trigger_time, T::tag, size);
+    memcpy(tx.data(), s.c_str(), size);
+    tx.frame()->set_source(source);
+    tx.frame()->set_dest(dest);
+    tx.commit(size);
   }
 
   template <typename T>
   std::enable_if_t<size_fixed_v<T>> write_at(int64_t gen_time, int64_t trigger_time, const T &data) {
-    auto frame = open_frame(trigger_time, T::tag, sizeof(T));
-    auto size = frame->copy_data(data);
-    close_frame(size, gen_time);
+    auto tx = reserve_frame(trigger_time, T::tag, sizeof(T));
+    auto size = tx.frame()->copy_data(data);
+    tx.commit(size, gen_time);
   }
 
   template <typename T>
   std::enable_if_t<size_unfixed_v<T>> write_at(int64_t gen_time, int64_t trigger_time, const T &data) {
     auto s = data.to_string();
     auto size = s.length();
-    auto frame = open_frame(trigger_time, T::tag, size);
-    memcpy(const_cast<void *>(frame->data_address()), s.c_str(), size);
-    close_frame(size, gen_time);
+    auto tx = reserve_frame(trigger_time, T::tag, size);
+    memcpy(tx.data(), s.c_str(), size);
+    tx.commit(size, gen_time);
   }
 
 protected:
   journal_ptr journal_;
-  std::mutex writer_mtx_ = {};
+  std::timed_mutex writer_mtx_ = {};
   const uint64_t frame_id_base_;
   publisher_ptr publisher_;
   size_t size_to_write_;
   int64_t last_gen_time_;
   uint32_t writer_start_time_32int_;
 
+  virtual void on_frame_opened(int64_t trigger_time, const frame_ptr &frame);
+  virtual void on_frame_closing(int64_t gen_time, const frame_ptr &frame);
+  virtual frame_ptr begin_transaction_unserialized(int64_t trigger_time, int32_t carrier_type, size_t length,
+                                                   uint64_t stream_id);
+  virtual void commit_transaction_unserialized(size_t data_length, int64_t gen_time, const frame_ptr &frame);
+
+  frame_ptr open_frame_unserialized(int64_t trigger_time, int32_t carrier_type, size_t length, uint64_t stream_id);
+  void close_frame_unserialized(size_t data_length, int64_t gen_time);
+  void abort_frame_unserialized() noexcept;
   void close_page(int64_t trigger_time);
 };
 
@@ -410,11 +450,9 @@ public:
                            bool low_latency, const bus_ptr &bus, uint64_t page_size, writer_hook_ptr hook)
       : writer(location, dest_id, lazy, std::move(publisher), low_latency, bus, page_size), hook_(std::move(hook)) {}
 
-  frame_ptr open_frame(int64_t trigger_time, int32_t carrier_type, size_t length, uint64_t stream_id = 0) override;
-
-  void close_frame(size_t data_length, int64_t gen_time) override;
-
 private:
+  void on_frame_opened(int64_t trigger_time, const frame_ptr &frame) override;
+  void on_frame_closing(int64_t gen_time, const frame_ptr &frame) override;
   writer_hook_ptr hook_;
 };
 
@@ -430,6 +468,9 @@ public:
   uint64_t current_frame_uid() override;
 
 private:
+  frame_ptr begin_transaction_unserialized(int64_t trigger_time, int32_t carrier_type, size_t length,
+                                           uint64_t stream_id) override;
+  void commit_transaction_unserialized(size_t data_length, int64_t gen_time, const frame_ptr &frame) override;
   reader_ptr reader_for_write_;
   cloned_frame_ptr cloned_frame_ = std::make_shared<cloned_frame>();
 };

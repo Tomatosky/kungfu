@@ -67,4 +67,14 @@ uint64_t replay_writer::current_frame_uid() {
   });
   return uid;
 }
+
+frame_ptr replay_writer::begin_transaction_unserialized(int64_t trigger_time, int32_t carrier_type, size_t length,
+                                                        uint64_t stream_id) {
+  return open_frame(trigger_time, carrier_type, length, stream_id);
+}
+
+void replay_writer::commit_transaction_unserialized(size_t data_length, int64_t gen_time, const frame_ptr &frame) {
+  (void)frame;
+  close_frame(data_length, gen_time);
+}
 } // namespace kungfu::yijinjing::journal
