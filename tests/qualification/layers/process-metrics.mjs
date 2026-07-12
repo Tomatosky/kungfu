@@ -25,6 +25,10 @@ function sampleResidentBytes(pid) {
   return Number.isFinite(kib) && kib > 0 ? kib * 1024 : null;
 }
 
+export function qualificationHoldMs(platform = process.platform) {
+  return platform === 'win32' ? 1000 : 100;
+}
+
 export function runMeasured(command, args, options = {}) {
   return new Promise((resolve, reject) => {
     const started = process.hrtime.bigint();

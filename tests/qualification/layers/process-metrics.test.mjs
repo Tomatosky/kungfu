@@ -2,7 +2,13 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { runMeasured } from './process-metrics.mjs';
+import { qualificationHoldMs, runMeasured } from './process-metrics.mjs';
+
+test('keeps Windows qualification processes observable to tasklist', () => {
+  assert.equal(qualificationHoldMs('win32'), 1000);
+  assert.equal(qualificationHoldMs('linux'), 100);
+  assert.equal(qualificationHoldMs('darwin'), 100);
+});
 
 test('records peak resident memory for a short-lived cross-platform process', async () => {
   const result = await runMeasured(process.execPath, [

@@ -13,7 +13,7 @@ import {
   platformCommand,
   platformCommandOptions,
 } from '../../../../scripts/platform-command.mjs';
-import { runMeasured } from '../process-metrics.mjs';
+import { qualificationHoldMs, runMeasured } from '../process-metrics.mjs';
 
 const DIR = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(DIR, '..', '..', '..', '..');
@@ -417,7 +417,7 @@ async function qualifyAdapter(adapter, fixture, root) {
         cwd: ROOT,
         env: {
           ...adapter.env,
-          KUNGFU_QUALIFICATION_HOLD_MS: '100',
+          KUNGFU_QUALIFICATION_HOLD_MS: String(qualificationHoldMs()),
         },
       },
     );

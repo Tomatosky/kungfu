@@ -12,7 +12,7 @@ import {
   platformCommand,
   platformCommandOptions,
 } from '../../../../scripts/platform-command.mjs';
-import { runMeasured } from '../process-metrics.mjs';
+import { qualificationHoldMs, runMeasured } from '../process-metrics.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..', '..', '..');
@@ -103,7 +103,10 @@ async function main() {
     const binary = path.join(packageRoot, 'bin', 'kungfu-spec.js');
     const bundle = path.join(packageRoot, 'conformance', 'unknown-record');
     const preserved = path.join(temp, 'preserved');
-    const env = { ...process.env, KUNGFU_QUALIFICATION_HOLD_MS: '100' };
+    const env = {
+      ...process.env,
+      KUNGFU_QUALIFICATION_HOLD_MS: String(qualificationHoldMs()),
+    };
     const inspect = await runMeasured(
       process.execPath,
       [binary, 'inspect', bundle],
