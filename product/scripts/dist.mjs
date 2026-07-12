@@ -14,6 +14,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   createBuildchainLogger,
+  readBuildchainLogEvents,
   verifyBuildchainLogEvents,
 } from '@kungfu-tech/buildchain/logging';
 import { extractTarGz, extractZip, writeTarGz, writeZip } from './archive.mjs';
@@ -1346,10 +1347,7 @@ function main() {
   );
 }
 
-function verifyObservability() {
-  if (!buildchainLogger.path) {
-    return;
-  }
+export function verifyProductObservabilityEvents(events, target = 'all') {
   const requiredEvents = [
     'product.dist.start',
     'product.kfx.dependencies.declared',
@@ -1358,15 +1356,15 @@ function verifyObservability() {
     'product.core.freeze.start',
     'product.dist.end',
   ];
-  if (wantsDesktop()) {
+  if (target === 'all' || target === 'desktop') {
     requiredEvents.push('product.desktop.electron-builder.start');
   }
-  if (wantsCli()) {
+  if (target === 'all' || target === 'cli') {
     requiredEvents.push('product.cli.archive.start');
     requiredEvents.push('product.cli.smoke.start');
   }
-  const report = verifyBuildchainLogEvents({
-    path: buildchainLogger.path,
+  return verifyBuildchainLogEvents({
+    events: events.filter((event) => event.component === 'kungfu-product'),
     minEvents: 12,
     requireComponents: ['kungfu-product'],
     requirePhases: [
@@ -1379,6 +1377,16 @@ function verifyObservability() {
     ],
     requireEvents: requiredEvents,
   });
+}
+
+function verifyObservability() {
+  if (!buildchainLogger.path) {
+    return;
+  }
+  const report = verifyProductObservabilityEvents(
+    readBuildchainLogEvents(buildchainLogger.path),
+    productTarget,
+  );
   if (!report.ok) {
     throw new Error(
       `Buildchain observability verification failed: ${report.issues

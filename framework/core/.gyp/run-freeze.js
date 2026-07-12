@@ -567,8 +567,9 @@ function generateHelpManifest(pythonExe, distKfc) {
     fs.writeFileSync(out, text);
     console.log('[freeze] assemble: staged help-manifest.txt');
   } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
     console.error(
-      `[freeze] assemble: help manifest generation failed; the trunk will fall back to python --help: ${e.message}`,
+      `[freeze] assemble: help manifest generation failed; the trunk will fall back to python --help: ${message}`,
     );
   }
 }
