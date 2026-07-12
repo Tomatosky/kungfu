@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { platformCommand } from '../../../../scripts/platform-command.mjs';
 import { runMeasured } from '../process-metrics.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -79,7 +80,7 @@ async function main() {
       `${JSON.stringify({ private: true }, null, 2)}\n`,
     );
     const install = spawnSync(
-      'npm',
+      platformCommand('npm'),
       [
         'install',
         '--ignore-scripts',

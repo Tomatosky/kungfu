@@ -9,6 +9,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { extractTarGz } from '../../../../product/scripts/archive.mjs';
+import { platformCommand } from '../../../../scripts/platform-command.mjs';
 import { runMeasured } from '../process-metrics.mjs';
 
 const DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -172,7 +173,7 @@ function resolveArtifacts(options) {
 
 function run(command, args, options = {}) {
   const started = process.hrtime.bigint();
-  const result = spawnSync(command, args, {
+  const result = spawnSync(platformCommand(command), args, {
     cwd: options.cwd || ROOT,
     env: options.env || process.env,
     encoding: 'utf8',
@@ -215,7 +216,9 @@ function assertNoForbiddenBasenames(root, forbidden, label) {
 }
 
 function commandVersion(command) {
-  const result = spawnSync(command, ['--version'], { encoding: 'utf8' });
+  const result = spawnSync(platformCommand(command), ['--version'], {
+    encoding: 'utf8',
+  });
   if (result.error || result.status !== 0)
     fail(`required SDK qualification tool is unavailable: ${command}`);
   return (result.stdout || result.stderr || '').trim().split('\n')[0];

@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { platformCommand } from '../../scripts/platform-command.mjs';
 
 const SDK = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(SDK, '..', '..');
@@ -51,7 +52,7 @@ function fail(message) {
 }
 
 function run(command, args, cwd) {
-  const result = spawnSync(command, args, {
+  const result = spawnSync(platformCommand(command), args, {
     cwd,
     encoding: 'utf8',
     stdio: 'inherit',
