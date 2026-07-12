@@ -15,6 +15,10 @@ function npmCommand(platform = process.platform) {
   return platform === 'win32' ? 'npm.cmd' : 'npm';
 }
 
+function npmSpawnOptions(platform = process.platform) {
+  return { shell: platform === 'win32' };
+}
+
 function main() {
   fs.mkdirSync(destination, { recursive: true });
   const result = spawnSync(
@@ -24,6 +28,7 @@ function main() {
       cwd: specRoot,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'inherit'],
+      ...npmSpawnOptions(),
     },
   );
   if (result.error || result.status !== 0) {
@@ -42,4 +47,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { main, npmCommand };
+module.exports = { main, npmCommand, npmSpawnOptions };

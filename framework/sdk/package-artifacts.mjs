@@ -7,7 +7,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { platformCommand } from '../../scripts/platform-command.mjs';
+import {
+  platformCommand,
+  platformCommandOptions,
+} from '../../scripts/platform-command.mjs';
 
 const SDK = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(SDK, '..', '..');
@@ -56,6 +59,7 @@ function run(command, args, cwd) {
     cwd,
     encoding: 'utf8',
     stdio: 'inherit',
+    ...platformCommandOptions(command),
   });
   if (result.error || result.status !== 0)
     fail(`${command} ${args.join(' ')} failed (status=${result.status})`);

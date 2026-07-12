@@ -8,7 +8,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { platformCommand } from '../../../../scripts/platform-command.mjs';
+import {
+  platformCommand,
+  platformCommandOptions,
+} from '../../../../scripts/platform-command.mjs';
 import { runMeasured } from '../process-metrics.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -88,7 +91,11 @@ async function main() {
         '--no-fund',
         options.package,
       ],
-      { cwd: temp, encoding: 'utf8' },
+      {
+        cwd: temp,
+        encoding: 'utf8',
+        ...platformCommandOptions('npm'),
+      },
     );
     if (install.status !== 0)
       fail(`clean npm install failed:\n${install.stderr}`);

@@ -11,12 +11,14 @@ const {
   preserveBundle,
   verifyBundle,
 } = require('./index.js');
-const { npmCommand } = require('./scripts/pack.js');
+const { npmCommand, npmSpawnOptions } = require('./scripts/pack.js');
 
 test('uses the platform npm shim when packing the artifact', () => {
   assert.equal(npmCommand('win32'), 'npm.cmd');
   assert.equal(npmCommand('darwin'), 'npm');
   assert.equal(npmCommand('linux'), 'npm');
+  assert.deepEqual(npmSpawnOptions('win32'), { shell: true });
+  assert.deepEqual(npmSpawnOptions('linux'), { shell: false });
 });
 
 test('opens, inspects, and verifies the portable conformance bundle', () => {

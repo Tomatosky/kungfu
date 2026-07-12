@@ -9,7 +9,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { extractTarGz } from '../../../../product/scripts/archive.mjs';
-import { platformCommand } from '../../../../scripts/platform-command.mjs';
+import {
+  platformCommand,
+  platformCommandOptions,
+} from '../../../../scripts/platform-command.mjs';
 import { runMeasured } from '../process-metrics.mjs';
 
 const DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -178,6 +181,7 @@ function run(command, args, options = {}) {
     env: options.env || process.env,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
+    ...platformCommandOptions(command),
   });
   const durationMs = Number(process.hrtime.bigint() - started) / 1e6;
   if (result.error || result.status !== 0) {
@@ -218,6 +222,7 @@ function assertNoForbiddenBasenames(root, forbidden, label) {
 function commandVersion(command) {
   const result = spawnSync(platformCommand(command), ['--version'], {
     encoding: 'utf8',
+    ...platformCommandOptions(command),
   });
   if (result.error || result.status !== 0)
     fail(`required SDK qualification tool is unavailable: ${command}`);

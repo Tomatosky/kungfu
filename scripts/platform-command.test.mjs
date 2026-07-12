@@ -2,7 +2,10 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { platformCommand } from './platform-command.mjs';
+import {
+  platformCommand,
+  platformCommandOptions,
+} from './platform-command.mjs';
 
 test('resolves package-manager shims on Windows only', () => {
   assert.equal(platformCommand('npm', 'win32'), 'npm.cmd');
@@ -10,4 +13,7 @@ test('resolves package-manager shims on Windows only', () => {
   assert.equal(platformCommand('pnpm', 'win32'), 'pnpm.cmd');
   assert.equal(platformCommand('cargo', 'win32'), 'cargo');
   assert.equal(platformCommand('npm', 'linux'), 'npm');
+  assert.deepEqual(platformCommandOptions('npm', 'win32'), { shell: true });
+  assert.deepEqual(platformCommandOptions('cargo', 'win32'), { shell: false });
+  assert.deepEqual(platformCommandOptions('npm', 'linux'), { shell: false });
 });

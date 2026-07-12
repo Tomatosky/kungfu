@@ -7,3 +7,9 @@ export function platformCommand(command, platform = process.platform) {
     ? `${command}.cmd`
     : command;
 }
+
+export function platformCommandOptions(command, platform = process.platform) {
+  return {
+    shell: platform === 'win32' && WINDOWS_SHIMS.has(command),
+  };
+}
