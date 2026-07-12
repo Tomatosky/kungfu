@@ -594,6 +594,7 @@ function generateHelpManifest(pythonExe, distKfc) {
 function stageEntry(distKfc, bt) {
   const crates = path.join(CORE, '..', '..', 'crates');
   const cargoArgs = ['build', '--release', '-p', 'kungfu-trunk'];
+  /** @type {import('child_process').SpawnSyncOptions} */
   const runOpts = { cwd: crates };
   if (!isWin) {
     cargoArgs.push('--features', 'embedding');
