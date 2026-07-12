@@ -101,6 +101,12 @@ quarantine, Episode folding, consistent export/empty-root restore, and a
 qualified production profile remain pending; the inspector performs no
 mutation and is not yet a public recovery command.
 
+The maintenance slice can retain a degraded stream in a verified quarantine
+package with a typed, idempotent receipt. It deliberately does not switch the
+authoritative stream, truncate a tail, or claim that the receipt itself has a
+qualified power-loss barrier; destructive repair and crash-ordered replacement
+remain pending.
+
 SQLite WAL, a mapped-region flush, or a resident process is not a substitute for
 that evidence. See [Strong durability and crash recovery](durability-and-crash-recovery.md)
 for the current status and [ADR-0068](../framework/core/docs/adr/ADR-0068-tiered-durability-and-crash-recovery.md)

@@ -100,6 +100,14 @@ BLOCKED when checkpoint evidence exists but no frontier is provable. It never
 promotes or deletes tail bytes and records the required local restart order as
 supervisor, state service, projection, then peers.
 
+For degraded evidence, a test-only maintenance API now produces a deterministic
+quarantine preview bound to the complete source-file digest. Applying that
+preview first revalidates the source and acquires exclusive data-root and writer
+ownership, then publishes a byte-verified retained-evidence package plus typed
+receipt. Repeated apply is idempotent, stale previews fail closed, and source
+KFDL bytes are never changed. Authority replacement or truncation is not yet
+implemented.
+
 Do not interpret `MAP_SHARED`, `msync`, `FlushViewOfFile`, SQLite WAL, process
 residency, or a successful write call as a power-loss guarantee. A guarantee is
 made only by a named profile with retained qualification evidence.

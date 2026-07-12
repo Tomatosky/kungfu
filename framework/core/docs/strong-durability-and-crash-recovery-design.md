@@ -444,6 +444,15 @@ repair is an explicit maintenance action with preview, retained evidence, and
 idempotence checks. Normal startup may ignore an untrusted tail for service
 availability, but it must not silently delete that tail.
 
+The next executable slice implements the non-destructive quarantine half of
+that maintenance boundary. Its preview binds the selected frontier, tail
+classification, and exact digest of every recognized stream evidence file.
+Apply revalidates that plan, requires exclusive data-root and stream-writer
+ownership, copies and hashes each retained file, and publishes the receipt last.
+A repeated apply verifies and reuses the same package; a stale plan is rejected.
+This does not yet replace stream authority or truncate the original tail, and
+the package publication is not a qualified power-loss durability receipt.
+
 ## 10. Migration from coordinator-owned state cache
 
 1. **Contract-only slice** — add typed positions/status/receipts and adapters;
