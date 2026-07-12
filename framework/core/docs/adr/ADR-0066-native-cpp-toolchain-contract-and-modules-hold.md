@@ -16,7 +16,7 @@ ai_provenance:
   invisible_context: not asserted
 ---
 
-# ADR-0063: native compilers share one C++ contract; modules remain qualification-only
+# ADR-0066: native compilers share one C++ contract; modules remain qualification-only
 
 - Status: accepted
 - Date: 2026-07-12

@@ -61,6 +61,6 @@ macro(build_node_binding BINDING_NAME BINDING_SOURCE_FILES)
   if (WIN32)
     # /DELAYLOAD:NODE.EXE needs the delay-load helper (__delayLoadHelper2) from delayimp.lib;
     # without it the electron-runtime binding (drone.node) fails to link (LNK2001).
-    target_link_libraries(${BINDING_NAME} delayimp)
+    target_link_libraries(${BINDING_NAME} PRIVATE delayimp)
   endif ()
 endmacro(build_node_binding)

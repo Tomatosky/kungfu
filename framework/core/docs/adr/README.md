@@ -83,6 +83,7 @@ A record's **Status** says where it stands:
 | [0063](ADR-0063-yijinjing-concurrency-and-lifetime-contract.md) | proposed | yijinjing separates lock-free publication from cursor, write, and page-lifetime ownership |
 | [0064](ADR-0064-runtime-error-propagation-and-stop-ownership.md) | proposed | runtime libraries propagate structured errors; loop owners decide how execution stops |
 | [0065](ADR-0065-schema-registry-consolidation.md) | proposed | the schema type registry has one authoritative set and trait-derived subsets; numeric tag comments retired; `msg_type` vocabulary finished except the frozen v1 embedding ABI |
+| [0066](ADR-0066-native-cpp-toolchain-contract-and-modules-hold.md) | accepted | native compilers share one C++ contract; modules remain qualification-only |
 
 ## Reading by theme
 

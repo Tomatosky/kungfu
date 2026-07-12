@@ -5,3 +5,6 @@ framework/kfx/*.contract.json text eol=lf
 framework/skill/*.contract.json text eol=lf
 framework/contract/*.json text eol=lf
 framework/core/stubs/**/*.pyi text eol=lf
+# Conan recipe revisions hash exported source bytes. Keep the audited recipe
+# and patches identical on autocrlf Windows checkouts as well as POSIX hosts.
+framework/core/.conan/recipes/** text eol=lf

@@ -58,7 +58,7 @@ and the map routes a question to whichever doc answers it.
 | Where are the Python / Node / framework adapter boundaries? | [`adapters.md`](adapters.md) | use | stable |
 | How do I install Python packages (pandas/torch-class) into Kungfu's runtime? | [`python-environments.md`](python-environments.md) + [ADR-0046](../framework/core/docs/adr/ADR-0046-rust-host-trunk-and-assembled-runtime.md) | use | stable |
 | How do I go from source to a binary? | [`buildchain.md`](buildchain.md) (+ [`../CONTRIBUTING.md`](../CONTRIBUTING.md)) | use | stable |
-| Which C++ compiler/tool versions are supported, and why are Modules not in production? | [`cpp-toolchain.md`](cpp-toolchain.md) + [ADR-0063](../framework/core/docs/adr/ADR-0063-native-cpp-toolchain-contract-and-modules-hold.md) | why, use, verify | stable · machine contract and removable qualification slice implemented |
+| Which C++ compiler/tool versions are supported, and why are Modules not in production? | [`cpp-toolchain.md`](cpp-toolchain.md) + [ADR-0066](../framework/core/docs/adr/ADR-0066-native-cpp-toolchain-contract-and-modules-hold.md) | why, use, verify | stable · machine contract and removable qualification slice implemented |
 | What Python runtime ships inside the product, and what was pruned from it? | [ADR-0050](../framework/core/docs/adr/ADR-0050-assembled-runtime-stdlib-pruning-policy.md) + [`buildchain.md`](buildchain.md) | why, verify | stable |
 | When (and when not) does a component get written in Rust, and how is one added? | [`rust-adoption.md`](rust-adoption.md) | why, use | stable |
 | What must never change about the `shifu` entrypoints (and why)? | [ADR-0044](../framework/core/docs/adr/ADR-0044-shifu-delegation-protocol.md) | why, verify | stable |
