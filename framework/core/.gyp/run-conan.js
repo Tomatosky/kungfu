@@ -38,31 +38,57 @@ function ensureBuildchainConanProfile() {
   );
 }
 
-// GCC 14 correctly rejects two assignment operators in RxCpp 4.1.1 that
-// write through const data members. ConanCenter marks the release unsupported
-// on GCC 14, but Kungfu's production compiler floor is newer than that legacy
-// header. Export our source-patched recipe before resolution so every host and
-// clean cache builds the same audited package revision instead of mutating a
-// shared Conan cache after installation.
+// Export source-patched legacy recipes before resolution so every host and
+// clean cache builds the same audited package revisions instead of mutating a
+// shared Conan cache after installation. RxCpp needs its GCC 14 fix; RocksDB
+// 6.29.5 keeps the persisted-data compatibility contract while receiving the
+// compiler-portability fixes required by current toolchains.
 function ensureKungfuConanRecipes() {
-  const source = path.join(__dirname, '..', '.conan', 'recipes', 'rxcpp');
-  const recipe = fse.mkdtempSync(path.join(os.tmpdir(), 'kungfu-rxcpp-'));
-  try {
-    fse.copySync(source, recipe);
-    for (const relative of [
-      'conanfile.py',
-      'conandata.yml',
-      path.join('patches', '0001-fix-notification-assignment.patch'),
-    ]) {
-      const file = path.join(recipe, relative);
-      fse.writeFileSync(
-        file,
-        fse.readFileSync(file, 'utf8').replace(/\r\n/g, '\n'),
-      );
+  const recipes = [
+    {
+      name: 'rxcpp',
+      version: '4.1.1',
+      files: [
+        'conanfile.py',
+        'conandata.yml',
+        path.join('patches', '0001-fix-notification-assignment.patch'),
+      ],
+    },
+    {
+      name: 'rocksdb',
+      version: '6.29.5',
+      files: [
+        'conanfile.py',
+        'conandata.yml',
+        path.join('patches', '0001-add-include-cstdint-for-gcc-13.patch'),
+        path.join('patches', '0002-exclude-thirdparty.patch'),
+        path.join(
+          'patches',
+          '0003-complete-parallel-compression-before-rep-destruction.patch',
+        ),
+        path.join(
+          'patches',
+          '0004-complete-write-batch-types-before-iterator-destruction.patch',
+        ),
+      ],
+    },
+  ];
+  for (const { name, version, files } of recipes) {
+    const source = path.join(__dirname, '..', '.conan', 'recipes', name);
+    const recipe = fse.mkdtempSync(path.join(os.tmpdir(), `kungfu-${name}-`));
+    try {
+      fse.copySync(source, recipe);
+      for (const file of files) {
+        const absolute = path.join(recipe, file);
+        fse.writeFileSync(
+          absolute,
+          fse.readFileSync(absolute, 'utf8').replace(/\r\n/g, '\n'),
+        );
+      }
+      conan(['export', recipe, '--version', version]);
+    } finally {
+      fse.removeSync(recipe);
     }
-    conan(['export', recipe, '--version', '4.1.1']);
-  } finally {
-    fse.removeSync(recipe);
   }
 }
 
