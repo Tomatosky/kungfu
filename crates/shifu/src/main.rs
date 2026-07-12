@@ -170,6 +170,12 @@ fn main() {
     if is_self_update {
         self_update::run(None, &args[1..]);
     }
+    #[cfg(windows)]
+    if is_doctor {
+        if let Some(root) = root.as_deref() {
+            msvc::ensure_msvc_env(root);
+        }
+    }
     if is_doctor {
         doctor::run(root.as_deref(), &args[1..]);
     }
