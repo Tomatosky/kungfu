@@ -79,6 +79,11 @@ restart, and replays strictly after `T`. Required peers fail closed when the
 snapshot/cut is absent or invalid; optional peers report degraded state; peers
 declaring no state dependency remain independent. Projection corruption or a
 failed rebuild does not advance its watermark and does not block durable ingest.
+The shadow now includes a projector over the authoritative Hana
+`StateDataTypes` closed set. At one durable cut its binary derived image is
+compared with the compatibility `state<DataType>` bank, including type/uid,
+source/destination, update time, and data; malformed known records fail closed
+while the previous snapshot remains available for rollback.
 This is shadow/cutover evidence: the production coordinator compatibility
 restore remains active and public durable profiles remain disabled.
 

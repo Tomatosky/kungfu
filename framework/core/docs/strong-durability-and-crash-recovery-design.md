@@ -379,10 +379,19 @@ required peer refuse startup until the same durable chain deterministically
 rebuilds it; an optional peer reports degraded rather than silently starting
 with current-state claims.
 
-This slice proves the new boundary and its restart/failure semantics but does
-not yet replace the production coordinator-triggered compatibility restore.
-That switch remains gated on a typed projector for the actual state schemas,
-shadow equality, rollback evidence, and the later qualified durable profile.
+The shadow projector now iterates the authoritative Hana `StateDataTypes`
+closed set rather than maintaining a second type roster. Known records are
+decoded with the existing Raw/JSON payload contract, keyed by type plus
+`DataType::uid()`, and retain the existing `state<DataType>` source,
+destination, update-time, and data semantics. The qualification fixture covers
+all current state types, replacement by uid, equality with the compatibility
+bank at the same durable cut, malformed-record fail-closed behavior, and
+retention of the previous snapshot as rollback evidence.
+
+This slice still does not replace the production coordinator-triggered
+compatibility restore. That switch remains gated on wiring this projector into
+the production bootstrap authority, removing the business restore/join bridge,
+and the later qualified durable profile.
 
 ## 8. Failure behavior
 
