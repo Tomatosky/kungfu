@@ -38,6 +38,11 @@ _RXCPP_DELETED_ASSIGNMENT = (
 )
 
 
+def _cmake_path(value):
+    """Return a path safe to embed in a generated CMake string literal."""
+    return str(value).replace("\\", "/")
+
+
 def _prepare_rxcpp_compat(source_include_dir, destination_include_dir):
     """Copy RxCpp and remove its invalid assignment to a const error_ptr.
 
@@ -176,7 +181,9 @@ class KungfuCoreConan(ConanFile):
         tc = CMakeToolchain(self, generator="Ninja")
         # 把自身 options 透传给 CMake（主 CMakeLists 用 ${CONAN_LIBS} 桥接 + SPDLOG 等级）。
         tc.variables["SPDLOG_LOG_LEVEL_COMPILE"] = self.__spdlog_level()
-        tc.variables["KUNGFU_RXCPP_COMPAT_INCLUDE_DIR"] = rxcpp_compat_include_dir
+        tc.variables["KUNGFU_RXCPP_COMPAT_INCLUDE_DIR"] = _cmake_path(
+            rxcpp_compat_include_dir
+        )
         tc.generate()
         if self.gyp_call:
             self.__touch_lockfile()
