@@ -92,7 +92,7 @@ export type AtlasMissionControlReport = {
   report_hash?: string;
   query_definition_root: string;
   query_proof_root: string;
-  query_profile: {
+  query_profile?: {
     schema: 'kungfu.mission-control.query-profile/v1';
     profile_hash: string;
     profile: {

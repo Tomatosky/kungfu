@@ -391,7 +391,7 @@ function AtlasProjectionView({
 
   const advanceQueryStream = React.useCallback(
     (report: AtlasMissionControlReport) => {
-      const definition = report.query_profile.views[0]?.saved_view.definition;
+      const definition = report.query_profile?.views[0]?.saved_view.definition;
       if (!definition)
         throw new Error('Mission Control query profile has no view');
       let state = queryStreamState.current;
@@ -622,7 +622,7 @@ function AtlasProjectionView({
     const status = goal.status ?? 'unknown';
     missionGoalCounts.set(status, (missionGoalCounts.get(status) ?? 0) + 1);
   }
-  const fiveAnswers = trustReport?.query_profile.answers ?? [];
+  const fiveAnswers = trustReport?.query_profile?.answers ?? [];
 
   return (
     <div
@@ -678,7 +678,7 @@ function AtlasProjectionView({
         <main style={{ flex: 1, minWidth: 0, overflow: 'auto' }}>
           <section style={{ ...panelStyle, marginBottom: 8 }}>
             <h2 style={headingStyle}>Mission Home · current cut</h2>
-            {trustReport && (
+            {trustReport?.query_profile && (
               <div style={{ ...mono, color: '#858585', marginBottom: 5 }}>
                 profile {trustReport.query_profile.profile.version} ·{' '}
                 {trustReport.query_profile.views.length} saved views · proof{' '}
