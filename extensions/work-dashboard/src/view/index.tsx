@@ -435,29 +435,33 @@ function AtlasProjectionView({
   }, [dashboardRefresh]);
 
   const advanceQueryStream = React.useCallback(
-    (report: AtlasMissionControlReport) => {
+    async (report: AtlasMissionControlReport, request: number) => {
       const definition = report.query_profile?.views[0]?.saved_view.definition;
       if (!definition)
         throw new Error('Mission Control query profile has no view');
-      let state = queryStreamState.current;
-      if (queryStreamDefinitionRoot.current !== report.query_definition_root) {
-        state = emptyQueryChangelogState();
-        queryStreamDefinitionRoot.current = report.query_definition_root;
-        queryStreamResume.current = undefined;
-      }
+      const sameDefinition =
+        queryStreamDefinitionRoot.current === report.query_definition_root;
+      let state = sameDefinition
+        ? queryStreamState.current
+        : emptyQueryChangelogState();
+      let resume = sameDefinition ? queryStreamResume.current : undefined;
       let complete = false;
       for (let pageCount = 0; pageCount < 8 && !complete; pageCount += 1) {
-        const page = storage.factChangelog(
-          definition,
-          queryStreamResume.current,
-          100,
-        );
+        if (!mounted.current || request !== assessmentRequest.current) return;
+        const page = storage.factChangelog(definition, resume, 100);
         state = applyQueryChangelogPage(state, page);
-        queryStreamResume.current = page.resume_token;
+        resume = page.resume_token;
         complete = page.complete;
         if (state.gap) break;
+        // One native page can be synchronous, but a catch-up batch must not
+        // become one renderer task. Yield between pages so resize/input frames
+        // keep running while the query stream advances.
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
       }
+      if (!mounted.current || request !== assessmentRequest.current) return;
       queryStreamState.current = state;
+      queryStreamDefinitionRoot.current = report.query_definition_root;
+      queryStreamResume.current = resume;
       setQueryStream(state);
       setQueryStreamError(complete ? '' : 'query stream is catching up');
     },
@@ -482,7 +486,7 @@ function AtlasProjectionView({
       setTrustReport(report);
       setTrustError('');
       try {
-        advanceQueryStream(report);
+        await advanceQueryStream(report, request);
       } catch (error) {
         setQueryStreamError(
           `degraded snapshot fallback · ${(error as Error).message}`,
