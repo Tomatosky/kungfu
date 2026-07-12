@@ -307,7 +307,13 @@ function AtlasUnavailableView() {
   );
 }
 
-function AtlasProjectionView({ atlas }: { atlas: Atlas }) {
+function AtlasProjectionView({
+  atlas,
+  shell,
+}: {
+  atlas: Atlas;
+  shell: Shell;
+}) {
   const [repoRoot, setRepoRoot] = React.useState(atlas.defaultRepoRoot);
   const [missions, setMissions] = React.useState<AtlasMission[]>(() =>
     atlas.missions(),
@@ -362,6 +368,8 @@ function AtlasProjectionView({ atlas }: { atlas: Atlas }) {
   React.useEffect(() => {
     reload();
   }, [reload]);
+
+  React.useEffect(() => shell.onRefresh(reload), [shell, reload]);
 
   React.useEffect(() => {
     if (selectedMission === 'all') {
@@ -1306,7 +1314,7 @@ function WorkDashboardView({
           </SmallButton>
         </div>
         {atlas ? (
-          <AtlasProjectionView atlas={atlas} />
+          <AtlasProjectionView atlas={atlas} shell={shell} />
         ) : (
           <AtlasUnavailableView />
         )}

@@ -56,7 +56,13 @@ function downloadJson(name: string, value: StorageValue) {
   URL.revokeObjectURL(url);
 }
 
-function FactManagerView({ caps }: { caps: KfxCapabilities; shell: Shell }) {
+function FactManagerView({
+  caps,
+  shell,
+}: {
+  caps: KfxCapabilities;
+  shell: Shell;
+}) {
   const { storage } = caps;
   const [types, setTypes] = React.useState<FactTypeRow[]>([]);
   const [selectedTypeKey, setSelectedTypeKey] = React.useState('');
@@ -131,6 +137,7 @@ function FactManagerView({ caps }: { caps: KfxCapabilities; shell: Shell }) {
   }, [selectedTypeKey, storage]);
 
   React.useEffect(() => refresh(), [refresh]);
+  React.useEffect(() => shell.onRefresh(refresh), [shell, refresh]);
 
   const createType = () => {
     try {

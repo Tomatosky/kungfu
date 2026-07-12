@@ -41,6 +41,11 @@ export const WINDOW_CHROME_STATE_CHANNEL = 'kf-window-chrome:state';
 
 export const RUNTIME_STATUS_GET_CHANNEL = 'kf-runtime-status:get';
 
+// main -> shell renderer: refresh product data without reloading the renderer.
+// The renderer owns native runtime handles, so Electron's page reload is not a
+// safe refresh mechanism.
+export const SHELL_REFRESH_CHANNEL = 'kf-shell:refresh';
+
 // renderer <-> main: Desktop Workspace chooser/switcher. Selection is a
 // global-config convenience record; fact-bearing data remains in the selected
 // Home or project workspace and switching relaunches the single-workspace app.

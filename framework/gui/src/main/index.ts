@@ -24,6 +24,7 @@ import {
   HIDE_CHANNEL,
   RUNTIME_STATUS_GET_CHANNEL,
   SET_BOUNDS_CHANNEL,
+  SHELL_REFRESH_CHANNEL,
   SHOW_CHANNEL,
   WINDOW_CHROME_CONTROL_CHANNEL,
   WINDOW_CHROME_GET_CHANNEL,
@@ -896,7 +897,28 @@ function buildMenu() {
     ...(process.platform === 'darwin' ? [{ role: 'appMenu' as const }] : []),
     { label: 'kungfu', submenu: cliSubmenu },
     { role: 'editMenu' },
-    { role: 'viewMenu' },
+    {
+      label: 'View',
+      submenu: [
+        {
+          label: 'Refresh Product Data',
+          accelerator: 'CmdOrCtrl+R',
+          click: () => {
+            if (shellWindow && !shellWindow.isDestroyed()) {
+              shellWindow.webContents.send(SHELL_REFRESH_CHANNEL);
+            }
+          },
+        },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' },
+      ],
+    },
     { role: 'windowMenu' },
   ];
 
