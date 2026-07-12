@@ -369,6 +369,16 @@ public:
    * @param carrier_type
    * @return a casted reference to the underlying memory address in mmap file
    */
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#elif defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#elif defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4996)
+#endif
   template <typename T> std::enable_if_t<size_fixed_v<T>, T &> open_data(int64_t trigger_time = 0) {
     auto frame = open_frame(trigger_time, T::tag, sizeof(T));
     return const_cast<T &>(frame->template data<T>());
@@ -378,6 +388,13 @@ public:
     auto frame = open_frame(trigger_time, carrier_type, sizeof(T));
     return const_cast<T &>(*reinterpret_cast<const T *>(frame->data_address()));
   }
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#pragma GCC diagnostic pop
+#elif defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 
   virtual void close_data(int64_t gen_time = time::now_in_nano());
 
