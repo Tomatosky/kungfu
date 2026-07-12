@@ -55,3 +55,11 @@ def test_prepare_rxcpp_compat_fails_closed_on_upstream_drift(tmp_path):
         conanfile._prepare_rxcpp_compat(
             tmp_path / "source" / "include", tmp_path / "build" / "compat"
         )
+
+
+def test_cmake_path_normalizes_windows_separators():
+    conanfile = _load_conanfile()
+
+    assert conanfile._cmake_path(r"D:\a\kungfu\core\build\compat") == (
+        "D:/a/kungfu/core/build/compat"
+    )

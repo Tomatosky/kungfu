@@ -67,6 +67,11 @@ def _prepare_rxcpp_compat(source_include_dir, destination_include_dir):
     return destination_include_dir
 
 
+def _cmake_path(value):
+    """Return a CMake-safe path even when Conan runs on Windows."""
+    return str(value).replace("\\", "/")
+
+
 def _detected_os():
     """conan1 tools.detected_os() 的替代：返回 Windows/Macos/Linux。"""
     return {"Windows": "Windows", "Darwin": "Macos", "Linux": "Linux"}.get(
@@ -176,7 +181,9 @@ class KungfuCoreConan(ConanFile):
         tc = CMakeToolchain(self, generator="Ninja")
         # 把自身 options 透传给 CMake（主 CMakeLists 用 ${CONAN_LIBS} 桥接 + SPDLOG 等级）。
         tc.variables["SPDLOG_LOG_LEVEL_COMPILE"] = self.__spdlog_level()
-        tc.variables["KUNGFU_RXCPP_COMPAT_INCLUDE_DIR"] = rxcpp_compat_include_dir
+        tc.variables["KUNGFU_RXCPP_COMPAT_INCLUDE_DIR"] = _cmake_path(
+            rxcpp_compat_include_dir
+        )
         tc.generate()
         if self.gyp_call:
             self.__touch_lockfile()
