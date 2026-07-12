@@ -53,6 +53,7 @@ import {
   createMainTerminalHost,
 } from './terminal-host';
 import {
+  clearDesktopWorkspaceEnvForRelaunch,
   defaultHomeDesktopWorkspace,
   listRecentDesktopWorkspaces,
   resolveLastDesktopWorkspace,
@@ -95,6 +96,11 @@ function defaultConfigHome(): string {
   );
 }
 
+const desktopWorkspaceIsRegistryManaged =
+  !process.env.KF_INSTANCE_HOME &&
+  !process.env.KF_HOME &&
+  !process.env.KF_RUNTIME_DIR;
+
 // A product launcher may set KF_INSTANCE_HOME to make a second Kungfu process
 // independent from the default user-global homes. Keep the same mental model as
 // the default install: config and runtime home are separate directories.
@@ -123,11 +129,7 @@ if (process.env.KF_INSTANCE_HOME) {
   process.env.KF_RUNTIME_DIR = path.join(process.env.KF_HOME, 'runtime');
 }
 
-if (
-  !process.env.KF_INSTANCE_HOME &&
-  !process.env.KF_HOME &&
-  !process.env.KF_RUNTIME_DIR
-) {
+if (desktopWorkspaceIsRegistryManaged) {
   const configHome = defaultConfigHome();
   process.env.KF_CONFIG_HOME = configHome;
   const selected =
@@ -731,6 +733,9 @@ function relaunchWithWorkspaceSelection(args: string[]) {
     timeout: 10000,
   });
   const selected = JSON.parse(out.toString());
+  if (desktopWorkspaceIsRegistryManaged) {
+    clearDesktopWorkspaceEnvForRelaunch(process.env);
+  }
   setImmediate(() => {
     app.relaunch();
     app.exit(0);

@@ -5,11 +5,35 @@ import path from 'node:path';
 import test from 'node:test';
 
 import {
+  clearDesktopWorkspaceEnvForRelaunch,
   defaultHomeDesktopWorkspace,
   listRecentDesktopWorkspaces,
   resolveLastDesktopWorkspace,
   workspaceRegistryPath,
 } from './workspace-selection.ts';
+
+test('desktop relaunch clears derived workspace env but preserves config home', () => {
+  const env = {
+    KF_CONFIG_HOME: '/tmp/config',
+    KF_HOME: '/tmp/old-home',
+    KF_RUNTIME_DIR: '/tmp/old-runtime',
+    KF_WORKSPACE_ID: 'home',
+    KF_WORKSPACE_KIND: 'home',
+    KF_WORKSPACE_ROOT: '',
+    KF_WORKSPACE_DISPLAY_PATH: 'Home Workspace',
+    KF_WORKSPACE_RESOLUTION_REASON: 'home-fallback',
+    KF_WORKSPACE_STATE: 'selected-uninitialized',
+    KF_WORKSPACE_DIAGNOSIS: '',
+    KUNGFU_VERSION: '4.0.0',
+  };
+
+  clearDesktopWorkspaceEnvForRelaunch(env);
+
+  assert.deepEqual(env, {
+    KF_CONFIG_HOME: '/tmp/config',
+    KUNGFU_VERSION: '4.0.0',
+  });
+});
 
 function fixture(name: string): string {
   const root = path.join(tmpdir(), `kungfu-workspace-selection-${name}`);

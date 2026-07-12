@@ -5,6 +5,18 @@ import path from 'node:path';
 
 const REGISTRY_SCHEMA = 'kungfu.workspace.registry/v1';
 
+const DESKTOP_WORKSPACE_ENV_KEYS = [
+  'KF_HOME',
+  'KF_RUNTIME_DIR',
+  'KF_WORKSPACE_ID',
+  'KF_WORKSPACE_KIND',
+  'KF_WORKSPACE_ROOT',
+  'KF_WORKSPACE_DISPLAY_PATH',
+  'KF_WORKSPACE_RESOLUTION_REASON',
+  'KF_WORKSPACE_STATE',
+  'KF_WORKSPACE_DIAGNOSIS',
+] as const;
+
 export type RegistryWorkspace = {
   workspace_id?: string;
   workspace_kind?: 'home' | 'project';
@@ -33,6 +45,12 @@ export type DesktopWorkspaceSelection = {
 
 export function workspaceRegistryPath(configHome: string): string {
   return path.join(configHome, 'gui', 'workspaces.json');
+}
+
+export function clearDesktopWorkspaceEnvForRelaunch(
+  env: Record<string, string | undefined>,
+): void {
+  for (const key of DESKTOP_WORKSPACE_ENV_KEYS) delete env[key];
 }
 
 export function resolveLastDesktopWorkspace(
