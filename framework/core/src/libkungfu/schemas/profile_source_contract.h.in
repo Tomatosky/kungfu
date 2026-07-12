@@ -4,7 +4,8 @@
 #define KUNGFU_RUNTIME_PROFILE_SOURCE_CONTRACT_H
 
 namespace kungfu::runtime::profile::schema {
-inline constexpr const char *KFX_CONTRACT_JSON = R"KFKFX(@KFX_CONTRACT_JSON@)KFKFX";
+inline constexpr const char *KFX_CONTRACT_JSON =
+@KFX_CONTRACT_JSON_LITERALS@;
 }
 
 #endif // KUNGFU_RUNTIME_PROFILE_SOURCE_CONTRACT_H

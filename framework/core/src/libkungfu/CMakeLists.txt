@@ -17,6 +17,23 @@ configure_file(
 # Embed the exact KFX contract document as the sole Profile JSON schema owner.
 # Core validates its profileSuiteSchema before applying lifecycle semantics.
 file(READ "${PROJECT_SOURCE_DIR}/../../../kfx/kungfu-kfx.contract.json" KFX_CONTRACT_JSON)
+# MSVC limits one string literal to 65,535 bytes. Preserve the exact contract
+# bytes while emitting bounded adjacent raw literals that C++ concatenates.
+set(KFX_CONTRACT_JSON_LITERALS "")
+string(LENGTH "${KFX_CONTRACT_JSON}" KFX_CONTRACT_JSON_LENGTH)
+set(KFX_CONTRACT_JSON_OFFSET 0)
+while(KFX_CONTRACT_JSON_OFFSET LESS KFX_CONTRACT_JSON_LENGTH)
+  math(EXPR KFX_CONTRACT_JSON_REMAINING "${KFX_CONTRACT_JSON_LENGTH} - ${KFX_CONTRACT_JSON_OFFSET}")
+  if(KFX_CONTRACT_JSON_REMAINING GREATER 16000)
+    set(KFX_CONTRACT_JSON_CHUNK_LENGTH 16000)
+  else()
+    set(KFX_CONTRACT_JSON_CHUNK_LENGTH ${KFX_CONTRACT_JSON_REMAINING})
+  endif()
+  string(SUBSTRING "${KFX_CONTRACT_JSON}" ${KFX_CONTRACT_JSON_OFFSET} ${KFX_CONTRACT_JSON_CHUNK_LENGTH}
+         KFX_CONTRACT_JSON_CHUNK)
+  string(APPEND KFX_CONTRACT_JSON_LITERALS "R\"KFKFX(${KFX_CONTRACT_JSON_CHUNK})KFKFX\"\n")
+  math(EXPR KFX_CONTRACT_JSON_OFFSET "${KFX_CONTRACT_JSON_OFFSET} + ${KFX_CONTRACT_JSON_CHUNK_LENGTH}")
+endwhile()
 file(MAKE_DIRECTORY "${KUNGFU_GENERATED_INCLUDE_DIR}/kungfu/runtime/profile")
 configure_file(
   "${PROJECT_SOURCE_DIR}/schemas/profile_source_contract.h.in"
