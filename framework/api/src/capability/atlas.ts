@@ -1,3 +1,5 @@
+import type { SavedQueryView } from './query';
+
 // Mission Control capability handle over the `kungfu atlas` pre-release CLI.
 // Atlas remains authority for imported facts; native Mission/Go/claim writes
 // and portable bundle operations enter the same local Fact Library.
@@ -90,6 +92,33 @@ export type AtlasMissionControlReport = {
   report_hash?: string;
   query_definition_root: string;
   query_proof_root: string;
+  query_profile: {
+    schema: 'kungfu.mission-control.query-profile/v1';
+    profile_hash: string;
+    profile: {
+      id: 'kungfu.mission-control';
+      version: '1';
+      reducer: 'kungfu.mission-control.reducer/v1';
+    };
+    mission_subject: string;
+    query_definition_root: string;
+    query_proof_root: string;
+    result_hash: string;
+    views: Array<{
+      question_id: string;
+      query_id: string;
+      revision: number;
+      saved_view_hash: string;
+      saved_view: SavedQueryView;
+    }>;
+    answers: Array<{
+      question_id: string;
+      question: string;
+      status: string;
+      summary: string;
+      data: Record<string, unknown>;
+    }>;
+  };
   assessment: {
     state: string;
     reused?: boolean;

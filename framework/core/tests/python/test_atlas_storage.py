@@ -412,9 +412,41 @@ def test_mission_control_queries_and_assesses_progress_at_pinned_cuts(tmp_path):
     assert profile["cost"]["proof_episodes"][0]["episode_root"].startswith("sha256:")
     assert profile["proof"]["query_proof_root"] == first_state["query_proof_root"]
     assert profile["proof"]["assessment_report_hash"] == first_report["report_hash"]
+    query_profile = first_report["query_profile"]
+    assert query_profile["schema"] == "kungfu.mission-control.query-profile/v1"
+    assert query_profile["profile"]["reducer"] == ("kungfu.mission-control.reducer/v1")
+    assert len(query_profile["views"]) == 5
+    assert len(query_profile["answers"]) == 5
+    assert all(
+        view["saved_view"]["view"]["kind"] == "mission-control"
+        for view in query_profile["views"]
+    )
+    next_answer = next(
+        answer
+        for answer in query_profile["answers"]
+        if answer["question_id"] == "next-responsibility"
+    )
+    assert next_answer["status"] == "declared"
+    assert next_answer["data"]["declared_actions"][0]["action"] == "implement"
+    assert next_answer["data"]["declared_actions"][0]["source"] == ("go.next_action")
+    assert "Continue under" not in next_answer["summary"]
+    catalog = storage_service.saved_query_catalog(runtime_dir)
+    assert len(catalog["entries"]) == 5
+    assert all(
+        entry["saved_view"]["definition"]
+        == query_profile["views"][0]["saved_view"]["definition"]
+        for entry in catalog["entries"]
+    )
     repeated = mission_control.assess_progress(str(runtime_dir), mission_id="mission-a")
     assert repeated["assessment_key"] == first_report["assessment_key"]
     assert repeated["assessment"]["reused"] is True
+    assert [view["revision"] for view in repeated["query_profile"]["views"]] == [
+        1,
+        1,
+        1,
+        1,
+        1,
+    ]
 
     from click.testing import CliRunner
     from kungfu.cli.commands import __registry__  # noqa: F401
@@ -2335,6 +2367,68 @@ def test_fact_changelog_resumes_pages_without_loss_or_duplication(tmp_path):
     assert finished["complete"] is True
     assert [message["type"] for message in finished["messages"]] == ["Progress"]
     assert finished["messages"][0]["frontier"]["kind"] == "manifest_frame_uid"
+
+
+def test_fact_state_changelog_uses_stable_keys_and_system_time_frontiers(tmp_path):
+    repo = tmp_path / "atlas"
+    runtime_dir = tmp_path / "runtime"
+    _atlas_fixture(repo)
+    atlas_store.ImportStore(runtime_dir).run_import(str(repo))
+
+    profile_definition = mission_control.build_state_query(
+        str(runtime_dir), mission_id="mission-a"
+    )
+    definition = mission_control._runtime_query_definition(profile_definition)
+    snapshot = storage_service.fact_changelog(runtime_dir, definition)
+    assert snapshot["complete"] is True
+    assert snapshot["resume_token"]["target"]["kind"] == "system_time"
+    assert [message["type"] for message in snapshot["messages"]] == [
+        "SnapshotBegin",
+        "RowUpsert",
+        "RowUpsert",
+        "SnapshotEnd",
+    ]
+    goal_upsert = next(
+        message
+        for message in snapshot["messages"]
+        if message.get("row", {}).get("subject_key") == "atlas:goal-a"
+    )
+    assert goal_upsert["evidence_ref"]["payload_hash"]
+    assert goal_upsert["evidence_ref"]["episode_id"]
+
+    steady = snapshot["resume_token"]
+    unchanged = storage_service.fact_changelog(
+        runtime_dir, definition, resume_token=steady
+    )
+    assert [message["type"] for message in unchanged["messages"]] == ["Progress"]
+
+    goal_path = repo / "agent-journal/goals/registry/active/goal-a.json"
+    changed = json.loads(goal_path.read_text(encoding="utf-8"))
+    changed["status"] = "ready"
+    changed["updated_at"] = "2026-07-09T00:00:00Z"
+    _write_json(goal_path, changed)
+    atlas_store.ImportStore(runtime_dir).run_import(str(repo))
+
+    correction = storage_service.fact_changelog(
+        runtime_dir, definition, resume_token=steady
+    )
+    replay = storage_service.fact_changelog(
+        runtime_dir, definition, resume_token=steady
+    )
+    assert correction == replay
+    assert [message["type"] for message in correction["messages"]] == [
+        "RowUpsert",
+        "Progress",
+    ]
+    assert correction["messages"][0]["key"] == goal_upsert["key"]
+    assert (
+        correction["messages"][0]["row"]["episode_id"]
+        != goal_upsert["row"]["episode_id"]
+    )
+    assert correction["messages"][1]["frontier"]["kind"] == "system_time"
+    assert int(correction["messages"][1]["frontier"]["system_time"]) > int(
+        steady["target"]["system_time"]
+    )
 
 
 def test_temporal_attention_pattern_is_reproducible_and_retracts_on_late_terminal(

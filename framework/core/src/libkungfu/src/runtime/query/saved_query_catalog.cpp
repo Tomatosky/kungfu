@@ -106,7 +106,7 @@ nlohmann::json normalize_saved_view(const nlohmann::json &input) {
   }
   const auto view_kind = text_or(input.at("view"), "kind");
   if (view_kind != "table" && view_kind != "timeline" && view_kind != "diff" && view_kind != "causal-graph" &&
-      view_kind != "attention") {
+      view_kind != "attention" && view_kind != "mission-control") {
     throw std::invalid_argument("saved query requires a supported ViewSpec");
   }
   const auto definition = parse_query_definition(input.at("definition"));

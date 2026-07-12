@@ -4746,14 +4746,11 @@ public:
 
   [[nodiscard]] nlohmann::json fact_changelog(const storage_service_options &options) const {
     const auto definition = query::parse_query_definition(options.query_definition);
-    if (definition.object != "episodes") {
-      throw std::invalid_argument("fact-state changelog is not implemented; request a proof snapshot");
-    }
     const auto plan = query::plan_query(definition);
     const auto resume_token = object_or_empty(options.operation_options, "resume_token");
     const auto max_messages = uint64_or(options.operation_options, "max_messages", 100);
     return query::changelog_page_json(
-        query::run_episode_changelog(options.runtime_dir, plan, resume_token, max_messages));
+        query::run_query_changelog(options.runtime_dir, plan, resume_token, max_messages));
   }
 
   [[nodiscard]] nlohmann::json saved_query_catalog(const storage_service_options &options) const {

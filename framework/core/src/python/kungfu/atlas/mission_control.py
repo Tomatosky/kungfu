@@ -36,6 +36,22 @@ PROGRESS_CLAIM = "mission-progress-is-reasonable"
 PROGRESS_PURPOSE = "operator-review"
 COST_STATE_PROOF_PROFILE_ID = "kungfu.profile.delegated-work-cost-state-proof"
 COST_STATE_PROOF_PROFILE_VERSION = "1"
+MISSION_CONTROL_PROFILE_ID = "kungfu.mission-control"
+MISSION_CONTROL_PROFILE_VERSION = "1"
+MISSION_CONTROL_REDUCER = "kungfu.mission-control.reducer/v1"
+MISSION_CONTROL_QUESTIONS = (
+    ("mission-intent", "What are we trying to achieve?"),
+    ("observed-progress", "What actually happened?"),
+    ("evidence-at-cut", "What does the evidence establish at this cut?"),
+    (
+        "fitness-for-purpose",
+        "Is the delegated work still fit for the purpose that matters?",
+    ),
+    (
+        "next-responsibility",
+        "Who should continue, adjust, stop, approve, or supply evidence next?",
+    ),
+)
 ATTRIBUTION_NAMES = {
     0: "exact-run",
     1: "exact-session",
@@ -1344,6 +1360,211 @@ def build_cost_state_proof_profile(
     return profile
 
 
+def _mission_control_answers(
+    state: dict[str, Any],
+    *,
+    fitness: str,
+    assessment_state: str,
+    findings: list[str],
+    known_limits: list[str],
+) -> list[dict[str, Any]]:
+    mission = (state.get("mission") or {}).get("payload", {}).get("record", {})
+    goals = [row.get("payload", {}).get("record", {}) for row in state.get("goals", [])]
+    statuses: dict[str, int] = {}
+    for goal in goals:
+        status = str(goal.get("status") or "unknown")
+        statuses[status] = statuses.get(status, 0) + 1
+    status_summary = " · ".join(
+        f"{status}={statuses[status]}" for status in sorted(statuses)
+    )
+
+    intent = "Not yet declared. Create or import a Mission."
+    if mission:
+        identity = str(mission.get("title") or mission.get("mission_id") or "Mission")
+        intent = f"{identity} — {mission.get('intent') or 'intent not declared'}"
+        if mission.get("stage_name"):
+            intent += f" · stage {mission['stage_name']}"
+
+    actual = "No admitted Go activity is visible at this cut."
+    if goals:
+        actual = f"{len(goals)} Go(s) at this cut"
+        if status_summary:
+            actual += f" · {status_summary}"
+
+    declared_actions = []
+    for goal in goals:
+        if str(goal.get("next_action") or "").strip():
+            declared_actions.append(
+                {
+                    "actor": str(goal.get("owner_agent") or goal.get("actor") or ""),
+                    "subject": str(goal.get("goal_id") or ""),
+                    "action": str(goal["next_action"]),
+                    "source": "go.next_action",
+                }
+            )
+    if str(mission.get("next_action") or "").strip():
+        declared_actions.append(
+            {
+                "actor": str(mission.get("owner") or ""),
+                "subject": str(mission.get("mission_id") or ""),
+                "action": str(mission["next_action"]),
+                "source": "mission.next_action",
+            }
+        )
+    if declared_actions:
+        next_summary = " · ".join(
+            f"{item['actor'] or item['subject'] or 'declared actor'}: {item['action']}"
+            for item in declared_actions
+        )
+        responsibility_state = "declared"
+    elif fitness == "fit":
+        next_summary = "No next action or responsible actor is declared at this cut."
+        responsibility_state = "undeclared"
+    else:
+        next_summary = (
+            "A decision or additional evidence is required, but no responsible "
+            "actor is declared at this cut."
+        )
+        responsibility_state = "needs-decision"
+
+    proof_suffix = str(state.get("query_proof_root") or "")[-12:]
+    answers_by_id = {
+        "mission-intent": {
+            "status": "declared" if mission else "missing",
+            "summary": intent,
+            "data": {"mission": mission},
+        },
+        "observed-progress": {
+            "status": "observed" if goals else "missing",
+            "summary": actual,
+            "data": {"goal_count": len(goals), "status_counts": statuses},
+        },
+        "evidence-at-cut": {
+            "status": "established" if state.get("canonical_state") else "degraded",
+            "summary": (
+                f"{'canonical' if state.get('canonical_state') else 'degraded'} cut"
+                f" · {len(findings)} finding(s) · proof {proof_suffix or '-'}"
+            ),
+            "data": {
+                "canonical_state": bool(state.get("canonical_state")),
+                "cut": state.get("cut", {}),
+                "findings": findings,
+                "query_definition_root": state.get("query_definition_root", ""),
+                "query_proof_root": state.get("query_proof_root", ""),
+            },
+        },
+        "fitness-for-purpose": {
+            "status": fitness,
+            "summary": (
+                f"{fitness} · assessment {assessment_state}"
+                f" · residual limits {len(known_limits)}"
+            ),
+            "data": {
+                "fitness": fitness,
+                "assessment_state": assessment_state,
+                "known_limits": known_limits,
+            },
+        },
+        "next-responsibility": {
+            "status": responsibility_state,
+            "summary": next_summary,
+            "data": {"declared_actions": declared_actions},
+        },
+    }
+    return [
+        {"question_id": question_id, "question": question, **answers_by_id[question_id]}
+        for question_id, question in MISSION_CONTROL_QUESTIONS
+    ]
+
+
+def build_mission_control_query_profile(
+    runtime_dir: str,
+    state: dict[str, Any],
+    *,
+    fitness: str,
+    assessment_state: str,
+    findings: list[str],
+    known_limits: list[str],
+) -> dict[str, Any]:
+    """Resolve and persist the five built-in views over one canonical query."""
+
+    definition = _runtime_query_definition(state["definition"])
+    if definition.get("schema") != "kungfu.query.definition/v1":
+        raise RuntimeError(
+            "Mission Control profile requires one portable QueryDefinition"
+        )
+    mission_hash = _sha256_root(state["mission_subject"])[7:19]
+    declared_cut = definition.get("basis", {}).get("cut", {})
+    cut_key = (
+        "head"
+        if declared_cut.get("kind") == "head"
+        else _sha256_root(declared_cut)[7:19]
+    )
+    current = {
+        str(entry.get("query_id") or ""): entry
+        for entry in storage_service.saved_query_catalog(runtime_dir).get("entries", [])
+    }
+    views = []
+    for question_id, question in MISSION_CONTROL_QUESTIONS:
+        query_id = f"mission-control.{question_id}.{mission_hash}.{cut_key}"
+        saved_view = {
+            "schema": "kungfu.query.saved-view/v1",
+            "name": question,
+            "definition": definition,
+            "view": {
+                "kind": "mission-control",
+                "profileId": MISSION_CONTROL_PROFILE_ID,
+                "profileVersion": MISSION_CONTROL_PROFILE_VERSION,
+                "questionId": question_id,
+                "reducer": MISSION_CONTROL_REDUCER,
+            },
+        }
+        entry = current.get(query_id)
+        if entry is None or entry.get("saved_view") != saved_view:
+            entry = storage_service.saved_query_catalog(
+                runtime_dir,
+                "put",
+                query_id=query_id,
+                saved_view=saved_view,
+                **(
+                    {"expected_revision": int(entry["revision"])}
+                    if entry is not None
+                    else {}
+                ),
+            )
+        views.append(
+            {
+                "question_id": question_id,
+                "query_id": query_id,
+                "revision": int(entry["revision"]),
+                "saved_view_hash": str(entry["saved_view_hash"]),
+                "saved_view": entry["saved_view"],
+            }
+        )
+    profile = {
+        "schema": "kungfu.mission-control.query-profile/v1",
+        "profile": {
+            "id": MISSION_CONTROL_PROFILE_ID,
+            "version": MISSION_CONTROL_PROFILE_VERSION,
+            "reducer": MISSION_CONTROL_REDUCER,
+        },
+        "mission_subject": state["mission_subject"],
+        "query_definition_root": state["query_definition_root"],
+        "query_proof_root": state["query_proof_root"],
+        "result_hash": state["result_hash"],
+        "views": views,
+        "answers": _mission_control_answers(
+            state,
+            fitness=fitness,
+            assessment_state=assessment_state,
+            findings=findings,
+            known_limits=known_limits,
+        ),
+    }
+    profile["profile_hash"] = _sha256_root(profile)
+    return profile
+
+
 def _progress_fitness(
     state: dict[str, Any], assessment_state: str
 ) -> tuple[str, list[str]]:
@@ -1444,6 +1665,14 @@ def assess_progress(
     )
     fitness, findings = _progress_fitness(state, assessed["state"])
     report_hash = assessed.get("report", {}).get("report_hash")
+    query_profile = build_mission_control_query_profile(
+        runtime_dir,
+        state,
+        fitness=fitness,
+        assessment_state=assessed["state"],
+        findings=findings,
+        known_limits=request["residual_risks"],
+    )
     return {
         "schema": "kungfu.mission-control.trust-report/v1",
         "claim": {
@@ -1460,6 +1689,7 @@ def assess_progress(
         "report_hash": report_hash,
         "query_definition_root": state["query_definition_root"],
         "query_proof_root": state["query_proof_root"],
+        "query_profile": query_profile,
         "profile": build_cost_state_proof_profile(
             runtime_dir,
             state,

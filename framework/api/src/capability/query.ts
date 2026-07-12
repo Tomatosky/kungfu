@@ -33,6 +33,11 @@ export type QueryFrontier =
       kind: 'manifest_frame_uid';
       manifest_frame_uid: string;
       record_count: string;
+    }
+  | {
+      kind: 'system_time';
+      system_time: string;
+      record_count: string;
     };
 
 export type QueryResultSchema = {
@@ -136,12 +141,25 @@ export type AttentionViewSpec = {
   attributionField: string;
   evidenceField: string;
 };
+export type MissionControlViewSpec = {
+  kind: 'mission-control';
+  profileId: 'kungfu.mission-control';
+  profileVersion: '1';
+  questionId:
+    | 'mission-intent'
+    | 'observed-progress'
+    | 'evidence-at-cut'
+    | 'fitness-for-purpose'
+    | 'next-responsibility';
+  reducer: 'kungfu.mission-control.reducer/v1';
+};
 export type QueryViewSpec =
   | TableViewSpec
   | TimelineViewSpec
   | DiffViewSpec
   | CausalGraphViewSpec
-  | AttentionViewSpec;
+  | AttentionViewSpec
+  | MissionControlViewSpec;
 
 export type SavedQueryView = {
   schema: 'kungfu.query.saved-view/v1';
@@ -285,9 +303,14 @@ export function parseSavedQueryView(value: unknown): SavedQueryView {
   }
   if (
     !saved.view ||
-    !['table', 'timeline', 'diff', 'causal-graph', 'attention'].includes(
-      saved.view.kind,
-    )
+    ![
+      'table',
+      'timeline',
+      'diff',
+      'causal-graph',
+      'attention',
+      'mission-control',
+    ].includes(saved.view.kind)
   ) {
     throw new Error('saved query view requires a supported ViewSpec');
   }

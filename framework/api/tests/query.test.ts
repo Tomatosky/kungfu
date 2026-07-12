@@ -174,3 +174,28 @@ test('attention saved view remains presentation-only', () => {
     definition.temporal_pattern,
   );
 });
+
+test('saved Mission Control view preserves query ownership', () => {
+  const saved = parseSavedQueryView({
+    schema: 'kungfu.query.saved-view/v1',
+    name: 'What actually happened?',
+    definition: {
+      schema: 'kungfu.query.definition/v1',
+      basis: { cut: { kind: 'head' } },
+      object: 'fact-state',
+      subject_keys: ['atlas:mission-a'],
+      limit: 1,
+      evidence: 'proof',
+    },
+    view: {
+      kind: 'mission-control',
+      profileId: 'kungfu.mission-control',
+      profileVersion: '1',
+      questionId: 'observed-progress',
+      reducer: 'kungfu.mission-control.reducer/v1',
+    },
+  });
+
+  assert.equal(saved.view.kind, 'mission-control');
+  assert.equal(saved.definition.object, 'fact-state');
+});

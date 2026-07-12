@@ -1,3 +1,21 @@
+---
+status: draft
+period: 2026-07-12
+theme: kungfu-mission-control
+doc_type: product-design
+source_level: local-files-and-user-consensus
+confidence: high
+sensitivity: public
+evidence_grade: B
+review_state: unreviewed
+last_reviewed: 2026-07-12
+ai_provenance:
+  model_family: GPT-5
+  product: Codex
+  generated_at: 2026-07-12
+  unavailable_details: exact model checkpoint and hidden runtime parameters
+---
+
 # Kungfu Mission Control
 
 Kungfu Mission Control is the local-first responsibility layer that connects a
@@ -178,6 +196,24 @@ now runs the same ADR-0048 `fact-state` QueryDefinition at head or an exact
 system-time cut, then persists an ADR-0052 `mission-progress-is-reasonable`
 assessment. `kungfu atlas assess-mission` and the Work Dashboard consume the
 same report identity and proof root.
+
+The TrustReport also resolves five versioned `kungfu.mission-control` saved
+views over that same QueryDefinition. Their ViewSpec selects one of the five
+Mission Home questions; `kungfu.mission-control.reducer/v1` owns the
+purpose-bound answer and never moves query semantics into React. The resolved
+views are journal-backed in the selected workspace Saved Query Catalog, so an
+agent can inspect, run, export, or fork them with `kungfu query saved ...` and
+the GUI can manage the same revisions. Rows, proof, and resume tokens remain
+rebuildable runtime state rather than portable authority.
+
+Mission Home now resumes the fact-state changelog with stable logical fact
+keys and a system-time frontier. A correction to one source claim is therefore
+an upsert of that claim, not a retract plus an unrelated identity. The desktop
+refresh bus advances the stream and re-runs the purpose-bound assessment so
+newly admitted Mission/Go subjects are discovered. A stream `Gap`, schema
+failure, or interrupted resume remains visible and falls back to the bounded
+assessment snapshot; it does not blank the renderer or silently claim live
+freshness.
 
 That report now embeds the first `Cost/State/Proof` profile projection. Cost
 comes from linked Rewind `CostSnapshot` journal facts, responsibility state is

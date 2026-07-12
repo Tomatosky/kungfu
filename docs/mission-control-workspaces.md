@@ -46,8 +46,8 @@ Episodes, queries, assessments, and decisions.
 | Default GUI view | `work-dashboard` is already the default profile view | It renders Mission/Goal lists and large inline forms before the responsibility questions |
 | Workspace data resolution | ADR-0035 and dev launchers resolve nearest or Git-root `.kungfu` | Packaged Desktop has no Open Workspace or recent-workspace session and defaults to Electron `userData/runtime` |
 | Lazy creation | Dev path discovery can return a nonexistent Git-root `.kungfu` without creating it | GUI boot eagerly joins a runtime and writes runtime support files; no uninitialized workspace state exists |
-| Mission Control | Atlas import, native Mission/Go, completion claims, ADR-0048 state, ADR-0052 TrustReport, Cost/State/Proof, and bundles exist | These capabilities are exposed as tooling panels, not one Mission Home operating loop |
-| Saved Query Catalog | Journal-backed QueryDefinition + ViewSpec revisions, GUI save/delete/run, Node/Python/native parity | It is currently presented under Status/Query Reference and is not composed into Mission Home profiles |
+| Mission Control | Atlas import, native Mission/Go, completion claims, ADR-0048 state, ADR-0052 TrustReport, Cost/State/Proof, and bundles exist | Mission Home now renders the five resolved query-profile answers; decision recording and cross-cut drift remain later slices |
+| Saved Query Catalog | Journal-backed QueryDefinition + ViewSpec revisions, GUI save/delete/run, Node/Python/native parity | Five built-in Mission Control views now share this catalog; override/fork/restore policy still needs a dedicated manager flow |
 | Shell state | Profile and sidebar state persist in the selected runtime ConfigStore | Last/recent workspace must exist before a workspace runtime and therefore needs global config-home state |
 
 The mechanisms are substantially present. The missing work is composition,

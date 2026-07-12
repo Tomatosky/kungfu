@@ -228,6 +228,19 @@ function referenceView(state: QueryChangelogState, spec: QueryViewSpec) {
       return <QueryCausalGraphReference state={state} spec={spec} />;
     case 'attention':
       return <QueryAttentionReference state={state} spec={spec} />;
+    case 'mission-control':
+      return (
+        <div style={{ ...mono, color: '#cccccc' }}>
+          <div style={{ color: '#9cdcfe', marginBottom: 6 }}>
+            {spec.questionId} · {spec.reducer}
+          </div>
+          <div>
+            {queryRows(state).length} canonical fact row(s) are available. The
+            purpose-bound answer is resolved with the TrustReport in Mission
+            Control; this catalog view does not invent a second reducer.
+          </div>
+        </div>
+      );
   }
 }
 
@@ -266,6 +279,13 @@ const specs: Record<QueryViewSpec['kind'], QueryViewSpec> = {
     elapsedField: 'elapsed_ns',
     attributionField: 'attribution_counts',
     evidenceField: 'matched_episode_ids',
+  },
+  'mission-control': {
+    kind: 'mission-control',
+    profileId: 'kungfu.mission-control',
+    profileVersion: '1',
+    questionId: 'observed-progress',
+    reducer: 'kungfu.mission-control.reducer/v1',
   },
 };
 

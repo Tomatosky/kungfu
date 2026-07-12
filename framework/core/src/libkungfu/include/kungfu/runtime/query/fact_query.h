@@ -171,11 +171,12 @@ struct query_result {
   std::string result_hash = {};
 };
 
-enum class frontier_kind { Empty, ManifestFrameUid };
+enum class frontier_kind { Empty, ManifestFrameUid, SystemTime };
 
 struct query_frontier {
   frontier_kind kind = frontier_kind::Empty;
   uint64_t manifest_frame_uid = 0;
+  int64_t system_time = 0;
   uint64_t record_count = 0;
 };
 
@@ -284,6 +285,9 @@ struct changelog_page {
 [[nodiscard]] changelog_page run_episode_changelog(const std::string &runtime_dir, const logical_plan &plan,
                                                    const nlohmann::json &resume_token = nlohmann::json::object(),
                                                    uint64_t max_messages = 100);
+[[nodiscard]] changelog_page run_query_changelog(const std::string &runtime_dir, const logical_plan &plan,
+                                                 const nlohmann::json &resume_token = nlohmann::json::object(),
+                                                 uint64_t max_messages = 100);
 
 [[nodiscard]] query_result run_episode_authority_scan(const std::string &runtime_dir, const logical_plan &plan);
 

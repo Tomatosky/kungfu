@@ -10,6 +10,9 @@ import type {
   AtlasImportInfo,
   AtlasMission,
   AtlasMissionControlReport,
+  QueryChangelogState,
+  QueryResumeToken,
+  Storage,
   WorkItem,
   WorkspaceActionPreview,
   WorkspaceActionReceipt,
@@ -20,7 +23,11 @@ import type {
   WorkspaceGuidanceInspection,
   WorkspaceGuidanceIntent,
 } from '@kungfu-tech/api/capability';
-import { WORK_STATUS_NAMES } from '@kungfu-tech/api/capability';
+import {
+  WORK_STATUS_NAMES,
+  applyQueryChangelogPage,
+  emptyQueryChangelogState,
+} from '@kungfu-tech/api/capability';
 import type { KfxCapabilities, Shell } from '@kungfu-tech/kfx';
 import { headingStyle, mono, panelStyle } from '@kungfu-tech/kfx';
 import React from 'react';
@@ -310,9 +317,11 @@ function AtlasUnavailableView() {
 function AtlasProjectionView({
   atlas,
   shell,
+  storage,
 }: {
   atlas: Atlas;
   shell: Shell;
+  storage: Storage;
 }) {
   const [repoRoot, setRepoRoot] = React.useState(atlas.defaultRepoRoot);
   const [missions, setMissions] = React.useState<AtlasMission[]>(() =>
@@ -334,6 +343,17 @@ function AtlasProjectionView({
   const [completionReport, setCompletionReport] =
     React.useState<AtlasMissionControlReport | null>(null);
   const [completionError, setCompletionError] = React.useState<string>('');
+  const [queryStream, setQueryStream] = React.useState<QueryChangelogState>(
+    emptyQueryChangelogState,
+  );
+  const [queryStreamError, setQueryStreamError] = React.useState('');
+  const queryStreamState = React.useRef<QueryChangelogState>(
+    emptyQueryChangelogState(),
+  );
+  const queryStreamDefinitionRoot = React.useRef('');
+  const queryStreamResume = React.useRef<QueryResumeToken | undefined>(
+    undefined,
+  );
   const [newMissionId, setNewMissionId] = React.useState('');
   const [newMissionTitle, setNewMissionTitle] = React.useState('');
   const [newMissionIntent, setNewMissionIntent] = React.useState('');
@@ -369,28 +389,74 @@ function AtlasProjectionView({
     reload();
   }, [reload]);
 
-  React.useEffect(() => shell.onRefresh(reload), [shell, reload]);
+  const advanceQueryStream = React.useCallback(
+    (report: AtlasMissionControlReport) => {
+      const definition = report.query_profile.views[0]?.saved_view.definition;
+      if (!definition)
+        throw new Error('Mission Control query profile has no view');
+      let state = queryStreamState.current;
+      if (queryStreamDefinitionRoot.current !== report.query_definition_root) {
+        state = emptyQueryChangelogState();
+        queryStreamDefinitionRoot.current = report.query_definition_root;
+        queryStreamResume.current = undefined;
+      }
+      let complete = false;
+      for (let pageCount = 0; pageCount < 8 && !complete; pageCount += 1) {
+        const page = storage.factChangelog(
+          definition,
+          queryStreamResume.current,
+          100,
+        );
+        state = applyQueryChangelogPage(state, page);
+        queryStreamResume.current = page.resume_token;
+        complete = page.complete;
+        if (state.gap) break;
+      }
+      queryStreamState.current = state;
+      setQueryStream(state);
+      setQueryStreamError(complete ? '' : 'query stream is catching up');
+    },
+    [storage],
+  );
 
-  React.useEffect(() => {
+  const refreshAssessment = React.useCallback(() => {
     if (selectedMission === 'all') {
       setTrustReport(null);
       setTrustError('');
       setCompletionReport(null);
       setCompletionError('');
+      setQueryStreamError('');
       return;
     }
     try {
-      setTrustReport(
-        atlas.assessMission(selectedMission, {
-          source: selectedMissionSource,
-        }),
-      );
+      const report = atlas.assessMission(selectedMission, {
+        source: selectedMissionSource,
+      });
+      setTrustReport(report);
       setTrustError('');
+      try {
+        advanceQueryStream(report);
+      } catch (error) {
+        setQueryStreamError(
+          `degraded snapshot fallback · ${(error as Error).message}`,
+        );
+      }
     } catch (error) {
       setTrustReport(null);
       setTrustError((error as Error).message);
     }
-  }, [atlas, selectedMission, selectedMissionSource]);
+  }, [atlas, selectedMission, selectedMissionSource, advanceQueryStream]);
+
+  React.useEffect(() => {
+    refreshAssessment();
+  }, [refreshAssessment]);
+
+  const refreshAll = React.useCallback(() => {
+    reload();
+    refreshAssessment();
+  }, [reload, refreshAssessment]);
+
+  React.useEffect(() => shell.onRefresh(refreshAll), [shell, refreshAll]);
 
   const importNow = () => {
     if (!repoRoot.trim()) {
@@ -548,8 +614,6 @@ function AtlasProjectionView({
     visibleGoals.find((goal) => goal.goal_id === selectedGoal) ??
     allGoals.find((goal) => goal.goal_id === selectedGoal) ??
     null;
-  const currentMission =
-    missions.find((mission) => mission.mission_id === selectedMission) ?? null;
   const missionGoals = allGoals.filter(
     (goal) => goal.mission_id === selectedMission,
   );
@@ -558,44 +622,7 @@ function AtlasProjectionView({
     const status = goal.status ?? 'unknown';
     missionGoalCounts.set(status, (missionGoalCounts.get(status) ?? 0) + 1);
   }
-  const statusSummary = [...missionGoalCounts.entries()]
-    .map(([status, count]) => `${status}=${count}`)
-    .join(' · ');
-  const fiveAnswers = [
-    {
-      question: 'What are we trying to achieve?',
-      answer: currentMission
-        ? `${currentMission.title ?? currentMission.mission_id} — ${currentMission.intent ?? 'intent not declared'}${currentMission.stage_name ? ` · stage ${currentMission.stage_name}` : ''}`
-        : 'Not yet declared. Create or import a Mission.',
-    },
-    {
-      question: 'What actually happened?',
-      answer: missionGoals.length
-        ? `${missionGoals.length} Go(s) at this cut${statusSummary ? ` · ${statusSummary}` : ''}`
-        : 'No admitted Go activity is visible at this cut.',
-    },
-    {
-      question: 'What does the evidence establish at this cut?',
-      answer: trustReport
-        ? `${trustReport.state.canonical_state ? 'canonical' : 'degraded'} cut · ${trustReport.findings.length} finding(s) · proof ${trustReport.query_proof_root.slice(-12)}`
-        : trustError || 'No purpose-bound assessment is available yet.',
-    },
-    {
-      question: 'Is delegated work still fit for purpose?',
-      answer: trustReport
-        ? `${trustReport.fitness} · assessment ${trustReport.assessment.state} · residual limits ${trustReport.known_limits.length}`
-        : 'insufficient — select a Mission and assess the current cut.',
-    },
-    {
-      question: 'Who should act next?',
-      answer:
-        currentGoal?.next_action ??
-        currentMission?.next_action ??
-        (trustReport?.fitness === 'fit'
-          ? 'Continue under the current purpose and evidence boundary.'
-          : 'User or agent should adjust, supply evidence, or record a decision.'),
-    },
-  ];
+  const fiveAnswers = trustReport?.query_profile.answers ?? [];
 
   return (
     <div
@@ -633,7 +660,7 @@ function AtlasProjectionView({
           <SmallButton onClick={() => setActionPanel('bundle')}>
             Bundle
           </SmallButton>
-          <SmallButton onClick={reload}>refresh</SmallButton>
+          <SmallButton onClick={refreshAll}>refresh</SmallButton>
           {info && (
             <span style={{ ...mono, color: '#858585' }}>
               {info.missions}M · {info.goals}G · {info.markers} markers
@@ -651,6 +678,33 @@ function AtlasProjectionView({
         <main style={{ flex: 1, minWidth: 0, overflow: 'auto' }}>
           <section style={{ ...panelStyle, marginBottom: 8 }}>
             <h2 style={headingStyle}>Mission Home · current cut</h2>
+            {trustReport && (
+              <div style={{ ...mono, color: '#858585', marginBottom: 5 }}>
+                profile {trustReport.query_profile.profile.version} ·{' '}
+                {trustReport.query_profile.views.length} saved views · proof{' '}
+                {trustReport.query_profile.query_proof_root.slice(-12)}
+              </div>
+            )}
+            {trustReport && (
+              <div
+                style={{
+                  ...mono,
+                  color:
+                    queryStream.gap || queryStreamError ? '#dcdcaa' : '#4ec9b0',
+                  marginBottom: 5,
+                }}
+              >
+                stream {queryStream.frontier.kind} ·{' '}
+                {queryStream.frontier.record_count} rows
+                {queryStream.gap ? ' · gap: recovery required' : ''}
+                {queryStreamError ? ` · ${queryStreamError}` : ''}
+              </div>
+            )}
+            {!trustReport && (
+              <div style={{ ...mono, color: '#858585' }}>
+                {trustError || 'Select a Mission to resolve its query profile.'}
+              </div>
+            )}
             {fiveAnswers.map((row) => (
               <div
                 key={row.question}
@@ -662,7 +716,10 @@ function AtlasProjectionView({
                 <div style={{ ...mono, color: '#9cdcfe', marginBottom: 3 }}>
                   {row.question}
                 </div>
-                <div style={{ ...mono, color: '#cccccc' }}>{row.answer}</div>
+                <div style={{ ...mono, color: '#cccccc' }}>{row.summary}</div>
+                <div style={{ ...mono, color: '#858585', marginTop: 2 }}>
+                  {row.status} · {row.question_id}
+                </div>
               </div>
             ))}
           </section>
@@ -1314,7 +1371,11 @@ function WorkDashboardView({
           </SmallButton>
         </div>
         {atlas ? (
-          <AtlasProjectionView atlas={atlas} shell={shell} />
+          <AtlasProjectionView
+            atlas={atlas}
+            shell={shell}
+            storage={caps.storage}
+          />
         ) : (
           <AtlasUnavailableView />
         )}
