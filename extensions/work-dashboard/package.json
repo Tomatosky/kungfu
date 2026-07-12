@@ -46,6 +46,7 @@
           "ledger",
           "work",
           "atlas",
+          "storage",
           "workspace"
         ]
       }

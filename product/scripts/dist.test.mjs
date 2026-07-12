@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import { cliArchiveBase, verifyProductObservabilityEvents } from './dist.mjs';
 
 const require = createRequire(import.meta.url);
+const workDashboardPackage = require('../../extensions/work-dashboard/package.json');
 const {
   esmEntrypointArgs,
   toEsmEntrypointSpecifier,
@@ -81,4 +82,12 @@ test('electron before-pack imports its ESM entrypoint through eval', () => {
     '--eval',
     `import(${JSON.stringify(specifier)})`,
   ]);
+});
+
+test('work dashboard declares the storage handle used by its query stream', () => {
+  assert.ok(
+    workDashboardPackage.kungfuConfig.config.view.capabilities.includes(
+      'storage',
+    ),
+  );
 });
