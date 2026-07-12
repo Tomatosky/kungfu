@@ -8,6 +8,8 @@ export type AtlasMission = {
   mission_id: string;
   title?: string;
   intent?: string;
+  north_star?: string;
+  why_it_matters?: string;
   status?: string;
   horizon?: string;
   owner?: string;
@@ -16,8 +18,10 @@ export type AtlasMission = {
   authority_mode?: string;
   active_lens?: string;
   stage_name?: string;
+  stage_summary?: string;
   next_review?: string;
   next_action?: string;
+  updated_at?: string;
 };
 
 export type AtlasGoal = {
@@ -28,6 +32,11 @@ export type AtlasGoal = {
   mission_id?: string;
   lens?: string;
   mission_stage?: string;
+  mission_role?: string;
+  mission_importance?: string;
+  mission_track?: string;
+  mission_parent_goal?: string;
+  mission_why_matters?: string;
   source_branch?: string;
   worktree_path?: string;
   external_repo_path?: string;
@@ -37,6 +46,7 @@ export type AtlasGoal = {
   latest_marker?: string;
   summary?: string;
   next_action?: string;
+  updated_at?: string;
   archived?: boolean;
 };
 
@@ -185,6 +195,7 @@ export type AtlasMissionControlReport = {
       query_definition_root: string;
       query_proof_root: string;
       query_result_hash: string;
+      verified_fact_episode_roots?: string[];
       cost_episode_roots: Array<{
         run_id: string;
         episode_id: string;

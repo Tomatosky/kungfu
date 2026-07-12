@@ -33,6 +33,12 @@ import type { KfxCapabilities, Shell } from '@kungfu-tech/kfx';
 import { headingStyle, mono, panelStyle } from '@kungfu-tech/kfx';
 import React from 'react';
 import { createLatestRefresh } from './latest-refresh';
+import {
+  GoalCardField,
+  GoalDetailDrawer,
+  MissionSituationOverview,
+} from './mission-visual';
+import { deriveTrustVisual } from './mission-visual-model';
 
 const STATUS_ORDER = ['active', 'blocked', 'waiting', 'ready', 'done'] as const;
 const ATLAS_GOAL_STATUSES = [
@@ -351,12 +357,18 @@ function AtlasProjectionView({
   const assessmentRequest = React.useRef(0);
   const [statusFilter, setStatusFilter] = React.useState<string>('all');
   const [selectedGoal, setSelectedGoal] = React.useState<string | null>(null);
+  const [displayMode, setDisplayMode] = React.useState<'visual' | 'audit'>(
+    'visual',
+  );
   const [message, setMessage] = React.useState<string>('');
   const [trustReport, setTrustReport] =
     React.useState<AtlasMissionControlReport | null>(null);
   const [trustError, setTrustError] = React.useState<string>('');
   const [completionReport, setCompletionReport] =
     React.useState<AtlasMissionControlReport | null>(null);
+  const [completionGoalId, setCompletionGoalId] = React.useState<string | null>(
+    null,
+  );
   const [completionError, setCompletionError] = React.useState<string>('');
   const [queryStream, setQueryStream] = React.useState<QueryChangelogState>(
     emptyQueryChangelogState,
@@ -640,11 +652,13 @@ function AtlasProjectionView({
       );
       if (!mounted.current) return;
       setCompletionReport(report);
+      setCompletionGoalId(selectedGoal);
       setCompletionError('');
       dashboardRefresh.request();
       void refreshAssessment();
     } catch (error) {
       setCompletionReport(null);
+      setCompletionGoalId(null);
       setCompletionError((error as Error).message);
     }
   };
@@ -667,6 +681,17 @@ function AtlasProjectionView({
   const missionGoals = allGoals.filter(
     (goal) => goal.mission_id === selectedMission,
   );
+  const currentMission =
+    missions.find((mission) => mission.mission_id === selectedMission) ?? null;
+  const goalTrustById = React.useMemo(
+    () =>
+      completionGoalId && completionReport
+        ? {
+            [completionGoalId]: deriveTrustVisual(completionReport).state,
+          }
+        : {},
+    [completionGoalId, completionReport],
+  );
   const missionGoalCounts = new Map<string, number>();
   for (const goal of missionGoals) {
     const status = goal.status ?? 'unknown';
@@ -686,13 +711,21 @@ function AtlasProjectionView({
       }}
     >
       <section style={{ ...panelStyle, flexShrink: 0 }}>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 6,
+            alignItems: 'center',
+          }}
+        >
           <select
             aria-label="Mission"
             value={selectedMission}
             onChange={(event) => {
               autoSelectMission.current = false;
               setSelectedMission(event.target.value);
+              setSelectedGoal(null);
             }}
             style={{ ...mono, minWidth: 240, padding: '4px 6px' }}
           >
@@ -703,6 +736,18 @@ function AtlasProjectionView({
               </option>
             ))}
           </select>
+          <SmallButton
+            active={displayMode === 'visual'}
+            onClick={() => setDisplayMode('visual')}
+          >
+            situation
+          </SmallButton>
+          <SmallButton
+            active={displayMode === 'audit'}
+            onClick={() => setDisplayMode('audit')}
+          >
+            audit
+          </SmallButton>
           <SmallButton onClick={() => setActionPanel('mission')}>
             + Mission
           </SmallButton>
@@ -741,156 +786,174 @@ function AtlasProjectionView({
         )}
       </section>
 
-      <div style={{ display: 'flex', gap: 8, flex: 1, minHeight: 0 }}>
-        <main style={{ flex: 1, minWidth: 0, overflow: 'auto' }}>
-          <section style={{ ...panelStyle, marginBottom: 8 }}>
-            <h2 style={headingStyle}>Mission Home · current cut</h2>
-            {trustReport?.query_profile && (
-              <div style={{ ...mono, color: '#858585', marginBottom: 5 }}>
-                profile {trustReport.query_profile.profile.version} ·{' '}
-                {trustReport.query_profile.views.length} saved views · proof{' '}
-                {trustReport.query_profile.query_proof_root.slice(-12)}
-              </div>
-            )}
-            {trustReport && (
-              <div
-                style={{
-                  ...mono,
-                  color:
-                    queryStream.gap || queryStreamError ? '#dcdcaa' : '#4ec9b0',
-                  marginBottom: 5,
-                }}
-              >
-                stream {queryStream.frontier.kind} ·{' '}
-                {queryStream.frontier.record_count} rows
-                {queryStream.gap ? ' · gap: recovery required' : ''}
-                {queryStreamError ? ` · ${queryStreamError}` : ''}
-              </div>
-            )}
-            {!trustReport && (
-              <div style={{ ...mono, color: '#858585' }}>
-                {trustError || 'Select a Mission to resolve its query profile.'}
-              </div>
-            )}
-            {fiveAnswers.map((row) => (
-              <div
-                key={row.question}
-                style={{
-                  padding: '8px 0',
-                  borderBottom: '1px solid #333333',
-                }}
-              >
-                <div style={{ ...mono, color: '#9cdcfe', marginBottom: 3 }}>
-                  {row.question}
-                </div>
-                <div style={{ ...mono, color: '#cccccc' }}>{row.summary}</div>
-                <div style={{ ...mono, color: '#858585', marginTop: 2 }}>
-                  {row.status} · {row.question_id}
-                </div>
-              </div>
-            ))}
-          </section>
-          <MissionTrustPanel report={trustReport} error={trustError} />
-          {(completionReport || completionError) && (
-            <MissionTrustPanel
-              title="Completion TrustReport"
-              report={completionReport}
-              error={completionError}
-            />
-          )}
-        </main>
-
-        <aside
+      {displayMode === 'visual' ? (
+        <main
           style={{
-            ...panelStyle,
-            width: 360,
-            flexShrink: 0,
+            flex: 1,
+            minHeight: 0,
             overflow: 'auto',
+            padding: '0 2px 12px',
           }}
         >
-          <h2 style={headingStyle}>Go summary · {visibleGoals.length}</h2>
-          <div
+          <MissionSituationOverview
+            mission={currentMission}
+            report={trustReport}
+            error={trustError}
+            dashboardCut={dashboardCut}
+            refreshing={dashboardRefreshing}
+          />
+          <div style={{ marginTop: 14 }}>
+            <GoalCardField
+              goals={missionGoals}
+              selectedGoalId={selectedGoal}
+              trustByGoal={goalTrustById}
+              onSelectGoal={setSelectedGoal}
+            />
+          </div>
+        </main>
+      ) : (
+        <div style={{ display: 'flex', gap: 8, flex: 1, minHeight: 0 }}>
+          <main style={{ flex: 1, minWidth: 0, overflow: 'auto' }}>
+            <section style={{ ...panelStyle, marginBottom: 8 }}>
+              <h2 style={headingStyle}>Mission query audit · current cut</h2>
+              {trustReport?.query_profile && (
+                <div style={{ ...mono, color: '#858585', marginBottom: 5 }}>
+                  profile {trustReport.query_profile.profile.version} ·{' '}
+                  {trustReport.query_profile.views.length} saved views · proof{' '}
+                  {trustReport.query_profile.query_proof_root.slice(-12)}
+                </div>
+              )}
+              {trustReport && (
+                <div
+                  style={{
+                    ...mono,
+                    color:
+                      queryStream.gap || queryStreamError
+                        ? '#dcdcaa'
+                        : '#4ec9b0',
+                    marginBottom: 5,
+                  }}
+                >
+                  stream {queryStream.frontier.kind} ·{' '}
+                  {queryStream.frontier.record_count} rows
+                  {queryStream.gap ? ' · gap: recovery required' : ''}
+                  {queryStreamError ? ` · ${queryStreamError}` : ''}
+                </div>
+              )}
+              {!trustReport && (
+                <div style={{ ...mono, color: '#858585' }}>
+                  {trustError ||
+                    'Select a Mission to resolve its query profile.'}
+                </div>
+              )}
+              {fiveAnswers.map((row) => (
+                <div
+                  key={row.question_id}
+                  style={{
+                    padding: '8px 0',
+                    borderBottom: '1px solid #333333',
+                  }}
+                >
+                  <div style={{ ...mono, color: '#9cdcfe', marginBottom: 3 }}>
+                    {row.question}
+                  </div>
+                  <div style={{ ...mono, color: '#cccccc' }}>{row.summary}</div>
+                  <div style={{ ...mono, color: '#858585', marginTop: 2 }}>
+                    {row.status} · {row.question_id}
+                  </div>
+                </div>
+              ))}
+            </section>
+            <MissionTrustPanel report={trustReport} error={trustError} />
+            {(completionReport || completionError) && (
+              <MissionTrustPanel
+                title="Completion TrustReport"
+                report={completionReport}
+                error={completionError}
+              />
+            )}
+          </main>
+
+          <aside
             style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 4,
-              marginBottom: 8,
+              ...panelStyle,
+              width: 360,
+              flexShrink: 0,
+              overflow: 'auto',
             }}
           >
-            <SmallButton
-              active={statusFilter === 'all'}
-              onClick={() => setStatusFilter('all')}
-            >
-              all {missionGoals.length}
-            </SmallButton>
-            {ATLAS_GOAL_STATUSES.map((status) => (
-              <SmallButton
-                key={status}
-                active={statusFilter === status}
-                onClick={() => setStatusFilter(status)}
-              >
-                {status} {missionGoalCounts.get(status) ?? 0}
-              </SmallButton>
-            ))}
-          </div>
-          {visibleGoals.map((goal) => (
-            <button
-              key={goal.goal_id}
-              type="button"
-              onClick={() => setSelectedGoal(goal.goal_id)}
+            <h2 style={headingStyle}>Go audit · {visibleGoals.length}</h2>
+            <div
               style={{
-                ...mono,
-                display: 'block',
-                width: '100%',
-                padding: '5px 7px',
-                border: 'none',
-                borderRadius: 4,
-                background:
-                  selectedGoal === goal.goal_id ? '#04395e' : 'transparent',
-                color: '#cccccc',
-                textAlign: 'left',
-                cursor: 'pointer',
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 4,
+                marginBottom: 8,
               }}
             >
-              [{goal.status ?? 'unknown'}] {goal.title ?? goal.goal_id}
-            </button>
-          ))}
-          {currentGoal && (
-            <div style={{ marginTop: 8 }}>
-              <AtlasGoalDetail goal={currentGoal} />
-              <SmallButton onClick={() => setActionPanel('claim')}>
-                claim completion
+              <SmallButton
+                active={statusFilter === 'all'}
+                onClick={() => setStatusFilter('all')}
+              >
+                all {missionGoals.length}
               </SmallButton>
+              {ATLAS_GOAL_STATUSES.map((status) => (
+                <SmallButton
+                  key={status}
+                  active={statusFilter === status}
+                  onClick={() => setStatusFilter(status)}
+                >
+                  {status} {missionGoalCounts.get(status) ?? 0}
+                </SmallButton>
+              ))}
             </div>
-          )}
-          <details style={{ marginTop: 12 }}>
-            <summary style={{ ...mono, color: '#858585', cursor: 'pointer' }}>
-              Mission directory · {missions.length}
-            </summary>
-            {missions.map((mission) => (
+            {visibleGoals.map((goal) => (
               <button
-                key={mission.mission_id}
+                key={goal.goal_id}
                 type="button"
-                onClick={() => {
-                  autoSelectMission.current = false;
-                  setSelectedMission(mission.mission_id);
-                }}
+                onClick={() => setSelectedGoal(goal.goal_id)}
                 style={{
                   ...mono,
                   display: 'block',
+                  width: '100%',
+                  padding: '5px 7px',
                   border: 'none',
-                  background: 'transparent',
+                  borderRadius: 4,
+                  background:
+                    selectedGoal === goal.goal_id ? '#04395e' : 'transparent',
                   color: '#cccccc',
-                  padding: '4px 0',
+                  textAlign: 'left',
                   cursor: 'pointer',
                 }}
               >
-                {mission.title ?? mission.mission_id}
+                [{goal.status ?? 'unknown'}] {goal.title ?? goal.goal_id}
               </button>
             ))}
-          </details>
-        </aside>
-      </div>
+            {currentGoal && (
+              <div style={{ marginTop: 8 }}>
+                <AtlasGoalDetail goal={currentGoal} />
+                <SmallButton onClick={() => setActionPanel('claim')}>
+                  claim completion
+                </SmallButton>
+              </div>
+            )}
+          </aside>
+        </div>
+      )}
+
+      {displayMode === 'visual' && currentGoal && (
+        <GoalDetailDrawer
+          goal={currentGoal}
+          mission={currentMission}
+          trust={
+            completionGoalId === currentGoal.goal_id
+              ? deriveTrustVisual(completionReport, completionError)
+              : deriveTrustVisual(null)
+          }
+          onClose={() => setSelectedGoal(null)}
+          onClaimCompletion={() => setActionPanel('claim')}
+        />
+      )}
 
       {actionPanel && (
         <section
@@ -899,7 +962,7 @@ function AtlasProjectionView({
             position: 'absolute',
             top: 48,
             right: 0,
-            zIndex: 20,
+            zIndex: 40,
             width: 380,
             display: 'grid',
             gap: 6,

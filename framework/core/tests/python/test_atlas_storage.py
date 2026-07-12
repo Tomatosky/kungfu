@@ -109,6 +109,11 @@ def _atlas_fixture(root):
             "updated_at": "2026-07-08T01:00:00Z",
             "title": "Goal A",
             "mission_id": "mission-a",
+            "mission_parent_goal": "goal-parent",
+            "mission_role": "supporting",
+            "mission_importance": "high",
+            "mission_track": "mission-control",
+            "mission_why_matters": "Make the Mission legible",
             "next_action": "implement",
             "large_body": ["full", "goal", "payload"],
         },
@@ -223,6 +228,12 @@ def test_atlas_source_records_keep_full_payloads(tmp_path):
     assert warnings == []
     assert [card["mission_id"] for card in missions] == ["mission-a"]
     assert [card["goal_id"] for card in goals] == ["goal-a"]
+    assert goals[0]["mission_parent_goal"] == "goal-parent"
+    assert goals[0]["mission_role"] == "supporting"
+    assert goals[0]["mission_importance"] == "high"
+    assert goals[0]["mission_track"] == "mission-control"
+    assert goals[0]["mission_why_matters"] == "Make the Mission legible"
+    assert goals[0]["updated_at"] == "2026-07-08T01:00:00Z"
     assert [card["branch"] for card in markers] == ["ai/codex/goal-a"]
     assert {(row["kind"], row["source_id"]) for row in source_records} == {
         ("mission", "mission-a"),
@@ -298,6 +309,12 @@ def test_atlas_import_admits_mission_and_go_into_shared_fact_state(tmp_path):
     goal_body = next(body for body in bodies if body["source"]["kind"] == "goal")
     assert goal_body["links"] == {"mission_id": "atlas:mission-a"}
     assert goal_body["record"]["goal_id"] == "goal-a"
+    assert goal_body["record"]["mission_parent_goal"] == "goal-parent"
+    assert goal_body["record"]["mission_role"] == "supporting"
+    assert goal_body["record"]["mission_importance"] == "high"
+    assert goal_body["record"]["mission_track"] == "mission-control"
+    assert goal_body["record"]["mission_why_matters"] == ("Make the Mission legible")
+    assert goal_body["record"]["updated_at"] == "2026-07-08T01:00:00Z"
 
     second = atlas_store.ImportStore(runtime_dir).run_import(str(repo))
     assert second["mission_control"]["status"] == "admitted"
