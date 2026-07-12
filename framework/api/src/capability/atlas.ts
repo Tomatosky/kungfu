@@ -78,6 +78,21 @@ export type AtlasImportInfo = {
   markers: number;
 };
 
+export type AtlasDashboardSnapshot = {
+  schema: 'kungfu.mission-control.dashboard-snapshot/v1';
+  cut: {
+    kind: 'system_time';
+    system_time: string;
+  };
+  freshness: {
+    status: 'fresh' | 'degraded';
+    basis: 'request-cut';
+  };
+  import_info: AtlasImportInfo | null;
+  missions: AtlasMission[];
+  goals: AtlasGoal[];
+};
+
 export type AtlasMissionDetail = {
   mission: AtlasMission;
   goals: AtlasGoal[];
@@ -287,6 +302,8 @@ export type AtlasGoalFilter = {
 export type Atlas = {
   runtimeDir: string;
   defaultRepoRoot: string;
+  dashboard: () => Promise<AtlasDashboardSnapshot>;
+  currentDashboard: () => AtlasDashboardSnapshot | null;
   importRepo: (repoRoot: string) => AtlasImportResult;
   importInfo: () => AtlasImportInfo | null;
   missions: () => AtlasMission[];
@@ -295,6 +312,10 @@ export type Atlas = {
     missionId: string,
     options?: { source?: string; purpose?: string },
   ) => AtlasMissionControlReport;
+  assessMissionAsync: (
+    missionId: string,
+    options?: { source?: string; purpose?: string },
+  ) => Promise<AtlasMissionControlReport>;
   createMission: (
     missionId: string,
     input: {
@@ -341,6 +362,11 @@ export type Atlas = {
     goalId: string,
     options?: { source?: string; purpose?: string },
   ) => AtlasMissionControlReport;
+  assessCompletionAsync: (
+    missionId: string,
+    goalId: string,
+    options?: { source?: string; purpose?: string },
+  ) => Promise<AtlasMissionControlReport>;
   goals: (filter?: AtlasGoalFilter) => AtlasGoal[];
   goal: (goalId: string) => AtlasGoal | null;
   markers: () => AtlasMarker[];
@@ -356,9 +382,20 @@ export type AtlasExecFileSync = (
   },
 ) => string;
 
+export type AtlasExecFile = (
+  file: string,
+  args: string[],
+  options: {
+    encoding: 'utf8';
+    env: Record<string, string | undefined>;
+    maxBuffer?: number;
+  },
+) => Promise<string>;
+
 export type OpenAtlasOptions = {
   runtimeDir: string;
   execFileSync: AtlasExecFileSync;
+  execFile?: AtlasExecFile;
   env?: Record<string, string | undefined>;
   bin?: string;
 };
@@ -391,6 +428,7 @@ export function openAtlas(options: OpenAtlasOptions): Atlas {
   const runtimeDir = options.runtimeDir;
   const bin = options.bin || env.KUNGFU_CLI_BIN || env.KUNGFU_BIN || 'kungfu';
   const defaultRepoRoot = env.KUNGFU_ATLAS_REPO || env.ATLAS_REPO || '';
+  let dashboardSnapshot: AtlasDashboardSnapshot | null = null;
 
   const runJson = <T>(args: string[]): T => {
     const out = options.execFileSync(bin, args, {
@@ -403,9 +441,29 @@ export function openAtlas(options: OpenAtlasOptions): Atlas {
     return parseJson<T>(out);
   };
 
+  const runJsonAsync = async <T>(args: string[]): Promise<T> => {
+    if (!options.execFile) return runJson<T>(args);
+    const out = await options.execFile(bin, args, {
+      encoding: 'utf8',
+      env: cliEnv(env, runtimeDir),
+      maxBuffer: 64 * 1024 * 1024,
+    });
+    return parseJson<T>(out);
+  };
+
   return {
     runtimeDir,
     defaultRepoRoot,
+    dashboard: async () => {
+      dashboardSnapshot = await runJsonAsync<AtlasDashboardSnapshot>([
+        'atlas',
+        'show',
+        'dashboard',
+        '--json',
+      ]);
+      return dashboardSnapshot;
+    },
+    currentDashboard: () => dashboardSnapshot,
     importRepo: (repoRoot) =>
       runJson<AtlasImportResult>([
         'atlas',
@@ -448,6 +506,12 @@ export function openAtlas(options: OpenAtlasOptions): Atlas {
       if (assessment.source) args.push('--source', assessment.source);
       if (assessment.purpose) args.push('--purpose', assessment.purpose);
       return runJson<AtlasMissionControlReport>(args);
+    },
+    assessMissionAsync: (missionId, assessment = {}) => {
+      const args = ['atlas', 'assess-mission', missionId, '--json'];
+      if (assessment.source) args.push('--source', assessment.source);
+      if (assessment.purpose) args.push('--purpose', assessment.purpose);
+      return runJsonAsync<AtlasMissionControlReport>(args);
     },
     createMission: (missionId, input) => {
       const args = [
@@ -535,6 +599,12 @@ export function openAtlas(options: OpenAtlasOptions): Atlas {
       if (assessment.source) args.push('--source', assessment.source);
       if (assessment.purpose) args.push('--purpose', assessment.purpose);
       return runJson<AtlasMissionControlReport>(args);
+    },
+    assessCompletionAsync: (missionId, goalId, assessment = {}) => {
+      const args = ['atlas', 'assess-completion', missionId, goalId, '--json'];
+      if (assessment.source) args.push('--source', assessment.source);
+      if (assessment.purpose) args.push('--purpose', assessment.purpose);
+      return runJsonAsync<AtlasMissionControlReport>(args);
     },
     goals: (filter = {}) => {
       const args = ['atlas', 'show', 'goals', '--json'];

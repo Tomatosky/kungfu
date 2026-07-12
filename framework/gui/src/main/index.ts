@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 // Minimal Electron main process for the kungfu reference app.
@@ -19,6 +19,7 @@ import {
 } from 'electron';
 
 import {
+  ATLAS_CLI_EXEC_CHANNEL,
   DESTROY_CHANNEL,
   ENSURE_CHANNEL,
   HIDE_CHANNEL,
@@ -35,6 +36,7 @@ import {
   WORKSPACE_SELECT_HOME_CHANNEL,
   WORKSPACE_SELECT_RECENT_CHANNEL,
 } from '../sandbox/channels';
+import { executeAtlasCli } from './atlas-cli';
 import {
   firstPartyManifestPath,
   generateFirstPartyManifest,
@@ -675,6 +677,14 @@ ipcMain.on(HIDE_CHANNEL, (_event, payload) => {
 ipcMain.on(DESTROY_CHANNEL, (_event, payload) => {
   manager?.destroyView((payload as { id: string }).id);
 });
+
+ipcMain.handle(ATLAS_CLI_EXEC_CHANNEL, (_event, payload) =>
+  executeAtlasCli(payload, {
+    bin: kungfuBinPath(),
+    env: process.env,
+    execFile,
+  }),
+);
 
 function publishWindowChromeState(win: BrowserWindow) {
   win.webContents.send(WINDOW_CHROME_STATE_CHANNEL, {

@@ -7,6 +7,7 @@
 import click
 import json
 import sys
+import time
 
 from kungfu.cli.commands import kfc, PrioritizedCommandGroup
 
@@ -133,14 +134,7 @@ def show(ctx):
 @click.option("--json", "as_json", is_flag=True, help="machine-readable output")
 @atlas_command_context
 def missions(ctx, as_json):
-    from kungfu.atlas import mission_control
-
-    projection = _load_optional(ctx)
-    cards_by_id = dict((projection or {}).get("missions", {}))
-    for record in mission_control.list_missions(ctx.runtime_dir):
-        mission_id = str(record["mission_id"])
-        cards_by_id[mission_id] = {**record, **cards_by_id.get(mission_id, {})}
-    cards = sorted(cards_by_id.values(), key=lambda c: c["mission_id"])
+    cards = _mission_cards(ctx)
     if as_json:
         _echo_json(cards)
         return
@@ -151,6 +145,19 @@ def missions(ctx, as_json):
         )
 
 
+def _mission_cards(ctx, *, cut_system_time=0):
+    from kungfu.atlas import mission_control
+
+    projection = _load_optional(ctx)
+    cards_by_id = dict((projection or {}).get("missions", {}))
+    for record in mission_control.list_missions(
+        ctx.runtime_dir, cut_system_time=cut_system_time
+    ):
+        mission_id = str(record["mission_id"])
+        cards_by_id[mission_id] = {**record, **cards_by_id.get(mission_id, {})}
+    return sorted(cards_by_id.values(), key=lambda c: c["mission_id"])
+
+
 @show.command(help="list admitted Atlas and Kungfu-native Go facts")
 @click.option("--status", type=str, default=None, help="filter by goal status")
 @click.option(
@@ -159,14 +166,32 @@ def missions(ctx, as_json):
 @click.option("--json", "as_json", is_flag=True, help="machine-readable output")
 @atlas_command_context
 def goals(ctx, status, mission_id, as_json):
+    cards = _goal_cards(
+        ctx,
+        status=status,
+        mission_id=mission_id,
+    )
+    if as_json:
+        _echo_json(cards)
+        return
+    for card in cards:
+        click.echo(
+            f"{card['goal_id']}  [{card['status']}]"
+            f"{'  (archived)' if card.get('archived') else ''}  {card['title']}"
+        )
+
+
+def _goal_cards(ctx, *, status=None, mission_id=None, cut_system_time=0):
     from kungfu.atlas import mission_control
 
     projection = _load_optional(ctx)
     cards_by_id = dict((projection or {}).get("goals", {}))
-    for record in mission_control.list_goals(ctx.runtime_dir):
+    for record in mission_control.list_goals(
+        ctx.runtime_dir, cut_system_time=cut_system_time
+    ):
         goal_id = str(record["goal_id"])
         cards_by_id[goal_id] = {**record, **cards_by_id.get(goal_id, {})}
-    cards = [
+    return [
         card
         for card in sorted(cards_by_id.values(), key=lambda c: c["goal_id"])
         if (status is None or card["status"] == status)
@@ -176,14 +201,45 @@ def goals(ctx, status, mission_id, as_json):
             or card.get("mission_subject") == mission_id
         )
     ]
+
+
+@show.command(help="render one cut-consistent Mission Control dashboard snapshot")
+@click.option("--json", "as_json", is_flag=True, help="machine-readable output")
+@atlas_command_context
+def dashboard(ctx, as_json):
+    projection = _load_optional(ctx)
+    cut_system_time = time.time_ns()
+    import_meta = None
+    if projection is not None:
+        import_meta = {
+            "import_id": projection["import_id"],
+            "repo_root": projection["repo_root"],
+            "repo_head": projection["repo_head"],
+            "missions": len(projection["missions"]),
+            "goals": len(projection["goals"]),
+            "markers": len(projection["markers"]),
+        }
+    payload = {
+        "schema": "kungfu.mission-control.dashboard-snapshot/v1",
+        "cut": {
+            "kind": "system_time",
+            "system_time": str(cut_system_time),
+        },
+        "freshness": {
+            "status": "fresh",
+            "basis": "request-cut",
+        },
+        "import_info": import_meta,
+        "missions": _mission_cards(ctx, cut_system_time=cut_system_time),
+        "goals": _goal_cards(ctx, cut_system_time=cut_system_time),
+    }
     if as_json:
-        _echo_json(cards)
+        _echo_json(payload)
         return
-    for card in cards:
-        click.echo(
-            f"{card['goal_id']}  [{card['status']}]"
-            f"{'  (archived)' if card.get('archived') else ''}  {card['title']}"
-        )
+    click.echo(
+        f"cut={cut_system_time} missions={len(payload['missions'])} "
+        f"goals={len(payload['goals'])}"
+    )
 
 
 @show.command(help="list imported worktree-status markers")

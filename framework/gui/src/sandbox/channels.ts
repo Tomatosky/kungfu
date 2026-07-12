@@ -41,6 +41,11 @@ export const WINDOW_CHROME_STATE_CHANNEL = 'kf-window-chrome:state';
 
 export const RUNTIME_STATUS_GET_CHANNEL = 'kf-runtime-status:get';
 
+// trusted renderer -> main: asynchronous Kungfu Atlas CLI transport. The
+// renderer keeps native runtime access, but process startup and JSON reads must
+// not block Chromium's event loop.
+export const ATLAS_CLI_EXEC_CHANNEL = 'kf-atlas-cli:exec';
+
 // main -> shell renderer: refresh product data without reloading the renderer.
 // The renderer owns native runtime handles, so Electron's page reload is not a
 // safe refresh mechanism.

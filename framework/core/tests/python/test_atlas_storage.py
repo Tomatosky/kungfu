@@ -463,6 +463,22 @@ def test_mission_control_queries_and_assesses_progress_at_pinned_cuts(tmp_path):
     assert cli_report["fitness"] == "fit"
     assert cli_report["assessment_key"] == first_report["assessment_key"]
 
+    dashboard_cli = runner.invoke(
+        kfc,
+        ["atlas", "show", "dashboard", "--json"],
+        env={"KF_RUNTIME_DIR": str(runtime_dir)},
+    )
+    assert dashboard_cli.exit_code == 0, dashboard_cli.output
+    dashboard = json.loads(dashboard_cli.output)
+    assert dashboard["schema"] == "kungfu.mission-control.dashboard-snapshot/v1"
+    assert dashboard["cut"]["kind"] == "system_time"
+    assert dashboard["freshness"] == {
+        "basis": "request-cut",
+        "status": "fresh",
+    }
+    assert [row["mission_id"] for row in dashboard["missions"]] == ["mission-a"]
+    assert [row["goal_id"] for row in dashboard["goals"]] == ["goal-a"]
+
     historical_cut = int(first_state["cut"]["resolved"]["system_time"])
     goal_path = repo / "agent-journal/goals/registry/active/goal-a.json"
     changed = json.loads(goal_path.read_text(encoding="utf-8"))

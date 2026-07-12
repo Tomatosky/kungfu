@@ -6,6 +6,7 @@
 // forensic detail view.
 import type {
   Atlas,
+  AtlasDashboardSnapshot,
   AtlasGoal,
   AtlasImportInfo,
   AtlasMission,
@@ -31,6 +32,7 @@ import {
 import type { KfxCapabilities, Shell } from '@kungfu-tech/kfx';
 import { headingStyle, mono, panelStyle } from '@kungfu-tech/kfx';
 import React from 'react';
+import { createLatestRefresh } from './latest-refresh';
 
 const STATUS_ORDER = ['active', 'blocked', 'waiting', 'ready', 'done'] as const;
 const ATLAS_GOAL_STATUSES = [
@@ -323,17 +325,30 @@ function AtlasProjectionView({
   shell: Shell;
   storage: Storage;
 }) {
+  const initialDashboard = atlas.currentDashboard();
   const [repoRoot, setRepoRoot] = React.useState(atlas.defaultRepoRoot);
-  const [missions, setMissions] = React.useState<AtlasMission[]>(() =>
-    atlas.missions(),
+  const [missions, setMissions] = React.useState<AtlasMission[]>(
+    () => initialDashboard?.missions ?? [],
   );
-  const [goals, setGoals] = React.useState<AtlasGoal[]>(() => atlas.goals());
-  const [info, setInfo] = React.useState<AtlasImportInfo | null>(() =>
-    atlas.importInfo(),
+  const [goals, setGoals] = React.useState<AtlasGoal[]>(
+    () => initialDashboard?.goals ?? [],
   );
+  const [info, setInfo] = React.useState<AtlasImportInfo | null>(
+    () => initialDashboard?.import_info ?? null,
+  );
+  const [dashboardCut, setDashboardCut] = React.useState(
+    () => initialDashboard?.cut.system_time ?? '',
+  );
+  const [dashboardRefreshing, setDashboardRefreshing] = React.useState(
+    initialDashboard === null,
+  );
+  const [dashboardError, setDashboardError] = React.useState('');
   const [selectedMission, setSelectedMission] = React.useState<string>(() =>
     missions.length ? missions[0].mission_id : 'all',
   );
+  const autoSelectMission = React.useRef(missions.length === 0);
+  const mounted = React.useRef(true);
+  const assessmentRequest = React.useRef(0);
   const [statusFilter, setStatusFilter] = React.useState<string>('all');
   const [selectedGoal, setSelectedGoal] = React.useState<string | null>(null);
   const [message, setMessage] = React.useState<string>('');
@@ -379,15 +394,45 @@ function AtlasProjectionView({
       : undefined;
   }, [missions, selectedMission]);
 
-  const reload = React.useCallback(() => {
-    setInfo(atlas.importInfo());
-    setMissions(atlas.missions());
-    setGoals(atlas.goals());
-  }, [atlas]);
+  React.useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      assessmentRequest.current += 1;
+    };
+  }, []);
+
+  const applyDashboard = React.useCallback(
+    (snapshot: AtlasDashboardSnapshot) => {
+      setInfo(snapshot.import_info);
+      setMissions(snapshot.missions);
+      setGoals(snapshot.goals);
+      setDashboardCut(snapshot.cut.system_time);
+      setDashboardError('');
+      if (autoSelectMission.current && snapshot.missions.length > 0) {
+        autoSelectMission.current = false;
+        setSelectedMission(snapshot.missions[0].mission_id);
+      }
+    },
+    [],
+  );
+
+  const dashboardRefresh = React.useMemo(
+    () =>
+      createLatestRefresh({
+        load: () => atlas.dashboard(),
+        apply: applyDashboard,
+        fail: (error) => setDashboardError((error as Error).message),
+        busy: () => setDashboardRefreshing(true),
+        idle: () => setDashboardRefreshing(false),
+      }),
+    [atlas, applyDashboard],
+  );
 
   React.useEffect(() => {
-    reload();
-  }, [reload]);
+    dashboardRefresh.request();
+    return () => dashboardRefresh.dispose();
+  }, [dashboardRefresh]);
 
   const advanceQueryStream = React.useCallback(
     (report: AtlasMissionControlReport) => {
@@ -419,7 +464,8 @@ function AtlasProjectionView({
     [storage],
   );
 
-  const refreshAssessment = React.useCallback(() => {
+  const refreshAssessment = React.useCallback(async () => {
+    const request = ++assessmentRequest.current;
     if (selectedMission === 'all') {
       setTrustReport(null);
       setTrustError('');
@@ -429,9 +475,10 @@ function AtlasProjectionView({
       return;
     }
     try {
-      const report = atlas.assessMission(selectedMission, {
+      const report = await atlas.assessMissionAsync(selectedMission, {
         source: selectedMissionSource,
       });
+      if (!mounted.current || request !== assessmentRequest.current) return;
       setTrustReport(report);
       setTrustError('');
       try {
@@ -442,19 +489,20 @@ function AtlasProjectionView({
         );
       }
     } catch (error) {
+      if (!mounted.current || request !== assessmentRequest.current) return;
       setTrustReport(null);
       setTrustError((error as Error).message);
     }
   }, [atlas, selectedMission, selectedMissionSource, advanceQueryStream]);
 
   React.useEffect(() => {
-    refreshAssessment();
+    void refreshAssessment();
   }, [refreshAssessment]);
 
   const refreshAll = React.useCallback(() => {
-    reload();
-    refreshAssessment();
-  }, [reload, refreshAssessment]);
+    dashboardRefresh.request();
+    void refreshAssessment();
+  }, [dashboardRefresh, refreshAssessment]);
 
   React.useEffect(() => shell.onRefresh(refreshAll), [shell, refreshAll]);
 
@@ -473,7 +521,7 @@ function AtlasProjectionView({
             : ''
         }`,
       );
-      reload();
+      dashboardRefresh.request();
     } catch (e) {
       setMessage((e as Error).message);
     }
@@ -492,7 +540,8 @@ function AtlasProjectionView({
           result.receipt.reused ? ' (reused)' : ''
         }`,
       );
-      reload();
+      dashboardRefresh.request();
+      autoSelectMission.current = false;
       setSelectedMission(newMissionId);
       setNewMissionId('');
       setNewMissionTitle('');
@@ -530,7 +579,7 @@ function AtlasProjectionView({
           result.diagnosis ? ` · ${result.diagnosis}` : ''
         }`,
       );
-      reload();
+      dashboardRefresh.request();
     } catch (error) {
       setMessage((error as Error).message);
     }
@@ -554,11 +603,8 @@ function AtlasProjectionView({
           result.receipt.reused ? ' (reused)' : ''
         }`,
       );
-      setTrustReport(
-        atlas.assessMission(selectedMission, {
-          source: selectedMissionSource,
-        }),
-      );
+      dashboardRefresh.request();
+      void refreshAssessment();
       setNewGoalId('');
       setNewGoalTitle('');
       setNewGoalObjective('');
@@ -568,7 +614,7 @@ function AtlasProjectionView({
     }
   };
 
-  const claimAndAssessNow = () => {
+  const claimAndAssessNow = async () => {
     if (selectedMission === 'all' || !selectedGoal) {
       setCompletionError('select a Mission and Go before claiming completion');
       return;
@@ -584,15 +630,15 @@ function AtlasProjectionView({
         actorType: 'user',
         evidenceEpisodeIds,
       });
-      setCompletionReport(
-        atlas.assessCompletion(selectedMission, selectedGoal),
+      const report = await atlas.assessCompletionAsync(
+        selectedMission,
+        selectedGoal,
       );
+      if (!mounted.current) return;
+      setCompletionReport(report);
       setCompletionError('');
-      setTrustReport(
-        atlas.assessMission(selectedMission, {
-          source: selectedMissionSource,
-        }),
-      );
+      dashboardRefresh.request();
+      void refreshAssessment();
     } catch (error) {
       setCompletionReport(null);
       setCompletionError((error as Error).message);
@@ -640,7 +686,10 @@ function AtlasProjectionView({
           <select
             aria-label="Mission"
             value={selectedMission}
-            onChange={(event) => setSelectedMission(event.target.value)}
+            onChange={(event) => {
+              autoSelectMission.current = false;
+              setSelectedMission(event.target.value);
+            }}
             style={{ ...mono, minWidth: 240, padding: '4px 6px' }}
           >
             <option value="all">No Mission selected</option>
@@ -666,6 +715,20 @@ function AtlasProjectionView({
               {info.missions}M · {info.goals}G · {info.markers} markers
             </span>
           )}
+          <span
+            style={{
+              ...mono,
+              color: dashboardError ? '#f48771' : '#6a6a6a',
+            }}
+          >
+            {dashboardError
+              ? `snapshot degraded · ${dashboardError}`
+              : dashboardRefreshing
+                ? 'snapshot refreshing · current view remains interactive'
+                : dashboardCut
+                  ? `snapshot cut ${dashboardCut.slice(-12)}`
+                  : 'snapshot pending'}
+          </span>
         </div>
         {message && (
           <div style={{ ...mono, color: '#dcdcaa', marginTop: 5 }}>
@@ -804,7 +867,10 @@ function AtlasProjectionView({
               <button
                 key={mission.mission_id}
                 type="button"
-                onClick={() => setSelectedMission(mission.mission_id)}
+                onClick={() => {
+                  autoSelectMission.current = false;
+                  setSelectedMission(mission.mission_id);
+                }}
                 style={{
                   ...mono,
                   display: 'block',
@@ -942,7 +1008,7 @@ function AtlasProjectionView({
                 placeholder="evidence Episode ids, comma-separated"
                 onChange={setEvidenceEpisodes}
               />
-              <SmallButton onClick={claimAndAssessNow}>
+              <SmallButton onClick={() => void claimAndAssessNow()}>
                 claim and assess
               </SmallButton>
             </>
@@ -1304,14 +1370,7 @@ function WorkDashboardView({
 }) {
   const [view, setView] = React.useState<'work' | 'atlas'>(() => {
     if (shell.params?.view === 'atlas') return 'atlas';
-    if (!caps.atlas) return 'work';
-    try {
-      return caps.atlas.importInfo() || caps.atlas.missions().length
-        ? 'atlas'
-        : 'work';
-    } catch {
-      return 'work';
-    }
+    return caps.atlas ? 'atlas' : 'work';
   });
   const [items, setItems] = React.useState<WorkItem[]>(() => caps.work.items());
   const [filter, setFilter] = React.useState<string>('all');
@@ -1325,8 +1384,13 @@ function WorkDashboardView({
     setItems(caps.work.items());
   }, [caps.work]);
 
-  // the shell owns the refresh timer; this kfx only subscribes
-  React.useEffect(() => shell.onRefresh(reload), [shell, reload]);
+  // The shell owns the refresh timer. Do not refresh the hidden Work
+  // projection while Mission Control is active: that projection is a
+  // synchronous native read and would otherwise block renderer interaction.
+  React.useEffect(() => {
+    if (view !== 'work') return;
+    return shell.onRefresh(reload);
+  }, [shell, reload, view]);
 
   const counts = new Map<string, number>();
   for (const item of items) {
