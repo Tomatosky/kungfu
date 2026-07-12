@@ -91,10 +91,21 @@ the exact Shifu source revision auditable.
 `shifu cache resolve` loads a local/file/http(s) reference, verifies the digest
 of the exact bytes, checks platform and scope applicability, and emits a
 schema-versioned redacted receipt. `shifu cache apply -- COMMAND` performs the
-same resolution and supplies supported environment bindings only to that child
-process. Unsupported argument/config bindings, protected environment keys,
-secret-like keys, unsafe URLs, applicability drift, and digest drift fail
-closed.
+same resolution and supplies supported bindings only to that child process.
+Environment bindings remain child-only. The reserved
+`cargo.source.crates-io` and `conan.remote.conancenter` config keys create
+child-scoped overlays without modifying persistent Cargo/Conan configuration.
+Cargo is invoked through a temporary PATH wrapper that supplies highest-priority
+`--config` source replacement values; Cargo may still perform its normal
+hierarchical config discovery, but the managed source alias and endpoint are
+overridden by the profile. Conan receives a disposable `CONAN_HOME` containing
+only the managed remote plus an explicitly declared development fallback, if
+any; Kungfu detects a default compiler profile inside that isolated home. Both
+temporary overlays are removed after the child exits, including non-zero exits.
+The nested libwasm Cargo invocation inherits the same wrapper.
+Unsupported argument/config bindings, protected or secret-like environment
+keys, unsafe URLs, applicability drift, and digest drift fail closed. Receipts
+name binding kinds and overlay cleanup without exposing local paths.
 
 The default reference and digest come from
 `SHIFU_CACHE_PROFILE_REF` and `SHIFU_CACHE_PROFILE_DIGEST`. They may also be

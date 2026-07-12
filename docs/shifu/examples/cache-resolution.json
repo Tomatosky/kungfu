@@ -22,7 +22,13 @@
       "fallbackUsed": false,
       "verification": "passed",
       "durationMs": 18,
-      "reason": "cache endpoint selected"
+      "reason": "cache endpoint selected",
+      "application": {
+        "bindingKinds": ["environment"],
+        "scope": "child-process",
+        "persistentConfig": "not-read-or-written-by-shifu",
+        "overlayCleanup": "not-applicable"
+      }
     },
     "compiler-cache": {
       "outcome": "miss",
@@ -33,7 +39,13 @@
       "fallbackUsed": false,
       "verification": "not-applicable",
       "durationMs": 2,
-      "reason": "no matching object"
+      "reason": "no matching object",
+      "application": {
+        "bindingKinds": ["environment"],
+        "scope": "child-process",
+        "persistentConfig": "not-read-or-written-by-shifu",
+        "overlayCleanup": "not-applicable"
+      }
     }
   },
   "redaction": "credentials-userinfo-query-fragment"

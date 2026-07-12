@@ -64,6 +64,50 @@
         "method": "tool-native"
       }
     },
+    "cargo-registry": {
+      "kind": "source-index",
+      "mode": "require",
+      "endpoint": {
+        "type": "http",
+        "url": "https://cache.example.invalid/cargo-index/"
+      },
+      "bindings": [
+        {
+          "kind": "config-key",
+          "key": "cargo.source.crates-io",
+          "name": "example-cache",
+          "valueFrom": "endpoint.url"
+        }
+      ],
+      "fallback": {
+        "mode": "fail"
+      },
+      "verification": {
+        "method": "tool-native"
+      }
+    },
+    "conan-registry": {
+      "kind": "package-registry",
+      "mode": "require",
+      "endpoint": {
+        "type": "http",
+        "url": "https://cache.example.invalid/conan/"
+      },
+      "bindings": [
+        {
+          "kind": "config-key",
+          "key": "conan.remote.conancenter",
+          "name": "example-cache",
+          "valueFrom": "endpoint.url"
+        }
+      ],
+      "fallback": {
+        "mode": "fail"
+      },
+      "verification": {
+        "method": "tool-native"
+      }
+    },
     "buildchain-distribution": {
       "kind": "distribution",
       "mode": "require",

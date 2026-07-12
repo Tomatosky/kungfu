@@ -44,6 +44,7 @@
     "embeddedSecrets": "forbidden",
     "endpointUserInfo": "forbidden",
     "endpointQueryAndFragment": "forbidden",
+    "persistentToolConfig": "not-read-or-written-by-shifu",
     "evidenceRedaction": "credentials-userinfo-query-fragment"
   },
   "integrity": {

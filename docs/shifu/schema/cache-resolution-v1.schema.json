@@ -161,6 +161,35 @@
         "reason": {
           "type": "string",
           "maxLength": 512
+        },
+        "application": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "bindingKinds",
+            "scope",
+            "persistentConfig",
+            "overlayCleanup"
+          ],
+          "properties": {
+            "bindingKinds": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "enum": ["environment", "config-key"]
+              }
+            },
+            "scope": {
+              "const": "child-process"
+            },
+            "persistentConfig": {
+              "const": "not-read-or-written-by-shifu"
+            },
+            "overlayCleanup": {
+              "enum": ["not-run", "completed", "not-applicable"]
+            }
+          }
         }
       }
     }

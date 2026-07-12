@@ -86,6 +86,10 @@ registered KFD-1 version decision process.
   different policy instances.
 - Provider-specific writers and automatic profile application can be added
   later without changing authority ownership.
+- Cargo source replacement uses a child-scoped wrapper with highest-priority
+  command-line config, while Conan remote selection uses a disposable
+  `CONAN_HOME`. Shifu does not read, merge, or overwrite user configuration;
+  the managed aliases and endpoints cannot silently drift from the profile.
 - A future Shifu repository extraction can move this ADR registry and contract
   together without renumbering Kungfu Core ADRs.
 

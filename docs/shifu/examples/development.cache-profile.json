@@ -51,14 +51,37 @@
       },
       "bindings": [
         {
-          "kind": "environment",
-          "key": "CARGO_REGISTRIES_CRATES_IO_INDEX",
+          "kind": "config-key",
+          "key": "cargo.source.crates-io",
+          "name": "example-cache",
           "valueFrom": "endpoint.url"
         }
       ],
       "fallback": {
         "mode": "upstream",
         "upstreamUrl": "https://index.crates.io/"
+      },
+      "verification": {
+        "method": "tool-native"
+      }
+    },
+    "conan-registry": {
+      "kind": "package-registry",
+      "endpoint": {
+        "type": "http",
+        "url": "https://cache.example.invalid/conan/"
+      },
+      "bindings": [
+        {
+          "kind": "config-key",
+          "key": "conan.remote.conancenter",
+          "name": "example-cache",
+          "valueFrom": "endpoint.url"
+        }
+      ],
+      "fallback": {
+        "mode": "upstream",
+        "upstreamUrl": "https://center2.conan.io/"
       },
       "verification": {
         "method": "tool-native"

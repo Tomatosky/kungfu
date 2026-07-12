@@ -24,8 +24,20 @@ const BLOCKED_ENV_KEYS = new Set([
   'GITHUB_TOKEN',
   'GH_TOKEN',
   'NODE_OPTIONS',
+  'CARGO_HOME',
+  'CONAN_HOME',
+  'KF_LIBWASM_CARGO_REGISTRY',
+  'SHIFU_CACHE_ACTIVE',
+  'SHIFU_CARGO_ORIGINAL_PATH',
+  'SHIFU_CARGO_REGISTRY',
+  'SHIFU_CARGO_SOURCE_NAME',
+  'SHIFU_CACHE_MANAGED_CONAN',
   'SHIFU_CACHE_PROFILE_REF',
   'SHIFU_CACHE_PROFILE_DIGEST',
+]);
+const CONFIG_KEYS = new Set([
+  'cargo.source.crates-io',
+  'conan.remote.conancenter',
 ]);
 const SECRET_KEY_RE =
   /(TOKEN|SECRET|PASSWORD|CREDENTIAL|COOKIE|PRIVATE_KEY|AUTH)/;
@@ -165,7 +177,7 @@ function endpointValue(endpoint, binding) {
 function validateBinding(binding, serviceId) {
   assertExactKeys(
     binding,
-    new Set(['kind', 'key', 'valueFrom']),
+    new Set(['kind', 'key', 'name', 'valueFrom']),
     ['kind', 'key', 'valueFrom'],
     `services.${serviceId}.binding`,
   );
@@ -181,6 +193,26 @@ function validateBinding(binding, serviceId) {
     ['endpoint.url', 'endpoint.path'].includes(binding.valueFrom),
     `services.${serviceId} binding valueFrom is invalid`,
   );
+  if (binding.kind === 'config-key') {
+    assert(
+      CONFIG_KEYS.has(binding.key),
+      `services.${serviceId} config-key is not supported: ${binding.key}`,
+    );
+    assert(
+      binding.valueFrom === 'endpoint.url',
+      `services.${serviceId} config-key requires endpoint.url`,
+    );
+    assert(
+      typeof binding.name === 'string' &&
+        /^[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?$/.test(binding.name),
+      `services.${serviceId} config-key name is invalid`,
+    );
+  } else {
+    assert(
+      !Object.hasOwn(binding, 'name'),
+      `services.${serviceId} ${binding.kind} binding cannot declare name`,
+    );
+  }
 }
 
 function validateEnvironmentKey(key) {
@@ -365,6 +397,7 @@ export function validateProfileBytes(
   const services = assertObject(profile.services, 'services');
   assert(Object.keys(services).length > 0, 'profile must contain services');
   const bindings = {};
+  const configBindings = [];
   const receiptServices = {};
   for (const [serviceId, service] of Object.entries(services)) {
     assertExactKeys(
@@ -385,19 +418,36 @@ export function validateProfileBytes(
       Array.isArray(service.bindings) && service.bindings.length > 0,
       `services.${serviceId}.bindings must not be empty`,
     );
+    const bindingKinds = new Set();
     for (const binding of service.bindings) {
       validateBinding(binding, serviceId);
-      if (binding.kind !== 'environment') {
+      bindingKinds.add(binding.kind);
+      if (binding.kind === 'argument') {
         throw new CacheProfileError(
           `runtime apply does not support ${binding.kind} binding ${serviceId}/${binding.key}`,
         );
       }
-      validateEnvironmentKey(binding.key);
-      assert(
-        !Object.hasOwn(bindings, binding.key),
-        `duplicate environment binding: ${binding.key}`,
-      );
-      bindings[binding.key] = endpointValue(endpoint, binding);
+      if (binding.kind === 'environment') {
+        validateEnvironmentKey(binding.key);
+        assert(
+          !Object.hasOwn(bindings, binding.key),
+          `duplicate environment binding: ${binding.key}`,
+        );
+        bindings[binding.key] = endpointValue(endpoint, binding);
+      } else {
+        assert(
+          !configBindings.some((item) => item.key === binding.key),
+          `duplicate config-key binding: ${binding.key}`,
+        );
+        configBindings.push({
+          serviceId,
+          serviceKind: service.kind,
+          key: binding.key,
+          name: binding.name,
+          value: endpointValue(endpoint, binding),
+          fallback: service.fallback,
+        });
+      }
     }
     assertObject(service.fallback, `services.${serviceId}.fallback`);
     if (profile.policy.mode === 'require')
@@ -423,6 +473,14 @@ export function validateProfileBytes(
       verification: 'not-run',
       durationMs: 0,
       reason: 'profile binding selected',
+      application: {
+        bindingKinds: [...bindingKinds].sort(),
+        scope: 'child-process',
+        persistentConfig: 'not-read-or-written-by-shifu',
+        overlayCleanup: bindingKinds.has('config-key')
+          ? 'not-run'
+          : 'not-applicable',
+      },
     };
   }
   return {
@@ -431,8 +489,153 @@ export function validateProfileBytes(
     platform: platform || platformId(),
     scope: scope || inferScope(),
     bindings,
+    configBindings,
     receiptServices,
   };
+}
+
+function conanRemotes(binding) {
+  assert(
+    binding.name !== 'conancenter',
+    'managed Conan remote name must not shadow conancenter',
+  );
+  const remotes = [
+    {
+      name: binding.name,
+      url: binding.value,
+      verify_ssl: binding.value.startsWith('https:'),
+    },
+  ];
+  if (binding.fallback?.mode === 'upstream') {
+    const upstream = checkedHttpUrl(
+      binding.fallback.upstreamUrl,
+      `services.${binding.serviceId}.fallback.upstreamUrl`,
+    );
+    remotes.push({
+      name: 'conancenter',
+      url: upstream,
+      verify_ssl: upstream.startsWith('https:'),
+    });
+  }
+  return `${JSON.stringify({ remotes }, null, 1)}\n`;
+}
+
+function cargoWrapperSource() {
+  return `// Generated by Shifu for one child execution; contains no credentials.
+import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+
+const originalPath = process.env.SHIFU_CARGO_ORIGINAL_PATH || '';
+const sourceName = process.env.SHIFU_CARGO_SOURCE_NAME || '';
+const registry = process.env.SHIFU_CARGO_REGISTRY || '';
+const names = process.platform === 'win32'
+  ? ['cargo.exe', 'cargo.cmd', 'cargo.bat', 'cargo']
+  : ['cargo'];
+let realCargo = '';
+for (const directory of originalPath.split(path.delimiter).filter(Boolean)) {
+  for (const name of names) {
+    const candidate = path.join(directory, name);
+    try {
+      fs.accessSync(candidate, fs.constants.X_OK);
+      realCargo = candidate;
+      break;
+    } catch {}
+  }
+  if (realCargo) break;
+}
+if (!realCargo) {
+  console.error('shifu cache: cargo is not available on the original PATH');
+  process.exit(127);
+}
+const config = [
+  '--config',
+  \`source.crates-io.replace-with=\"\${sourceName}\"\`,
+  '--config',
+  \`source.\${sourceName}.registry=\"sparse+\${registry}\"\`,
+];
+const result = spawnSync(realCargo, [...config, ...process.argv.slice(2)], {
+  env: { ...process.env, PATH: originalPath },
+  stdio: 'inherit',
+  shell: /\\.(?:cmd|bat)$/i.test(realCargo),
+});
+if (result.error) {
+  console.error(\`shifu cache: cannot run cargo: \${result.error.message}\`);
+  process.exit(1);
+}
+process.exit(result.status ?? 1);
+`;
+}
+
+function prepareConfigOverlays(configBindings, baseEnv) {
+  if (configBindings.length === 0) return { env: {}, root: '', cleanup() {} };
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'shifu-cache-overlay-'));
+  fs.chmodSync(root, 0o700);
+  const overlayEnv = {};
+  try {
+    for (const binding of configBindings) {
+      if (binding.key === 'cargo.source.crates-io') {
+        assert(
+          binding.serviceKind === 'source-index',
+          `${binding.key} requires a source-index service`,
+        );
+        assert(
+          binding.name !== 'crates-io',
+          'managed Cargo source name must not be crates-io',
+        );
+        const wrapperDir = path.join(root, 'bin');
+        fs.mkdirSync(wrapperDir, { mode: 0o700 });
+        const wrapperModule = path.join(wrapperDir, 'cargo-wrapper.mjs');
+        fs.writeFileSync(wrapperModule, cargoWrapperSource(), { mode: 0o600 });
+        fs.writeFileSync(
+          path.join(wrapperDir, 'cargo'),
+          "#!/usr/bin/env node\nimport './cargo-wrapper.mjs';\n",
+          { mode: 0o700 },
+        );
+        fs.writeFileSync(
+          path.join(wrapperDir, 'cargo.cmd'),
+          '@node "%~dp0cargo-wrapper.mjs" %*\r\n',
+          { mode: 0o600 },
+        );
+        const originalPath = baseEnv.PATH || '';
+        overlayEnv.PATH = `${wrapperDir}${path.delimiter}${originalPath}`;
+        overlayEnv.SHIFU_CARGO_ORIGINAL_PATH = originalPath;
+        overlayEnv.SHIFU_CARGO_SOURCE_NAME = binding.name;
+        overlayEnv.SHIFU_CARGO_REGISTRY = binding.value;
+      } else if (binding.key === 'conan.remote.conancenter') {
+        assert(
+          binding.serviceKind === 'package-registry',
+          `${binding.key} requires a package-registry service`,
+        );
+        const conanHome = path.join(root, 'conan-home');
+        fs.mkdirSync(conanHome, { mode: 0o700 });
+        fs.writeFileSync(
+          path.join(conanHome, 'remotes.json'),
+          conanRemotes(binding),
+          { mode: 0o600 },
+        );
+        overlayEnv.CONAN_HOME = conanHome;
+        overlayEnv.SHIFU_CACHE_MANAGED_CONAN = '1';
+      }
+    }
+  } catch (error) {
+    fs.rmSync(root, { recursive: true, force: true });
+    throw error;
+  }
+  return {
+    env: overlayEnv,
+    root,
+    cleanup() {
+      fs.rmSync(root, { recursive: true, force: true });
+    },
+  };
+}
+
+function markOverlayCleanup(receipt) {
+  for (const service of Object.values(receipt.services)) {
+    if (service.application.overlayCleanup === 'not-run')
+      service.application.overlayCleanup = 'completed';
+  }
 }
 
 function receiptFor(resolved) {
@@ -548,14 +751,26 @@ export async function applyCacheProfile({
     scope,
     cwd,
   });
-  writeReceipt(resolved.receipt, receiptPath);
-  const childEnv = { ...env, ...resolved.bindings, SHIFU_CACHE_ACTIVE: '1' };
-  const result = spawnChild(command, args, {
-    cwd,
-    env: childEnv,
-    stdio: 'inherit',
-    shell: false,
-  });
+  const overlays = prepareConfigOverlays(resolved.configBindings, env);
+  let result;
+  try {
+    const childEnv = {
+      ...env,
+      ...resolved.bindings,
+      ...overlays.env,
+      SHIFU_CACHE_ACTIVE: '1',
+    };
+    result = spawnChild(command, args, {
+      cwd,
+      env: childEnv,
+      stdio: 'inherit',
+      shell: false,
+    });
+  } finally {
+    overlays.cleanup();
+    markOverlayCleanup(resolved.receipt);
+    writeReceipt(resolved.receipt, receiptPath);
+  }
   if (result.error)
     throw new CacheProfileError(
       `cannot run ${command}: ${result.error.message}`,

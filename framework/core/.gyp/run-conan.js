@@ -16,7 +16,10 @@ function conan(cmd) {
 }
 
 function ensureBuildchainConanProfile() {
-  if (process.env.KUNGFU_BUILDCHAIN_SOURCE_BUILD !== '1') {
+  if (
+    process.env.KUNGFU_BUILDCHAIN_SOURCE_BUILD !== '1' &&
+    process.env.SHIFU_CACHE_MANAGED_CONAN !== '1'
+  ) {
     return;
   }
   const env = { NODE_GYP_RUN: 'on', ...process.env };

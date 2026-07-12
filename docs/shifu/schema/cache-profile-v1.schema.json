@@ -299,7 +299,7 @@
           "required": ["kind", "key", "valueFrom"],
           "properties": {
             "kind": {
-              "enum": ["argument", "config-key"]
+              "const": "argument"
             },
             "key": {
               "type": "string",
@@ -308,6 +308,31 @@
             },
             "valueFrom": {
               "enum": ["endpoint.url", "endpoint.path"]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "key", "name", "valueFrom"],
+          "properties": {
+            "kind": {
+              "const": "config-key"
+            },
+            "key": {
+              "enum": [
+                "cargo.source.crates-io",
+                "conan.remote.conancenter"
+              ]
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?$"
+            },
+            "valueFrom": {
+              "const": "endpoint.url"
             }
           }
         }
