@@ -268,12 +268,19 @@ an additional offline decoder; shadow comparison and qualification must prove
 that this copy neither loses nor invents a typed frame before it can become an
 authority boundary.
 
-KFDL v1 is an internal binary container, not JSON and not a replacement schema
+KFDL v2 is an internal binary container, not JSON and not a replacement schema
 owner for journal facts. A segment header binds stream id, container epoch, and
 segment id. Each record binds logical position, carrier type, owner/writer
-generation, payload length, payload SHA-256, and a SHA-256 over record metadata
-plus payload. Active segments append only; rollover renames a barrier-covered
+generation, the frame context needed by existing state schemas (`gen_time`,
+`trigger_time`, `source`, `dest`, `data_type`, `initial_source`, and
+`trigger_frame_uid`), payload length, payload SHA-256, and a SHA-256 over record
+metadata plus payload. Active segments append only; rollover renames a barrier-covered
 active segment to an immutable sealed name and synchronizes the directory.
+
+The earlier test-only KFDL v1 omitted that frame context. It could prove payload
+identity but could not reconstruct `state<DataType>` routing and update time
+without guessing from a live journal. V2 supersedes it before production
+qualification; no stable or public v1 compatibility claim exists.
 
 Checkpoint publication uses two alternating binary slots. A barrier performs:
 
@@ -296,7 +303,7 @@ qualification fixtures. Production filesystem/device profiles remain
 fail-closed until the qualification card installs a verified profile registry;
 passing an arbitrary profile string cannot enable product durability.
 
-KFDL v1 checkpoints also carry the successful request-id index for the stream
+KFDL v2 checkpoints also carry the successful request-id index for the stream
 epoch, not only the most recent request. Restart therefore returns the original
 receipt for any checkpoint-covered retry and rejects conflicting reuse; falling
 back to an older checkpoint naturally drops requests whose barrier is no longer

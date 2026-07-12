@@ -57,7 +57,7 @@ reported as written will survive sudden power loss. The current production mmap
 policy rejects unqualified `asynchronous` and `durable` modes rather than
 silently treating OS writeback as a durability contract.
 
-The KFDL append/checkpoint backend is implemented only as a test-qualified
+The KFDL v2 append/checkpoint backend is implemented only as a test-qualified
 shadow component. What is **not yet built or qualified for production**:
 
 - activation of KFDL ingestion as a dedicated service independent of

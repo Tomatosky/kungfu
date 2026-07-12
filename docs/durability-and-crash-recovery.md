@@ -57,12 +57,15 @@ particular, Kungfu does not yet have a dedicated durable-ingest service, a
 producer-visible durable acknowledgement, or a crash-qualified durable
 watermark across the journal, Episode manifest, and projections.
 
-An independent KFDL segment/checkpoint backend now exists in test-only shadow
+An independent KFDL v2 segment/checkpoint backend now exists in test-only shadow
 form. It verifies logical position and SHA-256 records across restart, preserves
 unacknowledged tails, and exercises data/checkpoint/directory barrier ordering.
 Unknown append completion requires reopen before further writes, checkpoint-
 covered request identities survive restart for retry reconciliation, and
 deadline/service failures stay typed without advancing the durable watermark.
+Each v2 record also preserves the frame source/destination, generation and
+trigger context required to rebuild existing typed state without consulting a
+live mmap frame.
 Restart verifies the complete sealed-segment chain and the test fixture compares
 an actually published mmap frame with the decoded durable record by logical
 position, carrier, and payload after reopen.
