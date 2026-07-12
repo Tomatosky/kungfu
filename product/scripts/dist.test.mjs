@@ -7,6 +7,7 @@ import { cliArchiveBase, verifyProductObservabilityEvents } from './dist.mjs';
 
 const require = createRequire(import.meta.url);
 const {
+  esmEntrypointArgs,
   toEsmEntrypointSpecifier,
 } = require('../../framework/gui/scripts/before-pack.cjs');
 
@@ -68,4 +69,16 @@ test('electron before-pack uses a file URL only on Windows', () => {
       .protocol,
     'file:',
   );
+});
+
+test('electron before-pack imports its ESM entrypoint through eval', () => {
+  const entryPath = new URL(
+    '../../framework/gui/scripts/gen-first-party-manifest.mjs',
+    import.meta.url,
+  ).pathname;
+  const specifier = toEsmEntrypointSpecifier(entryPath);
+  assert.deepEqual(esmEntrypointArgs(entryPath), [
+    '--eval',
+    `import(${JSON.stringify(specifier)})`,
+  ]);
 });

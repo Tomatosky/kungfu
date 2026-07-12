@@ -11,12 +11,17 @@ function toEsmEntrypointSpecifier(entryPath, platform = process.platform) {
   return platform === 'win32' ? pathToFileURL(entryPath).href : entryPath;
 }
 
+function esmEntrypointArgs(entryPath) {
+  const specifier = toEsmEntrypointSpecifier(entryPath);
+  return ['--eval', `import(${JSON.stringify(specifier)})`];
+}
+
 exports.default = async function beforePack() {
   const gen = path.join(__dirname, 'gen-first-party-manifest.mjs');
   const tsxLoader = require.resolve('tsx/esm');
   const result = spawnSync(
     process.execPath,
-    ['--import', tsxLoader, toEsmEntrypointSpecifier(gen)],
+    ['--import', tsxLoader, ...esmEntrypointArgs(gen)],
     { stdio: 'inherit' },
   );
   if (result.status !== 0) {
@@ -25,3 +30,4 @@ exports.default = async function beforePack() {
 };
 
 exports.toEsmEntrypointSpecifier = toEsmEntrypointSpecifier;
+exports.esmEntrypointArgs = esmEntrypointArgs;
