@@ -68,6 +68,7 @@ test('package manager cannot run a guarded root task without Shifu', () => {
     cwd: ROOT,
     encoding: 'utf8',
     env: { ...process.env, SHIFU_ENTRYPOINT: '' },
+    shell: process.platform === 'win32',
   });
   assert.equal(direct.status, 1);
   assert.match(
