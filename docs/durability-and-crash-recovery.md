@@ -84,6 +84,10 @@ The shadow now includes a projector over the authoritative Hana
 compared with the compatibility `state<DataType>` bank, including type/uid,
 source/destination, update time, and data; malformed known records fail closed
 while the previous snapshot remains available for rollback.
+Verified images can now hydrate a staging peer state bank and atomically replace
+the target only after every type, uid, and payload validates. A two-process
+fixture creates the durable cut and snapshot in one process, then reopens KFDL,
+bootstraps, and hydrates typed peer state in a fresh process.
 This is shadow/cutover evidence: the production coordinator compatibility
 restore remains active and public durable profiles remain disabled.
 

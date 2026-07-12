@@ -21,6 +21,10 @@ inline constexpr const char *TYPED_STATE_PROJECTION_SCHEMA_V1 = "kungfu.typed-st
 // cutover can compare actual state semantics, not merely record counts.
 [[nodiscard]] std::map<std::string, std::string> typed_state_image(const state_cache::bank &compatibility_state);
 
+// Decodes a verified typed-state image into a staging bank and replaces the
+// target only after every entry validates. Failure leaves the target untouched.
+void restore_typed_state_image(const std::map<std::string, std::string> &image, state_cache::bank &target);
+
 } // namespace kungfu::runtime::state_service
 
 #endif // KUNGFU_RUNTIME_TYPED_STATE_PROJECTION_H

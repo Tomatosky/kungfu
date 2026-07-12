@@ -388,6 +388,14 @@ all current state types, replacement by uid, equality with the compatibility
 bank at the same durable cut, malformed-record fail-closed behavior, and
 retention of the previous snapshot as rollback evidence.
 
+The verified image is now reversible into the same `state_cache::bank`
+semantics. Hydration decodes into a staging bank, rechecks type and uid, and
+replaces the peer target only after the complete image validates. The restart
+fixture uses separate creator and verifier processes: the first publishes a
+qualified test barrier and snapshot; the second reopens KFDL, verifies the cut,
+replays after `T`, and hydrates typed state without live mmap addresses or
+process memory from the creator.
+
 This slice still does not replace the production coordinator-triggered
 compatibility restore. That switch remains gated on wiring this projector into
 the production bootstrap authority, removing the business restore/join bridge,

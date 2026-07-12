@@ -17,6 +17,8 @@
 
 namespace fs = std::filesystem;
 using kungfu::runtime::durability::durability_profile;
+using kungfu::runtime::durability::durable_frame_context;
+using kungfu::runtime::durability::durable_ingest_log;
 using kungfu::runtime::durability::durable_record;
 using kungfu::runtime::durability::ingest_options;
 using kungfu::runtime::durability::receipt_status;
@@ -29,6 +31,7 @@ using kungfu::runtime::state_service::projection_bootstrap_store;
 using kungfu::runtime::state_service::projection_error;
 using kungfu::runtime::state_service::projection_mutation;
 using kungfu::runtime::state_service::projection_options;
+using kungfu::runtime::state_service::restore_typed_state_image;
 using kungfu::runtime::state_service::service;
 using kungfu::runtime::state_service::typed_state_image;
 using kungfu::runtime::state_service::TYPED_STATE_PROJECTION_SCHEMA_V1;
@@ -276,6 +279,10 @@ void test_actual_state_data_types_match_compatibility_state_at_the_same_cut() {
           "typed-state fixture no longer covers the complete StateDataTypes roster");
   require(snapshot.state == typed_state_image(compatibility),
           "typed durable projection diverged from compatibility StateDataTypes semantics");
+  bank restored;
+  restore_typed_state_image(snapshot.state, restored);
+  require(typed_state_image(restored) == snapshot.state,
+          "verified typed-state image did not hydrate the peer state bank losslessly");
   require(snapshot.through_position == durable.back().position,
           "typed-state equality was not bound to the durable cut");
 }
@@ -305,6 +312,20 @@ void test_actual_typed_projector_fails_closed_and_preserves_rollback_snapshot() 
   const auto retained = store.load_snapshot();
   require(retained.integrity_sha256 == rollback.integrity_sha256 && retained.state == rollback.state,
           "failed typed-state rebuild destroyed the rollback snapshot");
+
+  bank target;
+  target << kungfu::state<kungfu::yijinjing::types::Config>(10, 20, 100, config);
+  const auto original = typed_state_image(target);
+  auto corrupt_image = rollback.state;
+  corrupt_image.begin()->second.resize(3);
+  bool restore_failed = false;
+  try {
+    restore_typed_state_image(corrupt_image, target);
+  } catch (const std::exception &) {
+    restore_failed = true;
+  }
+  require(restore_failed && typed_state_image(target) == original,
+          "failed typed-state hydration partially replaced the peer state bank");
 }
 
 void test_state_service_owns_projection_shadow_and_stopped_service_is_unavailable() {
@@ -358,6 +379,59 @@ void test_state_service_owns_projection_shadow_and_stopped_service_is_unavailabl
           "peer with no state requirement depended on a stopped projection service");
 }
 
+ingest_options restart_ingest_options(const fs::path &root) {
+  ingest_options ingest;
+  ingest.data_root = root.string();
+  ingest.stream_id = 71;
+  ingest.container_epoch = 5;
+  ingest.writer_resource_id = "projection-restart-writer";
+  ingest.qualification_profile = "test/macos-apfs-projection-bootstrap";
+  ingest.qualification_passed = true;
+  return ingest;
+}
+
+projection_options restart_projection_options(const fs::path &root) {
+  auto projection = options(root, TYPED_STATE_PROJECTION_SCHEMA_V1, "test/macos-apfs-projection-bootstrap");
+  projection.projection_name = "process-restart-state";
+  return projection;
+}
+
+void create_process_restart_fixture(const fs::path &root) {
+  auto service_owner = lease::acquire_data_root_service(root.string());
+  auto writer_owner = lease::acquire_stream_writer(root.string(), "projection-restart-writer");
+  kungfu::yijinjing::types::Config config;
+  config.location_uid = 42;
+  config.namespace_ = "strategy";
+  config.name = "restart";
+  config.value = "verified";
+  durable_frame_context frame{100, 99, 10, 20, static_cast<int32_t>(kungfu::yijinjing::enums::FrameDataType::Json),
+                              10,  900};
+  durable_ingest_log log(restart_ingest_options(root));
+  log.append({71, 5, 1, 1001}, kungfu::yijinjing::types::Config::tag, frame, config.to_string(), service_owner,
+             writer_owner);
+  const auto barrier = log.barrier(1, durability_profile::DurableGroup, service_owner, writer_owner);
+  require(barrier.receipt.status == receipt_status::Succeeded, "process fixture durable barrier failed");
+  projection_bootstrap_store projection(restart_projection_options(root), make_typed_state_projector());
+  (void)projection.rebuild(log.read_durable_records());
+}
+
+void verify_process_restart_fixture(const fs::path &root) {
+  durable_ingest_log log(restart_ingest_options(root));
+  projection_bootstrap_store projection(restart_projection_options(root), make_typed_state_projector());
+  const auto bootstrap = projection.bootstrap(log.read_durable_records(), peer_state_requirement::Required);
+  require(bootstrap.outcome == bootstrap_outcome::Ready && bootstrap.status.lag_records == 0,
+          "fresh process did not accept the verified snapshot-through-T plus replay-after-T cut");
+  bank restored;
+  restore_typed_state_image(bootstrap.state, restored);
+  kungfu::yijinjing::types::Config expected;
+  expected.location_uid = 42;
+  const auto &configs = restored[boost::hana::type_c<kungfu::yijinjing::types::Config>];
+  const auto found = configs.find(expected.uid());
+  require(found != configs.end() && found->second.source == 10 && found->second.dest == 20 &&
+              found->second.update_time == 100 && found->second.data.value == "verified",
+          "fresh process did not hydrate the expected typed peer state");
+}
+
 int run_tests() {
   const std::pair<const char *, void (*)()> tests[] = {
       {"snapshot through T replays strictly after T", test_snapshot_through_t_replays_strictly_after_t},
@@ -390,4 +464,22 @@ int run_tests() {
 
 } // namespace
 
-int main() { return run_tests(); }
+int main(int argc, char **argv) {
+  try {
+    if (argc == 3 && std::string(argv[1]) == "--create-process-restart-fixture") {
+      create_process_restart_fixture(argv[2]);
+      return 0;
+    }
+    if (argc == 3 && std::string(argv[1]) == "--verify-process-restart-fixture") {
+      verify_process_restart_fixture(argv[2]);
+      return 0;
+    }
+    if (argc != 1) {
+      return 64;
+    }
+    return run_tests();
+  } catch (const std::exception &error) {
+    std::cerr << error.what() << '\n';
+    return 1;
+  }
+}

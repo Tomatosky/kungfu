@@ -81,7 +81,9 @@ schema/cut checks, required/optional/none peer outcomes, deterministic rebuild,
 and projection-failure isolation are implementation evidence only. A test-only
 projector now covers the actual Hana `StateDataTypes` closed set and proves
 same-cut equality with the compatibility state bank plus rollback on malformed
-known records. Production bootstrap still uses the coordinator-triggered
+known records. Verified images also hydrate peer state atomically, and a fresh
+process reopens KFDL plus the snapshot to prove local restart recovery.
+Production bootstrap still uses the coordinator-triggered
 compatibility restore; business joins/restore cutover and public projection
 capability remain pending.
 

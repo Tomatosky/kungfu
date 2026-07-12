@@ -25,6 +25,28 @@ void append_u64(std::string &out, uint64_t value) {
   }
 }
 
+uint32_t read_u32(const std::string &input, size_t &offset) {
+  if (offset + 4 > input.size()) {
+    throw std::invalid_argument("typed_state_image_truncated");
+  }
+  uint32_t value = 0;
+  for (unsigned shift = 0; shift < 32; shift += 8) {
+    value |= static_cast<uint32_t>(static_cast<unsigned char>(input[offset++])) << shift;
+  }
+  return value;
+}
+
+uint64_t read_u64(const std::string &input, size_t &offset) {
+  if (offset + 8 > input.size()) {
+    throw std::invalid_argument("typed_state_image_truncated");
+  }
+  uint64_t value = 0;
+  for (unsigned shift = 0; shift < 64; shift += 8) {
+    value |= static_cast<uint64_t>(static_cast<unsigned char>(input[offset++])) << shift;
+  }
+  return value;
+}
+
 template <typename DataType> std::string encoded_key(const DataType &data) {
   std::string key;
   append_u32(key, static_cast<uint32_t>(DataType::tag));
@@ -67,6 +89,19 @@ template <typename DataType> DataType decode_data(const durable_record &record) 
   }
 }
 
+template <typename DataType> DataType decode_image_data(const std::string &value, size_t offset) {
+  if constexpr (size_fixed_v<DataType>) {
+    if (value.size() - offset != sizeof(DataType)) {
+      throw std::invalid_argument("typed_state_image_fixed_payload_mismatch");
+    }
+    DataType data;
+    std::memcpy(&data, value.data() + offset, sizeof(DataType));
+    return data;
+  } else {
+    return DataType(value.data() + offset, static_cast<uint32_t>(value.size() - offset));
+  }
+}
+
 std::optional<projection_mutation> project_record(const durable_record &record) {
   std::optional<projection_mutation> result;
   bool matched = false;
@@ -102,6 +137,39 @@ std::map<std::string, std::string> typed_state_image(const state_cache::bank &co
     }
   });
   return image;
+}
+
+void restore_typed_state_image(const std::map<std::string, std::string> &image, state_cache::bank &target) {
+  state_cache::bank staged;
+  for (const auto &[key, value] : image) {
+    size_t key_offset = 0;
+    const auto carrier_type = static_cast<int32_t>(read_u32(key, key_offset));
+    const auto expected_uid = read_u64(key, key_offset);
+    if (key_offset != key.size()) {
+      throw std::invalid_argument("typed_state_image_key_size_mismatch");
+    }
+    size_t value_offset = 0;
+    const auto source = read_u32(value, value_offset);
+    const auto dest = read_u32(value, value_offset);
+    const auto update_time = static_cast<int64_t>(read_u64(value, value_offset));
+    bool matched = false;
+    boost::hana::for_each(yijinjing::StateDataTypes, [&](auto entry) {
+      using DataType = typename decltype(+boost::hana::second(entry))::type;
+      if (DataType::tag != carrier_type) {
+        return;
+      }
+      matched = true;
+      const auto data = decode_image_data<DataType>(value, value_offset);
+      if (data.uid() != expected_uid) {
+        throw std::invalid_argument("typed_state_image_uid_mismatch");
+      }
+      staged << kungfu::state<DataType>(source, dest, update_time, data);
+    });
+    if (!matched) {
+      throw std::invalid_argument("typed_state_image_unknown_carrier");
+    }
+  }
+  target = staged;
 }
 
 } // namespace kungfu::runtime::state_service

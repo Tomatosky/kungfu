@@ -2,6 +2,7 @@
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 
@@ -72,6 +73,31 @@ if (result.error || result.status !== 0) {
   if (result.error)
     console.error(`[projection-bootstrap-test] ${result.error.message}`);
   process.exit(result.status ?? 1);
+}
+
+const restartRoot = fs.mkdtempSync(
+  path.join(os.tmpdir(), 'kungfu-projection-process-restart-'),
+);
+try {
+  for (const mode of [
+    '--create-process-restart-fixture',
+    '--verify-process-restart-fixture',
+  ]) {
+    const child = spawnSync(testBinary, [mode, restartRoot], {
+      cwd: process.cwd(),
+      stdio: 'inherit',
+    });
+    if (child.error || child.status !== 0) {
+      if (child.error)
+        console.error(
+          `[projection-bootstrap-test] ${mode}: ${child.error.message}`,
+        );
+      process.exit(child.status ?? 2);
+    }
+  }
+  console.log('[projection-bootstrap-test] cross-process restart passed');
+} finally {
+  fs.rmSync(restartRoot, { recursive: true, force: true });
 }
 
 for (const source of [
