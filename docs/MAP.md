@@ -23,6 +23,7 @@ and the map routes a question to whichever doc answers it.
 | Your question | Document | Plane | Status |
 |---|---|---|---|
 | What is kungfu, in one idea? | [`../README.md`](../README.md) | — | stable |
+| Why is Episode the flagship object for real-world execution, and how do Facts, Receipts, Cuts, Claims, and Decisions fit around it? | [`the-episode.md`](the-episode.md) + [`vocabulary.md`](vocabulary.md) | why, use | current · vocabulary contract; guarantees remain maturity-scoped |
 | Do I need the whole Kungfu App, or which smaller product should I start with? | [`choose-your-kungfu.md`](choose-your-kungfu.md) | use | draft · adoption contract accepted; artifacts qualify independently in stages |
 | What do the terms mean (`kungfu` / `yijinjing` / journal / schema …)? | [`concepts.md`](concepts.md) | use | stable |
 | Why is it built this way? What is load-bearing? | [`design-philosophy.md`](design-philosophy.md) | why | stable |

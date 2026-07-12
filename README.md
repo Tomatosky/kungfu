@@ -26,6 +26,12 @@ alone: bind it to a verifiable source, artifact, manifest, or runtime receipt.
 ([KFD](https://kfd.libkungfu.dev/); [Design Philosophy](docs/design-philosophy.md);
 [Facts Before Trust](docs/facts-before-trust.md).)
 
+Real-world work happens in **Episodes**: bounded causal units whose Facts,
+Artifacts, Receipts, dependencies, and verification roots can be inspected,
+sealed, exported, recovered, and used to support Decisions. Read
+[The Episode](docs/the-episode.md) for the public vocabulary that connects
+execution, evidence, trust, and action.
+
 Public entrypoints:
 
 - Product home: <https://kungfu.tech>
@@ -97,6 +103,9 @@ needs to capture, share, and faithfully replay high-frequency event streams.
 
 ## Core ideas
 
+- **Episode-first work model** — a run is an execution coordinate; an Episode
+  is the stable semantic object for bounded causal work, verification,
+  portability, replay, and recovery.
 - **Journal-first data plane** — one append-only event log
   ([`yijinjing`](framework/core)) and two declared schema substrates: the
   `kungfu/yijinjing/schema` Hana closed set for kernel facts, and `.fbs` for
@@ -190,8 +199,16 @@ right document, and is readable by both people and agents.
 - [Product Layers](docs/product-layers.md) — inspect the independent
   product contracts and qualification boundaries behind that choice.
 - [Documentation Map](docs/MAP.md) — the question-indexed map of all documentation.
-- [Concepts](docs/concepts.md) — the vocabulary in one place
-  (`kungfu`/`kfx`/`sdk`, `libkungfu`, `yijinjing`, journal, schema, …).
+- [The Episode](docs/the-episode.md) — the flagship object and layered public
+  vocabulary for real-world agent work: Facts, Artifacts, Receipts, Cuts,
+  Watermarks, Projections, Timelines, Claims, Proof, TrustReports, and
+  Decisions.
+- [Vocabulary Reference](docs/vocabulary.md) — canonical definitions,
+  boundaries, operations, and the separation between Kungfu Core and domain
+  profile terms.
+- [Concepts](docs/concepts.md) — product names, implementation components, and
+  runtime terms (`kungfu`/`kfx`/`sdk`, `libkungfu`, `yijinjing`, journal,
+  schema, …).
 - [Design Philosophy](docs/design-philosophy.md) — the two first
   principles the whole design follows from, and how the architecture falls out
   of them.

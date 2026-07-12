@@ -5,6 +5,12 @@ the coined names share the `kf` prefix, which simply stands for *kungfu*. For ho
 these pieces are layered see [`architecture.md`](architecture.md); for the
 principles behind them see [`design-philosophy.md`](design-philosophy.md).
 
+This page indexes product names, implementation components, and runtime terms.
+For the public execution language centered on Episode — Fact, Artifact,
+Receipt, Cut, Watermark, Projection, Timeline, Claim, Proof, TrustReport,
+Decision, Replay, and Rewind — start with [**The Episode**](the-episode.md) and
+use the [**Vocabulary Reference**](vocabulary.md) for canonical definitions.
+
 ## The `kf*` command family
 
 | Name | What it is |
