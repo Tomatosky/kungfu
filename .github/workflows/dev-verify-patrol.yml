@@ -39,6 +39,8 @@ jobs:
       gate-profile: dev-patrol
       runner-preset: kungfu-v4-self-hosted
       artifact-name: kungfu-dev-patrol-gates
+      # Buildchain projects the cache profile as environment. Keep the Gate
+      # argv direct so the controller can append `gate plan/run ...` safely.
       gate-command-json: >-
         {"linux":["./shifu"],"macos":["./shifu"],"windows":["./shifu.cmd"]}
       gate-environment-json: >-
