@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0074
 decision_status: accepted
 implementation_status: partial
-implementation_commits: [e564e51d5196564a44b53081613bed8cb04bfdbb]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/733]
 qualification_refs: [scripts/run-kfx-profile-suite-tests.mjs]
 review_state: self-reviewed
 sensitivity: public
