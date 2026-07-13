@@ -227,18 +227,6 @@ jobs:
           Set-Location $env:SOURCE_ROOT
           .\shifu.cmd --filter @kungfu-tech/core configure
 
-      - name: Build and run crash recovery (POSIX)
-        if: ${{ runner.os != 'Windows' }}
-        shell: bash
-        run: cd "$SOURCE_ROOT" && ./shifu test:crash-recovery
-
-      - name: Build and run crash recovery (Windows)
-        if: ${{ runner.os == 'Windows' }}
-        shell: pwsh
-        run: |
-          Set-Location $env:SOURCE_ROOT
-          .\shifu.cmd test:crash-recovery
-
       - name: Build and run membrane consumers (POSIX)
         if: ${{ runner.os != 'Windows' }}
         shell: bash
@@ -262,3 +250,15 @@ jobs:
             .\shifu.cmd qualify:embedding-membranes
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
+
+      - name: Build and run crash recovery (POSIX)
+        if: ${{ runner.os != 'Windows' }}
+        shell: bash
+        run: cd "$SOURCE_ROOT" && ./shifu test:crash-recovery
+
+      - name: Build and run crash recovery (Windows)
+        if: ${{ runner.os == 'Windows' }}
+        shell: pwsh
+        run: |
+          Set-Location $env:SOURCE_ROOT
+          .\shifu.cmd test:crash-recovery
