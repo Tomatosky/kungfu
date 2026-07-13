@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0068
 decision_status: accepted
 implementation_status: staged
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/668, https://github.com/kungfu-systems/kungfu/pull/673, https://github.com/kungfu-systems/kungfu/pull/682, https://github.com/kungfu-systems/kungfu/pull/687, https://github.com/kungfu-systems/kungfu/pull/691, https://github.com/kungfu-systems/kungfu/pull/693, https://github.com/kungfu-systems/kungfu/pull/697, https://github.com/kungfu-systems/kungfu/pull/701, https://github.com/kungfu-systems/kungfu/pull/705, https://github.com/kungfu-systems/kungfu/pull/754]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/668, https://github.com/kungfu-systems/kungfu/pull/673, https://github.com/kungfu-systems/kungfu/pull/682, https://github.com/kungfu-systems/kungfu/pull/687, https://github.com/kungfu-systems/kungfu/pull/691, https://github.com/kungfu-systems/kungfu/pull/693, https://github.com/kungfu-systems/kungfu/pull/697, https://github.com/kungfu-systems/kungfu/pull/701, https://github.com/kungfu-systems/kungfu/pull/705, https://github.com/kungfu-systems/kungfu/pull/754, https://github.com/kungfu-systems/kungfu/pull/770, https://github.com/kungfu-systems/kungfu/pull/783, https://github.com/kungfu-systems/kungfu/pull/784, https://github.com/kungfu-systems/kungfu/pull/788]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -257,10 +257,26 @@ exact interrupted quarantine packages. Episode capability truth remains owned
 by the existing typed qualification and its independent semantic oracle rather
 than being duplicated in recovery.
 
+A versioned, dry-run-first local qualification harness now binds process-crash
+evidence to the exact source revision, clean tree, platform/filesystem profile,
+toolchain, fault matrix, and Shifu command surface. It retains separate
+`durable_group` and `durable_sync` reports plus raw logs. The named macOS/APFS,
+Linux/ext4, and Windows/NTFS profiles have passed this process envelope at the
+same revision through local Shifu builds and qualification runs. The report
+schema fixes power-loss qualification and production-profile eligibility to
+false, so these results cannot activate a stronger public claim.
+
+The Core dependency acquisition path used by that qualification now preserves
+the RocksDB codeload archive type explicitly. Local no-controller-cache Shifu
+Core builds passed on macOS, Linux, and Windows at `1140d28d`; this establishes
+cross-platform buildability of the qualification path, not additional crash or
+power-loss evidence.
+
 The production mmap claim remains `demand + visibility`. The backup/restore
 round trip and projection cut equality are implementation evidence, not an
 operator-facing backup format or qualified power-loss guarantee. Production
-bootstrap authority cutover, external-backup serialization/operations, named
-platform/filesystem qualification, and the public durability product contract
-remain pending. In particular, process-kill and cross-platform CI evidence do
-not establish sudden-power-loss durability.
+bootstrap authority cutover, external-backup serialization/operations,
+disposable power-loss fault qualification, whole-host restart qualification,
+and the public durability product contract remain pending. In particular,
+process-kill and local cross-platform evidence do not establish
+sudden-power-loss durability.

@@ -430,6 +430,48 @@
       "evidence_grade": "B",
       "last_reviewed": "2026-07-12"
     },
+    "docs/qualification/gates/README.md": {
+      "metadata_schema": "kungfu.document-metadata/v1",
+      "document_status": "active",
+      "doc_type": "documentation-section",
+      "review_state": "self-reviewed",
+      "sensitivity": "public"
+    },
+    "docs/qualification/gates/build-and-runtime.md": {
+      "metadata_schema": "kungfu.document-metadata/v1",
+      "document_status": "active",
+      "doc_type": "public-document",
+      "review_state": "self-reviewed",
+      "sensitivity": "public"
+    },
+    "docs/qualification/gates/native-qualification.md": {
+      "metadata_schema": "kungfu.document-metadata/v1",
+      "document_status": "active",
+      "doc_type": "public-document",
+      "review_state": "self-reviewed",
+      "sensitivity": "public"
+    },
+    "docs/qualification/gates/policy-matrix.md": {
+      "metadata_schema": "kungfu.document-metadata/v1",
+      "document_status": "active",
+      "doc_type": "public-document",
+      "review_state": "self-reviewed",
+      "sensitivity": "public"
+    },
+    "docs/qualification/gates/release-and-promotion.md": {
+      "metadata_schema": "kungfu.document-metadata/v1",
+      "document_status": "active",
+      "doc_type": "public-document",
+      "review_state": "self-reviewed",
+      "sensitivity": "public"
+    },
+    "docs/qualification/gates/source-and-governance.md": {
+      "metadata_schema": "kungfu.document-metadata/v1",
+      "document_status": "active",
+      "doc_type": "public-document",
+      "review_state": "self-reviewed",
+      "sensitivity": "public"
+    },
     "docs/qualification/kfd-native-sdk-release-gates.md": {
       "metadata_schema": "kungfu.document-metadata/v1",
       "document_status": "active",

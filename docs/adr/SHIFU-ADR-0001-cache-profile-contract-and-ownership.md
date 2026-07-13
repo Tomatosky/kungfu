@@ -3,20 +3,23 @@ metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
 adr_id: SHIFU-ADR-0001
 decision_status: accepted
-implementation_status: partial
-review_state: unreviewed
+implementation_status: implemented
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/644, https://github.com/kungfu-systems/kungfu/pull/655, https://github.com/kungfu-systems/kungfu/pull/696, https://github.com/kungfu-systems/kungfu/pull/727, https://github.com/kungfu-systems/kungfu/pull/739, https://github.com/kungfu-systems/kungfu/pull/755, https://github.com/kungfu-systems/kungfu/pull/774, https://github.com/kungfu-systems/kungfu/pull/779, https://github.com/kungfu-systems/kungfu/pull/786]
+closure_pr: https://github.com/kungfu-systems/kungfu/pull/786
+qualification_refs: [scripts/check-shifu-cache-contract.test.mjs, scripts/shifu-cache-runtime.test.mjs, scripts/shifu-uv-cache-adapter.test.mjs, scripts/shifu-conan-publish.test.mjs]
+review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
 period: ongoing
 theme: shifu-cache-profile-contract
 confidence: high
 evidence_grade: B
-last_reviewed: 2026-07-12
+last_reviewed: 2026-07-13
 ---
 
 # SHIFU-ADR-0001: Cache profile contract and ownership
 
-- Status: accepted; development implementation
+- Status: accepted and implemented
 - Date: 2026-07-12
 - Scope: Shifu execution and toolchain cache policy
 - Related: Kungfu Core [ADR-0044](./ADR-0044-shifu-delegation-protocol.md)
@@ -93,6 +96,32 @@ registered KFD-1 version decision process.
   command-line config, while Conan remote selection uses a disposable
   `CONAN_HOME`. Shifu does not read, merge, or overwrite user configuration;
   the managed aliases and endpoints cannot silently drift from the profile.
+- Conan configuration and Conan storage have separate lifecycles. The temporary
+  `CONAN_HOME` contains only execution policy, while `conan.cache.storage`
+  selects a profile-owned, host-local persistent package/download root. Shifu
+  partitions runner storage, holds an exclusive execution lock, and emits only
+  path digests. This preserves warm binaries without turning a user's
+  persistent Conan home into a controller surface.
+- Cache-managed task re-entry inherits the outer execution context instead of
+  resolving the profile or acquiring the Conan lock again. `gate run` owns one
+  outer apply boundary for all task-backed gates. The build-free source
+  acceptance gate uses a distinct internal bypass marker, so it cannot be
+  mistaken for evidence that cache was applied. Unknown bypass values do not
+  weaken automatic application, and truly independent processes still fail
+  closed on the exclusive lock.
+- Recipe source acquisition may be projected as a checksum-backed generic
+  download binding. The recipe remains responsible for enforcing its SHA256;
+  Shifu selects transport and never manufactures a mutable source checkout.
+- Hosted recipe/binary publication is a separate administrative execution
+  under the same Shifu profile. It uses Conan's remote-scoped authentication
+  environment variables outside Buildchain, validates the detected platform,
+  and uploads an exact package list; the ordinary Buildchain interface remains
+  only profile reference plus digest.
+- Cache diagnostics use optional, same-origin per-service probe policy with
+  bounded timeout and retry limits. Provider-aware lightweight targets avoid
+  treating an expensive index listing as a health endpoint, while persistent
+  transport or server failures remain degraded and endpoint coordinates stay
+  out of diagnostic receipts.
 - A future Shifu repository extraction can move this ADR registry and contract
   together without renumbering Kungfu Core ADRs.
 

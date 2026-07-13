@@ -322,7 +322,8 @@
             "key": {
               "enum": [
                 "cargo.source.crates-io",
-                "conan.remote.conancenter"
+                "conan.remote.conancenter",
+                "conan.cache.storage"
               ]
             },
             "name": {
@@ -332,9 +333,28 @@
               "pattern": "^[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?$"
             },
             "valueFrom": {
-              "const": "endpoint.url"
+              "enum": ["endpoint.url", "endpoint.path"]
             }
-          }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "key": {"const": "conan.cache.storage"}
+                }
+              },
+              "then": {
+                "properties": {
+                  "valueFrom": {"const": "endpoint.path"}
+                }
+              },
+              "else": {
+                "properties": {
+                  "valueFrom": {"const": "endpoint.url"}
+                }
+              }
+            }
+          ]
         }
       ]
     },
@@ -357,6 +377,31 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 512
+        },
+        "probe": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string",
+              "pattern": "^/(?!/)[^?#\\\\]*$"
+            },
+            "timeoutMs": {
+              "type": "integer",
+              "minimum": 100,
+              "maximum": 30000
+            },
+            "attempts": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3
+            },
+            "retryDelayMs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2000
+            }
+          }
         }
       },
       "allOf": [
@@ -369,7 +414,10 @@
             }
           },
           "then": {
-            "required": ["rationale"]
+            "required": ["rationale"],
+            "not": {
+              "required": ["probe"]
+            }
           }
         }
       ]

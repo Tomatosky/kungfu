@@ -80,16 +80,27 @@ of the exact bytes, checks platform and scope applicability, and emits a
 schema-versioned redacted receipt. `shifu cache apply -- COMMAND` performs the
 same resolution and supplies supported bindings only to that child process.
 Environment bindings remain child-only. The reserved
-`cargo.source.crates-io` and `conan.remote.conancenter` config keys create
+`cargo.source.crates-io`, `conan.remote.conancenter`, and
+`conan.cache.storage` config keys create
 child-scoped overlays without modifying persistent Cargo/Conan configuration.
 Cargo is invoked through a temporary PATH wrapper that supplies highest-priority
 `--config` source replacement values; Cargo may still perform its normal
 hierarchical config discovery, but the managed source alias and endpoint are
 overridden by the profile. Conan receives a disposable `CONAN_HOME` containing
 only the managed remote plus an explicitly declared development fallback, if
-any; Kungfu detects a default compiler profile inside that isolated home. Both
-temporary overlays are removed after the child exits, including non-zero exits.
-The nested libwasm Cargo invocation inherits the same wrapper.
+any. When storage is selected, its `global.conf` points package and download
+data at a profile-owned host-local cache under `${SHIFU_CACHE_HOME}`.
+Development and named runner partitions do not share one mutable Conan database,
+and an exclusive lock fails closed on concurrent use. The persistent storage
+survives the task; the temporary policy overlay and lock do not. Kungfu detects
+a default compiler profile inside the isolated home. Both temporary overlays
+are removed after the child exits, including non-zero exits. The nested
+libwasm Cargo invocation inherits the same wrapper.
+
+Checksum-backed recipe sources use ordinary environment bindings. Shifu may
+select a mirrored archive URL, but the Conan recipe owns and enforces the same
+SHA256 for mirrored and public fallback transport. A receipt records binding
+selection and hashed storage identity, never the local cache path.
 
 For a selected Python index, an environment binding alone is insufficient:
 frozen uv locks contain exact registry artifact URLs. Shifu therefore copies
@@ -137,9 +148,22 @@ When either projected value is visible, the normal `./shifu <task>` entrypoint
 automatically enters `cache apply` before running an ordinary task. The resolver
 therefore rejects a partial pair instead of silently bypassing policy. The
 managed child receives `SHIFU_CACHE_ACTIVE=1`, which prevents recursive
-application when it re-enters `./shifu`. Cache/configuration/bootstrap control
-verbs remain direct, and an explicit `./shifu cache apply -- COMMAND` remains
-available for overrides and diagnosis.
+application when it re-enters `./shifu`. `shifu gate run` is an execution verb,
+so it enters `cache apply` once before the Gate executor starts and every
+task-backed gate inherits the same bindings, disposable configuration, and
+exclusive Conan storage lock. Gate contract/schema/plan/receipt inspection and
+other cache/configuration/bootstrap control verbs remain direct.
+
+Cache execution context has three states. An absent context follows the
+projected profile and may enter `cache apply`; `SHIFU_CACHE_ACTIVE=1` means an
+outer Shifu execution already owns the bindings and lock; the internal
+`SHIFU_CACHE_BYPASS=source-acceptance` marker means the build-free source gate
+is deliberately cache-independent. The bypass never claims that cache was
+applied, and only that exact internal value is recognized. Cache profiles
+cannot inject either context key. Independent processes still contend for the
+exclusive Conan storage lock and fail closed; re-entry only reuses an outer
+execution that it actually inherits. An explicit
+`./shifu cache apply -- COMMAND` remains available for overrides and diagnosis.
 
 For CI, Buildchain accepts only the opaque reference and digest and forwards
 them to lifecycle commands. It does not fetch or parse the profile. The
@@ -147,6 +171,26 @@ consumer lifecycle may continue to invoke `shifu cache apply` explicitly; the
 cache control verb and active-child fuse prevent double application. The pinned
 Shifu checkout remains the only component that interprets fields and writes the
 receipt.
+
+Hosted binary publication is an administrative Shifu execution, not a
+Buildchain lifecycle input. `scripts/shifu-conan-publish.mjs` provides a
+dry-run-first matrix for Mac arm64, Linux GCC 14 x64, and Windows MSVC x64. The
+execute path must run inside one `shifu cache apply`, detects and validates the
+ephemeral Conan profile, creates the pinned RocksDB recipe, selects only the
+binary matching that profile, authenticates with Conan's remote-scoped
+environment variables, uploads that exact package list, and reads it back.
+Publisher credentials remain in the operator or CI secret surface and are
+never added to the cache profile, Buildchain arguments, or Shifu receipt.
+
+```sh
+node scripts/shifu-conan-publish.mjs --matrix-entry macos-arm64
+node scripts/shifu-conan-publish.mjs --matrix-entry linux-gcc14-x64
+node scripts/shifu-conan-publish.mjs --matrix-entry windows-msvc-x64
+```
+
+The inventory controller owns host routing and the approval to add `--execute`;
+normal builds consume the hosted repository anonymously and never receive the
+publisher identity.
 
 ## Developer operations
 
@@ -161,7 +205,17 @@ cache infrastructure:
 
 `status` reads only the local projection and resolution receipt. It performs no
 network I/O. `doctor` resolves the pinned profile and verifies its digest;
-`--probe` additionally performs bounded HTTP `HEAD` checks. Diagnostics keep
+`--probe` additionally performs bounded HTTP `HEAD` checks. Each HTTP service
+may declare `verification.probe.path`, `timeoutMs`, `attempts`, and
+`retryDelayMs`; the path is same-origin and attempts are capped at three.
+Without an explicit policy, Shifu makes two attempts and uses the command
+timeout, except that Python indexes receive a five-second floor. A devpi
+`/<user>/<index>/+simple/` endpoint is probed through its lightweight `+api`
+root instead of downloading or waiting on the package index listing. Only
+timeouts, transport failures, and HTTP 5xx responses are retried; a persistent
+failure remains `degraded`. Probe evidence records target class, timeout,
+attempt count, status, and duration without recording the endpoint URL.
+Diagnostics keep
 `configured`, `resolved`, `reachable`, `effective`, and `hit` separate. A
 successful resolution receipt proves selected bindings, not a provider cache
 hit, so `hit` remains `unproven` without provider evidence.

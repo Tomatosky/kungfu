@@ -39,6 +39,7 @@ const BLOCKED_ENV_KEYS = new Set([
   'CONAN_HOME',
   'KF_LIBWASM_CARGO_REGISTRY',
   'SHIFU_CACHE_ACTIVE',
+  'SHIFU_CACHE_BYPASS',
   'SHIFU_CARGO_ORIGINAL_PATH',
   'SHIFU_CARGO_REGISTRY',
   'SHIFU_CARGO_SOURCE_NAME',
@@ -49,9 +50,19 @@ const BLOCKED_ENV_KEYS = new Set([
 const CONFIG_KEYS = new Set([
   'cargo.source.crates-io',
   'conan.remote.conancenter',
+  'conan.cache.storage',
 ]);
+const SHIFU_CACHE_HOME_TOKEN = '${SHIFU_CACHE_HOME}';
 const SECRET_KEY_RE =
   /(TOKEN|SECRET|PASSWORD|CREDENTIAL|COOKIE|PRIVATE_KEY|AUTH)/;
+const VERIFICATION_METHODS = new Set([
+  'upstream-checksum',
+  'sha256-manifest',
+  'signature',
+  'tool-native',
+  'transport-only',
+  'none',
+]);
 
 export class CacheProfileError extends Error {}
 
@@ -209,9 +220,11 @@ function validateBinding(binding, serviceId) {
       CONFIG_KEYS.has(binding.key),
       `services.${serviceId} config-key is not supported: ${binding.key}`,
     );
+    const expectedValueFrom =
+      binding.key === 'conan.cache.storage' ? 'endpoint.path' : 'endpoint.url';
     assert(
-      binding.valueFrom === 'endpoint.url',
-      `services.${serviceId} config-key requires endpoint.url`,
+      binding.valueFrom === expectedValueFrom,
+      `services.${serviceId} config-key ${binding.key} requires ${expectedValueFrom}`,
     );
     assert(
       typeof binding.name === 'string' &&
@@ -267,6 +280,74 @@ function validateEndpoint(endpoint, serviceId) {
     `services.${serviceId}.endpoint.path is required`,
   );
   return endpoint;
+}
+
+function validateVerification(verification, serviceId) {
+  const label = `services.${serviceId}.verification`;
+  assertExactKeys(
+    verification,
+    new Set(['method', 'rationale', 'probe']),
+    ['method'],
+    label,
+  );
+  assert(
+    VERIFICATION_METHODS.has(verification.method),
+    `${label}.method is invalid`,
+  );
+  if (Object.hasOwn(verification, 'rationale'))
+    assert(
+      typeof verification.rationale === 'string' &&
+        verification.rationale.length >= 1 &&
+        verification.rationale.length <= 512,
+      `${label}.rationale must contain 1-512 characters`,
+    );
+  if (verification.method === 'none') {
+    assert(
+      Object.hasOwn(verification, 'rationale'),
+      `${label}.rationale is required when method is none`,
+    );
+    assert(
+      !Object.hasOwn(verification, 'probe'),
+      `${label}.probe is incompatible with method none`,
+    );
+  }
+  if (!Object.hasOwn(verification, 'probe')) return;
+  const probe = verification.probe;
+  assertExactKeys(
+    probe,
+    new Set(['path', 'timeoutMs', 'attempts', 'retryDelayMs']),
+    [],
+    `${label}.probe`,
+  );
+  if (Object.hasOwn(probe, 'path'))
+    assert(
+      typeof probe.path === 'string' &&
+        probe.path.startsWith('/') &&
+        !probe.path.startsWith('//') &&
+        !/[?#\\]/.test(probe.path),
+      `${label}.probe.path must be a same-origin absolute path without query or fragment`,
+    );
+  if (Object.hasOwn(probe, 'timeoutMs'))
+    assert(
+      Number.isInteger(probe.timeoutMs) &&
+        probe.timeoutMs >= 100 &&
+        probe.timeoutMs <= 30_000,
+      `${label}.probe.timeoutMs must be an integer from 100 to 30000`,
+    );
+  if (Object.hasOwn(probe, 'attempts'))
+    assert(
+      Number.isInteger(probe.attempts) &&
+        probe.attempts >= 1 &&
+        probe.attempts <= 3,
+      `${label}.probe.attempts must be an integer from 1 to 3`,
+    );
+  if (Object.hasOwn(probe, 'retryDelayMs'))
+    assert(
+      Number.isInteger(probe.retryDelayMs) &&
+        probe.retryDelayMs >= 0 &&
+        probe.retryDelayMs <= 2_000,
+      `${label}.probe.retryDelayMs must be an integer from 0 to 2000`,
+    );
 }
 
 export function validateProfileBytes(
@@ -471,6 +552,7 @@ export function validateProfileBytes(
         service.fallback.mode !== 'upstream',
         `service ${serviceId} cannot use public fallback`,
       );
+    validateVerification(service.verification, serviceId);
     receiptServices[serviceId] = {
       outcome: 'hit',
       selected:
@@ -531,6 +613,87 @@ function conanRemotes(binding) {
   return `${JSON.stringify({ remotes }, null, 1)}\n`;
 }
 
+function safePath(value) {
+  return value.replaceAll('\\', '/');
+}
+
+function resolveShifuCachePath(template, baseEnv) {
+  assert(
+    template === SHIFU_CACHE_HOME_TOKEN ||
+      template.startsWith(`${SHIFU_CACHE_HOME_TOKEN}/`),
+    'managed Conan storage must be under ${SHIFU_CACHE_HOME}',
+  );
+  const relative = template
+    .slice(SHIFU_CACHE_HOME_TOKEN.length)
+    .replace(/^\//, '');
+  const components = relative.split('/').filter(Boolean);
+  assert(
+    components.every((component) => component !== '.' && component !== '..'),
+    'managed Conan storage must not contain path traversal',
+  );
+  const cacheBase = baseEnv.XDG_CACHE_HOME
+    ? path.resolve(baseEnv.XDG_CACHE_HOME)
+    : path.join(os.homedir(), '.cache');
+  const root = path.resolve(cacheBase, 'kungfu');
+  const resolved = path.resolve(root, ...components);
+  assert(
+    resolved === root || resolved.startsWith(`${root}${path.sep}`),
+    'managed Conan storage escaped the Shifu cache root',
+  );
+  return resolved;
+}
+
+function conanStoragePartition(scope, baseEnv) {
+  const runner = String(baseEnv.RUNNER_NAME || '').trim();
+  if (scope === 'self-hosted-runner' || scope === 'ci') {
+    const identity = runner || 'default-runner';
+    return `runner-${sha256(Buffer.from(identity)).slice(7, 19)}`;
+  }
+  return 'development';
+}
+
+function acquireConanStorageLock(storageRoot) {
+  const lockPath = path.join(storageRoot, '.shifu-conan.lock');
+  let descriptor;
+  try {
+    descriptor = fs.openSync(lockPath, 'wx', 0o600);
+    fs.writeFileSync(
+      descriptor,
+      `${JSON.stringify({ pid: process.pid, acquiredAt: new Date().toISOString() })}\n`,
+    );
+  } catch (error) {
+    if (error?.code === 'EEXIST') {
+      throw new CacheProfileError(
+        'managed Conan storage is already in use; parallel Conan clients require separate runner partitions',
+      );
+    }
+    throw error;
+  } finally {
+    if (descriptor !== undefined) fs.closeSync(descriptor);
+  }
+  return {
+    path: lockPath,
+    release() {
+      try {
+        fs.unlinkSync(lockPath);
+      } catch (error) {
+        if (error?.code !== 'ENOENT') throw error;
+      }
+    },
+  };
+}
+
+function conanGlobalConfig(storageRoot) {
+  const packages = safePath(path.join(storageRoot, 'packages'));
+  const downloads = safePath(path.join(storageRoot, 'downloads'));
+  return [
+    `core.cache:storage_path = ${packages}`,
+    `core.download:download_cache = ${downloads}`,
+    'core:non_interactive = True',
+    '',
+  ].join('\n');
+}
+
 function cargoWrapperSource() {
   return `// Generated by Shifu for one child execution; contains no credentials.
 import { spawnSync } from 'node:child_process';
@@ -578,11 +741,13 @@ process.exit(result.status ?? 1);
 `;
 }
 
-function prepareConfigOverlays(configBindings, baseEnv) {
+function prepareConfigOverlays(configBindings, baseEnv, scope) {
   if (configBindings.length === 0) return { env: {}, root: '', cleanup() {} };
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'shifu-cache-overlay-'));
   fs.chmodSync(root, 0o700);
   const overlayEnv = {};
+  let conanStorage = null;
+  let conanStorageLock = null;
   try {
     for (const binding of configBindings) {
       if (binding.key === 'cargo.source.crates-io') {
@@ -613,33 +778,86 @@ function prepareConfigOverlays(configBindings, baseEnv) {
         overlayEnv.SHIFU_CARGO_ORIGINAL_PATH = originalPath;
         overlayEnv.SHIFU_CARGO_SOURCE_NAME = binding.name;
         overlayEnv.SHIFU_CARGO_REGISTRY = binding.value;
-      } else if (binding.key === 'conan.remote.conancenter') {
-        assert(
-          binding.serviceKind === 'package-registry',
-          `${binding.key} requires a package-registry service`,
-        );
-        const conanHome = path.join(root, 'conan-home');
-        fs.mkdirSync(conanHome, { mode: 0o700 });
-        fs.writeFileSync(
-          path.join(conanHome, 'remotes.json'),
-          conanRemotes(binding),
-          { mode: 0o600 },
-        );
-        overlayEnv.CONAN_HOME = conanHome;
-        overlayEnv.SHIFU_CACHE_MANAGED_CONAN = '1';
       }
     }
+    const conanRemote = configBindings.find(
+      (binding) => binding.key === 'conan.remote.conancenter',
+    );
+    const conanStorageBinding = configBindings.find(
+      (binding) => binding.key === 'conan.cache.storage',
+    );
+    if (conanRemote || conanStorageBinding) {
+      assert(
+        conanRemote,
+        'managed Conan storage requires a managed remote binding',
+      );
+      assert(
+        conanRemote.serviceKind === 'package-registry',
+        `${conanRemote.key} requires a package-registry service`,
+      );
+      const conanHome = path.join(root, 'conan-home');
+      fs.mkdirSync(conanHome, { mode: 0o700 });
+      fs.writeFileSync(
+        path.join(conanHome, 'remotes.json'),
+        conanRemotes(conanRemote),
+        { mode: 0o600 },
+      );
+      if (conanStorageBinding) {
+        assert(
+          conanStorageBinding.serviceKind === 'artifact-cache',
+          `${conanStorageBinding.key} requires an artifact-cache service`,
+        );
+        const storageBase = resolveShifuCachePath(
+          conanStorageBinding.value,
+          baseEnv,
+        );
+        const partition = conanStoragePartition(scope, baseEnv);
+        const storageRoot = path.join(storageBase, partition);
+        fs.mkdirSync(storageRoot, { recursive: true, mode: 0o700 });
+        conanStorageLock = acquireConanStorageLock(storageRoot);
+        fs.writeFileSync(
+          path.join(conanHome, 'global.conf'),
+          conanGlobalConfig(storageRoot),
+          { mode: 0o600 },
+        );
+        conanStorage = {
+          serviceId: conanStorageBinding.serviceId,
+          namespace: conanStorageBinding.name,
+          pathDigest: sha256(Buffer.from(storageRoot)),
+          partitionDigest: sha256(Buffer.from(partition)),
+          evidence: {
+            mode: 'persistent-host-local',
+            namespace: conanStorageBinding.name,
+            pathDigest: sha256(Buffer.from(storageRoot)),
+            partitionDigest: sha256(Buffer.from(partition)),
+            lock: 'acquired',
+          },
+        };
+      }
+      overlayEnv.CONAN_HOME = conanHome;
+      overlayEnv.SHIFU_CACHE_MANAGED_CONAN = '1';
+    }
   } catch (error) {
+    conanStorageLock?.release();
     fs.rmSync(root, { recursive: true, force: true });
     throw error;
   }
   return {
     env: overlayEnv,
     root,
+    conanStorage,
     cleanup() {
+      conanStorageLock?.release();
+      if (conanStorage) conanStorage.evidence.lock = 'released';
       fs.rmSync(root, { recursive: true, force: true });
     },
   };
+}
+
+function markConanStorage(receipt, conanStorage) {
+  if (!conanStorage) return;
+  receipt.services[conanStorage.serviceId].application.conanStorage =
+    conanStorage.evidence;
 }
 
 function markOverlayCleanup(receipt) {
@@ -832,7 +1050,12 @@ export async function applyCacheProfile({
   const verificationStarted = Date.now();
   let result;
   try {
-    overlays = prepareConfigOverlays(resolved.configBindings, env);
+    overlays = prepareConfigOverlays(
+      resolved.configBindings,
+      env,
+      resolved.scope,
+    );
+    markConanStorage(resolved.receipt, overlays.conanStorage);
     const boundEnv = {
       ...env,
       ...resolved.bindings,
@@ -874,6 +1097,7 @@ export async function applyCacheProfile({
       ...boundEnv,
       ...uvOverlay.env,
       SHIFU_CACHE_ACTIVE: '1',
+      SHIFU_CACHE_BYPASS: '',
     };
     result = spawnChild(command, args, {
       cwd,

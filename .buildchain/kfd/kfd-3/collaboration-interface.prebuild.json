@@ -5,8 +5,8 @@
   "witnessKind": "prebuild",
   "supportLevel": "release",
   "source": {
-    "cwd": "/Users/dkr/Worktrees/kungfu/feature/profile-kfd3-badge-agent-status",
-    "sourceSha": "afec2c6bc5a7017920c0a12401c0461d9eaf04de",
+    "cwd": "/Users/dkr/Worktrees/kungfu/feature/adr0049-seven-staged-release",
+    "sourceSha": "c115e32c0104b3d9ca1e3c1ccebb8f713e7ab138",
     "registryPath": ".buildchain/kfd/kfd-3/surfaces.json",
     "registryDigest": "sha256:8905961fd705da6a0e7fc37793f0d7a669da0bf7cfce0bab3e20a52c4bc14dd1"
   },

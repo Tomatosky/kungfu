@@ -3,9 +3,11 @@ metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
 adr_id: SHIFU-ADR-0004
 decision_status: accepted
-implementation_status: partial
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/762, https://github.com/kungfu-systems/kungfu/pull/765]
-review_state: unreviewed
+implementation_status: implemented
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/762, https://github.com/kungfu-systems/kungfu/pull/765, https://github.com/kungfu-systems/kungfu/pull/767, https://github.com/kungfu-systems/kungfu/pull/769, https://github.com/kungfu-systems/kungfu/pull/773, https://github.com/kungfu-systems/kungfu/pull/781, https://github.com/kungfu-systems/kungfu/pull/786]
+closure_pr: https://github.com/kungfu-systems/kungfu/pull/781
+qualification_refs: [scripts/shifu-gate-runtime.test.mjs, scripts/check-kungfu-gate-catalog.test.mjs, scripts/shifu-cache-runtime.test.mjs, .github/workflows/dev-verify-patrol.yml]
+review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
 period: ongoing
@@ -17,7 +19,7 @@ last_reviewed: 2026-07-13
 
 # SHIFU-ADR-0004: Gate control plane contract
 
-- Status: accepted; development implementation
+- Status: accepted and implemented
 - Date: 2026-07-13
 - Scope: Shifu quality and release gate declaration, explanation, planning,
   execution, and receipts
@@ -70,6 +72,13 @@ digests, platform, capabilities, required action coverage, artifact presence,
 and redacted evidence pointers. Child output and inherited environment values
 are not receipt fields.
 
+When a cache profile is projected, `gate run` enters Shifu cache application
+once at this outer execution boundary. Task actions inherit the active cache
+context, disposable tool configuration, and Conan storage lock; they do not
+resolve or apply the profile again. Read-only Gate inspection remains outside
+that boundary, and build-free source acceptance uses a distinct cache-bypass
+context rather than pretending cache was applied.
+
 Qualification is recomputed, not trusted: it requires a clean Git revision, a
 current profile plan and gate definitions, and complete passing coverage for
 every required action. Advisory failures remain visible without blocking
@@ -92,6 +101,38 @@ entrypoints may become compatibility aliases, but they cannot remain an
 independent policy source. Existing required gates are not weakened while both
 paths coexist.
 
+## Current Kungfu projection
+
+Kungfu's first project-owned registry contains 34 light and heavy gates and
+five explicit profiles: `dev-pr`, `dev-patrol`, `alpha-pr`, `release-pr`, and
+`release-promotion`. The generated matrix and per-gate documentation live in
+the [Kungfu Gate catalog](../qualification/gates/README.md). A dedicated meta
+gate validates the registry, task references, detailed documentation, exact
+generated matrix, profile coverage, and current workflow bindings together.
+
+Task-backed workflows now enter through `shifu gate run` for ADR delivery,
+promotion rehearsal, documentation closure, development full verification,
+the native membrane matrix, and the Shifu workspace matrix. Supply-chain-pinned
+actions and Buildchain-owned orchestration remain explicit controller bindings;
+named handlers remain non-executable until those controllers register them.
+The workflow bindings make that remaining compatibility debt explicit and fail
+closed when either the execution authority or recorded current source drifts.
+
+Buildchain now provides a project-neutral reusable profile workflow. It asks
+the consumer's Shifu registry for a platform plan, derives a capability-aware
+runner matrix, validates every platform receipt, and publishes one stable
+aggregate bound to the source, registry, plan, matrix, actions, and Gate
+definitions. Planning and execution accept separate argv maps so a read-only
+plan does not depend on a project cache or container wrapper. Kungfu supplies
+only its profile id, runner preset, non-sensitive runtime environment, and
+opaque cache reference; Buildchain contains no Kungfu Gate ids or policy rows.
+PR 773 published the three-platform standing dev patrol after the consumer
+canary recorded its Linux/macOS failures and Windows Actions transport failure
+without rewriting them as passing. Buildchain then published the controller as
+stable `v2.12.2`; PR 781 pins the patrol to that release's immutable commit and
+closes the project-side rollout. Gates without a current qualification binding
+remain explicit `off` policy decisions rather than implicit omissions.
+
 ## Consequences
 
 - Developers and agents get one human-readable and machine-readable surface
@@ -100,8 +141,8 @@ paths coexist.
   explicit matrix without teaching Shifu those project-specific names.
 - New gates fail profile validation until every policy explicitly decides
   them.
-- Buildchain scheduling and receipt aggregation can be added later without
-  changing project gate meaning.
+- Buildchain scheduling and receipt aggregation preserve project Gate meaning
+  and expose a stable aggregate for branch protection and release passports.
 - The contract adds a small validation and documentation burden, paid once to
   remove repeated workflow and prose reconstruction.
 

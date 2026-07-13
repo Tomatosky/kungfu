@@ -307,12 +307,12 @@ def compose_query_receipt(
     view = _by_id(composed["views"], view_id, "view")
     if not receipts:
         _fail("query-composition-empty", "query composition requires subreceipts")
-    for receipt in receipts:
+    for subreceipt in receipts:
         if (
-            receipt.get("schema") != "kungfu.profile-query-receipt/v1"
-            or receipt.get("profileSuiteRoot") != composed["profileSuiteRoot"]
-            or receipt.get("catalogRoot") != composed["catalogRoot"]
-            or receipt.get("viewId") != view_id
+            subreceipt.get("schema") != "kungfu.profile-query-receipt/v1"
+            or subreceipt.get("profileSuiteRoot") != composed["profileSuiteRoot"]
+            or subreceipt.get("catalogRoot") != composed["catalogRoot"]
+            or subreceipt.get("viewId") != view_id
         ):
             _fail(
                 "query-composition-receipt-mismatch",

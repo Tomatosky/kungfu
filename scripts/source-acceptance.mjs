@@ -71,6 +71,7 @@ export function sourceAcceptancePlan(files) {
     ['Shifu entry contract', 'scripts/check-shifu-entry-contract.mjs'],
     ['Shifu cache contract', 'scripts/check-shifu-cache-contract.mjs'],
     ['Shifu Gate contract', 'scripts/check-shifu-gate-contract.mjs'],
+    ['Kungfu Gate catalog', 'scripts/check-kungfu-gate-catalog.mjs'],
     ['carrier/action envelope', 'scripts/check-carrier-action-envelope.mjs'],
     ['runtime greenfield', 'scripts/check-runtime-greenfield.mjs'],
     ['schema authority', 'scripts/check-schema-authority.mjs'],
@@ -100,10 +101,13 @@ export function sourceAcceptancePlan(files) {
         'scripts/check-shifu-entry-contract.test.mjs',
         'scripts/check-shifu-cache-contract.test.mjs',
         'scripts/shifu-cache-runtime.test.mjs',
+        'scripts/shifu-conan-publish.test.mjs',
         'scripts/shifu-uv-cache-adapter.test.mjs',
         'scripts/shifu-gate-runtime.test.mjs',
         'scripts/shifu-gate-executor.test.mjs',
+        'scripts/check-kungfu-gate-catalog.test.mjs',
         'scripts/check-schema-authority.test.mjs',
+        'framework/core/tests/qualification/durability/run.test.mjs',
       ],
     },
     {
@@ -140,23 +144,29 @@ export function sourceAcceptancePlan(files) {
         command: 'ruff',
         args: ['check', '--force-exclude', ...python],
       },
-      {
-        label: 'Python type baseline',
-        command: 'mypy',
-        args: [
-          '--config-file',
-          'framework/core/pyproject.toml',
-          'framework/core/src/python/kungfu',
-        ],
-        env: {
-          ...process.env,
-          MYPY_CACHE_DIR: path.join(
-            process.env.RUNNER_TEMP || '/tmp',
-            'kungfu-source-mypy',
-          ),
-        },
-      },
     );
+  }
+
+  const typedPython = python.filter((file) =>
+    file.startsWith('framework/core/src/python/'),
+  );
+  if (typedPython.length) {
+    plan.push({
+      label: 'Python type baseline',
+      command: 'mypy',
+      args: [
+        '--config-file',
+        'framework/core/pyproject.toml',
+        'framework/core/src/python/kungfu',
+      ],
+      env: {
+        ...process.env,
+        MYPY_CACHE_DIR: path.join(
+          process.env.RUNNER_TEMP || '/tmp',
+          'kungfu-source-mypy',
+        ),
+      },
+    });
   }
 
   const cpp = files.filter((file) => CPP.test(file));

@@ -8,13 +8,10 @@
 # promotion, forcing contributors to reproduce the baseline by hand to tell a
 # green change from an already-red tree.
 #
-# This patrol gives dev an authoritative, attributable pass/fail. It runs the
-# full verify once a day (and on demand) on a single Linux host, and keeps a
-# single tracking issue in sync with the result. Scheduled runs execute against
-# the default branch (dev/v4/v4.0), so no source ref override is needed. The
-# cross-platform matrix and the fuzz long-run stay the alpha gate; this patrol
-# is the lighter, more frequent tier that catches platform-neutral regressions
-# early.
+# This patrol gives dev an authoritative, attributable pass/fail through the
+# Shifu Gate profile declared in shifu.gates.json. Buildchain expands the plan
+# across the supported native runner matrix and aggregates source-bound
+# receipts without owning Kungfu's concrete Gate ids or policy.
 
 name: Dev Verify Patrol
 
@@ -36,45 +33,21 @@ permissions:
 
 jobs:
   verify:
-    uses: kungfu-systems/buildchain/.github/workflows/build.yml@v2-alpha
-    secrets: inherit
+    uses: kungfu-systems/buildchain/.github/workflows/.gate-profile.yml@0d5487b64cc4df52519e4b30492876f3819b9137
     with:
       buildchain-ref: ${{ inputs.buildchain-ref || '' }}
-      # Single self-hosted Linux host: the platform-neutral regressions this
-      # patrol targets do not need the full matrix, which remains the alpha
-      # gate. Native Linux (no container preset), matching the Build workflow.
-      runner-preset: custom
-      platforms-json: >-
-        [{"id":"linux-x64","name":"Linux x64",
-        "runner":"[\"self-hosted\",\"Linux\",\"X64\",\"kungfu-build-v4-linux-x64\"]"}]
-      # The lifecycle forces native execution after the checkout-owned cache
-      # profile is applied. Build the launcher from this source revision so a
-      # stale release slot cannot reinterpret newer Shifu verbs as pnpm tasks.
-      setup-rust: true
-      artifact-name: kungfu-dev-verify
+      gate-profile: dev-patrol
+      runner-preset: kungfu-v4-self-hosted
+      artifact-name: kungfu-dev-patrol-gates
+      # Buildchain projects the cache profile as environment. Keep the Gate
+      # argv direct so the controller can append `gate plan/run ...` safely.
+      gate-command-json: >-
+        {"linux":["./shifu"],"macos":["./shifu"],"windows":["./shifu.cmd"]}
+      gate-environment-json: >-
+        {"SHIFU_NATIVE":"1","KUNGFU_BUILDCHAIN_NO_OPTIONAL":"1",
+        "KUNGFU_BUILDCHAIN_SOURCE_BUILD":"1"}
       shifu-cache-profile-ref: ${{ vars.SHIFU_CACHE_PROFILE_REF }}
       shifu-cache-profile-digest: ${{ vars.SHIFU_CACHE_PROFILE_DIGEST }}
-      artifact-paths: |
-        product/release
-      expected-artifacts-json: >-
-        {"minFiles":1,"minTotalBytes":1}
-      require-install: true
-      require-build: true
-      require-verify: true
-      # Full verify without the libFuzzer long-run: `--full` runs the build,
-      # capability slices, journal fact fixtures, and the mvp-smoke-v1 Episode
-      # qualification — the build-dependent stages that accumulate silently on
-      # dev. `--fuzz` (ADR-0039 memory-safety long-run) and the release
-      # qualification evidence stay the alpha gate. No SHIFU_REQUIRE_MSVC: this
-      # tier is Linux-only.
-      #
-      # Wrapped in `bash -c` for the same reason as the Build workflow: an
-      # explicit verify-command runs under the platform default shell and does
-      # not inherit the lifecycle stage's shell or env, so both are inlined to
-      # match the .buildchain/buildchain.toml stages.
-      verify-command: >-
-        bash -c "KUNGFU_BUILDCHAIN_NO_OPTIONAL=1 KUNGFU_BUILDCHAIN_SOURCE_BUILD=1
-        SHIFU_NATIVE=1 ./shifu cache apply -- ./shifu verify --full"
 
   # Keep one tracking issue in sync with the patrol result: open or refresh it
   # when dev is red, close it when dev returns to green. This is the standing
