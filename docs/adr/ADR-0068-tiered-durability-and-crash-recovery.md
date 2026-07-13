@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0068
 decision_status: accepted
 implementation_status: staged
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/668, https://github.com/kungfu-systems/kungfu/pull/673, https://github.com/kungfu-systems/kungfu/pull/682, https://github.com/kungfu-systems/kungfu/pull/687, https://github.com/kungfu-systems/kungfu/pull/691, https://github.com/kungfu-systems/kungfu/pull/693, https://github.com/kungfu-systems/kungfu/pull/697, https://github.com/kungfu-systems/kungfu/pull/701, https://github.com/kungfu-systems/kungfu/pull/705, https://github.com/kungfu-systems/kungfu/pull/754, https://github.com/kungfu-systems/kungfu/pull/770, https://github.com/kungfu-systems/kungfu/pull/783, https://github.com/kungfu-systems/kungfu/pull/784, https://github.com/kungfu-systems/kungfu/pull/788]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/668, https://github.com/kungfu-systems/kungfu/pull/673, https://github.com/kungfu-systems/kungfu/pull/682, https://github.com/kungfu-systems/kungfu/pull/687, https://github.com/kungfu-systems/kungfu/pull/691, https://github.com/kungfu-systems/kungfu/pull/693, https://github.com/kungfu-systems/kungfu/pull/697, https://github.com/kungfu-systems/kungfu/pull/701, https://github.com/kungfu-systems/kungfu/pull/705, https://github.com/kungfu-systems/kungfu/pull/754, https://github.com/kungfu-systems/kungfu/pull/770, https://github.com/kungfu-systems/kungfu/pull/783, https://github.com/kungfu-systems/kungfu/pull/784, https://github.com/kungfu-systems/kungfu/pull/788, https://github.com/kungfu-systems/kungfu/pull/794]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -12,7 +12,7 @@ period: 2026-07-12
 theme: tiered-durability-and-crash-recovery
 confidence: high
 evidence_grade: B
-last_reviewed: 2026-07-13
+last_reviewed: 2026-07-14
 ---
 
 # ADR-0068: tiered durability separates hot visibility, durable fact admission, projections, and replication
@@ -272,11 +272,23 @@ Core builds passed on macOS, Linux, and Windows at `1140d28d`; this establishes
 cross-platform buildability of the qualification path, not additional crash or
 power-loss evidence.
 
+The retained `Single-Host Institutional Profile v1` qualification slice now
+adds a disposable Linux/ext4 QEMU device envelope. Both durable profiles passed
+the same 20 record-write, data-sync, checkpoint, directory-sync, and
+post-receipt power-cut trials. A separate real filesystem-full trial returned
+an unknown I/O outcome without a durable watermark; fresh reopen retained only
+the classified unacknowledged tail. Three whole-guest reopens recovered the
+same durable frontier, and an offline block-image backup restored onto an
+absent data device passed hash comparison, read-only fsck, and fresh-boot chain
+verification at a quiesced RPO-zero cut. The retained report binds those facts,
+the current-head ownership/recovery/projection suites, and the Episode smoke
+qualification to raw evidence hashes.
+
 The production mmap claim remains `demand + visibility`. The backup/restore
 round trip and projection cut equality are implementation evidence, not an
 operator-facing backup format or qualified power-loss guarantee. Production
-bootstrap authority cutover, external-backup serialization/operations,
-disposable power-loss fault qualification, whole-host restart qualification,
-and the public durability product contract remain pending. In particular,
-process-kill and local cross-platform evidence do not establish
-sudden-power-loss durability.
+bootstrap authority cutover, off-host backup operations, physical-host restart
+and physical-power-loss qualification, macOS/Windows device-tier qualification,
+and the public durability product contract remain pending. In particular, the
+disposable guest result does not qualify a physical host, a whole-device loss,
+an independent backup failure domain, or a production profile.
