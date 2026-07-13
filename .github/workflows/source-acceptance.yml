@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: Apache-2.0
+
+name: Source Acceptance
+
+on:
+  pull_request:
+    branches:
+      - dev/v*/v*
+
+permissions:
+  contents: read
+
+jobs:
+  source-acceptance:
+    name: Source acceptance
+    uses: kungfu-systems/buildchain/.github/workflows/check.yml@train/v2/v2.3/source-check-mode-env
+    with:
+      buildchain-ref: train/v2/v2.3/source-check-mode-env
+      mode: source
+      upload-artifacts: true
