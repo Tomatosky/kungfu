@@ -19,6 +19,8 @@ execution; Shifu owns how the task is executed after source checkout.
   explicit profile matrix, validation, deterministic planning, bounded
   execution, and source-bound receipt contract.
   [`gate-contract.json`](gate-contract.json) is its discovery root.
+  Kungfu's concrete [Gate catalog and policy matrix](../qualification/gates/README.md)
+  consume that contract without moving project policy into Shifu.
 - [`schema/cache-profile-v1.schema.json`](schema/cache-profile-v1.schema.json)
   is the single source of truth for cache profile fields.
 - [`schema/cache-resolution-v1.schema.json`](schema/cache-resolution-v1.schema.json)

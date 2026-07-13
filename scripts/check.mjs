@@ -360,6 +360,12 @@ function testShifuGateContract() {
   ]);
 }
 
+function checkKungfuGateCatalog() {
+  run('Kungfu Gate catalog gate', 'node', [
+    path.join('scripts', 'check-kungfu-gate-catalog.mjs'),
+  ]);
+}
+
 function checkLayerQualification() {
   run('ADR-0049 layer qualification harness tests', 'node', [
     '--test',
@@ -509,6 +515,7 @@ function checkStaged() {
   checkShifuEntryContract();
   checkShifuCacheContract();
   checkShifuGateContract();
+  checkKungfuGateCatalog();
   checkCarrierActionEnvelope(['--staged']);
   checkRuntimeGreenfield(['--staged']);
   checkSchemaAuthority();
@@ -562,6 +569,7 @@ function checkShared() {
   testShifuEntryContract();
   testShifuCacheContract();
   testShifuGateContract();
+  checkKungfuGateCatalog();
   testSchemaAuthority();
   checkJournalAuthorityBoundary();
   checkLiveRuntimeTerminology();

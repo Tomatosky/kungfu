@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: SHIFU-ADR-0004
 decision_status: accepted
 implementation_status: partial
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/762, https://github.com/kungfu-systems/kungfu/pull/765]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/762, https://github.com/kungfu-systems/kungfu/pull/765, https://github.com/kungfu-systems/kungfu/pull/767]
 review_state: unreviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -91,6 +91,21 @@ Existing `./shifu <task>` dispatch remains valid. During migration, old task
 entrypoints may become compatibility aliases, but they cannot remain an
 independent policy source. Existing required gates are not weakened while both
 paths coexist.
+
+## Current Kungfu projection
+
+Kungfu's first project-owned registry contains 34 light and heavy gates and
+five explicit profiles: `dev-pr`, `dev-patrol`, `alpha-pr`, `release-pr`, and
+`release-promotion`. The generated matrix and per-gate documentation live in
+the [Kungfu Gate catalog](../qualification/gates/README.md). A dedicated meta
+gate validates the registry, task references, detailed documentation, exact
+generated matrix, profile coverage, and current workflow bindings together.
+
+This projection records current policy without pretending migration is
+complete. Existing workflows remain the activation surface until they consume
+Shifu profile plans directly, and named handlers remain non-executable until a
+controller registers them. The workflow bindings make that compatibility debt
+explicit and fail closed when the recorded current source drifts.
 
 ## Consequences
 
