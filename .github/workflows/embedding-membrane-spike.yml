@@ -234,7 +234,7 @@ jobs:
           cd "$SOURCE_ROOT"
           if ! ./shifu qualify:embedding-membranes; then
             echo "primary Cargo mirror unavailable; retrying through crates.io"
-            KF_LIBWASM_CARGO_REGISTRY="sparse+https://index.crates.io/" \
+            KF_LIBWASM_CARGO_REGISTRY="" \
               ./shifu qualify:embedding-membranes
           fi
 
@@ -246,7 +246,7 @@ jobs:
           .\shifu.cmd qualify:embedding-membranes
           if ($LASTEXITCODE -ne 0) {
             Write-Host "primary Cargo mirror unavailable; retrying through crates.io"
-            $env:KF_LIBWASM_CARGO_REGISTRY = "sparse+https://index.crates.io/"
+            $env:KF_LIBWASM_CARGO_REGISTRY = ""
             .\shifu.cmd qualify:embedding-membranes
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
