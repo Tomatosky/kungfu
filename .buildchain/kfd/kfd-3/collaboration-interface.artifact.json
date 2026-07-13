@@ -10,8 +10,8 @@
   "sourceRegistry": {
     "id": "kungfu",
     "path": ".buildchain/kfd/kfd-3/surfaces.json",
-    "sha256": "71d429b9bf117cf812315c8b0aa20db257096bd0791f5cc4b74d6bfcb3358f0b",
-    "digest": "sha256:0f825d989935c9b386e3c34f203b6d4fd8dd2a134ed14df299a97b4f87979af5"
+    "sha256": "e094ac1bdd7a6e3ba4f1a16e320b0589e75d72749c6204f81b7b760470ce1b73",
+    "digest": "sha256:1668797f79700d1a67e7552eaf64a4a166dc976f1afbd7bf2e62f8790495a325"
   },
   "upstreamKfd": {
     "aggregatePath": "developer/sdk/kfd/upstream-aggregate.json",
@@ -28,7 +28,7 @@
     },
     "digest": "sha256:a86ddd8755809f5337e11023a8218d513c87d58077265007f1d207ef957f4761"
   },
-  "collaborationInterfaceDigest": "sha256:fe813f8fc8420a6c27b7a49a346a9ea5f36926763b8376946a196833975f5de0",
+  "collaborationInterfaceDigest": "sha256:325aa7583452018b445db46cda1fb737eb610f9d8e713ede17d16fbf4720d8f6",
   "exposedSurfaces": [
     {
       "id": "kungfu.agent",
@@ -333,7 +333,7 @@
     {
       "id": "kungfu.atlas.assess-mission",
       "name": "kungfu atlas assess-mission <mission-id> --json",
-      "kind": "cli",
+      "kind": "cli-api-gui",
       "participantProfile": "agent-or-developer",
       "state": "declared",
       "availability": "shipped",
@@ -353,7 +353,7 @@
     {
       "id": "kungfu.atlas.claim-completion",
       "name": "kungfu atlas claim-completion <mission-id> <goal-id> --statement <statement> --actor <actor> --evidence-episode <id> --json",
-      "kind": "cli",
+      "kind": "cli-api-gui",
       "participantProfile": "agent-or-developer",
       "state": "declared",
       "availability": "shipped",
@@ -373,7 +373,7 @@
     {
       "id": "kungfu.atlas.create-go",
       "name": "kungfu atlas create-go <mission-id> <goal-id> --title <title> --objective <objective> --actor <actor> --json",
-      "kind": "cli",
+      "kind": "cli-api-gui",
       "participantProfile": "agent-or-developer",
       "state": "declared",
       "availability": "shipped",
@@ -393,7 +393,7 @@
     {
       "id": "kungfu.atlas.create-mission",
       "name": "kungfu atlas create-mission <mission-id> --title <title> --intent <intent> --actor <actor> --json",
-      "kind": "cli",
+      "kind": "cli-api-gui",
       "participantProfile": "agent-or-developer",
       "state": "declared",
       "availability": "shipped",
@@ -1137,7 +1137,7 @@
     },
     {
       "id": "kungfu.profile.kfd3-qualification",
-      "name": "kungfu profile kfd3-qualify <source> --json",
+      "name": "kungfu profile kfd3-status <source> --json",
       "kind": "cli-api-gui",
       "participantProfile": "agent-or-developer",
       "state": "declared",
