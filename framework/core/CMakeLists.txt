@@ -110,8 +110,12 @@ if (WIN32 AND TARGET ${LIBKUNGFU_NAME})
   add_subdirectory(src/libembedding)
 endif()
 
+set(KUNGFU_BUILD_NODE_BINDINGS OFF)
 if (NOT DEFINED ENV{KUNGFU_BUILD_SKIP_KUNGFU_NODE} OR NOT $ENV{KUNGFU_BUILD_SKIP_KUNGFU_NODE})
-  message(STATUS "Enabled kungfu_node")
+  set(KUNGFU_BUILD_NODE_BINDINGS ON)
+endif()
+if (KUNGFU_BUILD_NODE_BINDINGS OR (WIN32 AND "${NODE_RUNTIME}" STREQUAL "node"))
+  message(STATUS "Enabled node bindings/runtime host")
   add_subdirectory(src/bindings/node)
 endif()
 
