@@ -40,7 +40,7 @@ add_library(yijinjing STATIC ${YIJINJING_SOURCE_FILES})
 # requirement holds even when the embedder's global standard is older
 target_compile_features(yijinjing PUBLIC cxx_std_20)
 if(TARGET kungfu_compile_contract)
-  target_link_libraries(yijinjing PRIVATE kungfu_compile_contract)
+  target_link_libraries(yijinjing PUBLIC kungfu_compile_contract)
 endif()
 # linked into the SHARED libkungfu on Mac/Linux
 set_target_properties(yijinjing PROPERTIES POSITION_INDEPENDENT_CODE ON)
