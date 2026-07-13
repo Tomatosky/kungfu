@@ -999,16 +999,18 @@ function createWindow() {
     harnessEntry,
   });
 
-  win.on('ready-to-show', () => {
-    if (qualificationMode) {
+  if (qualificationMode) {
+    win.webContents.once('did-finish-load', () => {
       console.log('KF_GUI_QUALIFICATION_READY');
       setTimeout(quitGui, 250);
-      return;
-    }
-    win.show();
-    if (process.platform === 'darwin') void app.dock?.show();
-    buildTrayMenu();
-  });
+    });
+  } else {
+    win.on('ready-to-show', () => {
+      win.show();
+      if (process.platform === 'darwin') void app.dock?.show();
+      buildTrayMenu();
+    });
+  }
 
   if (process.env.ELECTRON_RENDERER_URL) {
     win.loadURL(process.env.ELECTRON_RENDERER_URL);
