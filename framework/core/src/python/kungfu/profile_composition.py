@@ -13,7 +13,7 @@ import hashlib
 import json
 import time
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, NoReturn, Sequence
 
 from kungfu import profile_sdk
 from kungfu.storage import service as storage_service
@@ -41,7 +41,14 @@ def catalog(
     validated = profile_sdk.validate_source(source, runtime_dir)
     inspection = validated["inspection"]
     profile = inspection["profile"]
-    artifacts = {
+    views = _read_typed_ref(
+        inspection,
+        profile["views"]["registry"],
+        "kungfu.profile-views/v1",
+    ).get("views")
+    if not isinstance(views, list):
+        _fail("composition-artifact-invalid", "views must be an array")
+    artifacts: dict[str, list[Any]] = {
         "factSurfaces": _merge_refs(
             inspection,
             profile["kfd1"]["factSurfaces"],
@@ -60,11 +67,7 @@ def catalog(
             "policies",
             "kungfu.profile-assessment-policies/v1",
         ),
-        "views": _read_typed_ref(
-            inspection,
-            profile["views"]["registry"],
-            "kungfu.profile-views/v1",
-        ).get("views"),
+        "views": views,
     }
     for name, value in artifacts.items():
         if not isinstance(value, list):
@@ -287,19 +290,19 @@ def compose_query_receipt(
     source: str | Path,
     runtime_dir: str | Path,
     view_id: str,
-    receipts: list[Mapping[str, Any]],
+    receipts: Sequence[Mapping[str, Any]],
     result: Mapping[str, Any],
 ) -> dict[str, Any]:
     """Bind a domain reducer's composite result to exact public subreceipts."""
 
     if len(receipts) == 1:
-        receipt = dict(receipts[0])
-        if receipt.get("result") != result:
+        single_receipt = dict(receipts[0])
+        if single_receipt.get("result") != result:
             _fail(
                 "query-composition-result-mismatch",
                 "single query receipt result changed during composition",
             )
-        return receipt
+        return single_receipt
     composed = catalog(source, runtime_dir, require_active=True)
     view = _by_id(composed["views"], view_id, "view")
     if not receipts:
@@ -1162,7 +1165,7 @@ def _merge_refs(
     field: str,
     schema: str,
 ) -> list[Any]:
-    rows = []
+    rows: list[Any] = []
     for ref in refs:
         value = _read_typed_ref(inspection, ref, schema).get(field)
         if not isinstance(value, list):
@@ -1220,5 +1223,5 @@ def _root(value: Any) -> str:
     return "sha256:" + hashlib.sha256(data).hexdigest()
 
 
-def _fail(code: str, message: str, **details: Any) -> None:
+def _fail(code: str, message: str, **details: Any) -> NoReturn:
     raise profile_sdk.ProfileSdkError(code, message, **details)

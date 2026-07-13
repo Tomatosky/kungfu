@@ -1644,7 +1644,7 @@ def _validate_decision_answer(
 
 def package_content_root(package_dir: str | Path) -> str:
     root = Path(package_dir).resolve()
-    rows = []
+    rows: list[dict[str, Any]] = []
     for path in root.rglob("*"):
         relative = path.relative_to(root)
         if any(part in _IGNORED_PARTS for part in relative.parts):

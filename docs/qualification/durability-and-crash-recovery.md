@@ -101,6 +101,17 @@ fixture proves the restored durable frontier, records, Episode identities, and
 rebuilt projection state/cut/hash equal the backup cut. This is not yet an
 external archive format, operator command, or qualified backup procedure.
 
+The test-only completion fixture now reopens the whole data root in a fresh
+process and executes the declared restart gate: supervisor report verification,
+state-service durable/Episode reopen, projection bootstrap, then required-peer
+authorization. `BLOCKED` recovery cannot start the state service, and
+`DEGRADED` recovery cannot authorize required peers. Recovery also reports a
+sealed Episode with a missing dependency as a named `episode_findings` entry
+while leaving an independent Episode unaffected; this composes the existing
+typed Episode qualification that is checked against the independent semantic
+oracle. Interrupted quarantine package publication resumes only exact files or
+known pending files and rejects extra evidence before mutation.
+
 Do not interpret `MAP_SHARED`, `msync`, `FlushViewOfFile`, SQLite WAL, process
 residency, or a successful write call as a power-loss guarantee. A guarantee is
 made only by a named profile with retained qualification evidence.

@@ -249,6 +249,14 @@ hashes, and restores idempotently into an empty data root before requiring an
 explicit projection rebuild. Recovery inspection is deterministic and does not
 silently abort, resume, repair, or promote uncertain facts.
 
+The test-only recovery completion contract additionally reopens the whole data
+root in a fresh process, mechanically authorizes supervisor -> state service ->
+projection -> required peers, retains sealed cross-Episode dependency failures
+as named findings without contaminating independent Episodes, and resumes only
+exact interrupted quarantine packages. Episode capability truth remains owned
+by the existing typed qualification and its independent semantic oracle rather
+than being duplicated in recovery.
+
 The production mmap claim remains `demand + visibility`. The backup/restore
 round trip and projection cut equality are implementation evidence, not an
 operator-facing backup format or qualified power-loss guarantee. Production

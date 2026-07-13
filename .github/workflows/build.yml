@@ -75,8 +75,11 @@ jobs:
       checkout-cache-reference-repository-template: ${{ vars.BUILDCHAIN_CHECKOUT_CACHE_REFERENCE_REPOSITORY_TEMPLATE }}
       checkout-cache-fallback: github
       checkout-cache-timeout-seconds: 60
-      shifu-cache-profile-ref: ${{ vars.SHIFU_CACHE_PROFILE_REF }}
-      shifu-cache-profile-digest: ${{ vars.SHIFU_CACHE_PROFILE_DIGEST }}
+      # Custom qualification matrices can mix hosted and self-hosted runners.
+      # Do not project the private-LAN runner profile onto hosted legs; use the
+      # checked-in explicit-off profile so cache provenance remains auditable.
+      shifu-cache-profile-ref: ${{ inputs.platforms-json && 'docs/shifu/qualification-portable-off.cache-profile.json' || vars.SHIFU_CACHE_PROFILE_REF }}
+      shifu-cache-profile-digest: ${{ inputs.platforms-json && 'sha256:251ecdb33a34b770a6fbd40b0b05c5c8c0d629a06d9144e6d2d89c9c8e70258b' || vars.SHIFU_CACHE_PROFILE_DIGEST }}
       buildchain-contract-lock-path: .buildchain/contract-lock.json
       buildchain-contract-compatibility-policy: major-compatible
       buildchain-contract-drift-issue-mode: compatible-and-breaking

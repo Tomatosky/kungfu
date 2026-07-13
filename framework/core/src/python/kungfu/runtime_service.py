@@ -19,7 +19,7 @@ from kungfu import host
 from kungfu.storage import service as storage_service
 
 lf = kungfu.__binding__.yijinjing
-yjj = kungfu.__binding__.runtime
+yjj: Any = kungfu.__binding__.runtime
 
 
 SCHEMA_STATUS = "kungfu.runtime.status/v2"
