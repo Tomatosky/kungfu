@@ -9,6 +9,7 @@ import click
 
 from kungfu import agent as agent_pack
 from kungfu import config as kungfu_config
+from kungfu import durability as durability_contract
 from kungfu.agent import runtime_profiles
 from kungfu.agent.kfd3 import (
     api_help,
@@ -209,6 +210,7 @@ def capabilities(ctx, as_json):
         "index": agent_pack.index(),
         "commands": agent_pack.commands(),
         "collaborationInterface": registry_summary(),
+        "durability": durability_contract.capabilities(),
     }
     if as_json:
         _json(payload)

@@ -404,6 +404,10 @@ void bind(pybind11::module &&m) {
       },
       py::arg("request_id"), py::arg("stream_id"), py::arg("container_epoch"), py::arg("sequence"),
       py::arg("frame_uid"), py::arg("requested_profile") = "visible", py::arg("completed_at") = 0);
+  m.def("durability_capability_typed", []() {
+    return json_to_py(
+        runtime::durability::render_durability_capability(runtime::durability::single_host_institutional_capability()));
+  });
 
   // nanosecond-time related
   m.def("now_in_nano", &yijinjing::time::now_in_nano);

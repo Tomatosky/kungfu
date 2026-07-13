@@ -62,13 +62,32 @@ const pythonResult = spawnSync(
       "assert r['error'] == 'unsupported_profile'",
       "assert r['achieved_profile'] == 'visible'",
       "assert r['durable_watermark'] is None",
+      'c = pykungfu.runtime.durability_capability_typed()',
+      "assert c['schema'] == 'kungfu.durability.capability/v1'",
+      "assert c['authority'] == 'libkungfu'",
+      "assert c['support_level'] == 'qualified-test-only'",
+      "assert c['production_eligible'] is False",
+      "assert c['restore']['off_host'] is False",
+      'import json, tempfile',
+      'from click.testing import CliRunner',
+      'from kungfu import durability',
+      'from kungfu.cli.commands import __registry__',
+      'from kungfu.cli.commands import kfc',
+      "d = tempfile.mkdtemp(prefix='kf-durability-capability-')",
+      "result = CliRunner().invoke(kfc, ['--home', d, 'agent', 'capabilities', '--json'])",
+      'assert result.exit_code == 0, result.output',
+      "assert json.loads(result.output)['durability'] == durability.capabilities()",
     ].join('; '),
   ],
   {
     cwd: process.cwd(),
     env: {
       ...process.env,
-      PYTHONPATH: [buildDir, process.env.PYTHONPATH]
+      PYTHONPATH: [
+        buildDir,
+        path.join(process.cwd(), 'framework', 'core', 'src', 'python'),
+        process.env.PYTHONPATH,
+      ]
         .filter(Boolean)
         .join(path.delimiter),
     },
@@ -107,6 +126,24 @@ if (
 ) {
   console.error(
     '[durability-contract-test] Node surface overstated durability',
+  );
+  process.exit(1);
+}
+
+const capability = kungfu.durabilityCapabilityTyped();
+if (
+  capability.schema !== 'kungfu.durability.capability/v1' ||
+  capability.authority !== 'libkungfu' ||
+  capability.support_level !== 'qualified-test-only' ||
+  capability.production_eligible !== false ||
+  capability.restore.off_host !== false ||
+  capability.profiles.some(
+    (profile) =>
+      profile.name !== 'visible' && profile.production_eligible !== false,
+  )
+) {
+  console.error(
+    '[durability-contract-test] Node capability surface overstated durability',
   );
   process.exit(1);
 }

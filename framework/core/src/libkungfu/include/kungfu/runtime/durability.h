@@ -7,12 +7,14 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include <nlohmann/json.hpp>
 
 namespace kungfu::runtime::durability {
 
 inline constexpr const char *DURABILITY_RECEIPT_SCHEMA_V1 = "kungfu.durability.receipt/v1";
+inline constexpr const char *DURABILITY_CAPABILITY_SCHEMA_V1 = "kungfu.durability.capability/v1";
 
 enum class durability_profile : uint8_t { Visible, DurableGroup, DurableSync, Replicated };
 enum class receipt_status : uint8_t { Succeeded, Failed, Unknown };
@@ -83,6 +85,47 @@ struct durability_receipt_view {
   std::string error = {};
 };
 
+struct durability_profile_capability {
+  std::string name = {};
+  std::string availability = {};
+  std::string qualification = {};
+  bool production_eligible = false;
+  std::string guarantee = {};
+  std::string refusal_reason = {};
+};
+
+struct durability_evidence_reference {
+  std::string id = {};
+  std::string path = {};
+  std::string sha256 = {};
+};
+
+struct durability_restore_capability {
+  bool verified = false;
+  std::string scope = {};
+  std::string backup_cut = {};
+  uint64_t maximum_observed_rpo_records = 0;
+  bool off_host = false;
+  bool independent_failure_domain = false;
+};
+
+// C++ owns the capability semantics. Python, Node and CLI surfaces are thin
+// projections of this value; JSON remains an edge representation only.
+struct durability_capability_report {
+  std::string schema = DURABILITY_CAPABILITY_SCHEMA_V1;
+  std::string authority = "libkungfu";
+  std::string profile = {};
+  std::string support_level = {};
+  bool production_eligible = false;
+  std::string qualified_envelope = {};
+  std::string qualification_profile = {};
+  std::vector<durability_profile_capability> profiles = {};
+  std::vector<durability_evidence_reference> evidence = {};
+  durability_restore_capability restore = {};
+  std::vector<std::string> trust_assumptions = {};
+  std::vector<std::string> non_claims = {};
+};
+
 struct watermark_update_result {
   bool advanced = false;
   durability_error_code error = durability_error_code::None;
@@ -101,6 +144,8 @@ struct watermark_update_result {
                                                       int64_t completed_at = 0);
 [[nodiscard]] durability_receipt_view make_receipt_view(const durability_receipt &receipt);
 [[nodiscard]] nlohmann::json render_durability_receipt(const durability_receipt &receipt);
+[[nodiscard]] const durability_capability_report &single_host_institutional_capability();
+[[nodiscard]] nlohmann::json render_durability_capability(const durability_capability_report &report);
 
 class visible_receipt_registry {
 public:

@@ -16,8 +16,10 @@ evidence, operator responsibilities, and explicit non-claims.
 ## Current answer
 
 **Today, Kungfu qualifies cross-process journal visibility and deterministic
-replay from readable journal data. It does not yet claim end-to-end power-loss
-durability for an acknowledged journal frame.**
+replay from readable journal data. Retained evidence also qualifies the
+test-only durable backend against process crashes on three named platforms and
+power cuts in a disposable Linux/ext4 QEMU envelope. It does not claim that a
+production runtime acknowledgement survives physical-host power loss.**
 
 The foundations are implemented:
 
@@ -34,16 +36,27 @@ The foundations are implemented:
   root and one writer per physical stream journal are fail-closed through
   local generation/fence evidence.
 
-The end-to-end strong-durability path is **staged but not activated or
-power-loss qualified**. Test-only implementations exist for durable ingest,
+The end-to-end strong-durability path is **staged and test-qualified, but not
+activated or production-qualified**. Test-only implementations exist for durable ingest,
 receipts, projection bootstrap, crash classification, and backup/restore. A
 versioned local qualification harness now produces separate `durable_group`
 and `durable_sync` process-crash reports for named macOS/APFS, Linux/ext4, and
-Windows/NTFS profiles. Its schema makes power-loss and production-profile
-eligibility false by construction. Kungfu still does not expose a production
+Windows/NTFS profiles. A retained disposable Linux/ext4 QEMU run additionally
+passes 20/20 abrupt VM cuts, real ENOSPC, repeated fresh reopen, filesystem/hash
+checks, and a same-host external-path restore drill. That evidence explicitly
+excludes physical-host restart or power loss, off-host backup, independent
+failure domains, and production eligibility. Kungfu still does not expose a production
 durable-ingest service, producer-visible durable acknowledgement, or a
 power-loss-qualified durable watermark across the journal, Episode manifest,
 and projections.
+
+The product reports this boundary from the C++ authority through the Python,
+Node, and agent CLI projections. `kungfu agent capabilities --json` includes a
+`durability` report with the schema `kungfu.durability.capability/v1`, retained
+evidence digests, per-profile availability, restore scope, trust assumptions,
+and explicit non-claims. `durable_group` and `durable_sync` remain
+`test-fixture-only` and `production_eligible: false`; the report does not turn
+qualification evidence into a production runtime feature.
 
 An independent KFDL v2 segment/checkpoint backend now exists in test-only shadow
 form. It verifies logical position and SHA-256 records across restart, preserves
@@ -198,12 +211,14 @@ one Episode must not silently invalidate unrelated Episodes.
 | D. State-service separation and durable ingest | **partially implemented** | coordinator no longer owns the projection store directly; the in-process state-service boundary has independent lifecycle, shadow comparison, and single-host owner/writer fencing. Moving business-journal ingestion out of coordinator and persisting raw facts before projection remain pending |
 | E. Independent KFDL segment/checkpoint backend | **implemented (test-only shadow)** | append-only binary records, SHA-256 coverage, rollover, dual-slot atomic checkpoint, explicit data/checkpoint/directory barriers, persisted request deduplication, cooperative deadline/unknown handling, typed service-unavailable, fenced generations, fail-stop unknown append sessions, and retained tails; production profiles remain disabled |
 | F. Snapshot-through-T projection bootstrap | **implemented (test-only shadow)** | versioned binary snapshot, integrity/schema/cut verification, strict replay-after-T, typed required/optional/none outcomes, deterministic rebuild, independent projection watermark, and state-service ownership; production bootstrap cutover remains pending |
-| G. Local strong-durability qualification | **partially implemented** | versioned named-platform process-crash profiles, report schema, raw evidence retention, and fail-closed Shifu harness are implemented; retained three-platform reports and disposable volume/VM/device power-loss evidence remain pending |
+| G. Local strong-durability qualification | **implemented for a named test/disposable envelope** | retained three-platform process-crash reports and a disposable Linux/ext4 QEMU run cover 20/20 VM cuts, real ENOSPC, repeated reopen, fsck/hash, Episode load, and same-host external-path restore; the machine-readable product capability remains fail-closed for production, physical-host power loss, off-host backup, and independent failure domains |
 | H. Single-host end-to-end performance release gate | **planned** | after correctness passes, qualify absolute latency, throughput, long-tail, resource, replay, recovery, and restore ceilings without weakening semantics |
 | I. Replication and HA | **future** | add a separate replicated watermark and policy only after local durability is trustworthy |
 
-Until Stage F passes for a named platform/filesystem/profile, public product
-language must continue to say that power-loss durability is not claimed.
+Passing Stage G in a disposable VM does not qualify a production deployment.
+Public product language must name the exact evidence envelope and continue to
+refuse physical-host power-loss, off-host-backup, or production durability
+claims until separately retained evidence and release admission exist.
 
 ## Qualification standard
 

@@ -49,7 +49,7 @@ These are identified and tracked, not silently shipped. They do not affect the
 data-plane correctness covered by
 [ADR-0001](../adr/ADR-0001-yijinjing-publish-barrier.md).
 
-## End-to-end power-loss durability is designed, not yet qualified
+## End-to-end durability is test-qualified in a disposable envelope, not for production
 
 Kungfu currently qualifies release/acquire publication and cross-process
 visibility for the mmap journal. It does **not** yet guarantee that every frame
@@ -58,7 +58,14 @@ policy rejects unqualified `asynchronous` and `durable` modes rather than
 silently treating OS writeback as a durability contract.
 
 The KFDL v2 append/checkpoint backend is implemented only as a test-qualified
-shadow component. What is **not yet built or qualified for production**:
+shadow component. Retained evidence covers six named macOS/APFS, Linux/ext4,
+and Windows/NTFS process-crash reports plus 20/20 abrupt cuts, real ENOSPC,
+repeated fresh reopen, fsck/hash, Episode load, and same-host external-path
+restore in a disposable Linux/ext4 QEMU envelope. The C++ capability authority,
+projected through Python, Node, and `kungfu agent capabilities --json`, binds
+those evidence digests while reporting `production_eligible: false`.
+
+What is **not yet built or qualified for production**:
 
 - activation of KFDL ingestion as a dedicated service independent of
   coordinator and projection lifecycle;
@@ -66,8 +73,10 @@ shadow component. What is **not yet built or qualified for production**:
 - `durable_group` and `durable_sync` end-to-end profiles;
 - deterministic recovery of an acknowledged frontier across journal, Episode,
   payload, and checkpoint boundaries;
-- retained power-loss, torn-write, ENOSPC, ordering, and repeated-recovery
-  evidence for macOS, Linux, and Windows.
+- physical-host restart and power-loss qualification on macOS, Linux, or
+  Windows;
+- off-host backup and restore on an independent failure domain;
+- exact production device/cache qualification and release admission.
 
 The shadow checkpoint currently carries the complete successful request-id
 index for its stream epoch so restart deduplication is exact. Retention and

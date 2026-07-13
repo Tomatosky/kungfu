@@ -20,13 +20,18 @@ strongly durable institutional system of record for acknowledged facts across
 sudden power loss.**
 
 Today Kungfu qualifies cross-process visibility, typed journal integrity, and
-deterministic replay from readable journal data. The stronger
-`durable_group` and `durable_sync` profiles, producer-visible durable receipts,
-deterministic recovery of an acknowledged frontier, and retained power-loss
-qualification evidence remain staged rather than production-qualified. A
-test-only consistent export/empty-root restore and projection rebuild round
-trip now exists, but the external backup procedure and qualified operating
-envelope do not.
+deterministic replay from readable journal data. Retained test evidence covers
+`durable_group` and `durable_sync` process crashes on named macOS/APFS,
+Linux/ext4, and Windows/NTFS profiles, plus 20/20 abrupt cuts, real ENOSPC,
+repeated reopen, fsck/hash, Episode load, and same-host external-path restore in
+a disposable Linux/ext4 QEMU envelope. This does not activate producer-visible
+durable receipts in the production runtime, qualify physical-host power loss,
+or establish an off-host backup procedure.
+
+The C++ capability authority exposes that boundary unchanged through Python,
+Node, and `kungfu agent capabilities --json`. The report is evidence-bound and
+sets `production_eligible: false`; `durable_group` and `durable_sync` are
+reported as `test-fixture-only`, not as available production profiles.
 
 An institution that requires every acknowledged critical fact to survive
 power loss should therefore treat the current release as **not admitted** for
@@ -63,11 +68,11 @@ backup.
 |---|---|---|---|
 | Complete frames become visible to local readers in publication order | Implemented | release/acquire and frame-integrity qualification | keep the deployment inside a supported process and storage envelope |
 | Readable authoritative journals can be replayed and projections rebuilt | Implemented in staged slices | replay, fsck, projection-loss, and idempotent-rebuild evidence | retain authoritative journals and monitor integrity reports |
-| A `durable_group` receipt survives the qualified local crash/power-loss model | Not implemented end to end | named platform/filesystem/device qualification with retained fault evidence | select only a qualified profile and reject degraded substitutions |
-| A `durable_sync` receipt establishes the critical fact and required metadata | Not implemented end to end | barrier-ordering, torn-write, ENOSPC, I/O-error, and recovery evidence | use it for institution-defined critical facts once qualified |
-| Recovery identifies the last durable frontier without inventing facts | Designed | repeated crash/recovery tests and machine-readable recovery reports | review loss, quarantine, and repair outcomes before resuming authority |
-| Projection failure cannot erase a durably acknowledged raw fact | Designed | independent ingest/projection failure and rebuild qualification | treat SQLite as a rebuildable query projection, not the raw authority |
-| Whole data-root loss can be recovered | Depends on external backup | consistent export, backup, empty-root restore, fsck, and replay round trip | operate, protect, and periodically restore-test an external backup |
+| A `durable_group` receipt survives the qualified local crash/power-loss model | Test-fixture-only; process and disposable-VM qualified | production runtime activation plus exact physical platform/filesystem/device qualification | select only a production-qualified profile and reject degraded substitutions |
+| A `durable_sync` receipt establishes the critical fact and required metadata | Test-fixture-only; process and disposable-VM qualified | production runtime activation plus exact barrier/device and physical power-loss evidence | use it for institution-defined critical facts only after production qualification |
+| Recovery identifies the last durable frontier without inventing facts | Qualified in the disposable QEMU evidence envelope | physical-host and production-envelope repeated recovery reports | review loss, quarantine, and repair outcomes before resuming authority |
+| Projection failure cannot erase a durably acknowledged raw fact | Qualified in the test-only backend | production ingest/projection activation and qualification | treat SQLite as a rebuildable query projection, not the raw authority |
+| Whole data-root loss can be recovered | Same-host external-path test drill passed | off-host, independent-failure-domain backup and restore procedure | operate, protect, and periodically restore-test an external backup |
 | A second owner cannot concurrently acknowledge writes for the same data root | Designed | ownership-fencing, stale-owner, and fail-closed tests | avoid unsupported shared-data-root or multi-host mounts |
 
 No row becomes a product guarantee merely because its implementation exists.
@@ -77,14 +82,14 @@ The corresponding named qualification evidence must also pass and be retained.
 
 | Failure | Required behavior in the qualified profile | Current institutional status |
 |---|---|---|
-| Writer or peer process crash | preserve acknowledged durable frontier; classify any visible tail | not yet end-to-end qualified |
-| Durability service crash | restart with a new fenced owner generation; never acknowledge an unknown outcome as durable | designed, not yet qualified |
-| Projection service or SQLite loss | raw durable facts remain authoritative; rebuild from the recorded projection frontier | rebuild model exists; full profile qualification pending |
-| Clean host restart | reopen the whole data root and resume from verified frontiers | qualification pending |
-| Sudden power loss | recover only the proven durable frontier; report lost or quarantined visible tail | not yet qualified |
-| ENOSPC, permission loss, or I/O error | fail closed; do not issue a false durable receipt | qualification pending |
-| Torn/corrupt tail or stale checkpoint | detect, bound, quarantine or truncate by retained evidence; never invent facts | qualification pending |
-| Whole device or data-root loss | restore only from a verified external backup and report its cut/RPO | test-only verified round trip exists; external procedure and qualification pending |
+| Writer or peer process crash | preserve acknowledged durable frontier; classify any visible tail | test-qualified on three named process profiles; production activation pending |
+| Durability service crash | restart with a new fenced owner generation; never acknowledge an unknown outcome as durable | test-qualified in the disposable QEMU envelope; production activation pending |
+| Projection service or SQLite loss | raw durable facts remain authoritative; rebuild from the recorded projection frontier | test-qualified in the disposable QEMU envelope; production activation pending |
+| Clean host restart | reopen the whole data root and resume from verified frontiers | repeated fresh guest reopen passed; physical-host restart not qualified |
+| Sudden power loss | recover only the proven durable frontier; report lost or quarantined visible tail | 20/20 abrupt disposable-VM cuts passed; physical power loss not qualified |
+| ENOSPC, permission loss, or I/O error | fail closed; do not issue a false durable receipt | real guest ENOSPC passed; remaining exact production error envelope pending |
+| Torn/corrupt tail or stale checkpoint | detect, bound, quarantine or truncate by retained evidence; never invent facts | test backend qualification passed; destructive production repair remains pending |
+| Whole device or data-root loss | restore only from a verified external backup and report its cut/RPO | same-host external-path test drill passed; off-host and independent failure domain not qualified |
 
 Recovery is not complete merely because the process starts. A qualified restart
 must emit a machine-readable report naming the recovered durable frontier,
@@ -164,9 +169,11 @@ implied by the local durability design.
 | Limited authoritative pilot | bounded institution-selected facts on one qualified host | named durable profile implemented; exact correctness envelope qualified; backup/restore drill passed; performance candidate characterized |
 | Authoritative local ledger | institution-approved production scope | correctness and Single-Host Performance Profile release gates passed; all applicable evidence above retained, independently reviewed, and continuously monitored |
 
-The current project state is between engineering evaluation and controlled
-shadow operation. Later implementation work must update this page from retained
-evidence; it must not advance the adoption status from design intent alone.
+The current project state remains between engineering evaluation and controlled
+shadow operation. The retained test/disposable evidence advances confidence,
+not production admission. Later implementation work must update this page from
+retained evidence; it must not advance the adoption status from design intent
+or from evidence outside the named envelope.
 
 ## Audit path
 

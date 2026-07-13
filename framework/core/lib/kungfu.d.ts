@@ -775,9 +775,50 @@ interface DurabilityReceipt {
   projection_watermark: StreamPosition | null;
   replicated_watermark: StreamPosition | null;
   barrier_id: bigint;
+  qualification_profile: string;
   completed_at: bigint;
   status: DurabilityReceiptStatus;
   error: DurabilityError;
+}
+
+interface DurabilityProfileCapability {
+  name: DurabilityProfile;
+  availability: 'runtime' | 'test-fixture-only' | 'unavailable';
+  qualification:
+    | 'compatibility'
+    | 'process-and-disposable-vm-qualified'
+    | 'unqualified';
+  production_eligible: boolean;
+  guarantee: string;
+  refusal_reason: string | null;
+}
+
+interface DurabilityEvidenceReference {
+  id: string;
+  path: string;
+  sha256: string;
+}
+
+interface DurabilityCapability {
+  schema: 'kungfu.durability.capability/v1';
+  authority: 'libkungfu';
+  profile: 'single-host-institutional-v1';
+  support_level: 'qualified-test-only';
+  production_eligible: false;
+  qualified_envelope: string;
+  qualification_profile: string;
+  profiles: DurabilityProfileCapability[];
+  evidence: DurabilityEvidenceReference[];
+  restore: {
+    verified: boolean;
+    scope: string;
+    backup_cut: string;
+    maximum_observed_rpo_records: number;
+    off_host: boolean;
+    independent_failure_domain: boolean;
+  };
+  trust_assumptions: string[];
+  non_claims: string[];
 }
 
 interface DurabilityVisibleReceiptOptions {
@@ -817,6 +858,7 @@ interface KungfuRuntime {
   durabilityVisibleReceiptTyped(
     options: DurabilityVisibleReceiptOptions,
   ): DurabilityReceipt;
+  durabilityCapabilityTyped(): DurabilityCapability;
   storageStatusTyped(
     runtimeDir: string,
     sourceId?: string,

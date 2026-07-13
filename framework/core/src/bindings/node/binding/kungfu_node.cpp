@@ -406,6 +406,11 @@ Napi::Value DurabilityVisibleReceiptTyped(const Napi::CallbackInfo &info) {
                                          request, Int64Option(options, "completed_at"))));
 }
 
+Napi::Value DurabilityCapabilityTyped(const Napi::CallbackInfo &info) {
+  return JsonToValue(info.Env(), runtime::durability::render_durability_capability(
+                                     runtime::durability::single_host_institutional_capability()));
+}
+
 Napi::Value StorageEpisodeBeginTyped(const Napi::CallbackInfo &info) {
   if (!IsValid(info, 0, &Napi::Value::IsString) || !IsValid(info, 1, &Napi::Value::IsObject))
     throw Napi::TypeError::New(info.Env(), "storageEpisodeBeginTyped(runtimeDir, options)");
@@ -883,6 +888,7 @@ Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
   exports.Set("verifyContentHash", Napi::Function::New(env, VerifyContentHash));
   exports.Set("storageServiceCapabilities", Napi::Function::New(env, StorageServiceCapabilities));
   exports.Set("durabilityVisibleReceiptTyped", Napi::Function::New(env, DurabilityVisibleReceiptTyped));
+  exports.Set("durabilityCapabilityTyped", Napi::Function::New(env, DurabilityCapabilityTyped));
   exports.Set("storageStatusTyped", Napi::Function::New(env, StorageStatusTyped));
   exports.Set("storageQueryTyped", Napi::Function::New(env, StorageQueryTyped));
   exports.Set("storageGcPlanTyped", Napi::Function::New(env, StorageGcPlanTyped));
