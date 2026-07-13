@@ -39,12 +39,8 @@ jobs:
       gate-profile: dev-patrol
       runner-preset: kungfu-v4-self-hosted
       artifact-name: kungfu-dev-patrol-gates
-      gate-plan-command-json: >-
-        {"linux":["./shifu"],"macos":["./shifu"],"windows":["./shifu.cmd"]}
       gate-command-json: >-
-        {"linux":["./shifu","cache","apply","--","./shifu"],
-        "macos":["./shifu","cache","apply","--","./shifu"],
-        "windows":["./shifu.cmd","cache","apply","--","./shifu.cmd"]}
+        {"linux":["./shifu"],"macos":["./shifu"],"windows":["./shifu.cmd"]}
       gate-environment-json: >-
         {"SHIFU_NATIVE":"1","KUNGFU_BUILDCHAIN_NO_OPTIONAL":"1",
         "KUNGFU_BUILDCHAIN_SOURCE_BUILD":"1"}
