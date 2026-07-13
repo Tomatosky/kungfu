@@ -76,6 +76,7 @@
     "durability:qualify": "node scripts/require-shifu.mjs durability:qualify && node framework/core/tests/qualification/durability/run.mjs",
     "durability:powercut:fixture": "node scripts/require-shifu.mjs durability:powercut:fixture && node scripts/run-durability-powercut-fixture.mjs",
     "durability:powercut:plan": "node scripts/require-shifu.mjs durability:powercut:plan && node scripts/plan-durability-powercut.mjs",
+    "durability:powercut:qemu": "node scripts/require-shifu.mjs durability:powercut:qemu && node scripts/run-durability-powercut-qemu.mjs",
     "layers:qualify": "node scripts/require-shifu.mjs layers:qualify && node tests/qualification/layers/run.mjs",
     "layers:qualify:sdk": "node scripts/require-shifu.mjs layers:qualify:sdk && node tests/qualification/layers/sdk/run.mjs",
     "layers:qualify:surfaces": "node scripts/require-shifu.mjs layers:qualify:surfaces && node tests/qualification/layers/surfaces/run.mjs",

@@ -93,6 +93,12 @@ cannot leak across trials while qcow2 stays outside the tested durability
 device. The plan is evidence for review, not authorization to run the mutating
 commands.
 
+The raw data drive uses QEMU `cache=none,aio=native`; write and verification
+boots use different root overlays. After the guest emits its exact verification
+completion marker it remains alive as PID 1, and the host runner terminates only
+that direct QEMU child. This avoids treating a missing guest init-system
+`poweroff` helper as durability evidence.
+
 ## Files
 
 - `profiles/*.json` freezes the platform/filesystem process profiles.

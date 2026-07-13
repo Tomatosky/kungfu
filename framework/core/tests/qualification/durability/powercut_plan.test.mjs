@@ -47,17 +47,23 @@ test('plan limits writes and termination to disposable run identities', () => {
     plan.trials.every(
       (trial) =>
         trial.reset[0].argv[0] === 'qemu-img' &&
+        trial.reset[1].argv[0] === 'qemu-img' &&
+        trial.write_rootfs !== trial.verify_rootfs &&
         trial.qemu_argv_prefix.some((argument) =>
           argument.includes('format=qcow2'),
         ) &&
         trial.qemu_argv_prefix.some(
           (argument) =>
-            argument.includes('format=raw') && argument.includes('-data.ext4'),
+            argument.includes('format=raw,cache=none,aio=native') &&
+            argument.includes('-data.ext4'),
         ),
     ),
   );
   assert.equal(plan.safety.qemu_pid_must_be_direct_child, true);
   assert.ok(plan.trials.every((trial) => trial.termination.precondition));
+  assert.ok(
+    plan.trials.every((trial) => trial.verification_termination.precondition),
+  );
   assert.equal(
     new Set(plan.trials.map((trial) => trial.pid_file)).size,
     plan.trials.length,

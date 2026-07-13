@@ -68,6 +68,7 @@ export function createPowerCutPlan(input) {
   const packageName = `linux-image-unsigned-${kernelRelease}`;
   const deb = `${workspace}/${packageName}_${kernelVersion}_amd64.deb`;
   const fixture = `${repo}/framework/core/build/Release/kungfu_durability_powercut_fixture`;
+  const library = `${repo}/framework/core/build/Release/libkungfu.so`;
   const guestInit = `${repo}/framework/core/tests/qualification/durability/powercut_guest_init`;
   const sentinel = `${repo}/framework/core/tests/qualification/durability/powercut_disposable_root_sentinel`;
   const rootfsTree = `${workspace}/rootfs-tree`;
@@ -198,6 +199,19 @@ export function createPowerCutPlan(input) {
         'copies the exact locally built fixture',
       ),
       command(
+        'install-library',
+        true,
+        [
+          'install',
+          '-D',
+          '-m',
+          '0755',
+          library,
+          `${rootfsTree}/usr/lib/x86_64-linux-gnu/libkungfu.so`,
+        ],
+        'installs the fixture build library into the guest loader path',
+      ),
+      command(
         'install-guest-init',
         true,
         [
@@ -268,7 +282,8 @@ export function createPowerCutPlan(input) {
     trials: ['durable_group', 'durable_sync'].flatMap((profile) =>
       POWER_CUT_FAULTS.map(([fault, minimum, maximum]) => {
         const trialId = `${profile}-${fault}`;
-        const rootfs = `${workspace}/${trialId}-rootfs.qcow2`;
+        const writeRootfs = `${workspace}/${trialId}-write-rootfs.qcow2`;
+        const verifyRootfs = `${workspace}/${trialId}-verify-rootfs.qcow2`;
         const data = `${workspace}/${trialId}-data.ext4`;
         return {
           id: trialId,
@@ -289,9 +304,25 @@ export function createPowerCutPlan(input) {
                 'raw',
                 '-b',
                 `${workspace}/rootfs-base.ext4`,
-                rootfs,
+                writeRootfs,
               ],
-              'small guest-only overlay; rootfs is not the durability test device',
+              'fresh write guest overlay; rootfs is not the durability test device',
+            ),
+            command(
+              'clone-verify-rootfs',
+              true,
+              [
+                'qemu-img',
+                'create',
+                '-f',
+                'qcow2',
+                '-F',
+                'raw',
+                '-b',
+                `${workspace}/rootfs-base.ext4`,
+                verifyRootfs,
+              ],
+              'fresh verification guest overlay independent from the killed guest',
             ),
             command(
               'clone-data',
@@ -324,15 +355,23 @@ export function createPowerCutPlan(input) {
             '-initrd',
             `${workspace}/initrd.img`,
             '-drive',
-            `if=virtio,format=qcow2,file=${rootfs}`,
+            'if=virtio,format=qcow2,file=ROOT_OVERLAY',
             '-drive',
-            `if=virtio,format=raw,file=${data}`,
+            `if=virtio,format=raw,cache=none,aio=native,file=${data}`,
           ],
+          write_rootfs: writeRootfs,
+          verify_rootfs: verifyRootfs,
           termination: {
             precondition:
               'the direct child serial log contains the exact arm_marker',
             action:
               'send SIGKILL only to the direct QEMU child PID, wait for exit, then boot verify mode',
+          },
+          verification_termination: {
+            precondition:
+              'the direct child serial log contains KF_GUEST_EXIT mode=verify status=0 and a passed JSON record',
+            action:
+              'send SIGTERM only to the direct verification QEMU child PID',
           },
         };
       }),

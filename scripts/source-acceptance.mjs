@@ -110,6 +110,7 @@ export function sourceAcceptancePlan(files) {
         'framework/core/tests/qualification/durability/run.test.mjs',
         'framework/core/tests/qualification/durability/powercut_plan.test.mjs',
         'framework/core/tests/qualification/durability/retained_evidence.test.mjs',
+        'scripts/run-durability-powercut-qemu.test.mjs',
       ],
     },
     {

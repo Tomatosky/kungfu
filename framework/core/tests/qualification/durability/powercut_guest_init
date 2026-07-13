@@ -46,5 +46,8 @@ if [ "$status" -eq 64 ]; then
 fi
 sync
 printf 'KF_GUEST_EXIT mode=%s status=%s\n' "$mode" "$status"
-poweroff -f
-exit "$status"
+# PID 1 must not exit. The host runner observes this exact marker, then
+# terminates only its direct QEMU child.
+while :; do
+  sleep 86400
+done
