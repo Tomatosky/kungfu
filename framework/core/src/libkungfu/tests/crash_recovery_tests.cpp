@@ -119,6 +119,10 @@ const episode_qualification_capability &capability(const episode_qualification_r
 void test_clean_frontier_is_ready_and_repeatable() {
   temp_tree tree;
   fixture_owners owners(tree.root());
+  const auto active_writer =
+      kungfu::yijinjing::ownership::inspect_active_stream_writer(tree.root().string(), "recovery-writer");
+  require(active_writer.owned && active_writer.resource_id == "recovery-writer",
+          "active writer evidence was not readable while its ownership lock was held");
   {
     durable_ingest_log log(options(tree.root()));
     log.append(position(1), 1001, "durable", owners.service, owners.writer);
