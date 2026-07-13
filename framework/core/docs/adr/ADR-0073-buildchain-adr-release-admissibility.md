@@ -4,8 +4,8 @@ doc_type: architecture-decision
 adr_id: ADR-0073
 decision_status: accepted
 implementation_status: implemented
-implementation_commits: [c00c68059c217c0ded26de1b8acbdcbc38c13368]
-closure_commit: 44d87a1c19ee31bc941d8abe6ca20e9657590850
+implementation_commits: [99be5659cca3057a524acc34414bb7314b871eeb]
+closure_commit: 57b2da83b0d3071411f12387a8a07ab97b28d9a3
 qualification_refs: [scripts/adr-release-gate.test.mjs]
 review_state: self-reviewed
 sensitivity: public
