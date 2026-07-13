@@ -185,8 +185,9 @@ private:
 
 void sync_directory(const fs::path &directory) {
 #ifdef _WIN32
-  const auto handle = CreateFileW(directory.wstring().c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
-                                  nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+  const auto handle =
+      CreateFileW(directory.wstring().c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                  nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
   if (handle == INVALID_HANDLE_VALUE) {
     throw std::system_error(static_cast<int>(GetLastError()), std::system_category(), "open durable directory");
   }
