@@ -34,10 +34,12 @@ The foundations are implemented:
   root and one writer per physical stream journal are fail-closed through
   local generation/fence evidence.
 
-The end-to-end strong-durability path is **designed but not implemented**. In
-particular, Kungfu does not yet have a dedicated durable-ingest service, a
-producer-visible durable acknowledgement, or a crash-qualified durable
-watermark across the journal, Episode manifest, and projections.
+The end-to-end strong-durability path is **staged but not activated or
+qualified**. Test-only implementations exist for durable ingest, receipts,
+projection bootstrap, crash classification, and backup/restore, but Kungfu does
+not yet expose a production durable-ingest service, producer-visible durable
+acknowledgement, or crash-qualified durable watermark across the journal,
+Episode manifest, and projections.
 
 An independent KFDL v2 segment/checkpoint backend now exists in test-only shadow
 form. It verifies logical position and SHA-256 records across restart, preserves
@@ -88,6 +90,16 @@ ownership, then publishes a byte-verified retained-evidence package plus typed
 receipt. Repeated apply is idempotent, stale previews fail closed, and source
 KFDL bytes are never changed. Authority replacement or truncation is not yet
 implemented.
+
+For whole-data-root recovery, a test-only typed backup API now accepts only an
+exclusively owned `READY` cut with no unacknowledged visible tail. It verifies
+two identical source scans, binds every authoritative file digest plus sealed
+Episode roots and payload hashes, and excludes ownership, quarantine, receipts,
+and derived projections. Restore accepts an empty root or byte-identical partial
+progress, publishes a receipt last, and then requires projection rebuild. The
+fixture proves the restored durable frontier, records, Episode identities, and
+rebuilt projection state/cut/hash equal the backup cut. This is not yet an
+external archive format, operator command, or qualified backup procedure.
 
 Do not interpret `MAP_SHARED`, `msync`, `FlushViewOfFile`, SQLite WAL, process
 residency, or a successful write call as a power-loss guarantee. A guarantee is

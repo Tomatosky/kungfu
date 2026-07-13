@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0068
 decision_status: accepted
 implementation_status: staged
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/668, https://github.com/kungfu-systems/kungfu/pull/673, https://github.com/kungfu-systems/kungfu/pull/682, https://github.com/kungfu-systems/kungfu/pull/687, https://github.com/kungfu-systems/kungfu/pull/691, https://github.com/kungfu-systems/kungfu/pull/693, https://github.com/kungfu-systems/kungfu/pull/697, https://github.com/kungfu-systems/kungfu/pull/701, https://github.com/kungfu-systems/kungfu/pull/705, https://github.com/kungfu-systems/kungfu/pull/720]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/668, https://github.com/kungfu-systems/kungfu/pull/673, https://github.com/kungfu-systems/kungfu/pull/682, https://github.com/kungfu-systems/kungfu/pull/687, https://github.com/kungfu-systems/kungfu/pull/691, https://github.com/kungfu-systems/kungfu/pull/693, https://github.com/kungfu-systems/kungfu/pull/697, https://github.com/kungfu-systems/kungfu/pull/701, https://github.com/kungfu-systems/kungfu/pull/705, https://github.com/kungfu-systems/kungfu/pull/754]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -242,11 +242,17 @@ already shipped. The integrated development stages now provide typed durability
 positions and receipts, append-only durable ingest with checkpoint barriers, a
 separate state-service boundary, typed snapshot-at-`T` projection bootstrap,
 read-only crash classification, retained-evidence quarantine, and typed
-interrupted-Episode classification. Recovery inspection is deterministic and
-does not silently abort, resume, repair, or promote uncertain facts.
+interrupted-Episode classification. A test-only consistent-backup contract now
+accepts only an exclusively owned, twice-verified `READY` cut; it excludes
+ownership and derived projections, binds sealed Episode roots and payload
+hashes, and restores idempotently into an empty data root before requiring an
+explicit projection rebuild. Recovery inspection is deterministic and does not
+silently abort, resume, repair, or promote uncertain facts.
 
-The production mmap claim remains `demand + visibility`. Consistent export and
-empty-root verified restore, projection rebuild/cut equality, production
-bootstrap authority cutover, named platform/filesystem qualification, and the
-public durability product contract remain pending. In particular, process-kill
-and cross-platform CI evidence do not establish sudden-power-loss durability.
+The production mmap claim remains `demand + visibility`. The backup/restore
+round trip and projection cut equality are implementation evidence, not an
+operator-facing backup format or qualified power-loss guarantee. Production
+bootstrap authority cutover, external-backup serialization/operations, named
+platform/filesystem qualification, and the public durability product contract
+remain pending. In particular, process-kill and cross-platform CI evidence do
+not establish sudden-power-loss durability.
