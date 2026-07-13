@@ -87,9 +87,11 @@ the shell substitution binds the plan to that worktree's full commit. The
 result is a `dry-run-only` JSON plan. It refuses arbitrary repository and
 workspace roots, names every host mutation, leaves physical hosts and devices
 out of scope, and separates the exact armed marker from the direct-child QEMU
-termination step. Every profile/fault trial clones pristine root and data
-images, so sequence state and guest writes cannot leak across trials. The plan
-is evidence for review, not authorization to run the mutating commands.
+termination step. Every profile/fault trial creates a small guest-root qcow2
+overlay and a pristine raw ext4 data image, so sequence state and guest writes
+cannot leak across trials while qcow2 stays outside the tested durability
+device. The plan is evidence for review, not authorization to run the mutating
+commands.
 
 ## Files
 

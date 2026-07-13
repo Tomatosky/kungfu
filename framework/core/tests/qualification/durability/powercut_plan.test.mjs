@@ -43,6 +43,19 @@ test('plan limits writes and termination to disposable run identities', () => {
         JSON.stringify(step).includes(plan.safety.disposable_container),
     ),
   );
+  assert.ok(
+    plan.trials.every(
+      (trial) =>
+        trial.reset[0].argv[0] === 'qemu-img' &&
+        trial.qemu_argv_prefix.some((argument) =>
+          argument.includes('format=qcow2'),
+        ) &&
+        trial.qemu_argv_prefix.some(
+          (argument) =>
+            argument.includes('format=raw') && argument.includes('-data.ext4'),
+        ),
+    ),
+  );
   assert.equal(plan.safety.qemu_pid_must_be_direct_child, true);
   assert.ok(plan.trials.every((trial) => trial.termination.precondition));
   assert.equal(

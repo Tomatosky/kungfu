@@ -268,7 +268,7 @@ export function createPowerCutPlan(input) {
     trials: ['durable_group', 'durable_sync'].flatMap((profile) =>
       POWER_CUT_FAULTS.map(([fault, minimum, maximum]) => {
         const trialId = `${profile}-${fault}`;
-        const rootfs = `${workspace}/${trialId}-rootfs.ext4`;
+        const rootfs = `${workspace}/${trialId}-rootfs.qcow2`;
         const data = `${workspace}/${trialId}-data.ext4`;
         return {
           id: trialId,
@@ -281,13 +281,17 @@ export function createPowerCutPlan(input) {
               'clone-rootfs',
               true,
               [
-                'cp',
-                '--reflink=auto',
-                '--sparse=always',
+                'qemu-img',
+                'create',
+                '-f',
+                'qcow2',
+                '-F',
+                'raw',
+                '-b',
                 `${workspace}/rootfs-base.ext4`,
                 rootfs,
               ],
-              'fresh guest state for this trial',
+              'small guest-only overlay; rootfs is not the durability test device',
             ),
             command(
               'clone-data',
@@ -320,7 +324,7 @@ export function createPowerCutPlan(input) {
             '-initrd',
             `${workspace}/initrd.img`,
             '-drive',
-            `if=virtio,format=raw,file=${rootfs}`,
+            `if=virtio,format=qcow2,file=${rootfs}`,
             '-drive',
             `if=virtio,format=raw,file=${data}`,
           ],
