@@ -1,0 +1,34 @@
+{
+  "schema": "shifu.gate-contract/v1",
+  "owner": "shifu",
+  "decision": "docs/adr/SHIFU-ADR-0004-gate-control-plane-contract.md",
+  "authority": {
+    "registrySchema": "docs/shifu/schema/gate-registry-v1.schema.json",
+    "planSchema": "docs/shifu/schema/gate-plan-v1.schema.json"
+  },
+  "schemaIds": {
+    "registry": "https://libkungfu.dev/schemas/shifu/gate-registry-v1.schema.json",
+    "plan": "https://libkungfu.dev/schemas/shifu/gate-plan-v1.schema.json"
+  },
+  "defaultRegistry": "shifu.gates.json",
+  "environment": {
+    "registry": "SHIFU_GATE_REGISTRY"
+  },
+  "commands": {
+    "contract": "shifu gate contract",
+    "registrySchema": "shifu gate schema registry",
+    "planSchema": "shifu gate schema plan",
+    "validate": "shifu gate validate [--registry FILE|-] [--json]",
+    "list": "shifu gate list [--registry FILE] [--json]",
+    "show": "shifu gate show GATE [--registry FILE] [--json]",
+    "explain": "shifu gate explain GATE [--profile PROFILE] [--registry FILE] [--json]",
+    "matrix": "shifu gate matrix [--registry FILE] [--json]",
+    "plan": "shifu gate plan PROFILE [--include-advisory] [--gate GATE] [--platform PLATFORM] [--registry FILE] [--json]"
+  },
+  "compatibility": {
+    "unknownFields": "reject",
+    "missingProfileDecision": "reject",
+    "legacyTaskEntrypoints": "unchanged",
+    "execution": "not-in-v1-contract-stage"
+  }
+}
