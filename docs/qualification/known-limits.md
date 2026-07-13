@@ -88,16 +88,25 @@ compatibility restore; business joins/restore cutover and public projection
 capability remain pending.
 
 KFDL v2 also has a test-only read-only recovery inspector and typed report for
-clean, complete-tail, torn-tail, and unprovable-checkpoint cases. Repair,
-quarantine, Episode folding, consistent export/empty-root restore, and a
-qualified production profile remain pending; the inspector performs no
-mutation and is not yet a public recovery command.
+clean, complete-tail, torn-tail, unprovable-checkpoint, and interrupted-Episode
+cases. Valid open Episodes contract recovery to degraded capabilities; invalid
+or unknown Episode evidence blocks recovery. The inspector performs no mutation
+and is not yet a public recovery command.
 
 The maintenance slice can retain a degraded stream in a verified quarantine
 package with a typed, idempotent receipt. It deliberately does not switch the
 authoritative stream, truncate a tail, or claim that the receipt itself has a
 qualified power-loss barrier; destructive repair and crash-ordered replacement
 remain pending.
+
+A test-only consistent-backup API now exports an exclusively owned, stable
+`READY` cut and restores it into an empty data root. It verifies authoritative
+file bytes, durable frontier and record count, sealed Episode content roots and
+payload hashes, and an explicit projection rebuild to the same typed state,
+cut, and integrity hash. Ownership, quarantine, receipts, and derived
+projections are excluded from the bundle. External archive serialization,
+institution-operated backup transport/retention, crash-ordered restore
+qualification, and a public backup command remain pending.
 
 SQLite WAL, a mapped-region flush, or a resident process is not a substitute for
 that evidence. See [Strong durability and crash recovery](durability-and-crash-recovery.md)

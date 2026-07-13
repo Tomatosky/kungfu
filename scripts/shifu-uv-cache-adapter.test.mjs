@@ -90,8 +90,8 @@ test('official PyPI lock policy rejects private and alternate hosts', () => {
   assert.deepEqual(publicUvLockViolations(lock()), []);
   const violations = publicUvLockViolations(
     lock(
-      'http://192.168.100.222:3141/root/pypi/+simple/',
-      'http://cache.local',
+      'http://package-cache.local/pypi/simple/',
+      'http://artifact-cache.local',
     ),
   );
   assert.ok(violations.some((item) => item.includes('private registry host')));

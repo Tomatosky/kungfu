@@ -149,6 +149,7 @@ implemented and qualified or explicitly waived for that release.
 | [SHIFU-0001](SHIFU-ADR-0001-cache-profile-contract-and-ownership.md) | accepted | Cache profiles are Shifu-owned contracts; inventories project instances and Buildchain owns process |
 | [SHIFU-0002](SHIFU-ADR-0002-local-artifact-catalog-and-safe-promotion.md) | accepted | Shifu and Kungfu product artifacts share provenance-aware, Git-safe local promotion semantics |
 | [SHIFU-0003](SHIFU-ADR-0003-uv-effective-lock-cache-enforcement.md) | accepted | Strict uv cache execution uses a disposable effective lock while canonical locks stay public |
+| [SHIFU-0004](SHIFU-ADR-0004-gate-control-plane-contract.md) | accepted | Shifu owns the project-independent Gate contract; projects own catalogs and explicit policy profiles |
 
 ## Reading by theme
 

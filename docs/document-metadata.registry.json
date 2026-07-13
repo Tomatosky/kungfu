@@ -511,6 +511,22 @@
       "evidence_grade": "B",
       "last_reviewed": "2026-07-12"
     },
+    "docs/shifu/gates.md": {
+      "metadata_schema": "kungfu.document-metadata/v1",
+      "document_status": "draft",
+      "doc_type": "design-reference",
+      "review_state": "unreviewed",
+      "sensitivity": "public",
+      "sources": [
+        "local-files",
+        "user-consensus"
+      ],
+      "period": "ongoing",
+      "theme": "shifu-gates",
+      "confidence": "high",
+      "evidence_grade": "B",
+      "last_reviewed": "2026-07-13"
+    },
     "framework/spec/CONSUMING.md": {
       "metadata_schema": "kungfu.document-metadata/v1",
       "document_status": "active",
