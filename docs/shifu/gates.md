@@ -1,14 +1,15 @@
 # Shifu Gate control plane
 
 Shifu Gate is the project-independent control plane for declaring, explaining,
-and planning quality and release gates. A project owns the gates it needs and
+planning, executing, and auditing quality and release gates. A project owns the gates it needs and
 the policy profiles that select them; Shifu owns the schema, validation rules,
 and command semantics. Buildchain may schedule a future plan, but it does not
 reinterpret the registry.
 
-This first contract stage is deliberately read-only. It does not execute gate
-actions, issue qualification receipts, replace existing task aliases, or change
-CI policy.
+Execution remains local and bounded: Shifu runs a selected dependency closure
+and emits one source-bound receipt, while Buildchain remains responsible for
+allocating remote runners and aggregating cross-platform results. Gate execution
+does not replace existing task aliases or change CI policy.
 
 ## Authority boundary
 
@@ -20,9 +21,10 @@ CI policy.
 | Required-check changes, release promotion and policy approval | project maintainers |
 
 The canonical discovery root is [`gate-contract.json`](gate-contract.json).
-The registry and plan schemas are
+The registry, plan, and receipt schemas are
 [`gate-registry-v1.schema.json`](schema/gate-registry-v1.schema.json) and
-[`gate-plan-v1.schema.json`](schema/gate-plan-v1.schema.json). A consuming
+[`gate-plan-v1.schema.json`](schema/gate-plan-v1.schema.json), and
+[`gate-receipt-v1.schema.json`](schema/gate-receipt-v1.schema.json). A consuming
 project normally commits `shifu.gates.json`; `--registry FILE` or
 `SHIFU_GATE_REGISTRY` selects another instance without changing the contract.
 
@@ -60,6 +62,13 @@ that would hide an effective policy upgrade inside the planner.
 ./shifu gate matrix --registry docs/shifu/examples/gates/minimal.gate-registry.json
 ./shifu gate plan release --platform linux \
   --registry docs/shifu/examples/gates/minimal.gate-registry.json --json
+./shifu gate run fixture.left fixture.right \
+  --registry docs/shifu/examples/gates/execution.gate-registry.json --json
+./shifu gate run --profile success \
+  --registry docs/shifu/examples/gates/execution.gate-registry.json \
+  --receipt build/gate-receipts/success.json
+./shifu gate receipt validate build/gate-receipts/success.json \
+  --registry docs/shifu/examples/gates/execution.gate-registry.json --json
 ```
 
 `validate` is the bootstrap primitive: it parses and reports an invalid
@@ -77,6 +86,49 @@ the plan fail; it is never presented as a successful skip.
 `--gate GATE` is a diagnostic selection override. It may plan a gate that the
 profile marks off, but the output is `qualifying: false`: selection does not
 rewrite project policy and cannot later produce a qualifying profile receipt.
+
+## Execution and receipts
+
+`run GATE...` closes and executes dependencies once, but it is always a
+diagnostic run. `run --profile PROFILE` is the only qualification candidate.
+It executes deterministic topological groups sequentially on the local runner;
+Buildchain may distribute the same planned groups later without changing gate
+meaning. `--include-advisory` runs advisory selections without making their
+failure block required qualification. `--capability CAP` declares additional
+runner capabilities; `node` is inherent because the Gate engine is already
+running under Shifu's pinned Node toolchain.
+
+Each result is one of `pass`, `fail`, `advisory-fail`, `unsupported`, `skip`,
+or `error`. A failed dependency skips its dependents, and the receipt retains a
+copyable explicit gate reproduction argv. Task actions re-enter the native
+Shifu launcher (`shifu` or `shifu.cmd`); argv actions use `shell: false`; named
+handlers must be registered by an embedding controller. Raw shell strings are
+never synthesized.
+
+The unified receipt binds all of the following:
+
+- source SHA and dirty state;
+- registry, plan, gate definition, and action digests;
+- actual platform and declared runner capabilities;
+- expected versus attempted actions, status, duration, exit code, and signal;
+- declared artifact presence and safe repository-relative evidence pointers.
+
+The executor never copies child stdout, stderr, inherited environment values,
+or absolute paths into the receipt; bounded reason strings redact repository,
+home, temporary, URL, and secret-like assignment material. A gate that declares required
+gate-specific evidence receives a temporary `SHIFU_GATE_EVIDENCE_FILE`; it
+must write `{ "schema": "...", "pointers": [...] }` with the declared schema
+and repository-relative refs. The temporary file is deleted after the run.
+
+A receipt is qualifying only when it came from a full profile, the source is a
+clean Git revision, the registry and definitions are current, and every
+required action was attempted and passed. Explicit overrides, dirty checkouts,
+stale source SHA, changed definitions, missing result rows, missing required
+artifacts, or missing required evidence cannot qualify. `gate receipt validate`
+recomputes these facts instead of trusting the stored `qualifying` boolean.
+Receipt files should be written to an ignored output such as `build/` or to an
+external evidence directory so writing the receipt does not dirty its own
+source checkout.
 
 All inspection commands support `--json`. Each JSON result carries a stable
 schema discriminator such as `shifu.gate-list/v1`,

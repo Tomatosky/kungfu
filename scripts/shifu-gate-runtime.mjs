@@ -9,6 +9,8 @@ export const GATE_REGISTRY_SCHEMA =
   'https://libkungfu.dev/schemas/shifu/gate-registry-v1.schema.json';
 export const GATE_PLAN_SCHEMA =
   'https://libkungfu.dev/schemas/shifu/gate-plan-v1.schema.json';
+export const GATE_RECEIPT_SCHEMA =
+  'https://libkungfu.dev/schemas/shifu/gate-receipt-v1.schema.json';
 
 const ID = /^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$/;
 const MODES = new Set(['required', 'advisory', 'off']);
@@ -31,6 +33,32 @@ const ACTION_KEYS = {
 /** @param {unknown} value @returns {value is Record<string, any>} */
 function object(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+/** @param {unknown} value @returns {string} */
+export function stableJson(value) {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
+  if (object(value))
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`)
+      .join(',')}}`;
+  return JSON.stringify(value) ?? 'null';
+}
+
+/** @param {unknown} value */
+export function gateDigest(value) {
+  return `sha256:${crypto.createHash('sha256').update(stableJson(value)).digest('hex')}`;
+}
+
+/** @param {Gate} gate */
+export function gateDefinitionDigest(gate) {
+  return gateDigest(gate);
+}
+
+/** @param {Gate} gate */
+export function gateActionId(gate) {
+  return gateDigest({ gateId: gate.id, action: gate.action });
 }
 
 /** @param {GateIssue[]} issues @param {string} code @param {string} at @param {string} message */
@@ -204,7 +232,21 @@ function validateGate(issues, gate, at) {
         if (!exactKeys(issues, artifact, itemAt, ['id', 'path', 'required']))
           return;
         stringField(issues, artifact.id, `${itemAt}/id`, { id: true });
-        stringField(issues, artifact.path, `${itemAt}/path`);
+        if (stringField(issues, artifact.path, `${itemAt}/path`)) {
+          const artifactPath = artifact.path;
+          if (
+            path.posix.isAbsolute(artifactPath) ||
+            path.win32.isAbsolute(artifactPath) ||
+            /^[a-z][a-z0-9+.-]*:/i.test(artifactPath) ||
+            artifactPath.split(/[\\/]/).includes('..')
+          )
+            issue(
+              issues,
+              'artifact-path',
+              `${itemAt}/path`,
+              'must be a repository-relative path without traversal',
+            );
+        }
         if (typeof artifact.required !== 'boolean')
           issue(issues, 'type', `${itemAt}/required`, 'must be boolean');
         if (artifactIds.has(artifact.id))
@@ -641,6 +683,10 @@ export function buildGatePlan(
             runner: gate.runner,
             cost: gate.cost,
             action: gate.action,
+            actionId: gateActionId(gate),
+            definitionDigest: gateDefinitionDigest(gate),
+            artifacts: gate.artifacts,
+            receipt: gate.receipt,
           };
         }),
       });

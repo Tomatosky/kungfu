@@ -16,8 +16,9 @@ execution; Shifu owns how the task is executed after source checkout.
   discovery root for local build provenance and safe promotion semantics shared
   by `self-update` and `builds/promote`.
 - [Gate control plane](gates.md) explains the project-independent registry,
-  explicit profile matrix, validation, explanation, and deterministic planning
-  contract. [`gate-contract.json`](gate-contract.json) is its discovery root.
+  explicit profile matrix, validation, deterministic planning, bounded
+  execution, and source-bound receipt contract.
+  [`gate-contract.json`](gate-contract.json) is its discovery root.
 - [`schema/cache-profile-v1.schema.json`](schema/cache-profile-v1.schema.json)
   is the single source of truth for cache profile fields.
 - [`schema/cache-resolution-v1.schema.json`](schema/cache-resolution-v1.schema.json)
@@ -50,9 +51,13 @@ package:
 ./shifu artifacts receipt-schema
 ./shifu gate contract
 ./shifu gate schema registry
+./shifu gate schema plan
+./shifu gate schema receipt
 ./shifu gate validate --registry docs/shifu/examples/gates/minimal.gate-registry.json
 ./shifu gate matrix --registry docs/shifu/examples/gates/minimal.gate-registry.json
 ./shifu gate plan release --platform linux --registry docs/shifu/examples/gates/minimal.gate-registry.json --json
+./shifu gate run --profile success --registry docs/shifu/examples/gates/execution.gate-registry.json --json
+./shifu gate receipt validate build/gate-receipts/success.json --registry docs/shifu/examples/gates/execution.gate-registry.json --json
 ```
 
 The contract and schema discovery commands print the exact checked-in JSON.

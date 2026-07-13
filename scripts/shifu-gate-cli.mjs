@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { executeGateRun, validateGateReceipt } from './shifu-gate-executor.mjs';
 import { buildGatePlan, loadGateRegistry } from './shifu-gate-runtime.mjs';
 
 const CONTRACT = path.join('docs', 'shifu', 'gate-contract.json');
@@ -16,15 +17,16 @@ const SCHEMAS = {
     'gate-registry-v1.schema.json',
   ),
   plan: path.join('docs', 'shifu', 'schema', 'gate-plan-v1.schema.json'),
+  receipt: path.join('docs', 'shifu', 'schema', 'gate-receipt-v1.schema.json'),
 };
 
 /** @typedef {{write:(chunk:any)=>any}} Writer */
 /** @typedef {{code:string, path:string, message:string}} GateIssue */
 
 export function gateHelp() {
-  return `shifu gate — inspect and plan project gates through one versioned control plane
+  return `shifu gate — inspect, plan, execute and validate project gates through one control plane
   gate contract                         print the canonical Gate contract
-  gate schema <registry|plan>           print a canonical JSON Schema
+  gate schema <registry|plan|receipt>   print a canonical JSON Schema
   gate validate [--registry FILE|-] [--json]
                                         validate syntax, ids, dependencies, cycles and profiles
   gate list [--registry FILE] [--json]  list registered gates
@@ -37,12 +39,19 @@ export function gateHelp() {
   gate plan PROFILE [--include-advisory] [--gate GATE] [--platform PLATFORM]
                     [--registry FILE] [--json]
                                         produce a deterministic dependency and platform plan
+  gate run GATE... [--capability CAP] [--registry FILE] [--receipt FILE] [--json]
+  gate run --profile PROFILE [--include-advisory] [--capability CAP]
+           [--registry FILE] [--receipt FILE] [--json]
+                                        execute a dependency closure and emit one unified receipt
+  gate receipt validate FILE [--registry FILE] [--json]
+                                        revalidate source, registry, definitions and action coverage
 
 Registry discovery: --registry, then SHIFU_GATE_REGISTRY, then shifu.gates.json.
 Every profile must explicitly decide every gate as required, advisory, or off.
---gate is a diagnostic selection override: it never changes profile policy and
-makes the resulting plan non-qualifying. This contract stage plans only; it does
-not execute actions or issue qualification receipts.`;
+Explicit gate runs are diagnostic and never qualifying. Only a complete profile
+run at a clean source SHA can issue a qualifying receipt. Child actions use
+structured argv and Shifu adds SHIFU_GATE_* evidence pointers; receipt output
+never captures command output or the inherited environment.`;
 }
 
 /** @param {unknown} value @param {Writer} stdout */
@@ -86,6 +95,15 @@ function registryIdentity(loaded) {
     digest: loaded.digest,
     projectId: loaded.registry.project.id,
   };
+}
+
+/** @param {string} root @param {string} ref */
+function receiptRegistryRef(root, ref) {
+  if (ref === '-') return '<stdin-registry>';
+  const relative = path.relative(root, path.resolve(root, ref));
+  if (!relative || (!relative.startsWith('..') && !path.isAbsolute(relative)))
+    return (relative || path.basename(ref)).split(path.sep).join('/');
+  return '<external-registry>';
 }
 
 /** @param {any} registry @param {string} id */
@@ -244,6 +262,71 @@ function humanPlan(plan, stdout) {
   }
 }
 
+/** @param {string[]} argv */
+function parseRunArgs(argv) {
+  let profile = '';
+  let includeAdvisory = false;
+  let receipt = '';
+  let overwrite = false;
+  const capabilities = [];
+  const gates = [];
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    const value = () => {
+      index += 1;
+      if (index >= argv.length) throw new Error(`${arg} requires a value`);
+      return argv[index];
+    };
+    if (arg === '--profile') profile = value();
+    else if (arg === '--include-advisory') includeAdvisory = true;
+    else if (arg === '--capability') capabilities.push(value());
+    else if (arg === '--receipt') receipt = value();
+    else if (arg === '--overwrite') overwrite = true;
+    else if (arg.startsWith('-'))
+      throw new Error(`unknown gate run option: ${arg}`);
+    else gates.push(arg);
+  }
+  if (profile && gates.length)
+    throw new Error('gate run accepts either GATE ids or --profile, not both');
+  if (!profile && !gates.length)
+    throw new Error(
+      'gate run requires one or more GATE ids or --profile PROFILE',
+    );
+  if (includeAdvisory && !profile)
+    throw new Error('--include-advisory requires --profile PROFILE');
+  if (overwrite && !receipt)
+    throw new Error('--overwrite requires --receipt FILE');
+  return { profile, includeAdvisory, receipt, overwrite, capabilities, gates };
+}
+
+/** @param {any} receipt @param {Writer} stdout */
+function humanReceipt(receipt, stdout) {
+  stdout.write(
+    `gate run: ${receipt.status}; qualifying: ${receipt.qualifying}; source: ${receipt.source.sha || 'unavailable'}${receipt.source.dirty ? ' (dirty)' : ''}\n`,
+  );
+  for (const result of receipt.results)
+    stdout.write(
+      `  ${result.gateId}: ${result.status}${result.reason ? ` — ${result.reason}` : ''}\n`,
+    );
+  for (const item of receipt.unsupported)
+    stdout.write(`  ${item.id}: unsupported — ${item.reason}\n`);
+}
+
+/** @param {string} root @param {string} file @param {any} value @param {boolean} overwrite */
+function writeReceipt(root, file, value, overwrite) {
+  const target = path.resolve(root, file);
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  if (!overwrite && fs.existsSync(target))
+    throw new Error(
+      `receipt already exists: ${file} (use --overwrite to replace it)`,
+    );
+  const temporary = `${target}.tmp-${process.pid}`;
+  fs.writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, {
+    flag: 'wx',
+  });
+  fs.renameSync(temporary, target);
+}
+
 /**
  * @param {string[]} argv
  * @param {{root?:string, stdout?:Writer, stderr?:Writer}} [options]
@@ -371,6 +454,55 @@ export async function runGateCommand(
     if (json) printJson(plan, stdout);
     else humanPlan(plan, stdout);
     return plan.ok ? 0 : 1;
+  }
+  if (sub === 'run') {
+    const options = parseRunArgs(rest);
+    const safeRegistryRef = receiptRegistryRef(root, loaded.ref);
+    const receipt = await executeGateRun(registry, {
+      root,
+      registryRef: safeRegistryRef,
+      registryDigest: loaded.digest,
+      profile: options.profile,
+      explicitGates: options.gates,
+      includeAdvisory: options.includeAdvisory,
+      capabilities: options.capabilities,
+      writer: stderr,
+    });
+    if (options.receipt)
+      writeReceipt(root, options.receipt, receipt, options.overwrite);
+    if (json) printJson(receipt, stdout);
+    else {
+      humanReceipt(receipt, stdout);
+      if (options.receipt) stdout.write(`receipt: ${options.receipt}\n`);
+    }
+    return receipt.ok ? 0 : 1;
+  }
+  if (sub === 'receipt') {
+    if (rest[0] !== 'validate' || !rest[1] || rest.length !== 2)
+      throw new Error('gate receipt requires: validate FILE');
+    const receipt = JSON.parse(
+      fs.readFileSync(path.resolve(root, rest[1]), 'utf8'),
+    );
+    const validation = {
+      schema: 'shifu.gate-receipt-validation/v1',
+      receipt: rest[1],
+      ...validateGateReceipt(receipt, registry, {
+        root,
+        registryRef: receiptRegistryRef(root, loaded.ref),
+        registryDigest: loaded.digest,
+      }),
+    };
+    if (json) printJson(validation, stdout);
+    else {
+      stdout.write(
+        `gate receipt: valid=${validation.valid} current=${validation.current} qualifying=${validation.qualifying}\n`,
+      );
+      for (const item of validation.issues)
+        stderr.write(`  ${item.code} ${item.path}: ${item.message}\n`);
+    }
+    return validation.valid && validation.current && validation.qualifying
+      ? 0
+      : 1;
   }
   stderr.write(`${gateHelp()}\n`);
   return 2;

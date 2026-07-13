@@ -33,16 +33,24 @@ export async function checkShifuGateContract(root = ROOT) {
   assert.equal(contract.owner, 'shifu');
   const registrySchemaPath = path.join(root, contract.authority.registrySchema);
   const planSchemaPath = path.join(root, contract.authority.planSchema);
+  const receiptSchemaPath = path.join(root, contract.authority.receiptSchema);
   const decisionPath = path.join(root, contract.decision);
-  for (const source of [registrySchemaPath, planSchemaPath, decisionPath])
+  for (const source of [
+    registrySchemaPath,
+    planSchemaPath,
+    receiptSchemaPath,
+    decisionPath,
+  ])
     assert.ok(
       fs.existsSync(source),
       `contract source is missing: ${rel(root, source)}`,
     );
   const registrySchema = readJson(registrySchemaPath);
   const planSchema = readJson(planSchemaPath);
+  const receiptSchema = readJson(receiptSchemaPath);
   assert.equal(registrySchema.$id, contract.schemaIds.registry);
   assert.equal(planSchema.$id, contract.schemaIds.plan);
+  assert.equal(receiptSchema.$id, contract.schemaIds.receipt);
 
   const dispatchMarkers = [
     ['shifu', 'build | rebuild | gate | proxy | config)'],
@@ -101,6 +109,7 @@ export async function checkShifuGateContract(root = ROOT) {
     const ajv = new Ajv2020({ allErrors: true, strict: false });
     const validateRegistry = ajv.compile(registrySchema);
     const validatePlan = ajv.compile(planSchema);
+    ajv.compile(receiptSchema);
     assert.equal(
       validateRegistry(valid.registry),
       true,
@@ -118,6 +127,7 @@ export async function checkShifuGateContract(root = ROOT) {
   const engine = [
     'scripts/shifu-gate-runtime.mjs',
     'scripts/shifu-gate-cli.mjs',
+    'scripts/shifu-gate-executor.mjs',
   ]
     .map((source) => fs.readFileSync(path.join(root, source), 'utf8'))
     .join('\n');
@@ -130,6 +140,7 @@ export async function checkShifuGateContract(root = ROOT) {
     contract: rel(root, contractPath),
     registrySchema: rel(root, registrySchemaPath),
     planSchema: rel(root, planSchemaPath),
+    receiptSchema: rel(root, receiptSchemaPath),
     validFixtures: 1,
     rejectedFixtures: Object.keys(expectedInvalid).length,
     schemaValidation,

@@ -45,6 +45,11 @@ for (const [label, args, source] of [
     ['schema', 'plan'],
     'docs/shifu/schema/gate-plan-v1.schema.json',
   ],
+  [
+    'receipt schema',
+    ['schema', 'receipt'],
+    'docs/shifu/schema/gate-receipt-v1.schema.json',
+  ],
 ]) {
   test(`shifu exposes the exact checked-in Gate ${label}`, () => {
     const result = gate(args);
@@ -148,6 +153,38 @@ test('required unsupported gates fail the plan without pretending to skip', () =
   assert.deepEqual(
     plan.unsupported.map((item) => item.id),
     ['native.smoke'],
+  );
+});
+
+test('explicit gate execution emits a non-qualifying unified receipt', () => {
+  const executionRegistry = path.join(
+    ROOT,
+    'docs',
+    'shifu',
+    'examples',
+    'gates',
+    'execution.gate-registry.json',
+  );
+  const result = gate([
+    'run',
+    'fixture.left',
+    'fixture.right',
+    '--registry',
+    executionRegistry,
+    '--json',
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+  const receipt = JSON.parse(result.stdout);
+  assert.equal(receipt.schema, 'shifu.gate-receipt/v1');
+  assert.equal(receipt.status, 'pass');
+  assert.equal(receipt.qualifying, false);
+  assert.equal(
+    receipt.registry.ref,
+    'docs/shifu/examples/gates/execution.gate-registry.json',
+  );
+  assert.deepEqual(
+    receipt.results.map((item) => item.gateId),
+    ['fixture.prepare', 'fixture.left', 'fixture.right'],
   );
 });
 
