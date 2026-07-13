@@ -104,6 +104,7 @@ export function sourceAcceptancePlan(files) {
         'scripts/shifu-gate-runtime.test.mjs',
         'scripts/shifu-gate-executor.test.mjs',
         'scripts/check-schema-authority.test.mjs',
+        'framework/core/tests/qualification/durability/run.test.mjs',
       ],
     },
     {

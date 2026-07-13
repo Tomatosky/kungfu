@@ -377,6 +377,20 @@ function checkLayerQualification() {
   ]);
 }
 
+function checkDurabilityQualification() {
+  run('ADR-0068 durability qualification harness tests', 'node', [
+    '--test',
+    path.join(
+      'framework',
+      'core',
+      'tests',
+      'qualification',
+      'durability',
+      'run.test.mjs',
+    ),
+  ]);
+}
+
 function checkCarrierActionEnvelope(scopeArgs = []) {
   run('carrier/action-envelope gate', 'node', [
     path.join('scripts', 'check-carrier-action-envelope.mjs'),
@@ -578,6 +592,7 @@ function checkShared() {
     'test:kfx-profile-suite',
   ]);
   checkLayerQualification();
+  checkDurabilityQualification();
   run('tooling type check', 'pnpm', ['run', 'check:types']);
   run('SDK unit tests', 'pnpm', [
     '--filter',

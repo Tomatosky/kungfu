@@ -71,6 +71,7 @@
     "verify": "node scripts/require-shifu.mjs verify && node scripts/verify.mjs",
     "episode:qualify": "node scripts/require-shifu.mjs episode:qualify && node framework/core/tests/qualification/episode/run.mjs",
     "episode:qualify:release": "node scripts/require-shifu.mjs episode:qualify:release && node framework/core/tests/qualification/episode/release_evidence.mjs",
+    "durability:qualify": "node scripts/require-shifu.mjs durability:qualify && node framework/core/tests/qualification/durability/run.mjs",
     "layers:qualify": "node scripts/require-shifu.mjs layers:qualify && node tests/qualification/layers/run.mjs",
     "layers:qualify:sdk": "node scripts/require-shifu.mjs layers:qualify:sdk && node tests/qualification/layers/sdk/run.mjs",
     "layers:qualify:surfaces": "node scripts/require-shifu.mjs layers:qualify:surfaces && node tests/qualification/layers/surfaces/run.mjs",
