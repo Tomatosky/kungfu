@@ -31,6 +31,7 @@ node, conan, or cmake directly — go through it:
 ./shifu build     # build all workspaces (C++ core + bindings + app)
 ./shifu rebuild   # clear generated build outputs, then run build
 ./shifu check     # changed-scope read-only quality gate (lint/type/tests)
+./shifu check:source # build-free source gate used by every dev pull request
 ./shifu fix       # explicit formatting / safe auto-fixes for changed files
 ./shifu product gui dev   # run the reference GUI through the product loop
 ./shifu product cli dist  # build the CLI product archive
@@ -61,6 +62,7 @@ layout, and code style.
 
 ```sh
 ./shifu check           # changed-scope lint, typecheck and unit/tooling tests
+./shifu check:source    # GitHub-hosted source acceptance; no build or artifacts
 ./shifu verify          # assert existing build artifacts (quick)
 ./shifu verify --full   # rebuild + freeze, then assert (slow; needs the full toolchain)
 ./shifu docs:check      # deterministic Markdown, local-link, anchor, and docs-contract gate
@@ -68,8 +70,11 @@ layout, and code style.
 ./shifu adr:audit       # inspect all ADR lifecycle, evidence, and release debt
 ```
 
-`check` is the source-quality gate for changed files plus shared type/tooling
-tests. `check:all` exists for whole-tree cleanup once the lint baseline is clean.
+`check:source` is the required development-PR gate: it checks the exact source
+revision on GitHub-hosted Linux and never enters compiler, build, artifact, or
+release lifecycles. `check` remains the broader local changed-scope gate with
+shared unit/tooling tests. `check:all` exists for whole-tree cleanup once the
+lint baseline is clean.
 `verify` is the runtime/product done-check: it asserts the build artifacts and
 runs a `kungfu` runtime smoke plus the `mvp-smoke-v1` Episode qualification,
 rather than trusting a "looks built" impression. The larger Episode baseline

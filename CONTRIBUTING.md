@@ -92,6 +92,7 @@ cd kungfu
 ./shifu build         # build all workspaces (C++ core + bindings + app)
 ./shifu rebuild       # remove generated build outputs, then build
 ./shifu check         # changed-scope read-only quality gate
+./shifu check:source  # build-free source acceptance used by dev PRs
 ./shifu fix           # explicit formatting / safe auto-fixes for changed files
 ./shifu product gui dev # run the reference GUI dev loop
 ./shifu product tui dev # run the reference TUI dev loop
@@ -142,14 +143,19 @@ Run formatting before committing:
 ./shifu format        # all languages
 ./shifu fix           # format + safe lint fixes for changed files
 ./shifu check         # read-only changed-scope lint/type/test gate
+./shifu check:source  # exact-revision source gate; never builds artifacts
 ```
 
 The installed pre-commit hook runs `./shifu check:staged` semantics via
 Node: it checks staged files without rewriting or re-staging them. If the hook
 reports formatting or fixable lint issues, run `./shifu fix:staged`, review
-the diff, and commit again. CI should run `./shifu check` and the relevant
-build or verify command. `check:all` and `fix:all` are available for deliberate
-whole-tree lint-baseline cleanup.
+the diff, and commit again. Every development PR runs `./shifu check:source`
+through the Buildchain reusable check workflow on GitHub-hosted Linux. That gate
+is limited to formatting, lint, type, schema, documentation, and contract checks;
+it cannot invoke a compiler or enter build, artifact, verify, or release stages.
+The broader `check`, `check:all`, and `fix:all` commands remain available for
+local development and deliberate whole-tree lint-baseline cleanup. Promotion
+continues to run the existing Buildchain install, build, and verify lifecycle.
 
 ### Documentation checks
 
