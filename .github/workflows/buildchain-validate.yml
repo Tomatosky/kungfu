@@ -23,7 +23,7 @@ jobs:
         uses: kungfu-systems/buildchain/actions/validate-config@v2
         with:
           require-version-state: "true"
-          require-lifecycle-stages: "install,build,verify"
+          require-lifecycle-stages: "install,check,build,verify"
 
   promotion-rehearsal:
     needs: validate
