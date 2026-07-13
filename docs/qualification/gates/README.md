@@ -13,8 +13,8 @@ explains Kungfu's current policy and does not redefine Shifu semantics.
 - [Workflow bindings](workflow-bindings.json) record how current GitHub
   workflows activate profiles and gates while migration is incomplete.
 - Buildchain owns runner allocation and aggregate checks; the standing patrol
-  is pinned to the immutable `v2.12.2` release commit
-  `0d5487b64cc4df52519e4b30492876f3819b9137`. Buildchain cannot weaken a
+  is pinned to the immutable `v2.12.4` release commit
+  `a6145efc210a961da0e5c63d7024d42061550f60`. Buildchain cannot weaken a
   Kungfu profile or mint missing Gate receipts.
 - `required` means blocking when the workflow activation condition matches.
   Path filters, same-repository restrictions, schedules, and post-merge events
@@ -56,9 +56,12 @@ evidence, and a documented failure/rollback decision in the same change.
 - Kungfu PR `#773` published the fail-closed standing patrol on dev after the
   operator explicitly required publication after the Windows attempt,
   regardless of its result.
-- Buildchain alpha `v2.12.2-alpha.1` and stable `v2.12.2` were published from
-  the exact controller source through protected promotion PRs. The standing
-  patrol now consumes the immutable stable release commit above.
+- Buildchain stable `v2.12.4` was published from the protected release train
+  after cross-platform fixture checks, alpha self-dogfood, exact-alpha
+  qualification, and the stable candidate patrol. It includes the Windows
+  batch adapter, per-run managed receipt cleanup, and human-authority stable
+  reconciliation fixes discovered by the first three-runner patrols. The
+  standing patrol consumes the immutable stable release commit above.
 
 The old single-Linux `build.yml@v2-alpha` patrol remains available through Git
 history as the rollback implementation. Rollback is a normal reviewed workflow
