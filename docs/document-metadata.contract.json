@@ -116,6 +116,7 @@
         "docs/research/libwasm-embedding-membrane-spike.md",
         "docs/research/rust-host-spike.md",
         "docs/qualification/single-host-performance-qualification.md",
+        "docs/qualification/evidence/durability/12dd26e899/README.md",
         "docs/architecture/carrier-type-registry.md",
         "docs/architecture/strong-durability-and-crash-recovery-design.md",
         "docs/qualification/mmap-performance.md",

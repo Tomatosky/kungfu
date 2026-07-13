@@ -134,6 +134,10 @@ if(KUNGFU_WITH_CORE_TESTS)
   target_compile_features(kungfu_durable_ingest_tests PRIVATE cxx_std_20)
   add_test(NAME kungfu_durable_ingest_tests COMMAND kungfu_durable_ingest_tests)
 
+  add_executable(kungfu_durability_powercut_fixture tests/durability_powercut_fixture.cpp)
+  target_link_libraries(kungfu_durability_powercut_fixture PRIVATE ${LIBKUNGFU_NAME} kungfu_compile_contract Threads::Threads)
+  target_compile_features(kungfu_durability_powercut_fixture PRIVATE cxx_std_20)
+
   add_executable(kungfu_projection_bootstrap_tests tests/projection_bootstrap_tests.cpp)
   target_link_libraries(kungfu_projection_bootstrap_tests PRIVATE ${LIBKUNGFU_NAME} kungfu_compile_contract Threads::Threads)
   target_compile_features(kungfu_projection_bootstrap_tests PRIVATE cxx_std_20)

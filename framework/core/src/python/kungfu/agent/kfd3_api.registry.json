@@ -63,6 +63,96 @@
       "projections": ["commands.json", "agent-pack-doc", "provider-skill"]
     },
     {
+      "id": "kungfu.agent.console",
+      "surface": "cli-api-gui",
+      "name": "kungfu agent console",
+      "purpose": "Inspect the content-bound identity and public entrypoints of the current Kungfu Agent Console attempt.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "runtime-click", "symbol": "console" },
+      "projections": ["capabilities-json", "provider-skill"]
+    },
+    {
+      "id": "kungfu.agent.console.current",
+      "surface": "cli-api-gui",
+      "name": "kungfu agent console current --json",
+      "purpose": "Validate and return the current Console, attempt, Runtime Profile, optional WorkRef, installed Profile roots, entrypoints, limits, and envelope root.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "runtime-click", "symbol": "console_current" },
+      "projections": ["commands.json", "capabilities-json", "provider-skill"]
+    },
+    {
+      "id": "kungfu.agent.runtime",
+      "surface": "cli",
+      "name": "kungfu agent runtime",
+      "purpose": "Discover and configure machine-local Codex and Claude launch profiles without reading provider credentials.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "runtime-click", "symbol": "runtime" },
+      "projections": ["capabilities-json"]
+    },
+    {
+      "id": "kungfu.agent.runtime.discover",
+      "surface": "cli",
+      "name": "kungfu agent runtime discover --json",
+      "purpose": "List every safe executable Codex and Claude candidate from PATH and explicit known locations.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "runtime-click", "symbol": "runtime_discover" },
+      "projections": ["commands.json", "capabilities-json", "provider-skill"]
+    },
+    {
+      "id": "kungfu.agent.runtime.list",
+      "surface": "cli",
+      "name": "kungfu agent runtime list --json",
+      "purpose": "Show configured, discovered, default, and recommended Agent Runtime Profiles.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "runtime-click", "symbol": "runtime_list" },
+      "projections": ["commands.json", "capabilities-json", "provider-skill"]
+    },
+    {
+      "id": "kungfu.agent.runtime.upsert",
+      "surface": "cli",
+      "name": "kungfu agent runtime upsert --id <id> --provider <provider> --executable <path> --json",
+      "purpose": "Preview or explicitly add or edit one executable-plus-argv Agent Runtime Profile.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "runtime-click", "symbol": "runtime_upsert" },
+      "projections": ["commands.json", "capabilities-json", "provider-skill"]
+    },
+    {
+      "id": "kungfu.agent.runtime.remove",
+      "surface": "cli",
+      "name": "kungfu agent runtime remove <profile-id> --json",
+      "purpose": "Preview or explicitly remove one machine-local launch profile without deleting work facts or Console history.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "runtime-click", "symbol": "runtime_remove" },
+      "projections": ["commands.json", "capabilities-json"]
+    },
+    {
+      "id": "kungfu.agent.runtime.set-default",
+      "surface": "cli",
+      "name": "kungfu agent runtime set-default <profile-id> --json",
+      "purpose": "Preview or explicitly select the machine-global default Agent Runtime Profile.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "runtime-click", "symbol": "runtime_set_default" },
+      "projections": ["commands.json", "capabilities-json", "provider-skill"]
+    },
+    {
+      "id": "kungfu.agent.runtime.verify",
+      "surface": "cli",
+      "name": "kungfu agent runtime verify <profile-id> --json",
+      "purpose": "Run a bounded executable --version probe for one Agent Runtime Profile.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "runtime-click", "symbol": "runtime_verify" },
+      "projections": ["commands.json", "capabilities-json", "provider-skill"]
+    },
+    {
       "id": "kungfu.agent.install-skill",
       "surface": "cli",
       "name": "kungfu agent install-skill --target codex",

@@ -3,6 +3,7 @@
 // (ADR-0011), and hand capability handles to the shell and its kfx. This is
 // the moat: the renderer reaches the runtime directly, no IPC copy.
 import {
+  type AgentRuntime,
   type Atlas,
   type DomainState,
   type KfNativeBinding,
@@ -17,6 +18,7 @@ import {
   type Work,
   type WorkspaceGuidance,
   managedTmuxSocket,
+  openAgentRuntime,
   openAtlas,
   openDomainState,
   openLedger,
@@ -29,6 +31,7 @@ import {
   openWorkspaceGuidance,
 } from '@kungfu-tech/api/capability';
 import {
+  AGENT_RUNTIME_CLI_EXEC_CHANNEL,
   ATLAS_CLI_EXEC_CHANNEL,
   PROFILE_CLI_EXEC_CHANNEL,
 } from '../../sandbox/channels';
@@ -134,6 +137,7 @@ export type Runtime = {
   work: Work | null;
   atlas: Atlas | null;
   profile: Profile | null;
+  agentRuntime: AgentRuntime | null;
   workspace: WorkspaceGuidance | null;
 };
 
@@ -181,6 +185,7 @@ function createRuntime(): Runtime {
     work: null,
     atlas: null,
     profile: null,
+    agentRuntime: null,
     workspace: null,
   };
   if (env.KF_WORKSPACE_STATE === 'selected-uninitialized') {
@@ -302,6 +307,17 @@ function createRuntime(): Runtime {
         return result.stdout;
       },
     });
+    const agentRuntime = openAgentRuntime({
+      bin: cliOptions.bin,
+      env: cliOptions.env,
+      execFile: async (_file: string, args: string[]) => {
+        const result = await atlasIpc.invoke(AGENT_RUNTIME_CLI_EXEC_CHANNEL, {
+          args,
+        });
+        if (!result.ok) throw new Error(result.error);
+        return result.stdout;
+      },
+    });
     const workspace = openWorkspaceGuidance(cliOptions);
     const remoteWork = openRemoteWork({
       binding,
@@ -354,6 +370,7 @@ function createRuntime(): Runtime {
       work,
       atlas,
       profile,
+      agentRuntime,
       workspace,
     };
   } catch (e) {

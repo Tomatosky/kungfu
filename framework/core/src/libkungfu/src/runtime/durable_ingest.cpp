@@ -1083,6 +1083,7 @@ struct durable_ingest_log::impl {
         return timeout_result(true);
       }
       sync_directory(directory);
+      inject(ingest_fault_point::AfterDirectorySync);
 
       durable_checkpoint = next;
       current_status.durable_offset = next.durable_offset;

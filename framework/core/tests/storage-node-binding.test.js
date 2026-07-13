@@ -14,6 +14,8 @@ const nativeAvailable =
   typeof kungfu.runStorageServiceOperation === 'function' &&
   typeof kungfu.acceptStorageManifest === 'function';
 const typedStatusAvailable = typeof kungfu.storageStatusTyped === 'function';
+const durabilityCapabilityAvailable =
+  typeof kungfu.durabilityCapabilityTyped === 'function';
 const actionEnvelopeAvailable =
   typeof kungfu.encodeActionEnvelope === 'function' &&
   typeof kungfu.decodeActionEnvelope === 'function';
@@ -246,6 +248,30 @@ test(
     const receipt = recorder.recordAction(value);
     assert.equal(receipt.carrierType, kungfu.ACTION_ENVELOPE_CARRIER_TYPE);
     assert.equal(receipt.dataType, 0);
+  },
+);
+
+test(
+  'Node durability capability preserves the libkungfu claim boundary',
+  {
+    skip:
+      durabilityCapabilityAvailable || process.env.KUNGFU_REQUIRE_NATIVE === '1'
+        ? false
+        : 'durability capability binding is unavailable',
+  },
+  () => {
+    const report = kungfu.durabilityCapabilityTyped();
+    assert.equal(report.schema, 'kungfu.durability.capability/v1');
+    assert.equal(report.authority, 'libkungfu');
+    assert.equal(report.support_level, 'qualified-test-only');
+    assert.equal(report.production_eligible, false);
+    assert.equal(report.restore.verified, true);
+    assert.equal(report.restore.off_host, false);
+    assert.equal(report.restore.independent_failure_domain, false);
+    assert.deepEqual(
+      report.profiles.map((profile) => profile.name),
+      ['visible', 'durable_group', 'durable_sync', 'replicated'],
+    );
   },
 );
 

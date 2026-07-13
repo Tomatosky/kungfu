@@ -13,7 +13,7 @@
 // each persisted tmux session by runId. Direct (non-durable) sessions are
 // recorded for completeness but cannot be brought back — their process died
 // with the previous renderer.
-import type { DomainState, KfLocation } from '@kungfu-tech/kfx';
+import type { DomainState, KfLocation, WorkRef } from '@kungfu-tech/kfx';
 
 // One JSON blob, addressed like shell state (system/shell/…/live).
 export const WORKSPACE_LOCATION: KfLocation = {
@@ -21,6 +21,50 @@ export const WORKSPACE_LOCATION: KfLocation = {
   namespace: 'shell',
   name: 'terminal-workspace',
   mode: 'live',
+};
+
+export const CONSOLE_REGISTRY_LOCATION: KfLocation = {
+  role: 'system',
+  namespace: 'shell',
+  name: 'agent-console-registry',
+  mode: 'live',
+};
+
+export type SessionAttempt = {
+  attemptId: string;
+  runId: string;
+  status:
+    | 'planned'
+    | 'running'
+    | 'detached'
+    | 'exited'
+    | 'orphaned'
+    | 'unrecoverable';
+  startedAt: number;
+  endedAt?: number;
+};
+
+export type WorkConsole = {
+  consoleId: string;
+  bindingKind: 'work' | 'workspace-assistant';
+  workRef: WorkRef | null;
+  runtimeProfileId: string;
+  backend: 'tmux' | 'direct';
+  attempts: SessionAttempt[];
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type WorkConsoleRegistry = {
+  schema: 'kungfu.work-console-registry/v1';
+  workspaceId: string;
+  consoles: WorkConsole[];
+  presentation: {
+    tabs: string[];
+    splits: string[];
+    drawer: string | null;
+    windows: string[];
+  };
 };
 
 export type PersistedPane = {
@@ -33,6 +77,9 @@ export type PersistedPane = {
   cwd?: string;
   startedAt: number;
   order: number;
+  consoleId?: string;
+  attemptId?: string;
+  runtimeProfileId?: string;
 };
 
 // An OS window that shows one session (ADR-0016 stage 2). Window identity is a
@@ -85,6 +132,10 @@ function parsePane(value: unknown, index: number): PersistedPane | null {
     cwd: typeof v.cwd === 'string' ? v.cwd : undefined,
     startedAt: typeof v.startedAt === 'number' ? v.startedAt : 0,
     order: typeof v.order === 'number' ? v.order : index,
+    consoleId: typeof v.consoleId === 'string' ? v.consoleId : undefined,
+    attemptId: typeof v.attemptId === 'string' ? v.attemptId : undefined,
+    runtimeProfileId:
+      typeof v.runtimeProfileId === 'string' ? v.runtimeProfileId : undefined,
   };
 }
 
@@ -168,5 +219,131 @@ export function saveWorkspaceLayout(
     domain.setConfig(WORKSPACE_LOCATION, JSON.stringify(layout));
   } catch {
     // persistence is best-effort; a failed write never breaks the workspace
+  }
+}
+
+export function emptyConsoleRegistry(
+  workspaceId = 'home',
+): WorkConsoleRegistry {
+  return {
+    schema: 'kungfu.work-console-registry/v1',
+    workspaceId,
+    consoles: [],
+    presentation: { tabs: [], splits: [], drawer: null, windows: [] },
+  };
+}
+
+function parseAttempt(value: unknown): SessionAttempt | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const row = value as Record<string, unknown>;
+  if (typeof row.attemptId !== 'string' || typeof row.runId !== 'string')
+    return null;
+  const allowed = new Set([
+    'planned',
+    'running',
+    'detached',
+    'exited',
+    'orphaned',
+    'unrecoverable',
+  ]);
+  const status = allowed.has(String(row.status))
+    ? (String(row.status) as SessionAttempt['status'])
+    : 'orphaned';
+  return {
+    attemptId: row.attemptId,
+    runId: row.runId,
+    status,
+    startedAt: typeof row.startedAt === 'number' ? row.startedAt : 0,
+    endedAt: typeof row.endedAt === 'number' ? row.endedAt : undefined,
+  };
+}
+
+function parseConsole(value: unknown): WorkConsole | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const row = value as Record<string, unknown>;
+  if (
+    typeof row.consoleId !== 'string' ||
+    typeof row.runtimeProfileId !== 'string'
+  )
+    return null;
+  const bindingKind =
+    row.bindingKind === 'work' ? 'work' : 'workspace-assistant';
+  const workRef =
+    bindingKind === 'work' && row.workRef && typeof row.workRef === 'object'
+      ? (row.workRef as WorkRef)
+      : null;
+  if (bindingKind === 'work' && !workRef) return null;
+  return {
+    consoleId: row.consoleId,
+    bindingKind,
+    workRef,
+    runtimeProfileId: row.runtimeProfileId,
+    backend: row.backend === 'direct' ? 'direct' : 'tmux',
+    attempts: (Array.isArray(row.attempts) ? row.attempts : [])
+      .map(parseAttempt)
+      .filter((attempt): attempt is SessionAttempt => attempt !== null),
+    createdAt: typeof row.createdAt === 'number' ? row.createdAt : 0,
+    updatedAt: typeof row.updatedAt === 'number' ? row.updatedAt : 0,
+  };
+}
+
+export function parseConsoleRegistry(raw: string): WorkConsoleRegistry {
+  try {
+    const value = JSON.parse(raw) as Record<string, unknown>;
+    const fallback = emptyConsoleRegistry(
+      typeof value.workspaceId === 'string' ? value.workspaceId : 'home',
+    );
+    if (value.schema !== fallback.schema) return fallback;
+    const presentation =
+      value.presentation && typeof value.presentation === 'object'
+        ? (value.presentation as Record<string, unknown>)
+        : {};
+    return {
+      ...fallback,
+      consoles: (Array.isArray(value.consoles) ? value.consoles : [])
+        .map(parseConsole)
+        .filter((console): console is WorkConsole => console !== null),
+      presentation: {
+        tabs: asStringArray(presentation.tabs) ?? [],
+        splits: (asStringArray(presentation.splits) ?? []).slice(0, 3),
+        drawer:
+          typeof presentation.drawer === 'string' ? presentation.drawer : null,
+        windows: asStringArray(presentation.windows) ?? [],
+      },
+    };
+  } catch {
+    return emptyConsoleRegistry();
+  }
+}
+
+export function loadConsoleRegistry(
+  domain: DomainState,
+  workspaceId: string,
+): WorkConsoleRegistry {
+  try {
+    const entry = domain
+      .configs()
+      .find(
+        (row) =>
+          row.location.role === CONSOLE_REGISTRY_LOCATION.role &&
+          row.location.namespace === CONSOLE_REGISTRY_LOCATION.namespace &&
+          row.location.name === CONSOLE_REGISTRY_LOCATION.name,
+      );
+    return entry
+      ? parseConsoleRegistry(entry.value)
+      : emptyConsoleRegistry(workspaceId);
+  } catch {
+    return emptyConsoleRegistry(workspaceId);
+  }
+}
+
+export function saveConsoleRegistry(
+  domain: DomainState,
+  registry: WorkConsoleRegistry,
+): void {
+  try {
+    domain.setConfig(CONSOLE_REGISTRY_LOCATION, JSON.stringify(registry));
+  } catch {
+    // Same best-effort journal boundary as the presentation layout.
   }
 }

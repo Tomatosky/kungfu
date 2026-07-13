@@ -48,6 +48,72 @@ Disposable volume/VM/device evidence, real ENOSPC, performance ceilings, soak,
 and production profile activation remain separate later tiers. Their absence
 is a passing report's explicit non-claim, not an ignored test.
 
+## Disposable power-cut fixture
+
+`./shifu durability:powercut:fixture` builds a small native worker for the
+later VM/device tier. It can stop at every append, data-sync, checkpoint,
+directory-sync, and post-receipt boundary, then verify the checkpoint-covered
+record chain after a fresh boot. Building or running its non-interrupting
+smoke path is not power-loss evidence; only an external disposable-VM
+orchestrator may terminate the guest after the worker emits
+`KF_POWER_CUT_ARMED`.
+
+The worker fails closed unless both safeguards are present:
+
+- `KUNGFU_DURABILITY_QUALIFICATION=disposable-powercut`;
+- a pre-existing data root containing
+  `.kungfu-disposable-powercut-fixture` with the exact
+  `kungfu.durability.disposable-root/v1` sentinel.
+
+Never place that sentinel in a user journal or production data root. The
+fixture does not create, mount, format, terminate, or restart a VM or storage
+device; those destructive actions belong to a separately reviewed,
+dry-run-first orchestrator and retained machine report.
+
+The Linux device-tier preflight is generated without side effects:
+
+```sh
+./shifu durability:powercut:plan -- \
+  --run-id 12dd26e899-linux-ext4-v1 \
+  --repo /data/worktrees/kungfu/feature/durability-qualification-final \
+  --source-revision "$(git rev-parse HEAD)" \
+  --image kungfu-linux-build-probe:conanfix-20260630T101847Z \
+  --kernel-release 6.8.0-134-generic \
+  --kernel-version 6.8.0-134.134
+```
+
+Run the command from the exact isolated repository worktree named by `--repo`;
+the shell substitution binds the plan to that worktree's full commit. The
+result is a `dry-run-only` JSON plan. It refuses arbitrary repository and
+workspace roots, names every host mutation, leaves physical hosts and devices
+out of scope, and separates the exact armed marker from the direct-child QEMU
+termination step. Every profile/fault trial creates a small guest-root qcow2
+overlay and a pristine raw ext4 data image, so sequence state and guest writes
+cannot leak across trials while qcow2 stays outside the tested durability
+device. The plan is evidence for review, not authorization to run the mutating
+commands.
+
+The raw data drive uses QEMU `cache=none,aio=native`; write and verification
+boots use different root overlays. After the guest emits its exact verification
+completion marker it remains alive as PID 1, and the host runner terminates only
+that direct QEMU child. This avoids treating a missing guest init-system
+`poweroff` helper as durability evidence.
+
+The separate `./shifu durability:institutional:qemu` harness extends that
+disposable Linux/ext4 envelope with a real filesystem-full ENOSPC trial, a
+cleanly unmounted write followed by three whole-guest reopen checks, and an
+offline block-image backup copied to a sentinel-protected path outside the VM
+workspace. It restores that backup onto an absent data-device path, verifies
+the image hash, runs read-only `e2fsck`, and boots a fresh root overlay to
+verify the durable chain. Execution requires the same explicit QEMU
+confirmation plus a second backup-root sentinel and refuses pre-existing
+evidence files.
+
+This qualifies only the named disposable guest/device envelope. It does not
+restart the physical QEMU host, move the backup off-host, establish an
+independent backup failure domain, or activate a production profile; the
+machine report records each of those as `false`.
+
 ## Files
 
 - `profiles/*.json` freezes the platform/filesystem process profiles.
@@ -56,3 +122,9 @@ is a passing report's explicit non-claim, not an ignored test.
 - `run.mjs` owns dry-run planning, local execution, raw evidence, and verdicts.
 - `run.test.mjs` proves fail-closed platform, marker, and claim behavior without
   entering a compiler or build lifecycle.
+- `powercut_plan.mjs` freezes the disposable Linux ext4/QEMU write set and fault
+  matrix without executing it.
+- `powercut_guest_init` is the guest-only init entrypoint copied into the
+  disposable root image; it cannot create or terminate a host VM.
+- `scripts/run-durability-institutional-qemu.mjs` owns the explicit real
+  ENOSPC, whole-guest reopen, and offline backup/restore drill.

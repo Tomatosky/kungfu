@@ -117,6 +117,7 @@ function subsetCaps(runtime: Runtime, entry: KfxEntry): KfxCapabilities | null {
     work: runtime.work,
     atlas: runtime.atlas,
     profile: runtime.profile,
+    agentRuntime: runtime.agentRuntime,
     workspace: runtime.workspace,
   } as Record<string, unknown>;
   const subset: Record<string, unknown> = {};
@@ -147,6 +148,7 @@ function sandboxSubset(
     work: runtime.work,
     atlas: runtime.atlas,
     profile: runtime.profile,
+    agentRuntime: runtime.agentRuntime,
     workspace: runtime.workspace,
   };
   const subset: Record<string, Record<string, unknown>> = {};
@@ -862,6 +864,22 @@ function App() {
     [],
   );
   const notificationTimers = React.useRef(new Map<string, number>());
+  const startupViewApplied = React.useRef(false);
+
+  React.useEffect(() => {
+    if (startupViewApplied.current || !config) return;
+    startupViewApplied.current = true;
+    const agent = config.config.agent as
+      | { startupView?: 'profile-home' | 'agent-console' }
+      | undefined;
+    if (
+      !window.process.env.KFE_INITIAL_VIEW &&
+      agent?.startupView === 'agent-console' &&
+      enabled.some((entry) => entry.id === 'terminal')
+    ) {
+      setActive('terminal');
+    }
+  }, [config, enabled]);
 
   // shared refresh bus: one shell-owned timer, kfx subscribe
   const subscribers = React.useRef(new Set<() => void>());

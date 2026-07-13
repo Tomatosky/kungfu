@@ -167,6 +167,75 @@ nlohmann::json render_durability_receipt(const durability_receipt &receipt) {
           {"error", view.error}};
 }
 
+const durability_capability_report &single_host_institutional_capability() {
+  static const durability_capability_report report{
+      DURABILITY_CAPABILITY_SCHEMA_V1,
+      "libkungfu",
+      "single-host-institutional-v1",
+      "qualified-test-only",
+      false,
+      "single-host-disposable-linux-ext4-qemu-v1",
+      "test/disposable-powercut/v1",
+      {{"visible", "runtime", "compatibility", true, "process visibility only; no power-loss guarantee", ""},
+       {"durable_group", "test-fixture-only", "process-and-disposable-vm-qualified", false,
+        "batch durable watermark inside the named test envelope",
+        "public runtime activation has no matching production qualification"},
+       {"durable_sync", "test-fixture-only", "process-and-disposable-vm-qualified", false,
+        "data and metadata barrier inside the named test envelope",
+        "public runtime activation has no matching production qualification"},
+       {"replicated", "unavailable", "unqualified", false, "none",
+        "replication and high availability are outside the v1 local profile"}},
+      {{"three-platform-process-crash", "docs/qualification/evidence/durability/12dd26e899/README.md",
+        "5582d21b3ae0222e0220c956013d86fe562308be968927be9d64f43da1ece732"},
+       {"single-host-disposable-qemu",
+        "docs/qualification/evidence/durability/c7c0c680e/single-host-institutional-profile-v1.json",
+        "a957606deb75644c5b038f067fcabcbb8d128a7015123f818eeccbbd18794f50"}},
+      {true, "same-host-external-path-disposable-vm", "quiesced_after_durable_sequence_1_and_clean_unmount", 0, false,
+       false},
+      {"trusted host and administrator", "one authoritative data root per workspace instance",
+       "one active fenced state and durability service owner per data root", "one active writer per stream"},
+      {"physical host restart", "physical power loss", "macOS device power cut", "Windows device power cut",
+       "off-host backup", "independent backup failure domain", "whole-device loss", "production profile eligibility",
+       "absolute performance SLO", "replication or high availability", "distributed consensus",
+       "network-partition or cross-machine ordering", "malicious-administrator resistance"}};
+  return report;
+}
+
+nlohmann::json render_durability_capability(const durability_capability_report &report) {
+  auto profiles = nlohmann::json::array();
+  for (const auto &profile : report.profiles) {
+    profiles.push_back({{"name", profile.name},
+                        {"availability", profile.availability},
+                        {"qualification", profile.qualification},
+                        {"production_eligible", profile.production_eligible},
+                        {"guarantee", profile.guarantee},
+                        {"refusal_reason", profile.refusal_reason.empty() ? nlohmann::json(nullptr)
+                                                                          : nlohmann::json(profile.refusal_reason)}});
+  }
+  auto evidence = nlohmann::json::array();
+  for (const auto &reference : report.evidence) {
+    evidence.push_back({{"id", reference.id}, {"path", reference.path}, {"sha256", reference.sha256}});
+  }
+  return {{"schema", report.schema},
+          {"authority", report.authority},
+          {"profile", report.profile},
+          {"support_level", report.support_level},
+          {"production_eligible", report.production_eligible},
+          {"qualified_envelope", report.qualified_envelope},
+          {"qualification_profile", report.qualification_profile},
+          {"profiles", profiles},
+          {"evidence", evidence},
+          {"restore",
+           {{"verified", report.restore.verified},
+            {"scope", report.restore.scope},
+            {"backup_cut", report.restore.backup_cut},
+            {"maximum_observed_rpo_records", report.restore.maximum_observed_rpo_records},
+            {"off_host", report.restore.off_host},
+            {"independent_failure_domain", report.restore.independent_failure_domain}}},
+          {"trust_assumptions", report.trust_assumptions},
+          {"non_claims", report.non_claims}};
+}
+
 durability_receipt visible_receipt_registry::complete(const durability_request &request, int64_t completed_at) {
   const auto found = entries_.find(request.request_id);
   if (found != entries_.end()) {

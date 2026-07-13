@@ -8,6 +8,7 @@ implemented behavior, retained evidence, and released guarantees. Begin with
 - [Known Limits](known-limits.md)
 - [Strong Durability and Crash Recovery](durability-and-crash-recovery.md)
 - [Durability Qualification Harness](../../framework/core/tests/qualification/durability/README.md)
+- [Three-platform durability process evidence at `12dd26e899`](evidence/durability/12dd26e899/README.md)
 - [Single-host Institutional Trust Profile](single-host-institutional-trust.md)
 - [Single-host Performance Qualification](single-host-performance-qualification.md)
 - [yijinjing mmap Performance Qualification](mmap-performance.md)
