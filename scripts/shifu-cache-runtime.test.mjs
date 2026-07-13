@@ -407,12 +407,29 @@ test('strict Python cache uses a disposable effective lock and redacted receipt'
   );
 });
 
-test('strict Python cache fails before starting the child when endpoint is unavailable', async (t) => {
+test('strict Python cache fails before starting the child when effective lock rebinding fails', async (t) => {
   const directory = fs.mkdtempSync(
     path.join(os.tmpdir(), 'shifu-cache-uv-fail-'),
   );
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-  const raw = bytes(pythonCacheProfile('http://127.0.0.1:1/simple/'));
+  const repo = path.join(directory, 'repo');
+  const project = path.join(repo, 'framework', 'core');
+  const bin = path.join(directory, 'bin');
+  fs.mkdirSync(project, { recursive: true });
+  fs.mkdirSync(bin);
+  fs.writeFileSync(
+    path.join(project, 'pyproject.toml'),
+    '[project]\nname="demo"\nversion="1.0.0"\n',
+  );
+  fs.writeFileSync(path.join(project, 'uv.lock'), minimalUvLock());
+  spawnSync('git', ['init', '-q'], { cwd: repo });
+  spawnSync(
+    'git',
+    ['add', 'framework/core/pyproject.toml', 'framework/core/uv.lock'],
+    { cwd: repo },
+  );
+  installFakeUv(bin);
+  const raw = bytes(pythonCacheProfile('http://cache.example.invalid/simple/'));
   const profilePath = path.join(directory, 'profile.json');
   const receiptPath = path.join(directory, 'receipt.json');
   const childPath = path.join(directory, 'child-ran');
@@ -428,9 +445,14 @@ test('strict Python cache fails before starting the child when endpoint is unava
         '-e',
         `require('node:fs').writeFileSync(${JSON.stringify(childPath)}, 'ran')`,
       ],
-      cwd: directory,
+      cwd: repo,
+      env: {
+        ...process.env,
+        PATH: `${bin}${path.delimiter}${process.env.PATH || ''}`,
+        FAKE_UV_FAIL_LOCK: '1',
+      },
     }),
-    /endpoint is unavailable/,
+    /uv lock.*failed/,
   );
   assert.equal(fs.existsSync(childPath), false);
   const receipt = JSON.parse(fs.readFileSync(receiptPath, 'utf8'));

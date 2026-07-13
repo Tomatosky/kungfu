@@ -669,25 +669,6 @@ function pythonCacheBinding(resolved) {
   return null;
 }
 
-async function probeRequiredEndpoint(endpoint, timeoutMs = 5_000) {
-  let response;
-  try {
-    response = await fetch(endpoint, {
-      method: 'HEAD',
-      redirect: 'follow',
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-  } catch (error) {
-    throw new CacheProfileError(
-      `required Python cache endpoint is unavailable: ${error.message}`,
-    );
-  }
-  assert(
-    response.ok,
-    `required Python cache endpoint is unavailable: HTTP ${response.status}`,
-  );
-}
-
 function markPythonVerification(receipt, pythonCache, evidence, durationMs) {
   const service = receipt.services[pythonCache.serviceId];
   service.verification =
@@ -848,8 +829,6 @@ export async function applyCacheProfile({
     };
     if (pythonCache) {
       try {
-        if (pythonCache.strict)
-          await probeRequiredEndpoint(pythonCache.endpoint);
         uvOverlay = prepareUvCacheOverlay({
           cwd,
           env: boundEnv,

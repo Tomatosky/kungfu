@@ -44,29 +44,27 @@ every tracked lock and rejects private, local, alternate, or malformed hosts.
 When a profile selects a Python index, Shifu performs these steps before
 starting the requested build task:
 
-1. For a required fail-closed profile, probe the selected Python endpoint with
-   a bounded request.
-2. Mirror each tracked uv project into a process-private temporary directory,
+1. Mirror each tracked uv project into a process-private temporary directory,
    copying only `pyproject.toml` and `uv.lock` and linking the remaining source
    tree without writing it.
-3. Ask the pinned `uv` executable to refresh the copied lock against the
+2. Ask the pinned `uv` executable to refresh the copied lock against the
    selected endpoint.
-4. Normalize transport-only fields and require the effective lock's dependency
+3. Normalize transport-only fields and require the effective lock's dependency
    semantic digest to equal the canonical lock's digest.
-5. Require every effective registry and artifact URL origin to equal the
+4. Require every effective registry and artifact URL origin to equal the
    selected endpoint origin.
-6. Put a child-only `uv` wrapper first on `PATH`. Project commands use the
+5. Put a child-only `uv` wrapper first on `PATH`. Project commands use the
    mirrored project, a disposable `UV_PROJECT_ENVIRONMENT`, and frozen mode.
-7. Remove the overlay after the child exits and emit only digests, counts,
+6. Remove the overlay after the child exits and emit only digests, counts,
    verification state, and cleanup state in the resolution receipt.
 
 `uv add`, `uv remove`, and `uv version` are rejected inside a cache-managed
 execution because mutations belong in the canonical development checkout.
 Non-project uv commands continue to reach the real executable. Profiles that
-allow fallback attempt the same effective-lock overlay without the strict
-pre-probe. If tool-native rebinding fails, Shifu records the declared fallback
-and continues with the canonical public lock. Required profiles never take that
-path.
+allow fallback attempt the same effective-lock overlay. If tool-native
+rebinding fails, Shifu records the declared fallback and continues with the
+canonical public lock. Required profiles never take that path. A generic HTTP
+probe is diagnostic evidence only; tool-native rebind is the execution gate.
 
 ## Compatibility
 
