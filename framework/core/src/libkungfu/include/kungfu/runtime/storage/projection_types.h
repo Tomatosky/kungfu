@@ -12,6 +12,8 @@ namespace kungfu::runtime::storage_service_api {
 struct storage_projection_count {
   std::string table = {};
   uint64_t count = 0;
+
+  friend bool operator==(const storage_projection_count &, const storage_projection_count &) = default;
 };
 
 struct storage_projection_drift {
@@ -21,6 +23,8 @@ struct storage_projection_drift {
   std::string reason = {};
   std::string projection_digest = {};
   std::string journal_digest = {};
+
+  friend bool operator==(const storage_projection_drift &, const storage_projection_drift &) = default;
 };
 
 struct storage_projection_verify_result {
@@ -35,6 +39,8 @@ struct storage_projection_verify_result {
   std::vector<storage_projection_drift> drift = {};
   std::vector<storage_projection_count> rows = {};
   std::vector<storage_projection_count> journal_distinct = {};
+
+  friend bool operator==(const storage_projection_verify_result &, const storage_projection_verify_result &) = default;
 };
 
 struct storage_projection_rebuild_result {

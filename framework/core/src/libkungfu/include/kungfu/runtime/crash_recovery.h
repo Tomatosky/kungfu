@@ -8,6 +8,7 @@
 #include <vector>
 
 #include <kungfu/runtime/durable_ingest.h>
+#include <kungfu/runtime/storage/service.h>
 
 namespace kungfu::runtime::recovery {
 
@@ -66,6 +67,8 @@ struct recovery_report {
   std::string evidence_message = {};
   std::string qualification_profile = {};
   bool qualification_passed = false;
+  uint64_t episode_unknown_record_count = 0;
+  std::vector<storage_service_api::episode_qualification_result> interrupted_episodes = {};
   bool mutation_performed = false;
   std::vector<std::string> restart_order = {"supervisor", "state_service", "projection", "peers"};
 
