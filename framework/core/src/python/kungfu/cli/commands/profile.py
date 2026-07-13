@@ -112,6 +112,37 @@ def application(ctx, source, as_json):
     _json(_run(lambda: profile_sdk.application(source, ctx.runtime_dir)))
 
 
+@profile.command(
+    name="kfd3-qualify",
+    help="audit no-bypass and dual-client closure, then emit a Kungfu-owned witness",
+)
+@click.argument("source", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option("--json", "as_json", is_flag=True)
+@profile_context
+def kfd3_qualify(ctx, source, as_json):
+    _json(_run(lambda: profile_sdk.qualify_kfd3(source, ctx.runtime_dir)))
+
+
+@profile.command(
+    name="kfd3-verify",
+    help="verify a KFD-3 qualification receipt against the current earned cut",
+)
+@click.argument("source", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.argument(
+    "receipt_file", type=click.Path(exists=True, dir_okay=False, path_type=Path)
+)
+@click.option("--json", "as_json", is_flag=True)
+@profile_context
+def kfd3_verify(ctx, source, receipt_file, as_json):
+    _json(
+        _run(
+            lambda: profile_sdk.verify_kfd3(
+                source, ctx.runtime_dir, _load_json(receipt_file)
+            )
+        )
+    )
+
+
 @profile.group(help="run the shared Profile intent application protocol")
 @click.help_option("-h", "--help")
 @profile_context

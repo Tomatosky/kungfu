@@ -467,6 +467,125 @@ def test_intent_authorize_rejects_stale_reviewed_plan(tmp_path):
         raise AssertionError("stale intent plan was authorized")
 
 
+def test_kfd3_qualification_earns_receipt_and_witness_for_exact_active_root(
+    tmp_path,
+):
+    source, _ = create_source(tmp_path)
+    make_collaboration_action_lifecycle(source)
+    home = tmp_path / "home"
+    runtime = home / "runtime"
+    for action in ["install", "qualify", "activate"]:
+        core_plan = profile_sdk.lifecycle_plan(runtime, action, source)["corePlan"]
+        profile_sdk.lifecycle_apply(runtime, core_plan, f"test:{action}")
+
+    receipt = profile_sdk.qualify_kfd3(source, runtime)
+    projected = profile_sdk.application(source, runtime)
+
+    assert receipt["schema"] == "kungfu.profile-kfd3-qualification-receipt/v1"
+    assert receipt["qualified"] is True
+    assert receipt["noBypass"]["passed"] is True
+    assert receipt["clientProbes"][0]["matched"] is True
+    assert receipt["witness"]["qualificationReceiptId"] == receipt["receiptId"]
+    assert receipt["witness"]["issuer"] == "kungfu-profile-runtime"
+    assert projected["qualified"] is True
+    assert projected["qualification"]["witnessId"] == receipt["witness"]["witnessId"]
+    assert profile_sdk.verify_kfd3(source, runtime, receipt)["verified"] is True
+
+    cli = CliRunner().invoke(
+        kfc,
+        [
+            "--home",
+            str(home),
+            "profile",
+            "kfd3-qualify",
+            str(source),
+            "--json",
+        ],
+    )
+    assert cli.exit_code == 0, cli.output
+    assert (
+        json.loads(cli.output)["witness"]["witnessId"]
+        == receipt["witness"]["witnessId"]
+    )
+
+    tampered = json.loads(json.dumps(receipt))
+    tampered["knownLimits"][0]["description"] = "hidden drift"
+    try:
+        profile_sdk.verify_kfd3(source, runtime, tampered)
+    except profile_sdk.ProfileSdkError as error:
+        assert error.diagnosis["code"] == "kfd3-qualification-stale-or-tampered"
+    else:
+        raise AssertionError("tampered KFD-3 receipt was verified")
+
+
+def test_kfd3_qualification_rejects_custom_view_mutation_boundary(tmp_path):
+    source, _ = create_source(tmp_path)
+    make_collaboration_action_lifecycle(source)
+    member = source / "members" / "example-week-day-contract"
+    manifest_path = member / "package.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["kungfuConfig"]["config"] = {
+        "view": {
+            "title": "Private mutation view",
+            "runtime": "node-integrated",
+            "capabilities": ["profile"],
+        }
+    }
+    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+    runtime = tmp_path / "runtime"
+    for action in ["install", "qualify", "activate"]:
+        core_plan = profile_sdk.lifecycle_plan(runtime, action, source)["corePlan"]
+        profile_sdk.lifecycle_apply(runtime, core_plan, f"test:{action}")
+
+    try:
+        profile_sdk.qualify_kfd3(source, runtime)
+    except profile_sdk.ProfileSdkError as error:
+        assert error.diagnosis["code"] == "kfd3-no-bypass-failed"
+        assert error.diagnosis["failures"][0]["facet"] == "view"
+    else:
+        raise AssertionError("custom mutation view bypass was qualified")
+
+
+def test_kfd3_qualification_allows_capability_free_sandboxed_view(tmp_path):
+    source, _ = create_source(tmp_path)
+    make_collaboration_action_lifecycle(source)
+    member = source / "members" / "example-week-day-contract"
+    manifest_path = member / "package.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["kungfuConfig"]["config"] = {
+        "view": {
+            "title": "Presentational view",
+            "runtime": "sandboxed-ipc",
+            "capabilities": [],
+        }
+    }
+    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+    bundle = member / "dist" / "view" / "index.js"
+    bundle.parent.mkdir(parents=True)
+    bundle.write_text("export function View() { return null; }\n")
+    runtime = tmp_path / "runtime"
+    for action in ["install", "qualify", "activate"]:
+        core_plan = profile_sdk.lifecycle_plan(runtime, action, source)["corePlan"]
+        profile_sdk.lifecycle_apply(runtime, core_plan, f"test:{action}")
+
+    receipt = profile_sdk.qualify_kfd3(source, runtime)
+
+    assert receipt["noBypass"]["customViews"][0]["passed"] is True
+    assert receipt["noBypass"]["customViews"][0]["bundleRoot"].startswith("sha256:")
+
+
+def test_kfd3_qualification_requires_active_exact_root(tmp_path):
+    source, _ = create_source(tmp_path)
+    make_collaboration_action_lifecycle(source)
+
+    try:
+        profile_sdk.qualify_kfd3(source, tmp_path / "runtime")
+    except profile_sdk.ProfileSdkError as error:
+        assert error.diagnosis["code"] == "kfd3-active-root-required"
+    else:
+        raise AssertionError("inactive Profile was KFD-3 qualified")
+
+
 def test_missing_member_fails_with_stable_decision_card(tmp_path):
     source, _ = create_source(tmp_path)
     missing = source / "members" / "example-week-day-actions"

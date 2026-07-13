@@ -5,7 +5,7 @@ adr_id: ADR-0074
 decision_status: accepted
 implementation_status: partial
 implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/734]
-qualification_refs: [scripts/run-kfx-profile-suite-tests.mjs]
+qualification_refs: [scripts/run-kfx-profile-suite-tests.mjs, framework/core/tests/python/test_agent_profile_sdk.py, scripts/buildchain-kfd-evidence.mjs]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-decision]
@@ -18,7 +18,7 @@ last_reviewed: 2026-07-13
 
 # ADR-0074: Kungfu qualifies one KFD-3 collaboration protocol for conforming Profiles
 
-- Status: accepted; implementation in progress
+- Status: accepted; qualification runtime implemented, independent Product proof pending
 - Date: 2026-07-13
 - Category: Profile runtime / KFD-3 / dual-first product interface
 - Related: [ADR-0061](ADR-0061-agent-mediated-guidance-is-a-first-class-product-interface.md),
@@ -96,8 +96,9 @@ projection into that authority.
 
 ## Delivery stages
 
-1. Add the optional content-bound collaboration facet and negative contract fixtures.
-2. Add closure parsing, roots, qualification state and public Python/Node/CLI services.
-3. Project generic GUI and Agent surfaces over the shared intent protocol.
-4. Add reverse audit, no-bypass tests and Buildchain witness emission.
+1. Done: add the optional content-bound collaboration facet and negative contract fixtures.
+2. Done: add closure parsing, roots, qualification state and public Python/Node/CLI services.
+3. Done: project generic GUI and Agent surfaces over the shared intent protocol.
+4. Done: add installed-authority audit, custom-facet no-bypass tests, deterministic receipt verification and a scoped
+   Profile witness bound to the Buildchain-projected collaboration-interface registry.
 5. Qualify an independent Profile and regress Mission Control in a frozen Product.

@@ -109,8 +109,20 @@ function ProfileCard({
           </div>
           <div style={{ ...mono, color: '#858585' }}>
             {application.constraints.length} constraints ·{' '}
-            {application.knownLimits.length} known limits · KFD-3 declared, not
-            qualified
+            {application.knownLimits.length} known limits ·{' '}
+            <span
+              title={
+                application.qualified
+                  ? `KFD-3 witness ${application.qualification.witnessId}`
+                  : application.qualification.reason ||
+                    String(
+                      application.qualification.diagnosis?.message ||
+                        'qualification not earned',
+                    )
+              }
+            >
+              {application.qualified ? '🛡️ KFD-3 qualified' : '◌ KFD-3 declared'}
+            </span>
           </div>
           {application.intents.map((intent) => (
             <button

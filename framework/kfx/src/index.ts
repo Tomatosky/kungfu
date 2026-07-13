@@ -50,6 +50,8 @@ export type {
   QueryViewSpec,
   ManagedProfile,
   ProfileApplicationProjection,
+  ProfileKfd3QualificationReceipt,
+  ProfileKfd3Verification,
   ProfileIntentPlan,
   ProfileLifecyclePlan,
   ProfileManagerProjection,

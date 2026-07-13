@@ -1199,6 +1199,28 @@
       "residualRisk": []
     },
     {
+      "id": "kungfu.profile.kfd3-qualification",
+      "kind": "cli-api-gui",
+      "name": "kungfu profile kfd3-qualify <source> --json",
+      "state": "declared",
+      "detected": true,
+      "enforced": false,
+      "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
+      "artifactPath": "framework/core/src/python/kungfu/agent/commands.json",
+      "kfd1Basis": {
+        "registryPath": ".buildchain/kfd/kfd-3/surfaces.json",
+        "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
+        "artifactPath": "framework/core/src/python/kungfu/agent/commands.json",
+        "digest": "sha256:30d3b2e58ff0fab319ea2616e3d83980f6d3df47cf4914904b04f7bf1c6348b1"
+      },
+      "kfd2Trust": {
+        "status": "release-passport-required",
+        "trustImpact": "query-release-passport-for-final-trust",
+        "residualRisk": []
+      },
+      "residualRisk": []
+    },
+    {
       "id": "kungfu.profile.lifecycle",
       "kind": "cli",
       "name": "kungfu profile plan <action> [source] --json",

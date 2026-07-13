@@ -903,6 +903,17 @@
       "projections": ["commands.json", "agent-pack-doc", "profile-manager-gui"]
     },
     {
+      "id": "kungfu.profile.kfd3-qualification",
+      "surface": "cli-api-gui",
+      "name": "kungfu profile kfd3-qualify <source> --json",
+      "aliases": ["kungfu profile kfd3-verify <source> <receipt.json> --json"],
+      "purpose": "Earn a scoped Profile KFD-3 receipt and witness only after installed authority, public-surface, no-bypass, and dual-client probes pass.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill", "profile-manager-gui"]
+    },
+    {
       "id": "kungfu.profile.composition",
       "surface": "cli-api-gui",
       "name": "kungfu profile catalog <source> [--require-active] --json",

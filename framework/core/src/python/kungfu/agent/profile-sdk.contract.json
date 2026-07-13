@@ -1,7 +1,7 @@
 {
   "schema": "kungfu.agent-profile-sdk-contract/v1",
   "id": "kungfu-agent-profile-sdk",
-  "version": 5,
+  "version": 6,
   "briefSchema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -377,6 +377,116 @@
           "homeViewId": { "type": ["string", "null"], "pattern": "^[A-Za-z0-9._-]+$" }
         }
       }
+    }
+  },
+  "kfd3QualificationReceiptSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["schema", "receiptId", "profileId", "profileSuiteRoot", "collaborationRoot", "closureRoot", "profileRevision", "runtimeContract", "authority", "surfaceInventory", "noBypass", "clientProbes", "knownLimits", "evidenceScope", "qualified", "witness"],
+    "properties": {
+      "schema": { "const": "kungfu.profile-kfd3-qualification-receipt/v1" },
+      "receiptId": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+      "profileId": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+      "profileSuiteRoot": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+      "collaborationRoot": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+      "closureRoot": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+      "profileRevision": { "type": "integer", "minimum": 1 },
+      "runtimeContract": { "const": "kungfu.profile-lifecycle/v1" },
+      "authority": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["standard", "registryId", "registryRoot", "auditRoot", "applicationApi"],
+        "properties": {
+          "standard": { "const": "KFD-3" },
+          "registryId": { "type": "string", "minLength": 1 },
+          "registryRoot": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "auditRoot": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "applicationApi": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "surface", "name", "aliases"],
+            "properties": {
+              "id": { "const": "kungfu.profile.application" },
+              "surface": { "type": "string", "minLength": 1 },
+              "name": { "type": "string", "minLength": 1 },
+              "aliases": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+            }
+          }
+        }
+      },
+      "surfaceInventory": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["intentIds", "actionIds", "viewIds", "applicationApiId"],
+        "properties": {
+          "intentIds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string" } },
+          "actionIds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string" } },
+          "viewIds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string" } },
+          "applicationApiId": { "const": "kungfu.profile.application" }
+        }
+      },
+      "noBypass": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["passed", "policy", "customViews", "executableFacetCount"],
+        "properties": {
+          "passed": { "const": true },
+          "policy": { "const": "generic-renderer-or-capability-free-sandboxed-view/v1" },
+          "customViews": { "type": "array", "items": { "type": "object" } },
+          "executableFacetCount": { "const": 0 }
+        }
+      },
+      "clientProbes": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["intentId", "humanPlanId", "agentPlanId", "actionPlanId", "matched"],
+          "properties": {
+            "intentId": { "type": "string", "minLength": 1 },
+            "humanPlanId": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "agentPlanId": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "actionPlanId": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "matched": { "const": true }
+          }
+        }
+      },
+      "knownLimits": { "type": "array", "minItems": 1, "items": { "type": "object" } },
+      "evidenceScope": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+      "qualified": { "const": true },
+      "witness": {
+        "type": "object",
+        "required": ["schema", "witnessId", "qualificationReceiptId", "issuer", "qualified"],
+        "properties": {
+          "schema": { "const": "kungfu.profile-kfd3-witness/v1" },
+          "witnessId": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "qualificationReceiptId": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "issuer": { "const": "kungfu-profile-runtime" },
+          "qualified": { "const": true }
+        }
+      }
+    }
+  },
+  "kfd3WitnessSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["schema", "witnessId", "profileId", "profileSuiteRoot", "collaborationRoot", "closureRoot", "qualificationReceiptId", "authorityRegistryRoot", "claim", "standard", "issuer", "qualified"],
+    "properties": {
+      "schema": { "const": "kungfu.profile-kfd3-witness/v1" },
+      "witnessId": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+      "profileId": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+      "profileSuiteRoot": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+      "collaborationRoot": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+      "closureRoot": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+      "qualificationReceiptId": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+      "authorityRegistryRoot": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+      "claim": { "const": "profile-collaboration-closure-qualified" },
+      "standard": { "const": "KFD-3" },
+      "issuer": { "const": "kungfu-profile-runtime" },
+      "qualified": { "const": true }
     }
   },
   "sourceBundleSchema": {

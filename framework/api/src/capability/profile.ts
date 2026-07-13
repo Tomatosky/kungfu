@@ -113,7 +113,43 @@ export type ProfileApplicationProjection = {
   intents: ProfileApplicationIntent[];
   presentation: { mode: 'generic' };
   protocol: string[];
-  qualified: false;
+  qualified: boolean;
+  qualification: {
+    qualified: boolean;
+    status: 'not-qualified' | 'qualification-failed' | 'qualified';
+    reason?: string;
+    receiptId?: string;
+    witnessId?: string;
+    evidenceScope?: string[];
+    diagnosis?: Record<string, unknown>;
+  };
+};
+
+export type ProfileKfd3QualificationReceipt = {
+  schema: 'kungfu.profile-kfd3-qualification-receipt/v1';
+  receiptId: string;
+  profileId: string;
+  profileSuiteRoot: string;
+  collaborationRoot: string;
+  closureRoot: string;
+  profileRevision: number;
+  qualified: true;
+  evidenceScope: string[];
+  witness: {
+    schema: 'kungfu.profile-kfd3-witness/v1';
+    witnessId: string;
+    qualificationReceiptId: string;
+    qualified: true;
+  };
+};
+
+export type ProfileKfd3Verification = {
+  schema: 'kungfu.profile-kfd3-verification/v1';
+  profileId: string;
+  profileSuiteRoot: string;
+  receiptId: string;
+  witnessId: string;
+  verified: true;
 };
 
 export type ProfileIntentPlan = {
@@ -204,6 +240,14 @@ export type Profile = {
   managerAsync: () => Promise<ProfileManagerProjection>;
   application: (source: string) => ProfileApplicationProjection;
   applicationAsync: (source: string) => Promise<ProfileApplicationProjection>;
+  qualifyKfd3: (source: string) => ProfileKfd3QualificationReceipt;
+  qualifyKfd3Async: (
+    source: string,
+  ) => Promise<ProfileKfd3QualificationReceipt>;
+  verifyKfd3Async: (
+    source: string,
+    receiptPath: string,
+  ) => Promise<ProfileKfd3Verification>;
   intentPlan: (source: string, intentId: string) => ProfileIntentPlan;
   intentPlanAsync: (
     source: string,
@@ -313,6 +357,12 @@ export function openProfile(options: OpenProfileOptions): Profile {
       run<ProfileApplicationProjection>(['application', source]),
     applicationAsync: (source) =>
       runAsync<ProfileApplicationProjection>(['application', source]),
+    qualifyKfd3: (source) =>
+      run<ProfileKfd3QualificationReceipt>(['kfd3-qualify', source]),
+    qualifyKfd3Async: (source) =>
+      runAsync<ProfileKfd3QualificationReceipt>(['kfd3-qualify', source]),
+    verifyKfd3Async: (source, receiptPath) =>
+      runAsync<ProfileKfd3Verification>(['kfd3-verify', source, receiptPath]),
     intentPlan: (source, intentId) =>
       run<ProfileIntentPlan>(['intent', 'plan', source, intentId]),
     intentPlanAsync: (source, intentId) =>

@@ -662,6 +662,18 @@
       "purpose": "Verify an execution receipt against the current Profile and collaboration closures while preserving the domain-truth known limit."
     },
     {
+      "apiId": "kungfu.profile.kfd3-qualification",
+      "name": "kungfu profile kfd3-qualify <source> --json",
+      "maturity": "experimental",
+      "purpose": "Audit the active Profile's public closure, custom-view no-bypass boundary, and dual-client exact plans, then emit a Kungfu-owned KFD-3 receipt and witness."
+    },
+    {
+      "apiId": "kungfu.profile.kfd3-qualification",
+      "name": "kungfu profile kfd3-verify <source> <receipt.json> --json",
+      "maturity": "experimental",
+      "purpose": "Re-run qualification and reject a stale or tampered receipt or witness."
+    },
+    {
       "apiId": "kungfu.profile.manager",
       "name": "kungfu profile manager --json",
       "maturity": "experimental",
