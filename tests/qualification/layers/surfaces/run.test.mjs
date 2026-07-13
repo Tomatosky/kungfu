@@ -47,7 +47,10 @@ test('desktop discovery treats a matched app bundle as one artifact root', () =>
 });
 
 test('Linux clean-install GUI smoke uses the bounded Electron sandbox escape', () => {
-  assert.deepEqual(guiQualificationArgs('linux'), ['--no-sandbox']);
+  assert.deepEqual(guiQualificationArgs('linux'), [
+    '--no-sandbox',
+    '--ozone-platform=headless',
+  ]);
   assert.deepEqual(guiQualificationArgs('darwin'), []);
   assert.deepEqual(guiQualificationArgs('win32'), []);
 });

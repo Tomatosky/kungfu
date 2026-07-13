@@ -137,6 +137,11 @@ export function guiQualificationArgs(platform = process.platform) {
   // Extracted AppImages cannot retain a root-owned mode-4755 chrome-sandbox in
   // an unprivileged clean environment. Qualification mode is bounded and does
   // not load user content, so use Electron's supported no-sandbox launch for
-  // this installer smoke only. Shipped user launches remain unchanged.
-  return platform === 'linux' ? ['--no-sandbox'] : [];
+  // this installer smoke only. Linux qualification runners are also commonly
+  // display-less; Chromium's headless platform still creates and loads the
+  // hidden BrowserWindow, so the ready signal remains a real packaged-GUI
+  // startup assertion. Shipped user launches remain unchanged.
+  return platform === 'linux'
+    ? ['--no-sandbox', '--ozone-platform=headless']
+    : [];
 }
