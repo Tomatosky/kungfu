@@ -16,6 +16,7 @@ from kungfu.rewind import (
     ACTION_APPROVAL_DECISION,
     ACTION_RUN_BEGIN,
     ACTION_RUN_END,
+    ACTION_RUN_PROGRESS,
     SCHEMA_VERSION,
     bundle,
     cost_wire,
@@ -204,6 +205,40 @@ def report_cost(
             "cost_attribution": snapshot.attribution.value,
             "cost_confidence": snapshot.confidence,
             "cost_usd_known": snapshot.cost_usd is not None,
+        },
+    )
+
+
+def report_progress(
+    runtime_dir: str,
+    *,
+    run_id: str,
+    message: str,
+    phase: str | None = None,
+    severity: str = "info",
+    pct: int = 0,
+    detail: str | None = None,
+) -> str:
+    emit_event(
+        runtime_dir,
+        run_id,
+        ACTION_RUN_PROGRESS,
+        events.run_progress(
+            run_id=run_id,
+            phase=phase,
+            message=message,
+            severity=severity,
+            pct=pct,
+            detail=detail,
+        ),
+    )
+    return emit_manifest(
+        runtime_dir,
+        run_id,
+        extra={
+            "progress_phase": phase,
+            "progress_severity": severity,
+            "progress_pct": pct,
         },
     )
 

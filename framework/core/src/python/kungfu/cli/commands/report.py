@@ -193,6 +193,47 @@ def cost(
         click.echo(f"[report] cost recorded for run {run_id} ({attribution})")
 
 
+@report.command(help="report a live progress narration for a run")
+@click.option("--run", "run_id", required=True, type=str, help="run id")
+@click.option("--message", required=True, type=str, help="progress narration line")
+@click.option("--phase", type=str, default=None, help="phase or milestone grouping")
+@click.option(
+    "--severity",
+    type=click.Choice(["info", "warn", "error"]),
+    default="info",
+    help="progress severity hint",
+)
+@click.option("--pct", type=int, default=0, help="optional 0..100 completion")
+@click.option(
+    "--detail", type=str, default=None, help="optional structured JSON detail"
+)
+@click.option("--json", "as_json", is_flag=True, help="machine-readable output")
+@report_command_context
+def progress(ctx, run_id, message, phase, severity, pct, detail, as_json):
+    manifest = reporting.report_progress(
+        ctx.runtime_dir,
+        run_id=run_id,
+        message=message,
+        phase=phase,
+        severity=severity,
+        pct=pct,
+        detail=detail,
+    )
+    payload = {
+        "schema": "kungfu.report-progress/v1",
+        "run_id": run_id,
+        "phase": phase,
+        "severity": severity,
+        "pct": pct,
+        "manifest": manifest,
+    }
+    if as_json:
+        _json(payload)
+    else:
+        label = f"{phase}: " if phase else ""
+        click.echo(f"[report] progress for run {run_id} — {label}{message}")
+
+
 @report.command(help="report an approval decision fact for a run")
 @click.option("--run", "run_id", required=True, type=str, help="run id")
 @click.option(
