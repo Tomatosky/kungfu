@@ -28,6 +28,46 @@ def brief(**changes):
     return value
 
 
+def collaboration_brief():
+    return {
+        "summary": "Coordinate Week and Day work without hiding authority.",
+        "participantBenefits": [
+            {
+                "participantKind": "human",
+                "description": "Review exact plans and receipts.",
+            },
+            {
+                "participantKind": "agent",
+                "description": "Discover constraints and execute authorized intents.",
+            },
+        ],
+        "participants": [
+            {
+                "id": "owner",
+                "kind": "human",
+                "title": "Owner",
+                "authorityClasses": ["workflow-owner"],
+            },
+            {"id": "worker", "kind": "agent", "title": "Agent", "authorityClasses": []},
+        ],
+        "constraints": [
+            {
+                "id": "authorization",
+                "description": "Material actions require declared authority.",
+                "enforcement": "runtime",
+                "appliesTo": ["*"],
+            }
+        ],
+        "knownLimits": [
+            {
+                "id": "identity",
+                "description": "Actor identity is externally verified.",
+                "effect": "external-verification-required",
+            }
+        ],
+    }
+
+
 def create_source(tmp_path):
     source = tmp_path / "profile"
     plan = profile_sdk.scaffold_plan(brief(), source)
@@ -35,6 +75,120 @@ def create_source(tmp_path):
     receipt = profile_sdk.apply_scaffold(plan)
     assert receipt["verified"] is True
     return source, plan
+
+
+def _write_json(path, value):
+    data = json.dumps(value, indent=2, sort_keys=True).encode() + b"\n"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+    return {
+        "path": path.relative_to(path.parents[1]).as_posix(),
+        "sha256": hashlib.sha256(data).hexdigest(),
+    }
+
+
+def add_collaboration(source):
+    actions = {
+        "schema": "kungfu.profile-actions/v1",
+        "actions": [
+            {
+                "id": "complete-day",
+                "title": "Complete day",
+                "runner": "kfx-member",
+                "operation": "example-week-day-actions",
+                "authorityClass": "workflow-owner",
+                "requiredCapabilities": [],
+                "effects": ["append-admitted-fact"],
+            }
+        ],
+    }
+    views = {
+        "schema": "kungfu.profile-views/v1",
+        "views": [
+            {
+                "id": "week-state",
+                "title": "Week state",
+                "factSurfaces": ["example.week-day.day"],
+                "definition": {"schema": "kungfu.query.definition/v1"},
+                "view": {"kind": "table", "columns": ["subject_key"]},
+            }
+        ],
+    }
+    collaboration = {
+        "schema": "kungfu.profile-collaboration/v1",
+        "profileId": "example.week-day",
+        "value": {
+            "summary": "Coordinate Week and Day work without hiding authority.",
+            "participantBenefits": [
+                {
+                    "participantKind": "human",
+                    "description": "Review exact plans and receipts.",
+                },
+                {
+                    "participantKind": "agent",
+                    "description": "Discover constraints and execute authorized intents.",
+                },
+            ],
+        },
+        "participants": [
+            {
+                "id": "owner",
+                "kind": "human",
+                "title": "Owner",
+                "authorityClasses": ["workflow-owner"],
+            },
+            {"id": "worker", "kind": "agent", "title": "Agent", "authorityClasses": []},
+        ],
+        "intents": [
+            {
+                "id": "complete-day",
+                "title": "Complete day",
+                "actionId": "complete-day",
+                "inspectViewId": "week-state",
+                "verifyViewId": "week-state",
+                "requiredAuthority": "workflow-owner",
+                "requiredCapabilities": [],
+                "material": True,
+                "protocol": {
+                    "inspect": "profile.intent.inspect",
+                    "advise": "profile.intent.advise",
+                    "preview": "profile.intent.plan",
+                    "authorize": "profile.decide",
+                    "execute": "profile.intent.apply",
+                    "receipt": "profile.intent.receipt",
+                    "verify": "profile.intent.verify",
+                },
+            }
+        ],
+        "constraints": [
+            {
+                "id": "authorization",
+                "description": "Owner approval is required.",
+                "enforcement": "runtime",
+                "appliesTo": ["*"],
+            }
+        ],
+        "knownLimits": [
+            {
+                "id": "identity",
+                "description": "Actor identity is externally verified.",
+                "effect": "external-verification-required",
+            }
+        ],
+        "presentation": {"mode": "generic", "homeViewId": "week-state"},
+    }
+    action_ref = _write_json(source / "actions" / "registry.json", actions)
+    view_ref = _write_json(source / "views" / "registry.json", views)
+    collaboration_ref = _write_json(
+        source / "collaboration" / "interface.json", collaboration
+    )
+    profile_path = source / "profile.json"
+    profile = json.loads(profile_path.read_text())
+    profile["actions"]["registry"] = action_ref
+    profile["views"]["registry"] = view_ref
+    profile["kfd3"] = {"collaboration": collaboration_ref}
+    profile_path.write_text(json.dumps(profile, indent=2, sort_keys=True) + "\n")
+    return collaboration
 
 
 def test_profile_resolution_skips_unreadable_unrelated_siblings(tmp_path, monkeypatch):
@@ -61,6 +215,23 @@ def test_scaffold_is_plan_first_deterministic_and_does_not_self_certify(tmp_path
     assert first["selfCertifiedFields"] == []
     assert not source.exists()
     assert "profile_suite_root" not in first["files"]["profile.json"]
+
+
+def test_scaffold_can_declare_generic_dual_first_collaboration(tmp_path):
+    source = tmp_path / "profile"
+    plan = profile_sdk.scaffold_plan(brief(collaboration=collaboration_brief()), source)
+    profile_sdk.apply_scaffold(plan)
+
+    profile = json.loads((source / "profile.json").read_text())
+    assert profile["kfd3"]["collaboration"]["path"] == ("collaboration/interface.json")
+    closure = profile_sdk.collaboration(source, tmp_path / "runtime")
+    assert closure["declared"] is True
+    assert closure["qualified"] is False
+    assert closure["genericRenderer"] is True
+    assert closure["actionIds"] == []
+    qualification = profile_sdk.qualify_source(source, tmp_path / "runtime")
+    assert qualification["kfd3"]["declared"] is True
+    assert qualification["kfd3"]["qualified"] is False
 
 
 def test_unresolved_semantics_return_open_decision_cards(tmp_path):
@@ -122,6 +293,97 @@ def test_resolver_computes_exact_member_roots_and_core_verifies_closure(tmp_path
     )
 
 
+def test_collaboration_closure_binds_dual_first_actions_views_and_limits(tmp_path):
+    source, _ = create_source(tmp_path)
+    add_collaboration(source)
+
+    result = profile_sdk.collaboration(source, tmp_path / "runtime")
+
+    assert result["status"] == "declared-closed"
+    assert result["declared"] is True
+    assert result["qualified"] is False
+    assert result["actionIds"] == ["complete-day"]
+    assert result["viewIds"] == ["week-state"]
+    assert result["closureRoot"].startswith("sha256:")
+    assert {row["kind"] for row in result["participants"]} == {"human", "agent"}
+
+
+def test_profile_without_collaboration_is_explicitly_not_declared(tmp_path):
+    source, _ = create_source(tmp_path)
+
+    result = profile_sdk.collaboration(source, tmp_path / "runtime")
+
+    assert result["status"] == "not-declared"
+    assert result["declared"] is False
+    assert result["qualified"] is False
+
+
+def test_collaboration_rejects_missing_agent_participant(tmp_path):
+    source, _ = create_source(tmp_path)
+    collaboration = add_collaboration(source)
+    collaboration["participants"][1] = {
+        "id": "reviewer",
+        "kind": "human",
+        "title": "Reviewer",
+        "authorityClasses": [],
+    }
+    ref = _write_json(source / "collaboration" / "interface.json", collaboration)
+    profile_path = source / "profile.json"
+    profile = json.loads(profile_path.read_text())
+    profile["kfd3"] = {"collaboration": ref}
+    profile_path.write_text(json.dumps(profile, indent=2, sort_keys=True) + "\n")
+
+    try:
+        profile_sdk.collaboration(source, tmp_path / "runtime")
+    except profile_sdk.ProfileSdkError as error:
+        assert error.diagnosis["code"] == "collaboration-dual-first-required"
+    else:
+        raise AssertionError("single-participant collaboration was accepted")
+
+
+def test_collaboration_rejects_action_capability_drift(tmp_path):
+    source, _ = create_source(tmp_path)
+    collaboration = add_collaboration(source)
+    collaboration["intents"][0]["requiredCapabilities"] = ["network"]
+    ref = _write_json(source / "collaboration" / "interface.json", collaboration)
+    profile_path = source / "profile.json"
+    profile = json.loads(profile_path.read_text())
+    profile["kfd3"] = {"collaboration": ref}
+    profile_path.write_text(json.dumps(profile, indent=2, sort_keys=True) + "\n")
+
+    try:
+        profile_sdk.collaboration(source, tmp_path / "runtime")
+    except profile_sdk.ProfileSdkError as error:
+        assert error.diagnosis["code"] == "collaboration-capability-drift"
+    else:
+        raise AssertionError("capability drift was accepted")
+
+
+def test_collaboration_rejects_material_action_without_authority(tmp_path):
+    source, _ = create_source(tmp_path)
+    collaboration = add_collaboration(source)
+    collaboration["intents"][0]["requiredAuthority"] = "none"
+    collaboration_ref = _write_json(
+        source / "collaboration" / "interface.json", collaboration
+    )
+    actions_path = source / "actions" / "registry.json"
+    actions = json.loads(actions_path.read_text())
+    actions["actions"][0]["authorityClass"] = "none"
+    action_ref = _write_json(actions_path, actions)
+    profile_path = source / "profile.json"
+    profile = json.loads(profile_path.read_text())
+    profile["actions"]["registry"] = action_ref
+    profile["kfd3"] = {"collaboration": collaboration_ref}
+    profile_path.write_text(json.dumps(profile, indent=2, sort_keys=True) + "\n")
+
+    try:
+        profile_sdk.collaboration(source, tmp_path / "runtime")
+    except profile_sdk.ProfileSdkError as error:
+        assert error.diagnosis["code"] == "profile-sdk-contract-invalid"
+    else:
+        raise AssertionError("material action without authority was accepted")
+
+
 def test_missing_member_fails_with_stable_decision_card(tmp_path):
     source, _ = create_source(tmp_path)
     missing = source / "members" / "example-week-day-actions"
@@ -166,6 +428,37 @@ def test_member_package_ignores_dependency_directory_symlinks(tmp_path):
     assert result["ok"] is True
 
 
+def test_cli_exposes_collaboration_closure_to_agents(tmp_path):
+    source, _ = create_source(tmp_path)
+    add_collaboration(source)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        kfc,
+        [
+            "--home",
+            str(tmp_path / "home"),
+            "profile",
+            "collaboration",
+            str(source),
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["status"] == "declared-closed"
+    assert payload["protocol"] == [
+        "inspect",
+        "advise",
+        "preview",
+        "authorize",
+        "execute",
+        "receipt",
+        "verify",
+    ]
+
+
 def test_cli_installed_flow_plans_then_applies_core_lifecycle(tmp_path):
     source, _ = create_source(tmp_path)
     home = tmp_path / "home"
@@ -175,7 +468,12 @@ def test_cli_installed_flow_plans_then_applies_core_lifecycle(tmp_path):
         kfc, ["--home", str(home), "profile", "capabilities", "--json"]
     )
     assert capability.exit_code == 0, capability.output
-    assert json.loads(capability.output)["schema"] == "kungfu.agent-profile-sdk/v1"
+    capability_payload = json.loads(capability.output)
+    assert capability_payload["schema"] == "kungfu.agent-profile-sdk/v1"
+    assert (
+        capability_payload["schemas"]["collaboration"]["properties"]["schema"]["const"]
+        == "kungfu.profile-collaboration/v1"
+    )
 
     plan_file = tmp_path / "install-plan.json"
     planned = runner.invoke(

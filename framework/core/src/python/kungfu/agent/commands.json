@@ -555,6 +555,12 @@
     },
     {
       "apiId": "kungfu.profile.source",
+      "name": "kungfu profile collaboration <source> --json",
+      "maturity": "experimental",
+      "purpose": "Inspect the content-bound Human and Agent collaboration declaration, closure root, constraints, known limits, and qualification boundary."
+    },
+    {
+      "apiId": "kungfu.profile.source",
       "name": "kungfu profile qualify <source> --json",
       "maturity": "experimental",
       "purpose": "Run only the installed source-contract, content-closure, and runtime-contract qualification checks."

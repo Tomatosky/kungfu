@@ -96,6 +96,14 @@ def validate(ctx, source, as_json):
     _json(_run(lambda: profile_sdk.validate_source(source, ctx.runtime_dir)))
 
 
+@profile.command(help="inspect the content-bound Profile collaboration closure")
+@click.argument("source", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option("--json", "as_json", is_flag=True)
+@profile_context
+def collaboration(ctx, source, as_json):
+    _json(_run(lambda: profile_sdk.collaboration(source, ctx.runtime_dir)))
+
+
 @profile.command(help="run the installed source qualification checks")
 @click.argument("source", type=click.Path(exists=True, file_okay=False, path_type=Path))
 @click.option("--json", "as_json", is_flag=True)

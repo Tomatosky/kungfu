@@ -108,6 +108,7 @@ kungfu profile capabilities --json
 kungfu profile examples --json
 kungfu profile scaffold brief.json --out ./my-profile --json
 kungfu profile validate ./my-profile --json
+kungfu profile collaboration ./my-profile --json
 kungfu profile qualify ./my-profile --json
 kungfu profile plan install ./my-profile --json
 kungfu profile manager --json
@@ -120,6 +121,12 @@ lifecycle state to Core. Decision cards are open questions, not authorization;
 after an answer, produce a fresh plan and apply it with the resulting external
 authorization identity. Optional code members build with
 `kungfu sdk kfx build` and do not require rebuilding Kungfu.
+When a brief includes `collaboration`, scaffold emits a content-bound generic
+Human/Agent declaration with explicit participants, value, constraints, and
+known limits. `profile collaboration` audits action/view/authority/capability
+closure and reports `declared-closed`, but it remains `qualified: false` until
+Kungfu has produced the runtime probes and KFD-3 witness; schema validity,
+KFD-1/KFD-2 qualification, and KFD-3 qualification are separate states.
 The Profile Manager GUI reads the same manager projection and previews the same
 decision card. Its apply path re-plans against the reviewed plan id; GUI focus
 does not activate a Profile and removing a Profile does not delete facts.

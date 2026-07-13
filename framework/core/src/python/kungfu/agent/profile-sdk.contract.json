@@ -1,7 +1,7 @@
 {
   "schema": "kungfu.agent-profile-sdk-contract/v1",
   "id": "kungfu-agent-profile-sdk",
-  "version": 4,
+  "version": 5,
   "briefSchema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -46,6 +46,9 @@
         "properties": {
           "mode": { "enum": ["additive", "explicit-destructive-plan"] }
         }
+      },
+      "collaboration": {
+        "type": "object"
       }
     }
   },
@@ -256,6 +259,122 @@
               ]
             }
           }
+        }
+      }
+    }
+  },
+  "collaborationSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["schema", "profileId", "value", "participants", "intents", "constraints", "knownLimits", "presentation"],
+    "properties": {
+      "schema": { "const": "kungfu.profile-collaboration/v1" },
+      "profileId": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+      "value": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["summary", "participantBenefits"],
+        "properties": {
+          "summary": { "type": "string", "minLength": 1 },
+          "participantBenefits": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["participantKind", "description"],
+              "properties": {
+                "participantKind": { "enum": ["human", "agent", "operator", "service"] },
+                "description": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        }
+      },
+      "participants": {
+        "type": "array",
+        "minItems": 2,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "kind", "title", "authorityClasses"],
+          "properties": {
+            "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+            "kind": { "enum": ["human", "agent", "operator", "service"] },
+            "title": { "type": "string", "minLength": 1 },
+            "authorityClasses": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" } }
+          }
+        }
+      },
+      "intents": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "title", "actionId", "inspectViewId", "verifyViewId", "requiredAuthority", "requiredCapabilities", "material", "protocol"],
+          "properties": {
+            "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+            "title": { "type": "string", "minLength": 1 },
+            "actionId": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+            "inspectViewId": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+            "verifyViewId": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+            "requiredAuthority": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$", "not": { "const": "none" } },
+            "requiredCapabilities": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" } },
+            "material": { "const": true },
+            "protocol": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["inspect", "advise", "preview", "authorize", "execute", "receipt", "verify"],
+              "properties": {
+                "inspect": { "const": "profile.intent.inspect" },
+                "advise": { "const": "profile.intent.advise" },
+                "preview": { "const": "profile.intent.plan" },
+                "authorize": { "const": "profile.decide" },
+                "execute": { "const": "profile.intent.apply" },
+                "receipt": { "const": "profile.intent.receipt" },
+                "verify": { "const": "profile.intent.verify" }
+              }
+            }
+          }
+        }
+      },
+      "constraints": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "description", "enforcement", "appliesTo"],
+          "properties": {
+            "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+            "description": { "type": "string", "minLength": 1 },
+            "enforcement": { "enum": ["runtime", "external-policy"] },
+            "appliesTo": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^(?:\\*|[A-Za-z0-9._-]+)$" } }
+          }
+        }
+      },
+      "knownLimits": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "description", "effect"],
+          "properties": {
+            "id": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+            "description": { "type": "string", "minLength": 1 },
+            "effect": { "enum": ["degraded", "unsupported", "external-verification-required"] }
+          }
+        }
+      },
+      "presentation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["mode", "homeViewId"],
+        "properties": {
+          "mode": { "const": "generic" },
+          "homeViewId": { "type": ["string", "null"], "pattern": "^[A-Za-z0-9._-]+$" }
         }
       }
     }

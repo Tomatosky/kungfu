@@ -34,6 +34,7 @@ ACTION_RECEIPT_SCHEMA = "kungfu.profile-action-receipt/v1"
 DECISION_ANSWER_SCHEMA = "kungfu.decision-answer/v1"
 SOURCE_BUNDLE_SCHEMA = "kungfu.profile-source-bundle/v1"
 SOURCE_IMPORT_PLAN_SCHEMA = "kungfu.profile-source-import-plan/v1"
+COLLABORATION_SCHEMA = "kungfu.profile-collaboration/v1"
 
 _TOKEN = re.compile(r"^[A-Za-z0-9._-]+$")
 _IGNORED_PARTS = {".git", "node_modules", "__pycache__", ".DS_Store"}
@@ -76,6 +77,7 @@ def capabilities() -> dict[str, Any]:
             "claims": sdk_contract["claimsSchema"],
             "assessmentPolicies": sdk_contract["assessmentPoliciesSchema"],
             "views": sdk_contract["viewsSchema"],
+            "collaboration": sdk_contract["collaborationSchema"],
             "sourceBundle": sdk_contract["sourceBundleSchema"],
         },
         "sourcePlanSchema": SOURCE_PLAN_SCHEMA,
@@ -88,6 +90,7 @@ def capabilities() -> dict[str, Any]:
             "scaffold",
             "validate",
             "qualify",
+            "collaboration",
             "plan",
             "decide",
             "apply",
@@ -423,12 +426,20 @@ def validate_source(source: str | Path, runtime_dir: str | Path) -> dict[str, An
         profile_path=resolved["profilePath"],
         member_roots=resolved["memberRoots"],
     )
+    collaboration = _collaboration_closure(inspection)
     return {
         "schema": "kungfu.profile-validation/v1",
         "source": resolved,
         "inspection": inspection,
+        "collaboration": collaboration,
         "ok": True,
     }
+
+
+def collaboration(source: str | Path, runtime_dir: str | Path) -> dict[str, Any]:
+    """Return the installed, content-bound KFD-3 declaration closure."""
+
+    return validate_source(source, runtime_dir)["collaboration"]
 
 
 def qualify_source(source: str | Path, runtime_dir: str | Path) -> dict[str, Any]:
@@ -455,12 +466,20 @@ def qualify_source(source: str | Path, runtime_dir: str | Path) -> dict[str, Any
             "This runtime only qualifies content-closure and runtime-contract",
             requested=checks,
         )
+    collaboration = validated["collaboration"]
     return {
         "schema": "kungfu.profile-source-qualification/v1",
         "profileSuiteRoot": inspection["profile_suite_root"],
         "status": "qualified-for-install-plan",
         "checks": sorted(checks),
         "evidenceScope": "source-contract/content-closure/runtime-contract",
+        "kfd3": {
+            "declared": collaboration["declared"],
+            "qualified": False,
+            "status": collaboration.get("qualificationStatus", "not-declared"),
+            "closureRoot": collaboration.get("closureRoot"),
+            "reason": collaboration.get("reason"),
+        },
         "lifecycleMutation": False,
     }
 
@@ -720,7 +739,7 @@ def semantic_diff(left: str | Path, right: str | Path) -> dict[str, Any]:
         "display": _changes(pa, pb, ["title", "views"]),
         "content": _changes(pa, pb, ["kfd1", "members"]),
         "permission": _changes(pa, pb, ["permissions"]),
-        "authority": _changes(pa, pb, ["actions"]),
+        "authority": _changes(pa, pb, ["actions", "kfd3"]),
         "evidence": _changes(pa, pb, ["kfd2", "qualification"]),
         "migration": _changes(pa, pb, ["migrations"]),
     }
@@ -1071,6 +1090,7 @@ def _normalize_brief(
         "identity",
         "evidence",
         "migration",
+        "collaboration",
     }
     if set(brief) - allowed:
         raise ProfileSdkError(
@@ -1156,6 +1176,30 @@ def _normalize_brief(
         "evidence": dict(brief.get("evidence") or {}),
         "migration": dict(brief.get("migration") or {}),
     }
+    collaboration = brief.get("collaboration")
+    if collaboration is not None:
+        if not isinstance(collaboration, Mapping):
+            raise ProfileSdkError(
+                "collaboration-brief-invalid",
+                "brief.collaboration must be an object when KFD-3 is requested",
+            )
+        artifact = {
+            "schema": COLLABORATION_SCHEMA,
+            "profileId": profile_id,
+            "value": {
+                "summary": collaboration.get("summary"),
+                "participantBenefits": collaboration.get("participantBenefits", []),
+            },
+            "participants": collaboration.get("participants", []),
+            "intents": [],
+            "constraints": collaboration.get("constraints", []),
+            "knownLimits": collaboration.get("knownLimits", []),
+            "presentation": {"mode": "generic", "homeViewId": None},
+        }
+        _validate_sdk_value(
+            "collaborationSchema", artifact, "Profile brief collaboration"
+        )
+        normalized["collaboration"] = artifact
     if not cards:
         _validate_sdk_value("briefSchema", normalized, "Profile brief")
     return normalized, cards
@@ -1203,6 +1247,8 @@ def _source_files(brief: Mapping[str, Any]) -> dict[str, bytes]:
             "checks": ["content-closure", "runtime-contract"],
         },
     }
+    if brief.get("collaboration") is not None:
+        artifacts["collaboration/interface.json"] = brief["collaboration"]
     encoded = {path: _pretty(value) for path, value in artifacts.items()}
 
     def ref(path):
@@ -1231,6 +1277,8 @@ def _source_files(brief: Mapping[str, Any]) -> dict[str, bytes]:
         "permissions": {"registry": ref("permissions.json")},
         "qualification": {"profile": ref("qualification/profile.json")},
     }
+    if brief.get("collaboration") is not None:
+        profile["kfd3"] = {"collaboration": ref("collaboration/interface.json")}
     files = {
         "package.json": _pretty(
             {
@@ -1290,6 +1338,186 @@ def _read_ref_json(
     root = Path(str(inspection["profile_path"])).parent
     path = _confined(root, str(ref["path"]))
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _collaboration_closure(inspection: Mapping[str, Any]) -> dict[str, Any]:
+    profile = inspection["profile"]
+    declaration = profile.get("kfd3")
+    if not isinstance(declaration, Mapping):
+        return {
+            "schema": "kungfu.profile-collaboration-closure/v1",
+            "profileId": profile["id"],
+            "profileSuiteRoot": inspection["profile_suite_root"],
+            "status": "not-declared",
+            "declared": False,
+            "qualified": False,
+            "reason": "Profile has no content-bound kfd3.collaboration facet",
+        }
+
+    ref = declaration.get("collaboration")
+    if not isinstance(ref, Mapping):
+        raise ProfileSdkError(
+            "collaboration-ref-invalid",
+            "Profile kfd3 declaration has no collaboration content reference",
+        )
+    artifact = _read_ref_json(inspection, ref)
+    _validate_sdk_value("collaborationSchema", artifact, "collaboration interface")
+    if artifact["profileId"] != profile["id"]:
+        raise ProfileSdkError(
+            "collaboration-profile-mismatch",
+            "collaboration interface profileId does not match the Profile",
+            expected=profile["id"],
+            actual=artifact["profileId"],
+        )
+
+    participants = artifact["participants"]
+    participant_ids = [row["id"] for row in participants]
+    if len(participant_ids) != len(set(participant_ids)):
+        raise ProfileSdkError(
+            "collaboration-participant-duplicate",
+            "collaboration participant ids must be unique",
+        )
+    participant_kinds = {row["kind"] for row in participants}
+    if not {"human", "agent"}.issubset(participant_kinds):
+        raise ProfileSdkError(
+            "collaboration-dual-first-required",
+            "KFD-3 Profile qualification requires human and agent participants",
+            participantKinds=sorted(participant_kinds),
+        )
+    benefit_kinds = {
+        row["participantKind"] for row in artifact["value"]["participantBenefits"]
+    }
+    if not {"human", "agent"}.issubset(benefit_kinds):
+        raise ProfileSdkError(
+            "collaboration-value-incomplete",
+            "Profile value must be explicit for human and agent participants",
+            participantKinds=sorted(benefit_kinds),
+        )
+
+    action_registry = _read_ref_json(inspection, profile["actions"]["registry"])
+    _validate_action_registry(action_registry, profile)
+    actions = {row["id"]: row for row in action_registry["actions"]}
+    view_registry = _read_ref_json(inspection, profile["views"]["registry"])
+    _validate_sdk_value("viewsSchema", view_registry, "view registry")
+    view_ids = [row["id"] for row in view_registry["views"]]
+    if len(view_ids) != len(set(view_ids)):
+        raise ProfileSdkError(
+            "collaboration-view-duplicate", "Profile view ids must be unique"
+        )
+    views = set(view_ids)
+
+    intents = artifact["intents"]
+    intent_ids = [row["id"] for row in intents]
+    action_ids = [row["actionId"] for row in intents]
+    if len(intent_ids) != len(set(intent_ids)) or len(action_ids) != len(
+        set(action_ids)
+    ):
+        raise ProfileSdkError(
+            "collaboration-intent-duplicate",
+            "intent ids and action bindings must be unique",
+        )
+    if set(action_ids) != set(actions):
+        raise ProfileSdkError(
+            "collaboration-action-closure",
+            "every public Profile action must have exactly one collaboration intent",
+            declared=sorted(action_ids),
+            actions=sorted(actions),
+        )
+
+    authority_classes = {
+        authority
+        for participant in participants
+        for authority in participant["authorityClasses"]
+    }
+    for intent in intents:
+        action = actions[intent["actionId"]]
+        missing_views = sorted(
+            {intent["inspectViewId"], intent["verifyViewId"]} - views
+        )
+        if missing_views:
+            raise ProfileSdkError(
+                "collaboration-view-unresolved",
+                "intent inspect and verify views must resolve in the Profile",
+                intentId=intent["id"],
+                missingViews=missing_views,
+            )
+        if intent["requiredAuthority"] != action["authorityClass"]:
+            raise ProfileSdkError(
+                "collaboration-authority-drift",
+                "intent and action authority classes must match",
+                intentId=intent["id"],
+            )
+        if intent["requiredAuthority"] not in authority_classes:
+            raise ProfileSdkError(
+                "collaboration-authority-unowned",
+                "an intent authority class is not owned by any declared participant",
+                intentId=intent["id"],
+            )
+        if sorted(intent["requiredCapabilities"]) != sorted(
+            action["requiredCapabilities"]
+        ):
+            raise ProfileSdkError(
+                "collaboration-capability-drift",
+                "intent and action required capabilities must match",
+                intentId=intent["id"],
+            )
+
+    known_targets = set(intent_ids)
+    for constraint in artifact["constraints"]:
+        unknown = sorted(
+            target
+            for target in constraint["appliesTo"]
+            if target != "*" and target not in known_targets
+        )
+        if unknown:
+            raise ProfileSdkError(
+                "collaboration-constraint-unresolved",
+                "constraint appliesTo contains an unknown intent",
+                constraintId=constraint["id"],
+                unknownIntents=unknown,
+            )
+
+    home_view = artifact["presentation"]["homeViewId"]
+    if home_view is not None and home_view not in views:
+        raise ProfileSdkError(
+            "collaboration-home-view-unresolved",
+            "generic presentation homeViewId must resolve in the Profile",
+            homeViewId=home_view,
+        )
+
+    closure = {
+        "profileSuiteRoot": inspection["profile_suite_root"],
+        "collaborationRoot": f"sha256:{ref['sha256']}",
+        "participantIds": sorted(participant_ids),
+        "intentIds": sorted(intent_ids),
+        "actionIds": sorted(actions),
+        "viewIds": sorted(views),
+        "protocol": [
+            "inspect",
+            "advise",
+            "preview",
+            "authorize",
+            "execute",
+            "receipt",
+            "verify",
+        ],
+    }
+    return {
+        "schema": "kungfu.profile-collaboration-closure/v1",
+        "profileId": profile["id"],
+        **closure,
+        "closureRoot": _root(closure),
+        "status": "declared-closed",
+        "declared": True,
+        "qualified": False,
+        "qualificationStatus": "not-qualified",
+        "genericRenderer": artifact["presentation"]["mode"] == "generic",
+        "value": artifact["value"],
+        "constraints": artifact["constraints"],
+        "knownLimits": artifact["knownLimits"],
+        "participants": participants,
+        "intents": intents,
+    }
 
 
 def _validate_action_registry(
