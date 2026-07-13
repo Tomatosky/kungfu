@@ -3,7 +3,8 @@ metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
 adr_id: SHIFU-ADR-0004
 decision_status: accepted
-implementation_status: not-started
+implementation_status: partial
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/762]
 review_state: unreviewed
 sensitivity: public
 sources: [local-files, user-consensus]
