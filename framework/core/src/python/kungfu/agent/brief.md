@@ -109,6 +109,13 @@ kungfu profile examples --json
 kungfu profile scaffold brief.json --out ./my-profile --json
 kungfu profile validate ./my-profile --json
 kungfu profile collaboration ./my-profile --json
+kungfu profile application ./my-profile --json
+kungfu profile intent inspect ./my-profile <intent-id> --json
+kungfu profile intent advise ./my-profile <intent-id> --json
+kungfu profile intent plan ./my-profile <intent-id> --json
+kungfu profile intent authorize ./my-profile <intent-id> --expected-plan-id <id> --choice approve --authorized-by <actor> --json
+kungfu profile intent apply plan.json --authorization-file answer.json --json
+kungfu profile intent verify ./my-profile receipt.json --json
 kungfu profile qualify ./my-profile --json
 kungfu profile plan install ./my-profile --json
 kungfu profile manager --json
@@ -127,6 +134,11 @@ known limits. `profile collaboration` audits action/view/authority/capability
 closure and reports `declared-closed`, but it remains `qualified: false` until
 Kungfu has produced the runtime probes and KFD-3 witness; schema validity,
 KFD-1/KFD-2 qualification, and KFD-3 qualification are separate states.
+The generic Profile Manager calls these same installed application commands.
+Its intent card is a visual projection of the same Profile/collaboration roots,
+decision card, action receipt, and verification result; GUI focus or custom
+presentation never grants a separate mutation path. Verification proves the
+declared cut and execution receipt, not that a domain claim is true in reality.
 The Profile Manager GUI reads the same manager projection and previews the same
 decision card. Its apply path re-plans against the reviewed plan id; GUI focus
 does not activate a Profile and removing a Profile does not delete facts.

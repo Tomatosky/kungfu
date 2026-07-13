@@ -882,6 +882,17 @@
       "projections": ["commands.json", "agent-pack-doc", "provider-skill"]
     },
     {
+      "id": "kungfu.profile.application",
+      "surface": "cli-api-gui",
+      "name": "kungfu profile application <source> --json",
+      "aliases": ["kungfu profile intent inspect <source> <intent-id> --json", "kungfu profile intent advise <source> <intent-id> --json", "kungfu profile intent plan <source> <intent-id> --json", "kungfu profile intent authorize <source> <intent-id> --expected-plan-id <id> --choice approve --authorized-by <actor> --json", "kungfu profile intent apply <plan.json> --authorization-file <answer.json> --json", "kungfu profile intent verify <source> <receipt.json> --json"],
+      "purpose": "Project and run the same content-bound inspect, advise, preview, authorize, execute, receipt, and verify protocol for Human GUI and Agent clients.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill", "profile-manager-gui"]
+    },
+    {
       "id": "kungfu.profile.manager",
       "surface": "cli-gui",
       "name": "kungfu profile manager --json",

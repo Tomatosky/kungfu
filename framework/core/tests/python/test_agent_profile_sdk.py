@@ -191,6 +191,26 @@ def add_collaboration(source):
     return collaboration
 
 
+def make_collaboration_action_lifecycle(source):
+    collaboration = add_collaboration(source)
+    actions_path = source / "actions" / "registry.json"
+    actions = json.loads(actions_path.read_text())
+    actions["actions"][0].update(
+        {
+            "title": "Remove Profile",
+            "runner": "profile-lifecycle",
+            "operation": "remove",
+            "effects": ["append-Removed-event"],
+        }
+    )
+    action_ref = _write_json(actions_path, actions)
+    profile_path = source / "profile.json"
+    profile = json.loads(profile_path.read_text())
+    profile["actions"]["registry"] = action_ref
+    profile_path.write_text(json.dumps(profile, indent=2, sort_keys=True) + "\n")
+    return collaboration
+
+
 def test_profile_resolution_skips_unreadable_unrelated_siblings(tmp_path, monkeypatch):
     source, _ = create_source(tmp_path)
     blocked_manifest = tmp_path / "unrelated" / "package.json"
@@ -384,6 +404,69 @@ def test_collaboration_rejects_material_action_without_authority(tmp_path):
         raise AssertionError("material action without authority was accepted")
 
 
+def test_application_projection_is_generic_and_binds_both_participants(tmp_path):
+    source, _ = create_source(tmp_path)
+    add_collaboration(source)
+
+    result = profile_sdk.application(source, tmp_path / "runtime")
+
+    assert result["schema"] == "kungfu.profile-application/v1"
+    assert result["presentation"] == {"mode": "generic"}
+    assert result["activeExactRoot"] is False
+    assert {row["kind"] for row in result["participants"]} == {"human", "agent"}
+    assert result["intents"][0]["action"]["id"] == "complete-day"
+    assert result["intents"][0]["inspectView"]["id"] == "week-state"
+    assert result["qualified"] is False
+
+
+def test_intent_protocol_shares_plan_receipt_and_verify_identities(tmp_path):
+    source, _ = create_source(tmp_path)
+    make_collaboration_action_lifecycle(source)
+    runtime = tmp_path / "runtime"
+    for action in ["install", "qualify", "activate"]:
+        core_plan = profile_sdk.lifecycle_plan(runtime, action, source)["corePlan"]
+        profile_sdk.lifecycle_apply(runtime, core_plan, f"test:{action}")
+
+    inspected = profile_sdk.intent_inspect(source, runtime, "complete-day")
+    advised = profile_sdk.intent_advise(source, runtime, "complete-day")
+    plan = profile_sdk.intent_plan(source, runtime, "complete-day", {})
+    answer = profile_sdk.answer_decision(plan["decisionCard"], "approve", "test-owner")
+    receipt = profile_sdk.intent_apply(runtime, plan, answer)
+    verification = profile_sdk.intent_verify(source, runtime, receipt)
+
+    assert inspected["closureRoot"] == advised["closureRoot"] == plan["closureRoot"]
+    assert advised["eligible"] is True
+    assert plan["actionPlan"]["intentId"] == "complete-day"
+    assert receipt["verified"] is False
+    assert receipt["executionReceiptVerified"] is True
+    assert verification["receiptId"] == receipt["receiptId"]
+    assert verification["verified"] is True
+
+
+def test_intent_authorize_rejects_stale_reviewed_plan(tmp_path):
+    source, _ = create_source(tmp_path)
+    make_collaboration_action_lifecycle(source)
+    runtime = tmp_path / "runtime"
+    for action in ["install", "qualify", "activate"]:
+        core_plan = profile_sdk.lifecycle_plan(runtime, action, source)["corePlan"]
+        profile_sdk.lifecycle_apply(runtime, core_plan, f"test:{action}")
+
+    try:
+        profile_sdk.authorize_current_intent(
+            runtime,
+            source,
+            "complete-day",
+            {},
+            "sha256:stale",
+            "approve",
+            "test-owner",
+        )
+    except profile_sdk.ProfileSdkError as error:
+        assert error.diagnosis["code"] == "intent-plan-stale"
+    else:
+        raise AssertionError("stale intent plan was authorized")
+
+
 def test_missing_member_fails_with_stable_decision_card(tmp_path):
     source, _ = create_source(tmp_path)
     missing = source / "members" / "example-week-day-actions"
@@ -457,6 +540,38 @@ def test_cli_exposes_collaboration_closure_to_agents(tmp_path):
         "receipt",
         "verify",
     ]
+
+    application = runner.invoke(
+        kfc,
+        [
+            "--home",
+            str(tmp_path / "home"),
+            "profile",
+            "application",
+            str(source),
+            "--json",
+        ],
+    )
+    assert application.exit_code == 0, application.output
+    application_payload = json.loads(application.output)
+    assert application_payload["schema"] == "kungfu.profile-application/v1"
+    assert application_payload["qualified"] is False
+
+    inspected = runner.invoke(
+        kfc,
+        [
+            "--home",
+            str(tmp_path / "home"),
+            "profile",
+            "intent",
+            "inspect",
+            str(source),
+            "complete-day",
+            "--json",
+        ],
+    )
+    assert inspected.exit_code == 0, inspected.output
+    assert json.loads(inspected.output)["intent"]["id"] == "complete-day"
 
 
 def test_cli_installed_flow_plans_then_applies_core_lifecycle(tmp_path):

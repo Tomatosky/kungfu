@@ -5,16 +5,16 @@
   "witnessKind": "prebuild",
   "supportLevel": "release",
   "source": {
-    "cwd": "/Users/dkr/Worktrees/kungfu/feature/profile-kfd3-qualification-s1",
-    "sourceSha": "53b32cecbaa5db2555e04df872524e01312e376e",
+    "cwd": "/Users/dkr/Worktrees/kungfu/feature/profile-kfd3-qualification-s2",
+    "sourceSha": "5d3613fc0cc99f34c17b63bd1942ac4348e1768b",
     "registryPath": ".buildchain/kfd/kfd-3/surfaces.json",
-    "registryDigest": "sha256:f2e8e23ceba73cceea5c2000a093911244f04c181a0cffc353debc7fc15cdfc3"
+    "registryDigest": "sha256:13f10ce6e289bfb325fcfbca32c08a42fbaa3f44f5f71f9866e17532f9faeec7"
   },
   "sourceRegistry": {
     "id": "kungfu",
     "path": ".buildchain/kfd/kfd-3/surfaces.json",
-    "sha256": "ed69924f52ec3cd789ecef41905f2f25dd33311d5fcfb575bd1f4116c4d898a4",
-    "digest": "sha256:f2e8e23ceba73cceea5c2000a093911244f04c181a0cffc353debc7fc15cdfc3"
+    "sha256": "8f2db71aa662b68284fe431913121ba67990fcc93c8b6318c0f12ca3de3a4e50",
+    "digest": "sha256:13f10ce6e289bfb325fcfbca32c08a42fbaa3f44f5f71f9866e17532f9faeec7"
   },
   "upstreamKfd": {
     "aggregatePath": "developer/sdk/kfd/upstream-aggregate.json",
@@ -34,7 +34,7 @@
   "expectedArtifactVerification": {
     "command": "node scripts/buildchain-kfd-evidence.mjs --artifact-witness --json"
   },
-  "collaborationInterfaceDigest": "sha256:9aa4df189c3219b54a8d80fecc5fa13bf6814d0b096135e1c3dd0b2ea7840534",
+  "collaborationInterfaceDigest": "sha256:f4af0a74a1490cb32b39f479db26479a1acd55a3e74131264d8f84624022e74c",
   "collaborationInterface": {
     "schemaVersion": 1,
     "contract": "kungfu-buildchain-kfd-3-surface-registry",
@@ -1048,6 +1048,26 @@
         "id": "kungfu.profile.action",
         "name": "kungfu profile actions <source> --json",
         "kind": "cli",
+        "participantProfile": "agent-or-developer",
+        "state": "declared",
+        "availability": "shipped",
+        "visibility": "public",
+        "participantFacing": true,
+        "public": true,
+        "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
+        "evidencePath": "framework/core/src/python/kungfu/agent/commands.json",
+        "artifactPath": "framework/core/src/python/kungfu/agent/commands.json",
+        "maturity": "experimental",
+        "declaration": {
+          "owner": "kungfu",
+          "source": "scripts/buildchain-kfd-evidence.mjs",
+          "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json"
+        }
+      },
+      {
+        "id": "kungfu.profile.application",
+        "name": "kungfu profile application <source> --json",
+        "kind": "cli-api-gui",
         "participantProfile": "agent-or-developer",
         "state": "declared",
         "availability": "shipped",
@@ -2127,8 +2147,8 @@
     ],
     "audit": {
       "status": "passed",
-      "declared": 102,
-      "artifactPublic": 102,
+      "declared": 103,
+      "artifactPublic": 103,
       "policy": {
         "sourceOfTruth": ".buildchain/kfd/kfd-3/surfaces.json",
         "detectedButUnregistered": "product-specific-audit",
@@ -3128,6 +3148,26 @@
       "id": "kungfu.profile.action",
       "name": "kungfu profile actions <source> --json",
       "kind": "cli",
+      "participantProfile": "agent-or-developer",
+      "state": "declared",
+      "availability": "shipped",
+      "visibility": "public",
+      "participantFacing": true,
+      "public": true,
+      "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
+      "evidencePath": "framework/core/src/python/kungfu/agent/commands.json",
+      "artifactPath": "framework/core/src/python/kungfu/agent/commands.json",
+      "maturity": "experimental",
+      "declaration": {
+        "owner": "kungfu",
+        "source": "scripts/buildchain-kfd-evidence.mjs",
+        "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json"
+      }
+    },
+    {
+      "id": "kungfu.profile.application",
+      "name": "kungfu profile application <source> --json",
+      "kind": "cli-api-gui",
       "participantProfile": "agent-or-developer",
       "state": "declared",
       "availability": "shipped",

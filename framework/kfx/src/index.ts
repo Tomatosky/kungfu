@@ -49,6 +49,8 @@ export type {
   QueryResultSchema,
   QueryViewSpec,
   ManagedProfile,
+  ProfileApplicationProjection,
+  ProfileIntentPlan,
   ProfileLifecyclePlan,
   ProfileManagerProjection,
   SavedQueryCatalog,
