@@ -171,6 +171,15 @@ function rollupPlatformPackageName() {
   ];
 }
 
+function esbuildPlatformPackageName() {
+  const packages = {
+    'darwin-arm64': '@esbuild/darwin-arm64',
+    'linux-x64': '@esbuild/linux-x64',
+    'win32-x64': '@esbuild/win32-x64',
+  };
+  return packages[`${process.platform}-${process.arch}`];
+}
+
 function linuxLibc() {
   if (process.platform !== 'linux') {
     return '';
@@ -762,10 +771,33 @@ function bundleSdkForCli(stageRoot) {
     paths: [SDK_DIR, TUI_DIR, GUI_DIR, ROOT],
   });
   const esbuildResolvePaths = [path.dirname(esbuildPackageJson)];
+  const esbuildPlatformPackage = esbuildPlatformPackageName();
+  if (!esbuildPlatformPackage) {
+    throw new Error(
+      `unsupported esbuild platform: ${process.platform}-${process.arch}`,
+    );
+  }
+  if (
+    process.env.KUNGFU_BUILDCHAIN_NO_OPTIONAL === '1' &&
+    !canResolveFrom(esbuildPlatformPackage, esbuildResolvePaths)
+  ) {
+    const esbuildNodePath = ensureNoOptionalPlatformPackage({
+      kind: 'esbuild',
+      packageName: esbuildPlatformPackage,
+      version: readJson(esbuildPackageJson).version,
+      installRoot: path.join(
+        ROOT,
+        '.buildchain',
+        'esbuild-platform',
+        `${process.platform}-${process.arch}`,
+      ),
+    });
+    esbuildResolvePaths.push(path.dirname(esbuildNodePath));
+  }
   copySdkRuntimePackageForCli(stageRoot, 'esbuild', esbuildResolvePaths);
   copySdkRuntimePackageForCli(
     stageRoot,
-    `@esbuild/${process.platform}-${process.arch}`,
+    esbuildPlatformPackage,
     esbuildResolvePaths,
   );
   copySdkRuntimePackageForCli(stageRoot, '@kungfu-tech/kfd');
