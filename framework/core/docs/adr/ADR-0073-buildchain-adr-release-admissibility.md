@@ -4,8 +4,8 @@ doc_type: architecture-decision
 adr_id: ADR-0073
 decision_status: accepted
 implementation_status: implemented
-implementation_commits: [99be5659cca3057a524acc34414bb7314b871eeb]
-closure_commit: 57b2da83b0d3071411f12387a8a07ab97b28d9a3
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/731]
+closure_pr: https://github.com/kungfu-systems/kungfu/pull/731
 qualification_refs: [scripts/adr-release-gate.test.mjs]
 review_state: self-reviewed
 sensitivity: public

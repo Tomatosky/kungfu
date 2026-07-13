@@ -99,7 +99,7 @@ An implementation state is a claim, so ADRs may bind it to immutable evidence:
 ```yaml
 implementation_commits: [68dc33a3f3daa56ac1893f9e8671575c6e85f9a8]
 implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/123]
-closure_commit: 68dc33a3f3daa56ac1893f9e8671575c6e85f9a8
+closure_pr: https://github.com/kungfu-systems/kungfu/pull/123
 qualification_refs: [framework/core/docs/qualification/mmap-performance.md]
 ```
 
@@ -109,14 +109,17 @@ qualification_refs: [framework/core/docs/qualification/mmap-performance.md]
   part of the evidence.
 - `closure_commit` identifies the reachable commit at which the accepted scope
   was considered fulfilled. It may be the final implementation slice or a
-  dedicated closure record.
+  dedicated closure record. `closure_pr` is the stable alternative for a
+  repository whose rebase/squash merge policy rewrites every PR commit SHA;
+  implemented ADRs require one of the two, not both.
 - `qualification_refs` contains existing repository-relative evidence paths or
   `commit:<full-sha>` references.
 
 The gate validates shape, repository identity, local commit existence,
-reachability from the checked-out mainline, and contradictions such as evidence
-on a `not-started` ADR. It cannot prove that code semantically fulfills a
-decision. That judgment remains a review responsibility.
+reachability from the checked-out mainline, canonical repository identity for
+PR evidence, and contradictions such as evidence on a `not-started` ADR. It
+cannot prove that code semantically fulfills a decision. That judgment remains
+a review responsibility.
 
 ## Release admissibility projection
 
