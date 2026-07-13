@@ -8,6 +8,9 @@ import { installPlan } from './buildchain-install.mjs';
 test('source install provisions only build-free tools from wheels', () => {
   const plan = installPlan({
     BUILDCHAIN_CHECK_MODE: 'source',
+    CI: 'true',
+    RUNNER_ENVIRONMENT: 'github-hosted',
+    RUNNER_OS: 'Linux',
     RUNNER_TEMP: '/tmp',
   });
   const text = JSON.stringify(plan);
