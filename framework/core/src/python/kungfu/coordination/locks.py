@@ -25,7 +25,8 @@
 from __future__ import annotations
 
 import contextlib
-import fcntl
+import errno
+import importlib
 import json
 import os
 import subprocess
@@ -36,6 +37,7 @@ from typing import Any, Callable, Iterable
 SCHEMA = "kungfu.coordination.locks/v1"
 DEFAULT_POLL_SECONDS = 0.1
 _TABLE_NAME = "locks.json"
+_LOCK_BACKEND = importlib.import_module("msvcrt" if os.name == "nt" else "fcntl")
 
 
 def _now() -> float:
@@ -58,15 +60,35 @@ def table_path(root: str | os.PathLike[str]) -> Path:
 
 @contextlib.contextmanager
 def _table_guard(path: Path):
-    """Serialize the read-modify-write across processes via a sidecar flock."""
+    """Serialize the read-modify-write through a platform advisory lock."""
     path.parent.mkdir(parents=True, exist_ok=True)
     guard = path.with_suffix(".guard")
     fd = os.open(str(guard), os.O_CREAT | os.O_RDWR, 0o644)
     try:
-        fcntl.flock(fd, fcntl.LOCK_EX)
+        if os.name == "nt":
+            # ``msvcrt.locking`` locks bytes from the current file position.
+            # Keep one stable byte in the sidecar and retry non-blocking claims
+            # so the Windows behavior matches the indefinitely blocking flock.
+            if os.fstat(fd).st_size == 0:
+                os.write(fd, b"\0")
+            while True:
+                os.lseek(fd, 0, os.SEEK_SET)
+                try:
+                    _LOCK_BACKEND.locking(fd, _LOCK_BACKEND.LK_NBLCK, 1)
+                    break
+                except OSError as exc:
+                    if exc.errno not in {errno.EACCES, errno.EAGAIN, errno.EDEADLK}:
+                        raise
+                    time.sleep(DEFAULT_POLL_SECONDS)
+        else:
+            _LOCK_BACKEND.flock(fd, _LOCK_BACKEND.LOCK_EX)
         yield
     finally:
-        fcntl.flock(fd, fcntl.LOCK_UN)
+        if os.name == "nt":
+            os.lseek(fd, 0, os.SEEK_SET)
+            _LOCK_BACKEND.locking(fd, _LOCK_BACKEND.LK_UNLCK, 1)
+        else:
+            _LOCK_BACKEND.flock(fd, _LOCK_BACKEND.LOCK_UN)
         os.close(fd)
 
 
