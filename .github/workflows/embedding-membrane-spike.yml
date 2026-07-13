@@ -5,21 +5,16 @@ name: Embedding membrane spikes
 on:
   pull_request:
     branches:
-      - dev/v*/v*
+      - alpha/v*/v*
+      - release/v*/v*
     paths:
       - "framework/core/src/libkungfu/include/kungfu/embedding.h"
       - "framework/core/src/libkungfu/include/kungfu/embedding.hpp"
       - "framework/core/src/libkungfu/include/kungfu/native_storage.h"
-      - "framework/core/src/libkungfu/include/kungfu/runtime/crash_recovery.h"
-      - "framework/core/src/libkungfu/include/kungfu/runtime/storage/projection_types.h"
-      - "framework/core/src/libkungfu/include/kungfu/runtime/storage/service.h"
       - "framework/core/src/libkungfu/src/runtime/embedding.cpp"
-      - "framework/core/src/libkungfu/src/runtime/crash_recovery.cpp"
       - "framework/core/src/libkungfu/src/runtime/native_storage.cpp"
       - "framework/core/src/libkungfu/include/kungfu/runtime/durable_ingest.h"
       - "framework/core/src/libkungfu/src/runtime/durable_ingest.cpp"
-      - "framework/core/src/libkungfu/tests/crash_recovery_tests.cpp"
-      - "framework/core/src/libyijinjing/include/kungfu/yijinjing/storage/episode_manifest_types.h"
       - "framework/core/src/libyijinjing/include/kungfu/yijinjing/ownership.h"
       - "framework/core/src/libyijinjing/src/io/ownership.cpp"
       - "framework/core/slices/shared-embedding-membrane/**"
@@ -108,8 +103,6 @@ jobs:
       CARGO_HTTP_TIMEOUT: "120"
       CARGO_NET_RETRY: "5"
       MIRROR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-      MIRROR_REF: refs/heads/dev/v4/v4.0
-      MIRROR_URL: http://192.168.100.222:8088/git-mirrors/kungfu.git
       SOURCE_MODE: ${{ matrix.source_mode }}
       SOURCE_ROOT: source-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
@@ -146,11 +139,6 @@ jobs:
         shell: bash
         run: |
           git init "$SOURCE_ROOT"
-          if [ "$SOURCE_MODE" = "mirror" ]; then
-            git -C "$SOURCE_ROOT" remote add mirror "$MIRROR_URL"
-            git -C "$SOURCE_ROOT" fetch --no-tags mirror \
-              "+${MIRROR_REF}:refs/embedding/base"
-          fi
           if [ "$SOURCE_MODE" = "github" ] || \
             ! git -C "$SOURCE_ROOT" cat-file -e \
               "${MIRROR_BASE_SHA}^{commit}" 2>/dev/null; then
@@ -230,13 +218,7 @@ jobs:
       - name: Build and run membrane consumers (POSIX)
         if: ${{ runner.os != 'Windows' }}
         shell: bash
-        run: |
-          cd "$SOURCE_ROOT"
-          if ! ./shifu qualify:embedding-membranes; then
-            echo "primary Cargo mirror unavailable; retrying through crates.io"
-            KF_LIBWASM_CARGO_REGISTRY="" \
-              ./shifu qualify:embedding-membranes
-          fi
+        run: cd "$SOURCE_ROOT" && ./shifu qualify:embedding-membranes
 
       - name: Build and run membrane consumers (Windows)
         if: ${{ runner.os == 'Windows' }}
@@ -244,21 +226,3 @@ jobs:
         run: |
           Set-Location $env:SOURCE_ROOT
           .\shifu.cmd qualify:embedding-membranes
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "primary Cargo mirror unavailable; retrying through crates.io"
-            $env:KF_LIBWASM_CARGO_REGISTRY = ""
-            .\shifu.cmd qualify:embedding-membranes
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          }
-
-      - name: Build and run crash recovery (POSIX)
-        if: ${{ runner.os != 'Windows' }}
-        shell: bash
-        run: cd "$SOURCE_ROOT" && ./shifu test:crash-recovery
-
-      - name: Build and run crash recovery (Windows)
-        if: ${{ runner.os == 'Windows' }}
-        shell: pwsh
-        run: |
-          Set-Location $env:SOURCE_ROOT
-          .\shifu.cmd test:crash-recovery

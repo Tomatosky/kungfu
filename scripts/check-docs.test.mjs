@@ -125,27 +125,101 @@ test('rejects unreachable public documents', () => {
   assert.ok(findings.some((finding) => finding.code === 'publication-orphan'));
 });
 
-test('allows unreachable documents only through a typed compatibility profile', () => {
-  const typed = structuredClone(contract);
-  typed.publication.allowedOrphanDocumentTypes = ['adr-redirect'];
+test('enforces a canonical docs hierarchy with entry-only root Markdown', () => {
+  const hierarchical = structuredClone(contract);
+  hierarchical.requiredFiles = ['README.md', 'docs/README.md'];
+  hierarchical.requiredPointers = [{ from: 'README.md', to: 'docs/README.md' }];
+  hierarchical.hierarchy = {
+    root: 'docs',
+    entryFiles: ['docs/README.md'],
+    canonicalDirectories: ['docs/guides'],
+  };
   const root = fixture({
-    'README.md': '# Home\n\n[Guide](docs/guide.md)\n',
-    'docs/guide.md': '# Guide\n',
-    'docs/redirect.md': `---
-doc_type: adr-redirect
----
-
-# Moved
-`,
+    'README.md': '# Home\n\n[Docs](docs/README.md)\n',
+    'docs/README.md': '# Docs\n\n[Guide](guides/guide.md)\n',
+    'docs/guides/guide.md': '# Guide\n',
   });
   const findings = checkDocs({
     root,
-    files: ['README.md', 'docs/guide.md', 'docs/redirect.md'],
-    contract: typed,
+    files: ['README.md', 'docs/README.md', 'docs/guides/guide.md'],
+    contract: hierarchical,
     vocabularyRegistry: false,
     metadataContract: false,
   });
   assert.deepEqual(findings, []);
+});
+
+test('rejects every undeclared root Markdown document', () => {
+  const hierarchical = structuredClone(contract);
+  hierarchical.requiredFiles = ['README.md', 'docs/README.md'];
+  hierarchical.requiredPointers = [{ from: 'README.md', to: 'docs/README.md' }];
+  hierarchical.hierarchy = {
+    root: 'docs',
+    entryFiles: ['docs/README.md'],
+    canonicalDirectories: ['docs/guides'],
+  };
+  const root = fixture({
+    'README.md': '# Home\n\n[Docs](docs/README.md)\n',
+    'docs/README.md': '# Docs\n\n[Guide](guides/guide.md)\n',
+    'docs/flat.md': '# Flat canonical page\n',
+    'docs/legacy.md': '# Legacy route\n',
+    'docs/guides/guide.md': '# Guide\n',
+  });
+  const findings = checkDocs({
+    root,
+    files: [
+      'README.md',
+      'docs/README.md',
+      'docs/flat.md',
+      'docs/legacy.md',
+      'docs/guides/guide.md',
+    ],
+    contract: hierarchical,
+    vocabularyRegistry: false,
+    metadataContract: false,
+  });
+  assert.ok(
+    findings.some((finding) => finding.code === 'documentation-hierarchy-root'),
+  );
+  assert.equal(
+    findings.filter(
+      (finding) => finding.code === 'documentation-hierarchy-root',
+    ).length,
+    2,
+  );
+});
+
+test('rejects Markdown under every retired documentation root', () => {
+  const hierarchical = structuredClone(contract);
+  hierarchical.hierarchy = {
+    root: 'docs',
+    entryFiles: [],
+    canonicalDirectories: ['docs/guides'],
+    forbiddenMarkdownRoots: ['framework/core/docs', 'docs/shifu/adr'],
+  };
+  const files = {
+    'README.md': '# Home\n\n[Guide](docs/guide.md)\n',
+    'docs/guide.md': '# Guide\n',
+    'framework/core/docs/design.md': '# Retired Core document\n',
+    'docs/shifu/adr/SHIFU-ADR-0100-example.md': '# Retired Shifu ADR\n',
+  };
+  const root = fixture(files);
+  const findings = checkDocs({
+    root,
+    files: Object.keys(files).sort(),
+    contract: hierarchical,
+    vocabularyRegistry: false,
+    metadataContract: false,
+  });
+  assert.deepEqual(
+    findings
+      .filter((finding) => finding.code === 'documentation-retired-root')
+      .map((finding) => finding.file),
+    [
+      'docs/shifu/adr/SHIFU-ADR-0100-example.md',
+      'framework/core/docs/design.md',
+    ],
+  );
 });
 
 test('rejects undeclared executable examples', () => {

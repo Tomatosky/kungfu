@@ -31,6 +31,7 @@ node, conan, or cmake directly — go through it:
 ./shifu build     # build all workspaces (C++ core + bindings + app)
 ./shifu rebuild   # clear generated build outputs, then run build
 ./shifu check     # changed-scope read-only quality gate (lint/type/tests)
+./shifu check:source # build-free source gate used by every dev pull request
 ./shifu fix       # explicit formatting / safe auto-fixes for changed files
 ./shifu product gui dev   # run the reference GUI through the product loop
 ./shifu product cli dist  # build the CLI product archive
@@ -44,7 +45,7 @@ bootstraps the pinned toolchain automatically (node via
 [uv](https://docs.astral.sh/uv/), and Buildchain via `.buildchain-version`) into
 `~/.cache/kungfu`. An fnm / uv you
 already have on PATH is used as-is; Buildchain remains pin-first. See
-[`docs/rust-adoption.md`](docs/rust-adoption.md) for how the launcher works.
+[`docs/development/rust-adoption.md`](docs/development/rust-adoption.md) for how the launcher works.
 For versioned cache policy and machine-readable schema discovery, see
 [`docs/shifu/`](docs/shifu/). When a controller projects both
 `SHIFU_CACHE_PROFILE_REF` and `SHIFU_CACHE_PROFILE_DIGEST`, ordinary
@@ -61,6 +62,7 @@ layout, and code style.
 
 ```sh
 ./shifu check           # changed-scope lint, typecheck and unit/tooling tests
+./shifu check:source    # GitHub-hosted source acceptance; no build or artifacts
 ./shifu verify          # assert existing build artifacts (quick)
 ./shifu verify --full   # rebuild + freeze, then assert (slow; needs the full toolchain)
 ./shifu docs:check      # deterministic Markdown, local-link, anchor, and docs-contract gate
@@ -68,8 +70,11 @@ layout, and code style.
 ./shifu adr:audit       # inspect all ADR lifecycle, evidence, and release debt
 ```
 
-`check` is the source-quality gate for changed files plus shared type/tooling
-tests. `check:all` exists for whole-tree cleanup once the lint baseline is clean.
+`check:source` is the required development-PR gate: it checks the exact source
+revision on GitHub-hosted Linux and never enters compiler, build, artifact, or
+release lifecycles. `check` remains the broader local changed-scope gate with
+shared unit/tooling tests. `check:all` exists for whole-tree cleanup once the
+lint baseline is clean.
 `verify` is the runtime/product done-check: it asserts the build artifacts and
 runs a `kungfu` runtime smoke plus the `mvp-smoke-v1` Episode qualification,
 rather than trusting a "looks built" impression. The larger Episode baseline
@@ -103,7 +108,7 @@ the stable-admission obligation without publishing a release.
   declare a bounded `stage-ready` or `implemented` delivery against accepted
   ADRs; do not use commit messages as implementation authority. Alpha and
   stable promotion semantics live in
-  [`docs/version-release-design.md`](docs/version-release-design.md).
+  [`docs/development/version-release-design.md`](docs/development/version-release-design.md).
 - Write commit messages and PR descriptions in English, using lightweight
   [Conventional Commits](https://www.conventionalcommits.org/)
   (`type(scope): summary`).

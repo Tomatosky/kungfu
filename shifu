@@ -20,7 +20,7 @@
 #   ./shifu proxy ...    # rich subcommand: manage local cache/mirror proxy config (delegated to L2 node, not passed to pnpm)
 #
 # This script is a thin shim in front of the native launcher (crates/shifu, a
-# self-contained Rust binary — see docs/rust-adoption.md). Resolution order:
+# self-contained Rust binary — see docs/development/rust-adoption.md). Resolution order:
 #   1. SHIFU_BIN            explicit binary override
 #   2. dev machines (cargo + git) -> source-fresh cache slot
 #                                    .../kungfu/shifu/<version>-<launcher-src-sha>/,
@@ -118,7 +118,34 @@ kungfu_native_build() {
   mkdir -p "$(dirname "$_dest")" "$_tgt"
   if CARGO_TARGET_DIR="$_tgt" cargo build --release --locked --manifest-path crates/Cargo.toml -p shifu >&2; then
     _built="$_tgt/release/$(kungfu_native_binname "$(kungfu_native_platform)")"
-    cp "$_built" "${_dest}.tmp" && chmod +x "${_dest}.tmp" && mv "${_dest}.tmp" "$_dest" && return 0
+    if cp "$_built" "${_dest}.tmp" && chmod +x "${_dest}.tmp" && mv "${_dest}.tmp" "$_dest"; then
+      _meta="$(dirname "$_dest")/meta.env"
+      _sha="$(git rev-parse HEAD 2>/dev/null || true)"
+      _branch="$(git symbolic-ref --short HEAD 2>/dev/null || echo detached)"
+      _repo="$(git worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p' | head -n 1)"
+      _dirty=false
+      # shellcheck disable=SC2086
+      [ -n "$(git status --porcelain -- $KUNGFU_LAUNCHER_SRC 2>/dev/null)" ] && _dirty=true
+      # Single quotes are the meta.env delimiter; branch/path provenance is
+      # diagnostic, so strip an embedded quote rather than creating code.
+      _branch="$(printf %s "$_branch" | tr -d "'")"
+      _repo="$(printf %s "$_repo" | tr -d "'")"
+      _worktree="$(printf %s "$PWD" | tr -d "'")"
+      {
+        printf "KUNGFU_ARTIFACT_SCHEMA='shifu.local-artifact/v1'\n"
+        printf "KUNGFU_ARTIFACT_PRODUCT='shifu'\n"
+        printf "KUNGFU_ARTIFACT_SHA='%s'\n" "$_sha"
+        printf "KUNGFU_ARTIFACT_BRANCH='%s'\n" "$_branch"
+        printf "KUNGFU_ARTIFACT_REPO='%s'\n" "$_repo"
+        printf "KUNGFU_ARTIFACT_WORKTREE='%s'\n" "$_worktree"
+        printf "KUNGFU_ARTIFACT_BUILD_PATH='%s'\n" "$_tgt"
+        printf "KUNGFU_ARTIFACT_BUILT_AT='%s'\n" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+        printf "KUNGFU_ARTIFACT_DIRTY='%s'\n" "$_dirty"
+      } > "${_meta}.tmp"
+      mv "${_meta}.tmp" "$_meta"
+      unset _meta _sha _branch _repo _dirty _worktree
+      return 0
+    fi
     rm -f "${_dest}.tmp"
   fi
   return 1
@@ -158,6 +185,18 @@ kungfu_load_proxy
 # back to this script (see the launcher's installed-binary delegation).
 export SHIFU_FROM_SHIM=1
 export SHIFU_ENTRYPOINT=1
+
+# Source acceptance is a GitHub-hosted, build-free gate. Dispatch it before
+# native launcher resolution so SHIFU_NATIVE=1 cannot compile the launcher.
+if [ "${1:-}" = "check:source" ]; then
+  shift
+  if command -v node >/dev/null 2>&1; then
+    exec node ./scripts/source-acceptance.mjs "$@"
+  else
+    echo "shifu: check:source needs node" >&2
+    exit 127
+  fi
+fi
 
 # Cache profiles are a checkout-owned L2 contract. Dispatch them before the
 # native launcher even when SHIFU_NATIVE=1: the outer cache apply must resolve
@@ -231,10 +270,9 @@ if [ "${SHIFU_NATIVE:-}" != "0" ]; then
       *) if [ -x "$kungfu_dev_bin" ]; then exec "$kungfu_dev_bin" "$@"; fi ;;
     esac
     if kungfu_native_build "$kungfu_dev_bin"; then
-      # Retire older source-keyed slots; the release-pinned slot stays.
-      for _slot in "${kungfu_cache_root}/${kungfu_ver}-"*; do
-        [ -d "$_slot" ] && [ "$_slot" != "$kungfu_dev_dir" ] && rm -rf "$_slot"
-      done
+      # Source slots are catalog entries. The native catalog retires only
+      # proven ancestors after a successful promotion; recency alone must not
+      # delete a divergent worktree's provenance.
       exec "$kungfu_dev_bin" "$@"
     fi
     echo "shifu: source build failed; falling back to the release-pinned launcher" >&2

@@ -40,7 +40,7 @@ Run `./shifu doctor` to check your environment: it reports every required
 tool with a version line or an install pointer (and exits non-zero when a
 required tool is missing, so it can gate scripts).
 Use `./shifu doctor --json` when a machine-readable compiler/CMake/Ninja/Conan
-fact record is needed. See [`docs/cpp-toolchain.md`](docs/cpp-toolchain.md).
+fact record is needed. See [`docs/development/cpp-toolchain.md`](docs/development/cpp-toolchain.md).
 For projected dependency caches, run `./shifu cache status` first; use
 `./shifu cache doctor --probe` only when active endpoint checks are intended.
 Local `cache use/unset` changes are dry-run unless `--execute` is supplied and
@@ -48,7 +48,7 @@ never overwrite an inventory-controller block.
 
 ## Repository layout
 
-Kungfu is a pnpm-workspaces monorepo. See [`docs/architecture.md`](docs/architecture.md)
+Kungfu is a pnpm-workspaces monorepo. See [`docs/architecture/overview.md`](docs/architecture/overview.md)
 for how the layers fit together; the main areas:
 
 - `framework/core` — the C++ core (`yijinjing` journal, storage semantics, and
@@ -65,7 +65,7 @@ for how the layers fit together; the main areas:
   SDK, first-party kfx, desktop installers, and CLI archives.
 - `crates` — the Rust workspace: self-contained native tools consumed as
   prebuilt binaries, currently the native `shifu` launcher. See
-  [`docs/rust-adoption.md`](docs/rust-adoption.md) for when (and when not) a
+  [`docs/development/rust-adoption.md`](docs/development/rust-adoption.md) for when (and when not) a
   component belongs here.
 
 Two command-line entry points, kept forward-compatible:
@@ -92,6 +92,7 @@ cd kungfu
 ./shifu build         # build all workspaces (C++ core + bindings + app)
 ./shifu rebuild       # remove generated build outputs, then build
 ./shifu check         # changed-scope read-only quality gate
+./shifu check:source  # build-free source acceptance used by dev PRs
 ./shifu fix           # explicit formatting / safe auto-fixes for changed files
 ./shifu product gui dev # run the reference GUI dev loop
 ./shifu product tui dev # run the reference TUI dev loop
@@ -142,14 +143,19 @@ Run formatting before committing:
 ./shifu format        # all languages
 ./shifu fix           # format + safe lint fixes for changed files
 ./shifu check         # read-only changed-scope lint/type/test gate
+./shifu check:source  # exact-revision source gate; never builds artifacts
 ```
 
 The installed pre-commit hook runs `./shifu check:staged` semantics via
 Node: it checks staged files without rewriting or re-staging them. If the hook
 reports formatting or fixable lint issues, run `./shifu fix:staged`, review
-the diff, and commit again. CI should run `./shifu check` and the relevant
-build or verify command. `check:all` and `fix:all` are available for deliberate
-whole-tree lint-baseline cleanup.
+the diff, and commit again. Every development PR runs `./shifu check:source`
+through the Buildchain reusable check workflow on GitHub-hosted Linux. That gate
+is limited to formatting, lint, type, schema, documentation, and contract checks;
+it cannot invoke a compiler or enter build, artifact, verify, or release stages.
+The broader `check`, `check:all`, and `fix:all` commands remain available for
+local development and deliberate whole-tree lint-baseline cleanup. Promotion
+continues to run the existing Buildchain install, build, and verify lifecycle.
 
 ### Documentation checks
 
@@ -172,24 +178,33 @@ the registered commands execute without a shell. The same contract declares
 publication roots and governed paths, so an unreachable public page or stale
 orphan exception also fails.
 
+Canonical Markdown below `docs/` is organized by maintenance authority under
+`concepts/`, `guides/`, `architecture/`, `profiles/`, `qualification/`,
+`development/`, `research/`, `adr/`, and `shifu/`. Only `docs/README.md` and
+`docs/MAP.md` are canonical root entry files. Choose the owning section before
+adding a document and link it from that section's `README.md`; the gate rejects
+new flat canonical pages and canonical links that route through a compatibility
+redirect.
+
 It checks the
 whole Markdown graph so deleting or renaming a target cannot evade a
 changed-file filter. The intentionally small Markdownlint rule baseline lives
 in `.markdownlint-cli2.mjs`; do not enable a style rule by rewriting unrelated
-documents. `docs.contract.json` owns only required documents and navigation
-pointers. [`docs/document-metadata.contract.json`](docs/document-metadata.contract.json)
+documents. `docs.contract.json` owns the directory taxonomy, required documents,
+navigation pointers, publication topology, and executable examples.
+[`docs/document-metadata.contract.json`](docs/document-metadata.contract.json)
 routes each governed document to inline, registry, or external metadata;
 [`docs/document-metadata.registry.json`](docs/document-metadata.registry.json)
 keeps public entry and guide metadata out of the rendered page. The same gate
 makes ADR body/index status and immutable implementation references checked
 projections of ADR metadata; see
-[`docs/document-metadata.md`](docs/document-metadata.md). GitHub issue templates
+[`docs/development/document-metadata.md`](docs/development/document-metadata.md). GitHub issue templates
 and Kungfu Skills retain their independently consumed frontmatter schemas.
 [`docs/vocabulary.registry.json`](docs/vocabulary.registry.json) is
 the executable source for canonical term spelling and layers, governed public
 files, retired wording, preferred terminology, and load-bearing claim guards.
 The deterministic check verifies that its core terms remain aligned with
-[`docs/vocabulary.md`](docs/vocabulary.md).
+[`docs/concepts/vocabulary.md`](docs/concepts/vocabulary.md).
 
 All Core and Shifu architecture decisions are canonical under
 [`docs/adr/`](docs/adr/). Their prefixes retain ownership and portability, but
@@ -271,7 +286,7 @@ dev/<major>/<version>  →  alpha/<major>/<version>  →  release/<major>/<versi
   scope, not semantic-version impact.
 - Merging into `alpha/*` and `release/*` triggers the version-bump and release
   workflows, which tag the release and move the moving major tag.
-- See [`docs/version-release-design.md`](docs/version-release-design.md) for the
+- See [`docs/development/version-release-design.md`](docs/development/version-release-design.md) for the
   rationale behind versioning and the dev/alpha/stable ADR admissibility
   contract. Alpha promotions settle changed ADR progress after full Buildchain
   qualification. Stable promotions block every unimplemented or unqualified

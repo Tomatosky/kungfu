@@ -28,8 +28,8 @@ last_reviewed: 2026-07-13
   [ADR-0042](ADR-0042-episode-atomic-safety-and-qualification.md),
   [ADR-0055](ADR-0055-retire-journal-session-and-separate-runtime-state-from-projection.md),
   and [ADR-0058](ADR-0058-yijinjing-explicit-mapping-policies.md)
-- Public contract: [Strong durability and crash recovery](../durability-and-crash-recovery.md)
-- Design: [Strong-durability and crash-recovery design](../../framework/core/docs/strong-durability-and-crash-recovery-design.md)
+- Public contract: [Strong durability and crash recovery](../qualification/durability-and-crash-recovery.md)
+- Design: [Strong-durability and crash-recovery design](../architecture/strong-durability-and-crash-recovery-design.md)
 
 ## Context
 
