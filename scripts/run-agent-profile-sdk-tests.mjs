@@ -6,10 +6,13 @@ import path from 'node:path';
 import process from 'node:process';
 
 const root = process.cwd();
+const pythonEnvironment =
+  process.env.UV_PROJECT_ENVIRONMENT ||
+  path.join(root, 'framework', 'core', '.venv');
 const python =
   process.platform === 'win32'
-    ? path.join(root, 'framework', 'core', '.venv', 'Scripts', 'python.exe')
-    : path.join(root, 'framework', 'core', '.venv', 'bin', 'python');
+    ? path.join(pythonEnvironment, 'Scripts', 'python.exe')
+    : path.join(pythonEnvironment, 'bin', 'python');
 const pythonPath = [
   path.join(root, 'framework', 'core', 'build', 'Release'),
   path.join(root, 'framework', 'core', 'src', 'python'),

@@ -36,6 +36,7 @@
       "post-checkout cache profile schema",
       "cache resolution",
       "tool bindings",
+      "strict uv effective-lock enforcement",
       "developer status, doctor, and bounded local configuration",
       "non-secret resolution evidence"
     ],
@@ -50,6 +51,7 @@
     "endpointUserInfo": "forbidden",
     "endpointQueryAndFragment": "forbidden",
     "persistentToolConfig": "not-read-or-written-by-shifu",
+    "trackedUvLocks": "official-pypi-urls-only",
     "evidenceRedaction": "credentials-userinfo-query-fragment"
   },
   "integrity": {

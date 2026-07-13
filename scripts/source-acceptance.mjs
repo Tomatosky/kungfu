@@ -99,6 +99,7 @@ export function sourceAcceptancePlan(files) {
         'scripts/check-shifu-entry-contract.test.mjs',
         'scripts/check-shifu-cache-contract.test.mjs',
         'scripts/shifu-cache-runtime.test.mjs',
+        'scripts/shifu-uv-cache-adapter.test.mjs',
         'scripts/check-schema-authority.test.mjs',
       ],
     },

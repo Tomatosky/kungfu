@@ -15,6 +15,8 @@ import { locate, tmpDir, kfc, uvPython } from '../_harness.mjs';
 const { fixtureDir, coreDir } = locate(import.meta.url);
 const home = tmpDir('rewind-kfx-');
 const runId = `fixturekfx${Date.now()}`;
+const pythonEnvironment =
+  process.env.UV_PROJECT_ENVIRONMENT || path.join(coreDir, '.venv');
 
 // the kfx child is the core's own interpreter (has flatbuffers); it reaches the
 // kungfu package + binding itself, and the supervisor injects the capture hook.
@@ -22,8 +24,8 @@ const runId = `fixturekfx${Date.now()}`;
 // pykungfu (compile_schema) is provided by the harness runtimeEnv (folded into kfc).
 const venvPython =
   process.platform === 'win32'
-    ? path.join(coreDir, '.venv', 'Scripts', 'python.exe')
-    : path.join(coreDir, '.venv', 'bin', 'python');
+    ? path.join(pythonEnvironment, 'Scripts', 'python.exe')
+    : path.join(pythonEnvironment, 'bin', 'python');
 
 kfc(coreDir, home, [
   'trace',

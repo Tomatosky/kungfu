@@ -9,7 +9,13 @@ import { openProfile } from '../../../framework/api/src/capability/profile.ts';
 const repo = process.cwd();
 const runtimeRoot = process.env.KUNGFU_QUALIFICATION_RUNTIME_ROOT || repo;
 const core = path.join(runtimeRoot, 'framework', 'core');
-const python = path.join(core, '.venv', 'bin', 'python');
+const pythonEnvironment =
+  process.env.UV_PROJECT_ENVIRONMENT || path.join(core, '.venv');
+const python = path.join(
+  pythonEnvironment,
+  process.platform === 'win32' ? 'Scripts' : 'bin',
+  process.platform === 'win32' ? 'python.exe' : 'python',
+);
 const release = path.join(core, 'build', 'Release');
 const pythonPath = [
   path.join(repo, 'framework', 'core', 'src', 'python'),

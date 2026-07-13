@@ -3,9 +3,12 @@
 // @ts-check
 
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+
+import { publicUvLockViolations } from './shifu-uv-cache-adapter.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SHIFU_DOCS = path.join(ROOT, 'docs', 'shifu');
@@ -154,6 +157,33 @@ export async function checkShifuCacheContract(root = ROOT) {
   assert.doesNotMatch(publicJson, /\b(?:10|127)\.\d+\.\d+\.\d+\b/);
   assert.doesNotMatch(publicJson, /\b192\.168\.\d+\.\d+\b/);
   assert.doesNotMatch(publicJson, /\b172\.(?:1[6-9]|2\d|3[01])\.\d+\.\d+\b/);
+
+  const trackedLocks = [];
+  const gitIndex = spawnSync('git', ['ls-files', '-z', '*uv.lock'], {
+    cwd: root,
+    encoding: 'utf8',
+    shell: false,
+  });
+  assert.equal(
+    gitIndex.status,
+    0,
+    gitIndex.stderr || 'cannot list tracked uv.lock files',
+  );
+  for (const relative of gitIndex.stdout.split('\0').filter(Boolean)) {
+    const violations = publicUvLockViolations(
+      fs.readFileSync(path.join(root, relative), 'utf8'),
+    );
+    assert.deepEqual(
+      violations,
+      [],
+      `${relative} must contain only official PyPI registry and artifact URLs`,
+    );
+    trackedLocks.push(relative);
+  }
+  assert.ok(
+    trackedLocks.length > 0,
+    'repository must track at least one uv.lock',
+  );
 
   return {
     contract: rel(contractPath),

@@ -11,9 +11,10 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const core = path.join(root, 'framework', 'core');
 const build = path.join(core, 'build');
+const pythonEnvironment =
+  process.env.UV_PROJECT_ENVIRONMENT || path.join(core, '.venv');
 const python = path.join(
-  core,
-  '.venv',
+  pythonEnvironment,
   process.platform === 'win32' ? 'Scripts' : 'bin',
   process.platform === 'win32' ? 'python.exe' : 'python3',
 );

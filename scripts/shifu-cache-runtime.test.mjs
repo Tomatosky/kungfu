@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
@@ -116,6 +117,88 @@ function toolConfigProfile() {
       },
     },
   });
+}
+
+function pythonCacheProfile(endpoint, { strict = true } = {}) {
+  return profile({
+    policy: strict
+      ? profile().policy
+      : {
+          mode: 'prefer',
+          onUnavailable: 'fallback',
+          allowPublicFallback: true,
+          secretPolicy: 'references-only',
+        },
+    services: {
+      'python-index': {
+        kind: 'package-registry',
+        mode: strict ? 'require' : 'prefer',
+        endpoint: { type: 'http', url: endpoint },
+        bindings: [
+          {
+            kind: 'environment',
+            key: 'UV_DEFAULT_INDEX',
+            valueFrom: 'endpoint.url',
+          },
+        ],
+        fallback: strict
+          ? { mode: 'fail' }
+          : { mode: 'upstream', upstreamUrl: 'https://pypi.org/simple' },
+        verification: { method: 'tool-native' },
+      },
+    },
+  });
+}
+
+function minimalUvLock() {
+  return `version = 1
+revision = 3
+requires-python = ">=3.12"
+
+[[package]]
+name = "demo"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/demo.tar.gz", hash = "sha256:${'a'.repeat(64)}", size = 1 }
+`;
+}
+
+function installFakeUv(bin) {
+  fs.writeFileSync(
+    path.join(bin, 'fake-uv.mjs'),
+    `import fs from 'node:fs';
+import path from 'node:path';
+const args = process.argv.slice(2);
+const projectAt = args.indexOf('--project');
+const project = args[projectAt + 1];
+if (args.includes('lock')) {
+  if (process.env.FAKE_UV_FAIL_LOCK) process.exit(42);
+  const file = path.join(project, 'uv.lock');
+  const endpoint = args[args.indexOf('--default-index') + 1];
+  fs.writeFileSync(file, fs.readFileSync(file, 'utf8')
+    .replaceAll('https://pypi.org/simple', endpoint)
+    .replaceAll('https://files.pythonhosted.org', new URL(endpoint).origin));
+} else if (process.env.FAKE_UV_OUTPUT) {
+  fs.writeFileSync(process.env.FAKE_UV_OUTPUT, JSON.stringify({
+    args,
+    environment: process.env.UV_PROJECT_ENVIRONMENT,
+    frozen: process.env.UV_FROZEN,
+  }));
+}
+`,
+  );
+  if (process.platform === 'win32') {
+    fs.writeFileSync(
+      path.join(bin, 'uv.cmd'),
+      '@node "%~dp0fake-uv.mjs" %*\r\n',
+    );
+  } else {
+    fs.writeFileSync(
+      path.join(bin, 'uv'),
+      '#!/bin/sh\nexec node "$(dirname "$0")/fake-uv.mjs" "$@"\n',
+      { mode: 0o700 },
+    );
+  }
 }
 
 test('validates exact bytes and applies only environment bindings', () => {
@@ -243,6 +326,174 @@ test('cache apply injects bindings and writes a receipt', async (t) => {
   const receipt = JSON.parse(fs.readFileSync(receiptPath, 'utf8'));
   assert.equal(receipt.profile.digest, sha256(raw));
   assert.match(receipt.execution.id, /^run:/);
+});
+
+test('strict Python cache uses a disposable effective lock and redacted receipt', async (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'shifu-cache-uv-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const repo = path.join(directory, 'repo');
+  const project = path.join(repo, 'framework', 'core');
+  const bin = path.join(directory, 'bin');
+  fs.mkdirSync(project, { recursive: true });
+  fs.mkdirSync(bin);
+  fs.writeFileSync(
+    path.join(project, 'pyproject.toml'),
+    '[project]\nname="demo"\nversion="1.0.0"\n',
+  );
+  fs.writeFileSync(path.join(project, 'uv.lock'), minimalUvLock());
+  spawnSync('git', ['init', '-q'], { cwd: repo });
+  spawnSync(
+    'git',
+    ['add', 'framework/core/pyproject.toml', 'framework/core/uv.lock'],
+    { cwd: repo },
+  );
+  installFakeUv(bin);
+
+  const server = http.createServer((_request, response) => {
+    response.writeHead(200);
+    response.end();
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => server.close());
+  const address = server.address();
+  const endpoint = `http://127.0.0.1:${address.port}/simple/`;
+  const raw = bytes(pythonCacheProfile(endpoint));
+  const profilePath = path.join(directory, 'profile.json');
+  const outputPath = path.join(directory, 'uv-invocation.json');
+  const receiptPath = path.join(directory, 'receipt.json');
+  fs.writeFileSync(profilePath, raw);
+  const canonical = fs.readFileSync(path.join(project, 'uv.lock'), 'utf8');
+  const statusBefore = spawnSync('git', ['status', '--short'], {
+    cwd: repo,
+    encoding: 'utf8',
+  }).stdout;
+  const script = `const result = require('node:child_process').spawnSync('uv', ['sync'], {stdio:'inherit'}); process.exit(result.status ?? 1)`;
+  const status = await applyCacheProfile({
+    reference: profilePath,
+    expectedDigest: sha256(raw),
+    scope: 'self-hosted-runner',
+    receiptPath,
+    command: process.execPath,
+    args: ['-e', script],
+    cwd: repo,
+    env: {
+      ...process.env,
+      PATH: `${bin}${path.delimiter}${process.env.PATH || ''}`,
+      FAKE_UV_OUTPUT: outputPath,
+    },
+  });
+  assert.equal(status, 0);
+  assert.equal(
+    fs.readFileSync(path.join(project, 'uv.lock'), 'utf8'),
+    canonical,
+  );
+  assert.equal(
+    spawnSync('git', ['status', '--short'], { cwd: repo, encoding: 'utf8' })
+      .stdout,
+    statusBefore,
+  );
+  const invocation = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
+  assert.match(invocation.environment, /shifu-uv-overlay-/);
+  assert.equal(invocation.frozen, '1');
+  const receipt = JSON.parse(fs.readFileSync(receiptPath, 'utf8'));
+  const service = receipt.services['python-index'];
+  assert.equal(service.verification, 'passed');
+  assert.equal(service.application.overlayCleanup, 'completed');
+  assert.equal(service.application.toolEvidence.adapter, 'uv-effective-lock');
+  assert.equal(service.application.toolEvidence.projectCount, 1);
+  assert.doesNotMatch(
+    JSON.stringify(receipt),
+    /shifu-uv-overlay-|framework\/core/,
+  );
+});
+
+test('strict Python cache fails before starting the child when endpoint is unavailable', async (t) => {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'shifu-cache-uv-fail-'),
+  );
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const raw = bytes(pythonCacheProfile('http://127.0.0.1:1/simple/'));
+  const profilePath = path.join(directory, 'profile.json');
+  const receiptPath = path.join(directory, 'receipt.json');
+  const childPath = path.join(directory, 'child-ran');
+  fs.writeFileSync(profilePath, raw);
+  await assert.rejects(
+    applyCacheProfile({
+      reference: profilePath,
+      expectedDigest: sha256(raw),
+      scope: 'self-hosted-runner',
+      receiptPath,
+      command: process.execPath,
+      args: [
+        '-e',
+        `require('node:fs').writeFileSync(${JSON.stringify(childPath)}, 'ran')`,
+      ],
+      cwd: directory,
+    }),
+    /endpoint is unavailable/,
+  );
+  assert.equal(fs.existsSync(childPath), false);
+  const receipt = JSON.parse(fs.readFileSync(receiptPath, 'utf8'));
+  assert.equal(receipt.services['python-index'].outcome, 'failed');
+  assert.equal(receipt.services['python-index'].verification, 'failed');
+});
+
+test('development Python cache records declared fallback when effective lock is unavailable', async (t) => {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'shifu-cache-uv-fallback-'),
+  );
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const repo = path.join(directory, 'repo');
+  const project = path.join(repo, 'framework', 'core');
+  const bin = path.join(directory, 'bin');
+  fs.mkdirSync(project, { recursive: true });
+  fs.mkdirSync(bin);
+  fs.writeFileSync(
+    path.join(project, 'pyproject.toml'),
+    '[project]\nname="demo"\nversion="1.0.0"\n',
+  );
+  fs.writeFileSync(path.join(project, 'uv.lock'), minimalUvLock());
+  spawnSync('git', ['init', '-q'], { cwd: repo });
+  spawnSync(
+    'git',
+    ['add', 'framework/core/pyproject.toml', 'framework/core/uv.lock'],
+    { cwd: repo },
+  );
+  installFakeUv(bin);
+  const raw = bytes(
+    pythonCacheProfile('http://cache.example.invalid/simple/', {
+      strict: false,
+    }),
+  );
+  const profilePath = path.join(directory, 'profile.json');
+  const receiptPath = path.join(directory, 'receipt.json');
+  const childPath = path.join(directory, 'child-ran');
+  fs.writeFileSync(profilePath, raw);
+  const status = await applyCacheProfile({
+    reference: profilePath,
+    expectedDigest: sha256(raw),
+    scope: 'development',
+    receiptPath,
+    command: process.execPath,
+    args: [
+      '-e',
+      `require('node:fs').writeFileSync(${JSON.stringify(childPath)}, 'ran')`,
+    ],
+    cwd: repo,
+    env: {
+      ...process.env,
+      PATH: `${bin}${path.delimiter}${process.env.PATH || ''}`,
+      FAKE_UV_FAIL_LOCK: '1',
+    },
+  });
+  assert.equal(status, 0);
+  assert.equal(fs.readFileSync(childPath, 'utf8'), 'ran');
+  const service = JSON.parse(fs.readFileSync(receiptPath, 'utf8')).services[
+    'python-index'
+  ];
+  assert.equal(service.outcome, 'fallback');
+  assert.equal(service.fallbackUsed, true);
+  assert.equal(service.verification, 'failed');
 });
 
 test('cache apply overrides Cargo and isolates Conan without mutating persistent config', async (t) => {

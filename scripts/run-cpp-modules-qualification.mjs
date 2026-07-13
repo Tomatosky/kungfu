@@ -10,11 +10,11 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const source = path.join(root, 'tests', 'qualification', 'cpp-modules');
 const work = fs.mkdtempSync(path.join(os.tmpdir(), 'kungfu-cpp-modules-'));
+const pythonEnvironment =
+  process.env.UV_PROJECT_ENVIRONMENT ||
+  path.join(root, 'framework', 'core', '.venv');
 const ninja = path.join(
-  root,
-  'framework',
-  'core',
-  '.venv',
+  pythonEnvironment,
   process.platform === 'win32' ? 'Scripts' : 'bin',
   process.platform === 'win32' ? 'ninja.exe' : 'ninja',
 );

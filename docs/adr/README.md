@@ -148,6 +148,7 @@ implemented and qualified or explicitly waived for that release.
 | [0076](ADR-0076-documentation-directory-authority.md) | accepted | canonical public documentation is organized by maintenance authority, and the source tree carries no speculative pre-release compatibility paths |
 | [SHIFU-0001](SHIFU-ADR-0001-cache-profile-contract-and-ownership.md) | accepted | Cache profiles are Shifu-owned contracts; inventories project instances and Buildchain owns process |
 | [SHIFU-0002](SHIFU-ADR-0002-local-artifact-catalog-and-safe-promotion.md) | accepted | Shifu and Kungfu product artifacts share provenance-aware, Git-safe local promotion semantics |
+| [SHIFU-0003](SHIFU-ADR-0003-uv-effective-lock-cache-enforcement.md) | accepted | Strict uv cache execution uses a disposable effective lock while canonical locks stay public |
 
 ## Reading by theme
 

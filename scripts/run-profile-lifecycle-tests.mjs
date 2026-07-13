@@ -73,17 +73,13 @@ if (result.error || result.status !== 0) {
   process.exit(result.status ?? 1);
 }
 
+const pythonEnvironment =
+  process.env.UV_PROJECT_ENVIRONMENT ||
+  path.join(process.cwd(), 'framework', 'core', '.venv');
 const python =
   process.platform === 'win32'
-    ? path.join(
-        process.cwd(),
-        'framework',
-        'core',
-        '.venv',
-        'Scripts',
-        'python.exe',
-      )
-    : path.join(process.cwd(), 'framework', 'core', '.venv', 'bin', 'python');
+    ? path.join(pythonEnvironment, 'Scripts', 'python.exe')
+    : path.join(pythonEnvironment, 'bin', 'python');
 const pythonPath = [
   path.join(process.cwd(), 'framework', 'core', 'build', 'Release'),
   path.join(process.cwd(), 'framework', 'core', 'src', 'python'),
