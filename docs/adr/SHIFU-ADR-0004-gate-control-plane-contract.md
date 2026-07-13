@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: SHIFU-ADR-0004
 decision_status: accepted
 implementation_status: partial
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/762, https://github.com/kungfu-systems/kungfu/pull/765, https://github.com/kungfu-systems/kungfu/pull/767, https://github.com/kungfu-systems/kungfu/pull/769]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/762, https://github.com/kungfu-systems/kungfu/pull/765, https://github.com/kungfu-systems/kungfu/pull/767, https://github.com/kungfu-systems/kungfu/pull/769, https://github.com/kungfu-systems/kungfu/pull/773]
 review_state: unreviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -109,6 +109,16 @@ named handlers remain non-executable until those controllers register them.
 The workflow bindings make that remaining compatibility debt explicit and fail
 closed when either the execution authority or recorded current source drifts.
 
+Buildchain now provides a project-neutral reusable profile workflow. It asks
+the consumer's Shifu registry for a platform plan, derives a capability-aware
+runner matrix, validates every platform receipt, and publishes one stable
+aggregate bound to the source, registry, plan, matrix, actions, and Gate
+definitions. Planning and execution accept separate argv maps so a read-only
+plan does not depend on a project cache or container wrapper. Kungfu supplies
+only its profile id, runner preset, non-sensitive runtime environment, and
+opaque cache reference; Buildchain contains no Kungfu Gate ids or policy rows.
+PR 773 is the three-platform consumer canary for Buildchain PR 1152.
+
 ## Consequences
 
 - Developers and agents get one human-readable and machine-readable surface
@@ -117,8 +127,8 @@ closed when either the execution authority or recorded current source drifts.
   explicit matrix without teaching Shifu those project-specific names.
 - New gates fail profile validation until every policy explicitly decides
   them.
-- Buildchain scheduling and receipt aggregation can be added later without
-  changing project gate meaning.
+- Buildchain scheduling and receipt aggregation preserve project Gate meaning
+  and expose a stable aggregate for branch protection and release passports.
 - The contract adds a small validation and documentation burden, paid once to
   remove repeated workflow and prose reconstruction.
 
