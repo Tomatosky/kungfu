@@ -2088,12 +2088,15 @@ def invoke_action(
         raise ProfileSdkError(
             "action-operation-unsupported", "unsupported lifecycle action operation"
         )
-    source = plan.get("source")
-    values: dict[str, Any] = {}
+    source_value = plan.get("source")
+    lifecycle_source = str(source_value) if source_value is not None else None
+    lifecycle_values: dict[str, Any] = {}
     if lifecycle_action == "remove":
-        values["profile_id"] = plan["profileId"]
-        source = None
-    core = lifecycle_plan(runtime_dir, lifecycle_action, source, **values)["corePlan"]
+        lifecycle_values["profile_id"] = plan["profileId"]
+        lifecycle_source = None
+    core = lifecycle_plan(
+        runtime_dir, lifecycle_action, lifecycle_source, **lifecycle_values
+    )["corePlan"]
     receipt = lifecycle_apply(
         runtime_dir, core, authorization_id or "action-policy:none"
     )
