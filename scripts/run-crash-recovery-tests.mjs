@@ -34,6 +34,8 @@ const executable =
 const candidates = [
   path.join(buildDir, 'Release', executable),
   path.join(buildDir, executable),
+  path.join(buildDir, 'src', 'libkungfu', 'Release', executable),
+  path.join(buildDir, 'src', 'libkungfu', executable),
 ];
 const testBinary = candidates.find((candidate) => fs.existsSync(candidate));
 if (!testBinary) {
