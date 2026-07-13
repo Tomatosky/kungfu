@@ -13,25 +13,45 @@ use std::path::Path;
 
 use crate::util;
 
+const EXPLICIT_CACHE_PROJECTION_KEYS: [&str; 3] = [
+    "SHIFU_CACHE_PROFILE_REF",
+    "SHIFU_CACHE_PROFILE_DIGEST",
+    "SHIFU_CACHE_SCOPE",
+];
+
 /// Load the two-layer config: the user-global file always (rootless verbs
 /// like `promote` and `builds` read configuration too), the repo-root
 /// override only inside a checkout.
 pub fn load(repo_root: Option<&Path>) {
+    // Buildchain and runner projections are execution-scoped authority. Keep
+    // any non-empty value that was present before loading the user-global
+    // development config, including a partial ref/digest pair so resolution
+    // can fail closed instead of silently changing profiles.
+    let explicit_cache_projection = EXPLICIT_CACHE_PROJECTION_KEYS
+        .map(|key| (key, std::env::var_os(key).filter(|value| !value.is_empty())));
     let user_global = util::xdg_dir("XDG_CONFIG_HOME", ".config")
         .join("kungfu")
         .join("build-local.env");
-    apply_file(&user_global);
+    apply_file(&user_global, &explicit_cache_projection);
     if let Some(root) = repo_root {
-        apply_file(&root.join("build-local.env"));
+        apply_file(&root.join("build-local.env"), &explicit_cache_projection);
     }
 }
 
-fn apply_file(path: &Path) {
+fn apply_file(path: &Path, explicit_cache_projection: &[(&str, Option<std::ffi::OsString>)]) {
     let Ok(text) = std::fs::read_to_string(path) else {
         return;
     };
     for line in text.lines() {
         if let Some((key, value)) = parse_line(line) {
+            if explicit_cache_projection
+                .iter()
+                .any(|(explicit_key, explicit_value)| {
+                    key == *explicit_key && explicit_value.is_some()
+                })
+            {
+                continue;
+            }
             std::env::set_var(key, value);
         }
     }
@@ -63,7 +83,7 @@ pub(crate) fn parse_line(line: &str) -> Option<(&str, &str)> {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_line;
+    use super::{parse_line, EXPLICIT_CACHE_PROJECTION_KEYS};
 
     #[test]
     fn parses_documented_shapes() {
@@ -85,5 +105,17 @@ mod tests {
         assert_eq!(parse_line("not a var line"), None);
         assert_eq!(parse_line("1BAD=x"), None);
         assert_eq!(parse_line("BAD KEY=x"), None);
+    }
+
+    #[test]
+    fn cache_projection_precedence_covers_ref_digest_and_scope() {
+        assert_eq!(
+            EXPLICIT_CACHE_PROJECTION_KEYS,
+            [
+                "SHIFU_CACHE_PROFILE_REF",
+                "SHIFU_CACHE_PROFILE_DIGEST",
+                "SHIFU_CACHE_SCOPE"
+            ]
+        );
     }
 }
