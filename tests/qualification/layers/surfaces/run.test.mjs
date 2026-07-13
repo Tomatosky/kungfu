@@ -77,4 +77,5 @@ test('bounded GUI qualification avoids display-backed menus and embedded views',
     mainSource,
     /if \(!qualificationMode\) \{\s*manager = new SandboxManager\(/,
   );
+  assert.match(mainSource, /offscreen: qualificationMode/);
 });

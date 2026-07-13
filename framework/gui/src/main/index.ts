@@ -969,6 +969,7 @@ function createWindow() {
       nodeIntegration: true,
       contextIsolation: false,
       sandbox: false,
+      offscreen: qualificationMode,
     },
   });
   shellWindow = win;
