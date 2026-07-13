@@ -59,18 +59,19 @@ const SUITES = {
       '[crash-recovery-test] recovery completion contracts passed',
     ],
   },
-  'episode-semantic-oracle': {
+  'episode-mvp-smoke': {
     args: [
       'episode:qualify',
       '--',
       '--profile',
       'mvp-smoke-v1',
       '--mode',
-      'semantic',
+      'all',
     ],
     requiredMarkers: [
       '[episode-qualify] semantic oracle and production comparisons',
-      'qualified=false',
+      'scenarios=5 passed=5',
+      'qualified=true',
     ],
   },
 };
@@ -84,7 +85,7 @@ const FAULT_EVIDENCE = {
   'storage-error-propagation': ['durable-ingest'],
   'ownership-fencing': ['durable-ingest', 'crash-recovery'],
   'projection-loss-rebuild': ['projection-bootstrap', 'crash-recovery'],
-  'episode-capability-oracle': ['episode-semantic-oracle'],
+  'episode-capability-oracle': ['episode-mvp-smoke'],
   'whole-data-root-reopen': ['crash-recovery'],
   'verified-backup-restore': ['crash-recovery'],
   'service-restart-order': ['crash-recovery'],

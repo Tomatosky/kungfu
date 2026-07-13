@@ -31,7 +31,9 @@ separately so each receipt profile has its own report.
 The harness executes only local Shifu tasks. It does not dispatch GitHub
 workflows or self-hosted runners. It retains each suite's raw output beside the
 report and binds the report to the source revision, tree, profile digest,
-platform facts, Shifu doctor record, fault matrix, and exact result.
+platform facts, Shifu doctor record, fault matrix, and exact result. The Episode
+suite runs the complete `mvp-smoke-v1` accumulation, contention, and semantic
+oracle gate; a semantic-only invocation is not accepted as load evidence.
 
 ## Claim boundary
 
