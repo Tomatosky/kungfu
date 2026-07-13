@@ -70,6 +70,27 @@ fixture does not create, mount, format, terminate, or restart a VM or storage
 device; those destructive actions belong to a separately reviewed,
 dry-run-first orchestrator and retained machine report.
 
+The Linux device-tier preflight is generated without side effects:
+
+```sh
+./shifu durability:powercut:plan -- \
+  --run-id 12dd26e899-linux-ext4-v1 \
+  --repo /data/worktrees/kungfu/feature/durability-qualification-final \
+  --source-revision "$(git rev-parse HEAD)" \
+  --image kungfu-linux-build-probe:conanfix-20260630T101847Z \
+  --kernel-release 6.8.0-134-generic \
+  --kernel-version 6.8.0-134.134
+```
+
+Run the command from the exact isolated repository worktree named by `--repo`;
+the shell substitution binds the plan to that worktree's full commit. The
+result is a `dry-run-only` JSON plan. It refuses arbitrary repository and
+workspace roots, names every host mutation, leaves physical hosts and devices
+out of scope, and separates the exact armed marker from the direct-child QEMU
+termination step. Every profile/fault trial clones pristine root and data
+images, so sequence state and guest writes cannot leak across trials. The plan
+is evidence for review, not authorization to run the mutating commands.
+
 ## Files
 
 - `profiles/*.json` freezes the platform/filesystem process profiles.
@@ -78,3 +99,7 @@ dry-run-first orchestrator and retained machine report.
 - `run.mjs` owns dry-run planning, local execution, raw evidence, and verdicts.
 - `run.test.mjs` proves fail-closed platform, marker, and claim behavior without
   entering a compiler or build lifecycle.
+- `powercut_plan.mjs` freezes the disposable Linux ext4/QEMU write set and fault
+  matrix without executing it.
+- `powercut_guest_init` is the guest-only init entrypoint copied into the
+  disposable root image; it cannot create or terminate a host VM.

@@ -153,7 +153,7 @@ int write_once(const fs::path &root, const std::string &profile_name, const std:
   return 0;
 }
 
-int verify(const fs::path &root, uint64_t expected_min_sequence) {
+int verify(const fs::path &root, uint64_t expected_min_sequence, uint64_t expected_max_sequence) {
   require_disposable_root(root);
   durable_ingest_log log(options(root, true));
   const auto status = log.status();
@@ -169,12 +169,13 @@ int verify(const fs::path &root, uint64_t expected_min_sequence) {
     previous = record.position.sequence;
   }
   const uint64_t durable_sequence = status.durable_watermark.has_value() ? status.durable_watermark->sequence : 0;
-  const bool passed =
-      status.available && contiguous && previous == durable_sequence && durable_sequence >= expected_min_sequence;
+  const bool passed = status.available && contiguous && previous == durable_sequence &&
+                      durable_sequence >= expected_min_sequence && durable_sequence <= expected_max_sequence;
   nlohmann::json report = {
       {"schema", "kungfu.durability.powercut-verification/v1"},
       {"passed", passed},
       {"expected_min_sequence", expected_min_sequence},
+      {"expected_max_sequence", expected_max_sequence},
       {"durable_sequence", durable_sequence},
       {"durable_record_count", records.size()},
       {"contiguous", contiguous},
@@ -191,7 +192,7 @@ int verify(const fs::path &root, uint64_t expected_min_sequence) {
 void usage() {
   std::cout << "Usage:\n"
                "  kungfu_durability_powercut_fixture write ROOT PROFILE FAULT_POINT\n"
-               "  kungfu_durability_powercut_fixture verify ROOT EXPECTED_MIN_SEQUENCE\n\n"
+               "  kungfu_durability_powercut_fixture verify ROOT EXPECTED_MIN_SEQUENCE [EXPECTED_MAX_SEQUENCE]\n\n"
                "FAULT_POINT: none, before_record_write, after_record_write, before_data_sync,\n"
                "  after_data_sync, before_checkpoint_write, before_checkpoint_rename,\n"
                "  after_checkpoint_rename, before_directory_sync, after_directory_sync,\n"
@@ -209,8 +210,9 @@ int main(int argc, char **argv) {
     if (argc == 5 && std::string(argv[1]) == "write") {
       return write_once(argv[2], argv[3], argv[4]);
     }
-    if (argc == 4 && std::string(argv[1]) == "verify") {
-      return verify(argv[2], std::stoull(argv[3]));
+    if ((argc == 4 || argc == 5) && std::string(argv[1]) == "verify") {
+      const auto minimum = std::stoull(argv[3]);
+      return verify(argv[2], minimum, argc == 5 ? std::stoull(argv[4]) : minimum);
     }
     usage();
     return 64;

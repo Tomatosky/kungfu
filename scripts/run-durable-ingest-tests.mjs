@@ -88,25 +88,46 @@ if (!fixtureBinary) {
   process.exit(2);
 }
 
-const nativeSources = [
+const sharedSources = [
   'framework/core/src/libkungfu/include/kungfu/runtime/durable_ingest.h',
   'framework/core/src/libkungfu/src/runtime/durable_ingest.cpp',
   'framework/core/src/libkungfu/include/kungfu/runtime/state_service.h',
   'framework/core/src/libkungfu/src/runtime/state_service.cpp',
-  'framework/core/src/libkungfu/tests/durable_ingest_tests.cpp',
-  'framework/core/src/libkungfu/tests/durability_powercut_fixture.cpp',
   'framework/core/src/libyijinjing/include/kungfu/yijinjing/ownership.h',
   'framework/core/src/libyijinjing/src/io/ownership.cpp',
 ].map((source) => path.join(process.cwd(), source));
-const binaryMtime = fs.statSync(testBinary).mtimeMs;
-const newerSource = nativeSources.find(
-  (source) => fs.statSync(source).mtimeMs > binaryMtime,
-);
-if (newerSource) {
-  console.error(
-    `[durable-ingest-test] refusing stale binary; newer source: ${path.relative(process.cwd(), newerSource)}`,
+for (const [binary, sources] of [
+  [
+    testBinary,
+    [
+      ...sharedSources,
+      path.join(
+        process.cwd(),
+        'framework/core/src/libkungfu/tests/durable_ingest_tests.cpp',
+      ),
+    ],
+  ],
+  [
+    fixtureBinary,
+    [
+      ...sharedSources,
+      path.join(
+        process.cwd(),
+        'framework/core/src/libkungfu/tests/durability_powercut_fixture.cpp',
+      ),
+    ],
+  ],
+]) {
+  const binaryMtime = fs.statSync(binary).mtimeMs;
+  const newerSource = sources.find(
+    (source) => fs.statSync(source).mtimeMs > binaryMtime,
   );
-  process.exit(2);
+  if (newerSource) {
+    console.error(
+      `[durable-ingest-test] refusing stale binary; newer source: ${path.relative(process.cwd(), newerSource)}`,
+    );
+    process.exit(2);
+  }
 }
 console.log(`[durable-ingest-test] running ${testBinary}`);
 function run(args, label) {
@@ -138,7 +159,7 @@ try {
   };
   for (const [args, label] of [
     [['write', fixtureRoot, 'durable_sync', 'none'], 'fixture write'],
-    [['verify', fixtureRoot, '1'], 'fixture verify'],
+    [['verify', fixtureRoot, '1', '1'], 'fixture verify'],
   ]) {
     const result = spawnSync(fixtureBinary, args, {
       cwd: process.cwd(),
@@ -152,6 +173,26 @@ try {
         );
       process.exit(result.status ?? 1);
     }
+  }
+  const outsideRange = spawnSync(
+    fixtureBinary,
+    ['verify', fixtureRoot, '0', '0'],
+    {
+      cwd: process.cwd(),
+      env: fixtureEnv,
+      encoding: 'utf8',
+    },
+  );
+  if (
+    outsideRange.status !== 1 ||
+    !`${outsideRange.stdout || ''}${outsideRange.stderr || ''}`.includes(
+      '"expected_max_sequence":0',
+    )
+  ) {
+    console.error(
+      '[durable-ingest-test] power-cut fixture accepted a durable sequence outside its expected range',
+    );
+    process.exit(1);
   }
   const refused = spawnSync(fixtureBinary, ['verify', fixtureRoot, '1'], {
     cwd: process.cwd(),
