@@ -43,7 +43,7 @@ jobs:
   gate-profile-canary:
     if: github.event_name == 'pull_request'
     needs: validate
-    uses: kungfu-systems/buildchain/.github/workflows/.gate-profile.yml@feature/gate-profile-orchestration
+    uses: kungfu-systems/buildchain/.github/workflows/.gate-profile.yml@train/v2/v2.3/gate-profile-orchestration
     with:
       gate-profile: dev-patrol
       runner-preset: kungfu-v4-self-hosted
