@@ -50,6 +50,7 @@ test('Linux clean-install GUI smoke uses the bounded Electron sandbox escape', (
   assert.deepEqual(guiQualificationArgs('linux'), [
     '--no-sandbox',
     '--ozone-platform=headless',
+    '--disable-gpu',
   ]);
   assert.deepEqual(guiQualificationArgs('darwin'), []);
   assert.deepEqual(guiQualificationArgs('win32'), []);
