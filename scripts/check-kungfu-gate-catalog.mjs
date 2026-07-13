@@ -31,6 +31,39 @@ function readJson(root, relative) {
   return JSON.parse(fs.readFileSync(path.join(root, relative), 'utf8'));
 }
 
+function gateActionLine(gate) {
+  if (gate.action.kind === 'task') {
+    const command = [gate.action.task, ...(gate.action.args || [])].join(' ');
+    return `- **Action:** \`./shifu ${command}\``;
+  }
+  return `- **Action:** named handler \`${gate.action.handler}\`; execution requires the declared remote controller capability.`;
+}
+
+function gateDependenciesLine(gate) {
+  if (!gate.dependencies.length) return '- **Dependencies:** none.';
+  return `- **Dependencies:** ${gate.dependencies.map((item) => `\`${item}\``).join(', ')}.`;
+}
+
+function gatePlatformsLine(gate) {
+  const capabilities = gate.runner.capabilities
+    .map((item) => `\`${item}\``)
+    .join(', ');
+  return `- **Platforms and runner:** ${gate.platforms.join(', ')}; capabilities ${capabilities}.`;
+}
+
+function gateCurrentSourceLine(gate, bindings) {
+  const sources = bindings
+    .filter((binding) => binding.gates?.includes(gate.id))
+    .map(
+      (binding) =>
+        `${binding.workflow} (${binding.job}; ${binding.activation})`,
+    );
+  const current = sources.length
+    ? sources.join('; ')
+    : 'independent Shifu task; not selected by a current remote profile.';
+  return `- **Current source:** ${current}`;
+}
+
 export function renderPolicyMatrix(registry) {
   const profiles = registry.profiles;
   const header = [
@@ -65,6 +98,8 @@ export function checkKungfuGateCatalog(root = ROOT) {
   }
   if (validation.length) return { issues, registry };
 
+  const bindingDocument = readJson(root, BINDINGS);
+  const bindings = bindingDocument.bindings || [];
   const packageScripts = readJson(root, 'package.json').scripts || {};
   for (const gate of registry.gates) {
     if (gate.action.kind === 'task' && !packageScripts[gate.action.task]) {
@@ -114,6 +149,19 @@ export function checkKungfuGateCatalog(root = ROOT) {
         issues.push(`[doc] ${gate.id}: missing '${field}' field`);
       }
     }
+    const expectedFacts = [
+      `- **Problem:** ${gate.summary}`,
+      gateActionLine(gate),
+      gateDependenciesLine(gate),
+      gatePlatformsLine(gate),
+      `- **Cost:** ${gate.cost.class}; timeout ${gate.cost.timeoutSeconds} seconds.`,
+      gateCurrentSourceLine(gate, bindings),
+    ];
+    for (const fact of expectedFacts) {
+      if (!block.includes(fact)) {
+        issues.push(`[doc-fact] ${gate.id}: expected '${fact}'`);
+      }
+    }
   }
 
   const matrixPath = path.join(root, MATRIX);
@@ -126,7 +174,6 @@ export function checkKungfuGateCatalog(root = ROOT) {
     issues.push(`[matrix] ${MATRIX} differs from shifu.gates.json`);
   }
 
-  const bindingDocument = readJson(root, BINDINGS);
   if (bindingDocument.schema !== 'kungfu.gate-workflow-bindings/v1') {
     issues.push('[workflow] unsupported binding schema');
   }
@@ -137,13 +184,18 @@ export function checkKungfuGateCatalog(root = ROOT) {
   const profileIds = new Set(registry.profiles.map((profile) => profile.id));
   const covered = new Set();
   const bindingIds = new Set();
-  for (const binding of bindingDocument.bindings || []) {
+  for (const binding of bindings) {
     if (bindingIds.has(binding.id)) {
       issues.push(`[workflow] duplicate binding id '${binding.id}'`);
     }
     bindingIds.add(binding.id);
     if (!binding.job || !binding.activation) {
       issues.push(`[workflow] ${binding.id}: job and activation are required`);
+    }
+    if (!['gate', 'controller'].includes(binding.execution)) {
+      issues.push(
+        `[workflow] ${binding.id}: execution must be 'gate' or 'controller'`,
+      );
     }
     if (!binding.profiles?.length || !binding.gates?.length) {
       issues.push(
@@ -189,6 +241,14 @@ export function checkKungfuGateCatalog(root = ROOT) {
     ) {
       issues.push(
         `[workflow] ${binding.id}: requiredSnippets must contain non-empty strings`,
+      );
+    }
+    if (
+      binding.execution === 'gate' &&
+      !binding.requiredSnippets?.some((snippet) => snippet.includes('gate run'))
+    ) {
+      issues.push(
+        `[workflow] ${binding.id}: gate execution must prove a 'gate run' entrypoint`,
       );
     }
     const workflow = path.join(root, workflowRelative);

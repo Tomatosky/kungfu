@@ -95,6 +95,7 @@
         "args": [
           "--",
           "--allow-non-pr",
+          "--github-event",
           "--report",
           "product/release/qualification/adr-release-admissibility.json"
         ]
@@ -148,7 +149,7 @@
       "category": "release",
       "documentation": "docs/qualification/gates/release-and-promotion.md",
       "dependencies": [
-        "governance.buildchain-config"
+        "gate.catalog"
       ],
       "platforms": [
         "linux",
@@ -169,6 +170,7 @@
         "task": "release:promotion:rehearse",
         "args": [
           "--",
+          "--github-event",
           "--report",
           "product/release/qualification/release-promotion-rehearsal.json"
         ]
@@ -403,11 +405,9 @@
         "timeoutSeconds": 1800
       },
       "action": {
-        "kind": "handler",
-        "handler": "kungfu.workflow.shifu-workspace",
-        "parameters": {
-          "workflow": ".github/workflows/shifu-ci.yml"
-        }
+        "kind": "task",
+        "task": "check:shifu-workspace",
+        "args": []
       },
       "artifacts": [],
       "receipt": {
@@ -460,7 +460,7 @@
       "category": "build",
       "documentation": "docs/qualification/gates/build-and-runtime.md",
       "dependencies": [
-        "product.distribution"
+        "gate.catalog"
       ],
       "platforms": [
         "linux",
@@ -681,7 +681,7 @@
       "category": "qualification",
       "documentation": "docs/qualification/gates/native-qualification.md",
       "dependencies": [
-        "product.distribution"
+        "gate.catalog"
       ],
       "platforms": [
         "linux",
@@ -1379,8 +1379,8 @@
           "reason": "Not selected by the current dev-patrol workflow policy."
         },
         "product.distribution": {
-          "mode": "required",
-          "reason": "Selected by the current dev-patrol workflow policy when its activation condition matches."
+          "mode": "off",
+          "reason": "The aggregate product.verify-full Gate performs its own rebuild; a separate dist action would duplicate the patrol build."
         },
         "product.verify-full": {
           "mode": "required",
@@ -1399,8 +1399,8 @@
           "reason": "Not selected by the current dev-patrol workflow policy."
         },
         "episode.smoke": {
-          "mode": "required",
-          "reason": "Selected by the current dev-patrol workflow policy when its activation condition matches."
+          "mode": "off",
+          "reason": "The aggregate product.verify-full Gate includes mvp-smoke-v1; the standalone Episode Gate remains independently runnable."
         },
         "episode.release": {
           "mode": "off",
@@ -1757,8 +1757,8 @@
       "title": "Release promotion",
       "decisions": {
         "gate.catalog": {
-          "mode": "off",
-          "reason": "Not selected by the current release-promotion workflow policy."
+          "mode": "required",
+          "reason": "The promotion rehearsal enters through Shifu Gate and fail-closes catalog, documentation, matrix, and workflow drift first."
         },
         "governance.dco": {
           "mode": "off",

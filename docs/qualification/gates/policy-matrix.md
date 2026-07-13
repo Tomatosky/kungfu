@@ -11,7 +11,7 @@ Do not hand-edit the generated block. A mode applies when the corresponding
 <!-- BEGIN GENERATED GATE MATRIX -->
 | Gate | Cost | dev-pr | dev-patrol | alpha-pr | release-pr | release-promotion |
 | --- | --- | :---: | :---: | :---: | :---: | :---: |
-| [`gate.catalog`](source-and-governance.md#gate-catalog) | light | required | required | required | required | off |
+| [`gate.catalog`](source-and-governance.md#gate-catalog) | light | required | required | required | required | required |
 | [`governance.dco`](source-and-governance.md#governance-dco) | light | required | off | required | required | off |
 | [`governance.adr-delivery`](release-and-promotion.md#governance-adr-delivery) | light | required | off | required | required | off |
 | [`governance.buildchain-config`](source-and-governance.md#governance-buildchain-config) | light | required | off | required | required | required |
@@ -23,12 +23,12 @@ Do not hand-edit the generated block. A mode applies when the corresponding
 | [`docs.prose`](source-and-governance.md#docs-prose) | light | required | off | off | off | off |
 | [`docs.external-links`](source-and-governance.md#docs-external-links) | light | off | advisory | off | off | off |
 | [`shifu.workspace`](source-and-governance.md#shifu-workspace) | heavy | required | off | required | required | off |
-| [`product.distribution`](build-and-runtime.md#product-distribution) | heavy | off | required | required | required | off |
+| [`product.distribution`](build-and-runtime.md#product-distribution) | heavy | off | off | required | required | off |
 | [`product.verify-full`](build-and-runtime.md#product-verify-full) | heavy | off | required | off | off | off |
 | [`product.verify-fuzz`](build-and-runtime.md#product-verify-fuzz) | heavy | off | off | required | required | off |
 | [`release.artifact-admission`](release-and-promotion.md#release-artifact-admission) | heavy | off | off | off | off | required |
 | [`layers.contract`](native-qualification.md#layers-contract) | light | off | off | off | off | off |
-| [`episode.smoke`](native-qualification.md#episode-smoke) | heavy | off | required | required | required | off |
+| [`episode.smoke`](native-qualification.md#episode-smoke) | heavy | off | off | required | required | off |
 | [`episode.release`](native-qualification.md#episode-release) | heavy | off | off | required | required | off |
 | [`embedding.membranes`](native-qualification.md#embedding-membranes) | heavy | off | off | required | required | off |
 | [`mmap.contracts`](native-qualification.md#mmap-contracts) | heavy | off | off | off | off | off |

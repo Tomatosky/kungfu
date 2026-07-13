@@ -10,7 +10,7 @@ Each section is bound to the registry id by the catalog meta gate.
 
 - **Problem:** Checks the applicable ADR delivery and promotion declaration.
 - **Protects:** release regressions from becoming an unexplained green profile or release claim.
-- **Action:** `./shifu adr:release:gate -- --allow-non-pr --report product/release/qualification/adr-release-admissibility.json`
+- **Action:** `./shifu adr:release:gate -- --allow-non-pr --github-event --report product/release/qualification/adr-release-admissibility.json`
 - **Dependencies:** none.
 - **Platforms and runner:** linux, macos, windows; capabilities `node`.
 - **Pass:** the structured action exits successfully, required artifacts exist, and the Gate receipt remains current for the source and definition.
@@ -28,15 +28,15 @@ Each section is bound to the registry id by the catalog meta gate.
 
 - **Problem:** Rehearses alpha and stable promotion admission without publishing.
 - **Protects:** release regressions from becoming an unexplained green profile or release claim.
-- **Action:** `./shifu release:promotion:rehearse -- --report product/release/qualification/release-promotion-rehearsal.json`
-- **Dependencies:** `governance.buildchain-config`.
+- **Action:** `./shifu release:promotion:rehearse -- --github-event --report product/release/qualification/release-promotion-rehearsal.json`
+- **Dependencies:** `gate.catalog`.
 - **Platforms and runner:** linux, macos, windows; capabilities `node`.
 - **Pass:** the structured action exits successfully, required artifacts exist, and the Gate receipt remains current for the source and definition.
 - **Failure or skip:** action failure, timeout, unsupported required capability, dependency failure, or missing required artifact is non-qualifying; advisory mode remains visible.
 - **Evidence:** unified Gate receipt; artifacts `product/release/qualification/release-promotion-rehearsal.json`.
 - **Diagnosis:** `./shifu gate explain governance.promotion-rehearsal --profile <profile>`; reproduce with `./shifu gate run governance.promotion-rehearsal` on a capable runner.
 - **Cost:** light; timeout 180 seconds.
-- **Current source:** .github/workflows/buildchain-validate.yml (validate,promotion-rehearsal; pull request or channel push); .github/workflows/release-new-version.yml (promotion-contract,promote; merged alpha or release pull request).
+- **Current source:** .github/workflows/buildchain-validate.yml (promotion-rehearsal; pull request or channel push); .github/workflows/release-new-version.yml (promotion-contract; merged alpha or release pull request).
 - **Retirement:** remove only after every selecting profile and workflow binding is migrated or explicitly replaced, with the registry and matrix changed in the same review.
 <!-- /gate-doc:governance.promotion-rehearsal -->
 
@@ -54,6 +54,6 @@ Each section is bound to the registry id by the catalog meta gate.
 - **Evidence:** unified Gate receipt; no separate artifact is currently required.
 - **Diagnosis:** `./shifu gate explain release.artifact-admission --profile <profile>`; reproduce with `./shifu gate run release.artifact-admission` on a capable runner.
 - **Cost:** heavy; timeout 1800 seconds.
-- **Current source:** .github/workflows/release-new-version.yml (promotion-contract,promote; merged alpha or release pull request).
+- **Current source:** .github/workflows/release-new-version.yml (promote; merged alpha or release pull request).
 - **Retirement:** remove only after every selecting profile and workflow binding is migrated or explicitly replaced, with the registry and matrix changed in the same review.
 <!-- /gate-doc:release.artifact-admission -->

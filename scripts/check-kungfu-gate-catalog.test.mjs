@@ -107,3 +107,39 @@ test('matrix, gate document, and workflow drift each fail closed', () => {
     ),
   );
 });
+
+test('document facts and Gate-owned workflow entrypoints fail closed', () => {
+  const root = fixture();
+  const docs = path.join(root, 'docs/qualification/gates/build-and-runtime.md');
+  fs.writeFileSync(
+    docs,
+    fs
+      .readFileSync(docs, 'utf8')
+      .replace('`./shifu verify --full`', '`./shifu verify --quick`'),
+  );
+  assert.ok(
+    checkKungfuGateCatalog(root).issues.some(
+      (issue) =>
+        issue.startsWith('[doc-fact] product.verify-full:') &&
+        issue.includes('./shifu verify --full'),
+    ),
+  );
+
+  const bindingsPath = path.join(
+    root,
+    'docs/qualification/gates/workflow-bindings.json',
+  );
+  const bindings = JSON.parse(fs.readFileSync(bindingsPath, 'utf8'));
+  const migration = bindings.bindings.find(
+    (binding) => binding.id === 'dev-heavy-patrol',
+  );
+  migration.requiredSnippets = ['kungfu-build-v4-linux-x64'];
+  fs.writeFileSync(bindingsPath, JSON.stringify(bindings));
+  assert.ok(
+    checkKungfuGateCatalog(root).issues.some((issue) =>
+      issue.includes(
+        "dev-heavy-patrol: gate execution must prove a 'gate run' entrypoint",
+      ),
+    ),
+  );
+});

@@ -36,7 +36,7 @@ Each section is bound to the registry id by the catalog meta gate.
 - **Evidence:** unified Gate receipt; no separate artifact is currently required.
 - **Diagnosis:** `./shifu gate explain episode.smoke --profile <profile>`; reproduce with `./shifu gate run episode.smoke` on a capable runner.
 - **Cost:** heavy; timeout 900 seconds.
-- **Current source:** .github/workflows/dev-verify-patrol.yml (verify; daily or manual on dev); .github/workflows/build.yml (build; alpha or release pull request).
+- **Current source:** .github/workflows/build.yml (build; alpha or release pull request).
 - **Retirement:** remove only after every selecting profile and workflow binding is migrated or explicitly replaced, with the registry and matrix changed in the same review.
 <!-- /gate-doc:episode.smoke -->
 
@@ -65,7 +65,7 @@ Each section is bound to the registry id by the catalog meta gate.
 - **Problem:** Builds and runs language, storage, and libwasm membrane consumers.
 - **Protects:** qualification regressions from becoming an unexplained green profile or release claim.
 - **Action:** `./shifu qualify:embedding-membranes`
-- **Dependencies:** `product.distribution`.
+- **Dependencies:** `gate.catalog`.
 - **Platforms and runner:** linux, macos, windows; capabilities `native-toolchain`, `rust`.
 - **Pass:** the structured action exits successfully, required artifacts exist, and the Gate receipt remains current for the source and definition.
 - **Failure or skip:** action failure, timeout, unsupported required capability, dependency failure, or missing required artifact is non-qualifying; advisory mode remains visible.

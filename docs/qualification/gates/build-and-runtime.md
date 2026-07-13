@@ -18,7 +18,7 @@ Each section is bound to the registry id by the catalog meta gate.
 - **Evidence:** unified Gate receipt; artifacts `product/release`.
 - **Diagnosis:** `./shifu gate explain product.distribution --profile <profile>`; reproduce with `./shifu gate run product.distribution` on a capable runner.
 - **Cost:** heavy; timeout 7200 seconds.
-- **Current source:** .github/workflows/dev-verify-patrol.yml (verify; daily or manual on dev); .github/workflows/build.yml (build; alpha or release pull request).
+- **Current source:** .github/workflows/build.yml (build; alpha or release pull request).
 - **Retirement:** remove only after every selecting profile and workflow binding is migrated or explicitly replaced, with the registry and matrix changed in the same review.
 <!-- /gate-doc:product.distribution -->
 
@@ -29,7 +29,7 @@ Each section is bound to the registry id by the catalog meta gate.
 - **Problem:** Rebuilds Core, freezes product, verifies runtime, slices, fixtures, and Episode smoke.
 - **Protects:** build regressions from becoming an unexplained green profile or release claim.
 - **Action:** `./shifu verify --full`
-- **Dependencies:** `product.distribution`.
+- **Dependencies:** `gate.catalog`.
 - **Platforms and runner:** linux, macos, windows; capabilities `native-toolchain`, `product-artifacts`.
 - **Pass:** the structured action exits successfully, required artifacts exist, and the Gate receipt remains current for the source and definition.
 - **Failure or skip:** action failure, timeout, unsupported required capability, dependency failure, or missing required artifact is non-qualifying; advisory mode remains visible.
