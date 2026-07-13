@@ -135,6 +135,9 @@ route to the row that answers them:
   ([ADR-0021](./adr/ADR-0021-observer-relative-timeline-projection.md)).
 - **accountability / facts before trust / local proof before control** → *why
   does Kungfu start from accountability* ([`facts-before-trust.md`](concepts/facts-before-trust.md)).
+- **KUNGFU / UNGFU / Never Guess / Facts Unfold / recursive name / why Kungfu**
+  → *where the name came from and how its recursive meaning maps to the
+  architecture* ([`why-kungfu.md`](concepts/why-kungfu.md)).
 - **Mission Control / Mission / Go / delegated responsibility / progress drift /
   completion claim / Atlas bridge / Cost State Proof / cost management profile**
   → *how Missions and delegated work become one proof-backed product*

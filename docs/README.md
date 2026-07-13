@@ -39,6 +39,10 @@ Read these in order for the product model:
 5. [Known Limits](qualification/known-limits.md) — what is not yet implemented, qualified, or
    released.
 
+The product model does not require understanding the name first. When you want
+the deeper brand and architecture connection, read
+[Why Kungfu?](concepts/why-kungfu.md).
+
 Use [Implementation Concepts](concepts/implementation-concepts.md) when you need repository and runtime
 names such as `kungfu`, `libkungfu`, `yijinjing`, `kfx`, Hana POD, and
 FlatBuffers. Those terms describe the implementation; they do not replace the
@@ -126,7 +130,7 @@ design target into a production guarantee.
 | --- | --- | --- |
 | overview | establish the product and route the reader | repository README, this guide |
 | guide | help a reader complete a job | Choose Your Kungfu, Rewind, Config, Debugging |
-| explanation | explain principles and boundaries | The Episode, Facts Before Trust, Design Philosophy |
+| explanation | explain principles and boundaries | The Episode, Facts Before Trust, Why Kungfu, Design Philosophy |
 | reference | define exact terms or surfaces | Vocabulary, Concepts, Event Model, Contracts |
 | qualification | state evidence, profiles, and release gates | Known Limits, institutional trust, durability, performance, atomicity |
 | decision | preserve load-bearing architecture choices | Core and Shifu ADRs |

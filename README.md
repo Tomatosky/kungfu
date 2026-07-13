@@ -18,6 +18,8 @@ turns execution into **Episodes**: bounded causal units whose Facts, Artifacts,
 Receipts, dependencies, and verification roots can be inspected, sealed,
 exported, replayed, recovered, and used to support Decisions.
 
+> **Never Guess. Facts Unfold.**
+
 ```text
 Real-world work happens in Episodes.
 Facts are authoritative. Projections are rebuildable.
@@ -116,6 +118,17 @@ models are rebuildable Projections over journal-backed authority. The runtime,
 capability SDK, application SDK, reference surfaces, and product assembly remain
 separate layers with explicit contracts. See [Architecture](docs/architecture/overview.md)
 and [Event Model](docs/architecture/event-model.md).
+
+## Why Kungfu?
+
+Kungfu began with the Chinese idea of **功夫**: capability built through
+disciplined practice. As the product evolved, **KUNGFU** acquired a recursive
+technical meaning: `KUNGFU UNGFU: Never Guess. Facts Unfold.`
+
+The name describes the architecture: deeply integrated at the product surface,
+self-bootstrapping from Facts at the core. Read
+[Why Kungfu?](docs/concepts/why-kungfu.md) for the complete recursion and its
+connection to the product's fact-first design.
 
 ## Status and guarantees
 
