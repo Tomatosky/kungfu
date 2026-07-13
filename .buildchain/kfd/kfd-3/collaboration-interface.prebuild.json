@@ -6,15 +6,15 @@
   "supportLevel": "release",
   "source": {
     "cwd": "/Users/dkr/Worktrees/kungfu/feature/profile-kfd3-badge-agent-status",
-    "sourceSha": "8536a7841a3de38cfe157ab8fd885e1b5cbb69e6",
+    "sourceSha": "afec2c6bc5a7017920c0a12401c0461d9eaf04de",
     "registryPath": ".buildchain/kfd/kfd-3/surfaces.json",
-    "registryDigest": "sha256:1668797f79700d1a67e7552eaf64a4a166dc976f1afbd7bf2e62f8790495a325"
+    "registryDigest": "sha256:8905961fd705da6a0e7fc37793f0d7a669da0bf7cfce0bab3e20a52c4bc14dd1"
   },
   "sourceRegistry": {
     "id": "kungfu",
     "path": ".buildchain/kfd/kfd-3/surfaces.json",
-    "sha256": "e094ac1bdd7a6e3ba4f1a16e320b0589e75d72749c6204f81b7b760470ce1b73",
-    "digest": "sha256:1668797f79700d1a67e7552eaf64a4a166dc976f1afbd7bf2e62f8790495a325"
+    "sha256": "8b218deb8ef2026c4f227a9c97ebae20a4cf7b0da74f077c10662b0b39046ba6",
+    "digest": "sha256:8905961fd705da6a0e7fc37793f0d7a669da0bf7cfce0bab3e20a52c4bc14dd1"
   },
   "upstreamKfd": {
     "aggregatePath": "developer/sdk/kfd/upstream-aggregate.json",
@@ -34,7 +34,7 @@
   "expectedArtifactVerification": {
     "command": "node scripts/buildchain-kfd-evidence.mjs --artifact-witness --json"
   },
-  "collaborationInterfaceDigest": "sha256:325aa7583452018b445db46cda1fb737eb610f9d8e713ede17d16fbf4720d8f6",
+  "collaborationInterfaceDigest": "sha256:59a7ac3b073d9e326fe563684f1b7392eb50e727a60d5ac7ed6eec5befa1dbca",
   "collaborationInterface": {
     "schemaVersion": 1,
     "contract": "kungfu-buildchain-kfd-3-surface-registry",
@@ -891,8 +891,8 @@
         "participantFacing": true,
         "public": true,
         "sourcePath": "framework/gui/src/main/index.ts",
-        "evidencePath": "docs/runtime-service.md",
-        "artifactPath": "docs/runtime-service.md",
+        "evidencePath": "docs/architecture/runtime-service.md",
+        "artifactPath": "docs/architecture/runtime-service.md",
         "maturity": "draft",
         "declaration": {
           "owner": "kungfu",
@@ -3012,8 +3012,8 @@
       "participantFacing": true,
       "public": true,
       "sourcePath": "framework/gui/src/main/index.ts",
-      "evidencePath": "docs/runtime-service.md",
-      "artifactPath": "docs/runtime-service.md",
+      "evidencePath": "docs/architecture/runtime-service.md",
+      "artifactPath": "docs/architecture/runtime-service.md",
       "maturity": "draft",
       "declaration": {
         "owner": "kungfu",

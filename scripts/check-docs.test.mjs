@@ -148,6 +148,70 @@ doc_type: adr-redirect
   assert.deepEqual(findings, []);
 });
 
+test('enforces a canonical docs hierarchy with entry-only root Markdown', () => {
+  const hierarchical = structuredClone(contract);
+  hierarchical.requiredFiles = ['README.md', 'docs/README.md'];
+  hierarchical.requiredPointers = [{ from: 'README.md', to: 'docs/README.md' }];
+  hierarchical.hierarchy = {
+    root: 'docs',
+    entryFiles: ['docs/README.md'],
+    canonicalDirectories: ['docs/guides'],
+  };
+  const root = fixture({
+    'README.md': '# Home\n\n[Docs](docs/README.md)\n',
+    'docs/README.md': '# Docs\n\n[Guide](guides/guide.md)\n',
+    'docs/guides/guide.md': '# Guide\n',
+  });
+  const findings = checkDocs({
+    root,
+    files: ['README.md', 'docs/README.md', 'docs/guides/guide.md'],
+    contract: hierarchical,
+    vocabularyRegistry: false,
+    metadataContract: false,
+  });
+  assert.deepEqual(findings, []);
+});
+
+test('rejects every undeclared root Markdown document', () => {
+  const hierarchical = structuredClone(contract);
+  hierarchical.requiredFiles = ['README.md', 'docs/README.md'];
+  hierarchical.requiredPointers = [{ from: 'README.md', to: 'docs/README.md' }];
+  hierarchical.hierarchy = {
+    root: 'docs',
+    entryFiles: ['docs/README.md'],
+    canonicalDirectories: ['docs/guides'],
+  };
+  const root = fixture({
+    'README.md': '# Home\n\n[Docs](docs/README.md)\n',
+    'docs/README.md': '# Docs\n\n[Guide](guides/guide.md)\n',
+    'docs/flat.md': '# Flat canonical page\n',
+    'docs/legacy.md': '# Legacy route\n',
+    'docs/guides/guide.md': '# Guide\n',
+  });
+  const findings = checkDocs({
+    root,
+    files: [
+      'README.md',
+      'docs/README.md',
+      'docs/flat.md',
+      'docs/legacy.md',
+      'docs/guides/guide.md',
+    ],
+    contract: hierarchical,
+    vocabularyRegistry: false,
+    metadataContract: false,
+  });
+  assert.ok(
+    findings.some((finding) => finding.code === 'documentation-hierarchy-root'),
+  );
+  assert.equal(
+    findings.filter(
+      (finding) => finding.code === 'documentation-hierarchy-root',
+    ).length,
+    2,
+  );
+});
+
 test('rejects undeclared executable examples', () => {
   const root = fixture({
     'README.md': '# Home\n\n[Guide](docs/guide.md)\n',

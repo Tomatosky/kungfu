@@ -44,6 +44,7 @@ const SAFE_EXAMPLE_COMMANDS = new Set([
  *   schemaVersion: number,
  *   requiredFiles?: string[],
  *   requiredPointers?: {from: string, to: string}[],
+ *   hierarchy?: {root: string, entryFiles: string[], canonicalDirectories: string[]},
  *   publication?: {roots: string[], include: string[], allowedOrphans?: string[], allowedOrphanDocumentTypes?: string[]},
  *   executableExamples?: {id: string, file: string, command: string[], stdoutPattern?: string, timeoutMs?: number}[]
  * }} DocsContract
@@ -246,6 +247,41 @@ export function checkDocs(options = {}) {
   for (const rel of files) {
     const text = fs.readFileSync(path.join(root, rel), 'utf8');
     documents.set(rel, parseDocument(rel, text));
+  }
+
+  const hierarchy = contract.hierarchy;
+  if (hierarchy) {
+    const hierarchyRoot = hierarchy.root.replace(/\/$/, '');
+    const entries = new Set(hierarchy.entryFiles || []);
+    const canonicalDirectories = hierarchy.canonicalDirectories || [];
+    for (const rel of files.filter(
+      (file) => file.startsWith(`${hierarchyRoot}/`) || file === hierarchyRoot,
+    )) {
+      if (path.posix.dirname(rel) === hierarchyRoot) {
+        if (!entries.has(rel)) {
+          findings.push({
+            code: 'documentation-hierarchy-root',
+            file: rel,
+            line: 1,
+            message: 'root Markdown must be a declared entry file',
+          });
+        }
+        continue;
+      }
+      if (
+        !canonicalDirectories.some(
+          (directory) => rel === directory || rel.startsWith(`${directory}/`),
+        )
+      ) {
+        findings.push({
+          code: 'documentation-hierarchy-directory',
+          file: rel,
+          line: 1,
+          message:
+            'canonical documentation is outside the declared directory taxonomy',
+        });
+      }
+    }
   }
 
   for (const rel of contract.requiredFiles || []) {
