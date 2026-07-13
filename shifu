@@ -179,7 +179,21 @@ kungfu_native_acquire() {
   return 1
 }
 
+# Buildchain and runner environments are an explicit per-execution projection;
+# they take precedence over the user-global development projection sourced
+# below. Preserve even a partial explicit pair so the resolver can fail closed.
+_kungfu_explicit_cache_ref="${SHIFU_CACHE_PROFILE_REF:-}"
+_kungfu_explicit_cache_digest="${SHIFU_CACHE_PROFILE_DIGEST:-}"
+_kungfu_explicit_cache_scope="${SHIFU_CACHE_SCOPE:-}"
 kungfu_load_proxy
+[ -n "$_kungfu_explicit_cache_ref" ] \
+  && export SHIFU_CACHE_PROFILE_REF="$_kungfu_explicit_cache_ref"
+[ -n "$_kungfu_explicit_cache_digest" ] \
+  && export SHIFU_CACHE_PROFILE_DIGEST="$_kungfu_explicit_cache_digest"
+[ -n "$_kungfu_explicit_cache_scope" ] \
+  && export SHIFU_CACHE_SCOPE="$_kungfu_explicit_cache_scope"
+unset _kungfu_explicit_cache_ref _kungfu_explicit_cache_digest \
+  _kungfu_explicit_cache_scope
 
 # Mark the canonical entrypoint and keep native dispatches from re-delegating
 # back to this script (see the launcher's installed-binary delegation).
