@@ -1065,12 +1065,14 @@ export function GoalDetailDrawer({
   trust,
   onClose,
   onClaimCompletion,
+  onOpenConsole,
 }: {
   goal: AtlasGoal;
   mission: AtlasMission | null;
   trust: TrustVisual;
   onClose: () => void;
   onClaimCompletion: () => void;
+  onOpenConsole: () => void;
 }) {
   const [tab, setTab] = React.useState<DetailTab>('summary');
   const row = (label: string, value?: string | boolean) =>
@@ -1142,9 +1144,19 @@ export function GoalDetailDrawer({
             {goal.title || goal.goal_id}
           </div>
         </div>
-        <button type="button" onClick={onClose} style={compactButton()}>
-          close
-        </button>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button
+            type="button"
+            onClick={onOpenConsole}
+            style={compactButton(true)}
+            title="Open an Episode-backed Agent Console for this Go"
+          >
+            ▶ Agent
+          </button>
+          <button type="button" onClick={onClose} style={compactButton()}>
+            close
+          </button>
+        </div>
       </div>
       <div
         role="tablist"

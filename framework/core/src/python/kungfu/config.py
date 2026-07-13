@@ -76,6 +76,41 @@ def config_schema(
     return copy.deepcopy(load_contract(contract_path, env=env)["configSchema"])
 
 
+def value_schema(
+    name: str,
+    contract_path: str | None = None,
+    *,
+    env: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    """Return one versioned non-config value schema from the config contract."""
+
+    contract = load_contract(contract_path, env=env)
+    schemas = contract.get("valueSchemas")
+    if not isinstance(schemas, dict) or name not in schemas:
+        raise ValueError(f"Unknown Kungfu config value schema: {name}")
+    schema = copy.deepcopy(schemas[name])
+    # Schemas such as WorkConsole and the Agent Console envelope embed WorkRef
+    # by local reference. Inject the canonical sibling schema at validation
+    # time so the contract keeps one WorkRef definition.
+    schema.setdefault("$defs", {})["workRef"] = copy.deepcopy(schemas["workRef"])
+    return schema
+
+
+def validate_value(
+    name: str,
+    value: Any,
+    *,
+    contract: dict[str, Any] | None = None,
+) -> None:
+    contract = load_contract() if contract is None else contract
+    schemas = contract.get("valueSchemas")
+    if not isinstance(schemas, dict) or name not in schemas:
+        raise ValueError(f"Unknown Kungfu config value schema: {name}")
+    schema = copy.deepcopy(schemas[name])
+    schema.setdefault("$defs", {})["workRef"] = copy.deepcopy(schemas["workRef"])
+    contract_runtime.validate_json_schema(value, schema, name)
+
+
 def raw_default_config(
     contract_path: str | None = None,
     *,
@@ -252,6 +287,7 @@ def _validate_contract_defaults(contract: dict[str, Any]) -> None:
         "weldedSurface",
         "contractSchema",
         "resolution",
+        "valueSchemas",
         "configSchema",
         "defaults",
     ]

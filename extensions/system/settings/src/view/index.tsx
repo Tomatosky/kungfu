@@ -3,6 +3,8 @@
 // runtime home's ConfigStore via the shell — one journal-backed state blob,
 // readable by CLI and agent APIs alike.
 import {
+  type AgentRuntimeCatalog,
+  type AgentRuntimeProfileInput,
   type KfxViewProps,
   headingStyle,
   inputStyle,
@@ -10,11 +12,19 @@ import {
 } from '@kungfu-tech/kfx';
 import React from 'react';
 
-const tabs = ['appearance', 'profile', 'kfx', 'paths', 'advanced'] as const;
+const tabs = [
+  'appearance',
+  'agents',
+  'profile',
+  'kfx',
+  'paths',
+  'advanced',
+] as const;
 type SettingsTab = (typeof tabs)[number];
 
 const tabLabels: Record<SettingsTab, string> = {
   appearance: 'Appearance',
+  agents: 'Agents',
   profile: 'Profile',
   kfx: 'KFX',
   paths: 'Paths',
@@ -64,7 +74,18 @@ function shellEnv(key: string): string {
   return window.process.env[key] || '—';
 }
 
-function SettingsView({ shell }: KfxViewProps) {
+const emptyAgentDraft: AgentRuntimeProfileInput = {
+  id: 'codex.custom',
+  label: 'Codex · Custom',
+  provider: 'codex',
+  executable: 'codex',
+  argv: [],
+  cwdPolicy: 'workspace-root',
+  backend: 'tmux',
+  envelope: 'required',
+};
+
+function SettingsView({ shell, caps }: KfxViewProps) {
   const [drafts, setDrafts] = React.useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = React.useState<SettingsTab>('appearance');
   const ui = shell.config?.config.ui ?? {
@@ -78,6 +99,30 @@ function SettingsView({ shell }: KfxViewProps) {
     scale: String(ui.scale),
   });
   const [uiError, setUiError] = React.useState('');
+  const [agentCatalog, setAgentCatalog] =
+    React.useState<AgentRuntimeCatalog | null>(null);
+  const [agentDraft, setAgentDraft] =
+    React.useState<AgentRuntimeProfileInput>(emptyAgentDraft);
+  const [agentArgv, setAgentArgv] = React.useState('');
+  const [agentMessage, setAgentMessage] = React.useState('');
+  const [agentBusy, setAgentBusy] = React.useState(false);
+
+  const reloadAgents = React.useCallback(async () => {
+    if (!caps.agentRuntime) return;
+    setAgentBusy(true);
+    try {
+      setAgentCatalog(await caps.agentRuntime.list());
+      setAgentMessage('');
+    } catch (error) {
+      setAgentMessage((error as Error).message);
+    } finally {
+      setAgentBusy(false);
+    }
+  }, [caps.agentRuntime]);
+
+  React.useEffect(() => {
+    if (activeTab === 'agents') void reloadAgents();
+  }, [activeTab, reloadAgents]);
 
   React.useEffect(() => {
     setUiDraft({
@@ -302,6 +347,372 @@ function SettingsView({ shell }: KfxViewProps) {
     </section>
   );
 
+  const configureDiscovered = async (
+    profile: AgentRuntimeCatalog['discovered'][number]['profile'],
+  ) => {
+    if (!caps.agentRuntime) return;
+    setAgentBusy(true);
+    try {
+      await caps.agentRuntime.upsert(
+        {
+          id: profile.id,
+          label: profile.label,
+          provider: profile.provider,
+          executable: profile.launch.executable,
+          argv: profile.launch.argv,
+          shellMode: profile.launch.shellMode,
+          cwdPolicy: profile.cwdPolicy,
+          backend: profile.backendDefault,
+          envelope: profile.bootstrap.envelope,
+        },
+        true,
+      );
+      await caps.agentRuntime.setDefault(profile.id, true);
+      setAgentMessage(`saved ${profile.label} as default`);
+      await reloadAgents();
+    } catch (error) {
+      setAgentMessage((error as Error).message);
+    } finally {
+      setAgentBusy(false);
+    }
+  };
+
+  const verifyAgent = async (profileId: string) => {
+    if (!caps.agentRuntime) return;
+    setAgentBusy(true);
+    try {
+      const result = await caps.agentRuntime.verify(profileId);
+      setAgentMessage(
+        result.ok
+          ? `verified ${profileId} · ${result.version ?? 'available'}`
+          : `${profileId} unavailable · ${result.error ?? 'version probe failed'}`,
+      );
+    } catch (error) {
+      setAgentMessage((error as Error).message);
+    } finally {
+      setAgentBusy(false);
+    }
+  };
+
+  const setDefaultAgent = async (profileId: string) => {
+    if (!caps.agentRuntime) return;
+    setAgentBusy(true);
+    try {
+      await caps.agentRuntime.setDefault(profileId, true);
+      setAgentMessage(`default launch method: ${profileId}`);
+      await reloadAgents();
+    } catch (error) {
+      setAgentMessage((error as Error).message);
+    } finally {
+      setAgentBusy(false);
+    }
+  };
+
+  const removeAgent = async (profileId: string) => {
+    if (!caps.agentRuntime) return;
+    setAgentBusy(true);
+    try {
+      await caps.agentRuntime.remove(profileId, true);
+      setAgentMessage(`removed ${profileId}`);
+      await reloadAgents();
+    } catch (error) {
+      setAgentMessage((error as Error).message);
+    } finally {
+      setAgentBusy(false);
+    }
+  };
+
+  const saveAgentDraft = async () => {
+    if (!caps.agentRuntime) return;
+    setAgentBusy(true);
+    try {
+      await caps.agentRuntime.upsert(
+        {
+          ...agentDraft,
+          argv: agentArgv
+            .split('\n')
+            .map((value) => value.trim())
+            .filter(Boolean),
+        },
+        true,
+      );
+      await caps.agentRuntime.setDefault(agentDraft.id, true);
+      setAgentMessage(`saved ${agentDraft.label} as default`);
+      await reloadAgents();
+    } catch (error) {
+      setAgentMessage((error as Error).message);
+    } finally {
+      setAgentBusy(false);
+    }
+  };
+
+  const renderAgents = () => (
+    <section style={sectionStyle}>
+      <h2 style={headingStyle}>Agent Runtime Profiles</h2>
+      <div style={{ ...mono, color: '#858585', marginBottom: 12 }}>
+        Machine-global launch methods only. Kungfu inspects executable paths and
+        bounded --version output; provider auth and conversation data stay
+        private.
+      </div>
+      {!caps.agentRuntime ? (
+        <div style={{ ...mono, color: '#f48771' }}>
+          Agent Runtime capability unavailable
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gap: 16 }}>
+          <div>
+            <h3 style={{ ...headingStyle, fontSize: 13 }}>Configured</h3>
+            <div style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
+              <label style={{ ...mono, display: 'flex', gap: 6 }}>
+                startup
+                <select
+                  value={agentCatalog?.startupView ?? 'profile-home'}
+                  onChange={(event) => {
+                    shell.setConfigValue(
+                      'agent.startupView',
+                      event.target.value,
+                    );
+                    void reloadAgents();
+                  }}
+                >
+                  <option value="profile-home">Mission Control</option>
+                  <option value="agent-console">Agent Console</option>
+                </select>
+              </label>
+              <label style={{ ...mono, display: 'flex', gap: 6 }}>
+                default backend
+                <select
+                  value={agentCatalog?.backendDefault ?? 'tmux'}
+                  onChange={(event) => {
+                    shell.setConfigValue(
+                      'agent.backendDefault',
+                      event.target.value,
+                    );
+                    void reloadAgents();
+                  }}
+                >
+                  <option value="tmux">Durable</option>
+                  <option value="direct">Direct</option>
+                </select>
+              </label>
+            </div>
+            {(agentCatalog?.configured ?? []).map((profile) => (
+              <div key={profile.id} style={rowStyle}>
+                <div>
+                  <div style={{ color: '#9cdcfe' }}>{profile.label}</div>
+                  <div style={{ color: '#6a6a6a' }}>{profile.id}</div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <code style={{ overflowWrap: 'anywhere' }}>
+                    {profile.launch.executable}
+                  </code>
+                  <button
+                    type="button"
+                    disabled={agentBusy}
+                    onClick={() => void setDefaultAgent(profile.id)}
+                  >
+                    {agentCatalog?.defaultProfileId === profile.id
+                      ? 'Default ✓'
+                      : 'Set default'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={agentBusy}
+                    onClick={() => void verifyAgent(profile.id)}
+                  >
+                    Verify
+                  </button>
+                  <button
+                    type="button"
+                    disabled={agentBusy}
+                    onClick={() => {
+                      setAgentDraft({
+                        id: profile.id,
+                        label: profile.label,
+                        provider: profile.provider,
+                        executable: profile.launch.executable,
+                        argv: profile.launch.argv,
+                        shellMode: profile.launch.shellMode,
+                        cwdPolicy: profile.cwdPolicy,
+                        backend: profile.backendDefault,
+                        envelope: profile.bootstrap.envelope,
+                      });
+                      setAgentArgv(profile.launch.argv.join('\n'));
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    disabled={agentBusy}
+                    onClick={() => void removeAgent(profile.id)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ))}
+            {(agentCatalog?.configured.length ?? 0) === 0 && (
+              <div style={{ ...mono, color: '#6a6a6a' }}>
+                No saved launch method yet.
+              </div>
+            )}
+          </div>
+          <div>
+            <h3 style={{ ...headingStyle, fontSize: 13 }}>
+              Detected on this Mac
+            </h3>
+            {(agentCatalog?.discovered ?? []).map((row) => (
+              <div key={row.profile.id} style={rowStyle}>
+                <div>
+                  <div style={{ color: '#9cdcfe' }}>{row.profile.label}</div>
+                  <div style={{ color: '#6a6a6a' }}>
+                    {row.version ?? 'version unknown'}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <code style={{ overflowWrap: 'anywhere' }}>
+                    {row.profile.launch.executable}
+                  </code>
+                  <button
+                    type="button"
+                    disabled={agentBusy}
+                    onClick={() => void configureDiscovered(row.profile)}
+                  >
+                    {agentCatalog?.defaultProfileId === row.profile.id
+                      ? 'Default ✓'
+                      : 'Use'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={agentBusy}
+                    onClick={() => void verifyAgent(row.profile.id)}
+                  >
+                    Verify
+                  </button>
+                </div>
+              </div>
+            ))}
+            {(agentCatalog?.discovered.length ?? 0) === 0 && (
+              <div style={{ ...mono, color: '#6a6a6a' }}>
+                No Codex or Claude executable found. Add a custom method below.
+              </div>
+            )}
+          </div>
+          <div>
+            <h3 style={{ ...headingStyle, fontSize: 13 }}>Custom method</h3>
+            <div style={{ display: 'grid', gap: 8, maxWidth: 720 }}>
+              <label style={rowStyle}>
+                <span>provider</span>
+                <select
+                  value={agentDraft.provider}
+                  onChange={(event) => {
+                    const provider = event.target.value as 'codex' | 'claude';
+                    setAgentDraft((current) => ({
+                      ...current,
+                      provider,
+                      id: `${provider}.custom`,
+                      label: `${provider === 'codex' ? 'Codex' : 'Claude'} · Custom`,
+                      executable: provider,
+                    }));
+                  }}
+                >
+                  <option value="codex">Codex</option>
+                  <option value="claude">Claude</option>
+                </select>
+              </label>
+              {(
+                [
+                  ['id', 'stable id'],
+                  ['label', 'label'],
+                  ['executable', 'executable'],
+                ] as const
+              ).map(([key, label]) => (
+                <label key={key} style={rowStyle}>
+                  <span>{label}</span>
+                  <input
+                    style={inputStyle}
+                    value={agentDraft[key]}
+                    onChange={(event) =>
+                      setAgentDraft((current) => ({
+                        ...current,
+                        [key]: event.target.value,
+                      }))
+                    }
+                  />
+                </label>
+              ))}
+              <label style={rowStyle}>
+                <span>argv · one per line</span>
+                <textarea
+                  rows={3}
+                  style={{ ...inputStyle, resize: 'vertical' }}
+                  value={agentArgv}
+                  onChange={(event) => setAgentArgv(event.target.value)}
+                  placeholder="Optional agentctl arguments"
+                />
+              </label>
+              <label style={rowStyle}>
+                <span>backend</span>
+                <select
+                  value={agentDraft.backend}
+                  onChange={(event) =>
+                    setAgentDraft((current) => ({
+                      ...current,
+                      backend: event.target.value as 'tmux' | 'direct',
+                    }))
+                  }
+                >
+                  <option value="tmux">Durable</option>
+                  <option value="direct">Direct · ends with app</option>
+                </select>
+              </label>
+              <label style={rowStyle}>
+                <span>shell mode</span>
+                <span>
+                  <input
+                    type="checkbox"
+                    checked={agentDraft.shellMode ?? false}
+                    onChange={(event) =>
+                      setAgentDraft((current) => ({
+                        ...current,
+                        shellMode: event.target.checked,
+                      }))
+                    }
+                  />{' '}
+                  explicit compatibility mode · only enable for a trusted custom
+                  command
+                </span>
+              </label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  type="button"
+                  disabled={agentBusy}
+                  onClick={() => void saveAgentDraft()}
+                >
+                  Save and use
+                </button>
+                <button
+                  type="button"
+                  disabled={agentBusy}
+                  onClick={() => void reloadAgents()}
+                >
+                  Rescan
+                </button>
+              </div>
+            </div>
+          </div>
+          <div style={{ ...mono, color: '#6a6a6a' }}>
+            config: {agentCatalog?.configPath ?? 'loading…'}
+          </div>
+          {agentMessage && (
+            <div style={{ ...mono, color: '#dcdcaa' }}>{agentMessage}</div>
+          )}
+        </div>
+      )}
+    </section>
+  );
+
   const renderKfx = () => (
     <section style={sectionStyle}>
       <h2 style={headingStyle}>KFX settings</h2>
@@ -384,6 +795,7 @@ function SettingsView({ shell }: KfxViewProps) {
 
   const renderActive = () => {
     if (activeTab === 'appearance') return renderAppearance();
+    if (activeTab === 'agents') return renderAgents();
     if (activeTab === 'profile') return renderProfile();
     if (activeTab === 'kfx') return renderKfx();
     if (activeTab === 'paths') return renderPaths();

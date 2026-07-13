@@ -1938,23 +1938,165 @@ def invoke_action(
         raise ProfileSdkError(
             "action-plan-stale", "active Profile state changed after action planning"
         )
-    # S2 exposes the common lifecycle action seam. Domain fact mutation lands in
-    # S3 once its declared schemas/queries/assessment policies can be bound.
+    if action.get("runner") == "kfx-member":
+        if plan.get("profileId") != "kungfu.mission-control" or action.get(
+            "operation"
+        ) not in {"mission-control-actions", "mission-control-assessment"}:
+            raise ProfileSdkError(
+                "action-runner-unsupported",
+                "no confined runtime adapter is installed for this KFX member action",
+            )
+        values = plan.get("input")
+        if not isinstance(values, Mapping):
+            raise ProfileSdkError(
+                "action-input-invalid", "Mission Control action input must be an object"
+            )
+        from kungfu.atlas import mission_control
+
+        action_id = str(action.get("id") or "")
+        try:
+            if action_id == "create-mission":
+                allowed = {
+                    "missionId",
+                    "title",
+                    "intent",
+                    "actor",
+                    "actorType",
+                    "status",
+                    "horizon",
+                }
+                unknown = set(values) - allowed
+                if unknown:
+                    raise ValueError(f"unknown create-mission input: {sorted(unknown)}")
+                core_receipt = mission_control.create_mission(
+                    str(runtime_dir),
+                    mission_id=str(values.get("missionId") or ""),
+                    title=str(values.get("title") or ""),
+                    intent=str(values.get("intent") or ""),
+                    actor=str(values.get("actor") or ""),
+                    actor_type=str(values.get("actorType") or "agent"),
+                    status=str(values.get("status") or "active"),
+                    horizon=str(values.get("horizon") or "long-term"),
+                )
+                affected = [core_receipt["mission_subject"]]
+            elif action_id == "create-go":
+                allowed = {
+                    "missionId",
+                    "goalId",
+                    "title",
+                    "objective",
+                    "actor",
+                    "actorType",
+                    "source",
+                    "status",
+                }
+                unknown = set(values) - allowed
+                if unknown:
+                    raise ValueError(f"unknown create-go input: {sorted(unknown)}")
+                core_receipt = mission_control.create_go(
+                    str(runtime_dir),
+                    mission_id=str(values.get("missionId") or ""),
+                    goal_id=str(values.get("goalId") or ""),
+                    title=str(values.get("title") or ""),
+                    objective=str(values.get("objective") or ""),
+                    actor=str(values.get("actor") or ""),
+                    actor_type=str(values.get("actorType") or "agent"),
+                    storage_source_id=str(values.get("source") or "atlas"),
+                    status=str(values.get("status") or "active"),
+                )
+                affected = [
+                    core_receipt["mission_subject"],
+                    core_receipt["go_subject"],
+                ]
+            elif action_id == "claim-completion":
+                allowed = {
+                    "missionId",
+                    "goalId",
+                    "statement",
+                    "actor",
+                    "actorType",
+                    "source",
+                    "evidenceEpisodeIds",
+                }
+                unknown = set(values) - allowed
+                if unknown:
+                    raise ValueError(
+                        f"unknown claim-completion input: {sorted(unknown)}"
+                    )
+                core_receipt = mission_control.claim_completion(
+                    str(runtime_dir),
+                    mission_id=str(values.get("missionId") or ""),
+                    goal_id=str(values.get("goalId") or ""),
+                    statement=str(values.get("statement") or ""),
+                    actor=str(values.get("actor") or ""),
+                    actor_type=str(values.get("actorType") or "agent"),
+                    storage_source_id=str(values.get("source") or "atlas"),
+                    evidence_episode_ids=[
+                        int(row) for row in values.get("evidenceEpisodeIds", [])
+                    ],
+                )
+                affected = [
+                    core_receipt["mission_subject"],
+                    core_receipt["go_subject"],
+                    core_receipt["claim"]["claim_id"],
+                ]
+            elif action_id == "assess-progress":
+                allowed = {
+                    "missionId",
+                    "source",
+                    "purpose",
+                    "authorizedBy",
+                }
+                unknown = set(values) - allowed
+                if unknown:
+                    raise ValueError(
+                        f"unknown assess-progress input: {sorted(unknown)}"
+                    )
+                core_receipt = mission_control.assess_progress(
+                    str(runtime_dir),
+                    mission_id=str(values.get("missionId") or ""),
+                    storage_source_id=str(values.get("source") or "atlas"),
+                    purpose=str(values.get("purpose") or "operator-review"),
+                    authorized_by=str(values.get("authorizedBy") or "kungfu-profile"),
+                )
+                affected = [core_receipt["state"]["mission_subject"]]
+            else:
+                raise ProfileSdkError(
+                    "action-operation-unsupported",
+                    f"unsupported Mission Control action: {action_id}",
+                )
+        except (RuntimeError, ValueError) as exc:
+            raise ProfileSdkError("action-execution-failed", str(exc)) from exc
+        return {
+            "schema": ACTION_RECEIPT_SCHEMA,
+            "planId": plan["planId"],
+            "authorizationId": authorization_id,
+            "coreReceipt": core_receipt,
+            "affected": {
+                "profileId": plan["profileId"],
+                "entityKeys": affected,
+                "queryKeys": ["mission-state", "mission-timeline", "mission-attention"],
+            },
+            "verified": True,
+        }
     if action.get("runner") != "profile-lifecycle":
         raise ProfileSdkError(
-            "action-runner-unsupported", "S2 only invokes profile-lifecycle actions"
+            "action-runner-unsupported", "unsupported Profile action runner"
         )
     lifecycle_action = action.get("operation")
     if lifecycle_action not in {"qualify", "activate", "remove"}:
         raise ProfileSdkError(
             "action-operation-unsupported", "unsupported lifecycle action operation"
         )
-    source = plan.get("source")
-    values: dict[str, Any] = {}
+    source_value = plan.get("source")
+    lifecycle_source = str(source_value) if source_value is not None else None
+    lifecycle_values: dict[str, Any] = {}
     if lifecycle_action == "remove":
-        values["profile_id"] = plan["profileId"]
-        source = None
-    core = lifecycle_plan(runtime_dir, lifecycle_action, source, **values)["corePlan"]
+        lifecycle_values["profile_id"] = plan["profileId"]
+        lifecycle_source = None
+    core = lifecycle_plan(
+        runtime_dir, lifecycle_action, lifecycle_source, **lifecycle_values
+    )["corePlan"]
     receipt = lifecycle_apply(
         runtime_dir, core, authorization_id or "action-policy:none"
     )

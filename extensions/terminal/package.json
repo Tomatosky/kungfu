@@ -46,7 +46,8 @@
         "capabilities": [
           "terminal",
           "domain",
-          "rewind"
+          "rewind",
+          "agentRuntime"
         ]
       }
     }

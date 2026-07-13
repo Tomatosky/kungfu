@@ -10,6 +10,7 @@
 // managers and installers read them without executing the extension. The
 // code side exports exactly one thing — the View component.
 import type {
+  AgentRuntime,
   Atlas,
   DomainState,
   Ledger,
@@ -28,6 +29,16 @@ import type React from 'react';
 // place a view imports from, so it should surface these rather than making a
 // view reach into @kungfu-tech/api directly.
 export type {
+  AgentConsoleEnvelope,
+  AgentConsoleLaunch,
+  AgentBackend,
+  AgentProvider,
+  AgentRuntime,
+  AgentRuntimeCatalog,
+  AgentRuntimeProfile,
+  AgentRuntimeProfileInput,
+  AgentRuntimeVerification,
+  WorkRef,
   AdoptSpec,
   ConfigEntry,
   DiscoveredSession,
@@ -60,6 +71,9 @@ export type {
   SavedQueryView,
 } from '@kungfu-tech/api/capability';
 export {
+  buildAgentConsoleEnvelope,
+  buildWorkRef,
+  prepareAgentConsoleLaunch,
   applyQueryChangelogPage,
   emptyQueryChangelogState,
   parseSavedQueryView,
@@ -77,6 +91,7 @@ export type KfxCapabilities = {
   work: Work;
   atlas?: Atlas;
   profile?: Profile;
+  agentRuntime?: AgentRuntime;
   workspace?: WorkspaceGuidance;
 };
 

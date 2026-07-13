@@ -32,6 +32,48 @@
       "purpose": "Choose brief, report, atlas-projection, trace, managed-run, or remote-sync from explicit flags."
     },
     {
+      "apiId": "kungfu.agent.console.current",
+      "name": "kungfu agent console current --json",
+      "maturity": "experimental",
+      "purpose": "Validate and return the content-bound envelope for this Console attempt, including its optional WorkRef and public KFD-3/Profile entrypoints."
+    },
+    {
+      "apiId": "kungfu.agent.runtime.discover",
+      "name": "kungfu agent runtime discover --json",
+      "maturity": "experimental",
+      "purpose": "List every safe executable Codex and Claude candidate from PATH and explicit known locations."
+    },
+    {
+      "apiId": "kungfu.agent.runtime.list",
+      "name": "kungfu agent runtime list --json",
+      "maturity": "experimental",
+      "purpose": "Show configured, discovered, default, and recommended Agent Runtime Profiles."
+    },
+    {
+      "apiId": "kungfu.agent.runtime.upsert",
+      "name": "kungfu agent runtime upsert --id <id> --provider <provider> --executable <path> --json",
+      "maturity": "experimental",
+      "purpose": "Preview or explicitly add or edit one executable-plus-argv Agent Runtime Profile."
+    },
+    {
+      "apiId": "kungfu.agent.runtime.remove",
+      "name": "kungfu agent runtime remove <profile-id> --json",
+      "maturity": "experimental",
+      "purpose": "Preview or explicitly remove one machine-local launch profile without deleting work facts or Console history."
+    },
+    {
+      "apiId": "kungfu.agent.runtime.set-default",
+      "name": "kungfu agent runtime set-default <profile-id> --json",
+      "maturity": "experimental",
+      "purpose": "Preview or explicitly select the machine-global default Agent Runtime Profile."
+    },
+    {
+      "apiId": "kungfu.agent.runtime.verify",
+      "name": "kungfu agent runtime verify <profile-id> --json",
+      "maturity": "experimental",
+      "purpose": "Run a bounded executable --version probe for one Agent Runtime Profile."
+    },
+    {
       "apiId": "kungfu.agent.install-skill",
       "name": "kungfu agent install-skill --target codex",
       "maturity": "stable",

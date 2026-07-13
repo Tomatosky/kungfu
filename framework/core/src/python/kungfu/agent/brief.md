@@ -11,6 +11,8 @@ kungfu agent capabilities --json
 kungfu agent choose-mode --json
 kungfu agent verify --json
 kungfu agent status --target codex --json
+kungfu agent console current --json
+kungfu agent runtime list --json
 ```
 
 Kungfu is journal-first infrastructure for capturing local facts, replaying
@@ -24,6 +26,12 @@ The KFD-3 collaboration interface is declared in `kfd3_api.registry.json`.
 registry. `kungfu agent verify --json` checks the installed runtime command tree
 against the registry so a shipped agent surface cannot quietly expose extra
 `kungfu agent` commands outside the declared interface.
+
+Inside the native Agent Console, `kungfu agent console current --json` validates
+the content-bound Console/attempt envelope. Preserve its WorkRef and exact
+Profile roots, then query its context/capability/Profile entrypoints. The
+Console is execution placement, not silent authority over an external source;
+its transcript is not completion proof.
 
 Use the modes this way:
 

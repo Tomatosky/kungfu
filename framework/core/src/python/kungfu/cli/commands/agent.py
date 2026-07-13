@@ -8,6 +8,8 @@ from pathlib import Path
 import click
 
 from kungfu import agent as agent_pack
+from kungfu import config as kungfu_config
+from kungfu.agent import runtime_profiles
 from kungfu.agent.kfd3 import (
     api_help,
     kfd3_api,
@@ -214,6 +216,259 @@ def capabilities(ctx, as_json):
     click.echo("Kungfu Agent Pack capabilities")
     for row in payload["commands"]["commands"]:
         click.echo(f"- {row['name']} [{row['maturity']}]: {row['purpose']}")
+
+
+def _runtime_config_homes(ctx):
+    resolved = resolve_config(runtime_home=ctx.home)
+    return resolved["configHome"], resolved["runtimeHome"]
+
+
+def _runtime_error(exc):
+    raise click.ClickException(str(exc)) from exc
+
+
+@agent.group(help=api_help("kungfu.agent.runtime"))
+@kfd3_api("kungfu.agent.runtime")
+@agent_command_context
+def runtime(ctx):
+    """Discover and configure machine-local Codex/Claude launch profiles."""
+
+
+@runtime.command(name="discover", help=api_help("kungfu.agent.runtime.discover"))
+@click.option("--json", "as_json", is_flag=True, help="machine-readable output")
+@kfd3_api("kungfu.agent.runtime.discover")
+@agent_command_context
+def runtime_discover(ctx, as_json):
+    payload = runtime_profiles.discover_catalog(
+        resolved_config=resolve_config(runtime_home=ctx.home)
+    )
+    if as_json:
+        _json(payload)
+        return
+    for row in payload["discovered"]:
+        profile = row["profile"]
+        click.echo(
+            f"{profile['id']}  {profile['label']}  "
+            f"{profile['launch']['executable']}  {row.get('version') or 'version unknown'}"
+        )
+    for row in payload["diagnostics"]:
+        click.echo(f"{row['provider']}: {row['message']}")
+
+
+@runtime.command(name="list", help=api_help("kungfu.agent.runtime.list"))
+@click.option("--json", "as_json", is_flag=True, help="machine-readable output")
+@kfd3_api("kungfu.agent.runtime.list")
+@agent_command_context
+def runtime_list(ctx, as_json):
+    payload = runtime_profiles.discover_catalog(
+        resolved_config=resolve_config(runtime_home=ctx.home)
+    )
+    if as_json:
+        _json(payload)
+        return
+    click.echo(f"default: {payload['defaultProfileId'] or '<automatic>'}")
+    click.echo(f"recommended: {payload['recommendedProfileId'] or '<none>'}")
+    for profile in payload["configured"]:
+        click.echo(f"configured  {profile['id']}  {profile['label']}")
+    for row in payload["discovered"]:
+        profile = row["profile"]
+        click.echo(f"discovered  {profile['id']}  {profile['label']}")
+
+
+@runtime.command(name="upsert", help=api_help("kungfu.agent.runtime.upsert"))
+@click.option("--id", "profile_id", required=True, help="stable profile id")
+@click.option("--label", required=True, help="user-visible profile label")
+@click.option("--provider", required=True, type=click.Choice(["codex", "claude"]))
+@click.option("--executable", required=True, help="executable path or PATH name")
+@click.option("--arg", "argv", multiple=True, help="repeat for each launch argv")
+@click.option("--shell-mode", is_flag=True, help="explicitly allow shell semantics")
+@click.option(
+    "--cwd-policy",
+    type=click.Choice(["workspace-root", "home", "inherit"]),
+    default="workspace-root",
+    show_default=True,
+)
+@click.option(
+    "--backend",
+    type=click.Choice(["tmux", "direct"]),
+    default="tmux",
+    show_default=True,
+)
+@click.option(
+    "--envelope",
+    type=click.Choice(["required", "disabled"]),
+    default="required",
+    show_default=True,
+)
+@click.option("--execute", is_flag=True, help="write the reviewed profile")
+@click.option("--json", "as_json", is_flag=True, help="machine-readable output")
+@kfd3_api("kungfu.agent.runtime.upsert")
+@agent_command_context
+def runtime_upsert(
+    ctx,
+    profile_id,
+    label,
+    provider,
+    executable,
+    argv,
+    shell_mode,
+    cwd_policy,
+    backend,
+    envelope,
+    execute,
+    as_json,
+):
+    config_home, runtime_home = _runtime_config_homes(ctx)
+    try:
+        plan = runtime_profiles.plan_upsert(
+            profile_id=profile_id,
+            label=label,
+            provider=provider,
+            executable=executable,
+            argv=list(argv),
+            shell_mode=shell_mode,
+            cwd_policy=cwd_policy,
+            backend=backend,
+            envelope=envelope,
+            config_home=config_home,
+            runtime_home=runtime_home,
+        )
+        payload = (
+            runtime_profiles.apply_upsert(
+                plan, config_home=config_home, runtime_home=runtime_home
+            )
+            if execute
+            else plan
+        )
+    except ValueError as exc:
+        _runtime_error(exc)
+    if as_json:
+        _json(payload)
+        return
+    click.echo(
+        f"{payload['schema']}: {profile_id} "
+        f"({'applied' if execute else 'preview only'})"
+    )
+
+
+@runtime.command(name="remove", help=api_help("kungfu.agent.runtime.remove"))
+@click.argument("profile_id")
+@click.option("--execute", is_flag=True, help="remove the reviewed profile")
+@click.option("--json", "as_json", is_flag=True, help="machine-readable output")
+@kfd3_api("kungfu.agent.runtime.remove")
+@agent_command_context
+def runtime_remove(ctx, profile_id, execute, as_json):
+    config_home, runtime_home = _runtime_config_homes(ctx)
+    try:
+        plan = runtime_profiles.plan_remove(
+            profile_id, config_home=config_home, runtime_home=runtime_home
+        )
+        payload = (
+            runtime_profiles.apply_remove(
+                plan, config_home=config_home, runtime_home=runtime_home
+            )
+            if execute
+            else plan
+        )
+    except ValueError as exc:
+        _runtime_error(exc)
+    if as_json:
+        _json(payload)
+        return
+    click.echo(f"{profile_id}: {'removed' if execute else 'preview only'}")
+
+
+@runtime.command(name="set-default", help=api_help("kungfu.agent.runtime.set-default"))
+@click.argument("profile_id")
+@click.option("--execute", is_flag=True, help="write the default selection")
+@click.option("--json", "as_json", is_flag=True, help="machine-readable output")
+@kfd3_api("kungfu.agent.runtime.set-default")
+@agent_command_context
+def runtime_set_default(ctx, profile_id, execute, as_json):
+    config_home, runtime_home = _runtime_config_homes(ctx)
+    try:
+        payload = runtime_profiles.set_default(
+            profile_id,
+            execute=execute,
+            config_home=config_home,
+            runtime_home=runtime_home,
+        )
+    except ValueError as exc:
+        _runtime_error(exc)
+    if as_json:
+        _json(payload)
+        return
+    click.echo(f"default {profile_id}: {'set' if execute else 'preview only'}")
+
+
+@runtime.command(name="verify", help=api_help("kungfu.agent.runtime.verify"))
+@click.argument("profile_id")
+@click.option("--json", "as_json", is_flag=True, help="machine-readable output")
+@kfd3_api("kungfu.agent.runtime.verify")
+@agent_command_context
+def runtime_verify(ctx, profile_id, as_json):
+    config_home, runtime_home = _runtime_config_homes(ctx)
+    try:
+        profile = runtime_profiles.find_profile(
+            profile_id, config_home=config_home, runtime_home=runtime_home
+        )
+    except ValueError as exc:
+        _runtime_error(exc)
+    payload = runtime_profiles.verify_profile(profile)
+    if as_json:
+        _json(payload)
+        return
+    click.echo(
+        f"{profile_id}: {'ok' if payload['ok'] else 'unavailable'} "
+        f"{payload.get('version') or payload.get('error') or ''}"
+    )
+
+
+@agent.group(help=api_help("kungfu.agent.console"))
+@kfd3_api("kungfu.agent.console")
+@agent_command_context
+def console(ctx):
+    """Inspect the content-bound envelope of this Agent Console attempt."""
+
+
+@console.command(name="current", help=api_help("kungfu.agent.console.current"))
+@click.option("--json", "as_json", is_flag=True, help="machine-readable output")
+@kfd3_api("kungfu.agent.console.current")
+@agent_command_context
+def console_current(ctx, as_json):
+    raw = os.environ.get("KUNGFU_AGENT_CONSOLE_ENVELOPE", "").strip()
+    if not raw:
+        payload = {
+            "schema": "kungfu.agent-console-current/v1",
+            "available": False,
+            "reason": "not-running-inside-kungfu-agent-console",
+        }
+    else:
+        try:
+            envelope = json.loads(raw)
+            kungfu_config.validate_value("agentConsoleEnvelope", envelope)
+        except (ValueError, json.JSONDecodeError) as exc:
+            raise click.ClickException(
+                f"invalid Agent Console envelope: {exc}"
+            ) from exc
+        payload = {
+            "schema": "kungfu.agent-console-current/v1",
+            "available": True,
+            "envelope": envelope,
+            "workBound": envelope.get("workRef") is not None,
+            "knownLimits": envelope.get("knownLimits", []),
+        }
+    if as_json:
+        _json(payload)
+        return
+    if not payload["available"]:
+        click.echo("not running inside a Kungfu Agent Console")
+        return
+    envelope = payload["envelope"]
+    click.echo(
+        f"{envelope['consoleId']} attempt {envelope['attemptId']} "
+        f"root {envelope['envelopeRoot']}"
+    )
 
 
 @agent.command(help=api_help("kungfu.agent.choose-mode"))

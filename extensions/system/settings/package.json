@@ -41,7 +41,9 @@
     "config": {
       "view": {
         "title": "Settings",
-        "capabilities": [],
+        "capabilities": [
+          "agentRuntime"
+        ],
         "system": true
       }
     }

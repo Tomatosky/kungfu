@@ -35,7 +35,7 @@
   "sourceVerificationRequired": false,
   "canonicalPolicy": {
     "path": "framework/contract/kungfu-agent-first-canonical-policy.json",
-    "sha256": "3ac1fc1d7dddebabb2c8dc4056986e6afd6476c5f726946638e25b202b7a2245"
+    "sha256": "d282e928dce9bc825199a8f4a0165774cffb664c7fbb4638f07bbd3b91125212"
   },
   "registry": {
     "path": "framework/contract/kungfu-contracts.registry.json",
@@ -45,17 +45,17 @@
     {
       "name": "kungfu-config",
       "sourcePath": "framework/config/kungfu-config.contract.json",
-      "sourceSha256": "1e51d554f79f8fc6ab2ddbe5782f44426d62f095fb724d34783b61d7045cf0a0",
+      "sourceSha256": "6039f76c32cdfd83ac88de1b5457641ff6d2f05cad56d51e509c1f03b09c9180",
       "artifactPath": "config/kungfu-config.contract.json",
-      "expectedSha256": "1e51d554f79f8fc6ab2ddbe5782f44426d62f095fb724d34783b61d7045cf0a0",
+      "expectedSha256": "6039f76c32cdfd83ac88de1b5457641ff6d2f05cad56d51e509c1f03b09c9180",
       "byteForByte": true
     },
     {
       "name": "kungfu-kfx",
       "sourcePath": "framework/kfx/kungfu-kfx.contract.json",
-      "sourceSha256": "ec1333c32b869c3c87d3b68d675e2eb371b063d1847c8f791e76659c8ae3200c",
+      "sourceSha256": "fd5e7cac22b448f7b50ae38b72e445b41facffc6b4c7f540ee5f459e7a14bf04",
       "artifactPath": "config/kungfu-kfx.contract.json",
-      "expectedSha256": "ec1333c32b869c3c87d3b68d675e2eb371b063d1847c8f791e76659c8ae3200c",
+      "expectedSha256": "fd5e7cac22b448f7b50ae38b72e445b41facffc6b4c7f540ee5f459e7a14bf04",
       "byteForByte": true
     },
     {
