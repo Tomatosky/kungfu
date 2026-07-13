@@ -6,6 +6,8 @@ decision_status: accepted
 implementation_status: staged
 review_state: legacy-unreviewed
 sensitivity: public
+implementation_commits: [6e22f399c7836f75fbfd455b5bae71e30bd50849]
+qualification_refs: [tests/qualification/layers/run.mjs, tests/qualification/layers/release/run.mjs, tests/qualification/layers/surfaces/run.mjs, scripts/run-release-qualification.mjs]
 ---
 
 # ADR-0049: every product layer is independently complete and the core remains domain-neutral
