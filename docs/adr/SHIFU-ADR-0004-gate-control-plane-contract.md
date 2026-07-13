@@ -19,7 +19,8 @@ last_reviewed: 2026-07-13
 
 - Status: accepted; development implementation
 - Date: 2026-07-13
-- Scope: Shifu quality and release gate declaration, explanation, and planning
+- Scope: Shifu quality and release gate declaration, explanation, planning,
+  execution, and receipts
 - Related: [SHIFU-ADR-0001](./SHIFU-ADR-0001-cache-profile-contract-and-ownership.md),
   [ADR-0044](./ADR-0044-shifu-delegation-protocol.md), and
   [ADR-0073](./ADR-0073-buildchain-adr-release-admissibility.md)
@@ -56,10 +57,24 @@ Actions are structured Shifu tasks, argv vectors, or named handlers. Raw shell
 strings are not the contract because they hide quoting, platform, and authority
 semantics.
 
-The read-only control surface is `shifu gate validate|list|show|explain|matrix|plan`.
+The inspection control surface is `shifu gate validate|list|show|explain|matrix|plan`.
 Validation is independent of registry validity. Planning closes dependencies,
 emits deterministic groups and platform constraints, and never turns a local
 diagnostic selection override into qualifying policy evidence.
+
+The execution control surface is `shifu gate run` plus
+`shifu gate receipt validate`. Explicit gate runs are diagnostic. A profile run
+executes its dependency closure once and emits a receipt bound to the source
+SHA, dirty state, registry and plan digests, per-gate definition and action
+digests, platform, capabilities, required action coverage, artifact presence,
+and redacted evidence pointers. Child output and inherited environment values
+are not receipt fields.
+
+Qualification is recomputed, not trusted: it requires a clean Git revision, a
+current profile plan and gate definitions, and complete passing coverage for
+every required action. Advisory failures remain visible without blocking
+required qualification. Buildchain can schedule plan groups and aggregate these
+receipts, but it cannot mint missing local evidence or reinterpret policy.
 
 Buildchain may consume a later execution plan and receipts to allocate runners
 and publish stable aggregate checks. It does not own or reinterpret Shifu Gate

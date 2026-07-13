@@ -356,6 +356,7 @@ function testShifuGateContract() {
   run('Shifu Gate contract tests', 'node', [
     '--test',
     path.join('scripts', 'shifu-gate-runtime.test.mjs'),
+    path.join('scripts', 'shifu-gate-executor.test.mjs'),
   ]);
 }
 

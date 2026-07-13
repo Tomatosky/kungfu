@@ -56,7 +56,7 @@
     "plannedGate": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "mode", "selectedBy", "dependencies", "platforms", "runner", "cost", "action"],
+      "required": ["id", "mode", "selectedBy", "dependencies", "platforms", "runner", "cost", "action", "actionId", "definitionDigest", "artifacts", "receipt"],
       "properties": {
         "id": { "type": "string" },
         "mode": { "enum": ["required", "advisory", "off"] },
@@ -65,7 +65,11 @@
         "platforms": { "type": "array", "items": { "type": "string" } },
         "runner": { "type": "object" },
         "cost": { "type": "object" },
-        "action": { "type": "object" }
+        "action": { "type": "object" },
+        "actionId": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "definitionDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "artifacts": { "type": "array" },
+        "receipt": { "type": "object" }
       }
     },
     "omission": {
