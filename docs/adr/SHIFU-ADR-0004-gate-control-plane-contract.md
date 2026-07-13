@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: SHIFU-ADR-0004
 decision_status: accepted
 implementation_status: partial
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/762, https://github.com/kungfu-systems/kungfu/pull/765, https://github.com/kungfu-systems/kungfu/pull/767]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/762, https://github.com/kungfu-systems/kungfu/pull/765, https://github.com/kungfu-systems/kungfu/pull/767, https://github.com/kungfu-systems/kungfu/pull/769]
 review_state: unreviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -101,11 +101,13 @@ the [Kungfu Gate catalog](../qualification/gates/README.md). A dedicated meta
 gate validates the registry, task references, detailed documentation, exact
 generated matrix, profile coverage, and current workflow bindings together.
 
-This projection records current policy without pretending migration is
-complete. Existing workflows remain the activation surface until they consume
-Shifu profile plans directly, and named handlers remain non-executable until a
-controller registers them. The workflow bindings make that compatibility debt
-explicit and fail closed when the recorded current source drifts.
+Task-backed workflows now enter through `shifu gate run` for ADR delivery,
+promotion rehearsal, documentation closure, development full verification,
+the native membrane matrix, and the Shifu workspace matrix. Supply-chain-pinned
+actions and Buildchain-owned orchestration remain explicit controller bindings;
+named handlers remain non-executable until those controllers register them.
+The workflow bindings make that remaining compatibility debt explicit and fail
+closed when either the execution authority or recorded current source drifts.
 
 ## Consequences
 
