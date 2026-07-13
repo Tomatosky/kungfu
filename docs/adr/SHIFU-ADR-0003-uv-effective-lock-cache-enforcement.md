@@ -3,8 +3,11 @@ metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
 adr_id: SHIFU-ADR-0003
 decision_status: accepted
-implementation_status: not-started
-review_state: unreviewed
+implementation_status: implemented
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/755]
+closure_pr: https://github.com/kungfu-systems/kungfu/pull/755
+qualification_refs: [scripts/shifu-uv-cache-adapter.test.mjs, scripts/shifu-cache-runtime.test.mjs, scripts/check-shifu-cache-contract.test.mjs]
+review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus, official-upstream]
 period: ongoing
@@ -16,7 +19,7 @@ last_reviewed: 2026-07-13
 
 # SHIFU-ADR-0003: uv cache enforcement uses a disposable effective lock
 
-- Status: accepted; development implementation
+- Status: accepted; implemented and qualified
 - Date: 2026-07-13
 - Scope: Shifu strict cache execution for uv-managed Python projects
 - Related: [SHIFU-ADR-0001](./SHIFU-ADR-0001-cache-profile-contract-and-ownership.md)
