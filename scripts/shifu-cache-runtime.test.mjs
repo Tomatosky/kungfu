@@ -29,7 +29,7 @@ const platform =
 test('Windows cache re-entry leaves the welded shim token unquoted', () => {
   assert.equal(
     windowsShifuCommandLine(['install', 'argument with spaces']),
-    'shifu.cmd "install" "argument with spaces"',
+    'shifu.cmd install "argument with spaces"',
   );
 });
 

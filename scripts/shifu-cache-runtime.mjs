@@ -758,7 +758,11 @@ export function writeReceipt(receipt, receiptPath) {
 }
 
 export function windowsShifuCommandLine(args = []) {
-  const quote = (value) => `"${String(value).replaceAll('"', '""')}"`;
+  const quote = (value) => {
+    const text = String(value);
+    if (/^[A-Za-z0-9_./:@=+\\-]+$/.test(text)) return text;
+    return `"${text.replaceAll('"', '""')}"`;
+  };
   return ['shifu.cmd', ...args.map(quote)].join(' ');
 }
 
