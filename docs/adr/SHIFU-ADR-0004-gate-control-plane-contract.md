@@ -92,6 +92,21 @@ entrypoints may become compatibility aliases, but they cannot remain an
 independent policy source. Existing required gates are not weakened while both
 paths coexist.
 
+## Current Kungfu projection
+
+Kungfu's first project-owned registry contains 34 light and heavy gates and
+five explicit profiles: `dev-pr`, `dev-patrol`, `alpha-pr`, `release-pr`, and
+`release-promotion`. The generated matrix and per-gate documentation live in
+the [Kungfu Gate catalog](../qualification/gates/README.md). A dedicated meta
+gate validates the registry, task references, detailed documentation, exact
+generated matrix, profile coverage, and current workflow bindings together.
+
+This projection records current policy without pretending migration is
+complete. Existing workflows remain the activation surface until they consume
+Shifu profile plans directly, and named handlers remain non-executable until a
+controller registers them. The workflow bindings make that compatibility debt
+explicit and fail closed when the recorded current source drifts.
+
 ## Consequences
 
 - Developers and agents get one human-readable and machine-readable surface

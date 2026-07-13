@@ -13,3 +13,4 @@ implemented behavior, retained evidence, and released guarantees. Begin with
 - [Episode Atomicity Qualification](episode-atomicity-qualification.md)
 - [KFD-2 Trust Assessment](kfd2-trust-assessment.md)
 - [KFD-Native SDK and Release Gates](kfd-native-sdk-release-gates.md)
+- [Kungfu Gate Catalog and Policy Matrix](gates/README.md)
