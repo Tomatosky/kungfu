@@ -3,7 +3,9 @@ metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
 adr_id: ADR-0073
 decision_status: accepted
-implementation_status: not-started
+implementation_status: partial
+implementation_commits: [e564e51d5196564a44b53081613bed8cb04bfdbb]
+qualification_refs: [scripts/run-kfx-profile-suite-tests.mjs]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-decision]
