@@ -179,12 +179,38 @@ kungfu_native_acquire() {
   return 1
 }
 
+# Buildchain and runner environments are an explicit per-execution projection;
+# they take precedence over the user-global development projection sourced
+# below. Preserve even a partial explicit pair so the resolver can fail closed.
+_kungfu_explicit_cache_ref="${SHIFU_CACHE_PROFILE_REF:-}"
+_kungfu_explicit_cache_digest="${SHIFU_CACHE_PROFILE_DIGEST:-}"
+_kungfu_explicit_cache_scope="${SHIFU_CACHE_SCOPE:-}"
 kungfu_load_proxy
+[ -n "$_kungfu_explicit_cache_ref" ] \
+  && export SHIFU_CACHE_PROFILE_REF="$_kungfu_explicit_cache_ref"
+[ -n "$_kungfu_explicit_cache_digest" ] \
+  && export SHIFU_CACHE_PROFILE_DIGEST="$_kungfu_explicit_cache_digest"
+[ -n "$_kungfu_explicit_cache_scope" ] \
+  && export SHIFU_CACHE_SCOPE="$_kungfu_explicit_cache_scope"
+unset _kungfu_explicit_cache_ref _kungfu_explicit_cache_digest \
+  _kungfu_explicit_cache_scope
 
 # Mark the canonical entrypoint and keep native dispatches from re-delegating
 # back to this script (see the launcher's installed-binary delegation).
 export SHIFU_FROM_SHIM=1
 export SHIFU_ENTRYPOINT=1
+
+# Source acceptance is a GitHub-hosted, build-free gate. Dispatch it before
+# native launcher resolution so SHIFU_NATIVE=1 cannot compile the launcher.
+if [ "${1:-}" = "check:source" ]; then
+  shift
+  if command -v node >/dev/null 2>&1; then
+    exec node ./scripts/source-acceptance.mjs "$@"
+  else
+    echo "shifu: check:source needs node" >&2
+    exit 127
+  fi
+fi
 
 # Cache profiles are a checkout-owned L2 contract. Dispatch them before the
 # native launcher even when SHIFU_NATIVE=1: the outer cache apply must resolve

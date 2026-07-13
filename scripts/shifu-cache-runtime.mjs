@@ -11,6 +11,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { prepareUvCacheOverlay } from './shifu-uv-cache-adapter.mjs';
+
 const PROFILE_SCHEMA = 'shifu.cache-profile/v1';
 const RECEIPT_SCHEMA = 'shifu.cache-resolution/v1';
 const REDACTION = 'credentials-userinfo-query-fragment';
@@ -25,6 +27,15 @@ const BLOCKED_ENV_KEYS = new Set([
   'GH_TOKEN',
   'NODE_OPTIONS',
   'CARGO_HOME',
+  'UV_PROJECT',
+  'UV_PROJECT_ENVIRONMENT',
+  'UV_FROZEN',
+  'UV_LOCKED',
+  'UV_OFFLINE',
+  'UV_INDEX',
+  'UV_INDEX_URL',
+  'UV_EXTRA_INDEX_URL',
+  'UV_FIND_LINKS',
   'CONAN_HOME',
   'KF_LIBWASM_CARGO_REGISTRY',
   'SHIFU_CACHE_ACTIVE',
@@ -638,6 +649,59 @@ function markOverlayCleanup(receipt) {
   }
 }
 
+function pythonCacheBinding(resolved) {
+  for (const [serviceId, service] of Object.entries(
+    resolved.profile.services,
+  )) {
+    const binding = service.bindings.find(
+      (item) => item.kind === 'environment' && item.key === 'UV_DEFAULT_INDEX',
+    );
+    if (binding)
+      return {
+        serviceId,
+        endpoint: resolved.bindings.UV_DEFAULT_INDEX,
+        strict:
+          resolved.profile.policy.mode === 'require' &&
+          resolved.profile.policy.onUnavailable === 'fail' &&
+          !resolved.profile.policy.allowPublicFallback,
+      };
+  }
+  return null;
+}
+
+function markPythonVerification(receipt, pythonCache, evidence, durationMs) {
+  const service = receipt.services[pythonCache.serviceId];
+  service.verification =
+    evidence.enforcement === 'not-applicable' ? 'not-applicable' : 'passed';
+  service.durationMs = durationMs;
+  service.reason =
+    evidence.enforcement === 'not-applicable'
+      ? 'no tracked uv project in execution repository'
+      : 'effective uv lock rebound and semantic digest verified';
+  service.application.overlayCleanup =
+    evidence.enforcement === 'not-applicable' ? 'not-applicable' : 'not-run';
+  service.application.toolEvidence = evidence;
+}
+
+function markPythonFailure(receipt, pythonCache, durationMs) {
+  const service = receipt.services[pythonCache.serviceId];
+  service.outcome = 'failed';
+  service.verification = 'failed';
+  service.durationMs = durationMs;
+  service.reason =
+    'required Python cache verification failed before child execution';
+}
+
+function markPythonFallback(receipt, pythonCache, durationMs) {
+  const service = receipt.services[pythonCache.serviceId];
+  service.outcome = 'fallback';
+  service.fallbackUsed = true;
+  service.verification = 'failed';
+  service.durationMs = durationMs;
+  service.reason =
+    'effective lock unavailable; declared canonical public-lock fallback selected';
+}
+
 function receiptFor(resolved) {
   return {
     $schema:
@@ -751,13 +815,53 @@ export async function applyCacheProfile({
     scope,
     cwd,
   });
-  const overlays = prepareConfigOverlays(resolved.configBindings, env);
+  const pythonCache = pythonCacheBinding(resolved);
+  let overlays = { env: {}, cleanup() {} };
+  let uvOverlay = { env: {}, cleanup() {} };
+  const verificationStarted = Date.now();
   let result;
   try {
-    const childEnv = {
+    overlays = prepareConfigOverlays(resolved.configBindings, env);
+    const boundEnv = {
       ...env,
       ...resolved.bindings,
       ...overlays.env,
+    };
+    if (pythonCache) {
+      try {
+        uvOverlay = prepareUvCacheOverlay({
+          cwd,
+          env: boundEnv,
+          endpoint: pythonCache.endpoint,
+        });
+        markPythonVerification(
+          resolved.receipt,
+          pythonCache,
+          uvOverlay.evidence,
+          Date.now() - verificationStarted,
+        );
+      } catch (error) {
+        if (pythonCache.strict) {
+          markPythonFailure(
+            resolved.receipt,
+            pythonCache,
+            Date.now() - verificationStarted,
+          );
+          throw error;
+        }
+        markPythonFallback(
+          resolved.receipt,
+          pythonCache,
+          Date.now() - verificationStarted,
+        );
+        console.warn(
+          'shifu cache: Python effective lock unavailable; using declared public fallback',
+        );
+      }
+    }
+    const childEnv = {
+      ...boundEnv,
+      ...uvOverlay.env,
       SHIFU_CACHE_ACTIVE: '1',
     };
     result = spawnChild(command, args, {
@@ -767,6 +871,7 @@ export async function applyCacheProfile({
       shell: false,
     });
   } finally {
+    uvOverlay.cleanup();
     overlays.cleanup();
     markOverlayCleanup(resolved.receipt);
     writeReceipt(resolved.receipt, receiptPath);

@@ -43,17 +43,13 @@ if (nativeResult.error) {
 }
 if (nativeResult.status !== 0) process.exit(nativeResult.status ?? 1);
 
+const pythonEnvironment =
+  process.env.UV_PROJECT_ENVIRONMENT ||
+  path.join(process.cwd(), 'framework', 'core', '.venv');
 const python =
   process.platform === 'win32'
-    ? path.join(
-        process.cwd(),
-        'framework',
-        'core',
-        '.venv',
-        'Scripts',
-        'python.exe',
-      )
-    : path.join(process.cwd(), 'framework', 'core', '.venv', 'bin', 'python');
+    ? path.join(pythonEnvironment, 'Scripts', 'python.exe')
+    : path.join(pythonEnvironment, 'bin', 'python');
 console.log('[durability-contract-test] checking Python typed surface');
 const pythonResult = spawnSync(
   python,

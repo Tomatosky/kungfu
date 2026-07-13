@@ -452,6 +452,41 @@ test(
 );
 
 test(
+  'explicit runner projection overrides user-global development config',
+  { skip: process.platform === 'win32' },
+  (t) => {
+    const fixture = shellHarness(t);
+    const configDir = path.join(fixture.root, 'config', 'kungfu');
+    fs.mkdirSync(configDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(configDir, 'build-local.env'),
+      [
+        "export SHIFU_CACHE_PROFILE_REF='missing-development-profile.json'",
+        `export SHIFU_CACHE_PROFILE_DIGEST='sha256:${'0'.repeat(64)}'`,
+        "export SHIFU_CACHE_SCOPE='development'",
+        '',
+      ].join('\n'),
+    );
+    const result = spawnSync(SHIFU_SH, ['test:runner-projection'], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      env: {
+        ...fixture.env,
+        SHIFU_CACHE_ACTIVE: '',
+        SHIFU_CACHE_PROFILE_REF: fixture.profilePath,
+        SHIFU_CACHE_PROFILE_DIGEST: fixture.digest,
+        SHIFU_CACHE_SCOPE: 'self-hosted-runner',
+      },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(
+      JSON.parse(fs.readFileSync(fixture.receipt, 'utf8')).execution.scope,
+      'self-hosted-runner',
+    );
+  },
+);
+
+test(
   'active child and absent projection bypass automatic cache application',
   { skip: process.platform === 'win32' },
   (t) => {

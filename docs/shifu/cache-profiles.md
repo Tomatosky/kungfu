@@ -90,6 +90,28 @@ only the managed remote plus an explicitly declared development fallback, if
 any; Kungfu detects a default compiler profile inside that isolated home. Both
 temporary overlays are removed after the child exits, including non-zero exits.
 The nested libwasm Cargo invocation inherits the same wrapper.
+
+For a selected Python index, an environment binding alone is insufficient:
+frozen uv locks contain exact registry artifact URLs. Shifu therefore copies
+each tracked uv project into a disposable overlay,
+refreshes the copied lock against `UV_DEFAULT_INDEX`, compares a normalized
+dependency semantic digest with the canonical lock, and rejects any effective
+registry or artifact URL outside the selected origin. A child-only uv wrapper
+routes project commands to that overlay and sets a disposable
+`UV_PROJECT_ENVIRONMENT`; the tracked lock, project `.venv`, and checkout remain
+untouched. Mutating `uv add`, `uv remove`, and `uv version` commands are rejected
+inside this managed execution. The receipt records only lock digests, rebinding
+counts, verification state, and cleanup state.
+Required profiles fail before the child starts when the endpoint or rebind is
+unavailable. Development profiles with an explicit public fallback attempt the
+same overlay first, then record a fallback and use the canonical public lock if
+tool-native rebinding is unavailable.
+
+Every tracked Kungfu `uv.lock` is a public source artifact and must use
+`https://pypi.org/simple` plus `https://files.pythonhosted.org`. The cache
+contract gate rejects private, local, alternate, and malformed registry or
+artifact hosts. Concrete central endpoints exist only in secret-free projected
+profiles and process-private effective locks, never in Git history.
 Unsupported argument/config bindings, protected or secret-like environment
 keys, unsafe URLs, applicability drift, and digest drift fail closed. Receipts
 name binding kinds and overlay cleanup without exposing local paths.

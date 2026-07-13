@@ -342,6 +342,7 @@ function testShifuCacheContract() {
     '--test',
     path.join('scripts', 'check-shifu-cache-contract.test.mjs'),
     path.join('scripts', 'shifu-cache-runtime.test.mjs'),
+    path.join('scripts', 'shifu-uv-cache-adapter.test.mjs'),
   ]);
 }
 

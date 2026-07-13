@@ -8,6 +8,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-0969da.svg)](https://github.com/kungfu-systems/kungfu/blob/HEAD/LICENSE)
 [![Platform: macOS | Linux | Windows](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-6e7781.svg)](https://github.com/kungfu-systems/kungfu/releases/latest/download/buildchain.release.json)
 [![Buildchain Validate](https://github.com/kungfu-systems/kungfu/actions/workflows/buildchain-validate.yml/badge.svg)](https://github.com/kungfu-systems/kungfu/actions/workflows/buildchain-validate.yml)
+[![Source Acceptance](https://github.com/kungfu-systems/kungfu/actions/workflows/source-acceptance.yml/badge.svg)](https://github.com/kungfu-systems/kungfu/actions/workflows/source-acceptance.yml)
 [![DCO](https://github.com/kungfu-systems/kungfu/actions/workflows/dco.yml/badge.svg)](https://github.com/kungfu-systems/kungfu/actions/workflows/dco.yml)
 <!-- buildchain:badges:end -->
 
@@ -17,6 +18,8 @@ Kungfu is local-first execution infrastructure for real-world agent work. It
 turns execution into **Episodes**: bounded causal units whose Facts, Artifacts,
 Receipts, dependencies, and verification roots can be inspected, sealed,
 exported, replayed, recovered, and used to support Decisions.
+
+> **Never Guess. Facts Unfold.**
 
 ```text
 Real-world work happens in Episodes.
@@ -116,6 +119,17 @@ models are rebuildable Projections over journal-backed authority. The runtime,
 capability SDK, application SDK, reference surfaces, and product assembly remain
 separate layers with explicit contracts. See [Architecture](docs/architecture/overview.md)
 and [Event Model](docs/architecture/event-model.md).
+
+## Why Kungfu?
+
+Kungfu began with the Chinese idea of **功夫**: capability built through
+disciplined practice. As the product evolved, **KUNGFU** acquired a recursive
+technical meaning: `KUNGFU UNGFU: Never Guess. Facts Unfold.`
+
+The name describes the architecture: deeply integrated at the product surface,
+self-bootstrapping from Facts at the core. Read
+[Why Kungfu?](docs/concepts/why-kungfu.md) for the complete recursion and its
+connection to the product's fact-first design.
 
 ## Status and guarantees
 

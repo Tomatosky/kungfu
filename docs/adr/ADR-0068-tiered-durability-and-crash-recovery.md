@@ -4,6 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0068
 decision_status: accepted
 implementation_status: staged
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/668, https://github.com/kungfu-systems/kungfu/pull/673, https://github.com/kungfu-systems/kungfu/pull/682, https://github.com/kungfu-systems/kungfu/pull/687, https://github.com/kungfu-systems/kungfu/pull/691, https://github.com/kungfu-systems/kungfu/pull/693, https://github.com/kungfu-systems/kungfu/pull/697, https://github.com/kungfu-systems/kungfu/pull/701, https://github.com/kungfu-systems/kungfu/pull/705, https://github.com/kungfu-systems/kungfu/pull/720]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -11,7 +12,7 @@ period: 2026-07-12
 theme: tiered-durability-and-crash-recovery
 confidence: high
 evidence_grade: B
-last_reviewed: 2026-07-12
+last_reviewed: 2026-07-13
 ---
 
 # ADR-0068: tiered durability separates hot visibility, durable fact admission, projections, and replication
@@ -28,7 +29,7 @@ last_reviewed: 2026-07-12
   [ADR-0055](ADR-0055-retire-journal-session-and-separate-runtime-state-from-projection.md),
   and [ADR-0058](ADR-0058-yijinjing-explicit-mapping-policies.md)
 - Public contract: [Strong durability and crash recovery](../qualification/durability-and-crash-recovery.md)
-- Design: [Strong-durability and crash-recovery design](../../framework/core/docs/strong-durability-and-crash-recovery-design.md)
+- Design: [Strong-durability and crash-recovery design](../architecture/strong-durability-and-crash-recovery-design.md)
 
 ## Context
 
@@ -236,8 +237,16 @@ journal wire compatibility, or edge-only JSON rules accidentally.
 
 ## Current implementation status
 
-This ADR records the target decision and is not a statement that strong
-durability is already shipped. Current production mmap qualification remains
-`demand + visibility`. State cache/projections remain asynchronous derived
-state. Dedicated durable ingest, unified watermarks/receipts, coordinator
-separation, and power-loss qualification are pending.
+This ADR remains staged and is not a statement that strong durability is
+already shipped. The integrated development stages now provide typed durability
+positions and receipts, append-only durable ingest with checkpoint barriers, a
+separate state-service boundary, typed snapshot-at-`T` projection bootstrap,
+read-only crash classification, retained-evidence quarantine, and typed
+interrupted-Episode classification. Recovery inspection is deterministic and
+does not silently abort, resume, repair, or promote uncertain facts.
+
+The production mmap claim remains `demand + visibility`. Consistent export and
+empty-root verified restore, projection rebuild/cut equality, production
+bootstrap authority cutover, named platform/filesystem qualification, and the
+public durability product contract remain pending. In particular, process-kill
+and cross-platform CI evidence do not establish sudden-power-loss durability.

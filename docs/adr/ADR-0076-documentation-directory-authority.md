@@ -4,8 +4,8 @@ doc_type: architecture-decision
 adr_id: ADR-0076
 decision_status: accepted
 implementation_status: implemented
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/745, https://github.com/kungfu-systems/kungfu/pull/746]
-closure_pr: https://github.com/kungfu-systems/kungfu/pull/746
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/745, https://github.com/kungfu-systems/kungfu/pull/746, https://github.com/kungfu-systems/kungfu/pull/750]
+closure_pr: https://github.com/kungfu-systems/kungfu/pull/750
 qualification_refs: [docs.contract.json, scripts/check-docs.test.mjs, scripts/document-metadata-contract.test.mjs]
 review_state: maintainer-reviewed
 sensitivity: public
@@ -59,6 +59,12 @@ at the `docs/` root. Canonical documents live under responsibility directories:
 - `adr/` and `shifu/` retain their existing decision and development-contract
   authorities.
 
+Repository-local design, qualification, and development documents formerly
+stored under `framework/core/docs/` move into the same responsibility
+directories. The old Core docs root and the former `docs/shifu/adr/` root are
+retired completely: they contain no Markdown redirects, indexes, or secondary
+metadata authorities.
+
 Each responsibility directory has a `README.md` index. The root guide links to
 every index, and canonical pages link directly to canonical pages.
 
@@ -70,7 +76,8 @@ not recreate a second Markdown surface in the source repository.
 
 `docs.contract.json` is the executable topology authority. The documentation
 gate rejects undeclared canonical directories, every undeclared root Markdown
-page, and missing section routes.
+page, missing section routes, and any Markdown under a retired documentation
+root.
 
 ## Consequences
 
@@ -89,12 +96,15 @@ page, and missing section routes.
 
 Implementation qualification must prove document conservation, direct
 canonical navigation, metadata authority uniqueness, publication reachability,
-and negative fixtures for every undeclared root Markdown path.
+and negative fixtures for every undeclared or retired-root Markdown path.
 
 PR [#745](https://github.com/kungfu-systems/kungfu/pull/745) implements the
 canonical moves, section indexes, metadata routing, publication graph, and
 initial placement fixtures. PR
 [#746](https://github.com/kungfu-systems/kungfu/pull/746) removes the
 speculative compatibility facade, makes the root rule absolute, and strengthens
-the retired ADR-root fixtures. The deterministic documentation gate is the
-retained qualification surface.
+the retired ADR-root fixtures. PR
+[#750](https://github.com/kungfu-systems/kungfu/pull/750) moves the remaining
+Core documents and retained qualification evidence into this taxonomy, removes
+the ADR redirect trees, and makes both retired roots fail closed. The
+deterministic documentation gate is the retained qualification surface.

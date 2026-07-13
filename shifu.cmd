@@ -43,10 +43,17 @@ setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
 rem Load local cache proxy config: user-global first, then optional in-repo override (set propagates to children).
+rem Explicit Buildchain/runner cache projection wins over local development config.
+set "_KFC_EXPLICIT_CACHE_REF=%SHIFU_CACHE_PROFILE_REF%"
+set "_KFC_EXPLICIT_CACHE_DIGEST=%SHIFU_CACHE_PROFILE_DIGEST%"
+set "_KFC_EXPLICIT_CACHE_SCOPE=%SHIFU_CACHE_SCOPE%"
 set "_KFC_USERCFG=%USERPROFILE%\.config\kungfu\build-local.env"
 if defined XDG_CONFIG_HOME set "_KFC_USERCFG=%XDG_CONFIG_HOME%\kungfu\build-local.env"
 call :loadenv "%_KFC_USERCFG%"
 call :loadenv ".\build-local.env"
+if defined _KFC_EXPLICIT_CACHE_REF set "SHIFU_CACHE_PROFILE_REF=%_KFC_EXPLICIT_CACHE_REF%"
+if defined _KFC_EXPLICIT_CACHE_DIGEST set "SHIFU_CACHE_PROFILE_DIGEST=%_KFC_EXPLICIT_CACHE_DIGEST%"
+if defined _KFC_EXPLICIT_CACHE_SCOPE set "SHIFU_CACHE_SCOPE=%_KFC_EXPLICIT_CACHE_SCOPE%"
 
 rem Mark the canonical entrypoint and keep native dispatches from re-delegating here.
 set "SHIFU_FROM_SHIM=1"

@@ -2525,7 +2525,13 @@ function cppBuild(manifest) {
   // compatible with the runtime and loads alongside pykungfu. Pass both the
   // classic (FindPythonInterp) and modern (FindPython) hint variables so the
   // pin holds regardless of which pybind11 lookup mode is active.
-  const corePython = path.join(coreDir, '.venv', 'bin', 'python3');
+  const pythonEnvironment =
+    process.env.UV_PROJECT_ENVIRONMENT || path.join(coreDir, '.venv');
+  const corePython = path.join(
+    pythonEnvironment,
+    process.platform === 'win32' ? 'Scripts' : 'bin',
+    process.platform === 'win32' ? 'python.exe' : 'python3',
+  );
   if (fs.existsSync(corePython)) {
     configureArgs.push(
       `-DPYTHON_EXECUTABLE=${corePython}`,
@@ -2556,7 +2562,13 @@ function pythonAotBuild(manifest) {
     fail(
       'cannot locate framework/core (a python-AOT kfx build needs the monorepo core)',
     );
-  const py = path.join(coreDir, '.venv', 'bin', 'python3');
+  const pythonEnvironment =
+    process.env.UV_PROJECT_ENVIRONMENT || path.join(coreDir, '.venv');
+  const py = path.join(
+    pythonEnvironment,
+    process.platform === 'win32' ? 'Scripts' : 'bin',
+    process.platform === 'win32' ? 'python.exe' : 'python3',
+  );
   if (!fs.existsSync(py)) {
     fail(`core Python not found: ${py}. Run \`./shifu rebuild:core\` first.`);
   }

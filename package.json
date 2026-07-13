@@ -27,6 +27,7 @@
     "format:web": "node scripts/require-shifu.mjs format:web && biome format --write .",
     "lint": "node scripts/require-shifu.mjs lint && biome check .",
     "check": "node scripts/require-shifu.mjs check && node scripts/check.mjs",
+    "check:source": "node scripts/require-shifu.mjs check:source && node scripts/source-acceptance.mjs",
     "check:staged": "node scripts/require-shifu.mjs check:staged && node scripts/check.mjs --staged",
     "check:all": "node scripts/require-shifu.mjs check:all && node scripts/check.mjs --all",
     "check:entry-contract": "node scripts/require-shifu.mjs check:entry-contract && node scripts/check-shifu-entry-contract.mjs",

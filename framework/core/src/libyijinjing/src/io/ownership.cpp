@@ -35,6 +35,17 @@ std::mutex local_owners_mutex;
 std::set<std::string> local_owners;
 std::atomic<uint64_t> token_counter{0};
 
+#ifdef _WIN32
+OVERLAPPED ownership_lock_region() noexcept {
+  OVERLAPPED region{};
+  // Keep the advisory ownership byte outside the evidence payload. Windows
+  // enforces byte-range locks on reads from other handles, so locking byte 0
+  // makes the JSON evidence appear empty while the writer is alive.
+  region.OffsetHigh = 1;
+  return region;
+}
+#endif
+
 uint64_t current_pid() noexcept {
 #ifdef _WIN32
   return static_cast<uint64_t>(GetCurrentProcessId());
@@ -187,7 +198,7 @@ struct lease::impl {
     if (handle == INVALID_HANDLE_VALUE) {
       throw std::runtime_error("ownership_io_error: cannot open " + lock_path);
     }
-    OVERLAPPED overlapped{};
+    auto overlapped = ownership_lock_region();
     if (LockFileEx(handle, LOCKFILE_EXCLUSIVE_LOCK | LOCKFILE_FAIL_IMMEDIATELY, 0, 1, 0, &overlapped) == 0) {
       CloseHandle(handle);
       handle = INVALID_HANDLE_VALUE;
@@ -239,7 +250,7 @@ struct lease::impl {
   void release_os_lock() noexcept {
 #ifdef _WIN32
     if (handle != INVALID_HANDLE_VALUE) {
-      OVERLAPPED overlapped{};
+      auto overlapped = ownership_lock_region();
       UnlockFileEx(handle, 0, 1, 0, &overlapped);
       CloseHandle(handle);
       handle = INVALID_HANDLE_VALUE;
@@ -369,7 +380,7 @@ evidence inspect_active_stream_writer(const std::string &data_root, const std::s
     if (handle == INVALID_HANDLE_VALUE) {
       throw std::runtime_error("ownership_io_error: cannot inspect " + path);
     }
-    OVERLAPPED overlapped{};
+    auto overlapped = ownership_lock_region();
     if (LockFileEx(handle, LOCKFILE_EXCLUSIVE_LOCK | LOCKFILE_FAIL_IMMEDIATELY, 0, 1, 0, &overlapped) != 0) {
       UnlockFileEx(handle, 0, 1, 0, &overlapped);
       CloseHandle(handle);

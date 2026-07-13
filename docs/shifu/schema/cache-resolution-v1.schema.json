@@ -188,6 +188,47 @@
             },
             "overlayCleanup": {
               "enum": ["not-run", "completed", "not-applicable"]
+            },
+            "toolEvidence": {
+              "$ref": "#/$defs/uvToolEvidence"
+            }
+          }
+        }
+      }
+    },
+    "uvToolEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["adapter", "enforcement", "projectCount", "locks"],
+      "properties": {
+        "adapter": {
+          "const": "uv-effective-lock"
+        },
+        "enforcement": {
+          "enum": ["project-overlay", "not-applicable"]
+        },
+        "projectCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "locks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "canonicalDigest",
+              "effectiveDigest",
+              "semanticDigest",
+              "registryRebindings",
+              "artifactRebindings"
+            ],
+            "properties": {
+              "canonicalDigest": { "$ref": "#/$defs/sha256" },
+              "effectiveDigest": { "$ref": "#/$defs/sha256" },
+              "semanticDigest": { "$ref": "#/$defs/sha256" },
+              "registryRebindings": { "type": "integer", "minimum": 1 },
+              "artifactRebindings": { "type": "integer", "minimum": 0 }
             }
           }
         }
