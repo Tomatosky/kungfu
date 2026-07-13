@@ -16,6 +16,7 @@ import {
   resolveCacheProfile,
   sha256,
   validateProfileBytes,
+  windowsShifuCommandLine,
 } from './shifu-cache-runtime.mjs';
 
 const platform =
@@ -24,6 +25,13 @@ const platform =
     : process.platform === 'win32'
       ? `windows-${process.arch}`
       : `${process.platform}-${process.arch}`;
+
+test('Windows cache re-entry leaves the welded shim token unquoted', () => {
+  assert.equal(
+    windowsShifuCommandLine(['install', 'argument with spaces']),
+    'shifu.cmd "install" "argument with spaces"',
+  );
+});
 
 function profile(overrides = {}) {
   return {
