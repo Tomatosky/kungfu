@@ -586,6 +586,83 @@ def test_kfd3_qualification_requires_active_exact_root(tmp_path):
         raise AssertionError("inactive Profile was KFD-3 qualified")
 
 
+def test_kfd3_receipt_survives_portable_import_and_invalidates_on_upgrade(
+    tmp_path,
+):
+    source, _ = create_source(tmp_path / "author")
+    make_collaboration_action_lifecycle(source)
+    runtime_a = tmp_path / "runtime-a"
+    for action in ["install", "qualify", "activate"]:
+        plan = profile_sdk.lifecycle_plan(runtime_a, action, source)["corePlan"]
+        profile_sdk.lifecycle_apply(runtime_a, plan, f"portable-a:{action}")
+    receipt_a = profile_sdk.qualify_kfd3(source, runtime_a)
+
+    bundle = profile_sdk.export_source_bundle(source, runtime_a)
+    import_plan = profile_sdk.source_import_plan(bundle, tmp_path / "imported")
+    import_answer = profile_sdk.answer_decision(
+        import_plan["decisionCard"], "approve", "portable-owner"
+    )
+    imported = profile_sdk.authorized_source_import(import_plan, import_answer)
+    imported_source = Path(imported["destination"])
+    runtime_b = tmp_path / "runtime-b"
+    for action in ["install", "qualify", "activate"]:
+        plan = profile_sdk.lifecycle_plan(runtime_b, action, imported_source)[
+            "corePlan"
+        ]
+        profile_sdk.lifecycle_apply(runtime_b, plan, f"portable-b:{action}")
+    receipt_b = profile_sdk.qualify_kfd3(imported_source, runtime_b)
+
+    assert receipt_b["profileSuiteRoot"] == receipt_a["profileSuiteRoot"]
+    assert receipt_b["receiptId"] == receipt_a["receiptId"]
+    assert receipt_b["witness"]["witnessId"] == receipt_a["witness"]["witnessId"]
+
+    collaboration_path = imported_source / "collaboration" / "interface.json"
+    collaboration = json.loads(collaboration_path.read_text())
+    collaboration["knownLimits"][0]["description"] = "Identity evidence upgraded."
+    collaboration_bytes = (
+        json.dumps(collaboration, indent=2, sort_keys=True) + "\n"
+    ).encode()
+    collaboration_path.write_bytes(collaboration_bytes)
+    profile_path = imported_source / "profile.json"
+    profile = json.loads(profile_path.read_text())
+    profile["version"] = "1.1.0"
+    profile["kfd3"]["collaboration"]["sha256"] = hashlib.sha256(
+        collaboration_bytes
+    ).hexdigest()
+    profile_path.write_text(json.dumps(profile, indent=2, sort_keys=True) + "\n")
+
+    upgrade = profile_sdk.lifecycle_plan(runtime_b, "upgrade", imported_source)[
+        "corePlan"
+    ]
+    profile_sdk.lifecycle_apply(runtime_b, upgrade, "portable-b:upgrade")
+    for action in ["qualify", "activate"]:
+        plan = profile_sdk.lifecycle_plan(runtime_b, action, imported_source)[
+            "corePlan"
+        ]
+        profile_sdk.lifecycle_apply(runtime_b, plan, f"portable-b:{action}-v2")
+    receipt_v2 = profile_sdk.qualify_kfd3(imported_source, runtime_b)
+    assert receipt_v2["profileSuiteRoot"] != receipt_b["profileSuiteRoot"]
+    try:
+        profile_sdk.verify_kfd3(imported_source, runtime_b, receipt_b)
+    except profile_sdk.ProfileSdkError as error:
+        assert error.diagnosis["code"] == "kfd3-qualification-stale-or-tampered"
+    else:
+        raise AssertionError("pre-upgrade KFD-3 receipt remained current")
+
+    rollback = profile_sdk.lifecycle_plan(
+        runtime_b,
+        "rollback",
+        None,
+        profile_id="example.week-day",
+        target_root=receipt_b["profileSuiteRoot"],
+    )["corePlan"]
+    profile_sdk.lifecycle_apply(runtime_b, rollback, "portable-b:rollback")
+    rolled_back = profile_sdk.qualify_kfd3(source, runtime_b)
+    assert rolled_back["profileSuiteRoot"] == receipt_b["profileSuiteRoot"]
+    assert rolled_back["receiptId"] != receipt_b["receiptId"]
+    assert rolled_back["profileRevision"] > receipt_b["profileRevision"]
+
+
 def test_missing_member_fails_with_stable_decision_card(tmp_path):
     source, _ = create_source(tmp_path)
     missing = source / "members" / "example-week-day-actions"

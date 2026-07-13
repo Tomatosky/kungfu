@@ -5,7 +5,7 @@ adr_id: ADR-0074
 decision_status: accepted
 implementation_status: partial
 implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/734]
-qualification_refs: [scripts/run-kfx-profile-suite-tests.mjs, framework/core/tests/python/test_agent_profile_sdk.py, scripts/buildchain-kfd-evidence.mjs]
+qualification_refs: [scripts/run-kfx-profile-suite-tests.mjs, framework/core/tests/python/test_agent_profile_sdk.py, tests/qualification/profile-kfd3/run.ts, scripts/buildchain-kfd-evidence.mjs]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-decision]
@@ -101,4 +101,6 @@ projection into that authority.
 3. Done: project generic GUI and Agent surfaces over the shared intent protocol.
 4. Done: add installed-authority audit, custom-facet no-bypass tests, deterministic receipt verification and a scoped
    Profile witness bound to the Buildchain-projected collaboration-interface registry.
-5. Qualify an independent Profile and regress Mission Control in a frozen Product.
+5. In progress: the independent Week/Day Profile now proves identical Agent CLI and typed Human API plans, receipts and
+   witnesses plus export/import, upgrade invalidation, rollback and Mission Control regression. The final frozen Product
+   build and promoted artifact remain the release closeout step.

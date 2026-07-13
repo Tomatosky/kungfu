@@ -1380,7 +1380,6 @@ def plan_action(
         "action": action,
         "input": input_value,
         "stateRevision": state["revision"],
-        "source": catalog["source"],
     }
     if collaboration_value["declared"]:
         intent = next(
@@ -1416,6 +1415,7 @@ def plan_action(
         "schema": ACTION_PLAN_SCHEMA,
         "planId": _root(identity),
         **identity,
+        "source": catalog["source"],
         "requiresAuthorization": action["authorityClass"] != "none",
         "effects": action.get("effects", []),
     }
