@@ -108,7 +108,7 @@ test('matrix, gate document, and workflow drift each fail closed', () => {
   );
 });
 
-test('document facts and Gate-owned workflow entrypoints fail closed', () => {
+test('document facts and workflow entrypoints fail closed', () => {
   const root = fixture();
   const docs = path.join(root, 'docs/qualification/gates/build-and-runtime.md');
   fs.writeFileSync(
@@ -130,16 +130,43 @@ test('document facts and Gate-owned workflow entrypoints fail closed', () => {
     'docs/qualification/gates/workflow-bindings.json',
   );
   const bindings = JSON.parse(fs.readFileSync(bindingsPath, 'utf8'));
-  const migration = bindings.bindings.find(
-    (binding) => binding.id === 'dev-heavy-patrol',
+  const gateBinding = bindings.bindings.find(
+    (binding) => binding.id === 'dev-adr',
   );
-  migration.requiredSnippets = ['kungfu-build-v4-linux-x64'];
+  gateBinding.requiredSnippets = ['governance.adr-delivery'];
   fs.writeFileSync(bindingsPath, JSON.stringify(bindings));
   assert.ok(
     checkKungfuGateCatalog(root).issues.some((issue) =>
       issue.includes(
-        "dev-heavy-patrol: gate execution must prove a 'gate run' entrypoint",
+        "dev-adr: gate execution must prove a 'gate run' entrypoint",
       ),
+    ),
+  );
+
+  const controllerRoot = fixture();
+  const controllerBindingsPath = path.join(
+    controllerRoot,
+    'docs/qualification/gates/workflow-bindings.json',
+  );
+  const controllerBindings = JSON.parse(
+    fs.readFileSync(controllerBindingsPath, 'utf8'),
+  );
+  const controllerBinding = controllerBindings.bindings.find(
+    (binding) => binding.id === 'dev-heavy-patrol',
+  );
+  const controllerWorkflow = path.join(
+    controllerRoot,
+    controllerBinding.workflow,
+  );
+  fs.writeFileSync(
+    controllerWorkflow,
+    fs
+      .readFileSync(controllerWorkflow, 'utf8')
+      .replace('gate-profile: dev-patrol', 'gate-profile: dev-pr'),
+  );
+  assert.ok(
+    checkKungfuGateCatalog(controllerRoot).issues.some((issue) =>
+      issue.includes("dev-heavy-patrol: 'gate-profile: dev-patrol' not found"),
     ),
   );
 });

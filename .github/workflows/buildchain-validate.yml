@@ -36,26 +36,3 @@ jobs:
       - name: Rehearse alpha and stable promotion contracts
         run: >-
           ./shifu gate run governance.promotion-rehearsal
-
-  # Canary the generic Buildchain control plane from a real consumer before
-  # promoting it. Kungfu owns the profile and runtime requirements; Buildchain
-  # derives the Gate/runner matrix from Shifu instead of hard-coding Gate ids.
-  gate-profile-canary:
-    if: github.event_name == 'pull_request'
-    needs: validate
-    uses: kungfu-systems/buildchain/.github/workflows/.gate-profile.yml@train/v2/v2.3/gate-profile-orchestration
-    with:
-      gate-profile: dev-patrol
-      runner-preset: kungfu-v4-self-hosted
-      artifact-name: kungfu-dev-patrol-gates
-      gate-plan-command-json: >-
-        {"linux":["./shifu"],"macos":["./shifu"],"windows":["./shifu.cmd"]}
-      gate-command-json: >-
-        {"linux":["./shifu","cache","apply","--","./shifu"],
-        "macos":["./shifu","cache","apply","--","./shifu"],
-        "windows":["./shifu.cmd","cache","apply","--","./shifu.cmd"]}
-      gate-environment-json: >-
-        {"SHIFU_NATIVE":"1","KUNGFU_BUILDCHAIN_NO_OPTIONAL":"1",
-        "KUNGFU_BUILDCHAIN_SOURCE_BUILD":"1"}
-      shifu-cache-profile-ref: ${{ vars.SHIFU_CACHE_PROFILE_REF }}
-      shifu-cache-profile-digest: ${{ vars.SHIFU_CACHE_PROFILE_DIGEST }}

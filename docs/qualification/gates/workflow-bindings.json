@@ -131,7 +131,7 @@
     },
     {
       "id": "dev-heavy-patrol",
-      "execution": "gate",
+      "execution": "controller",
       "workflow": ".github/workflows/dev-verify-patrol.yml",
       "job": "verify",
       "profiles": [
@@ -143,8 +143,9 @@
       ],
       "activation": "daily or manual on dev",
       "requiredSnippets": [
-        "./shifu gate run product.verify-full",
-        "kungfu-build-v4-linux-x64"
+        "gate-profile: dev-patrol",
+        "runner-preset: kungfu-v4-self-hosted",
+        ".github/workflows/.gate-profile.yml@29a3daaf5417b138683f99a031268afd6efa9afd"
       ]
     },
     {
