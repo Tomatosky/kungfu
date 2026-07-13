@@ -55,3 +55,26 @@ test('Linux clean-install GUI smoke uses the bounded Electron sandbox escape', (
   assert.deepEqual(guiQualificationArgs('darwin'), []);
   assert.deepEqual(guiQualificationArgs('win32'), []);
 });
+
+test('bounded GUI qualification avoids display-backed menus and embedded views', () => {
+  const mainSource = fs.readFileSync(
+    path.resolve(
+      here,
+      '..',
+      '..',
+      '..',
+      '..',
+      'framework',
+      'gui',
+      'src',
+      'main',
+      'index.ts',
+    ),
+    'utf8',
+  );
+  assert.match(mainSource, /if \(!qualificationMode\) buildMenu\(\);/);
+  assert.match(
+    mainSource,
+    /if \(!qualificationMode\) \{\s*manager = new SandboxManager\(/,
+  );
+});
