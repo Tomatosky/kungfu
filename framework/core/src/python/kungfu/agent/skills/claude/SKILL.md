@@ -29,9 +29,15 @@ kungfu agent capabilities --json
 kungfu agent choose-mode --json
 kungfu agent verify --json
 kungfu agent status --target claude --json
+kungfu agent console current --json
+kungfu agent runtime list --json
 ```
 
 Use the smallest mode that preserves evidence:
+
+- When `console current` reports `available: true`, preserve its Console,
+  attempt, optional WorkRef, exact Profile roots, and envelope root. Query its
+  declared entrypoints before claiming what Kungfu can do.
 
 - `report` for structured work facts.
 - `atlas-projection` when importing an Atlas-style mission/goal/worktree repo

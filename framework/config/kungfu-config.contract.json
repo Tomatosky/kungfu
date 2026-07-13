@@ -269,7 +269,12 @@
       "$id": "kungfu.work-console-registry/v1",
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema", "workspaceId", "consoles", "presentation"],
+      "required": [
+        "schema",
+        "workspaceId",
+        "consoles",
+        "presentation"
+      ],
       "properties": {
         "schema": {
           "const": "kungfu.work-console-registry/v1"
@@ -298,12 +303,19 @@
                 "minLength": 1
               },
               "bindingKind": {
-                "enum": ["work", "workspace-assistant"]
+                "enum": [
+                  "work",
+                  "workspace-assistant"
+                ]
               },
               "workRef": {
                 "anyOf": [
-                  { "$ref": "#/$defs/workRef" },
-                  { "type": "null" }
+                  {
+                    "$ref": "#/$defs/workRef"
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "runtimeProfileId": {
@@ -311,7 +323,10 @@
                 "minLength": 1
               },
               "backend": {
-                "enum": ["tmux", "direct"]
+                "enum": [
+                  "tmux",
+                  "direct"
+                ]
               },
               "attempts": {
                 "type": "array",
@@ -363,22 +378,30 @@
               {
                 "if": {
                   "properties": {
-                    "bindingKind": { "const": "work" }
+                    "bindingKind": {
+                      "const": "work"
+                    }
                   }
                 },
                 "then": {
-                  "required": ["workRef"]
+                  "required": [
+                    "workRef"
+                  ]
                 }
               },
               {
                 "if": {
                   "properties": {
-                    "bindingKind": { "const": "workspace-assistant" }
+                    "bindingKind": {
+                      "const": "workspace-assistant"
+                    }
                   }
                 },
                 "then": {
                   "properties": {
-                    "workRef": { "type": "null" }
+                    "workRef": {
+                      "type": "null"
+                    }
                   }
                 }
               }
@@ -388,18 +411,42 @@
         "presentation": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["tabs", "splits", "drawer", "windows"],
+          "required": [
+            "tabs",
+            "splits",
+            "drawer",
+            "windows"
+          ],
           "properties": {
-            "tabs": { "type": "array", "items": { "type": "string" } },
+            "tabs": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
             "splits": {
               "type": "array",
               "maxItems": 3,
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             },
             "drawer": {
-              "anyOf": [{ "type": "string" }, { "type": "null" }]
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
-            "windows": { "type": "array", "items": { "type": "string" } }
+            "windows": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         }
       }
@@ -426,19 +473,42 @@
         "schema": {
           "const": "kungfu.agent-console-envelope/v1"
         },
-        "workspaceId": { "type": "string", "minLength": 1 },
-        "consoleId": { "type": "string", "minLength": 1 },
-        "attemptId": { "type": "string", "minLength": 1 },
-        "runtimeProfileId": { "type": "string", "minLength": 1 },
-        "provider": { "enum": ["codex", "claude"] },
+        "workspaceId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "consoleId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "attemptId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runtimeProfileId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider": {
+          "enum": [
+            "codex",
+            "claude"
+          ]
+        },
         "activeProfiles": {
           "type": "array",
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["id", "root"],
+            "required": [
+              "id",
+              "root"
+            ],
             "properties": {
-              "id": { "type": "string", "minLength": 1 },
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
               "root": {
                 "type": "string",
                 "pattern": "^sha256:[a-f0-9]{64}$"
@@ -448,24 +518,49 @@
         },
         "workRef": {
           "anyOf": [
-            { "$ref": "#/$defs/workRef" },
-            { "type": "null" }
+            {
+              "$ref": "#/$defs/workRef"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "entrypoints": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["context", "capabilities", "profiles"],
+          "required": [
+            "context",
+            "capabilities",
+            "profiles"
+          ],
           "properties": {
-            "context": { "type": "array", "items": { "type": "string" } },
+            "context": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
             "capabilities": {
               "type": "array",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             },
-            "profiles": { "type": "array", "items": { "type": "string" } }
+            "profiles": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         },
-        "knownLimits": { "type": "array", "items": { "type": "string" } },
+        "knownLimits": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "envelopeRoot": {
           "type": "string",
           "pattern": "^sha256:[a-f0-9]{64}$"
@@ -569,15 +664,26 @@
           },
           "defaultRuntimeProfile": {
             "anyOf": [
-              { "type": "string", "minLength": 1 },
-              { "type": "null" }
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "backendDefault": {
-            "enum": ["tmux", "direct"]
+            "enum": [
+              "tmux",
+              "direct"
+            ]
           },
           "startupView": {
-            "enum": ["profile-home", "agent-console"]
+            "enum": [
+              "profile-home",
+              "agent-console"
+            ]
           }
         }
       },
@@ -681,34 +787,90 @@
             "type": "string",
             "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
           },
-          "label": { "type": "string", "minLength": 1 },
-          "provider": { "enum": ["codex", "claude"] },
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "provider": {
+            "enum": [
+              "codex",
+              "claude"
+            ]
+          },
           "launch": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["executable", "argv", "shellMode"],
+            "required": [
+              "executable",
+              "argv",
+              "shellMode"
+            ],
             "properties": {
-              "executable": { "type": "string", "minLength": 1 },
-              "argv": { "type": "array", "items": { "type": "string" } },
-              "shellMode": { "type": "boolean" }
+              "executable": {
+                "type": "string",
+                "minLength": 1
+              },
+              "argv": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "shellMode": {
+                "type": "boolean"
+              }
             }
           },
           "cwdPolicy": {
-            "enum": ["workspace-root", "home", "inherit"]
+            "enum": [
+              "workspace-root",
+              "home",
+              "inherit"
+            ]
           },
-          "backendDefault": { "enum": ["tmux", "direct"] },
+          "backendDefault": {
+            "enum": [
+              "tmux",
+              "direct"
+            ]
+          },
           "bootstrap": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["adapter", "envelope"],
+            "required": [
+              "adapter",
+              "envelope"
+            ],
             "properties": {
-              "adapter": { "enum": ["codex", "claude"] },
-              "envelope": { "enum": ["required", "disabled"] }
+              "adapter": {
+                "enum": [
+                  "codex",
+                  "claude"
+                ]
+              },
+              "envelope": {
+                "enum": [
+                  "required",
+                  "disabled"
+                ]
+              }
             }
           },
-          "source": { "enum": ["discovered", "user"] },
+          "source": {
+            "enum": [
+              "discovered",
+              "user"
+            ]
+          },
           "lastVerified": {
-            "anyOf": [{ "type": "string" }, { "type": "null" }]
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       }

@@ -28,15 +28,33 @@
 // synchronous); `resolve` awaits both the sync (node-integrated) and Promise
 // (sandboxed-ipc) shapes so one code path serves both tiers.
 import '@xterm/xterm/css/xterm.css';
-import type { KfxCapabilities, Shell, TerminalSession } from '@kungfu-tech/kfx';
-import { headingStyle, mono, panelStyle } from '@kungfu-tech/kfx';
+import type {
+  AgentRuntimeCatalog,
+  AgentRuntimeProfile,
+  KfxCapabilities,
+  Shell,
+  TerminalSession,
+  WorkRef,
+} from '@kungfu-tech/kfx';
+import {
+  buildAgentConsoleEnvelope,
+  buildWorkRef,
+  headingStyle,
+  mono,
+  panelStyle,
+  prepareAgentConsoleLaunch,
+} from '@kungfu-tech/kfx';
 import { FitAddon } from '@xterm/addon-fit';
 import { Terminal as XTerm } from '@xterm/xterm';
 import React from 'react';
 import {
   type PersistedWindow,
+  type WorkConsoleRegistry,
   type WorkspaceLayout,
+  emptyConsoleRegistry,
+  loadConsoleRegistry,
   loadWorkspaceLayout,
+  saveConsoleRegistry,
   saveWorkspaceLayout,
 } from './persistence';
 
@@ -44,67 +62,17 @@ async function resolve<T>(value: T | Promise<T>): Promise<T> {
   return await value;
 }
 
-type Provider = 'claude' | 'codex';
-
-interface RunProfile {
-  id: string;
-  label: string;
-  provider: Provider;
-  prompt: string;
-}
-
-// MVP inbox: a few runnable managed-run profiles. A later slice imports real
-// work/go cards from the runtime instead of seeding them here.
-const INBOX: RunProfile[] = [
-  {
-    id: 'claude-hello',
-    label: 'Claude · greet from a managed run',
-    provider: 'claude',
-    prompt: 'In one short sentence, say hello from a Kungfu managed run.',
-  },
-  {
-    id: 'claude-summary',
-    label: 'Claude · one-line status',
-    provider: 'claude',
-    prompt: 'Reply with exactly one line: managed run OK.',
-  },
-  {
-    id: 'codex-check',
-    label: 'Codex · quick check',
-    provider: 'codex',
-    prompt: 'Reply with exactly: OK',
-  },
-];
-
-// How to launch a managed run: `kungfu managed-run --provider … --prompt …`.
-// The launcher is `kungfu` on PATH in a packaged runtime; KUNGFU_MANAGED_RUN_CMD
-// overrides it so a source checkout can point at its built runtime.
-function launchCommand(
-  profile: RunProfile,
-  runId: string,
-): {
-  command: string;
-  args: string[];
-} {
-  const env =
-    typeof process !== 'undefined'
-      ? process.env
-      : ({} as Record<string, string>);
-  const base = env.KUNGFU_MANAGED_RUN_CMD || 'kungfu';
-  return {
-    command: base,
-    args: [
-      'managed-run',
-      '--provider',
-      profile.provider,
-      '--prompt',
-      profile.prompt,
-      // Bind the supervisor's cost/journal run_id to this GUI session's runId so
-      // cost/state/proof facts attribute back to the pane (W6 fact base).
-      '--run-id',
-      runId,
-    ],
-  };
+function availableProfiles(catalog: AgentRuntimeCatalog | null) {
+  if (!catalog) return [];
+  const rows = [...catalog.configured];
+  const ids = new Set(rows.map((profile) => profile.id));
+  for (const candidate of catalog.discovered) {
+    if (!ids.has(candidate.profile.id)) rows.push(candidate.profile);
+  }
+  const preferred = catalog.defaultProfileId ?? catalog.recommendedProfileId;
+  return rows.sort((left, right) =>
+    left.id === preferred ? -1 : right.id === preferred ? 1 : 0,
+  );
 }
 
 // A tmux-safe run identity minted GUI-side. It becomes the session runId, the
@@ -115,6 +83,31 @@ function mintRunId(): string {
     globalThis.crypto?.randomUUID?.() ??
     `${Date.now().toString(16)}-${Math.floor(Math.random() * 0xffffff).toString(16)}`;
   return `kfr-${raw.replace(/[^a-f0-9]/gi, '').slice(0, 12)}`;
+}
+
+async function workRefFromShell(shell: Shell): Promise<WorkRef | null> {
+  const params = shell.params ?? {};
+  if (!params.workEntityId || !params.workProfileRoot) return null;
+  let entity: unknown = { id: params.workEntityId };
+  try {
+    entity = JSON.parse(params.workEntity ?? '{}');
+  } catch {
+    entity = { id: params.workEntityId };
+  }
+  return await buildWorkRef({
+    workspaceId:
+      params.workWorkspaceId ||
+      (typeof process !== 'undefined'
+        ? process.env.KF_WORKSPACE_ID || 'home'
+        : 'home'),
+    profileId: params.workProfileId || 'kungfu.mission-control',
+    profileRoot: params.workProfileRoot,
+    entityType: params.workEntityType || 'work',
+    entityId: params.workEntityId,
+    entity,
+    purpose: params.workPurpose || `Advance ${params.workEntityId}`,
+    systemTimeCut: params.workSystemTimeCut || new Date().toISOString(),
+  });
 }
 
 // One pane on the canvas, bound to an already-created session by runId. The
@@ -133,6 +126,9 @@ interface Pane {
   command?: string;
   args?: string[];
   cwd?: string;
+  consoleId?: string;
+  attemptId?: string;
+  runtimeProfileId?: string;
 }
 
 function providerChipStyle(provider: string): React.CSSProperties {
@@ -216,6 +212,7 @@ function SessionPane({
   onDetach,
   onKill,
   onPopOut,
+  onExit,
   poppedOut = false,
 }: {
   caps: KfxCapabilities;
@@ -225,6 +222,7 @@ function SessionPane({
   // Present only when the shell can drive OS windows (ADR-0016 stage 2); the
   // pop-out affordance is hidden otherwise.
   onPopOut?: () => void;
+  onExit?: (pane: Pane) => void;
   // ADR-0016 stage 4: true when this session is currently open in its own OS
   // window, so this in-grid pane is a frozen at-a-glance overview, not the
   // working surface. A PTY has one size; the working window owns it and resizes
@@ -324,6 +322,7 @@ function SessionPane({
             term.write(
               `\r\n\x1b[90m[session ended: code ${exit.exitCode}]\x1b[0m\r\n`,
             );
+            onExit?.(pane);
           }),
         );
         term.onData((data) => {
@@ -378,7 +377,7 @@ function SessionPane({
       exitSub?.stop?.();
       term.dispose();
     };
-  }, [caps.terminal, pane.runId]);
+  }, [caps.terminal, pane, onExit]);
 
   // Track the popped-out flag for the effect above, and re-assert the grid size
   // on the working window → grid transition (true → false) so the pty snaps back
@@ -552,9 +551,15 @@ function SessionPane({
 // Compact launcher: clicking a profile ADDS a pane (concurrent), it does not
 // replace the canvas. The list is an overview, never the main interaction.
 function LauncherStrip({
+  profiles,
+  bindingLabel,
+  busy,
   onLaunch,
 }: {
-  onLaunch: (profile: RunProfile) => void;
+  profiles: AgentRuntimeProfile[];
+  bindingLabel: string;
+  busy: boolean;
+  onLaunch: (profile: AgentRuntimeProfile) => void;
 }) {
   return (
     <div
@@ -565,13 +570,16 @@ function LauncherStrip({
         flexWrap: 'wrap',
       }}
     >
-      <span style={{ ...mono, fontSize: 11, color: '#858585' }}>launch:</span>
-      {INBOX.map((p) => (
+      <span style={{ ...mono, fontSize: 11, color: '#858585' }}>
+        {bindingLabel}:
+      </span>
+      {profiles.map((p) => (
         <button
           key={p.id}
           type="button"
+          disabled={busy}
           onClick={() => onLaunch(p)}
-          title={p.prompt}
+          title={`${p.launch.executable} · ${p.backendDefault}${p.source === 'discovered' ? ' · detected' : ''}`}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -591,6 +599,11 @@ function LauncherStrip({
           <span style={{ color: '#5bbf6a', fontWeight: 600 }}>+</span>
         </button>
       ))}
+      {profiles.length === 0 && (
+        <span style={{ ...mono, fontSize: 11, color: '#dcdcaa' }}>
+          Configure Codex or Claude in Settings → Agents
+        </span>
+      )}
     </div>
   );
 }
@@ -679,9 +692,27 @@ function SessionWorkspace({
   caps,
   shell,
 }: { caps: KfxCapabilities; shell: Shell }) {
+  const domain = caps.domain;
+  const workspaceId =
+    shell.params?.workWorkspaceId ||
+    (typeof process !== 'undefined'
+      ? process.env.KF_WORKSPACE_ID || 'home'
+      : 'home');
   const [panes, setPanes] = React.useState<Pane[]>([]);
+  const [activeRunId, setActiveRunId] = React.useState<string | null>(null);
+  const [splitCount, setSplitCount] = React.useState<1 | 2 | 3>(1);
   const [recoverable, setRecoverable] = React.useState<TerminalSession[]>([]);
   const [notice, setNotice] = React.useState<string | null>(null);
+  const [catalog, setCatalog] = React.useState<AgentRuntimeCatalog | null>(
+    null,
+  );
+  const [catalogBusy, setCatalogBusy] = React.useState(false);
+  const [consoleRegistry, setConsoleRegistry] =
+    React.useState<WorkConsoleRegistry>(() =>
+      domain
+        ? loadConsoleRegistry(domain, workspaceId)
+        : emptyConsoleRegistry(workspaceId),
+    );
   // The per-session OS window set (ADR-0016 stage 2). Seeded from the persisted
   // layout, then driven by the main process, which owns the real windows and
   // pushes a snapshot on every open/close/move; we mirror it back into the
@@ -702,13 +733,55 @@ function SessionWorkspace({
   // Persistence is gated on the domain capability; absent it the workspace is
   // ephemeral. `hydrated` blocks the save effect until the initial restore has
   // read the stored layout, so mounting never clobbers it with an empty set.
-  const domain = caps.domain;
   const hydrated = React.useRef(false);
+
+  const refreshCatalog = React.useCallback(async () => {
+    if (!caps.agentRuntime) {
+      setNotice('Agent Runtime capability unavailable');
+      return;
+    }
+    setCatalogBusy(true);
+    try {
+      setCatalog(await caps.agentRuntime.list());
+    } catch (error) {
+      setNotice(`Agent Runtime catalog failed: ${(error as Error).message}`);
+    } finally {
+      setCatalogBusy(false);
+    }
+  }, [caps.agentRuntime]);
+
+  React.useEffect(() => {
+    void refreshCatalog();
+    return shell.onRefresh(() => void refreshCatalog());
+  }, [refreshCatalog, shell]);
 
   const panedIds = React.useMemo(
     () => new Set(panes.map((p) => p.runId)),
     [panes],
   );
+
+  React.useEffect(() => {
+    if (panes.length === 0) {
+      setActiveRunId(null);
+      return;
+    }
+    if (!activeRunId || !panes.some((pane) => pane.runId === activeRunId)) {
+      setActiveRunId(panes[0].runId);
+    }
+  }, [activeRunId, panes]);
+
+  const visiblePanes = React.useMemo(() => {
+    if (panes.length === 0) return [];
+    const activeIndex = Math.max(
+      0,
+      panes.findIndex((pane) => pane.runId === activeRunId),
+    );
+    const ordered = [
+      ...panes.slice(activeIndex),
+      ...panes.slice(0, activeIndex),
+    ];
+    return ordered.slice(0, Math.min(splitCount, ordered.length));
+  }, [activeRunId, panes, splitCount]);
 
   // ADR-0016 stage 4: the sessions whose grid tile is frozen — those confirmed
   // open in their own OS window (the durable truth the main process pushes),
@@ -764,6 +837,9 @@ function SessionWorkspace({
               command: p.command,
               args: p.args,
               cwd: p.cwd,
+              consoleId: p.consoleId,
+              attemptId: p.attemptId,
+              runtimeProfileId: p.runtimeProfileId,
             });
           }
         } catch {
@@ -772,6 +848,40 @@ function SessionWorkspace({
       }
       if (!cancelled) {
         if (restored.length > 0) setPanes(restored);
+        if (restored.length > 0) {
+          const preferredConsoleId = consoleRegistry.presentation.tabs[0];
+          setActiveRunId(
+            restored.find((pane) => pane.consoleId === preferredConsoleId)
+              ?.runId ?? restored[0].runId,
+          );
+          const restoredSplitCount = Math.min(
+            3,
+            Math.max(1, consoleRegistry.presentation.splits.length),
+          ) as 1 | 2 | 3;
+          setSplitCount(restoredSplitCount);
+        }
+        const restoredIds = new Set(restored.map((pane) => pane.runId));
+        setConsoleRegistry((current) => ({
+          ...current,
+          consoles: current.consoles.map((workConsole) => ({
+            ...workConsole,
+            attempts: workConsole.attempts.map((attempt) =>
+              restoredIds.has(attempt.runId)
+                ? { ...attempt, status: 'running' as const }
+                : attempt.status === 'running'
+                  ? {
+                      ...attempt,
+                      status:
+                        workConsole.backend === 'direct'
+                          ? ('unrecoverable' as const)
+                          : ('orphaned' as const),
+                      endedAt: Date.now(),
+                    }
+                  : attempt,
+            ),
+            updatedAt: Date.now(),
+          })),
+        }));
         // Restore only windows whose session actually came back; a window for a
         // gone session cannot show anything, so it is dropped. The main process
         // clamps each saved rectangle onto a present display (F7).
@@ -821,11 +931,51 @@ function SessionWorkspace({
         cwd: p.cwd,
         startedAt: p.startedAt,
         order: i,
+        consoleId: p.consoleId,
+        attemptId: p.attemptId,
+        runtimeProfileId: p.runtimeProfileId,
       })),
       windows: windowRecords,
     };
     saveWorkspaceLayout(domain, layout);
   }, [panes, domain, windowRecords]);
+
+  React.useEffect(() => {
+    if (!domain || !hydrated.current) return;
+    const consoleIds = panes
+      .map((pane) => pane.consoleId)
+      .filter((value): value is string => Boolean(value));
+    const visibleConsoleIds = visiblePanes
+      .map((pane) => pane.consoleId)
+      .filter((value): value is string => Boolean(value));
+    saveConsoleRegistry(domain, {
+      ...consoleRegistry,
+      workspaceId,
+      presentation: {
+        tabs: consoleIds,
+        splits: visibleConsoleIds,
+        drawer:
+          consoleRegistry.consoles.find(
+            (candidate) =>
+              candidate.bindingKind === 'workspace-assistant' &&
+              consoleIds.includes(candidate.consoleId),
+          )?.consoleId ?? null,
+        windows: windowRecords
+          .map(
+            (record) =>
+              panes.find((pane) => pane.runId === record.runId)?.consoleId,
+          )
+          .filter((value): value is string => Boolean(value)),
+      },
+    });
+  }, [
+    consoleRegistry,
+    domain,
+    panes,
+    visiblePanes,
+    windowRecords,
+    workspaceId,
+  ]);
 
   const refresh = React.useCallback(async () => {
     try {
@@ -850,28 +1000,52 @@ function SessionWorkspace({
   }, [refresh]);
 
   const launch = React.useCallback(
-    async (profile: RunProfile) => {
-      // Mint the run identity here so one id binds the GUI session, the tmux
-      // name, and the supervisor's cost/journal run_id (W6 fact base).
+    async (profile: AgentRuntimeProfile) => {
       const runId = mintRunId();
-      const { command, args } = launchCommand(profile, runId);
+      const attemptId = `attempt:${runId}`;
+      const workRef = await workRefFromShell(shell);
+      const consoleId = workRef
+        ? `work:${workRef.profileId}:${workRef.entityType}:${workRef.entityId}`
+        : `assistant:${workspaceId}`;
+      const envelope = await buildAgentConsoleEnvelope({
+        workspaceId,
+        consoleId,
+        attemptId,
+        runtimeProfile: profile,
+        workRef,
+        activeProfiles: workRef
+          ? [{ id: workRef.profileId, root: workRef.profileRoot }]
+          : [],
+      });
+      const prepared = prepareAgentConsoleLaunch({
+        profile,
+        envelope,
+        workspaceRoot:
+          typeof process !== 'undefined'
+            ? process.env.KF_WORKSPACE_ROOT
+            : undefined,
+        home: typeof process !== 'undefined' ? process.env.HOME : undefined,
+      });
+      const { command, args, cwd, env } = prepared;
       let session: TerminalSession;
-      let durable = true;
+      let durable = prepared.backend === 'tmux';
       try {
         session = await resolve(
           caps.terminal.spawn({
             command,
             args,
+            cwd,
+            env,
             runId,
+            workId: workRef?.entityId,
             provider: profile.provider,
-            backend: 'tmux',
+            backend: prepared.backend,
             cols: 80,
             rows: 24,
           }),
         );
       } catch {
-        // No tmux backend on this host: fall back to a direct (non-durable)
-        // session so the workspace still works, and flag the pane as such.
+        if (prepared.backend !== 'tmux') throw new Error('agent launch failed');
         durable = false;
         setNotice(
           'no tmux backend — sessions run directly and do not survive close',
@@ -880,7 +1054,10 @@ function SessionWorkspace({
           caps.terminal.spawn({
             command,
             args,
+            cwd,
+            env,
             runId,
+            workId: workRef?.entityId,
             provider: profile.provider,
             cols: 80,
             rows: 24,
@@ -899,10 +1076,78 @@ function SessionWorkspace({
           durable,
           command,
           args,
+          cwd,
+          consoleId,
+          attemptId,
+          runtimeProfileId: profile.id,
         },
       ]);
+      setActiveRunId(session.runId);
+      const now = Date.now();
+      setConsoleRegistry((current) => {
+        const previous = current.consoles.find(
+          (candidate) => candidate.consoleId === consoleId,
+        );
+        const next = {
+          consoleId,
+          bindingKind: workRef
+            ? ('work' as const)
+            : ('workspace-assistant' as const),
+          workRef,
+          runtimeProfileId: profile.id,
+          backend: durable ? ('tmux' as const) : ('direct' as const),
+          attempts: [
+            ...(previous?.attempts ?? []),
+            {
+              attemptId,
+              runId: session.runId,
+              status: 'running' as const,
+              startedAt: session.startedAt,
+            },
+          ],
+          createdAt: previous?.createdAt ?? now,
+          updatedAt: now,
+        };
+        return {
+          ...current,
+          consoles: [
+            ...current.consoles.filter(
+              (candidate) => candidate.consoleId !== consoleId,
+            ),
+            next,
+          ],
+        };
+      });
     },
-    [caps.terminal],
+    [caps.terminal, shell, workspaceId],
+  );
+
+  const markAttempt = React.useCallback(
+    (runId: string, status: 'running' | 'detached' | 'exited' | 'orphaned') => {
+      setConsoleRegistry((current) => ({
+        ...current,
+        consoles: current.consoles.map((workConsole) => ({
+          ...workConsole,
+          attempts: workConsole.attempts.map((attempt) =>
+            attempt.runId === runId
+              ? {
+                  ...attempt,
+                  status,
+                  ...(status === 'exited' || status === 'orphaned'
+                    ? { endedAt: Date.now() }
+                    : {}),
+                }
+              : attempt,
+          ),
+          updatedAt: workConsole.attempts.some(
+            (attempt) => attempt.runId === runId,
+          )
+            ? Date.now()
+            : workConsole.updatedAt,
+        })),
+      }));
+    },
+    [],
   );
 
   const detachPane = React.useCallback(
@@ -912,10 +1157,11 @@ function SessionWorkspace({
       } catch {
         // a non-durable or already-ended session has nothing to detach
       }
+      markAttempt(pane.runId, 'detached');
       setPanes((prev) => prev.filter((p) => p.key !== pane.key));
       void refresh();
     },
-    [caps.terminal, refresh],
+    [caps.terminal, markAttempt, refresh],
   );
 
   const killPane = React.useCallback(
@@ -925,16 +1171,24 @@ function SessionWorkspace({
       } catch {
         // best-effort
       }
+      markAttempt(pane.runId, 'exited');
       setPanes((prev) => prev.filter((p) => p.key !== pane.key));
       void refresh();
     },
-    [caps.terminal, refresh],
+    [caps.terminal, markAttempt, refresh],
   );
 
   const reattach = React.useCallback(
     async (s: TerminalSession) => {
       try {
         const session = await resolve(caps.terminal.reattach(s.runId));
+        markAttempt(s.runId, 'running');
+        const workConsole = consoleRegistry.consoles.find((candidate) =>
+          candidate.attempts.some((attempt) => attempt.runId === s.runId),
+        );
+        const attempt = workConsole?.attempts.find(
+          (candidate) => candidate.runId === s.runId,
+        );
         setPanes((prev) =>
           prev.some((p) => p.runId === session.runId)
             ? prev
@@ -951,6 +1205,9 @@ function SessionWorkspace({
                   command: session.command,
                   args: session.args,
                   cwd: session.cwd,
+                  consoleId: workConsole?.consoleId,
+                  attemptId: attempt?.attemptId,
+                  runtimeProfileId: workConsole?.runtimeProfileId,
                 },
               ],
         );
@@ -959,7 +1216,7 @@ function SessionWorkspace({
       }
       void refresh();
     },
-    [caps.terminal, refresh],
+    [caps.terminal, consoleRegistry.consoles, markAttempt, refresh],
   );
 
   const dismiss = React.useCallback(
@@ -969,9 +1226,14 @@ function SessionWorkspace({
       } catch {
         // best-effort
       }
+      markAttempt(s.runId, s.status === 'orphaned' ? 'orphaned' : 'exited');
       void refresh();
     },
-    [caps.terminal, refresh],
+    [caps.terminal, markAttempt, refresh],
+  );
+  const handlePaneExit = React.useCallback(
+    (pane: Pane) => markAttempt(pane.runId, 'exited'),
+    [markAttempt],
   );
 
   return (
@@ -983,7 +1245,69 @@ function SessionWorkspace({
         gap: 8,
       }}
     >
-      <LauncherStrip onLaunch={launch} />
+      <LauncherStrip
+        profiles={availableProfiles(catalog)}
+        bindingLabel={
+          shell.params?.workEntityId
+            ? `Go · ${shell.params.workEntityId}`
+            : 'Workspace assistant'
+        }
+        busy={catalogBusy}
+        onLaunch={(profile) => {
+          void launch(profile).catch((error) =>
+            setNotice(`Agent launch failed: ${(error as Error).message}`),
+          );
+        }}
+      />
+      {panes.length > 0 && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            minHeight: 30,
+            overflowX: 'auto',
+            borderBottom: '1px solid #333',
+            paddingBottom: 5,
+          }}
+        >
+          {panes.map((pane) => (
+            <button
+              key={pane.runId}
+              type="button"
+              onClick={() => setActiveRunId(pane.runId)}
+              title={pane.consoleId ?? pane.runId}
+              style={{
+                ...iconButtonStyle,
+                flex: '0 0 auto',
+                color: pane.runId === activeRunId ? '#9cdcfe' : '#858585',
+                borderColor: pane.runId === activeRunId ? '#2d8fcc' : '#3a3a3a',
+                background:
+                  pane.runId === activeRunId ? '#04395e' : 'transparent',
+              }}
+            >
+              {pane.provider} · {pane.title}
+            </button>
+          ))}
+          <span style={{ flex: 1 }} />
+          {([1, 2, 3] as const).map((count) => (
+            <button
+              key={count}
+              type="button"
+              disabled={panes.length < count}
+              onClick={() => setSplitCount(count)}
+              title={`${count}-pane split`}
+              style={{
+                ...iconButtonStyle,
+                color: splitCount === count ? '#9cdcfe' : '#858585',
+                opacity: panes.length < count ? 0.35 : 1,
+              }}
+            >
+              {count === 1 ? '▣' : count === 2 ? '◫' : '◫│'}
+            </button>
+          ))}
+        </div>
+      )}
       {notice && (
         <div style={{ ...mono, fontSize: 11, color: '#c9a227' }}>{notice}</div>
       )}
@@ -1020,13 +1344,14 @@ function SessionWorkspace({
             alignContent: 'start',
           }}
         >
-          {panes.map((pane) => (
+          {visiblePanes.map((pane) => (
             <SessionPane
               key={pane.key}
               caps={caps}
               pane={pane}
               onDetach={detachPane}
               onKill={killPane}
+              onExit={handlePaneExit}
               onPopOut={
                 shell.popOutSession
                   ? () => {

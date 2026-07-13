@@ -6,7 +6,7 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
-from kungfu import profile_sdk
+from kungfu import profile_composition, profile_sdk
 from kungfu.cli.commands import __registry__  # noqa: F401
 from kungfu.cli.commands import kfc
 from kungfu.storage import service as storage_service
@@ -1070,3 +1070,44 @@ def test_action_invoke_rechecks_active_root_and_returns_core_receipt(tmp_path):
     assert receipt["schema"] == "kungfu.profile-action-receipt/v1"
     assert receipt["coreReceipt"]["state"]["state"] == "removed"
     assert receipt["verified"] is True
+
+
+def test_mission_control_profile_action_executes_through_public_intent(tmp_path):
+    repo = Path(__file__).resolve().parents[4]
+    source = repo / "extensions" / "mission-control"
+    runtime = tmp_path / "runtime"
+    for action in ["install", "qualify", "activate"]:
+        core_plan = profile_sdk.lifecycle_plan(
+            runtime,
+            action,
+            source,
+            **({"granted_permissions": ["storage"]} if action == "activate" else {}),
+        )["corePlan"]
+        profile_sdk.lifecycle_apply(runtime, core_plan, f"test:{action}")
+    contract = profile_composition.contract_materialization_plan(source, runtime)
+    profile_composition.authorized_contract_materialize(
+        runtime,
+        contract,
+        profile_sdk.answer_decision(contract["decisionCard"], "approve", "test-owner"),
+    )
+
+    values = {
+        "missionId": "mission:test",
+        "title": "Test Mission",
+        "intent": "Prove public Profile action execution",
+        "actor": "test-agent",
+        "actorType": "agent",
+    }
+    plan = profile_sdk.intent_plan(source, runtime, "create-mission", values)
+    answer = profile_sdk.answer_decision(plan["decisionCard"], "approve", "test-owner")
+    receipt = profile_sdk.intent_apply(runtime, plan, answer)
+
+    execution = receipt["actionReceipt"]
+    assert execution["schema"] == "kungfu.profile-action-receipt/v1"
+    assert execution["coreReceipt"]["mission_subject"] == "kungfu:mission:test"
+    assert execution["affected"] == {
+        "profileId": "kungfu.mission-control",
+        "entityKeys": ["kungfu:mission:test"],
+        "queryKeys": ["mission-state", "mission-timeline", "mission-attention"],
+    }
+    assert receipt["executionReceiptVerified"] is True

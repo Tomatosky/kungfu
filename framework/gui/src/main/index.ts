@@ -20,6 +20,7 @@ import {
 import { DEVELOPER_NAVIGATION, TOOLS_NAVIGATION } from '../navigation';
 
 import {
+  AGENT_RUNTIME_CLI_EXEC_CHANNEL,
   ATLAS_CLI_EXEC_CHANNEL,
   DESTROY_CHANNEL,
   ENSURE_CHANNEL,
@@ -40,6 +41,7 @@ import {
   WORKSPACE_SELECT_HOME_CHANNEL,
   WORKSPACE_SELECT_RECENT_CHANNEL,
 } from '../sandbox/channels';
+import { executeAgentRuntimeCli } from './agent-runtime-cli';
 import { executeAtlasCli } from './atlas-cli';
 import {
   firstPartyManifestPath,
@@ -171,6 +173,12 @@ if (
 process.env.KF_WORKSPACE_STATE = process.env.KF_WORKSPACE_STATE || 'ready';
 
 const workspaceRuntimeReady = process.env.KF_WORKSPACE_STATE === 'ready';
+
+// ADR-0016 parity is now the product path: the main-process host survives view
+// changes and owns every tab/window, while callers may still explicitly opt
+// back to renderer/direct behavior for diagnosis.
+process.env.KF_TERMINAL_HOST = process.env.KF_TERMINAL_HOST || 'main';
+process.env.KF_SESSION_WINDOWS = process.env.KF_SESSION_WINDOWS || '1';
 
 type WindowChromePlatform = 'darwin' | 'win32' | 'linux' | 'other';
 type WindowChromeMode = 'native' | 'integrated' | 'custom';
@@ -370,6 +378,15 @@ function kungfuBinPath(): string {
   const binName = process.platform === 'win32' ? 'kungfu.exe' : 'kungfu';
   return path.join(path.dirname(process.env.KFE_PATH || bindingPath), binName);
 }
+
+// Finder-launched apps do not inherit an interactive shell PATH. Make the
+// packaged CLI discoverable to agents launched by the Console while retaining
+// the exact absolute path for adapters that do not perform PATH lookup.
+process.env.KUNGFU_CLI_BIN = process.env.KUNGFU_CLI_BIN || kungfuBinPath();
+const kungfuBinDir = path.dirname(process.env.KUNGFU_CLI_BIN);
+process.env.PATH = [kungfuBinDir, process.env.PATH || '']
+  .filter(Boolean)
+  .join(path.delimiter);
 
 type RuntimeStatusPayload = {
   status?: string;
@@ -692,6 +709,13 @@ ipcMain.on(DESTROY_CHANNEL, (_event, payload) => {
 
 ipcMain.handle(ATLAS_CLI_EXEC_CHANNEL, (_event, payload) =>
   executeAtlasCli(payload, {
+    bin: kungfuBinPath(),
+    env: process.env,
+    execFile,
+  }),
+);
+ipcMain.handle(AGENT_RUNTIME_CLI_EXEC_CHANNEL, (_event, payload) =>
+  executeAgentRuntimeCli(payload, {
     bin: kungfuBinPath(),
     env: process.env,
     execFile,

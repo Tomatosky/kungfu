@@ -1,10 +1,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from pathlib import Path
+import sys
 
 import pytest
 
 from kungfu import config
+from kungfu.agent import runtime_profiles
+from kungfu.agent.kfd3 import verify_agent_interface
+from kungfu.rewind.cost.discovery import discover_provider_candidates
 
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -131,3 +135,92 @@ def test_agent_console_envelope_binds_work_and_discovery_entrypoints():
     value["workRef"]["profileRoot"] = "latest"
     with pytest.raises(ValueError):
         config.validate_value("agentConsoleEnvelope", value, contract=_contract())
+
+
+def test_discovery_returns_path_and_app_candidates_without_first_hit_collapse():
+    rows = discover_provider_candidates(
+        "codex",
+        which=lambda name: "/usr/local/bin/codex" if name == "codex" else None,
+        platform="darwin",
+        exists=lambda path: path.startswith("/Applications/Codex.app/"),
+        version_probe=lambda path: f"version:{path}",
+    )
+    assert [row.path_class for row in rows] == ["path", "codex_app_bundle"]
+    assert all(row.found for row in rows)
+    assert rows[0].path == "/usr/local/bin/codex"
+    assert rows[1].path.endswith("/Contents/Resources/codex")
+
+
+def test_runtime_profile_plan_apply_default_and_remove_are_preview_first(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(
+        "kungfu.contract.contract_hash", lambda *args, **kwargs: ROOT_HASH
+    )
+    config_home = tmp_path / "config"
+    runtime_home = tmp_path / "runtime"
+    plan = runtime_profiles.plan_upsert(
+        profile_id="codex-python-wrapper",
+        label="Codex test wrapper",
+        provider="codex",
+        executable=sys.executable,
+        argv=["-c", "print('codex')"],
+        config_home=str(config_home),
+        runtime_home=str(runtime_home),
+    )
+    assert plan["requiresExecute"] is True
+    assert not (config_home / "config.json").exists()
+
+    receipt = runtime_profiles.apply_upsert(
+        plan, config_home=str(config_home), runtime_home=str(runtime_home)
+    )
+    assert receipt["changed"] is True
+    assert (
+        runtime_profiles.configured_profiles(
+            config_home=str(config_home), runtime_home=str(runtime_home)
+        )[0]["id"]
+        == "codex-python-wrapper"
+    )
+
+    default_plan = runtime_profiles.set_default(
+        "codex-python-wrapper",
+        execute=False,
+        config_home=str(config_home),
+        runtime_home=str(runtime_home),
+    )
+    assert default_plan["changed"] is False
+    default_receipt = runtime_profiles.set_default(
+        "codex-python-wrapper",
+        execute=True,
+        config_home=str(config_home),
+        runtime_home=str(runtime_home),
+    )
+    assert default_receipt["changed"] is True
+
+    remove_plan = runtime_profiles.plan_remove(
+        "codex-python-wrapper",
+        config_home=str(config_home),
+        runtime_home=str(runtime_home),
+    )
+    assert runtime_profiles.configured_profiles(
+        config_home=str(config_home), runtime_home=str(runtime_home)
+    )
+    runtime_profiles.apply_remove(
+        remove_plan, config_home=str(config_home), runtime_home=str(runtime_home)
+    )
+    resolved = config.resolve_config(
+        config_home=str(config_home), runtime_home=str(runtime_home)
+    )
+    assert resolved["config"]["agent"]["runtimeProfiles"] == []
+    assert resolved["config"]["agent"]["defaultRuntimeProfile"] is None
+
+
+def test_agent_runtime_commands_are_closed_in_the_kfd3_registry(monkeypatch):
+    import kungfu
+
+    kungfu.__dict__["__version__"] = "test"
+    from kungfu.cli.commands.agent import agent
+
+    monkeypatch.setattr("kungfu.agent.kfd3.registry_digest", lambda: ROOT_HASH)
+    result = verify_agent_interface(agent)
+    assert result["ok"], result
