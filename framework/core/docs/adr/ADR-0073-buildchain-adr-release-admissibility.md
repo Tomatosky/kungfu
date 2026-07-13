@@ -5,7 +5,7 @@ adr_id: ADR-0073
 decision_status: accepted
 implementation_status: implemented
 implementation_commits: [c00c68059c217c0ded26de1b8acbdcbc38c13368]
-closure_commit: c00c68059c217c0ded26de1b8acbdcbc38c13368
+closure_commit: 44d87a1c19ee31bc941d8abe6ca20e9657590850
 qualification_refs: [scripts/adr-release-gate.test.mjs]
 review_state: self-reviewed
 sensitivity: public
