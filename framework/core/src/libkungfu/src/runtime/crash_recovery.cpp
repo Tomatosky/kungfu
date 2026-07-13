@@ -6,6 +6,7 @@
 #include <cctype>
 #include <filesystem>
 #include <fstream>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 
@@ -17,16 +18,359 @@ namespace {
 
 namespace fs = std::filesystem;
 using yijinjing::storage::compute_content_hash_value;
+using yijinjing::storage::episode_content_root_status;
 
 std::string read_bytes(const fs::path &path) {
   std::ifstream input(path, std::ios::binary);
   if (!input) {
     throw std::runtime_error("recovery_evidence_read_failed");
   }
-  return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+  std::string bytes{std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+  if (input.bad()) {
+    throw std::runtime_error("recovery_evidence_read_failed");
+  }
+  return bytes;
 }
 
 std::string digest(const std::string &bytes) { return compute_content_hash_value(bytes); }
+
+template <typename FixedString> std::string fixed_text(const FixedString &value) { return std::string(value.value); }
+
+bool has_prefix(const fs::path &path, std::initializer_list<const char *> components) {
+  auto current = path.begin();
+  for (const auto *component : components) {
+    if (current == path.end() || current->generic_string() != component) {
+      return false;
+    }
+    ++current;
+  }
+  return true;
+}
+
+bool is_content_store_temp_path(const fs::path &relative) {
+  auto component = relative.begin();
+  if (component == relative.end() || component->generic_string() != "storage") {
+    return false;
+  }
+  ++component;
+  if (component == relative.end()) {
+    return false;
+  }
+  ++component;
+  return component != relative.end() && component->generic_string() == "tmp";
+}
+
+bool is_backup_excluded_path(const fs::path &relative) {
+  return has_prefix(relative, {"ownership"}) || has_prefix(relative, {"durable", "quarantine"}) ||
+         has_prefix(relative, {"storage", "projections"}) || is_content_store_temp_path(relative) ||
+         has_prefix(relative, {".kungfu", "durability", "projections"}) ||
+         has_prefix(relative, {".kungfu", "recovery"});
+}
+
+bool is_safe_relative_path(const fs::path &relative) {
+  if (relative.empty() || relative.is_absolute() || relative.has_root_path() ||
+      relative != relative.lexically_normal()) {
+    return false;
+  }
+  for (const auto &component : relative) {
+    if (component == "." || component == ".." || component.empty()) {
+      return false;
+    }
+  }
+  return !is_backup_excluded_path(relative) && !relative.filename().generic_string().ends_with(".pending");
+}
+
+std::vector<backup_file_material> scan_backup_files(const fs::path &root) {
+  std::vector<backup_file_material> files;
+  if (!fs::is_directory(root)) {
+    throw std::runtime_error("recovery_backup_data_root_missing");
+  }
+  for (auto iterator = fs::recursive_directory_iterator(root); iterator != fs::recursive_directory_iterator();
+       ++iterator) {
+    const auto relative = fs::relative(iterator->path(), root).lexically_normal();
+    if (iterator->is_symlink()) {
+      throw std::runtime_error("recovery_backup_symlink_entry");
+    }
+    if (is_backup_excluded_path(relative)) {
+      if (iterator->is_directory()) {
+        iterator.disable_recursion_pending();
+      }
+      continue;
+    }
+    if (iterator->is_directory()) {
+      continue;
+    }
+    if (!iterator->is_regular_file() || !is_safe_relative_path(relative)) {
+      throw std::runtime_error("recovery_backup_unsafe_or_unknown_entry");
+    }
+    auto bytes = read_bytes(iterator->path());
+    files.push_back({relative.generic_string(), bytes.size(), digest(bytes), std::move(bytes)});
+  }
+  std::sort(files.begin(), files.end(),
+            [](const auto &left, const auto &right) { return left.relative_path < right.relative_path; });
+  return files;
+}
+
+std::vector<episode_backup_identity> capture_episode_identities(const std::string &data_root) {
+  const auto &storage = storage_service_api::default_storage_service();
+  const auto listed = storage.episode_list(storage_service_api::storage_episode_list_request{data_root, 0, 0});
+  if (listed.unknown_record_count != 0) {
+    throw std::runtime_error("recovery_backup_episode_unknown_records");
+  }
+
+  std::vector<episode_backup_identity> identities;
+  identities.reserve(listed.episodes.size());
+  for (const auto &episode : listed.episodes) {
+    if (!episode.opened || !episode.closed || episode.open_count != 1 || episode.close_count != 1) {
+      throw std::runtime_error("recovery_backup_episode_not_sealed");
+    }
+    storage_service_api::storage_episode_inspect_request request{};
+    request.runtime_dir = data_root;
+    request.episode_id = episode.episode_id;
+    const auto inspected = storage.episode_inspect(request);
+    if (inspected.unknown_record_count != 0 || inspected.content_root.status != episode_content_root_status::Verified ||
+        !inspected.content_root.match.value_or(false) || !inspected.content_root.computed.has_value()) {
+      throw std::runtime_error("recovery_backup_episode_identity_unverified");
+    }
+    if (!inspected.qualification.has_value() || inspected.qualification->status != "ok") {
+      throw std::runtime_error("recovery_backup_episode_payload_unverified");
+    }
+
+    episode_backup_identity identity;
+    identity.episode_id = episode.episode_id;
+    identity.closed = true;
+    identity.content_root_algorithm = inspected.content_root.computed->algorithm;
+    identity.content_root_value = inspected.content_root.computed->value;
+    for (size_t position = 0; position < inspected.episode.ref_indices.size(); ++position) {
+      const auto &ref = inspected.episode.ref_at(position);
+      if (ref.ref_kind == yijinjing::enums::EpisodeRefKind::Payload) {
+        identity.payload_hashes.push_back(fixed_text(ref.ref_hash));
+      }
+    }
+    std::sort(identity.payload_hashes.begin(), identity.payload_hashes.end());
+    identities.push_back(std::move(identity));
+  }
+  std::sort(identities.begin(), identities.end(),
+            [](const auto &left, const auto &right) { return left.episode_id < right.episode_id; });
+  return identities;
+}
+
+void append_identity_text(std::ostringstream &identity, const std::string &value) {
+  identity << value.size() << ':' << value << '\n';
+}
+
+std::string backup_identity(const recovery_backup_bundle &bundle) {
+  std::ostringstream identity;
+  append_identity_text(identity, bundle.schema);
+  identity << bundle.stream_id << '\n' << bundle.container_epoch << '\n';
+  if (bundle.backup_cut.has_value()) {
+    const auto &cut = *bundle.backup_cut;
+    identity << cut.stream_id << ':' << cut.container_epoch << ':' << cut.sequence << ':' << cut.frame_uid;
+  }
+  identity << '\n'
+           << bundle.durable_record_count << '\n'
+           << bundle.lost_visible_tail_bytes << '\n'
+           << bundle.projection_rebuild_required << '\n';
+  append_identity_text(identity, bundle.rpo_boundary);
+  append_identity_text(identity, bundle.qualification_profile);
+  for (const auto &file : bundle.files) {
+    append_identity_text(identity, file.relative_path);
+    identity << file.size << '\n';
+    append_identity_text(identity, file.sha256);
+  }
+  for (const auto &episode : bundle.episodes) {
+    identity << episode.episode_id << '\n' << episode.closed << '\n';
+    append_identity_text(identity, episode.content_root_algorithm);
+    append_identity_text(identity, episode.content_root_value);
+    for (const auto &payload_hash : episode.payload_hashes) {
+      append_identity_text(identity, payload_hash);
+    }
+    identity << "episode-end\n";
+  }
+  return digest(identity.str());
+}
+
+void validate_backup_bundle(const recovery_backup_bundle &bundle) {
+  const std::vector<recovery_phase> completed_phases = {recovery_phase::Discover, recovery_phase::Verify,
+                                                        recovery_phase::Select, recovery_phase::Classify,
+                                                        recovery_phase::Report};
+  const std::vector<std::string> restart_order = {"supervisor", "state_service", "projection", "peers"};
+  if (bundle.schema != RECOVERY_BACKUP_SCHEMA_V1 || bundle.bundle_id.empty() ||
+      bundle.bundle_id != backup_identity(bundle) || bundle.source_report.outcome != recovery_outcome::Ready ||
+      bundle.source_report.schema != RECOVERY_REPORT_SCHEMA_V1 ||
+      bundle.source_report.completed_phases != completed_phases || !bundle.backup_cut.has_value() ||
+      bundle.backup_cut->stream_id != bundle.stream_id ||
+      bundle.backup_cut->container_epoch != bundle.container_epoch || bundle.durable_record_count == 0 ||
+      bundle.files.empty() || bundle.source_report.stream_id != bundle.stream_id ||
+      bundle.source_report.container_epoch != bundle.container_epoch ||
+      bundle.source_report.durable_frontier != bundle.backup_cut ||
+      bundle.source_report.durable_record_count != bundle.durable_record_count ||
+      bundle.source_report.unacknowledged_tail_bytes != bundle.lost_visible_tail_bytes ||
+      bundle.source_report.unacknowledged_tail_integrity != durability::tail_integrity::None ||
+      bundle.source_report.evidence_error != durability::ingest_error::None ||
+      !bundle.source_report.evidence_message.empty() || !bundle.source_report.qualification_passed ||
+      bundle.source_report.episode_unknown_record_count != 0 || !bundle.source_report.interrupted_episodes.empty() ||
+      bundle.source_report.mutation_performed || bundle.source_report.restart_order != restart_order ||
+      bundle.lost_visible_tail_bytes != 0 || bundle.rpo_boundary != "through-checkpoint-covered-durable-frontier" ||
+      bundle.qualification_profile != bundle.source_report.qualification_profile ||
+      !bundle.projection_rebuild_required) {
+    throw std::runtime_error("recovery_backup_bundle_identity_invalid");
+  }
+
+  std::string previous_path;
+  for (const auto &file : bundle.files) {
+    const fs::path relative(file.relative_path);
+    if (!is_safe_relative_path(relative) || (!previous_path.empty() && file.relative_path <= previous_path) ||
+        file.size != file.bytes.size() || file.sha256 != digest(file.bytes)) {
+      throw std::runtime_error("recovery_backup_file_invalid");
+    }
+    previous_path = file.relative_path;
+  }
+
+  uint64_t previous_episode = 0;
+  bool first_episode = true;
+  for (const auto &episode : bundle.episodes) {
+    if (!episode.closed || episode.content_root_algorithm.empty() || episode.content_root_value.empty() ||
+        (!first_episode && episode.episode_id <= previous_episode) ||
+        !std::is_sorted(episode.payload_hashes.begin(), episode.payload_hashes.end())) {
+      throw std::runtime_error("recovery_backup_episode_identity_invalid");
+    }
+    for (const auto &payload_hash : episode.payload_hashes) {
+      constexpr size_t SHA256_HEX_SIZE = 64;
+      const std::string prefix = "sha256:";
+      const auto value = payload_hash.starts_with(prefix) ? payload_hash.substr(prefix.size()) : std::string{};
+      const bool lowercase_hex =
+          value.size() == SHA256_HEX_SIZE && std::ranges::all_of(value, [](unsigned char character) {
+            return std::isdigit(character) != 0 ||
+                   (character >= static_cast<unsigned char>('a') && character <= static_cast<unsigned char>('f'));
+          });
+      const auto payload_path =
+          fs::path("storage") / "payloads" / value.substr(0, std::min<size_t>(2, value.size())) / value;
+      const auto material = std::find_if(bundle.files.begin(), bundle.files.end(), [&payload_path](const auto &file) {
+        return file.relative_path == payload_path.generic_string();
+      });
+      if (!lowercase_hex || material == bundle.files.end() || material->sha256 != value) {
+        throw std::runtime_error("recovery_backup_episode_payload_invalid");
+      }
+    }
+    first_episode = false;
+    previous_episode = episode.episode_id;
+  }
+}
+
+std::string restore_receipt_bytes(const recovery_backup_bundle &bundle) {
+  std::ostringstream receipt;
+  receipt << "schema=kungfu.recovery-restore-receipt/v1\n"
+          << "status=completed\n"
+          << "bundle_id=" << bundle.bundle_id << '\n'
+          << "stream_id=" << bundle.stream_id << '\n'
+          << "container_epoch=" << bundle.container_epoch << '\n'
+          << "durable_record_count=" << bundle.durable_record_count << '\n'
+          << "lost_visible_tail_bytes=" << bundle.lost_visible_tail_bytes << '\n'
+          << "projection_rebuild_required=true\n";
+  if (bundle.backup_cut.has_value()) {
+    const auto &cut = *bundle.backup_cut;
+    receipt << "backup_cut=" << cut.stream_id << ':' << cut.container_epoch << ':' << cut.sequence << ':'
+            << cut.frame_uid << '\n';
+  }
+  return receipt.str();
+}
+
+fs::path restore_receipt_path(const fs::path &root, const recovery_backup_bundle &bundle) {
+  return root / ".kungfu" / "recovery" / (bundle.bundle_id + ".receipt");
+}
+
+std::set<std::string> allowed_restore_directories(const recovery_backup_bundle &bundle) {
+  std::set<std::string> allowed = {"ownership"};
+  for (const auto &file : bundle.files) {
+    auto parent = fs::path(file.relative_path).parent_path();
+    while (!parent.empty()) {
+      allowed.insert(parent.generic_string());
+      parent = parent.parent_path();
+    }
+  }
+  return allowed;
+}
+
+void validate_restore_destination(const fs::path &root, const recovery_backup_bundle &bundle) {
+  const std::set<std::string> expected_files = [&bundle] {
+    std::set<std::string> paths;
+    for (const auto &file : bundle.files) {
+      paths.insert(file.relative_path);
+      paths.insert(file.relative_path + ".pending");
+    }
+    return paths;
+  }();
+  auto allowed_directories = allowed_restore_directories(bundle);
+  allowed_directories.insert(".kungfu");
+  allowed_directories.insert(".kungfu/durability");
+  allowed_directories.insert("storage");
+  allowed_directories.insert("durable");
+
+  for (auto iterator = fs::recursive_directory_iterator(root); iterator != fs::recursive_directory_iterator();
+       ++iterator) {
+    const auto relative = fs::relative(iterator->path(), root).lexically_normal();
+    const auto relative_text = relative.generic_string();
+    if (iterator->is_symlink()) {
+      throw std::runtime_error("recovery_restore_symlink_entry");
+    }
+    if (has_prefix(relative, {"ownership"})) {
+      if (iterator->is_directory()) {
+        continue;
+      }
+      continue;
+    }
+    if (iterator->is_directory()) {
+      if (!allowed_directories.contains(relative_text)) {
+        throw std::runtime_error("recovery_restore_destination_not_empty");
+      }
+      continue;
+    }
+    if (!iterator->is_regular_file() || !expected_files.contains(relative_text)) {
+      throw std::runtime_error("recovery_restore_destination_not_empty");
+    }
+  }
+}
+
+void validate_completed_restore_destination(const fs::path &root, const recovery_backup_bundle &bundle) {
+  std::set<std::string> expected_files;
+  for (const auto &file : bundle.files) {
+    expected_files.insert(file.relative_path);
+  }
+  auto allowed_directories = allowed_restore_directories(bundle);
+  allowed_directories.insert(".kungfu");
+  allowed_directories.insert(".kungfu/durability");
+  allowed_directories.insert("storage");
+  allowed_directories.insert("durable");
+  for (auto iterator = fs::recursive_directory_iterator(root); iterator != fs::recursive_directory_iterator();
+       ++iterator) {
+    const auto relative = fs::relative(iterator->path(), root).lexically_normal();
+    const auto relative_text = relative.generic_string();
+    if (iterator->is_symlink()) {
+      throw std::runtime_error("recovery_restore_symlink_entry");
+    }
+    if (is_backup_excluded_path(relative)) {
+      continue;
+    }
+    if (iterator->is_directory()) {
+      if (!allowed_directories.contains(relative_text)) {
+        throw std::runtime_error("recovery_restore_completed_root_has_extra_authority");
+      }
+      continue;
+    }
+    if (!iterator->is_regular_file() || !expected_files.contains(relative_text)) {
+      throw std::runtime_error("recovery_restore_completed_root_has_extra_authority");
+    }
+  }
+}
+
+bool restored_files_match(const fs::path &root, const recovery_backup_bundle &bundle) {
+  return std::ranges::all_of(bundle.files, [&root](const auto &file) {
+    const auto destination = root / fs::path(file.relative_path);
+    return fs::is_regular_file(destination) && !fs::is_symlink(destination) &&
+           fs::file_size(destination) == file.size && digest(read_bytes(destination)) == file.sha256;
+  });
+}
 
 bool is_stream_evidence_name(const std::string &name) {
   if (name == "checkpoint.0" || name == "checkpoint.1") {
@@ -267,6 +611,167 @@ maintenance_receipt recovery_engine::quarantine(const quarantine_preview &previe
     receipt.mutation_performed = true;
     return receipt;
   } catch (const std::exception &error) {
+    receipt.error = error.what();
+    return receipt;
+  }
+}
+
+backup_export_result recovery_engine::export_consistent_backup() const {
+  backup_export_result result;
+  try {
+    auto service_owner = yijinjing::ownership::lease::acquire_data_root_service(options_.data_root);
+    auto writer_owner =
+        yijinjing::ownership::lease::acquire_stream_writer(options_.data_root, options_.writer_resource_id);
+    if (!service_owner.owns() || !writer_owner.owns()) {
+      throw std::runtime_error("recovery_backup_ownership_unavailable");
+    }
+
+    const auto first_report = inspect();
+    if (first_report.outcome != recovery_outcome::Ready || !first_report.durable_frontier.has_value() ||
+        first_report.unacknowledged_tail_bytes != 0) {
+      throw std::runtime_error("recovery_backup_source_not_ready");
+    }
+    const auto root = fs::absolute(options_.data_root).lexically_normal();
+    const auto first_files = scan_backup_files(root);
+    const auto first_episodes = capture_episode_identities(options_.data_root);
+
+    const auto repeated_report = inspect();
+    const auto repeated_episodes = capture_episode_identities(options_.data_root);
+    const auto repeated_files = scan_backup_files(root);
+    if (!(first_report == repeated_report) || first_files != repeated_files || first_episodes != repeated_episodes) {
+      throw std::runtime_error("recovery_backup_source_changed_during_export");
+    }
+
+    recovery_backup_bundle bundle;
+    bundle.stream_id = repeated_report.stream_id;
+    bundle.container_epoch = repeated_report.container_epoch;
+    bundle.backup_cut = repeated_report.durable_frontier;
+    bundle.durable_record_count = repeated_report.durable_record_count;
+    bundle.lost_visible_tail_bytes = repeated_report.unacknowledged_tail_bytes;
+    bundle.qualification_profile = repeated_report.qualification_profile;
+    bundle.source_report = repeated_report;
+    bundle.files = repeated_files;
+    bundle.episodes = repeated_episodes;
+    bundle.bundle_id = backup_identity(bundle);
+    validate_backup_bundle(bundle);
+    result.ok = true;
+    result.bundle = std::move(bundle);
+    return result;
+  } catch (const std::exception &error) {
+    result.error = error.what();
+    return result;
+  }
+}
+
+restore_receipt recovery_engine::restore_backup(const recovery_backup_bundle &bundle) const {
+  restore_receipt receipt;
+  bool mutated = false;
+  receipt.bundle_id = bundle.bundle_id;
+  receipt.restored_cut = bundle.backup_cut;
+  receipt.restored_file_count = bundle.files.size();
+  receipt.restored_episode_count = bundle.episodes.size();
+  for (const auto &file : bundle.files) {
+    receipt.restored_bytes += file.size;
+  }
+  try {
+    validate_backup_bundle(bundle);
+    if (bundle.stream_id != options_.stream_id || bundle.container_epoch != options_.container_epoch ||
+        bundle.qualification_profile != options_.qualification_profile) {
+      throw std::runtime_error("recovery_restore_target_contract_mismatch");
+    }
+
+    auto service_owner = yijinjing::ownership::lease::acquire_data_root_service(options_.data_root);
+    auto writer_owner =
+        yijinjing::ownership::lease::acquire_stream_writer(options_.data_root, options_.writer_resource_id);
+    if (!service_owner.owns() || !writer_owner.owns()) {
+      throw std::runtime_error("recovery_restore_ownership_unavailable");
+    }
+
+    const auto root = fs::absolute(options_.data_root).lexically_normal();
+    const auto receipt_path = restore_receipt_path(root, bundle);
+    receipt.receipt_path = receipt_path.string();
+    const auto expected_receipt = restore_receipt_bytes(bundle);
+    if (fs::exists(receipt_path)) {
+      if (!fs::is_regular_file(receipt_path) || read_bytes(receipt_path) != expected_receipt) {
+        throw std::runtime_error("recovery_restore_receipt_mismatch");
+      }
+      validate_completed_restore_destination(root, bundle);
+      receipt.restored_report = inspect();
+      if (!restored_files_match(root, bundle) || !(receipt.restored_report == bundle.source_report) ||
+          capture_episode_identities(options_.data_root) != bundle.episodes) {
+        throw std::runtime_error("recovery_restore_completed_root_mismatch");
+      }
+      receipt.status = maintenance_status::AlreadyCompleted;
+      return receipt;
+    }
+
+    validate_restore_destination(root, bundle);
+    for (const auto &file : bundle.files) {
+      const auto destination = root / fs::path(file.relative_path);
+      const auto temporary = fs::path(destination.string() + ".pending");
+      if (fs::is_regular_file(destination)) {
+        if (fs::exists(temporary)) {
+          throw std::runtime_error("recovery_restore_stale_pending_file");
+        }
+        if (fs::file_size(destination) != file.size || digest(read_bytes(destination)) != file.sha256) {
+          throw std::runtime_error("recovery_restore_existing_file_mismatch");
+        }
+        continue;
+      }
+      if (fs::exists(destination)) {
+        throw std::runtime_error("recovery_restore_destination_path_conflict");
+      }
+      mutated = fs::create_directories(destination.parent_path()) || mutated;
+      if (fs::exists(temporary) && (!fs::is_regular_file(temporary) || fs::is_symlink(temporary))) {
+        throw std::runtime_error("recovery_restore_pending_path_conflict");
+      }
+      mutated = true;
+      {
+        std::ofstream output(temporary, std::ios::binary | std::ios::trunc);
+        output.write(file.bytes.data(), static_cast<std::streamsize>(file.bytes.size()));
+        output.flush();
+        if (!output) {
+          throw std::runtime_error("recovery_restore_file_write_failed");
+        }
+      }
+      if (fs::file_size(temporary) != file.size || digest(read_bytes(temporary)) != file.sha256) {
+        throw std::runtime_error("recovery_restore_file_verification_failed");
+      }
+      fs::rename(temporary, destination);
+      mutated = true;
+    }
+
+    if (!restored_files_match(root, bundle)) {
+      throw std::runtime_error("recovery_restore_file_set_mismatch");
+    }
+    receipt.restored_report = inspect();
+    if (!(receipt.restored_report == bundle.source_report)) {
+      throw std::runtime_error("recovery_restore_frontier_mismatch");
+    }
+    if (capture_episode_identities(options_.data_root) != bundle.episodes) {
+      throw std::runtime_error("recovery_restore_episode_identity_mismatch");
+    }
+
+    mutated = fs::create_directories(receipt_path.parent_path()) || mutated;
+    const auto temporary_receipt = fs::path(receipt_path.string() + ".pending");
+    mutated = true;
+    {
+      std::ofstream output(temporary_receipt, std::ios::binary | std::ios::trunc);
+      output << expected_receipt;
+      output.flush();
+      if (!output) {
+        throw std::runtime_error("recovery_restore_receipt_write_failed");
+      }
+    }
+    fs::rename(temporary_receipt, receipt_path);
+    if (read_bytes(receipt_path) != expected_receipt) {
+      throw std::runtime_error("recovery_restore_receipt_verification_failed");
+    }
+    receipt.status = maintenance_status::Completed;
+    receipt.mutation_performed = mutated;
+    return receipt;
+  } catch (const std::exception &error) {
+    receipt.mutation_performed = mutated;
     receipt.error = error.what();
     return receipt;
   }
