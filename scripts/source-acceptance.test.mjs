@@ -39,13 +39,14 @@ test('source plan cannot enter build, compiler, artifact, or release lifecycles'
   );
 });
 
-test('reusable workflow is bound to source mode and the review train', () => {
+test('reusable workflow is bound to source mode and the protected alpha channel', () => {
   const workflow = fs.readFileSync(
     path.join(ROOT, '.github/workflows/source-acceptance.yml'),
     'utf8',
   );
   assert.match(workflow, /mode: source/);
-  assert.match(workflow, /train\/v2\/v2\.3\/source-check-mode-env/);
+  assert.match(workflow, /check\.yml@v2-alpha/);
+  assert.match(workflow, /buildchain-ref: v2-alpha/);
   assert.doesNotMatch(workflow, /self-hosted/);
 });
 

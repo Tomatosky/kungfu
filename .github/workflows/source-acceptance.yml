@@ -13,8 +13,8 @@ permissions:
 jobs:
   source-acceptance:
     name: Source acceptance
-    uses: kungfu-systems/buildchain/.github/workflows/check.yml@train/v2/v2.3/source-check-mode-env
+    uses: kungfu-systems/buildchain/.github/workflows/check.yml@v2-alpha
     with:
-      buildchain-ref: train/v2/v2.3/source-check-mode-env
+      buildchain-ref: v2-alpha
       mode: source
       upload-artifacts: true
