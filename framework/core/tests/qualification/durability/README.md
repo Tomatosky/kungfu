@@ -48,6 +48,28 @@ Disposable volume/VM/device evidence, real ENOSPC, performance ceilings, soak,
 and production profile activation remain separate later tiers. Their absence
 is a passing report's explicit non-claim, not an ignored test.
 
+## Disposable power-cut fixture
+
+`./shifu durability:powercut:fixture` builds a small native worker for the
+later VM/device tier. It can stop at every append, data-sync, checkpoint,
+directory-sync, and post-receipt boundary, then verify the checkpoint-covered
+record chain after a fresh boot. Building or running its non-interrupting
+smoke path is not power-loss evidence; only an external disposable-VM
+orchestrator may terminate the guest after the worker emits
+`KF_POWER_CUT_ARMED`.
+
+The worker fails closed unless both safeguards are present:
+
+- `KUNGFU_DURABILITY_QUALIFICATION=disposable-powercut`;
+- a pre-existing data root containing
+  `.kungfu-disposable-powercut-fixture` with the exact
+  `kungfu.durability.disposable-root/v1` sentinel.
+
+Never place that sentinel in a user journal or production data root. The
+fixture does not create, mount, format, terminate, or restart a VM or storage
+device; those destructive actions belong to a separately reviewed,
+dry-run-first orchestrator and retained machine report.
+
 ## Files
 
 - `profiles/*.json` freezes the platform/filesystem process profiles.

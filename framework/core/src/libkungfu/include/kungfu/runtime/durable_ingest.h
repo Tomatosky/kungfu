@@ -28,6 +28,7 @@ enum class ingest_fault_point : uint8_t {
   BeforeCheckpointRename,
   AfterCheckpointRename,
   BeforeDirectorySync,
+  AfterDirectorySync,
 };
 
 enum class tail_integrity : uint8_t { None, CompleteRecords, TornOrCorrupt, Unverifiable };

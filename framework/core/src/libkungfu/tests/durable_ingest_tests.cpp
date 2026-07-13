@@ -160,6 +160,29 @@ void test_unknown_after_checkpoint_publish_resolves_on_restart() {
           "retry did not reconcile the published checkpoint by request id");
 }
 
+void test_unknown_after_directory_sync_resolves_on_restart() {
+  temp_tree tree;
+  owners owner(tree.root());
+  {
+    durable_ingest_log log(options(tree.root()), [](ingest_fault_point point) {
+      if (point == ingest_fault_point::AfterDirectorySync) {
+        throw std::runtime_error("injected post-directory-sync crash window");
+      }
+    });
+    log.append(position(1), 1001, "directory-synced", owner.service, owner.writer);
+    const auto result = log.barrier(441, durability_profile::DurableSync, owner.service, owner.writer);
+    require(result.receipt.status == receipt_status::Unknown, "post-directory-sync uncertainty was guessed as success");
+    require(!result.receipt.durable_watermark.has_value(),
+            "post-directory-sync uncertainty returned an in-process durable watermark");
+  }
+  durable_ingest_log reopened(options(tree.root()));
+  require(reopened.status().durable_watermark == position(1),
+          "restart did not recover the directory-synced checkpoint");
+  const auto retry = reopened.barrier(441, durability_profile::DurableSync, owner.service, owner.writer);
+  require(retry.receipt.status == receipt_status::Succeeded && retry.receipt.barrier_id == 1,
+          "retry did not reconcile the directory-synced checkpoint by request id");
+}
+
 void test_unknown_append_requires_reopen_and_preserves_tail() {
   temp_tree tree;
   owners owner(tree.root());
@@ -793,6 +816,7 @@ int main(int argc, char **argv) {
       {"data sync without checkpoint never acknowledges", test_data_sync_without_checkpoint_never_acknowledges},
       {"unknown after checkpoint publish resolves on restart",
        test_unknown_after_checkpoint_publish_resolves_on_restart},
+      {"unknown after directory sync resolves on restart", test_unknown_after_directory_sync_resolves_on_restart},
       {"unknown append requires reopen and preserves tail", test_unknown_append_requires_reopen_and_preserves_tail},
       {"stale generation cannot commit pending bytes", test_stale_generation_cannot_commit_pending_bytes},
       {"writer may exit after active admission", test_writer_may_exit_after_admission_without_invalidating_frame},
