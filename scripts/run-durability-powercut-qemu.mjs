@@ -31,7 +31,7 @@ export function parseOptions(args) {
   return result;
 }
 
-function command(argv, options = {}) {
+export function command(argv, options = {}) {
   const result = spawnSync(argv[0], argv.slice(1), {
     cwd: options.cwd || ROOT,
     encoding: 'utf8',
@@ -44,7 +44,7 @@ function command(argv, options = {}) {
   return (result.stdout || '').trim();
 }
 
-function requireBelow(candidate, root, label) {
+export function requireBelow(candidate, root, label) {
   const normalized = path.resolve(candidate);
   if (normalized === root || !normalized.startsWith(`${root}${path.sep}`)) {
     throw new Error(`${label} must be below ${root}`);
@@ -78,7 +78,7 @@ export function qemuArgs({ workspace, rootfs, data, kernelArgs }) {
   ];
 }
 
-function childFacts(child, data) {
+export function childFacts(child, data) {
   if (!child.pid) throw new Error('QEMU child has no pid');
   const executable = fs.readlinkSync(`/proc/${child.pid}/exe`);
   const commandLine = fs
@@ -94,7 +94,7 @@ function childFacts(child, data) {
   return { pid: child.pid, executable, command_line: commandLine };
 }
 
-async function waitForLog(child, pathname, markers, timeoutMs) {
+export async function waitForLog(child, pathname, markers, timeoutMs) {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
     const output = fs.existsSync(pathname)
@@ -111,7 +111,7 @@ async function waitForLog(child, pathname, markers, timeoutMs) {
   throw new Error(`timed out waiting for markers: ${markers.join(', ')}`);
 }
 
-async function waitForExit(child, timeoutMs = 5000) {
+export async function waitForExit(child, timeoutMs = 5000) {
   if (child.exitCode !== null || child.signalCode !== null) {
     return { code: child.exitCode, signal: child.signalCode };
   }
@@ -126,7 +126,7 @@ async function waitForExit(child, timeoutMs = 5000) {
   ]);
 }
 
-function startQemu(args, logPath) {
+export function startQemu(args, logPath) {
   const descriptor = fs.openSync(logPath, 'wx');
   const child = spawn('qemu-system-x86_64', args, {
     cwd: ROOT,
@@ -136,7 +136,7 @@ function startQemu(args, logPath) {
   return child;
 }
 
-async function sha256(pathname) {
+export async function sha256(pathname) {
   const hash = crypto.createHash('sha256');
   for await (const chunk of fs.createReadStream(pathname)) hash.update(chunk);
   return hash.digest('hex');

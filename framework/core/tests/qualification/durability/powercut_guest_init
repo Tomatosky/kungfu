@@ -36,6 +36,10 @@ case "$mode" in
     maximum="$(value_from_cmdline kf_max)"
     "$fixture" verify /data "$minimum" "$maximum" || status=$?
     ;;
+  enospc)
+    profile="$(value_from_cmdline kf_profile)"
+    "$fixture" enospc /data "$profile" || status=$?
+    ;;
   *)
     printf 'KF_GUEST_ERROR invalid mode=%s\n' "$mode" >&2
     ;;
@@ -45,6 +49,8 @@ if [ "$status" -eq 64 ]; then
   status=0
 fi
 sync
+umount /data
+printf 'KF_DATA_UNMOUNTED mode=%s\n' "$mode"
 printf 'KF_GUEST_EXIT mode=%s status=%s\n' "$mode" "$status"
 # PID 1 must not exit. The host runner observes this exact marker, then
 # terminates only its direct QEMU child.

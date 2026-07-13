@@ -99,6 +99,21 @@ completion marker it remains alive as PID 1, and the host runner terminates only
 that direct QEMU child. This avoids treating a missing guest init-system
 `poweroff` helper as durability evidence.
 
+The separate `./shifu durability:institutional:qemu` harness extends that
+disposable Linux/ext4 envelope with a real filesystem-full ENOSPC trial, a
+cleanly unmounted write followed by three whole-guest reopen checks, and an
+offline block-image backup copied to a sentinel-protected path outside the VM
+workspace. It restores that backup onto an absent data-device path, verifies
+the image hash, runs read-only `e2fsck`, and boots a fresh root overlay to
+verify the durable chain. Execution requires the same explicit QEMU
+confirmation plus a second backup-root sentinel and refuses pre-existing
+evidence files.
+
+This qualifies only the named disposable guest/device envelope. It does not
+restart the physical QEMU host, move the backup off-host, establish an
+independent backup failure domain, or activate a production profile; the
+machine report records each of those as `false`.
+
 ## Files
 
 - `profiles/*.json` freezes the platform/filesystem process profiles.
@@ -111,3 +126,5 @@ that direct QEMU child. This avoids treating a missing guest init-system
   matrix without executing it.
 - `powercut_guest_init` is the guest-only init entrypoint copied into the
   disposable root image; it cannot create or terminate a host VM.
+- `scripts/run-durability-institutional-qemu.mjs` owns the explicit real
+  ENOSPC, whole-guest reopen, and offline backup/restore drill.

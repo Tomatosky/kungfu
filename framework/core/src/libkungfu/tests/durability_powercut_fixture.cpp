@@ -4,6 +4,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include <cerrno>
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
@@ -14,7 +15,12 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <system_error>
 #include <thread>
+#include <vector>
+
+#include <fcntl.h>
+#include <unistd.h>
 
 namespace fs = std::filesystem;
 using namespace kungfu::runtime::durability;
@@ -189,9 +195,96 @@ int verify(const fs::path &root, uint64_t expected_min_sequence, uint64_t expect
   return passed ? 0 : 1;
 }
 
+void fill_until_enospc(const fs::path &filler) {
+  const int fd = ::open(filler.c_str(), O_CREAT | O_EXCL | O_WRONLY | O_CLOEXEC, 0600);
+  if (fd < 0) {
+    throw std::system_error(errno, std::generic_category(), "create ENOSPC filler");
+  }
+  try {
+    std::vector<char> block(1024 * 1024, 'K');
+    for (const size_t block_size : {block.size(), size_t{64 * 1024}, size_t{4096}}) {
+      for (;;) {
+        const off_t durable_size = ::lseek(fd, 0, SEEK_END);
+        if (durable_size < 0) {
+          throw std::system_error(errno, std::generic_category(), "inspect ENOSPC filler");
+        }
+        const ssize_t written = ::write(fd, block.data(), block_size);
+        if (written < 0) {
+          if (errno == ENOSPC) {
+            break;
+          }
+          throw std::system_error(errno, std::generic_category(), "write ENOSPC filler");
+        }
+        if (written != static_cast<ssize_t>(block_size) || ::fsync(fd) != 0) {
+          const int sync_error = written != static_cast<ssize_t>(block_size) ? ENOSPC : errno;
+          if (::ftruncate(fd, durable_size) != 0) {
+            throw std::system_error(errno, std::generic_category(), "rollback ENOSPC filler tail");
+          }
+          if (sync_error == ENOSPC) {
+            break;
+          }
+          throw std::system_error(sync_error, std::generic_category(), "sync ENOSPC filler");
+        }
+      }
+    }
+  } catch (...) {
+    ::close(fd);
+    throw;
+  }
+  if (::close(fd) != 0) {
+    throw std::system_error(errno, std::generic_category(), "close ENOSPC filler");
+  }
+}
+
+int verify_real_enospc(const fs::path &root, const std::string &profile_name) {
+  require_disposable_root(root);
+  owner_pair owners(root);
+  durable_ingest_log log(options(root));
+  const auto filler = root / "enospc-filler.bin";
+  fill_until_enospc(filler);
+
+  bool append_threw = false;
+  std::string exception;
+  std::optional<barrier_result> barrier;
+  try {
+    log.append(position(1), CARRIER_TYPE, payload(1), owners.service, owners.writer);
+    barrier = log.barrier(20001, profile(profile_name), owners.service, owners.writer);
+  } catch (const std::system_error &error) {
+    append_threw = true;
+    exception = error.what();
+  }
+  const auto status = log.status();
+  const bool succeeded_receipt = barrier.has_value() && barrier->receipt.status == receipt_status::Succeeded;
+  const bool durable_progress =
+      status.durable_watermark.has_value() || (barrier.has_value() && barrier->receipt.durable_watermark.has_value());
+  const bool io_error =
+      status.last_error == ingest_error::IoError || (barrier.has_value() && barrier->error == ingest_error::IoError);
+  const bool passed = !succeeded_receipt && !durable_progress && io_error;
+
+  std::error_code remove_error;
+  fs::remove(filler, remove_error);
+  nlohmann::json report = {
+      {"schema", "kungfu.durability.real-enospc-verification/v1"},
+      {"passed", passed},
+      {"profile", profile_name},
+      {"append_threw", append_threw},
+      {"exception", exception},
+      {"receipt_status", barrier.has_value() ? receipt_status_name(barrier->receipt.status) : "not_emitted"},
+      {"barrier_error", barrier.has_value() ? ingest_error_name(barrier->error) : "not_emitted"},
+      {"status_error", ingest_error_name(status.last_error)},
+      {"durable_watermark_emitted", durable_progress},
+      {"pending_records", status.pending_records},
+      {"requires_reopen", status.requires_reopen},
+      {"filler_removed", !remove_error},
+  };
+  std::cout << report.dump() << std::endl;
+  return passed && !remove_error ? 0 : 1;
+}
+
 void usage() {
   std::cout << "Usage:\n"
                "  kungfu_durability_powercut_fixture write ROOT PROFILE FAULT_POINT\n"
+               "  kungfu_durability_powercut_fixture enospc ROOT PROFILE\n"
                "  kungfu_durability_powercut_fixture verify ROOT EXPECTED_MIN_SEQUENCE [EXPECTED_MAX_SEQUENCE]\n\n"
                "FAULT_POINT: none, before_record_write, after_record_write, before_data_sync,\n"
                "  after_data_sync, before_checkpoint_write, before_checkpoint_rename,\n"
@@ -209,6 +302,9 @@ int main(int argc, char **argv) {
     }
     if (argc == 5 && std::string(argv[1]) == "write") {
       return write_once(argv[2], argv[3], argv[4]);
+    }
+    if (argc == 4 && std::string(argv[1]) == "enospc") {
+      return verify_real_enospc(argv[2], argv[3]);
     }
     if ((argc == 4 || argc == 5) && std::string(argv[1]) == "verify") {
       const auto minimum = std::stoull(argv[3]);
