@@ -199,11 +199,18 @@ def read_missions(repo_root, warnings):
                 {
                     "mission_id": _text(card.get("mission_id")),
                     "title": _text(card.get("title")),
+                    "intent": _text(card.get("intent")),
+                    "north_star": _text(card.get("north_star")),
+                    "why_it_matters": _text(card.get("why_it_matters")),
                     "status": _text(card.get("status")),
+                    "horizon": _text(card.get("horizon")),
+                    "owner": _text(card.get("owner")),
                     "active_lens": _text(card.get("active_lens")),
                     "stage_name": _text(stage.get("name")),
+                    "stage_summary": _text(stage.get("summary")),
                     "next_review": _text(stage.get("next_review")),
                     "next_action": _text(card.get("next_action")),
+                    "updated_at": _text(card.get("updated_at")),
                 }
             )
     return [card for card in missions if card["mission_id"]]
@@ -250,6 +257,11 @@ def read_goals(repo_root, warnings):
                     "mission_id": _text(card.get("mission_id")),
                     "lens": _text(card.get("lens")),
                     "mission_stage": _text(card.get("mission_stage")),
+                    "mission_role": _text(card.get("mission_role")),
+                    "mission_importance": _text(card.get("mission_importance")),
+                    "mission_track": _text(card.get("mission_track")),
+                    "mission_parent_goal": _text(card.get("mission_parent_goal")),
+                    "mission_why_matters": _text(card.get("mission_why_matters")),
                     "source_branch": _text(card.get("source_branch")),
                     "worktree_path": _text(card.get("worktree_path")),
                     "external_repo_path": _text(card.get("external_repo_path")),
@@ -259,6 +271,7 @@ def read_goals(repo_root, warnings):
                     "latest_marker": _text(card.get("latest_marker")),
                     "summary": _text(card.get("summary")),
                     "next_action": _text(card.get("next_action")),
+                    "updated_at": _text(card.get("updated_at")),
                     "archived": bool(card.get("archived", archived)),
                 }
             )

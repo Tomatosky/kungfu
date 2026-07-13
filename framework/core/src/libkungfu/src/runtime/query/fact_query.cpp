@@ -1056,36 +1056,54 @@ nlohmann::json frontier_json(const query_frontier &frontier) {
   if (frontier.kind == frontier_kind::Empty) {
     return {{"kind", "empty"}, {"record_count", "0"}};
   }
+  if (frontier.kind == frontier_kind::SystemTime) {
+    return {{"kind", "system_time"},
+            {"system_time", std::to_string(frontier.system_time)},
+            {"record_count", std::to_string(frontier.record_count)}};
+  }
   return {{"kind", "manifest_frame_uid"},
           {"manifest_frame_uid", std::to_string(frontier.manifest_frame_uid)},
           {"record_count", std::to_string(frontier.record_count)}};
 }
 
 query_frontier parse_frontier(const nlohmann::json &value, const char *path) {
-  reject_unknown_fields(value, {"kind", "manifest_frame_uid", "record_count"}, path);
+  reject_unknown_fields(value, {"kind", "manifest_frame_uid", "system_time", "record_count"}, path);
   const auto kind = optional_text(value, "kind");
   if (kind == "empty") {
-    if (value.contains("manifest_frame_uid")) {
-      throw std::invalid_argument(std::string(path) + " empty frontier must not carry manifest_frame_uid");
+    if (value.contains("manifest_frame_uid") || value.contains("system_time")) {
+      throw std::invalid_argument(std::string(path) + " empty frontier must not carry a position");
     }
     return {};
   }
   if (kind == "manifest_frame_uid") {
-    return {frontier_kind::ManifestFrameUid, optional_uint64(value, "manifest_frame_uid"),
+    return {frontier_kind::ManifestFrameUid, optional_uint64(value, "manifest_frame_uid"), 0,
             optional_uint64(value, "record_count")};
   }
-  throw std::invalid_argument(std::string(path) + " kind must be empty or manifest_frame_uid");
+  if (kind == "system_time") {
+    const auto system_time = int64_value(value.at("system_time"), "frontier.system_time");
+    if (system_time <= 0) {
+      throw std::invalid_argument(std::string(path) + " system_time must be positive");
+    }
+    return {frontier_kind::SystemTime, 0, system_time, optional_uint64(value, "record_count")};
+  }
+  throw std::invalid_argument(std::string(path) + " kind must be empty, manifest_frame_uid, or system_time");
 }
 
 query_frontier result_frontier(const query_result &result) {
   const auto &resolved = result.proof.cut.at("resolved");
+  const auto record_count = optional_uint64(result.proof.authority, "record_count");
+  if (record_count == 0) {
+    return {};
+  }
+  if (result.definition.object == "fact-state") {
+    return {frontier_kind::SystemTime, 0, int64_value(resolved.at("system_time"), "cut.system_time"), record_count};
+  }
   const auto kind = optional_text(resolved, "kind");
   if (kind == "empty") {
     return {};
   }
   if (kind == "manifest_frame_uid") {
-    return {frontier_kind::ManifestFrameUid, optional_uint64(resolved, "manifest_frame_uid"),
-            optional_uint64(result.proof.authority, "record_count")};
+    return {frontier_kind::ManifestFrameUid, optional_uint64(resolved, "manifest_frame_uid"), 0, record_count};
   }
   throw std::runtime_error("query result has no resumable frontier");
 }
@@ -1099,11 +1117,21 @@ nlohmann::json result_frontier_evidence_json(const query_result &result) {
 bool same_frontier(const query_frontier &left, const query_frontier &right) {
   return left.kind == right.kind &&
          (left.kind == frontier_kind::Empty ||
-          (left.manifest_frame_uid == right.manifest_frame_uid && left.record_count == right.record_count));
+          (left.manifest_frame_uid == right.manifest_frame_uid && left.system_time == right.system_time &&
+           left.record_count == right.record_count));
 }
 
 bool frontier_regressed(const query_frontier &from, const query_frontier &target) {
-  return target.record_count < from.record_count;
+  if (target.record_count < from.record_count) {
+    return true;
+  }
+  // frame_uid is an opaque manifest identity, not an ordinal. Append order is
+  // proved by the fold's record_count; comparing uid numerically can report a
+  // false regression when a later frame happens to have a smaller hash-like id.
+  if (from.kind == frontier_kind::SystemTime && target.kind == frontier_kind::SystemTime) {
+    return target.system_time < from.system_time;
+  }
+  return false;
 }
 
 nlohmann::json resume_token_payload_json(const query_resume_token &token) {
@@ -1134,10 +1162,29 @@ std::string changelog_batch_id(const logical_plan &plan, const query_frontier &f
 
 query_result run_at_frontier(const std::string &runtime_dir, const query_definition &definition,
                              const query_frontier &frontier) {
+  if (frontier.kind == frontier_kind::Empty) {
+    query_result empty;
+    empty.definition = definition;
+    empty.plan = plan_query(definition);
+    empty.row_schema = empty.plan.row_schema;
+    empty.result_hash =
+        json_hash({{"result_schema", result_schema_json(empty.row_schema)}, {"rows", nlohmann::json::array()}});
+    return empty;
+  }
   auto bounded = definition;
+  if (definition.object == "fact-state") {
+    if (frontier.kind != frontier_kind::SystemTime) {
+      throw std::runtime_error("fact-state changelog frontier must use system_time");
+    }
+    bounded.basis.selected_cut.kind = cut_kind::SystemTime;
+    bounded.basis.selected_cut.system_time = frontier.system_time;
+    return run_fact_state_authority_scan(runtime_dir, plan_query(bounded));
+  }
+  if (frontier.kind != frontier_kind::ManifestFrameUid) {
+    throw std::runtime_error("episode changelog frontier must use manifest_frame_uid");
+  }
   bounded.basis.selected_cut.kind = cut_kind::ManifestFrameUid;
-  bounded.basis.selected_cut.manifest_frame_uid =
-      frontier.kind == frontier_kind::Empty ? 0 : frontier.manifest_frame_uid;
+  bounded.basis.selected_cut.manifest_frame_uid = frontier.manifest_frame_uid;
   return run_episode_authority_scan(runtime_dir, plan_query(bounded));
 }
 
@@ -1147,6 +1194,12 @@ std::string row_key(const nlohmann::json &row) {
   }
   if (row.contains("match_id") && row.at("match_id").is_string()) {
     return row.at("match_id").get<std::string>();
+  }
+  if (row.contains("fact_surface_id") && row.contains("subject_key") && row.contains("source_id")) {
+    return json_hash({{"contract_world_id", row.value("contract_world_id", "")},
+                      {"fact_surface_id", row.at("fact_surface_id")},
+                      {"subject_key", row.at("subject_key")},
+                      {"source_id", row.at("source_id")}});
   }
   if (!row.contains("episode_id")) {
     throw std::runtime_error("query changelog row has neither match_id nor episode_id key");
@@ -1185,6 +1238,11 @@ nlohmann::json evidence_reference(const query_result &result, const nlohmann::js
   if (row.contains("episode_id")) {
     // Preserve the Q3 evidence edge: uint64 identities are rendered as text.
     reference["episode_id"] = row_key(row);
+    if (row.contains("fact_surface_id")) {
+      reference["episode_id"] = row.at("episode_id");
+      reference["payload_hash"] = row.value("payload_hash", "");
+      reference["payload_ref"] = row.value("payload_ref", "");
+    }
   }
   if (row.contains("match_id")) {
     reference["row_key"] = row_key(row);
@@ -1286,8 +1344,8 @@ nlohmann::json changelog_page_json(const changelog_page &page) {
           {"complete", page.complete}};
 }
 
-changelog_page run_episode_changelog(const std::string &runtime_dir, const logical_plan &plan,
-                                     const nlohmann::json &resume_token, uint64_t max_messages) {
+changelog_page run_query_changelog(const std::string &runtime_dir, const logical_plan &plan,
+                                   const nlohmann::json &resume_token, uint64_t max_messages) {
   if (plan.definition.basis.selected_cut.kind != cut_kind::Head) {
     throw std::invalid_argument("continuous query requires a head cut");
   }
@@ -1295,7 +1353,8 @@ changelog_page run_episode_changelog(const std::string &runtime_dir, const logic
     throw std::invalid_argument("max_messages must be between 1 and 10000");
   }
 
-  const auto current = run_episode_authority_scan(runtime_dir, plan);
+  const auto current = plan.definition.object == "fact-state" ? run_fact_state_authority_scan(runtime_dir, plan)
+                                                              : run_episode_authority_scan(runtime_dir, plan);
   const auto current_frontier = result_frontier(current);
   query_resume_token cursor;
   bool continuing_batch = false;
@@ -1410,6 +1469,14 @@ changelog_page run_episode_changelog(const std::string &runtime_dir, const logic
   }
   seal_resume_token(page.resume_token);
   return page;
+}
+
+changelog_page run_episode_changelog(const std::string &runtime_dir, const logical_plan &plan,
+                                     const nlohmann::json &resume_token, uint64_t max_messages) {
+  if (plan.definition.object != "episodes") {
+    throw std::invalid_argument("episode changelog requires object=episodes");
+  }
+  return run_query_changelog(runtime_dir, plan, resume_token, max_messages);
 }
 
 namespace {

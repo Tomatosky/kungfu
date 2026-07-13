@@ -11,7 +11,7 @@
 
 #include <kungfu/runtime/io.h>
 #include <kungfu/runtime/live/reactor.h>
-#include <kungfu/runtime/state_cache/manager.h>
+#include <kungfu/runtime/state_service.h>
 #include <kungfu/yijinjing/journal/common.h>
 
 namespace kungfu::runtime::live {
@@ -55,7 +55,7 @@ public:
 
 protected:
   int64_t last_check_;
-  state_cache::manager state_cache_;
+  state_service::service state_service_;
 
   std::unordered_map<uint32_t, uint32_t> peer_cmd_locations_ = {};
   std::unordered_map<uint32_t, std::unordered_map<int32_t, timer_task>> timer_tasks_ = {};
@@ -75,7 +75,7 @@ private:
 
   void pong(const event_ptr &event);
 
-  void on_request_write_to_band(const event_ptr &event);
+  void on_request_write_to_outlet(const event_ptr &event);
 
   void on_request_write_to(const event_ptr &event);
 

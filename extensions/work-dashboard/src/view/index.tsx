@@ -6,10 +6,17 @@
 // forensic detail view.
 import type {
   Atlas,
+  AtlasDashboardSnapshot,
   AtlasGoal,
   AtlasImportInfo,
   AtlasMission,
   AtlasMissionControlReport,
+  GoalCardQuerySpec,
+  Profile,
+  ProfileLifecyclePlan,
+  QueryChangelogState,
+  QueryResumeToken,
+  Storage,
   WorkItem,
   WorkspaceActionPreview,
   WorkspaceActionReceipt,
@@ -20,10 +27,33 @@ import type {
   WorkspaceGuidanceInspection,
   WorkspaceGuidanceIntent,
 } from '@kungfu-tech/api/capability';
-import { WORK_STATUS_NAMES } from '@kungfu-tech/api/capability';
+import {
+  DEFAULT_GOAL_CARD_QUERY,
+  WORK_STATUS_NAMES,
+  applyQueryChangelogPage,
+  emptyQueryChangelogState,
+  parseGoalCardQuerySpec,
+} from '@kungfu-tech/api/capability';
 import type { KfxCapabilities, Shell } from '@kungfu-tech/kfx';
 import { headingStyle, mono, panelStyle } from '@kungfu-tech/kfx';
 import React from 'react';
+import {
+  dashboardMetricVisuals,
+  dashboardSnapshotVisual,
+  missionControlProfileVisual,
+  profileApprovalVisual,
+} from './dashboard-status';
+import { createLatestRefresh } from './latest-refresh';
+import {
+  GoalCardField,
+  GoalDetailDrawer,
+  MissionSituationOverview,
+} from './mission-visual';
+import { deriveTrustVisual } from './mission-visual-model';
+import {
+  type MissionControlProfileSetupStep,
+  missionControlProfileSetupStep,
+} from './profile-setup';
 
 const STATUS_ORDER = ['active', 'blocked', 'waiting', 'ready', 'done'] as const;
 const ATLAS_GOAL_STATUSES = [
@@ -44,6 +74,15 @@ const STATUS_COLORS: Record<string, string> = {
   done: '#6a6a6a',
 };
 
+function goalCardSavedViewId(missionId: string): string {
+  let hash = 2166136261;
+  for (const character of missionId) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `mission-control.goal-cards.${(hash >>> 0).toString(16)}`;
+}
+
 function statusName(item: WorkItem): string {
   return item.status !== undefined ? WORK_STATUS_NAMES[item.status] : 'unknown';
 }
@@ -58,25 +97,31 @@ function StatusBadge({ name }: { name: string }) {
 
 function SmallButton({
   active = false,
+  disabled = false,
   children,
   onClick,
+  title,
 }: {
   active?: boolean;
+  disabled?: boolean;
   children: React.ReactNode;
   onClick: () => void;
+  title?: string;
 }) {
   return (
     <button
       type="button"
+      disabled={disabled}
       onClick={onClick}
+      title={title}
       style={{
         ...mono,
         padding: '3px 8px',
         border: active ? '1px solid #2d8fcc' : '1px solid #3c3c3c',
         borderRadius: 4,
-        cursor: 'pointer',
+        cursor: disabled ? 'default' : 'pointer',
         background: active ? '#04395e' : 'transparent',
-        color: active ? '#9cdcfe' : '#cccccc',
+        color: disabled ? '#6a6a6a' : active ? '#9cdcfe' : '#cccccc',
       }}
     >
       {children}
@@ -307,27 +352,89 @@ function AtlasUnavailableView() {
   );
 }
 
-function AtlasProjectionView({ atlas }: { atlas: Atlas }) {
+function AtlasProjectionView({
+  atlas,
+  profile,
+  shell,
+  storage,
+}: {
+  atlas: Atlas;
+  profile?: Profile;
+  shell: Shell;
+  storage: Storage;
+}) {
+  const initialDashboard = atlas.currentDashboard();
   const [repoRoot, setRepoRoot] = React.useState(atlas.defaultRepoRoot);
-  const [missions, setMissions] = React.useState<AtlasMission[]>(() =>
-    atlas.missions(),
+  const [missions, setMissions] = React.useState<AtlasMission[]>(
+    () => initialDashboard?.missions ?? [],
   );
-  const [goals, setGoals] = React.useState<AtlasGoal[]>(() => atlas.goals());
-  const [info, setInfo] = React.useState<AtlasImportInfo | null>(() =>
-    atlas.importInfo(),
+  const [goals, setGoals] = React.useState<AtlasGoal[]>(
+    () => initialDashboard?.goals ?? [],
   );
+  const [info, setInfo] = React.useState<AtlasImportInfo | null>(
+    () => initialDashboard?.import_info ?? null,
+  );
+  const [dashboardCut, setDashboardCut] = React.useState(
+    () => initialDashboard?.cut.system_time ?? '',
+  );
+  const [dashboardRefreshing, setDashboardRefreshing] = React.useState(
+    initialDashboard === null,
+  );
+  const [dashboardError, setDashboardError] = React.useState('');
+  const [profileStatus, setProfileStatus] = React.useState(
+    profile
+      ? 'Mission Control Profile pending'
+      : 'Profile capability unavailable',
+  );
+  const [profileSetup, setProfileSetup] =
+    React.useState<MissionControlProfileSetupStep | null>(null);
+  const [profileSetupPlan, setProfileSetupPlan] =
+    React.useState<ProfileLifecyclePlan | null>(null);
+  const [profileSetupActor, setProfileSetupActor] = React.useState('');
+  const profileSetupActorInput = React.useRef<HTMLInputElement>(null);
+  const [profileSetupBusy, setProfileSetupBusy] = React.useState(false);
   const [selectedMission, setSelectedMission] = React.useState<string>(() =>
     missions.length ? missions[0].mission_id : 'all',
   );
+  const autoSelectMission = React.useRef(missions.length === 0);
+  const mounted = React.useRef(true);
+  const assessmentRequest = React.useRef(0);
   const [statusFilter, setStatusFilter] = React.useState<string>('all');
   const [selectedGoal, setSelectedGoal] = React.useState<string | null>(null);
+  const [displayMode, setDisplayMode] = React.useState<'visual' | 'audit'>(
+    'visual',
+  );
+  const [goalCardQuery, setGoalCardQuery] = React.useState<GoalCardQuerySpec>(
+    () => ({
+      ...DEFAULT_GOAL_CARD_QUERY,
+      sort: { ...DEFAULT_GOAL_CARD_QUERY.sort },
+    }),
+  );
+  const [goalCardSaveState, setGoalCardSaveState] = React.useState('');
+  const [catalogRefreshGeneration, setCatalogRefreshGeneration] =
+    React.useState(0);
+  const goalCardSavedRevision = React.useRef({ id: '', revision: 0 });
   const [message, setMessage] = React.useState<string>('');
   const [trustReport, setTrustReport] =
     React.useState<AtlasMissionControlReport | null>(null);
   const [trustError, setTrustError] = React.useState<string>('');
   const [completionReport, setCompletionReport] =
     React.useState<AtlasMissionControlReport | null>(null);
+  const [completionGoalId, setCompletionGoalId] = React.useState<string | null>(
+    null,
+  );
   const [completionError, setCompletionError] = React.useState<string>('');
+  const [queryStream, setQueryStream] = React.useState<QueryChangelogState>(
+    emptyQueryChangelogState,
+  );
+  const [queryStreamError, setQueryStreamError] = React.useState('');
+  const queryStreamState = React.useRef<QueryChangelogState>(
+    emptyQueryChangelogState(),
+  );
+  const queryStreamDefinitionRoot = React.useRef('');
+  const queryStreamResume = React.useRef<QueryResumeToken | undefined>(
+    undefined,
+  );
   const [newMissionId, setNewMissionId] = React.useState('');
   const [newMissionTitle, setNewMissionTitle] = React.useState('');
   const [newMissionIntent, setNewMissionIntent] = React.useState('');
@@ -353,36 +460,331 @@ function AtlasProjectionView({ atlas }: { atlas: Atlas }) {
       : undefined;
   }, [missions, selectedMission]);
 
-  const reload = React.useCallback(() => {
-    setInfo(atlas.importInfo());
-    setMissions(atlas.missions());
-    setGoals(atlas.goals());
-  }, [atlas]);
+  React.useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      assessmentRequest.current += 1;
+    };
+  }, []);
+
+  const applyDashboard = React.useCallback(
+    (snapshot: AtlasDashboardSnapshot) => {
+      setInfo(snapshot.import_info);
+      setMissions(snapshot.missions);
+      setGoals(snapshot.goals);
+      setDashboardCut(snapshot.cut.system_time);
+      setDashboardError('');
+      if (autoSelectMission.current && snapshot.missions.length > 0) {
+        autoSelectMission.current = false;
+        setSelectedMission(snapshot.missions[0].mission_id);
+      }
+    },
+    [],
+  );
+
+  const dashboardRefresh = React.useMemo(
+    () =>
+      createLatestRefresh({
+        load: () => atlas.dashboard(),
+        apply: applyDashboard,
+        fail: (error) => setDashboardError((error as Error).message),
+        busy: () => setDashboardRefreshing(true),
+        idle: () => setDashboardRefreshing(false),
+      }),
+    [atlas, applyDashboard],
+  );
 
   React.useEffect(() => {
-    reload();
-  }, [reload]);
+    dashboardRefresh.request();
+    return () => dashboardRefresh.dispose();
+  }, [dashboardRefresh]);
+
+  const refreshProfileStatus = React.useCallback(async () => {
+    if (!profile) {
+      setProfileStatus('Profile capability unavailable');
+      setProfileSetup(null);
+      return;
+    }
+    try {
+      const manager = await profile.managerAsync();
+      const current = manager.profiles.find(
+        (candidate) => candidate.profileId === 'kungfu.mission-control',
+      );
+      let discovery = null;
+      if (!current || !current.source) {
+        try {
+          discovery = await profile.discoverAsync('kungfu.mission-control');
+        } catch {
+          discovery = null;
+        }
+      }
+      const setup = missionControlProfileSetupStep(current ?? null, discovery);
+      setProfileSetup(setup);
+      if (!current) {
+        setProfileStatus(
+          setup
+            ? 'Mission Control setup required · install'
+            : 'Mission Control Profile not installed · source unavailable',
+        );
+      } else if (current.health !== 'active' || !current.catalog) {
+        const diagnosis = current.diagnostics[0]?.message;
+        setProfileStatus(
+          `Mission Control setup required · ${setup?.action ?? `${current.lifecycleState}/${current.health}`}${diagnosis ? ` · ${diagnosis}` : ''}`,
+        );
+      } else {
+        setProfileSetupPlan(null);
+        const contract = current.source
+          ? await profile.contractPlanAsync(current.source)
+          : null;
+        if (contract?.operations.length) {
+          setProfileStatus(
+            `Profile contract needs approval · ${contract.operations.length} operation(s) · plan ${contract.planId.slice(-12)}`,
+          );
+        } else {
+          setProfileStatus(
+            `Profile ${current.profileVersion} · suite ${current.profileSuiteRoot.slice(-12)} · catalog ${current.catalog.catalogRoot.slice(-12)}`,
+          );
+        }
+      }
+    } catch (error) {
+      setProfileSetup(null);
+      setProfileStatus(`Profile degraded · ${(error as Error).message}`);
+    }
+  }, [profile]);
+
+  const reviewProfileSetup = React.useCallback(async () => {
+    if (!profile || !profileSetup) return;
+    setProfileSetupBusy(true);
+    try {
+      setProfileSetupPlan(
+        await profile.lifecyclePlanAsync(
+          profileSetup.action,
+          profileSetup.source,
+        ),
+      );
+      setMessage('Review the exact Profile lifecycle plan before approval.');
+    } catch (error) {
+      setMessage(`Profile setup failed · ${(error as Error).message}`);
+    } finally {
+      setProfileSetupBusy(false);
+    }
+  }, [profile, profileSetup]);
+
+  const approveProfileSetup = React.useCallback(async () => {
+    if (!profileSetupActor.trim()) {
+      setMessage('Enter the workspace owner identity to authorize this plan.');
+      profileSetupActorInput.current?.focus();
+      return;
+    }
+    if (!profile || !profileSetup || !profileSetupPlan) {
+      return;
+    }
+    setProfileSetupBusy(true);
+    try {
+      await profile.authorizeLifecycleAsync(
+        profileSetup.action,
+        profileSetup.source,
+        String(profileSetupPlan.corePlan.plan_id ?? ''),
+        'approve',
+        profileSetupActor.trim(),
+      );
+      setProfileSetupPlan(null);
+      setProfileSetupActor('');
+      setMessage(
+        `Mission Control ${profileSetup.action} applied · review the next explicit lifecycle gate.`,
+      );
+      await refreshProfileStatus();
+    } catch (error) {
+      setMessage(`Profile setup failed · ${(error as Error).message}`);
+    } finally {
+      setProfileSetupBusy(false);
+    }
+  }, [
+    profile,
+    profileSetup,
+    profileSetupPlan,
+    profileSetupActor,
+    refreshProfileStatus,
+  ]);
 
   React.useEffect(() => {
+    void refreshProfileStatus();
+  }, [refreshProfileStatus]);
+
+  const advanceQueryStream = React.useCallback(
+    async (report: AtlasMissionControlReport, request: number) => {
+      const definition = report.state.definition;
+      if (!definition)
+        throw new Error('Mission Control query profile has no view');
+      const sameDefinition =
+        queryStreamDefinitionRoot.current === report.query_definition_root;
+      let state = sameDefinition
+        ? queryStreamState.current
+        : emptyQueryChangelogState();
+      let resume = sameDefinition ? queryStreamResume.current : undefined;
+      let complete = false;
+      for (let pageCount = 0; pageCount < 8 && !complete; pageCount += 1) {
+        if (!mounted.current || request !== assessmentRequest.current) return;
+        const page = storage.factChangelog(definition, resume, 100);
+        state = applyQueryChangelogPage(state, page);
+        resume = page.resume_token;
+        complete = page.complete;
+        if (state.gap) break;
+        // One native page can be synchronous, but a catch-up batch must not
+        // become one renderer task. Yield between pages so resize/input frames
+        // keep running while the query stream advances.
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      }
+      if (!mounted.current || request !== assessmentRequest.current) return;
+      queryStreamState.current = state;
+      queryStreamDefinitionRoot.current = report.query_definition_root;
+      queryStreamResume.current = resume;
+      setQueryStream(state);
+      setQueryStreamError(complete ? '' : 'query stream is catching up');
+    },
+    [storage],
+  );
+
+  const refreshAssessment = React.useCallback(async () => {
+    const request = ++assessmentRequest.current;
     if (selectedMission === 'all') {
       setTrustReport(null);
       setTrustError('');
       setCompletionReport(null);
       setCompletionError('');
+      setQueryStreamError('');
       return;
     }
     try {
-      setTrustReport(
-        atlas.assessMission(selectedMission, {
-          source: selectedMissionSource,
-        }),
-      );
+      const report = await atlas.assessMissionAsync(selectedMission, {
+        source: selectedMissionSource,
+      });
+      if (!mounted.current || request !== assessmentRequest.current) return;
+      setTrustReport(report);
       setTrustError('');
+      try {
+        await advanceQueryStream(report, request);
+      } catch (error) {
+        setQueryStreamError(
+          `degraded snapshot fallback · ${(error as Error).message}`,
+        );
+      }
     } catch (error) {
+      if (!mounted.current || request !== assessmentRequest.current) return;
       setTrustReport(null);
       setTrustError((error as Error).message);
     }
-  }, [atlas, selectedMission, selectedMissionSource]);
+  }, [atlas, selectedMission, selectedMissionSource, advanceQueryStream]);
+
+  React.useEffect(() => {
+    void refreshAssessment();
+  }, [refreshAssessment]);
+
+  const goalCardViewId =
+    selectedMission === 'all'
+      ? 'mission-control.goal-cards'
+      : goalCardSavedViewId(selectedMission);
+
+  React.useEffect(() => {
+    void catalogRefreshGeneration;
+    if (selectedMission === 'all') return;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      try {
+        const entry = storage
+          .savedQueries()
+          .entries.find((candidate) => candidate.query_id === goalCardViewId);
+        if (cancelled) return;
+        if (!entry) {
+          if (goalCardSavedRevision.current.id !== goalCardViewId) {
+            goalCardSavedRevision.current = { id: goalCardViewId, revision: 0 };
+            setGoalCardQuery({
+              ...DEFAULT_GOAL_CARD_QUERY,
+              sort: { ...DEFAULT_GOAL_CARD_QUERY.sort },
+            });
+            setGoalCardSaveState('not saved');
+          }
+          return;
+        }
+        if (
+          goalCardSavedRevision.current.id === goalCardViewId &&
+          goalCardSavedRevision.current.revision === entry.revision
+        ) {
+          return;
+        }
+        const view = entry.saved_view.view;
+        if (view.kind !== 'mission-control' || !view.goalCards) return;
+        setGoalCardQuery(parseGoalCardQuerySpec(view.goalCards));
+        goalCardSavedRevision.current = {
+          id: goalCardViewId,
+          revision: entry.revision,
+        };
+        setGoalCardSaveState(`revision ${entry.revision}`);
+      } catch (error) {
+        if (!cancelled)
+          setGoalCardSaveState(`degraded · ${(error as Error).message}`);
+      }
+    }, 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [storage, selectedMission, goalCardViewId, catalogRefreshGeneration]);
+
+  const saveGoalCardView = React.useCallback(() => {
+    const definition = trustReport?.state.definition;
+    if (!definition || selectedMission === 'all') {
+      setGoalCardSaveState('select an assessed Mission first');
+      return;
+    }
+    try {
+      const current = goalCardSavedRevision.current;
+      const missionTitle =
+        missions.find((mission) => mission.mission_id === selectedMission)
+          ?.title || selectedMission;
+      const entry = storage.putSavedQuery(
+        {
+          schema: 'kungfu.query.saved-view/v1',
+          name: `${missionTitle} · Go cards`,
+          definition,
+          view: {
+            kind: 'mission-control',
+            profileId: 'kungfu.mission-control',
+            profileVersion: '3.0.0',
+            questionId: 'observed-progress',
+            reducer: 'kungfu.mission-control.five-questions',
+            goalCards: goalCardQuery,
+          },
+        },
+        goalCardViewId,
+        current.id === goalCardViewId ? current.revision : 0,
+      );
+      goalCardSavedRevision.current = {
+        id: goalCardViewId,
+        revision: entry.revision,
+      };
+      setGoalCardSaveState(`saved revision ${entry.revision}`);
+    } catch (error) {
+      setGoalCardSaveState(`save failed · ${(error as Error).message}`);
+    }
+  }, [
+    storage,
+    trustReport,
+    selectedMission,
+    missions,
+    goalCardQuery,
+    goalCardViewId,
+  ]);
+
+  const refreshAll = React.useCallback(() => {
+    dashboardRefresh.request();
+    void refreshAssessment();
+    void refreshProfileStatus();
+    setCatalogRefreshGeneration((current) => current + 1);
+  }, [dashboardRefresh, refreshAssessment, refreshProfileStatus]);
+
+  React.useEffect(() => shell.onRefresh(refreshAll), [shell, refreshAll]);
 
   const importNow = () => {
     if (!repoRoot.trim()) {
@@ -399,7 +801,7 @@ function AtlasProjectionView({ atlas }: { atlas: Atlas }) {
             : ''
         }`,
       );
-      reload();
+      dashboardRefresh.request();
     } catch (e) {
       setMessage((e as Error).message);
     }
@@ -418,7 +820,8 @@ function AtlasProjectionView({ atlas }: { atlas: Atlas }) {
           result.receipt.reused ? ' (reused)' : ''
         }`,
       );
-      reload();
+      dashboardRefresh.request();
+      autoSelectMission.current = false;
       setSelectedMission(newMissionId);
       setNewMissionId('');
       setNewMissionTitle('');
@@ -456,7 +859,7 @@ function AtlasProjectionView({ atlas }: { atlas: Atlas }) {
           result.diagnosis ? ` · ${result.diagnosis}` : ''
         }`,
       );
-      reload();
+      dashboardRefresh.request();
     } catch (error) {
       setMessage((error as Error).message);
     }
@@ -480,11 +883,8 @@ function AtlasProjectionView({ atlas }: { atlas: Atlas }) {
           result.receipt.reused ? ' (reused)' : ''
         }`,
       );
-      setTrustReport(
-        atlas.assessMission(selectedMission, {
-          source: selectedMissionSource,
-        }),
-      );
+      dashboardRefresh.request();
+      void refreshAssessment();
       setNewGoalId('');
       setNewGoalTitle('');
       setNewGoalObjective('');
@@ -494,7 +894,7 @@ function AtlasProjectionView({ atlas }: { atlas: Atlas }) {
     }
   };
 
-  const claimAndAssessNow = () => {
+  const claimAndAssessNow = async () => {
     if (selectedMission === 'all' || !selectedGoal) {
       setCompletionError('select a Mission and Go before claiming completion');
       return;
@@ -510,17 +910,19 @@ function AtlasProjectionView({ atlas }: { atlas: Atlas }) {
         actorType: 'user',
         evidenceEpisodeIds,
       });
-      setCompletionReport(
-        atlas.assessCompletion(selectedMission, selectedGoal),
+      const report = await atlas.assessCompletionAsync(
+        selectedMission,
+        selectedGoal,
       );
+      if (!mounted.current) return;
+      setCompletionReport(report);
+      setCompletionGoalId(selectedGoal);
       setCompletionError('');
-      setTrustReport(
-        atlas.assessMission(selectedMission, {
-          source: selectedMissionSource,
-        }),
-      );
+      dashboardRefresh.request();
+      void refreshAssessment();
     } catch (error) {
       setCompletionReport(null);
+      setCompletionGoalId(null);
       setCompletionError((error as Error).message);
     }
   };
@@ -540,54 +942,36 @@ function AtlasProjectionView({ atlas }: { atlas: Atlas }) {
     visibleGoals.find((goal) => goal.goal_id === selectedGoal) ??
     allGoals.find((goal) => goal.goal_id === selectedGoal) ??
     null;
-  const currentMission =
-    missions.find((mission) => mission.mission_id === selectedMission) ?? null;
   const missionGoals = allGoals.filter(
     (goal) => goal.mission_id === selectedMission,
+  );
+  const currentMission =
+    missions.find((mission) => mission.mission_id === selectedMission) ?? null;
+  const goalTrustById = React.useMemo(
+    () =>
+      completionGoalId && completionReport
+        ? {
+            [completionGoalId]: deriveTrustVisual(completionReport).state,
+          }
+        : {},
+    [completionGoalId, completionReport],
   );
   const missionGoalCounts = new Map<string, number>();
   for (const goal of missionGoals) {
     const status = goal.status ?? 'unknown';
     missionGoalCounts.set(status, (missionGoalCounts.get(status) ?? 0) + 1);
   }
-  const statusSummary = [...missionGoalCounts.entries()]
-    .map(([status, count]) => `${status}=${count}`)
-    .join(' · ');
-  const fiveAnswers = [
-    {
-      question: 'What are we trying to achieve?',
-      answer: currentMission
-        ? `${currentMission.title ?? currentMission.mission_id} — ${currentMission.intent ?? 'intent not declared'}${currentMission.stage_name ? ` · stage ${currentMission.stage_name}` : ''}`
-        : 'Not yet declared. Create or import a Mission.',
-    },
-    {
-      question: 'What actually happened?',
-      answer: missionGoals.length
-        ? `${missionGoals.length} Go(s) at this cut${statusSummary ? ` · ${statusSummary}` : ''}`
-        : 'No admitted Go activity is visible at this cut.',
-    },
-    {
-      question: 'What does the evidence establish at this cut?',
-      answer: trustReport
-        ? `${trustReport.state.canonical_state ? 'canonical' : 'degraded'} cut · ${trustReport.findings.length} finding(s) · proof ${trustReport.query_proof_root.slice(-12)}`
-        : trustError || 'No purpose-bound assessment is available yet.',
-    },
-    {
-      question: 'Is delegated work still fit for purpose?',
-      answer: trustReport
-        ? `${trustReport.fitness} · assessment ${trustReport.assessment.state} · residual limits ${trustReport.known_limits.length}`
-        : 'insufficient — select a Mission and assess the current cut.',
-    },
-    {
-      question: 'Who should act next?',
-      answer:
-        currentGoal?.next_action ??
-        currentMission?.next_action ??
-        (trustReport?.fitness === 'fit'
-          ? 'Continue under the current purpose and evidence boundary.'
-          : 'User or agent should adjust, supply evidence, or record a decision.'),
-    },
-  ];
+  const fiveAnswers = trustReport?.query_profile?.answers ?? [];
+  const snapshotVisual = dashboardSnapshotVisual({
+    error: dashboardError,
+    refreshing: dashboardRefreshing,
+    cut: dashboardCut,
+  });
+  const profileVisual = missionControlProfileVisual(profileStatus);
+  const approvalVisual = profileApprovalVisual({
+    actor: profileSetupActor,
+    busy: profileSetupBusy,
+  });
 
   return (
     <div
@@ -601,11 +985,22 @@ function AtlasProjectionView({ atlas }: { atlas: Atlas }) {
       }}
     >
       <section style={{ ...panelStyle, flexShrink: 0 }}>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 6,
+            alignItems: 'center',
+          }}
+        >
           <select
             aria-label="Mission"
             value={selectedMission}
-            onChange={(event) => setSelectedMission(event.target.value)}
+            onChange={(event) => {
+              autoSelectMission.current = false;
+              setSelectedMission(event.target.value);
+              setSelectedGoal(null);
+            }}
             style={{ ...mono, minWidth: 240, padding: '4px 6px' }}
           >
             <option value="all">No Mission selected</option>
@@ -615,6 +1010,18 @@ function AtlasProjectionView({ atlas }: { atlas: Atlas }) {
               </option>
             ))}
           </select>
+          <SmallButton
+            active={displayMode === 'visual'}
+            onClick={() => setDisplayMode('visual')}
+          >
+            situation
+          </SmallButton>
+          <SmallButton
+            active={displayMode === 'audit'}
+            onClick={() => setDisplayMode('audit')}
+          >
+            audit
+          </SmallButton>
           <SmallButton onClick={() => setActionPanel('mission')}>
             + Mission
           </SmallButton>
@@ -625,13 +1032,122 @@ function AtlasProjectionView({ atlas }: { atlas: Atlas }) {
           <SmallButton onClick={() => setActionPanel('bundle')}>
             Bundle
           </SmallButton>
-          <SmallButton onClick={reload}>refresh</SmallButton>
+          <SmallButton onClick={refreshAll}>refresh</SmallButton>
           {info && (
-            <span style={{ ...mono, color: '#858585' }}>
-              {info.missions}M · {info.goals}G · {info.markers} markers
+            <span
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}
+            >
+              {dashboardMetricVisuals(info).map((metric) => (
+                <span
+                  key={metric.glyph}
+                  aria-label={metric.title}
+                  title={metric.title}
+                  style={{
+                    ...mono,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    width: metric.width,
+                    flex: `0 0 ${metric.width}px`,
+                    color: '#858585',
+                    fontVariantNumeric: 'tabular-nums',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  <span aria-hidden="true">{metric.glyph}</span>
+                  {metric.value}
+                </span>
+              ))}
             </span>
           )}
+          <span
+            aria-label={snapshotVisual.title}
+            title={snapshotVisual.title}
+            style={{
+              ...mono,
+              display: 'inline-flex',
+              justifyContent: 'center',
+              width: 24,
+              flex: '0 0 24px',
+              color: snapshotVisual.color,
+            }}
+          >
+            <span aria-hidden="true">{snapshotVisual.glyph}</span>
+          </span>
+          <span
+            aria-label={profileVisual.title}
+            title={profileVisual.title}
+            style={{
+              ...mono,
+              display: 'inline-flex',
+              justifyContent: 'center',
+              width: 38,
+              flex: '0 0 38px',
+              color: profileVisual.color,
+            }}
+          >
+            <span aria-hidden="true">{profileVisual.glyph}</span>
+          </span>
+          {profileSetup ? (
+            <SmallButton
+              disabled={profileSetupBusy}
+              onClick={() => void reviewProfileSetup()}
+            >
+              {profileSetupBusy ? 'planning…' : `review ${profileSetup.action}`}
+            </SmallButton>
+          ) : null}
         </div>
+        {profileSetupPlan && profileSetup ? (
+          <div
+            style={{
+              ...mono,
+              border: '1px solid #dcdcaa',
+              padding: 8,
+              marginTop: 8,
+            }}
+          >
+            <strong style={{ color: '#dcdcaa' }}>
+              Decision required · {profileSetup.action}
+            </strong>
+            <div>plan {String(profileSetupPlan.corePlan.plan_id ?? '—')}</div>
+            <div>{String(profileSetupPlan.decisionCard.question ?? '')}</div>
+            <div style={{ color: '#ce9178' }}>
+              effects {JSON.stringify(profileSetupPlan.corePlan.effects ?? [])}
+            </div>
+            <div style={{ color: '#858585' }}>
+              authority{' '}
+              {String(
+                profileSetupPlan.decisionCard.requiredAuthority ??
+                  'workspace-profile-operator',
+              )}
+            </div>
+            <label style={{ display: 'block', marginTop: 6 }}>
+              authorized by{' '}
+              <input
+                ref={profileSetupActorInput}
+                aria-label="Workspace owner identity"
+                title="Identity authorizing this exact Profile lifecycle plan"
+                value={profileSetupActor}
+                onChange={(event) => setProfileSetupActor(event.target.value)}
+                placeholder="workspace owner identity"
+                style={{ ...mono, minWidth: 220 }}
+              />
+            </label>
+            <SmallButton
+              disabled={approvalVisual.disabled}
+              title={approvalVisual.title}
+              onClick={() => void approveProfileSetup()}
+            >
+              {approvalVisual.label}
+            </SmallButton>{' '}
+            <SmallButton
+              disabled={profileSetupBusy}
+              onClick={() => setProfileSetupPlan(null)}
+            >
+              dismiss
+            </SmallButton>
+          </div>
+        ) : null}
         {message && (
           <div style={{ ...mono, color: '#dcdcaa', marginTop: 5 }}>
             {message}
@@ -639,123 +1155,187 @@ function AtlasProjectionView({ atlas }: { atlas: Atlas }) {
         )}
       </section>
 
-      <div style={{ display: 'flex', gap: 8, flex: 1, minHeight: 0 }}>
-        <main style={{ flex: 1, minWidth: 0, overflow: 'auto' }}>
-          <section style={{ ...panelStyle, marginBottom: 8 }}>
-            <h2 style={headingStyle}>Mission Home · current cut</h2>
-            {fiveAnswers.map((row) => (
-              <div
-                key={row.question}
-                style={{
-                  padding: '8px 0',
-                  borderBottom: '1px solid #333333',
-                }}
-              >
-                <div style={{ ...mono, color: '#9cdcfe', marginBottom: 3 }}>
-                  {row.question}
-                </div>
-                <div style={{ ...mono, color: '#cccccc' }}>{row.answer}</div>
-              </div>
-            ))}
-          </section>
-          <MissionTrustPanel report={trustReport} error={trustError} />
-          {(completionReport || completionError) && (
-            <MissionTrustPanel
-              title="Completion TrustReport"
-              report={completionReport}
-              error={completionError}
-            />
-          )}
-        </main>
-
-        <aside
+      {displayMode === 'visual' ? (
+        <main
           style={{
-            ...panelStyle,
-            width: 360,
-            flexShrink: 0,
+            flex: 1,
+            minHeight: 0,
             overflow: 'auto',
+            padding: '0 2px 12px',
           }}
         >
-          <h2 style={headingStyle}>Go summary · {visibleGoals.length}</h2>
-          <div
+          <MissionSituationOverview
+            mission={currentMission}
+            report={trustReport}
+            error={trustError}
+            dashboardCut={dashboardCut}
+            refreshing={dashboardRefreshing}
+          />
+          <div style={{ marginTop: 14 }}>
+            <GoalCardField
+              goals={missionGoals}
+              selectedGoalId={selectedGoal}
+              trustByGoal={goalTrustById}
+              query={goalCardQuery}
+              asOfTime={dashboardCut}
+              savedViewId={goalCardViewId}
+              saveState={goalCardSaveState}
+              onQueryChange={(query) => {
+                setGoalCardQuery(query);
+                setGoalCardSaveState('unsaved');
+              }}
+              onSave={saveGoalCardView}
+              onSelectGoal={setSelectedGoal}
+            />
+          </div>
+        </main>
+      ) : (
+        <div style={{ display: 'flex', gap: 8, flex: 1, minHeight: 0 }}>
+          <main style={{ flex: 1, minWidth: 0, overflow: 'auto' }}>
+            <section style={{ ...panelStyle, marginBottom: 8 }}>
+              <h2 style={headingStyle}>Mission query audit · current cut</h2>
+              {trustReport?.query_profile && (
+                <div style={{ ...mono, color: '#858585', marginBottom: 5 }}>
+                  profile {trustReport.query_profile.profile.version} ·{' '}
+                  {trustReport.query_profile.views.length} Profile views · suite{' '}
+                  {trustReport.query_profile.profile.profile_suite_root.slice(
+                    -12,
+                  )}
+                  {' · '}proof{' '}
+                  {trustReport.query_profile.query_proof_root.slice(-12)}
+                </div>
+              )}
+              {trustReport && (
+                <div
+                  style={{
+                    ...mono,
+                    color:
+                      queryStream.gap || queryStreamError
+                        ? '#dcdcaa'
+                        : '#4ec9b0',
+                    marginBottom: 5,
+                  }}
+                >
+                  stream {queryStream.frontier.kind} ·{' '}
+                  {queryStream.frontier.record_count} rows
+                  {queryStream.gap ? ' · gap: recovery required' : ''}
+                  {queryStreamError ? ` · ${queryStreamError}` : ''}
+                </div>
+              )}
+              {!trustReport && (
+                <div style={{ ...mono, color: '#858585' }}>
+                  {trustError ||
+                    'Select a Mission to resolve its query profile.'}
+                </div>
+              )}
+              {fiveAnswers.map((row) => (
+                <div
+                  key={row.question_id}
+                  style={{
+                    padding: '8px 0',
+                    borderBottom: '1px solid #333333',
+                  }}
+                >
+                  <div style={{ ...mono, color: '#9cdcfe', marginBottom: 3 }}>
+                    {row.question}
+                  </div>
+                  <div style={{ ...mono, color: '#cccccc' }}>{row.summary}</div>
+                  <div style={{ ...mono, color: '#858585', marginTop: 2 }}>
+                    {row.status} · {row.question_id}
+                  </div>
+                </div>
+              ))}
+            </section>
+            <MissionTrustPanel report={trustReport} error={trustError} />
+            {(completionReport || completionError) && (
+              <MissionTrustPanel
+                title="Completion TrustReport"
+                report={completionReport}
+                error={completionError}
+              />
+            )}
+          </main>
+
+          <aside
             style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 4,
-              marginBottom: 8,
+              ...panelStyle,
+              width: 360,
+              flexShrink: 0,
+              overflow: 'auto',
             }}
           >
-            <SmallButton
-              active={statusFilter === 'all'}
-              onClick={() => setStatusFilter('all')}
-            >
-              all {missionGoals.length}
-            </SmallButton>
-            {ATLAS_GOAL_STATUSES.map((status) => (
-              <SmallButton
-                key={status}
-                active={statusFilter === status}
-                onClick={() => setStatusFilter(status)}
-              >
-                {status} {missionGoalCounts.get(status) ?? 0}
-              </SmallButton>
-            ))}
-          </div>
-          {visibleGoals.map((goal) => (
-            <button
-              key={goal.goal_id}
-              type="button"
-              onClick={() => setSelectedGoal(goal.goal_id)}
+            <h2 style={headingStyle}>Go audit · {visibleGoals.length}</h2>
+            <div
               style={{
-                ...mono,
-                display: 'block',
-                width: '100%',
-                padding: '5px 7px',
-                border: 'none',
-                borderRadius: 4,
-                background:
-                  selectedGoal === goal.goal_id ? '#04395e' : 'transparent',
-                color: '#cccccc',
-                textAlign: 'left',
-                cursor: 'pointer',
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 4,
+                marginBottom: 8,
               }}
             >
-              [{goal.status ?? 'unknown'}] {goal.title ?? goal.goal_id}
-            </button>
-          ))}
-          {currentGoal && (
-            <div style={{ marginTop: 8 }}>
-              <AtlasGoalDetail goal={currentGoal} />
-              <SmallButton onClick={() => setActionPanel('claim')}>
-                claim completion
+              <SmallButton
+                active={statusFilter === 'all'}
+                onClick={() => setStatusFilter('all')}
+              >
+                all {missionGoals.length}
               </SmallButton>
+              {ATLAS_GOAL_STATUSES.map((status) => (
+                <SmallButton
+                  key={status}
+                  active={statusFilter === status}
+                  onClick={() => setStatusFilter(status)}
+                >
+                  {status} {missionGoalCounts.get(status) ?? 0}
+                </SmallButton>
+              ))}
             </div>
-          )}
-          <details style={{ marginTop: 12 }}>
-            <summary style={{ ...mono, color: '#858585', cursor: 'pointer' }}>
-              Mission directory · {missions.length}
-            </summary>
-            {missions.map((mission) => (
+            {visibleGoals.map((goal) => (
               <button
-                key={mission.mission_id}
+                key={goal.goal_id}
                 type="button"
-                onClick={() => setSelectedMission(mission.mission_id)}
+                onClick={() => setSelectedGoal(goal.goal_id)}
                 style={{
                   ...mono,
                   display: 'block',
+                  width: '100%',
+                  padding: '5px 7px',
                   border: 'none',
-                  background: 'transparent',
+                  borderRadius: 4,
+                  background:
+                    selectedGoal === goal.goal_id ? '#04395e' : 'transparent',
                   color: '#cccccc',
-                  padding: '4px 0',
+                  textAlign: 'left',
                   cursor: 'pointer',
                 }}
               >
-                {mission.title ?? mission.mission_id}
+                [{goal.status ?? 'unknown'}] {goal.title ?? goal.goal_id}
               </button>
             ))}
-          </details>
-        </aside>
-      </div>
+            {currentGoal && (
+              <div style={{ marginTop: 8 }}>
+                <AtlasGoalDetail goal={currentGoal} />
+                <SmallButton onClick={() => setActionPanel('claim')}>
+                  claim completion
+                </SmallButton>
+              </div>
+            )}
+          </aside>
+        </div>
+      )}
+
+      {displayMode === 'visual' && currentGoal && (
+        <GoalDetailDrawer
+          goal={currentGoal}
+          mission={currentMission}
+          trust={
+            completionGoalId === currentGoal.goal_id
+              ? deriveTrustVisual(completionReport, completionError)
+              : deriveTrustVisual(null)
+          }
+          onClose={() => setSelectedGoal(null)}
+          onClaimCompletion={() => setActionPanel('claim')}
+        />
+      )}
 
       {actionPanel && (
         <section
@@ -764,7 +1344,7 @@ function AtlasProjectionView({ atlas }: { atlas: Atlas }) {
             position: 'absolute',
             top: 48,
             right: 0,
-            zIndex: 20,
+            zIndex: 40,
             width: 380,
             display: 'grid',
             gap: 6,
@@ -877,7 +1457,7 @@ function AtlasProjectionView({ atlas }: { atlas: Atlas }) {
                 placeholder="evidence Episode ids, comma-separated"
                 onChange={setEvidenceEpisodes}
               />
-              <SmallButton onClick={claimAndAssessNow}>
+              <SmallButton onClick={() => void claimAndAssessNow()}>
                 claim and assess
               </SmallButton>
             </>
@@ -1239,14 +1819,7 @@ function WorkDashboardView({
 }) {
   const [view, setView] = React.useState<'work' | 'atlas'>(() => {
     if (shell.params?.view === 'atlas') return 'atlas';
-    if (!caps.atlas) return 'work';
-    try {
-      return caps.atlas.importInfo() || caps.atlas.missions().length
-        ? 'atlas'
-        : 'work';
-    } catch {
-      return 'work';
-    }
+    return caps.atlas ? 'atlas' : 'work';
   });
   const [items, setItems] = React.useState<WorkItem[]>(() => caps.work.items());
   const [filter, setFilter] = React.useState<string>('all');
@@ -1260,8 +1833,13 @@ function WorkDashboardView({
     setItems(caps.work.items());
   }, [caps.work]);
 
-  // the shell owns the refresh timer; this kfx only subscribes
-  React.useEffect(() => shell.onRefresh(reload), [shell, reload]);
+  // The shell owns the refresh timer. Do not refresh the hidden Work
+  // projection while Mission Control is active: that projection is a
+  // synchronous native read and would otherwise block renderer interaction.
+  React.useEffect(() => {
+    if (view !== 'work') return;
+    return shell.onRefresh(reload);
+  }, [shell, reload, view]);
 
   const counts = new Map<string, number>();
   for (const item of items) {
@@ -1306,7 +1884,12 @@ function WorkDashboardView({
           </SmallButton>
         </div>
         {atlas ? (
-          <AtlasProjectionView atlas={atlas} />
+          <AtlasProjectionView
+            atlas={atlas}
+            profile={caps.profile}
+            shell={shell}
+            storage={caps.storage}
+          />
         ) : (
           <AtlasUnavailableView />
         )}

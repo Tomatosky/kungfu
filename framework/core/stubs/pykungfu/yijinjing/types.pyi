@@ -1,7 +1,7 @@
 from __future__ import annotations
 import pykungfu.yijinjing.enums
 import typing
-__all__: list[str] = ['AcceptedRangeRecorded', 'Band', 'CacheReset', 'Channel', 'ChannelCursorUpdated', 'ChannelRequest', 'Config', 'Deregister', 'EpisodeClosed', 'EpisodeFrameAttached', 'EpisodeHeartbeat', 'EpisodeOpen', 'EpisodeRefAttached', 'ExportBundleRecorded', 'ImportManifestAccepted', 'Location', 'ManifestEntryRecorded', 'OperatorStateUpdate', 'OutputKey', 'Register', 'RequestCachedDone', 'RequestReadFrom', 'RequestReadFromOthers', 'RequestReadFromPublic', 'RequestReadFromSync', 'RequestWriteTo', 'RequestWriteToBand', 'SourceHeadUpdated', 'SourceRegistered', 'SyntheticData', 'TimeKeyValue', 'TimeRequest', 'TimeReset', 'TimeValue', 'frame_header', 'page_header']
+__all__: list[str] = ['AcceptedRangeRecorded', 'CacheReset', 'Channel', 'ChannelCursorUpdated', 'ChannelRequest', 'Config', 'Deregister', 'EpisodeClosed', 'EpisodeFrameAttached', 'EpisodeHeartbeat', 'EpisodeOpen', 'EpisodeRefAttached', 'ExportBundleRecorded', 'ImportManifestAccepted', 'Location', 'ManifestEntryRecorded', 'OperatorStateUpdate', 'Outlet', 'OutputKey', 'Register', 'RequestCachedDone', 'RequestReadFrom', 'RequestReadFromOthers', 'RequestReadFromPublic', 'RequestReadFromSync', 'RequestWriteTo', 'RequestWriteToOutlet', 'SourceHeadUpdated', 'SourceRegistered', 'SyntheticData', 'TimeKeyValue', 'TimeRequest', 'TimeReset', 'TimeValue', 'frame_header', 'page_header']
 class AcceptedRangeRecorded:
     __has_data__: typing.ClassVar[bool] = True
     __tag__: typing.ClassVar[int] = 10903
@@ -18,28 +18,6 @@ class AcceptedRangeRecorded:
     status: ...
     until: int
     def __eq__(self, arg0: AcceptedRangeRecorded) -> bool:
-        ...
-    def __hash__(self) -> int:
-        ...
-    @typing.overload
-    def __init__(self) -> None:
-        ...
-    @typing.overload
-    def __init__(self, arg0: str) -> None:
-        ...
-    def __parse__(self, arg0: str) -> None:
-        ...
-    def __repr__(self) -> str:
-        ...
-    @property
-    def __uid__(self) -> int:
-        ...
-class Band:
-    __has_data__: typing.ClassVar[bool] = True
-    __tag__: typing.ClassVar[int] = 10308
-    dest_id: int
-    source_id: int
-    def __eq__(self, arg0: Band) -> bool:
         ...
     def __hash__(self) -> int:
         ...
@@ -519,6 +497,28 @@ class OperatorStateUpdate:
     @property
     def __uid__(self) -> int:
         ...
+class Outlet:
+    __has_data__: typing.ClassVar[bool] = True
+    __tag__: typing.ClassVar[int] = 10308
+    dest_id: int
+    source_id: int
+    def __eq__(self, arg0: Outlet) -> bool:
+        ...
+    def __hash__(self) -> int:
+        ...
+    @typing.overload
+    def __init__(self) -> None:
+        ...
+    @typing.overload
+    def __init__(self, arg0: str) -> None:
+        ...
+    def __parse__(self, arg0: str) -> None:
+        ...
+    def __repr__(self) -> str:
+        ...
+    @property
+    def __uid__(self) -> int:
+        ...
 class OutputKey:
     __has_data__: typing.ClassVar[bool] = True
     __tag__: typing.ClassVar[int] = 701
@@ -711,7 +711,7 @@ class RequestWriteTo:
     @property
     def __uid__(self) -> int:
         ...
-class RequestWriteToBand:
+class RequestWriteToOutlet:
     __has_data__: typing.ClassVar[bool] = True
     __tag__: typing.ClassVar[int] = 10307
     location_uid: int
@@ -722,7 +722,7 @@ class RequestWriteToBand:
     role: pykungfu.yijinjing.enums.location_role
     seed: int
     uid64: int
-    def __eq__(self, arg0: RequestWriteToBand) -> bool:
+    def __eq__(self, arg0: RequestWriteToOutlet) -> bool:
         ...
     def __hash__(self) -> int:
         ...
@@ -928,10 +928,10 @@ class frame_header:
     carrier_type: int
     data_type: pykungfu.yijinjing.enums.FrameDataType
     dest: int
-    frame_uid: int
     gen_time: int
     header_length: int
     initial_source: int
+    journal_frame_uid: int
     length: int
     source: int
     stream_id: int

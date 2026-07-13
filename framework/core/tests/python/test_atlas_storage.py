@@ -6,17 +6,42 @@ import os
 import sqlite3
 import subprocess
 from datetime import datetime, timezone
+from pathlib import Path
 
 import kungfu
 import pytest
 
-from kungfu import runtime_service
+from kungfu import profile_composition, profile_sdk, runtime_service
 from kungfu.atlas import importer, mission_bundle, mission_control, payloads
 from kungfu.atlas import store as atlas_store
 from kungfu.atlas import CARRIER_ATLAS_ACTION
 from kungfu.rewind import reporting as rewind_reporting
 from kungfu.sources import store as source_store
 from kungfu.storage import service as storage_service
+
+
+MISSION_PROFILE_SOURCE = (
+    Path(__file__).resolve().parents[4] / "extensions" / "mission-control"
+)
+
+
+def _activate_mission_profile(runtime_dir, *, materialize=True):
+    for action in ("install", "qualify", "activate"):
+        plan = profile_sdk.lifecycle_plan(runtime_dir, action, MISSION_PROFILE_SOURCE)[
+            "corePlan"
+        ]
+        profile_sdk.lifecycle_apply(runtime_dir, plan, f"test:{action}")
+    contract = profile_composition.contract_materialization_plan(
+        MISSION_PROFILE_SOURCE, runtime_dir
+    )
+    if materialize and contract["operations"]:
+        profile_composition.authorized_contract_materialize(
+            runtime_dir,
+            contract,
+            profile_sdk.answer_decision(
+                contract["decisionCard"], "approve", "test-owner"
+            ),
+        )
 
 
 def _write_json(path, data):
@@ -109,6 +134,11 @@ def _atlas_fixture(root):
             "updated_at": "2026-07-08T01:00:00Z",
             "title": "Goal A",
             "mission_id": "mission-a",
+            "mission_parent_goal": "goal-parent",
+            "mission_role": "supporting",
+            "mission_importance": "high",
+            "mission_track": "mission-control",
+            "mission_why_matters": "Make the Mission legible",
             "next_action": "implement",
             "large_body": ["full", "goal", "payload"],
         },
@@ -223,6 +253,12 @@ def test_atlas_source_records_keep_full_payloads(tmp_path):
     assert warnings == []
     assert [card["mission_id"] for card in missions] == ["mission-a"]
     assert [card["goal_id"] for card in goals] == ["goal-a"]
+    assert goals[0]["mission_parent_goal"] == "goal-parent"
+    assert goals[0]["mission_role"] == "supporting"
+    assert goals[0]["mission_importance"] == "high"
+    assert goals[0]["mission_track"] == "mission-control"
+    assert goals[0]["mission_why_matters"] == "Make the Mission legible"
+    assert goals[0]["updated_at"] == "2026-07-08T01:00:00Z"
     assert [card["branch"] for card in markers] == ["ai/codex/goal-a"]
     assert {(row["kind"], row["source_id"]) for row in source_records} == {
         ("mission", "mission-a"),
@@ -267,6 +303,7 @@ def test_atlas_source_records_filter_by_window(tmp_path):
 def test_atlas_import_admits_mission_and_go_into_shared_fact_state(tmp_path):
     repo = tmp_path / "atlas"
     runtime_dir = tmp_path / "runtime"
+    _activate_mission_profile(runtime_dir)
     _atlas_fixture(repo)
 
     first = atlas_store.ImportStore(runtime_dir).run_import(str(repo))
@@ -298,6 +335,12 @@ def test_atlas_import_admits_mission_and_go_into_shared_fact_state(tmp_path):
     goal_body = next(body for body in bodies if body["source"]["kind"] == "goal")
     assert goal_body["links"] == {"mission_id": "atlas:mission-a"}
     assert goal_body["record"]["goal_id"] == "goal-a"
+    assert goal_body["record"]["mission_parent_goal"] == "goal-parent"
+    assert goal_body["record"]["mission_role"] == "supporting"
+    assert goal_body["record"]["mission_importance"] == "high"
+    assert goal_body["record"]["mission_track"] == "mission-control"
+    assert goal_body["record"]["mission_why_matters"] == ("Make the Mission legible")
+    assert goal_body["record"]["updated_at"] == "2026-07-08T01:00:00Z"
 
     second = atlas_store.ImportStore(runtime_dir).run_import(str(repo))
     assert second["mission_control"]["status"] == "admitted"
@@ -328,6 +371,7 @@ def test_atlas_import_admits_mission_and_go_into_shared_fact_state(tmp_path):
 def test_mission_control_queries_and_assesses_progress_at_pinned_cuts(tmp_path):
     repo = tmp_path / "atlas"
     runtime_dir = tmp_path / "runtime"
+    _activate_mission_profile(runtime_dir)
     _atlas_fixture(repo)
     atlas_store.ImportStore(runtime_dir).run_import(str(repo))
 
@@ -412,9 +456,43 @@ def test_mission_control_queries_and_assesses_progress_at_pinned_cuts(tmp_path):
     assert profile["cost"]["proof_episodes"][0]["episode_root"].startswith("sha256:")
     assert profile["proof"]["query_proof_root"] == first_state["query_proof_root"]
     assert profile["proof"]["assessment_report_hash"] == first_report["report_hash"]
+    query_profile = first_report["query_profile"]
+    assert query_profile["schema"] == "kungfu.mission-control.query-profile/v1"
+    assert query_profile["profile"]["reducer"] == (
+        "kungfu.mission-control.five-questions"
+    )
+    assert (
+        query_profile["profile"]["profile_suite_root"]
+        == first_state["profile_suite_root"]
+    )
+    assert query_profile["profile"]["catalog_root"] == first_state["catalog_root"]
+    assert len(query_profile["views"]) == 5
+    assert len(query_profile["answers"]) == 5
+    assert {view["view"]["kind"] for view in query_profile["views"]} == {
+        "table",
+        "timeline",
+        "diff",
+        "causal-graph",
+        "attention",
+    }
+    next_answer = next(
+        answer
+        for answer in query_profile["answers"]
+        if answer["question_id"] == "next-responsibility"
+    )
+    assert next_answer["status"] == "declared"
+    assert next_answer["data"]["declared_actions"][0]["action"] == "implement"
+    assert next_answer["data"]["declared_actions"][0]["source"] == ("go.next_action")
+    assert "Continue under" not in next_answer["summary"]
+    catalog = storage_service.saved_query_catalog(runtime_dir)
+    assert catalog["entries"] == []
     repeated = mission_control.assess_progress(str(runtime_dir), mission_id="mission-a")
     assert repeated["assessment_key"] == first_report["assessment_key"]
     assert repeated["assessment"]["reused"] is True
+    assert (
+        repeated["query_profile"]["profile"]["profile_suite_root"]
+        == (query_profile["profile"]["profile_suite_root"])
+    )
 
     from click.testing import CliRunner
     from kungfu.cli.commands import __registry__  # noqa: F401
@@ -430,6 +508,22 @@ def test_mission_control_queries_and_assesses_progress_at_pinned_cuts(tmp_path):
     cli_report = json.loads(cli.output)
     assert cli_report["fitness"] == "fit"
     assert cli_report["assessment_key"] == first_report["assessment_key"]
+
+    dashboard_cli = runner.invoke(
+        kfc,
+        ["atlas", "show", "dashboard", "--json"],
+        env={"KF_RUNTIME_DIR": str(runtime_dir)},
+    )
+    assert dashboard_cli.exit_code == 0, dashboard_cli.output
+    dashboard = json.loads(dashboard_cli.output)
+    assert dashboard["schema"] == "kungfu.mission-control.dashboard-snapshot/v1"
+    assert dashboard["cut"]["kind"] == "system_time"
+    assert dashboard["freshness"] == {
+        "basis": "request-cut",
+        "status": "fresh",
+    }
+    assert [row["mission_id"] for row in dashboard["missions"]] == ["mission-a"]
+    assert [row["goal_id"] for row in dashboard["goals"]] == ["goal-a"]
 
     historical_cut = int(first_state["cut"]["resolved"]["system_time"])
     goal_path = repo / "agent-journal/goals/registry/active/goal-a.json"
@@ -463,6 +557,7 @@ def test_mission_control_native_go_completion_claim_fails_closed_then_passes(
 ):
     repo = tmp_path / "atlas"
     runtime_dir = tmp_path / "runtime"
+    _activate_mission_profile(runtime_dir)
     _atlas_fixture(repo)
     atlas_store.ImportStore(runtime_dir).run_import(str(repo))
 
@@ -633,6 +728,7 @@ def test_native_only_workspace_keeps_optional_atlas_projection_stdout_clean(
     tmp_path, capfd
 ):
     runtime_dir = tmp_path / "runtime"
+    _activate_mission_profile(runtime_dir)
     mission_control.create_mission(
         str(runtime_dir),
         mission_id="native-only",
@@ -651,6 +747,10 @@ def test_native_mission_full_bundle_roundtrip_and_thin_degraded_import(tmp_path)
     source = tmp_path / "source-runtime"
     destination = tmp_path / "destination-runtime"
     thin_destination = tmp_path / "thin-destination-runtime"
+    inactive_destination = tmp_path / "inactive-destination-runtime"
+    _activate_mission_profile(source)
+    _activate_mission_profile(destination, materialize=False)
+    _activate_mission_profile(thin_destination, materialize=False)
 
     created = mission_control.create_mission(
         str(source),
@@ -721,17 +821,47 @@ def test_native_mission_full_bundle_roundtrip_and_thin_degraded_import(tmp_path)
         str(source), mission_id="native-mission", mode="thin"
     )
     assert full["status"] == "portable", full["closure"]
+    assert full["schema"] == "kungfu.mission-control.bundle/v2"
+    assert full["profile"]["id"] == "kungfu.mission-control"
+    assert full["profile"]["version"] == "3.0.0"
+    assert full["profile"]["suite_root"].startswith("sha256:")
+    assert full["profile"]["catalog_root"].startswith("sha256:")
+    assert set(full["profile"]["member_roots"]) == {
+        "mission-control-actions",
+        "mission-control-assessment",
+        "mission-control-contract",
+        "mission-control-views",
+        "work-dashboard",
+    }
+    assert set(full["profile"]["policy_roots"]) == {
+        "mission-progress-policy",
+        "task-completion-policy",
+    }
+    assert full["profile"]["query_receipt_root"].startswith("sha256:")
     assert full["closure"]["full_closure"] is True
     assert full["closure"]["source_provenance_included"] is False
     assert thin["status"] == "degraded"
     assert thin["closure"]["full_closure"] is False
     assert all(not row["self_contained"] for row in thin["episodes"])
 
+    with pytest.raises(profile_sdk.ProfileSdkError) as inactive:
+        mission_bundle.import_mission_bundle(
+            str(inactive_destination), full, execute=True
+        )
+    assert inactive.value.diagnosis["code"] == "profile-not-active"
+    assert (
+        storage_service.profile_lifecycle(
+            inactive_destination, "list", include_removed=True
+        )["profiles"]
+        == []
+    )
+
     imported = mission_bundle.import_mission_bundle(
         str(destination), full, execute=True
     )
     assert imported["status"] == "imported", imported
     assert imported["accepted"] is True
+    assert imported["profile_verification"]["ok"] is True
     assert imported["state_verification"]["ok"] is True
     assert mission_control.list_missions(str(destination))[0]["mission_id"] == (
         "native-mission"
@@ -811,6 +941,7 @@ def test_native_mission_full_bundle_roundtrip_and_thin_degraded_import(tmp_path)
 def test_mission_control_batches_large_mission_state_queries(tmp_path):
     repo = tmp_path / "atlas"
     runtime_dir = tmp_path / "runtime"
+    _activate_mission_profile(runtime_dir)
     _atlas_fixture(repo)
     for index in range(260):
         _write_json(
@@ -847,6 +978,11 @@ def test_mission_control_legacy_data_root_requires_explicit_migration(
     tmp_path, legacy_version
 ):
     runtime_dir = tmp_path / "runtime"
+    for action in ("install", "qualify", "activate"):
+        plan = profile_sdk.lifecycle_plan(runtime_dir, action, MISSION_PROFILE_SOURCE)[
+            "corePlan"
+        ]
+        profile_sdk.lifecycle_apply(runtime_dir, plan, f"test:{action}")
     storage_service.fact_declare_contract_world(
         runtime_dir,
         {
@@ -862,7 +998,7 @@ def test_mission_control_legacy_data_root_requires_explicit_migration(
         system_time=100,
     )
 
-    with pytest.raises(RuntimeError, match="explicit migration or re-import"):
+    with pytest.raises(profile_sdk.ProfileSdkError, match="explicit migration"):
         mission_control.create_go(
             str(runtime_dir),
             mission_id="mission-a",
@@ -2335,6 +2471,68 @@ def test_fact_changelog_resumes_pages_without_loss_or_duplication(tmp_path):
     assert finished["complete"] is True
     assert [message["type"] for message in finished["messages"]] == ["Progress"]
     assert finished["messages"][0]["frontier"]["kind"] == "manifest_frame_uid"
+
+
+def test_fact_state_changelog_uses_stable_keys_and_system_time_frontiers(tmp_path):
+    repo = tmp_path / "atlas"
+    runtime_dir = tmp_path / "runtime"
+    _atlas_fixture(repo)
+    atlas_store.ImportStore(runtime_dir).run_import(str(repo))
+
+    profile_definition = mission_control.build_state_query(
+        str(runtime_dir), mission_id="mission-a"
+    )
+    definition = mission_control._runtime_query_definition(profile_definition)
+    snapshot = storage_service.fact_changelog(runtime_dir, definition)
+    assert snapshot["complete"] is True
+    assert snapshot["resume_token"]["target"]["kind"] == "system_time"
+    assert [message["type"] for message in snapshot["messages"]] == [
+        "SnapshotBegin",
+        "RowUpsert",
+        "RowUpsert",
+        "SnapshotEnd",
+    ]
+    goal_upsert = next(
+        message
+        for message in snapshot["messages"]
+        if message.get("row", {}).get("subject_key") == "atlas:goal-a"
+    )
+    assert goal_upsert["evidence_ref"]["payload_hash"]
+    assert goal_upsert["evidence_ref"]["episode_id"]
+
+    steady = snapshot["resume_token"]
+    unchanged = storage_service.fact_changelog(
+        runtime_dir, definition, resume_token=steady
+    )
+    assert [message["type"] for message in unchanged["messages"]] == ["Progress"]
+
+    goal_path = repo / "agent-journal/goals/registry/active/goal-a.json"
+    changed = json.loads(goal_path.read_text(encoding="utf-8"))
+    changed["status"] = "ready"
+    changed["updated_at"] = "2026-07-09T00:00:00Z"
+    _write_json(goal_path, changed)
+    atlas_store.ImportStore(runtime_dir).run_import(str(repo))
+
+    correction = storage_service.fact_changelog(
+        runtime_dir, definition, resume_token=steady
+    )
+    replay = storage_service.fact_changelog(
+        runtime_dir, definition, resume_token=steady
+    )
+    assert correction == replay
+    assert [message["type"] for message in correction["messages"]] == [
+        "RowUpsert",
+        "Progress",
+    ]
+    assert correction["messages"][0]["key"] == goal_upsert["key"]
+    assert (
+        correction["messages"][0]["row"]["episode_id"]
+        != goal_upsert["row"]["episode_id"]
+    )
+    assert correction["messages"][1]["frontier"]["kind"] == "system_time"
+    assert int(correction["messages"][1]["frontier"]["system_time"]) > int(
+        steady["target"]["system_time"]
+    )
 
 
 def test_temporal_attention_pattern_is_reproducible_and_retracts_on_late_terminal(

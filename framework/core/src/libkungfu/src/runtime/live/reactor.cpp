@@ -111,7 +111,17 @@ reactor::reactor(kungfu::runtime::io_device_ptr io_device)
 }
 
 reactor::~reactor() {
-  writers_.clear();
+  signal_stop();
+  cs_.unsubscribe();
+  loop_error_state_.reset();
+  {
+    std::lock_guard<std::mutex> lock(writers_mtx_);
+    writers_.clear();
+  }
+  {
+    std::lock_guard<std::mutex> lock(off_thread_mtx_);
+    off_thread_writers_.clear();
+  }
   reader_.reset();
   io_device_.reset();
   ensure_sqlite_shutdown();
@@ -123,14 +133,10 @@ reactor::~reactor() {
 bool reactor::is_usable() { return io_device_->is_usable(); }
 
 bool reactor::setup() {
+  loop_error_state_->reset();
   io_device_->setup();
   SPDLOG_DEBUG("io setup done");
-  // A subscriber error must stop this loop, not SIGINT the whole process
-  // from the middle of a dispatch: signal_stop() lets produce() complete so
-  // hosts (run(), the node uv loop, the python coroutine loop) unwind
-  // cleanly. The error handler runs on the pump thread, so no extra
-  // synchronization is needed here.
-  rx::loop_interrupter() = [this]() { signal_stop(); };
+  rx::loop_error_scope error_scope(loop_error_state_);
   events_ = observable<>::create<event_ptr>([this](auto &s) { delegate_produce(this, s); }) | holdon();
   now_ = get_begin_time();
   react();
@@ -156,7 +162,9 @@ void reactor::pre_setup() {
 void reactor::step(uint32_t step_limit) {
   continual_ = false;
   step_limit_ = step_limit;
+  rx::loop_error_scope error_scope(loop_error_state_);
   events_.connect(cs_);
+  loop_error_state_->rethrow_if_error();
 }
 
 void reactor::run(uint32_t step_limit) {
@@ -167,18 +175,25 @@ void reactor::run(uint32_t step_limit) {
   setup();
   SPDLOG_DEBUG("live runtime setup done");
   continual_ = true;
-  events_.connect(cs_);
+  {
+    rx::loop_error_scope error_scope(loop_error_state_);
+    events_.connect(cs_);
+  }
   on_exit();
+  loop_error_state_->rethrow_if_error();
   SPDLOG_INFO("[{:08x}] {} done", get_home_uid(), get_home_uname());
 }
 
-bool reactor::is_live() const { return live_; }
+bool reactor::is_live() const { return live_ and not loop_error_state_->stop_requested(); }
 
 bool reactor::is_low_latency() const { return io_device_->is_low_latency(); }
 
 const bus_ptr &reactor::get_bus() const { return io_device_->get_bus(); }
 
-void reactor::signal_stop() { live_ = false; }
+void reactor::signal_stop() {
+  loop_error_state_->request_stop();
+  live_ = false;
+}
 
 int64_t reactor::now() const { return now_; }
 
@@ -212,44 +227,63 @@ uint32_t reactor::get_live_home_uid() const { return get_io_device()->get_live_h
 reader_ptr reactor::get_reader() const { return reader_; }
 
 bool reactor::has_writer(uint32_t dest_id) const {
-  if (util::get_thread_id() != main_thread_id_) {
-    return has_band_writer(dest_id) or writers_.find(dest_id) != writers_.end();
+  if (util::get_thread_id() != main_thread_id_ and has_off_thread_writer(dest_id)) {
+    return true;
   }
+  std::lock_guard<std::mutex> lock(writers_mtx_);
   return writers_.find(dest_id) != writers_.end();
 }
 
 writer_ptr reactor::get_writer(uint32_t dest_id) const {
   if (util::get_thread_id() != main_thread_id_) {
     try {
-      return get_band_writer(dest_id);
+      return get_off_thread_writer(dest_id);
     } catch (const std::exception &e) {
-      SPDLOG_WARN("Unexpected exception by get_band_writer for dest_id {}:{}, {}", dest_id, get_location_uname(dest_id),
-                  e.what());
+      SPDLOG_WARN("Unexpected exception by get_off_thread_writer for dest_id {}:{}, {}", dest_id,
+                  get_location_uname(dest_id), e.what());
     }
-  } else if (band_writers_.find(dest_id) != band_writers_.end()) {
-    return band_writers_.at(dest_id);
+  } else {
+    std::lock_guard<std::mutex> lock(off_thread_mtx_);
+    auto band_writer = off_thread_writers_.find(dest_id);
+    if (band_writer != off_thread_writers_.end()) {
+      return band_writer->second;
+    }
   }
 
-  if (writers_.find(dest_id) == writers_.end()) {
+  std::lock_guard<std::mutex> lock(writers_mtx_);
+  auto writer = writers_.find(dest_id);
+  if (writer == writers_.end()) {
     SPDLOG_ERROR("no writer for {}", get_location_uname(dest_id));
+    return writers_.at(dest_id);
   }
-  return writers_.at(dest_id);
+  return writer->second;
 }
 
-bool reactor::has_band_writer(uint32_t dest_id) const {
-  std::lock_guard<std::mutex> lk(band_mtx_);
-  return band_writers_.find(dest_id) != band_writers_.end();
+bool reactor::has_off_thread_writer(uint32_t dest_id) const {
+  std::lock_guard<std::mutex> lk(off_thread_mtx_);
+  return off_thread_writers_.find(dest_id) != off_thread_writers_.end();
 }
 
-writer_ptr reactor::get_band_writer(uint32_t dest_id) const {
-  std::lock_guard<std::mutex> lk(band_mtx_);
-  if (band_writers_.find(dest_id) == band_writers_.end()) {
-    SPDLOG_ERROR("no band writer for {}", get_location_uname(dest_id));
+writer_ptr reactor::get_off_thread_writer(uint32_t dest_id) const {
+  std::lock_guard<std::mutex> lk(off_thread_mtx_);
+  if (off_thread_writers_.find(dest_id) == off_thread_writers_.end()) {
+    SPDLOG_ERROR("no outlet writer for {}", get_location_uname(dest_id));
   }
-  return band_writers_.at(dest_id);
+  return off_thread_writers_.at(dest_id);
 }
 
-const WriterMap &reactor::get_writers() const { return writers_; }
+WriterMap reactor::get_writers() const {
+  WriterMap snapshot;
+  {
+    std::lock_guard<std::mutex> lock(writers_mtx_);
+    snapshot = writers_;
+  }
+  {
+    std::lock_guard<std::mutex> lock(off_thread_mtx_);
+    snapshot.insert(off_thread_writers_.begin(), off_thread_writers_.end());
+  }
+  return snapshot;
+}
 
 bool reactor::has_location(uint32_t uid) const { return locations_.find(uid) != locations_.end(); }
 
@@ -302,20 +336,22 @@ const std::unordered_map<uint32_t, yijinjing::types::Register> &reactor::get_reg
 
 const std::unordered_map<uint32_t, yijinjing::data::location_ptr> &reactor::get_locations() const { return locations_; }
 
-bool reactor::has_band(uint32_t source, uint32_t dest) const { return has_band(make_source_dest_hash(source, dest)); }
-
-bool reactor::has_band(uint64_t hash) const { return bands_.find(hash) != bands_.end(); }
-
-const yijinjing::types::Band &reactor::get_band(uint32_t source, uint32_t dest) const {
-  return get_band(make_source_dest_hash(source, dest));
+bool reactor::has_outlet(uint32_t source, uint32_t dest) const {
+  return has_outlet(make_source_dest_hash(source, dest));
 }
 
-const yijinjing::types::Band &reactor::get_band(uint64_t hash) const {
-  assert(has_band(hash));
-  return bands_.at(hash);
+bool reactor::has_outlet(uint64_t hash) const { return outlets_.find(hash) != outlets_.end(); }
+
+const yijinjing::types::Outlet &reactor::get_outlet(uint32_t source, uint32_t dest) const {
+  return get_outlet(make_source_dest_hash(source, dest));
 }
 
-const std::unordered_map<uint64_t, yijinjing::types::Band> &reactor::get_bands() const { return bands_; }
+const yijinjing::types::Outlet &reactor::get_outlet(uint64_t hash) const {
+  assert(has_outlet(hash));
+  return outlets_.at(hash);
+}
+
+const std::unordered_map<uint64_t, yijinjing::types::Outlet> &reactor::get_outlets() const { return outlets_; }
 
 void reactor::on_notify() {}
 
@@ -362,8 +398,11 @@ bool reactor::check_location_live(uint32_t source_id, uint32_t dest_id) const {
 
 void reactor::add_location(int64_t, const location_ptr &location) {
   location_uid64s_.insert(std::to_string(location->uid64));
-  bool write_rocks = locations_.try_emplace(location->uid, location).second |
-                     location64s_.try_emplace(location->uid64, location).second;
+  // Both maps must be updated unconditionally; evaluate each try_emplace before
+  // combining so the second insert is never short-circuited away.
+  bool inserted_uid = locations_.try_emplace(location->uid, location).second;
+  bool inserted_uid64 = location64s_.try_emplace(location->uid64, location).second;
+  bool write_rocks = inserted_uid || inserted_uid64;
   if (write_rocks) {
     write_location_to_rocksdb(location);
   }
@@ -413,29 +452,29 @@ void reactor::deregister_channel(uint32_t source_id) {
   }
 }
 
-void reactor::register_band(int64_t, const Band &band) {
-  uint64_t band_uid = make_source_dest_hash(band.source_id, band.dest_id);
-  auto result = bands_.try_emplace(band_uid, band);
+void reactor::register_outlet(int64_t, const Outlet &outlet) {
+  uint64_t outlet_uid = make_source_dest_hash(outlet.source_id, outlet.dest_id);
+  auto result = outlets_.try_emplace(outlet_uid, outlet);
   if (result.second) {
-    auto source_uname = get_location_uname(band.source_id);
-    auto dest_uname = get_location_uname(band.dest_id);
-    SPDLOG_TRACE("band [{:08x}] {} -> {} up", band_uid, source_uname, dest_uname);
+    auto source_uname = get_location_uname(outlet.source_id);
+    auto dest_uname = get_location_uname(outlet.dest_id);
+    SPDLOG_TRACE("outlet [{:08x}] {} -> {} up", outlet_uid, source_uname, dest_uname);
   }
 }
 
-void reactor::deregister_band(uint32_t source_id) {
-  auto band_it = bands_.begin();
-  while (band_it != bands_.end()) {
-    if (band_it->second.source_id == source_id) {
-      const auto &band_uid = band_it->first;
-      const auto &band = band_it->second;
-      auto source_uname = get_location_uname(band.source_id);
-      auto dest_uname = get_location_uname(band.dest_id);
-      SPDLOG_TRACE("band [{:08x}] {} -> {} down", band_uid, source_uname, dest_uname);
-      band_it = bands_.erase(band_it);
+void reactor::deregister_outlet(uint32_t source_id) {
+  auto outlet_it = outlets_.begin();
+  while (outlet_it != outlets_.end()) {
+    if (outlet_it->second.source_id == source_id) {
+      const auto &outlet_uid = outlet_it->first;
+      const auto &outlet = outlet_it->second;
+      auto source_uname = get_location_uname(outlet.source_id);
+      auto dest_uname = get_location_uname(outlet.dest_id);
+      SPDLOG_TRACE("outlet [{:08x}] {} -> {} down", outlet_uid, source_uname, dest_uname);
+      outlet_it = outlets_.erase(outlet_it);
       continue;
     }
-    band_it++;
+    outlet_it++;
   }
 }
 
@@ -467,11 +506,11 @@ void reactor::require_write_to(int64_t trigger_time, uint32_t source_id, uint32_
   writer->close_data();
 }
 
-void reactor::require_write_to_band(int64_t trigger_time, uint32_t source_id,
-                                    const yijinjing::data::location_ptr &location, uint64_t page_size) const {
+void reactor::require_write_to_outlet(int64_t trigger_time, uint32_t source_id,
+                                      const yijinjing::data::location_ptr &location, uint64_t page_size) const {
   auto writer = get_writer(source_id);
-  RequestWriteToBand msg = {};
-  location->to<RequestWriteToBand>(msg);
+  RequestWriteToOutlet msg = {};
+  location->to<RequestWriteToOutlet>(msg);
   msg.page_size = page_size;
   writer->write(trigger_time, msg);
 }
@@ -479,13 +518,14 @@ void reactor::require_write_to_band(int64_t trigger_time, uint32_t source_id,
 void reactor::produce(const rx::subscriber<event_ptr> &sb) {
   try {
     do {
-      live_ = drain(sb) && live_;
+      live_ = drain(sb) && live_ && not loop_error_state_->stop_requested();
       on_active();
       cleanup_reader_disjoin(); // subclass may call disjoin in on_active
     } while (continual_ and live_);
   } catch (...) {
     live_ = false;
     sb.on_error(std::current_exception());
+    return;
   }
   if (not live_) {
     sb.on_completed();
@@ -687,9 +727,10 @@ void reactor::put_peer_kv(const std::string &key, const std::string &value) cons
 }
 
 void reactor::ensure_coordinator_rocksdb() {
-  static const std::string coordinator_db_dir = get_locator()->layout_dir(get_coordinator_home_location(), layout::MAP);
   try {
-    get_coordinator_rocksdb();
+    // Probe only: force-open the coordinator rocksdb and discard the handle.
+    // If it is not yet open this throws, and the catch block opens/clears it.
+    (void)get_coordinator_rocksdb();
   } catch (const std::exception &e) {
     SPDLOG_DEBUG("catch exception: {}", e.what());
     std::lock_guard<std::mutex> lk(coordinator_db_mtx_);

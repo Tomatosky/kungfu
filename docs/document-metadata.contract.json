@@ -1,0 +1,214 @@
+{
+  "schemaVersion": 1,
+  "metadataSchema": "kungfu.document-metadata/v1",
+  "metadataRegistry": "docs/document-metadata.registry.json",
+  "optionalFields": [
+    "sources",
+    "last_reviewed",
+    "period",
+    "theme",
+    "confidence",
+    "evidence_grade",
+    "review_refs",
+    "open_questions",
+    "implementation_commits",
+    "implementation_prs",
+    "closure_commit",
+    "closure_pr",
+    "qualification_refs",
+    "supersedes",
+    "superseded_by"
+  ],
+  "sourceKinds": [
+    "architecture-decisions",
+    "executable-probe",
+    "local-files",
+    "official-upstream",
+    "public-reference-systems",
+    "user-consensus",
+    "user-decision"
+  ],
+  "externalFrontmatterSchemas": [
+    {
+      "id": "github-issue-template",
+      "patterns": ["^\\.github/ISSUE_TEMPLATE/.*\\.md$"]
+    },
+    {
+      "id": "kungfu-skill",
+      "patterns": ["(^|/)SKILL\\.md$"]
+    }
+  ],
+  "profiles": [
+    {
+      "id": "architecture-decision",
+      "metadataMode": "inline",
+      "patterns": [
+        "^docs/adr/(?:SHIFU-)?ADR-[0-9]{4}-.*\\.md$"
+      ],
+      "required": [
+        "metadata_schema",
+        "doc_type",
+        "adr_id",
+        "decision_status",
+        "implementation_status",
+        "review_state",
+        "sensitivity"
+      ],
+      "constants": {
+        "metadata_schema": "kungfu.document-metadata/v1",
+        "doc_type": "architecture-decision",
+        "sensitivity": "public"
+      },
+      "enums": {
+        "decision_status": [
+          "proposed",
+          "accepted",
+          "superseded",
+          "rejected",
+          "withdrawn"
+        ],
+        "implementation_status": [
+          "not-started",
+          "partial",
+          "staged",
+          "implemented",
+          "not-applicable",
+          "unknown"
+        ],
+        "review_state": [
+          "legacy-unreviewed",
+          "unreviewed",
+          "self-reviewed",
+          "maintainer-reviewed"
+        ]
+      },
+      "forbidden": ["status", "document_status", "source_level"]
+    },
+    {
+      "id": "adr-index",
+      "metadataMode": "inline",
+      "files": ["docs/adr/README.md"],
+      "required": [
+        "metadata_schema",
+        "doc_type",
+        "document_status",
+        "review_state",
+        "sensitivity"
+      ],
+      "constants": {
+        "metadata_schema": "kungfu.document-metadata/v1",
+        "doc_type": "adr-index",
+        "document_status": "active",
+        "sensitivity": "public"
+      },
+      "enums": {
+        "review_state": ["unreviewed", "self-reviewed", "maintainer-reviewed"]
+      },
+      "forbidden": ["status", "decision_status", "source_level"]
+    },
+    {
+      "id": "engineering-evidence",
+      "metadataMode": "inline",
+      "files": [
+        "crates/host-spike/README.md",
+        "docs/qualification/episode-atomicity-qualification.md",
+        "docs/research/libkungfu-embedding-membrane-spike.md",
+        "docs/research/libwasm-embedding-membrane-spike.md",
+        "docs/research/rust-host-spike.md",
+        "docs/qualification/single-host-performance-qualification.md",
+        "docs/architecture/carrier-type-registry.md",
+        "docs/architecture/strong-durability-and-crash-recovery-design.md",
+        "docs/qualification/mmap-performance.md",
+        "framework/core/slices/libwasm-shared-membrane/README.md",
+        "framework/core/slices/native-storage-closure/README.md",
+        "framework/core/slices/shared-embedding-membrane/README.md"
+      ],
+      "required": [
+        "metadata_schema",
+        "doc_type",
+        "document_status",
+        "review_state",
+        "sensitivity"
+      ],
+      "constants": {
+        "metadata_schema": "kungfu.document-metadata/v1"
+      },
+      "enums": {
+        "document_status": ["draft", "active", "stable", "deprecated", "archived"],
+        "review_state": ["unreviewed", "self-reviewed", "maintainer-reviewed"],
+        "sensitivity": ["public", "internal"]
+      },
+      "forbidden": ["status", "decision_status", "source_level"]
+    },
+    {
+      "id": "public-document",
+      "metadataMode": "registry",
+      "files": ["README.md", "AGENTS.md", "CONTRIBUTING.md"],
+      "patterns": ["^docs/.*\\.md$", "^framework/spec/.*\\.md$"],
+      "required": [
+        "metadata_schema",
+        "doc_type",
+        "document_status",
+        "review_state",
+        "sensitivity"
+      ],
+      "constants": {
+        "metadata_schema": "kungfu.document-metadata/v1",
+        "sensitivity": "public"
+      },
+      "enums": {
+        "document_status": ["draft", "active", "stable", "deprecated", "archived"],
+        "review_state": ["unreviewed", "self-reviewed", "maintainer-reviewed"]
+      },
+      "forbidden": ["status", "decision_status", "source_level"]
+    },
+    {
+      "id": "repository-document",
+      "metadataMode": "inline-optional",
+      "patterns": [".*"],
+      "required": [
+        "metadata_schema",
+        "doc_type",
+        "document_status",
+        "review_state",
+        "sensitivity"
+      ],
+      "constants": {
+        "metadata_schema": "kungfu.document-metadata/v1"
+      },
+      "enums": {
+        "document_status": ["draft", "active", "stable", "deprecated", "archived"],
+        "review_state": ["unreviewed", "self-reviewed", "maintainer-reviewed"],
+        "sensitivity": ["public", "internal"]
+      },
+      "forbidden": ["status", "decision_status", "source_level"]
+    }
+  ],
+  "adrRegistries": [
+    {
+      "index": "docs/adr/README.md",
+      "recordPattern": "^docs/adr/((?:SHIFU-)?ADR-[0-9]{4})-.*\\.md$"
+    }
+  ],
+  "adrEvidence": {
+    "commitFields": ["implementation_commits"],
+    "pullRequestFields": ["implementation_prs"],
+    "closureCommitField": "closure_commit",
+    "closurePullRequestField": "closure_pr",
+    "qualificationRefField": "qualification_refs",
+    "statusesRequiringImplementationEvidence": ["partial", "staged", "implemented"],
+    "statusesRequiringClosure": ["implemented"],
+    "statusesForbiddingEvidence": ["not-started", "not-applicable"],
+    "pullRequestPattern": "^https://github\\.com/kungfu-systems/kungfu/pull/[0-9]+$",
+    "legacyEvidenceExemptions": {
+      "SHIFU-ADR-0001": "Partial cache-profile rollout predates immutable evidence capture.",
+      "ADR-0005": "Partial modernization assessment needs a dedicated history reconstruction.",
+      "ADR-0006": "Frontend platform implementation spans legacy history not yet reconstructed.",
+      "ADR-0009": "Self-bootstrap evolved across several renames and needs semantic history review.",
+      "ADR-0046": "Rust host trunk is staged; qualification evidence remains distributed across spike history.",
+      "ADR-0048": "Runtime fact query work is staged and awaiting evidence consolidation.",
+      "ADR-0049": "Layer-complete product work is staged and awaiting evidence consolidation.",
+      "ADR-0069": "The agent-first profile suite is staged and awaiting end-to-end qualification."
+    }
+  }
+}

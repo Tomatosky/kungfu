@@ -31,7 +31,7 @@
 #         -DKUNGFU_WITH_SANITIZERS=ON -DCMAKE_PREFIX_PATH=$PWD/framework/core/build
 # scripts/verify.mjs wires both tiers; see fuzz/README.md for the standalone recipe.
 
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.20)
 project(kungfu_view_fuzz CXX)
 
 option(KUNGFU_WITH_SANITIZERS "build the view fuzz entries under ASan+UBSan via a libFuzzer-less standalone driver" OFF)

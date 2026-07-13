@@ -163,6 +163,10 @@ class KungfuCoreConan(ConanFile):
             self.options.rm_safe("vs_toolset")
 
     def configure(self):
+        # The Conan package-id and CMake language mode must describe the same
+        # contract.  Previously Conan selected gnu17 and CMake silently changed
+        # it to C++23, allowing incompatible dependency binaries to share a key.
+        self.settings.compiler.cppstd = "23"
         if _detected_os() != "Windows":
             # 与历史一致：非 Windows 用 libstdc++（注：旧码写 libstdc++，conan2 profile 通常
             # 用 libstdc++11；此处沿用 profile 设定，不在 recipe 强行覆盖以免与 LAN 缓存包不一致）。
@@ -184,6 +188,9 @@ class KungfuCoreConan(ConanFile):
         tc.variables["KUNGFU_RXCPP_COMPAT_INCLUDE_DIR"] = _cmake_path(
             rxcpp_compat_include_dir
         )
+        tc.variables["CMAKE_CXX_STANDARD"] = 23
+        tc.variables["CMAKE_CXX_STANDARD_REQUIRED"] = True
+        tc.variables["CMAKE_CXX_EXTENSIONS"] = False
         tc.generate()
         if self.gyp_call:
             self.__touch_lockfile()
@@ -373,6 +380,12 @@ class KungfuCoreConan(ConanFile):
         elif runtime == "node":
             environ["KUNGFU_BUILD_SKIP_KUNGFU_NODE"] = "on"
             environ["KUNGFU_BUILD_SKIP_PYKUNGFU"] = "on"
+            cargo_registry = os.environ.get("KF_LIBWASM_CARGO_REGISTRY", "")
+            cargo_registry_option = (
+                [f"-DKF_LIBWASM_CARGO_REGISTRY={cargo_registry}"]
+                if cargo_registry
+                else []
+            )
             self.__run_cmake(
                 "-S",
                 ".." if self.gyp_call else ".",
@@ -380,6 +393,7 @@ class KungfuCoreConan(ConanFile):
                 "../build" if self.gyp_call else ".",
                 "-DCMAKE_BUILD_TYPE=Release",
                 f"-DSPDLOG_LOG_LEVEL_COMPILE={self.__spdlog_level()}",
+                *cargo_registry_option,
             )
             self.__run_cmake("--build", ".", "--config", "Release", *parallel_opt)
 
@@ -471,6 +485,12 @@ class KungfuCoreConan(ConanFile):
         # conan2：把生成的 conan_toolchain.cmake 透传给 cmake-js，让 conan 依赖(CMakeDeps)与
         # cmake-js 的 runtime headers 共存(取代 conan1 的 conanbuildinfo.cmake 自动注入)。
         toolchain = path.join(self.generators_folder, "conan_toolchain.cmake")
+        cargo_registry = os.environ.get("KF_LIBWASM_CARGO_REGISTRY", "")
+        cargo_registry_option = (
+            [f"--CDKF_LIBWASM_CARGO_REGISTRY={cargo_registry}"]
+            if cargo_registry
+            else []
+        )
         return (
             [
                 "cmake-js",
@@ -486,6 +506,7 @@ class KungfuCoreConan(ConanFile):
                 f"--CDSPDLOG_LOG_LEVEL_COMPILE={log_level}",
                 f"--CDCMAKE_BUILD_PARALLEL_LEVEL={parallel_level}",
             ]
+            + cargo_registry_option
             + build_option
             + debug_option
             + [cmd]

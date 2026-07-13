@@ -14,7 +14,8 @@
 
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
 
@@ -24,19 +25,26 @@ const ebPkgPath = require.resolve('electron-builder/package.json');
 const ebPkg = require(ebPkgPath);
 const ebBin = join(dirname(ebPkgPath), ebPkg.bin['electron-builder']);
 
-const forwardedArgs = process.argv.slice(2);
-const publishArgs = forwardedArgs.some(
-  (arg) => arg === '--publish' || arg.startsWith('--publish='),
-)
-  ? []
-  : ['--publish=never'];
+export function normalizeBuilderArgs(args, resolvedElectronDist) {
+  const hasPublishMode = args.some(
+    (arg) => arg === '--publish' || arg.startsWith('--publish='),
+  );
+  return [
+    ...args,
+    ...(hasPublishMode ? [] : ['--publish=never']),
+    `--config.electronDist=${resolvedElectronDist}`,
+  ];
+}
 
-const args = [
-  ebBin,
-  ...forwardedArgs,
-  ...publishArgs,
-  `--config.electronDist=${electronDist}`,
-];
+function main() {
+  const args = [
+    ebBin,
+    ...normalizeBuilderArgs(process.argv.slice(2), electronDist),
+  ];
+  const result = spawnSync(process.execPath, args, { stdio: 'inherit' });
+  process.exit(result.status ?? 1);
+}
 
-const result = spawnSync(process.execPath, args, { stdio: 'inherit' });
-process.exit(result.status ?? 1);
+if (resolve(process.argv[1] || '') === fileURLToPath(import.meta.url)) {
+  main();
+}

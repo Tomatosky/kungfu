@@ -13,6 +13,7 @@ import {
   parseSavedQueryView,
   queryRows,
 } from '@kungfu-tech/kfx';
+import { GenericQueryView } from '@kungfu-tech/kfx/query-view';
 import React from 'react';
 
 function cell(value: unknown): string {
@@ -217,18 +218,21 @@ export function QueryAttentionReference({
 }
 
 function referenceView(state: QueryChangelogState, spec: QueryViewSpec) {
-  switch (spec.kind) {
-    case 'table':
-      return <QueryTableReference state={state} spec={spec} />;
-    case 'timeline':
-      return <QueryTimelineReference state={state} spec={spec} />;
-    case 'diff':
-      return <QueryDiffReference state={state} spec={spec} />;
-    case 'causal-graph':
-      return <QueryCausalGraphReference state={state} spec={spec} />;
-    case 'attention':
-      return <QueryAttentionReference state={state} spec={spec} />;
+  if (spec.kind !== 'mission-control') {
+    return <GenericQueryView state={state} spec={spec} />;
   }
+  return (
+    <div style={{ ...mono, color: '#cccccc' }}>
+      <div style={{ color: '#9cdcfe', marginBottom: 6 }}>
+        {spec.questionId} · {spec.reducer}
+      </div>
+      <div>
+        {queryRows(state).length} canonical fact row(s) are available. The
+        purpose-bound answer is resolved with the TrustReport in Mission
+        Control; this catalog view does not invent a second reducer.
+      </div>
+    </div>
+  );
 }
 
 const specs: Record<QueryViewSpec['kind'], QueryViewSpec> = {
@@ -266,6 +270,13 @@ const specs: Record<QueryViewSpec['kind'], QueryViewSpec> = {
     elapsedField: 'elapsed_ns',
     attributionField: 'attribution_counts',
     evidenceField: 'matched_episode_ids',
+  },
+  'mission-control': {
+    kind: 'mission-control',
+    profileId: 'kungfu.mission-control',
+    profileVersion: '1',
+    questionId: 'observed-progress',
+    reducer: 'kungfu.mission-control.reducer/v1',
   },
 };
 

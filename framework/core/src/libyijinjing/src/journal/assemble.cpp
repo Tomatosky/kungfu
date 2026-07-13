@@ -241,18 +241,16 @@ std::vector<std::pair<yijinjing::types::frame_header, std::vector<uint8_t>>> ass
                                                                                                   int64_t end_time) {
   std::vector<std::pair<yijinjing::types::frame_header, std::vector<uint8_t>>> v{};
   while (data_available() and current_frame()->gen_time() < end_time) {
-    if (carrier_type == 0 or
-        current_frame()->carrier_type() == carrier_type && current_page()->get_version() == __JOURNAL_VERSION__) {
+    // ADR-0062: page::load refuses any page whose epoch != journal_format_epoch,
+    // so every page a reader observes already matches the running epoch. A
+    // per-frame epoch check here is therefore dead (a mismatched page can never
+    // reach this loop), and cross-epoch replay is offline conversion, not an
+    // online skip.
+    if (carrier_type == 0 or current_frame()->carrier_type() == carrier_type) {
       const frame_header &head = *reinterpret_cast<frame_header *>(current_frame()->address());
       std::vector<uint8_t> bytes{current_frame()->data_as_bytes(),
                                  current_frame()->data_as_bytes() + current_frame()->data_length()};
       v.emplace_back(head, bytes);
-    }
-
-    if (current_page()->get_version() != __JOURNAL_VERSION__) {
-      SPDLOG_WARN("journal version mismatch, expect {}, got {}, page_id {}, location uid {} location name {}",
-                  __JOURNAL_VERSION__, current_page()->get_version(), current_page()->get_page_id(),
-                  current_page()->get_location()->uid, current_page()->get_location()->uname);
     }
 
     next();

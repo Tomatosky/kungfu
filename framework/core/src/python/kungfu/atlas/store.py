@@ -481,7 +481,7 @@ def _checksum_frame(
         ("I", int(header.dest)),
         ("b", int(_frame_data_type_value(header))),
         ("I", int(header.initial_source)),
-        ("Q", int(header.frame_uid)),
+        ("Q", int(header.journal_frame_uid)),
         ("Q", int(header.trigger_frame_uid)),
         ("Q", int(header.stream_id)),
         ("I", int(payload_length)),
@@ -508,8 +508,8 @@ def read_action_frame_index(runtime_dir):
             CARRIER_ATLAS_ACTION
         ):
             data = bytes(frame_payload)
-            index[(header.frame_uid, header.gen_time)] = {
-                "frame_uid": header.frame_uid,
+            index[(header.journal_frame_uid, header.gen_time)] = {
+                "frame_uid": header.journal_frame_uid,
                 "trigger_frame_uid": header.trigger_frame_uid,
                 "stream_id": header.stream_id,
                 "gen_time": header.gen_time,
@@ -542,11 +542,18 @@ def _mission_card(payload):
     return {
         "mission_id": _text(payload.get("mission_id")),
         "title": _text(payload.get("title")),
+        "intent": _text(payload.get("intent")),
+        "north_star": _text(payload.get("north_star")),
+        "why_it_matters": _text(payload.get("why_it_matters")),
         "status": _text(payload.get("status")),
+        "horizon": _text(payload.get("horizon")),
+        "owner": _text(payload.get("owner")),
         "active_lens": _text(payload.get("active_lens")),
         "stage_name": _text(stage.get("name")),
+        "stage_summary": _text(stage.get("summary")),
         "next_review": _text(stage.get("next_review")),
         "next_action": _text(payload.get("next_action")),
+        "updated_at": _text(payload.get("updated_at")),
     }
 
 
@@ -559,6 +566,11 @@ def _goal_card(payload):
         "mission_id": _text(payload.get("mission_id")),
         "lens": _text(payload.get("lens")),
         "mission_stage": _text(payload.get("mission_stage")),
+        "mission_role": _text(payload.get("mission_role")),
+        "mission_importance": _text(payload.get("mission_importance")),
+        "mission_track": _text(payload.get("mission_track")),
+        "mission_parent_goal": _text(payload.get("mission_parent_goal")),
+        "mission_why_matters": _text(payload.get("mission_why_matters")),
         "source_branch": _text(payload.get("source_branch")),
         "worktree_path": _text(payload.get("worktree_path")),
         "external_repo_path": _text(payload.get("external_repo_path")),
@@ -568,6 +580,7 @@ def _goal_card(payload):
         "latest_marker": _text(payload.get("latest_marker")),
         "summary": _text(payload.get("summary")),
         "next_action": _text(payload.get("next_action")),
+        "updated_at": _text(payload.get("updated_at")),
         "archived": bool(payload.get("archived")),
     }
 

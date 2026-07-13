@@ -13,6 +13,7 @@ import type {
   Atlas,
   DomainState,
   Ledger,
+  Profile,
   Rewind,
   Storage,
   Terminal,
@@ -43,9 +44,17 @@ export type {
   QueryChangelogState,
   QueryDefinition,
   QueryFrontier,
+  GenericQueryViewSpec,
   QueryResumeToken,
   QueryResultSchema,
   QueryViewSpec,
+  ManagedProfile,
+  ProfileApplicationProjection,
+  ProfileKfd3QualificationReceipt,
+  ProfileKfd3Verification,
+  ProfileIntentPlan,
+  ProfileLifecyclePlan,
+  ProfileManagerProjection,
   SavedQueryCatalog,
   SavedQueryEntry,
   SavedQueryView,
@@ -67,6 +76,7 @@ export type KfxCapabilities = {
   terminal: Terminal;
   work: Work;
   atlas?: Atlas;
+  profile?: Profile;
   workspace?: WorkspaceGuidance;
 };
 
@@ -218,6 +228,43 @@ export type KfxServiceDecl = {
 export type KfxSuiteDecl = {
   title: string;
   members: string[];
+  // Optional relative path to the suite's domain-semantic closure. The
+  // document is validated against profileSuiteSchema; its installed root and
+  // lifecycle facts remain Core-owned.
+  profile?: string;
+};
+
+export type KfxProfileSuiteContentRef = {
+  path: string;
+  sha256: string;
+};
+
+export type KfxProfileSuite = {
+  schema: 'kungfu.profile-suite/v1';
+  id: string;
+  title: string;
+  version: string;
+  members: { required: string[]; optional: string[] };
+  kfd1: {
+    contractWorld: KfxProfileSuiteContentRef;
+    factSurfaces: KfxProfileSuiteContentRef[];
+    reducers: KfxProfileSuiteContentRef[];
+    compatibility: KfxProfileSuiteContentRef;
+  };
+  kfd2: {
+    claims: KfxProfileSuiteContentRef[];
+    purposes: string[];
+    policies: KfxProfileSuiteContentRef[];
+  };
+  // Optional because existing Profile Suites remain valid KFD-1/KFD-2
+  // closures. Only Profiles that bind this facet can request KFD-3
+  // qualification from the runtime.
+  kfd3?: { collaboration: KfxProfileSuiteContentRef };
+  actions: { registry: KfxProfileSuiteContentRef };
+  views: { registry: KfxProfileSuiteContentRef };
+  migrations: { registry: KfxProfileSuiteContentRef };
+  permissions: { registry: KfxProfileSuiteContentRef };
+  qualification: { profile: KfxProfileSuiteContentRef };
 };
 
 // ── load plan: host-agnostic discovery + decision (ADR-0017) ──────────────
@@ -250,6 +297,51 @@ export type KfxPlanDeps = {
   fs: KfxPlanFs;
   path: KfxPlanPath;
   crypto: KfxPlanCrypto;
+};
+
+// Authoring hosts need byte-level filesystem access in addition to the neutral
+// GUI load-plan seam. Keeping this separate prevents renderer discovery from
+// acquiring new ambient filesystem authority merely because the installed
+// Agent SDK can resolve source package closures.
+export type KfxProfileSourceDeps = {
+  fs: {
+    existsSync: (p: string) => boolean;
+    readFileSync: (p: string) => Uint8Array;
+    readdirSync: (
+      p: string,
+      opts: { withFileTypes: true },
+    ) => {
+      name: string;
+      isDirectory: () => boolean;
+      isFile: () => boolean;
+      isSymbolicLink: () => boolean;
+    }[];
+  };
+  path: {
+    join: (...parts: string[]) => string;
+    resolve: (...parts: string[]) => string;
+    dirname: (p: string) => string;
+    relative: (from: string, to: string) => string;
+    sep: string;
+  };
+  crypto: {
+    createHash: (algo: string) => {
+      update: (data: string | Uint8Array) => {
+        digest: (enc: 'hex') => string;
+      };
+    };
+  };
+};
+
+export type KfxProfileSourceResolution = {
+  schema: 'kungfu.profile-source-resolution/v1';
+  source: string;
+  suiteKey: string;
+  profilePath: string;
+  profile: KfxProfileSuite;
+  memberRoots: Record<string, string>;
+  memberPackages: Record<string, string>;
+  verified: true;
 };
 
 // One discovered kfx after discovery + decision, before any host lands it: the
@@ -482,6 +574,15 @@ export function kfxPackageManifestSchema(
   );
 }
 
+export function kfxProfileSuiteSchema(
+  env: Record<string, string | undefined>,
+  deps: KfxPlanDeps,
+): Record<string, unknown> {
+  return structuredClone(
+    objectValue(loadKfxContract(env, deps).profileSuiteSchema) ?? {},
+  );
+}
+
 export function validateKfxPackageManifest(
   manifest: unknown,
   contract: KfxContract,
@@ -491,6 +592,208 @@ export function validateKfxPackageManifest(
     objectValue(contract.packageManifestSchema) ?? {},
     'KFX package manifest',
   );
+}
+
+export function validateKfxProfileSuite(
+  profile: unknown,
+  contract: KfxContract,
+  suiteMembers?: string[],
+): void {
+  validateJsonSchema(
+    profile,
+    objectValue(contract.profileSuiteSchema) ?? {},
+    'KFX Profile Suite',
+  );
+  const members = objectValue(objectValue(profile)?.members);
+  const required = Array.isArray(members?.required)
+    ? (members.required as string[])
+    : [];
+  const optional = Array.isArray(members?.optional)
+    ? (members.optional as string[])
+    : [];
+  const overlap = required.filter((member) => optional.includes(member));
+  if (overlap.length) {
+    throw new Error(
+      `KFX Profile Suite validation failed: members cannot be both required and optional: ${overlap.join(', ')}`,
+    );
+  }
+  if (suiteMembers) {
+    const declared = [...new Set([...required, ...optional])].sort();
+    const packaged = [...new Set(suiteMembers)].sort();
+    if (JSON.stringify(declared) !== JSON.stringify(packaged)) {
+      throw new Error(
+        'KFX Profile Suite validation failed: profile members must match kungfuConfig.suite.members',
+      );
+    }
+  }
+}
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
+  if (value && typeof value === 'object') {
+    const row = value as Record<string, unknown>;
+    return `{${Object.keys(row)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableJson(row[key])}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function profileSha256(
+  deps: KfxProfileSourceDeps,
+  data: string | Uint8Array,
+): string {
+  return deps.crypto.createHash('sha256').update(data).digest('hex');
+}
+
+function profilePackageRoot(
+  packageDir: string,
+  deps: KfxProfileSourceDeps,
+): string {
+  const root = deps.path.resolve(packageDir);
+  const ignored = new Set(['.git', 'node_modules', '__pycache__', '.DS_Store']);
+  const files: { path: string; sha256: string; size: number }[] = [];
+  const visit = (directory: string): void => {
+    for (const entry of deps.fs.readdirSync(directory, {
+      withFileTypes: true,
+    })) {
+      const full = deps.path.join(directory, entry.name);
+      const relative = deps.path.relative(root, full);
+      const parts = relative.split(deps.path.sep);
+      if (parts.some((part) => ignored.has(part))) continue;
+      if (entry.isSymbolicLink())
+        throw new Error(
+          `KFX member package closure cannot contain symlinks: ${relative}`,
+        );
+      if (entry.isDirectory()) visit(full);
+      else if (entry.isFile()) {
+        const bytes = deps.fs.readFileSync(full);
+        files.push({
+          path: parts.join('/'),
+          sha256: profileSha256(deps, bytes),
+          size: bytes.byteLength,
+        });
+      }
+    }
+  };
+  visit(root);
+  const encoder = new TextEncoder();
+  files.sort((left, right) => {
+    const a = encoder.encode(left.path);
+    const b = encoder.encode(right.path);
+    for (let index = 0; index < Math.min(a.length, b.length); index += 1) {
+      if (a[index] !== b[index]) return a[index] - b[index];
+    }
+    return a.length - b.length;
+  });
+  if (!files.length) throw new Error(`KFX member package is empty: ${root}`);
+  return `sha256:${profileSha256(
+    deps,
+    stableJson({ schema: 'kungfu.kfx-package-closure/v1', files }),
+  )}`;
+}
+
+// Resolve a source Suite using the same package layout and content-root rule as
+// the installed Python Agent SDK. This function owns no lifecycle state and
+// accepts the embedded KFX contract explicitly, so it cannot become a second
+// schema or trust authority.
+export function resolveKfxProfileSuiteSource(
+  source: string,
+  contract: KfxContract,
+  deps: KfxProfileSourceDeps,
+): KfxProfileSourceResolution {
+  const suiteDir = deps.path.resolve(source);
+  const manifest = JSON.parse(
+    new TextDecoder().decode(
+      deps.fs.readFileSync(deps.path.join(suiteDir, 'package.json')),
+    ),
+  ) as Record<string, unknown>;
+  validateKfxPackageManifest(manifest, contract);
+  const config = objectValue(manifest.kungfuConfig);
+  const suite = objectValue(config?.suite);
+  const suiteKey = stringValue(config?.key);
+  const profileRelative = stringValue(suite?.profile);
+  const memberValues = Array.isArray(suite?.members)
+    ? (suite.members as string[])
+    : [];
+  if (!suite || !suiteKey || !profileRelative)
+    throw new Error('source is not a KFX Suite with suite.profile');
+  const profilePath = deps.path.resolve(suiteDir, profileRelative);
+  if (
+    profilePath !== suiteDir &&
+    !profilePath.startsWith(`${suiteDir}${deps.path.sep}`)
+  )
+    throw new Error('KFX Profile Suite profile path escapes the package root');
+  const profile = JSON.parse(
+    new TextDecoder().decode(deps.fs.readFileSync(profilePath)),
+  ) as KfxProfileSuite;
+  validateKfxProfileSuite(profile, contract, memberValues);
+
+  const roots = [
+    suiteDir,
+    deps.path.join(suiteDir, 'members'),
+    deps.path.dirname(suiteDir),
+  ];
+  const candidates: Record<string, string[]> = Object.fromEntries(
+    [...new Set(memberValues)].sort().map((member) => [member, []]),
+  );
+  const visited = new Set<string>();
+  for (const root of roots) {
+    if (!deps.fs.existsSync(root)) continue;
+    const directories = [
+      root,
+      ...deps.fs
+        .readdirSync(root, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => deps.path.join(root, entry.name)),
+    ];
+    for (const directory of directories) {
+      const resolved = deps.path.resolve(directory);
+      const manifestPath = deps.path.join(resolved, 'package.json');
+      if (visited.has(resolved) || !deps.fs.existsSync(manifestPath)) continue;
+      visited.add(resolved);
+      try {
+        const candidate = JSON.parse(
+          new TextDecoder().decode(deps.fs.readFileSync(manifestPath)),
+        ) as Record<string, unknown>;
+        validateKfxPackageManifest(candidate, contract);
+        const key = stringValue(objectValue(candidate.kungfuConfig)?.key);
+        if (key && candidates[key]) candidates[key].push(resolved);
+      } catch {
+        // Invalid adjacent packages are not candidates for a declared member.
+      }
+    }
+  }
+  const unresolved = Object.entries(candidates).filter(
+    ([, paths]) => paths.length !== 1,
+  );
+  if (unresolved.length) {
+    throw new Error(
+      `KFX Profile Suite members must resolve exactly once: ${unresolved
+        .map(([key, paths]) => `${key}=${paths.length}`)
+        .join(', ')}`,
+    );
+  }
+  const memberPackages = Object.fromEntries(
+    Object.entries(candidates).map(([key, paths]) => [key, paths[0]]),
+  );
+  const memberRoots = Object.fromEntries(
+    Object.entries(memberPackages).map(([key, directory]) => [
+      key,
+      profilePackageRoot(directory, deps),
+    ]),
+  );
+  return {
+    schema: 'kungfu.profile-source-resolution/v1',
+    source: suiteDir,
+    suiteKey,
+    profilePath,
+    profile,
+    memberRoots,
+    memberPackages,
+    verified: true,
+  };
 }
 
 function validateFirstPartyManifest(

@@ -7,7 +7,7 @@
 //
 //   shifu <any pnpm task/args>    run the task under the pinned toolchain
 //   shifu build | rebuild         rich subcommands -> delegated to L2 node
-//   shifu proxy | config ...      (shifu.mjs), not passed to pnpm
+//   shifu cache | gate | proxy | config  (shifu.mjs), not passed to pnpm
 //   shifu --version | -v | -V     launcher version + build identity
 //   shifu self-version            this binary's crate version (machine readable)
 //   shifu / -h / --help           launcher usage (pnpm's own help: `shifu help`)
@@ -34,6 +34,7 @@ use std::env;
 use std::path::{Path, PathBuf};
 use std::process::exit;
 
+mod artifact_catalog;
 mod dispatch;
 mod doctor;
 mod envfile;
@@ -49,11 +50,52 @@ use shifu_core::style;
 
 /// Rich subcommands handled by the L2 node implementation (shifu.mjs),
 /// mirroring the sh / cmd entrypoints. Everything else goes to corepack pnpm.
-const L2_SUBCOMMANDS: &[&str] = &["build", "rebuild", "proxy", "config"];
+const L2_SUBCOMMANDS: &[&str] = &["build", "rebuild", "cache", "proxy", "config", "gate"];
 
 #[cfg(any(windows, test))]
 fn command_requires_msvc(command: Option<&str>) -> bool {
-    !matches!(command, Some("proxy" | "config"))
+    !matches!(command, Some("cache" | "gate" | "proxy" | "config"))
+}
+
+fn should_auto_apply_cache(
+    command: Option<&str>,
+    profile_ref: &str,
+    profile_digest: &str,
+    cache_active: &str,
+) -> bool {
+    if cache_active == "1" || (profile_ref.is_empty() && profile_digest.is_empty()) {
+        return false;
+    }
+    !matches!(
+        command,
+        None | Some(
+            "cache"
+                | "proxy"
+                | "config"
+                | "gate"
+                | "clone"
+                | "self-update"
+                | "self-version"
+                | "promote"
+                | "builds"
+                | "-h"
+                | "--help"
+                | "-v"
+                | "-V"
+                | "--version"
+        )
+    )
+}
+
+fn auto_apply_args(args: &[String]) -> Vec<String> {
+    let mut wrapped = vec![
+        "cache".to_string(),
+        "apply".to_string(),
+        "--".to_string(),
+        "./shifu".to_string(),
+    ];
+    wrapped.extend_from_slice(args);
+    wrapped
 }
 
 fn print_usage() {
@@ -79,6 +121,8 @@ fn print_usage() {
         style::dim("missing prerequisites bootstrap automatically)")
     );
     println!("  shifu build | rebuild      bootstrap build (rebuild clears generated outputs)");
+    println!("  shifu cache ...            inspect the versioned cache contract and schemas");
+    println!("  shifu gate ...             inspect and plan registered project gates");
     println!("  shifu proxy | config ...   manage local mirror/cache config (build-local.env)");
     println!("  shifu clone [path]         clone the kungfu repository (default: current dir;");
     println!(
@@ -99,10 +143,11 @@ fn print_usage() {
     );
     println!(
         "                             {}",
-        style::dim("release; --list generations; --rollback one step back)")
+        style::dim("release; --list provenance; --rollback one step back)")
     );
-    println!("  shifu promote [--launch]   install the freshest built dev kungfu");
-    println!("  shifu builds               list registered dev builds");
+    println!("  shifu promote [--launch]   install the unique descendant dev build");
+    println!("  shifu builds               list provenance and Git relation for dev builds");
+    println!("  shifu artifacts <verb>     print the local artifact contract or schema");
     println!("  shifu help                 pnpm's own help (tasks are pnpm scripts)");
     println!();
     println!(
@@ -110,7 +155,7 @@ fn print_usage() {
         style::cyan("Common tasks:")
     );
     println!(
-        "{} AGENTS.md (build), docs/rust-adoption.md (how this launcher works)",
+        "{} AGENTS.md (build), docs/development/rust-adoption.md (how this launcher works)",
         style::cyan("Docs:")
     );
 }
@@ -145,7 +190,9 @@ fn main() {
     // user-global precisely so a cleaned worktree cannot strand its build.
     let is_promote = first == Some("promote");
     let is_builds = first == Some("builds");
-    let lenient = is_version || is_doctor || is_self_update || is_promote || is_builds;
+    let is_artifacts = first == Some("artifacts");
+    let lenient =
+        is_version || is_doctor || is_self_update || is_promote || is_builds || is_artifacts;
 
     let root = find_repo_root(lenient);
 
@@ -170,16 +217,44 @@ fn main() {
     if is_self_update {
         self_update::run(None, &args[1..]);
     }
+    #[cfg(windows)]
     if is_doctor {
-        doctor::run(root.as_deref());
+        if let Some(root) = root.as_deref() {
+            msvc::ensure_msvc_env(root);
+        }
+    }
+    if is_doctor {
+        doctor::run(root.as_deref(), &args[1..]);
     }
     if is_promote {
         promote::run_promote(&args[1..]);
     }
     if is_builds {
-        promote::run_builds();
+        promote::run_builds(&args[1..]);
+    }
+    if is_artifacts {
+        artifact_catalog::run_discovery(&args[1..]);
     }
     let root = root.expect("strict repo discovery cannot return None");
+
+    // A projected profile makes the ordinary documented entrypoint sufficient:
+    // resolve/apply once, then re-enter through ./shifu with the runtime fuse.
+    // Either half of the pair triggers the resolver so partial configuration
+    // still fails closed. Control/bootstrap verbs stay outside this boundary.
+    if should_auto_apply_cache(
+        first,
+        &env::var("SHIFU_CACHE_PROFILE_REF").unwrap_or_default(),
+        &env::var("SHIFU_CACHE_PROFILE_DIGEST").unwrap_or_default(),
+        &env::var("SHIFU_CACHE_ACTIVE").unwrap_or_default(),
+    ) {
+        // The managed child re-enters through the canonical script. Pin it to
+        // this already-running launcher so a dirty development checkout does
+        // not rebuild the same native binary a second time.
+        if let Ok(current_exe) = env::current_exe() {
+            env::set_var("SHIFU_BIN", current_exe);
+        }
+        dispatch::delegate_l2(&root, &auto_apply_args(&args));
+    }
 
     // L2 build/rebuild dispatches inherit this process environment, so load
     // MSVC before selecting the Node path. Proxy/config are intentionally
@@ -407,7 +482,7 @@ fn find_repo_root(lenient: bool) -> Option<PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use super::command_requires_msvc;
+    use super::{auto_apply_args, command_requires_msvc, should_auto_apply_cache};
 
     #[test]
     fn compiler_environment_precedes_every_build_capable_dispatch() {
@@ -417,5 +492,58 @@ mod tests {
         assert!(command_requires_msvc(Some("qualify:mmap")));
         assert!(!command_requires_msvc(Some("proxy")));
         assert!(!command_requires_msvc(Some("config")));
+        assert!(!command_requires_msvc(Some("cache")));
+        assert!(!command_requires_msvc(Some("gate")));
+    }
+
+    #[test]
+    fn projected_cache_wraps_tasks_once_and_keeps_control_verbs_direct() {
+        assert!(should_auto_apply_cache(
+            Some("build"),
+            "profile.json",
+            "sha256:abc",
+            ""
+        ));
+        assert!(should_auto_apply_cache(
+            Some("check"),
+            "profile.json",
+            "",
+            ""
+        ));
+        assert!(!should_auto_apply_cache(
+            Some("build"),
+            "profile.json",
+            "sha256:abc",
+            "1"
+        ));
+        assert!(!should_auto_apply_cache(Some("build"), "", "", ""));
+        for command in [
+            "cache",
+            "config",
+            "proxy",
+            "gate",
+            "clone",
+            "self-update",
+            "self-version",
+            "promote",
+            "builds",
+            "--version",
+            "--help",
+        ] {
+            assert!(!should_auto_apply_cache(
+                Some(command),
+                "profile.json",
+                "sha256:abc",
+                ""
+            ));
+        }
+    }
+
+    #[test]
+    fn cache_wrapper_reenters_the_canonical_entrypoint() {
+        assert_eq!(
+            auto_apply_args(&["check".to_string(), "--all".to_string()]),
+            ["cache", "apply", "--", "./shifu", "check", "--all"]
+        );
     }
 }

@@ -2,6 +2,7 @@
 
 #include <kungfu/yijinjing/common.h>
 #include <kungfu/yijinjing/journal/journal.h>
+#include <kungfu/yijinjing/journal/layout_fingerprint.h>
 #include <kungfu/yijinjing/journal/page.h>
 #include <kungfu/yijinjing/platform/mmap.h>
 #include <kungfu/yijinjing/schema/core.h>
@@ -18,6 +19,7 @@
 #include <string>
 #include <thread>
 #include <type_traits>
+#include <utility>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -34,10 +36,19 @@ using kungfu::yijinjing::data::location;
 using kungfu::yijinjing::data::locator;
 using kungfu::yijinjing::enums::location_role;
 using kungfu::yijinjing::enums::mode;
+using kungfu::yijinjing::journal::frame_ptr;
+using kungfu::yijinjing::journal::hookable_writer;
+using kungfu::yijinjing::journal::journal;
+using kungfu::yijinjing::journal::journal_format_epoch;
+using kungfu::yijinjing::journal::journal_open_policy;
+using kungfu::yijinjing::journal::noop_publisher;
 using kungfu::yijinjing::journal::page;
 using kungfu::yijinjing::journal::page_open_policy;
 using kungfu::yijinjing::journal::page_precreation;
+using kungfu::yijinjing::journal::reader;
 using kungfu::yijinjing::journal::reader_policy;
+using kungfu::yijinjing::journal::writer;
+using kungfu::yijinjing::journal::writer_hook;
 using kungfu::yijinjing::platform::mapped_region;
 using kungfu::yijinjing::platform::mapping_access;
 using kungfu::yijinjing::platform::mapping_creation;
@@ -83,6 +94,11 @@ void require_throws(const std::function<void()> &fn, const std::string &message)
   throw std::runtime_error(message);
 }
 
+bool frame_is_published_at(uintptr_t address) {
+  auto *header = reinterpret_cast<frame_header *>(address);
+  return std::atomic_ref<uint32_t>(header->length).load(std::memory_order_acquire) > 0 && header->carrier_type > 0;
+}
+
 size_t process_resource_count() {
 #ifdef _WIN32
   DWORD count = 0;
@@ -99,6 +115,73 @@ auto make_location(const fs::path &root) {
   return location::make_shared(mode::LIVE, location_role::SYSTEM, "mmap_test", "writer", page_locator);
 }
 
+auto make_bus() { return std::make_shared<kungfu::yijinjing::journal::bus>(false); }
+
+class one_shot_hook : public writer_hook {
+public:
+  bool throw_on_open{false};
+  bool throw_on_close{false};
+
+  void on_open_frame(int64_t, frame_ptr) override {
+    if (std::exchange(throw_on_open, false)) {
+      throw std::runtime_error("injected open hook failure");
+    }
+  }
+
+  void on_close_frame(int64_t, frame_ptr) override {
+    if (std::exchange(throw_on_close, false)) {
+      throw std::runtime_error("injected close hook failure");
+    }
+  }
+};
+
+class one_shot_publisher : public noop_publisher {
+public:
+  bool throw_on_notify{true};
+  int notify() override {
+    if (std::exchange(throw_on_notify, false)) {
+      throw std::runtime_error("injected publisher failure");
+    }
+    return 0;
+  }
+};
+
+class injectable_writer : public writer {
+public:
+  using writer::writer;
+  bool throw_on_reserve{false};
+  bool throw_on_commit{false};
+
+protected:
+  void on_frame_opened(int64_t trigger_time, kungfu::yijinjing::journal::frame *frame) override {
+    writer::on_frame_opened(trigger_time, frame);
+    if (std::exchange(throw_on_reserve, false)) {
+      throw std::runtime_error("injected reservation failure");
+    }
+  }
+
+  void on_frame_closing(int64_t gen_time, kungfu::yijinjing::journal::frame *frame) override {
+    if (std::exchange(throw_on_commit, false)) {
+      throw std::runtime_error("injected commit failure");
+    }
+    writer::on_frame_closing(gen_time, frame);
+  }
+};
+
+class rollover_journal : public journal {
+public:
+  using journal::journal;
+  bool throw_on_rollover{false};
+
+protected:
+  void close_page(int64_t trigger_time, int64_t last_gen_time) override {
+    if (std::exchange(throw_on_rollover, false)) {
+      throw std::runtime_error("injected page rollover failure");
+    }
+    journal::close_page(trigger_time, last_gen_time);
+  }
+};
+
 std::string create_page_path(const kungfu::yijinjing::data::location_ptr &loc) {
   (void)loc->locator->layout_dir(loc, kungfu::yijinjing::enums::layout::JOURNAL, true);
   return page::get_page_path(loc, location::PUBLIC, 1);
@@ -109,7 +192,7 @@ void create_seek_page(const kungfu::yijinjing::data::location_ptr &loc, uint32_t
   const auto path = page::get_page_path(loc, location::PUBLIC, page_id);
   auto region = mapped_region::map(path, TEST_PAGE_SIZE, mapping_policy::write_create_or_grow());
   auto *header = reinterpret_cast<page_header *>(region.address());
-  header->version = __JOURNAL_VERSION__;
+  header->version = journal_format_epoch;
   header->page_header_length = sizeof(page_header);
   header->page_size = TEST_PAGE_SIZE;
   header->frame_header_length = sizeof(frame_header);
@@ -127,6 +210,8 @@ void test_wire_layout_invariants() {
   static_assert(offsetof(frame_header, length) == 0, "frame publication token offset changed");
   static_assert(std::is_move_constructible_v<mapped_region>);
   static_assert(!std::is_copy_constructible_v<mapped_region>);
+  static_assert(std::is_move_constructible_v<writer::frame_transaction>);
+  static_assert(!std::is_copy_constructible_v<writer::frame_transaction>);
 }
 
 void test_mapping_policy_truth_table() {
@@ -312,7 +397,7 @@ void test_corrupt_page_offsets_fail_before_payload_access() {
   const auto path = create_page_path(loc);
   auto region = mapped_region::map(path, TEST_PAGE_SIZE, mapping_policy::write_create_or_grow());
   auto *header = reinterpret_cast<page_header *>(region.address());
-  header->version = __JOURNAL_VERSION__;
+  header->version = journal_format_epoch;
   header->page_header_length = sizeof(page_header);
   header->page_size = TEST_PAGE_SIZE;
   header->frame_header_length = sizeof(frame_header);
@@ -330,6 +415,7 @@ void test_corrupt_page_header_facts_are_rejected() {
     std::function<void(page_header &)> corrupt;
   };
   const corrupt_case cases[] = {
+      {"version", [](page_header &header) { header.version = journal_format_epoch + 1u; }},
       {"page header length", [](page_header &header) { header.page_header_length = sizeof(page_header) + 8; }},
       {"frame header length", [](page_header &header) { header.frame_header_length = sizeof(frame_header) - 8; }},
       {"page size", [](page_header &header) { header.page_size = TEST_PAGE_SIZE + 4096; }},
@@ -341,7 +427,7 @@ void test_corrupt_page_header_facts_are_rejected() {
     const auto path = create_page_path(loc);
     auto region = mapped_region::map(path, TEST_PAGE_SIZE, mapping_policy::write_create_or_grow());
     auto *header = reinterpret_cast<page_header *>(region.address());
-    header->version = __JOURNAL_VERSION__;
+    header->version = journal_format_epoch;
     header->page_header_length = sizeof(page_header);
     header->page_size = TEST_PAGE_SIZE;
     header->frame_header_length = sizeof(frame_header);
@@ -387,7 +473,7 @@ void test_page_header_publication() {
           "initializer process failed");
 #endif
 
-  require(reader->get_version() == __JOURNAL_VERSION__, "reader observed an unpublished page version");
+  require(reader->get_version() == journal_format_epoch, "reader observed an unpublished page version");
   require(reader->get_page_size() == TEST_PAGE_SIZE, "reader observed an unpublished page size");
   require(reader->first_frame_address() > reader->address(), "reader observed an invalid first-frame address");
 }
@@ -405,6 +491,193 @@ void test_page_lookup_uses_ordered_begin_times() {
           "lookup at the first begin time did not preserve first-page fallback");
   require(page::find_page_id(loc, location::PUBLIC, 201) == 2, "lookup did not select the latest earlier page");
   require(page::find_page_id(loc, location::PUBLIC, 1'000) == 4, "lookup selected a pre-open tail page");
+}
+
+void test_writer_transaction_recovers_from_reservation_and_commit_failures() {
+  temp_tree tree;
+  auto loc = make_location(tree.root());
+  auto bus = make_bus();
+  injectable_writer target(loc, location::PUBLIC, std::make_shared<noop_publisher>(), false, bus, TEST_PAGE_SIZE);
+
+  target.throw_on_reserve = true;
+  require_throws([&] { (void)target.reserve_frame(1, 1001, 8); }, "injected reservation failure did not escape");
+
+  target.throw_on_commit = true;
+  require_throws(
+      [&] {
+        auto tx = target.reserve_frame(2, 1002, 8);
+        tx.commit(8, 3);
+      },
+      "injected commit failure did not escape");
+
+  auto recovered = target.reserve_frame(4, 1003, 8);
+  const auto published_address = recovered.frame()->address();
+  recovered.commit(8, 5);
+  require(frame_is_published_at(published_address), "writer did not recover after reservation/commit failures");
+}
+
+void test_writer_transaction_aborts_abandonment_and_payload_failure() {
+  temp_tree tree;
+  auto loc = make_location(tree.root());
+  auto bus = make_bus();
+  writer target(loc, location::PUBLIC, std::make_shared<noop_publisher>(), false, bus, TEST_PAGE_SIZE);
+
+  uintptr_t abandoned_address = 0;
+  {
+    auto tx = target.reserve_frame(1, 1101, 8);
+    abandoned_address = tx.frame()->address();
+    require(!tx.frame()->has_data(), "reservation published length before commit");
+  }
+
+  require_throws(
+      [&] {
+        auto tx = target.reserve_frame(2, 1102, 8);
+        require(tx.frame()->address() == abandoned_address, "abandonment advanced the journal cursor");
+        throw std::runtime_error("injected payload construction failure");
+      },
+      "injected payload construction failure did not escape");
+
+  auto recovered = target.reserve_frame(3, 1103, 8);
+  require(recovered.frame()->address() == abandoned_address, "payload failure advanced the journal cursor");
+  const auto published_address = recovered.frame()->address();
+  recovered.commit(8, 4);
+  require(frame_is_published_at(published_address), "writer did not recover after abandoned transactions");
+}
+
+void test_writer_transaction_recovers_from_hook_failures() {
+  temp_tree tree;
+  auto loc = make_location(tree.root());
+  auto bus = make_bus();
+  auto hook = std::make_shared<one_shot_hook>();
+  hookable_writer target(loc, location::PUBLIC, std::make_shared<noop_publisher>(), false, bus, TEST_PAGE_SIZE, hook);
+
+  hook->throw_on_open = true;
+  require_throws([&] { (void)target.reserve_frame(1, 1201, 8); }, "open hook failure did not escape");
+
+  hook->throw_on_close = true;
+  require_throws(
+      [&] {
+        auto tx = target.reserve_frame(2, 1202, 8);
+        tx.commit(8, 3);
+      },
+      "close hook failure did not escape");
+
+  auto recovered = target.reserve_frame(4, 1203, 8);
+  const auto published_address = recovered.frame()->address();
+  recovered.commit(8, 5);
+  require(frame_is_published_at(published_address), "writer did not recover after hook failures");
+}
+
+void test_writer_transaction_unlocks_before_publisher_notification() {
+  temp_tree tree;
+  auto loc = make_location(tree.root());
+  auto bus = make_bus();
+  auto publisher = std::make_shared<one_shot_publisher>();
+  writer target(loc, location::PUBLIC, publisher, false, bus, TEST_PAGE_SIZE);
+
+  uintptr_t published_address = 0;
+  require_throws(
+      [&] {
+        auto tx = target.reserve_frame(1, 1301, 8);
+        published_address = tx.frame()->address();
+        tx.commit(8, 2);
+      },
+      "publisher notification failure did not escape");
+  require(frame_is_published_at(published_address), "publisher failure rolled back an already published frame");
+
+  auto recovered = target.reserve_frame(3, 1302, 8);
+  recovered.commit(8, 4);
+}
+
+void test_writer_transaction_recovers_from_page_rollover_failure() {
+  temp_tree tree;
+  auto loc = make_location(tree.root());
+  auto bus = make_bus();
+  auto backing = std::make_shared<rollover_journal>(loc, location::PUBLIC, journal_open_policy::writer(), false, bus,
+                                                    TEST_PAGE_SIZE);
+  writer target(loc, location::PUBLIC, std::make_shared<noop_publisher>(), false, bus, backing, 0);
+  constexpr size_t LARGE_PAYLOAD = TEST_PAGE_SIZE / 2;
+
+  auto first = target.reserve_frame(1, 1401, LARGE_PAYLOAD);
+  first.commit(LARGE_PAYLOAD, 2);
+
+  backing->throw_on_rollover = true;
+  require_throws([&] { (void)target.reserve_frame(3, 1402, LARGE_PAYLOAD); }, "page rollover failure did not escape");
+
+  auto recovered = target.reserve_frame(4, 1403, 8);
+  const auto published_address = recovered.frame()->address();
+  recovered.commit(8, 5);
+  require(frame_is_published_at(published_address), "writer did not recover after page rollover failure");
+}
+
+void test_page_release_does_not_poll_external_lease() {
+  temp_tree tree;
+  auto loc = make_location(tree.root());
+  auto bus = std::make_shared<kungfu::yijinjing::journal::bus>(true);
+  auto backing =
+      std::make_shared<journal>(loc, location::PUBLIC, journal_open_policy::writer(), true, bus, TEST_PAGE_SIZE);
+  writer target(loc, location::PUBLIC, std::make_shared<noop_publisher>(), true, bus, backing, 0);
+  constexpr size_t LARGE_PAYLOAD = TEST_PAGE_SIZE / 2;
+
+  auto first = target.reserve_frame(1, 1501, LARGE_PAYLOAD);
+  first.commit(LARGE_PAYLOAD, 2);
+  auto external_lease = target.get_current_page();
+  const auto first_page_id = external_lease->get_page_id();
+
+  auto second = target.reserve_frame(3, 1502, LARGE_PAYLOAD);
+  second.commit(LARGE_PAYLOAD, 4);
+  require(target.get_current_page()->get_page_id() != first_page_id, "fixture did not roll to the next page");
+
+  std::weak_ptr<page> released_page = external_lease;
+  const auto start = std::chrono::steady_clock::now();
+  target.release_page();
+  const auto elapsed = std::chrono::steady_clock::now() - start;
+  require(elapsed < std::chrono::milliseconds(50), "page release waited for an external shared owner");
+  require(!released_page.expired() && external_lease->get_page_id() == first_page_id,
+          "page release invalidated an active external lease");
+
+  external_lease.reset();
+  require(released_page.expired(), "final external release did not destroy the passed page exactly once");
+}
+
+void test_reader_management_uses_membership_snapshots() {
+  temp_tree tree;
+  auto loc = make_location(tree.root());
+  auto writer_bus = make_bus();
+  writer seed(loc, location::PUBLIC, std::make_shared<noop_publisher>(), false, writer_bus, TEST_PAGE_SIZE);
+  seed.mark(1, 1601);
+
+  auto management_bus = std::make_shared<kungfu::yijinjing::journal::bus>(true);
+  reader target(reader_policy::peer(), true, management_bus);
+  target.join(loc, location::PUBLIC, 0, TEST_PAGE_SIZE);
+  const auto retained_snapshot = target.get_journals();
+  require(retained_snapshot.size() == 1, "reader snapshot omitted joined journal");
+
+  std::exception_ptr management_error;
+  std::thread manager([&] {
+    try {
+      for (int i = 0; i < 200; ++i) {
+        (void)target.get_journals();
+        target.preload_next_page();
+        target.release_page();
+      }
+    } catch (...) {
+      management_error = std::current_exception();
+    }
+  });
+
+  for (int i = 0; i < 50; ++i) {
+    target.disjoin_channel(loc, location::PUBLIC);
+    target.join(loc, location::PUBLIC, 0, TEST_PAGE_SIZE);
+  }
+  manager.join();
+  if (management_error) {
+    std::rethrow_exception(management_error);
+  }
+
+  target.disjoin_channel(loc, location::PUBLIC);
+  require(target.get_journals().empty(), "reader membership snapshot retained a disjoined journal");
+  require(retained_snapshot.size() == 1, "previous reader snapshot aliased the mutable journal map");
 }
 
 } // namespace
@@ -425,6 +698,15 @@ int main() {
       {"corrupt page header facts are rejected", test_corrupt_page_header_facts_are_rejected},
       {"page header publication", test_page_header_publication},
       {"page lookup uses ordered begin times", test_page_lookup_uses_ordered_begin_times},
+      {"writer transaction reservation and commit recovery",
+       test_writer_transaction_recovers_from_reservation_and_commit_failures},
+      {"writer transaction abandonment and payload recovery",
+       test_writer_transaction_aborts_abandonment_and_payload_failure},
+      {"writer transaction hook recovery", test_writer_transaction_recovers_from_hook_failures},
+      {"writer transaction publisher recovery", test_writer_transaction_unlocks_before_publisher_notification},
+      {"writer transaction page rollover recovery", test_writer_transaction_recovers_from_page_rollover_failure},
+      {"page release does not poll external lease", test_page_release_does_not_poll_external_lease},
+      {"reader management membership snapshots", test_reader_management_uses_membership_snapshots},
   };
 
   int failed = 0;

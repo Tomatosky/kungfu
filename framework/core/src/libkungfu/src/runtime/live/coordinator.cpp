@@ -15,7 +15,6 @@ using namespace kungfu::rx;
 using namespace kungfu::yijinjing;
 using namespace kungfu::yijinjing::types;
 using namespace kungfu::yijinjing::enums;
-using namespace kungfu::runtime::state_cache;
 using namespace kungfu::yijinjing::data;
 using namespace kungfu::runtime::journal;
 
@@ -25,22 +24,27 @@ coordinator::coordinator(const location_ptr &home, bool low_latency)
     : coordinator(std::make_shared<kungfu::runtime::io_device_coordinator>(home, low_latency)) {}
 
 coordinator::coordinator(const kungfu::runtime::io_device_ptr &io_device)
-    : reactor(io_device), last_check_(0), state_cache_(io_device) {}
+    : reactor(io_device), last_check_(0), state_service_(io_device) {}
 
 void coordinator::pre_setup() {
   reactor::pre_setup();
-  for (const auto &peer_location : state_cache_.get_all(Location{})) {
+  for (const auto &peer_location : state_service_.locations()) {
     add_location(begin_time_, location::make_shared(peer_location, get_locator()));
   }
-  for (const auto &config : state_cache_.get_all(Config{})) {
+  for (const auto &config : state_service_.configs()) {
     try_add_location(begin_time_, location::make_shared(config, get_locator()));
   }
 
-  writers_.insert_or_assign(location::PUBLIC, get_io_device()->open_writer(location::PUBLIC));
-  state_cache_.run_store_workers();
+  auto public_writer = get_io_device()->open_writer(location::PUBLIC);
+  {
+    std::lock_guard<std::mutex> lock(writers_mtx_);
+    writers_.insert_or_assign(location::PUBLIC, std::move(public_writer));
+  }
+  state_service_.start();
 }
 
 void coordinator::on_exit() {
+  state_service_.stop();
   notify_deregister_on_exit();
   notify_coordinator_deregister_on_exit();
 }
@@ -97,7 +101,10 @@ void coordinator::register_peer(const event_ptr &event) {
   try_add_location(event->gen_time(), coordinator_cmd_location);
 
   auto peer_cmd_writer = get_io_device()->open_writer_at(coordinator_cmd_location, peer_location->uid);
-  writers_.insert_or_assign(peer_location->uid, peer_cmd_writer);
+  {
+    std::lock_guard<std::mutex> lock(writers_mtx_);
+    writers_.insert_or_assign(peer_location->uid, peer_cmd_writer);
+  }
   reader_->join(peer_location, location::PUBLIC, now);
   reader_->join(peer_location, location::SYNC, now); // create sync journal
   disjoin_channel(peer_location, location::SYNC);    // no need to deal feed from sync
@@ -112,9 +119,9 @@ void coordinator::register_peer(const event_ptr &event) {
   require_write_to(event->gen_time(), peer_location->uid, location::SYNC);
   require_write_to(event->gen_time(), peer_location->uid, coordinator_cmd_location->uid);
 
-  state_cache_.reset_cache_shift(peer_location);
-  state_cache_.try_ensure_cached_storage(peer_location, location::PUBLIC);
-  state_cache_.restore(peer_location, peer_cmd_writer);
+  state_service_.reset_cache_shift(peer_location);
+  state_service_.ensure_storage(peer_location, location::PUBLIC);
+  state_service_.restore(peer_location, peer_cmd_writer);
 
   write_time_reset(event->gen_time(), peer_cmd_writer);
   peer_cmd_writer->mark(yijinjing::time::now_in_nano(), RequestStart::tag);
@@ -138,10 +145,13 @@ void coordinator::deregister_peer(int64_t trigger_time, uint32_t peer_location_u
   SPDLOG_DEBUG("location: {}", location->to_string());
   SPDLOG_INFO("peer {} gone", location->uname);
   deregister_channel(peer_location_uid);
-  deregister_band(peer_location_uid);
+  deregister_outlet(peer_location_uid);
   deregister_location(trigger_time, peer_location_uid);
   disjoin(location);
-  writers_.erase(peer_location_uid);
+  {
+    std::lock_guard<std::mutex> lock(writers_mtx_);
+    writers_.erase(peer_location_uid);
+  }
   timer_tasks_.erase(peer_location_uid);
   const Deregister deregister = location->to<Deregister>();
   SPDLOG_DEBUG("Deregister: {}", deregister.to_string());
@@ -157,7 +167,7 @@ void coordinator::on_request_deregister(const event_ptr &event) {
 
 void coordinator::react() {
   events_ | is(RequestWriteTo::tag) | $$(on_request_write_to(event));
-  events_ | is(RequestWriteToBand::tag) | $$(on_request_write_to_band(event));
+  events_ | is(RequestWriteToOutlet::tag) | $$(on_request_write_to_outlet(event));
   events_ | is(RequestReadFrom::tag) | $$(on_request_read_from(event));
   events_ | is(RequestReadFromPublic::tag) | $$(on_request_read_from_public(event));
   events_ | is(RequestReadFromSync::tag) | $$(on_request_read_from_sync(event));
@@ -178,9 +188,9 @@ void coordinator::react() {
   events_ | is(Location::tag) | $$(on_new_location(event));
   events_ | is(Register::tag) | $$(register_peer(event));
   events_ | is(Ping::tag) | $$(pong(event));
-  events_ | is(CacheReset::tag) | $([&](const event_ptr &event) { state_cache_.cache_reset(event); });
-  events_ | is(CachedPause::tag) | $$(state_cache_.switch_feed_storage(true));
-  events_ | is(CachedResume::tag) | $$(state_cache_.switch_feed_storage(false));
+  events_ | is(CacheReset::tag) | $([&](const event_ptr &event) { state_service_.cache_reset(event); });
+  events_ | is(CachedPause::tag) | $$(state_service_.pause_projection(true));
+  events_ | is(CachedResume::tag) | $$(state_service_.pause_projection(false));
   events_ | instanceof<yijinjing::journal::frame>() | $$(feed(event));
 
   // have to be at bottom of react, for avoid event still required after reader disjoin
@@ -222,7 +232,7 @@ void coordinator::handle_timer_tasks() {
 void coordinator::try_add_location(int64_t trigger_time, const location_ptr &peer_location) {
   if (not has_location(peer_location->uid)) {
     add_location(trigger_time, peer_location);
-    state_cache_.feed_profile(dynamic_cast<Location &>(*peer_location));
+    state_service_.record_location(dynamic_cast<Location &>(*peer_location));
   }
 }
 
@@ -245,13 +255,13 @@ void coordinator::feed(const event_ptr &event) {
     return;
   }
 
-  state_cache_.feed(event);
+  state_service_.ingest(event);
 }
 
 void coordinator::pong(const event_ptr &) { get_io_device()->get_publisher()->publish("{}"); }
 
-void coordinator::on_request_write_to_band(const event_ptr &event) {
-  const RequestWriteToBand &request = event->data<RequestWriteToBand>();
+void coordinator::on_request_write_to_outlet(const event_ptr &event) {
+  const RequestWriteToOutlet &request = event->data<RequestWriteToOutlet>();
   auto trigger_time = event->gen_time();
   auto peer_uid = event->source();
   auto home = get_io_device()->get_home();
@@ -263,26 +273,26 @@ void coordinator::on_request_write_to_band(const event_ptr &event) {
   reader_->join(target_location, location::PUBLIC, trigger_time, 1);
   disjoin(target_location);
 
-  // notify others band location, but it represents a simulation location, no register, only location
+  // notify others outlet location, but it represents a simulation location, no register, only location
   try_add_location(now(), target_location);
   get_writer(location::PUBLIC)->write(now(), dynamic_cast<Location &>(*target_location));
 
-  SPDLOG_DEBUG("on_request_write_to_band for {} to {}, dirname {}", get_location_uname(peer_uid), request.name,
+  SPDLOG_DEBUG("on_request_write_to_outlet for {} to {}, dirname {}", get_location_uname(peer_uid), request.name,
                dirname);
   if (not is_location_live(peer_uid)) {
     return;
   }
 
-  // State storage must be ready before the channel/band request is published.
+  // State storage must be ready before the channel/outlet request is published.
   // slowly
-  state_cache_.try_ensure_cached_storage(get_location(peer_uid), request.location_uid);
+  state_service_.ensure_storage(get_location(peer_uid), request.location_uid);
   reader_->join(get_location(peer_uid), request.location_uid, trigger_time, page_size);
-  require_write_to_band(trigger_time, peer_uid, target_location, page_size);
-  Band band = {};
-  band.source_id = peer_uid;
-  band.dest_id = target_location->location_uid;
-  register_band(trigger_time, band);
-  get_writer(location::PUBLIC)->write(trigger_time, band);
+  require_write_to_outlet(trigger_time, peer_uid, target_location, page_size);
+  Outlet outlet = {};
+  outlet.source_id = peer_uid;
+  outlet.dest_id = target_location->location_uid;
+  register_outlet(trigger_time, outlet);
+  get_writer(location::PUBLIC)->write(trigger_time, outlet);
 }
 
 void coordinator::on_request_write_to(const event_ptr &event) {
@@ -294,9 +304,9 @@ void coordinator::on_request_write_to(const event_ptr &event) {
     return;
   }
 
-  // State storage must be ready before the channel/band request is published.
+  // State storage must be ready before the channel/outlet request is published.
   // slowly
-  state_cache_.try_ensure_cached_storage(get_location(peer_uid), request.dest_id);
+  state_service_.ensure_storage(get_location(peer_uid), request.dest_id);
   reader_->join(get_location(peer_uid), request.dest_id, trigger_time, request.page_size);
   require_write_to(trigger_time, peer_uid, request.dest_id, request.page_size);
 
@@ -320,9 +330,9 @@ void coordinator::on_request_read_from(const event_ptr &event) {
     return;
   }
 
-  // State storage must be ready before the channel/band request is published.
+  // State storage must be ready before the channel/outlet request is published.
   // slowly
-  state_cache_.try_ensure_cached_storage(get_location(request.source_id), peer_uid);
+  state_service_.ensure_storage(get_location(request.source_id), peer_uid);
   reader_->join(get_location(request.source_id), peer_uid, trigger_time, request.page_size);
   require_write_to(trigger_time, request.source_id, peer_uid, request.page_size);
   require_read_from(trigger_time, peer_uid, request.source_id, request.from_time, request.page_size);
@@ -356,7 +366,7 @@ void coordinator::on_channel_request(const event_ptr &event) {
   const Channel &channel = event->data<Channel>();
   auto trigger_time = event->gen_time();
   if (is_location_live(channel.source_id) and not has_channel(channel.source_id, channel.dest_id)) {
-    state_cache_.try_ensure_cached_storage(get_location(channel.source_id), channel.dest_id);
+    state_service_.ensure_storage(get_location(channel.source_id), channel.dest_id);
     reader_->join(get_location(channel.source_id), channel.dest_id, trigger_time);
     require_write_to(trigger_time, channel.source_id, channel.dest_id);
     register_channel(trigger_time, channel);
@@ -410,7 +420,7 @@ void coordinator::write_channels(int64_t trigger_time, const writer_ptr &writer)
 }
 
 void coordinator::write_bands(int64_t trigger_time, const writer_ptr &writer) {
-  for (const auto &item : get_bands()) {
+  for (const auto &item : get_outlets()) {
     writer->write(trigger_time, item.second);
   }
 }

@@ -21,9 +21,11 @@ target_link_libraries(your_tool yijinjing)
 ```
 
 `<kungfu>` can be a git checkout, a submodule or a FetchContent source
-directory. The target propagates its include directories and C++23
-requirement (`std::atomic_ref` implements the frame publication protocol,
-see ADR-0001), so the consumer needs no extra configuration.
+directory. The target propagates its include directories and strict C++20
+requirement (`std::atomic_ref` implements the frame publication protocol and
+typed byte views use `std::span`; both are C++20), so the consumer needs no
+extra configuration. The enclosing standalone project needs CMake 3.20 or
+newer; the full Kungfu product build has a separate CMake 3.28 floor.
 
 ## What you must provide
 
@@ -105,5 +107,5 @@ The typed `mapped_region::map(path, size, policy)` API is canonical. Deprecated
 temporary source adapters for existing embedders; they translate directly to a
 typed policy and do not preserve the former best-effort locking interpretation
 of `lazy`. New integrations must not use those adapters. See
-[ADR-0058](../../docs/adr/ADR-0058-yijinjing-explicit-mapping-policies.md) for
+[ADR-0058](../../../../docs/adr/ADR-0058-yijinjing-explicit-mapping-policies.md) for
 the qualification table and removal conditions.

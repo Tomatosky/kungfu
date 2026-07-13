@@ -174,6 +174,8 @@ struct episode_fsck_issue {
   std::optional<std::string> algorithm = {};
   std::optional<std::string> recorded = {};
   std::optional<std::string> computed = {};
+
+  friend bool operator==(const episode_fsck_issue &, const episode_fsck_issue &) = default;
 };
 
 struct episode_fsck_result {

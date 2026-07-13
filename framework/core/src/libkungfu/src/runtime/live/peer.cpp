@@ -60,16 +60,16 @@ void peer::request_write_to(int64_t trigger_time, uint32_t dest_id, uint64_t pag
   require_write_to(trigger_time, get_coordinator_command_uid(), dest_id, page_size);
 }
 
-void peer::request_write_to_band(int64_t trigger_time, const location_ptr &location, uint64_t page_size) {
-  require_write_to_band(trigger_time, get_coordinator_command_uid(), location, page_size);
+void peer::request_write_to_outlet(int64_t trigger_time, const location_ptr &location, uint64_t page_size) {
+  require_write_to_outlet(trigger_time, get_coordinator_command_uid(), location, page_size);
 }
 
-uint32_t peer::request_band(const std::string &band_name, uint64_t page_size) {
+uint32_t peer::request_outlet(const std::string &outlet_name, uint64_t page_size) {
   auto io_device = get_io_device();
   auto home = io_device->get_live_home();
-  auto band_location = location::make_shared(home->mode, home->role, home->namespace_, band_name, get_locator());
-  request_write_to_band(now(), band_location, page_size);
-  return band_location->uid;
+  auto outlet_location = location::make_shared(home->mode, home->role, home->namespace_, outlet_name, get_locator());
+  request_write_to_outlet(now(), outlet_location, page_size);
+  return outlet_location->uid;
 }
 
 int32_t peer::add_timer(int64_t nanotime, const std::function<void(const event_ptr &)> &callback) {
@@ -87,14 +87,14 @@ int32_t peer::add_time_interval(int64_t duration, const std::function<void(const
 
 void peer::release_page() {
   reader_->release_page();
-  for (auto &iter : writers_) {
+  for (auto &iter : get_writers()) {
     iter.second->release_page();
   }
 }
 
 void peer::preload_next_page() {
   reader_->preload_next_page();
-  for (auto &iter : writers_) {
+  for (auto &iter : get_writers()) {
     iter.second->preload_next_page();
   }
 }
@@ -113,9 +113,9 @@ void peer::react() {
     events_ | is(RequestReadFromPublic::tag) | $$(on_read_from_public(event));
     events_ | is(RequestReadFromSync::tag) | $$(on_read_from_sync(event));
     events_ | is(RequestWriteTo::tag) | $$(on_write_to(event));
-    events_ | is(RequestWriteToBand::tag) | $$(on_write_to_band(event));
+    events_ | is(RequestWriteToOutlet::tag) | $$(on_write_to_outlet(event));
     events_ | is(Channel::tag) | $$(register_channel(event->gen_time(), event->data<Channel>()));
-    events_ | is(Band::tag) | $$(register_band(event->gen_time(), event->data<Band>()));
+    events_ | is(Outlet::tag) | $$(register_outlet(event->gen_time(), event->data<Outlet>()));
     events_ | is(RequestStop::tag) | to(get_live_home_uid()) | $$(signal_stop());
     events_ | take_until(events_ | is(RequestStart::tag)) | $$(manager::feed_state_data(event, state_bank_));
     events_ | is(Deregister::tag) | $$(on_deregister(event));
@@ -123,27 +123,22 @@ void peer::react() {
   }
 
   if (get_io_device()->get_home()->mode == mode::LIVE) {
+    // Deterministic, thread-free register handshake timeout. The peer is not yet
+    // live during the handshake, so the coordinator's journal time service does
+    // not serve it; instead of a background rx::timeout thread we set a
+    // wall-clock deadline that on_active checks on the observer recv_timeout
+    // heartbeat.
+    register_deadline_ =
+        yijinjing::time::now_in_nano() + REGISTER_TIMEOUT_SECONDS * yijinjing::time_unit::NANOSECONDS_PER_SECOND;
+
     auto self_register_event = events_ | skip_until(events_ | is(Register::tag) | filter([&](const event_ptr &event) {
                                                       auto uid = event->data<Register>().location_uid;
                                                       return uid == get_live_home_uid();
                                                     })) |
                                first();
 
-    self_register_event | rx::timeout(seconds(REGISTER_TIMEOUT_SECONDS), observe_on_new_thread()) |
-        $(
-            [&](const event_ptr &event) {
-              // this subscriber will quit when register is done, no worry for performance.
-            },
-            [&](std::exception_ptr e) {
-              try {
-                std::rethrow_exception(e);
-              } catch (const timeout_error &ex) {
-                SPDLOG_ERROR("peer register timeout");
-                reactor::signal_stop();
-              }
-            });
-
     self_register_event | $([&](const event_ptr &event) {
+      registered_ = true;
       auto data = event->data<Register>();
       checkin_time_ = data.checkin_time;
       // in case operation-system time change, begin_time_ mismatch clock of coordinator, keep using event->gen_time()
@@ -169,16 +164,36 @@ void peer::react() {
     fs::remove_all(coordinator_cmd_dir);
     auto peer_cmd_writer = get_io_device()->open_writer_at(coordinator_cmd_location_, get_home_uid());
 
-    writers_.insert_or_assign(get_home_uid(), peer_cmd_writer);
+    {
+      std::lock_guard<std::mutex> lock(writers_mtx_);
+      writers_.insert_or_assign(get_home_uid(), peer_cmd_writer);
+    }
     reader_->join(coordinator_cmd_location_, get_home_uid(), begin_time_);
-    writers_.insert_or_assign(location::PUBLIC, get_io_device()->open_writer(location::PUBLIC));
+    auto public_writer = get_io_device()->open_writer(location::PUBLIC);
+    {
+      std::lock_guard<std::mutex> lock(writers_mtx_);
+      writers_.insert_or_assign(location::PUBLIC, std::move(public_writer));
+    }
     reader_->join(get_home(), location::PUBLIC, begin_time_);
     started_ = true;
     on_start();
   }
 }
 
-void peer::on_active() {}
+void peer::on_active() {
+  // Register handshake timeout, checked on the recv_timeout heartbeat: on_active
+  // is driven by produce() even when the coordinator is silent, so this is the
+  // one live path during a stalled handshake. Wall-clock, because the peer has
+  // no trustworthy journal time before it is live.
+  if (registered_ or get_io_device()->get_home()->mode != mode::LIVE) {
+    return;
+  }
+  if (yijinjing::time::now_in_nano() >= register_deadline_) {
+    registered_ = true; // report once and stop checking
+    SPDLOG_ERROR("peer register timeout");
+    reactor::signal_stop();
+  }
+}
 
 void peer::on_frame() {
   // request_write_to the dest which from try_write_to
@@ -213,7 +228,7 @@ void peer::on_deregister(const event_ptr &event) {
     disjoin(get_location(location_uid));
   }
   deregister_channel(location_uid);
-  deregister_band(location_uid);
+  deregister_outlet(location_uid);
   deregister_location(event->trigger_time(), location_uid);
 }
 
@@ -233,8 +248,12 @@ void peer::on_request_read_from_others(const event_ptr &event) {
 void peer::on_write_to(const event_ptr &event) {
   const auto &request = event->data<RequestWriteTo>();
   auto dest_id = request.dest_id;
-  if (writers_.find(dest_id) == writers_.end()) {
-    writers_.emplace(dest_id, get_io_device()->open_writer(dest_id, request.page_size));
+  if (not has_writer(dest_id)) {
+    auto writer = get_io_device()->open_writer(dest_id, request.page_size);
+    {
+      std::lock_guard<std::mutex> lock(writers_mtx_);
+      writers_.emplace(dest_id, std::move(writer));
+    }
     if (dest_id == get_coordinator_command_uid()) {
       coordinator_cmd_writer_for_thread_ = get_writer(dest_id);
     }
@@ -244,14 +263,14 @@ void peer::on_write_to(const event_ptr &event) {
   }
 }
 
-void peer::on_write_to_band(const event_ptr &event) {
-  const auto &request = event->data<RequestWriteToBand>();
-  SPDLOG_DEBUG("RequestWriteToBand: {}", request.to_string());
+void peer::on_write_to_outlet(const event_ptr &event) {
+  const auto &request = event->data<RequestWriteToOutlet>();
+  SPDLOG_DEBUG("RequestWriteToOutlet: {}", request.to_string());
   auto dest_id = request.location_uid;
   auto page_size = request.page_size;
-  std::lock_guard<std::mutex> lk(band_mtx_);
-  if (band_writers_.find(dest_id) == band_writers_.end()) {
-    band_writers_.emplace(dest_id, get_io_device()->open_writer(dest_id, page_size));
+  std::lock_guard<std::mutex> lk(off_thread_mtx_);
+  if (off_thread_writers_.find(dest_id) == off_thread_writers_.end()) {
+    off_thread_writers_.emplace(dest_id, get_io_device()->open_writer(dest_id, page_size));
   }
 }
 

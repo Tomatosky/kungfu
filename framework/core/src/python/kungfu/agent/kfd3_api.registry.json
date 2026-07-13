@@ -805,6 +805,135 @@
       "visibility": "adjacent-agent",
       "anchor": { "kind": "catalog" },
       "projections": ["commands.json", "agent-pack-doc"]
+    },
+    {
+      "id": "kungfu.profile.discovery",
+      "surface": "cli",
+      "name": "kungfu profile capabilities --json",
+      "aliases": ["kungfu profile examples --json"],
+      "purpose": "Discover the installed Profile authoring and runtime contract without repository access.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill"]
+    },
+    {
+      "id": "kungfu.profile.scaffold",
+      "surface": "cli",
+      "name": "kungfu profile scaffold <brief.json> --out <dir> [--execute] --json",
+      "purpose": "Plan or explicitly write deterministic Profile source while surfacing load-bearing choices as decision cards.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill"]
+    },
+    {
+      "id": "kungfu.profile.source",
+      "surface": "cli",
+      "name": "kungfu profile validate <source> --json",
+      "aliases": ["kungfu profile collaboration <source> --json", "kungfu profile qualify <source> --json"],
+      "purpose": "Resolve KFX members and validate or qualify the exact source closure against installed authorities.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill"]
+    },
+    {
+      "id": "kungfu.profile.lifecycle",
+      "surface": "cli",
+      "name": "kungfu profile plan <action> [source] --json",
+      "aliases": ["kungfu profile decide <plan.json> --choice <choice> --authorized-by <actor> --json", "kungfu profile apply <plan.json> --authorization-file <answer.json> --json", "kungfu profile authorize-lifecycle <action> <source> --expected-plan-id <id> --choice approve --authorized-by <actor> --json"],
+      "purpose": "Project Core lifecycle plans and apply only an explicitly authorized, still-current plan.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill"]
+    },
+    {
+      "id": "kungfu.profile.read",
+      "surface": "cli",
+      "name": "kungfu profile list --json",
+      "aliases": ["kungfu profile inspect <source-or-profile-id> --json", "kungfu profile history <profile-id> --json"],
+      "purpose": "Read resolved source closures and Core-owned current or historical Profile state.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill"]
+    },
+    {
+      "id": "kungfu.profile.diff",
+      "surface": "cli",
+      "name": "kungfu profile diff <left> <right> --json",
+      "purpose": "Classify semantic changes between two exact Profile source closures.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill"]
+    },
+    {
+      "id": "kungfu.profile.action",
+      "surface": "cli",
+      "name": "kungfu profile actions <source> --json",
+      "aliases": ["kungfu profile invoke <source> <action> [--execute --plan-file <plan.json> --authorization-file <answer.json>] --json"],
+      "purpose": "Inspect, plan, and invoke supported declarative Profile actions without bypassing activation, capability, or authorization checks.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill"]
+    },
+    {
+      "id": "kungfu.profile.application",
+      "surface": "cli-api-gui",
+      "name": "kungfu profile application <source> --json",
+      "aliases": ["kungfu profile intent inspect <source> <intent-id> --json", "kungfu profile intent advise <source> <intent-id> --json", "kungfu profile intent plan <source> <intent-id> --json", "kungfu profile intent authorize <source> <intent-id> --expected-plan-id <id> --choice approve --authorized-by <actor> --json", "kungfu profile intent apply <plan.json> --authorization-file <answer.json> --json", "kungfu profile intent verify <source> <receipt.json> --json"],
+      "purpose": "Project and run the same content-bound inspect, advise, preview, authorize, execute, receipt, and verify protocol for Human GUI and Agent clients.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill", "profile-manager-gui"]
+    },
+    {
+      "id": "kungfu.profile.manager",
+      "surface": "cli-gui",
+      "name": "kungfu profile manager --json",
+      "purpose": "Project lifecycle, exact source health, permissions, qualification, diagnostics, and contributed views for Agent and GUI consumers.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "profile-manager-gui"]
+    },
+    {
+      "id": "kungfu.profile.kfd3-qualification",
+      "surface": "cli-api-gui",
+      "name": "kungfu profile kfd3-qualify <source> --json",
+      "aliases": ["kungfu profile kfd3-verify <source> <receipt.json> --json"],
+      "purpose": "Earn a scoped Profile KFD-3 receipt and witness only after installed authority, public-surface, no-bypass, and dual-client probes pass.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill", "profile-manager-gui"]
+    },
+    {
+      "id": "kungfu.profile.composition",
+      "surface": "cli-api-gui",
+      "name": "kungfu profile catalog <source> [--require-active] --json",
+      "aliases": ["kungfu profile query-plan <source> <view-id> --json", "kungfu profile query-run <source> <plan.json> --json"],
+      "purpose": "Compose Profile fact surfaces and declarative views through the existing ADR-0048 query plan and proof path.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill", "profile-manager-gui"]
+    },
+    {
+      "id": "kungfu.profile.assessment",
+      "surface": "cli-api",
+      "name": "kungfu profile assess-plan <source> <query-receipt.json> --claim-id <id> --policy-id <id> --purpose <purpose> --work-episode-id <id> --json",
+      "aliases": ["kungfu profile assess-run <plan.json> --authorization-file <answer.json> --json"],
+      "purpose": "Bind an exact Profile/query cut to the existing ADR-0052 assessment and decision lifecycle without allowing Profile self-attestation.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill"]
     }
   ],
   "witness": {

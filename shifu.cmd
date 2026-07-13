@@ -10,15 +10,15 @@ rem they recognize a checkout and what they spawn (via cmd.exe) when
 rem delegating. Never rename, move, or remove it. Its implementation may
 rem change freely, but any dispatch of a resolved native binary must keep
 rem setting SHIFU_FROM_SHIM=1.
-rem See framework/core/docs/adr/ADR-0044-shifu-delegation-protocol.md
+rem See docs/adr/ADR-0044-shifu-delegation-protocol.md
 rem =============================================================================
 rem
 rem Aligns with the macOS/Linux shifu (sh):
 rem   shifu app | shifu build:core | shifu <any pnpm task>
-rem   shifu proxy ... / config ...   rich subcommands -> delegated to L2 node (not pnpm)
+rem   shifu cache / gate / proxy / config   rich subcommands -> delegated to L2 node (not pnpm)
 rem
 rem This script is a thin shim in front of the native launcher (crates\shifu,
-rem a self-contained Rust binary -- see docs/rust-adoption.md). Resolution order:
+rem a self-contained Rust binary -- see docs/development/rust-adoption.md). Resolution order:
 rem   1. SHIFU_BIN            explicit binary override
 rem   2. dev machines (cargo + git) -> source-fresh cache slot
 rem                                    ...\kungfu\shifu\<version>-<launcher-src-sha>\,
@@ -43,16 +43,59 @@ setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
 rem Load local cache proxy config: user-global first, then optional in-repo override (set propagates to children).
+rem Explicit Buildchain/runner cache projection wins over local development config.
+set "_KFC_EXPLICIT_CACHE_REF=%SHIFU_CACHE_PROFILE_REF%"
+set "_KFC_EXPLICIT_CACHE_DIGEST=%SHIFU_CACHE_PROFILE_DIGEST%"
+set "_KFC_EXPLICIT_CACHE_SCOPE=%SHIFU_CACHE_SCOPE%"
 set "_KFC_USERCFG=%USERPROFILE%\.config\kungfu\build-local.env"
 if defined XDG_CONFIG_HOME set "_KFC_USERCFG=%XDG_CONFIG_HOME%\kungfu\build-local.env"
 call :loadenv "%_KFC_USERCFG%"
 call :loadenv ".\build-local.env"
+if defined _KFC_EXPLICIT_CACHE_REF set "SHIFU_CACHE_PROFILE_REF=%_KFC_EXPLICIT_CACHE_REF%"
+if defined _KFC_EXPLICIT_CACHE_DIGEST set "SHIFU_CACHE_PROFILE_DIGEST=%_KFC_EXPLICIT_CACHE_DIGEST%"
+if defined _KFC_EXPLICIT_CACHE_SCOPE set "SHIFU_CACHE_SCOPE=%_KFC_EXPLICIT_CACHE_SCOPE%"
 
 rem Mark the canonical entrypoint and keep native dispatches from re-delegating here.
 set "SHIFU_FROM_SHIM=1"
 set "SHIFU_ENTRYPOINT=1"
 
+rem Cache profiles are checkout-owned L2 contracts. Resolve/apply them before
+rem native dispatch; an inner `shifu <task>` can still select the native path.
+if /i "%~1"=="cache" goto delegate
+if /i "%~1"=="docs:check:readonly" goto docsreadonly
+if /i "%~1"=="adr:release:gate" goto adrrelease
+
+:docsreadonly
+if /i not "%~1"=="docs:check:readonly" goto native
+where fnm >nul 2>nul && (
+  fnm install >nul 2>nul
+  fnm exec --using-file -- node "%~dp0scripts\run-docs-readonly.mjs"
+  exit /b !errorlevel!
+)
+where node >nul 2>nul && (
+  node "%~dp0scripts\run-docs-readonly.mjs"
+  exit /b !errorlevel!
+)
+echo shifu: docs:check:readonly needs node -- install fnm or any system node 1>&2
+exit /b 127
+
+:adrrelease
+if /i not "%~1"=="adr:release:gate" goto native
+shift
+where fnm >nul 2>nul && (
+  fnm install >nul 2>nul
+  fnm exec --using-file -- node "%~dp0scripts\adr-release-gate.mjs" %*
+  exit /b !errorlevel!
+)
+where node >nul 2>nul && (
+  node "%~dp0scripts\adr-release-gate.mjs" %*
+  exit /b !errorlevel!
+)
+echo shifu: adr:release:gate needs node -- install fnm or any system node 1>&2
+exit /b 127
+
 rem -- Native launcher resolution ------------------------------------------------
+:native
 if "%SHIFU_NATIVE%"=="0" goto inscript
 
 if defined SHIFU_BIN if exist "%SHIFU_BIN%" (
@@ -103,10 +146,30 @@ cargo build --release --locked --manifest-path crates\Cargo.toml -p shifu 1>&2 &
   set "CARGO_TARGET_DIR="
   if not exist "%_KFC_DEVDIR%" mkdir "%_KFC_DEVDIR%" >nul 2>nul
   copy /y "%_KFC_TGT%\release\shifu.exe" "%_KFC_DEVBIN%" >nul && (
-    rem Retire older source-keyed slots; the release-pinned slot stays.
-    for /d %%d in ("%_KFC_CACHE%\kungfu\shifu\%_KFC_VER%-*") do (
-      if /i not "%%~fd"=="%_KFC_DEVDIR%" rd /s /q "%%~fd" >nul 2>nul
+    set "_KFC_HEAD="
+    set "_KFC_BRANCH=detached"
+    set "_KFC_REPO="
+    for /f "usebackq" %%s in (`git rev-parse HEAD 2^>nul`) do set "_KFC_HEAD=%%s"
+    for /f "usebackq" %%s in (`git symbolic-ref --short HEAD 2^>nul`) do set "_KFC_BRANCH=%%s"
+    for /f "usebackq tokens=1,*" %%a in (`git worktree list --porcelain 2^>nul`) do (
+      if "%%a"=="worktree" if not defined _KFC_REPO set "_KFC_REPO=%%b"
     )
+    set "_KFC_DIRTY_VALUE=false"
+    if defined _KFC_DIRTY set "_KFC_DIRTY_VALUE=true"
+    (
+      echo KUNGFU_ARTIFACT_SCHEMA='shifu.local-artifact/v1'
+      echo KUNGFU_ARTIFACT_PRODUCT='shifu'
+      echo KUNGFU_ARTIFACT_SHA='!_KFC_HEAD!'
+      echo KUNGFU_ARTIFACT_BRANCH='!_KFC_BRANCH!'
+      echo KUNGFU_ARTIFACT_REPO='!_KFC_REPO!'
+      echo KUNGFU_ARTIFACT_WORKTREE='!CD!'
+      echo KUNGFU_ARTIFACT_BUILD_PATH='!_KFC_TGT!'
+      echo KUNGFU_ARTIFACT_BUILT_AT='unknown'
+      echo KUNGFU_ARTIFACT_DIRTY='!_KFC_DIRTY_VALUE!'
+    ) > "%_KFC_DEVDIR%\meta.env.tmp"
+    move /y "%_KFC_DEVDIR%\meta.env.tmp" "%_KFC_DEVDIR%\meta.env" >nul
+    rem Source slots are catalog entries. The native catalog retires only
+    rem proven ancestors after a successful promotion.
     "%_KFC_DEVBIN%" %*
     exit /b !errorlevel!
   )
@@ -161,6 +224,8 @@ if "%~1"=="" (
   echo.
   echo   shifu ^<task^> [args...]     run any pnpm task under the pinned toolchain
   echo   shifu build ^| rebuild      bootstrap build ^(rebuild clears generated outputs^)
+  echo   shifu cache ...            inspect the versioned cache contract and schemas
+  echo   shifu gate ...             inspect and plan registered project gates
   echo   shifu proxy ^| config ...   manage local mirror/cache config
   echo   shifu --version            launcher version; shifu help for pnpm's own help
   echo.
@@ -177,9 +242,28 @@ echo shifu %_KFC_VER% ^(script^)
 exit /b 0
 
 :richcheck
+rem Native dispatch owns automatic cache application when available. Mirror the
+rem same once-only behavior here for the in-script fallback. A partial pair is
+rem intentionally forwarded so the Shifu resolver fails closed.
+if "%SHIFU_CACHE_ACTIVE%"=="1" goto richdispatch
+if not defined SHIFU_CACHE_PROFILE_REF if not defined SHIFU_CACHE_PROFILE_DIGEST goto richdispatch
+if /i "%~1"=="cache"       goto richdispatch
+if /i "%~1"=="gate"        goto richdispatch
+if /i "%~1"=="proxy"       goto richdispatch
+if /i "%~1"=="config"      goto richdispatch
+if /i "%~1"=="clone"       goto richdispatch
+if /i "%~1"=="self-update" goto richdispatch
+if /i "%~1"=="self-version" goto richdispatch
+if /i "%~1"=="promote"     goto richdispatch
+if /i "%~1"=="builds"      goto richdispatch
+call "%~f0" cache apply -- shifu.cmd %*
+exit /b !errorlevel!
+
+:richdispatch
 rem -- Delegate rich subcommands to L2 node (no pnpm, no uv). Prefer fnm node, else system node. --
 if /i "%~1"=="proxy"  goto delegate
 if /i "%~1"=="config" goto delegate
+if /i "%~1"=="gate"   goto delegate
 goto bootstrap
 
 :delegate

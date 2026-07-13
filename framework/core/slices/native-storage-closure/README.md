@@ -1,19 +1,15 @@
 ---
-status: active
+metadata_schema: kungfu.document-metadata/v1
+document_status: active
+doc_type: analysis
+review_state: self-reviewed
+sensitivity: internal
+sources: [local-files]
 period: 2026-07-11
 theme: adr-0049-native-storage-closure
-doc_type: analysis
-source_level: local-files
 confidence: high
-sensitivity: internal
 evidence_grade: A
-review_state: self-reviewed
 last_reviewed: 2026-07-11
-ai_provenance:
-  model_family: GPT-5
-  product: Codex
-  generated_at: 2026-07-11
-  invisible_context: exact model build and hidden reasoning unavailable
 ---
 
 # Native storage closure

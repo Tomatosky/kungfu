@@ -38,6 +38,7 @@ const EXTENSIONS_ROOT = path.join(ROOT, 'extensions');
 const ASSEMBLED_EXTENSIONS = path.join(PRODUCT_DIR, 'extensions');
 const DIST_DIR = path.join(PRODUCT_DIR, 'dist');
 const DESKTOP_DIST_DIR = path.join(DIST_DIR, 'desktop');
+const DESKTOP_AUTHORING_DIR = path.join(DIST_DIR, 'desktop-authoring');
 const CLI_DIST_DIR = path.join(DIST_DIR, 'cli');
 const RELEASE_DIR = path.join(PRODUCT_DIR, 'release');
 const DESKTOP_RELEASE_DIR = path.join(RELEASE_DIR, 'desktop');
@@ -640,16 +641,34 @@ function assertCoreFrozen() {
 // runtime-pins manifest. UV_VERSION in the manifest must equal the repo's
 // .uv-version so the product and the dev launcher pull the same pinned uv.
 function stageTrunk() {
-  run(
-    'build kungfu-trunk',
-    'cargo',
-    ['build', '--release', '-p', 'kungfu-trunk'],
-    {
-      cwd: CRATES_DIR,
-      phase: 'core',
-      event: 'product.core.trunk',
+  // ADR-0046 stage 3 productionization: link the embedding membrane and ship the
+  // real embedding-backed doctor on every platform. POSIX links the SHARED
+  // libkungfu from build/<type>; Windows links the single-export
+  // kungfu_embedding.dll import lib (Phase B2) from the build root, where MSVC
+  // archives colocate. The product core is rebuilt (Release) before this stage,
+  // so the native dir is populated; pass it explicitly so build.rs never guesses.
+  const buildType = process.env.KF_TRUNK_BUILD_TYPE || 'Release';
+  const coreBuild = path.join(ROOT, 'framework', 'core', 'build');
+  const cargoArgs = [
+    'build',
+    '--release',
+    '-p',
+    'kungfu-trunk',
+    '--features',
+    'embedding',
+  ];
+  const runOpts = {
+    cwd: CRATES_DIR,
+    phase: 'core',
+    event: 'product.core.trunk',
+    env: {
+      ...process.env,
+      // Windows: kungfu_embedding.lib at the build root; POSIX: libkungfu.* under build/<type>.
+      KF_TRUNK_NATIVE_DIR: isWin ? coreBuild : path.join(coreBuild, buildType),
+      KF_TRUNK_BUILD_TYPE: buildType,
     },
-  );
+  };
+  run('build kungfu-trunk', 'cargo', cargoArgs, runOpts);
   const trunkBin = path.join(
     CRATES_DIR,
     'target',
@@ -729,6 +748,7 @@ function bundleSdkForCli(stageRoot) {
     platform: 'node',
     format: 'esm',
     target: 'node20',
+    external: ['esbuild'],
     outfile: sdkOut,
     logLevel: 'silent',
   });
@@ -738,12 +758,36 @@ function bundleSdkForCli(stageRoot) {
   );
   copyTree(path.join(SDK_DIR, 'kfd'), path.join(stageRoot, 'kfd'));
   copyTree(path.join(SDK_DIR, 'templates'), path.join(stageRoot, 'templates'));
+  const esbuildPackageJson = require.resolve('esbuild/package.json', {
+    paths: [SDK_DIR, TUI_DIR, GUI_DIR, ROOT],
+  });
+  const esbuildResolvePaths = [path.dirname(esbuildPackageJson)];
+  copySdkRuntimePackageForCli(stageRoot, 'esbuild', esbuildResolvePaths);
+  copySdkRuntimePackageForCli(
+    stageRoot,
+    `@esbuild/${process.platform}-${process.arch}`,
+    esbuildResolvePaths,
+  );
   copySdkRuntimePackageForCli(stageRoot, '@kungfu-tech/kfd');
 }
 
-function copySdkRuntimePackageForCli(stageRoot, packageName) {
+function stageDesktopAuthoringRuntime() {
+  assertSafeGeneratedDir(DESKTOP_AUTHORING_DIR);
+  fs.rmSync(DESKTOP_AUTHORING_DIR, { recursive: true, force: true });
+  fs.mkdirSync(DESKTOP_AUTHORING_DIR, { recursive: true });
+  bundleSdkForCli(DESKTOP_AUTHORING_DIR);
+  console.log(
+    `[product] staged installed Agent authoring runtime -> ${rel(DESKTOP_AUTHORING_DIR)}`,
+  );
+}
+
+function copySdkRuntimePackageForCli(
+  stageRoot,
+  packageName,
+  resolvePaths = [SDK_DIR, ROOT],
+) {
   const packageJson = require.resolve(`${packageName}/package.json`, {
-    paths: [SDK_DIR, ROOT],
+    paths: resolvePaths,
   });
   const source = path.dirname(packageJson);
   const target = path.join(
@@ -1276,6 +1320,11 @@ function main() {
         'freeze core runtime',
         ['--filter', '@kungfu-tech/core', 'run', 'freeze'],
         {
+          // The product must ship the native host; a missing one is a hard error
+          // here rather than a silent fall back to the slow Python node path /
+          // doctor stub (ADR-0046 S3). Dev `pnpm run freeze` leaves this unset and
+          // keeps warn-only.
+          env: { ...process.env, KF_REQUIRE_NATIVE_HOST: '1' },
           phase: 'core',
           event: 'product.core.freeze',
         },
@@ -1292,6 +1341,7 @@ function main() {
         event: 'product.tui.bundle',
       });
       if (wantsDesktop()) {
+        stageDesktopAuthoringRuntime();
         runPnpm(
           'ensure electron',
           ['--filter', '@kungfu-tech/gui', 'run', 'ensure-electron'],
@@ -1350,10 +1400,7 @@ function main() {
   );
 }
 
-function verifyObservability() {
-  if (!buildchainLogger.path) {
-    return;
-  }
+export function verifyProductObservabilityEvents(events, target = 'all') {
   const requiredEvents = [
     'product.dist.start',
     'product.kfx.dependencies.declared',
@@ -1362,18 +1409,15 @@ function verifyObservability() {
     'product.core.freeze.start',
     'product.dist.end',
   ];
-  if (wantsDesktop()) {
+  if (target === 'all' || target === 'desktop') {
     requiredEvents.push('product.desktop.electron-builder.start');
   }
-  if (wantsCli()) {
+  if (target === 'all' || target === 'cli') {
     requiredEvents.push('product.cli.archive.start');
     requiredEvents.push('product.cli.smoke.start');
   }
-  const report = verifyBuildchainLogEvents({
-    // The persisted Buildchain log is shared by lifecycle processes and may
-    // survive a failed self-hosted runner job. Verify only this product
-    // invocation's events so an earlier run cannot poison a clean retry.
-    events: buildchainLogger.events,
+  return verifyBuildchainLogEvents({
+    events: events.filter((event) => event.component === 'kungfu-product'),
     minEvents: 12,
     requireComponents: ['kungfu-product'],
     requirePhases: [
@@ -1386,6 +1430,19 @@ function verifyObservability() {
     ],
     requireEvents: requiredEvents,
   });
+}
+
+function verifyObservability() {
+  if (!buildchainLogger.path) {
+    return;
+  }
+  const report = verifyProductObservabilityEvents(
+    // The persisted Buildchain log is shared by lifecycle processes and may
+    // survive a failed self-hosted runner job. Verify only this product
+    // invocation's events so an earlier run cannot poison a clean retry.
+    buildchainLogger.events,
+    productTarget,
+  );
   if (!report.ok) {
     throw new Error(
       `Buildchain observability verification failed: ${report.issues

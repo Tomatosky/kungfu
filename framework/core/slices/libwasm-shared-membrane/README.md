@@ -1,20 +1,15 @@
 ---
-status: draft
+metadata_schema: kungfu.document-metadata/v1
+document_status: draft
+doc_type: analysis
+review_state: unreviewed
+sensitivity: public
+sources: [executable-probe, local-files]
 period: 2026-07-11
 theme: libwasm-shared-embedding-membrane
-doc_type: analysis
-source_level: local-files + executable-probe
 confidence: high
-sensitivity: public
 evidence_grade: B
-review_state: unreviewed
 last_reviewed: 2026-07-11
-ai_provenance:
-  model_family: GPT-5
-  product: Codex
-  generated_at: 2026-07-11
-  visible_context: ADR-0045, merged libkungfu embedding ABI, Wasmtime and Wasmer public Rust embedding APIs, and run 29138796710 on macOS ARM64, Linux x64, and Windows x64
-  invisible_context_boundary: Exact hidden model build and unimplemented production admission, receipt, WIT, and Wasmer CPU-metering behavior are unknown
 ---
 
 # libwasm shared embedding membrane spike
@@ -59,6 +54,10 @@ The CMake slice accepts `KF_LIBWASM_CARGO_REGISTRY` as an optional sparse
 registry mirror. Leaving it empty uses the official Cargo source; CI may set a
 reviewed mirror URL while Cargo still verifies the checksums pinned in each
 adapter's lockfile.
+
+The slice uses the same stable, per-engine Cargo target-cache contract as the
+production adapters. Its staged libraries remain inside the slice build tree,
+so qualification never depends on an external-cache path after compilation.
 
 The standalone spike pins Rust 1.96.0 with a minimal profile in its own
 directory. Wasmtime 46.0.1 requires Rust 1.94 and Wasmer 7.2.0 requires Rust

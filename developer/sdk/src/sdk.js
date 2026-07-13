@@ -2303,8 +2303,8 @@ function contractAdd(surfaceArg, options) {
       verify: `kungfu sdk contract adopt ${surface} --source ${source} --json`,
       renderCheck: `kungfu sdk contract render ${surface} --check --json`,
       evidence: `kungfu sdk contract evidence ${surface} --json`,
-      versioning: `register welded surface ${surface}-contract in docs/versioning.md`,
-      knownLimits: `record maturity and limits for ${surface}-contract in docs/known-limits.md`,
+      versioning: `register welded surface ${surface}-contract in docs/development/versioning.md`,
+      knownLimits: `record maturity and limits for ${surface}-contract in docs/qualification/known-limits.md`,
     },
   };
   if (options.json) {
@@ -2379,6 +2379,12 @@ function ancestorDirs(start) {
 function resolveKfxContractPath() {
   const explicit = process.env[KFX_CONTRACT_ENV];
   if (explicit) return path.resolve(explicit);
+  for (const candidate of [
+    path.join(SDK_ROOT, 'kungfu', 'config', KFX_CONTRACT_FILE),
+    path.join(SDK_ROOT, 'config', KFX_CONTRACT_FILE),
+  ]) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
   for (const dir of ancestorDirs(process.cwd())) {
     for (const rel of [
       path.join('framework', 'kfx', KFX_CONTRACT_FILE),
@@ -2519,7 +2525,13 @@ function cppBuild(manifest) {
   // compatible with the runtime and loads alongside pykungfu. Pass both the
   // classic (FindPythonInterp) and modern (FindPython) hint variables so the
   // pin holds regardless of which pybind11 lookup mode is active.
-  const corePython = path.join(coreDir, '.venv', 'bin', 'python3');
+  const pythonEnvironment =
+    process.env.UV_PROJECT_ENVIRONMENT || path.join(coreDir, '.venv');
+  const corePython = path.join(
+    pythonEnvironment,
+    process.platform === 'win32' ? 'Scripts' : 'bin',
+    process.platform === 'win32' ? 'python.exe' : 'python3',
+  );
   if (fs.existsSync(corePython)) {
     configureArgs.push(
       `-DPYTHON_EXECUTABLE=${corePython}`,
@@ -2550,7 +2562,13 @@ function pythonAotBuild(manifest) {
     fail(
       'cannot locate framework/core (a python-AOT kfx build needs the monorepo core)',
     );
-  const py = path.join(coreDir, '.venv', 'bin', 'python3');
+  const pythonEnvironment =
+    process.env.UV_PROJECT_ENVIRONMENT || path.join(coreDir, '.venv');
+  const py = path.join(
+    pythonEnvironment,
+    process.platform === 'win32' ? 'Scripts' : 'bin',
+    process.platform === 'win32' ? 'python.exe' : 'python3',
+  );
   if (!fs.existsSync(py)) {
     fail(`core Python not found: ${py}. Run \`./shifu rebuild:core\` first.`);
   }

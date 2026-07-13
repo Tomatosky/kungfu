@@ -1,8 +1,8 @@
 schema = 1
 
-# Kungfu monorepo onboarding to buildchain v2.
-# Stage 1: declare version-state and lifecycle, validated in CI by
-# actions/validate-config@v2 (no lifecycle execution yet).
+# Kungfu monorepo lifecycle contract for Buildchain v2. Development PRs run
+# lifecycle.check as a GitHub-hosted source gate; promotion keeps the existing
+# install, build, and verify stages.
 #
 # Version single source of truth is lerna.json; per-package package.json
 # versions are propagated by lerna. How buildchain version-state interacts with
@@ -34,16 +34,20 @@ SHIFU_NATIVE = "1"
 SHIFU_REQUIRE_MSVC = "1"
 
 [lifecycle.install]
-# shifu-entry-contract: allow the cross-platform dispatcher to enter the canonical shifu shim
-command = "node scripts/run-shifu-lifecycle.mjs install --frozen-lockfile --no-optional"
+# shifu-entry-contract: allow Buildchain mode selection before repository lifecycle dispatch
+command = "node scripts/buildchain-install.mjs"
+
+[lifecycle.check]
+shell = "bash"
+command = "./shifu check:source"
 
 [lifecycle.build]
 # shifu-entry-contract: allow the cross-platform dispatcher to enter the canonical shifu shim
-command = "node scripts/run-shifu-lifecycle.mjs dist"
+command = "node scripts/run-shifu-lifecycle.mjs cache-apply dist"
 
 [lifecycle.verify]
 # shifu-entry-contract: allow the cross-platform dispatcher to enter the canonical shifu shim
-command = "node scripts/run-shifu-lifecycle.mjs verify"
+command = "node scripts/run-shifu-lifecycle.mjs cache-apply verify"
 
 [lifecycle.publish]
 # shifu-entry-contract: allow Buildchain publish adapter bootstraps before repository lifecycle dispatch
@@ -57,4 +61,4 @@ kfd_2 = "declared"
 kfd_3 = "declared"
 kfd_4 = "declared"
 platforms = ["macOS", "Linux", "Windows"]
-workflows = ["buildchain-validate.yml", "dco.yml"]
+workflows = ["source-acceptance.yml", "buildchain-validate.yml", "dco.yml"]

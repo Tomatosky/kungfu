@@ -3,7 +3,10 @@
 
 import { pathToFileURL } from 'node:url';
 
-import { lifecycleEnvironment, runShifu } from './run-shifu-lifecycle.mjs';
+import {
+  lifecycleEnvironment,
+  runShifuWithCache,
+} from './run-shifu-lifecycle.mjs';
 
 const env = lifecycleEnvironment({
   ...process.env,
@@ -16,13 +19,22 @@ const env = lifecycleEnvironment({
 
 export function releaseQualificationStages(platform = process.platform) {
   const stages = [['verify', '--fuzz']];
-  if (platform === 'linux')
+  if (platform === 'linux') {
     stages.push([
       'episode:qualify:release',
       '--',
       '--output',
       'product/release/qualification/episode-release-evidence.json',
     ]);
+    stages.push([
+      'adr:release:gate',
+      '--',
+      '--github-event',
+      '--allow-non-pr',
+      '--report',
+      'product/release/qualification/adr-release-admissibility.json',
+    ]);
+  }
   stages.push(
     ['pack:spec'],
     [
@@ -50,7 +62,7 @@ export function releaseQualificationStages(platform = process.platform) {
 
 export function main() {
   for (const args of releaseQualificationStages()) {
-    const status = runShifu(args, { env });
+    const status = runShifuWithCache(args, { env });
     if (status !== 0) return status;
   }
   return 0;

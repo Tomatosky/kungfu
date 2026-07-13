@@ -30,9 +30,10 @@ function runJson(args, cwd = repoRoot) {
   return JSON.parse(result.stdout);
 }
 
-function runText(args, cwd = repoRoot) {
+function runText(args, cwd = repoRoot, env = process.env) {
   const result = spawnSync(process.execPath, [sdk, ...args], {
     cwd,
+    env,
     encoding: 'utf8',
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
@@ -237,6 +238,48 @@ test('product gui dev dry-run supports a single kfx package directory', (t) => {
   assert.match(output, /run dev/);
 });
 
+test('installed SDK builds an optional custom KFX member without rebuilding Kungfu', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'kungfu-sdk-profile-member-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, 'src', 'node'), { recursive: true });
+  writeFileSync(
+    join(root, 'package.json'),
+    `${JSON.stringify(
+      {
+        name: '@example/custom-member',
+        version: '1.0.0',
+        kungfuConfig: {
+          key: 'example-custom-member',
+          config: {
+            adapter: {
+              targets: ['example'],
+              runtimes: ['node'],
+              entry: { node: 'src/node/index.js' },
+              capabilities: [],
+            },
+          },
+        },
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  writeFileSync(join(root, 'src', 'node', 'index.js'), 'export default {};\n');
+
+  const output = runText(['kfx', 'build'], root, {
+    ...process.env,
+    KUNGFU_KFX_CONTRACT: join(
+      repoRoot,
+      'framework',
+      'kfx',
+      'kungfu-kfx.contract.json',
+    ),
+  });
+
+  assert.match(output, /ships source \(no bundle step\)/);
+  assert.equal(existsSync(join(root, 'dist')), false);
+});
+
 test('product gui dist dry-run supports a product assembly directory', () => {
   const output = runText([
     'product',
@@ -416,8 +459,8 @@ test('adds a new contract source and registry entry in a repo fixture', (t) => {
   assert.equal(data.fixture.schema, 'kungfu.sdk.contract-drift-fixture/v1');
   assert.match(data.fixture.hash, /^sha256:[0-9a-f]{64}$/);
   assert.match(data.next.evidence, /contract evidence demo-surface --json/);
-  assert.match(data.next.versioning, /docs\/versioning\.md/);
-  assert.match(data.next.knownLimits, /docs\/known-limits\.md/);
+  assert.match(data.next.versioning, /docs\/development\/versioning\.md/);
+  assert.match(data.next.knownLimits, /docs\/qualification\/known-limits\.md/);
   assert.match(data.contract.hash, /^sha256:[0-9a-f]{64}$/);
 
   const sourcePath = join(root, data.source);

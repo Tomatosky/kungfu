@@ -10,7 +10,7 @@
 # throwaway build directory; the embedder provides its own dependencies
 # (here: the conan toolchain, as any conan-using embedder would).
 
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.20)
 project(yijinjing_embed_smoke CXX)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../src/libyijinjing libyijinjing)

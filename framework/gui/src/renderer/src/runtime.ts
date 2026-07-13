@@ -7,6 +7,7 @@ import {
   type DomainState,
   type KfNativeBinding,
   type Ledger,
+  type Profile,
   type PtyModule,
   type RemoteWork,
   type Rewind,
@@ -19,6 +20,7 @@ import {
   openAtlas,
   openDomainState,
   openLedger,
+  openProfile,
   openRemoteWork,
   openRewind,
   openStorage,
@@ -26,6 +28,10 @@ import {
   openWork,
   openWorkspaceGuidance,
 } from '@kungfu-tech/api/capability';
+import {
+  ATLAS_CLI_EXEC_CHANNEL,
+  PROFILE_CLI_EXEC_CHANNEL,
+} from '../../sandbox/channels';
 import { type IpcRendererLike, createTerminalProxy } from './terminal-proxy';
 
 declare global {
@@ -127,6 +133,7 @@ export type Runtime = {
   terminal: Terminal | null;
   work: Work | null;
   atlas: Atlas | null;
+  profile: Profile | null;
   workspace: WorkspaceGuidance | null;
 };
 
@@ -173,6 +180,7 @@ function createRuntime(): Runtime {
     terminal: null,
     work: null,
     atlas: null,
+    profile: null,
     workspace: null,
   };
   if (env.KF_WORKSPACE_STATE === 'selected-uninitialized') {
@@ -254,9 +262,26 @@ function createRuntime(): Runtime {
         },
       ) => string;
     };
+    const atlasIpc = (
+      window.require('electron') as {
+        ipcRenderer: {
+          invoke: (
+            channel: string,
+            payload: unknown,
+          ) => Promise<
+            { ok: true; stdout: string } | { ok: false; error: string }
+          >;
+        };
+      }
+    ).ipcRenderer;
     const cliOptions = {
       runtimeDir,
       execFileSync: childProcess.execFileSync,
+      execFile: async (_file: string, args: string[]) => {
+        const result = await atlasIpc.invoke(ATLAS_CLI_EXEC_CHANNEL, { args });
+        if (!result.ok) throw new Error(result.error);
+        return result.stdout;
+      },
       env: window.process.env as Record<string, string | undefined>,
       bin:
         env.KUNGFU_CLI_BIN ||
@@ -267,6 +292,16 @@ function createRuntime(): Runtime {
         ),
     };
     const atlas = openAtlas(cliOptions);
+    const profile = openProfile({
+      ...cliOptions,
+      execFile: async (_file: string, args: string[]) => {
+        const result = await atlasIpc.invoke(PROFILE_CLI_EXEC_CHANNEL, {
+          args,
+        });
+        if (!result.ok) throw new Error(result.error);
+        return result.stdout;
+      },
+    });
     const workspace = openWorkspaceGuidance(cliOptions);
     const remoteWork = openRemoteWork({
       binding,
@@ -318,6 +353,7 @@ function createRuntime(): Runtime {
       terminal,
       work,
       atlas,
+      profile,
       workspace,
     };
   } catch (e) {

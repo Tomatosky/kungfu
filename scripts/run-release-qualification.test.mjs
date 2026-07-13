@@ -14,6 +14,16 @@ test('canonical Episode release evidence runs once on the Linux release leg', ()
   assert.ok(!names('win32').includes('episode:qualify:release'));
 });
 
+test('ADR admission follows Episode evidence only on the Linux release leg', () => {
+  const linux = names('linux');
+  assert.equal(
+    linux.indexOf('adr:release:gate'),
+    linux.indexOf('episode:qualify:release') + 1,
+  );
+  assert.ok(!names('darwin').includes('adr:release:gate'));
+  assert.ok(!names('win32').includes('adr:release:gate'));
+});
+
 test('every platform retains exact artifact qualification stages', () => {
   const required = [
     'verify',
@@ -25,7 +35,10 @@ test('every platform retains exact artifact qualification stages', () => {
   ];
   for (const platform of ['linux', 'darwin', 'win32'])
     assert.deepEqual(
-      names(platform).filter((name) => name !== 'episode:qualify:release'),
+      names(platform).filter(
+        (name) =>
+          name !== 'episode:qualify:release' && name !== 'adr:release:gate',
+      ),
       required,
     );
 });

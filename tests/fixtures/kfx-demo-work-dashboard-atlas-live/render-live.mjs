@@ -46,6 +46,7 @@ const imported = atlas.importRepo(sampleRoot);
 if (imported.missions !== 1 || imported.goals !== 2 || imported.markers !== 1) {
   fail(`unexpected import counts: ${JSON.stringify(imported)}`);
 }
+await atlas.dashboard();
 
 const React = require('react');
 const ReactDomServer = require('react-dom/server');

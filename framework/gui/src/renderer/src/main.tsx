@@ -33,6 +33,7 @@ import {
   SESSION_WINDOW_OPEN_CHANNEL,
   SESSION_WINDOW_RESTORE_CHANNEL,
   SESSION_WINDOW_SNAPSHOT_CHANNEL,
+  SHELL_REFRESH_CHANNEL,
   WINDOW_CHROME_CONTROL_CHANNEL,
   WINDOW_CHROME_GET_CHANNEL,
   WINDOW_CHROME_STATE_CHANNEL,
@@ -42,6 +43,7 @@ import {
   WORKSPACE_SELECT_HOME_CHANNEL,
   WORKSPACE_SELECT_RECENT_CHANNEL,
 } from '../../sandbox/channels';
+import { publishRefresh } from '../../sandbox/refresh';
 import {
   loadKungfuConfig,
   normalizedUiConfig,
@@ -111,6 +113,7 @@ function subsetCaps(runtime: Runtime, entry: KfxEntry): KfxCapabilities | null {
     terminal: runtime.terminal,
     work: runtime.work,
     atlas: runtime.atlas,
+    profile: runtime.profile,
     workspace: runtime.workspace,
   } as Record<string, unknown>;
   const subset: Record<string, unknown> = {};
@@ -140,6 +143,7 @@ function sandboxSubset(
     terminal: runtime.terminal,
     work: runtime.work,
     atlas: runtime.atlas,
+    profile: runtime.profile,
     workspace: runtime.workspace,
   };
   const subset: Record<string, Record<string, unknown>> = {};
@@ -837,9 +841,6 @@ function App() {
   const [windowChrome, controlWindow] = useWindowChrome();
   const [config, setConfig] = React.useState<KungfuResolvedConfig | null>(null);
   const [configError, setConfigError] = React.useState('');
-  const [runtimeLive, setRuntimeLive] = React.useState(
-    () => runtime.ledger?.health().live ?? false,
-  );
   const [runtimeStatus, setRuntimeStatus] =
     React.useState<RuntimeStatusResult | null>(null);
   const [statusBarItems, setStatusBarItems] = React.useState<
@@ -852,20 +853,32 @@ function App() {
 
   // shared refresh bus: one shell-owned timer, kfx subscribe
   const subscribers = React.useRef(new Set<() => void>());
-  React.useEffect(() => {
-    const timer = setInterval(() => {
-      for (const fn of subscribers.current) fn();
-    }, 5000);
-    return () => clearInterval(timer);
+  const refreshProductData = React.useCallback(() => {
+    publishRefresh(subscribers.current, (error) => {
+      console.error('[shell] product data refresh failed', error);
+    });
   }, []);
+  React.useEffect(() => {
+    const timer = setInterval(refreshProductData, 5000);
+    return () => clearInterval(timer);
+  }, [refreshProductData]);
 
   React.useEffect(() => {
-    const refresh = () =>
-      setRuntimeLive(runtime.ledger?.health().live ?? false);
-    refresh();
-    const timer = setInterval(refresh, 5000);
-    return () => clearInterval(timer);
-  }, [runtime.ledger]);
+    type RefreshIpc = {
+      on: (channel: string, handler: () => void) => void;
+      removeListener: (channel: string, handler: () => void) => void;
+    };
+    let ipc: RefreshIpc | null = null;
+    try {
+      ipc = (window.require('electron') as { ipcRenderer: RefreshIpc })
+        .ipcRenderer;
+    } catch {
+      ipc = null;
+    }
+    if (!ipc) return;
+    ipc.on(SHELL_REFRESH_CHANNEL, refreshProductData);
+    return () => ipc?.removeListener(SHELL_REFRESH_CHANNEL, refreshProductData);
+  }, [refreshProductData]);
 
   React.useEffect(() => {
     type RuntimeStatusIpc = {
@@ -1143,13 +1156,15 @@ function App() {
     };
   }, []);
 
+  const subscribeRefresh = React.useCallback((fn: () => void) => {
+    subscribers.current.add(fn);
+    return () => subscribers.current.delete(fn);
+  }, []);
+
   const shell: Shell = {
     open: openKfx,
     params,
-    onRefresh: (fn) => {
-      subscribers.current.add(fn);
-      return () => subscribers.current.delete(fn);
-    },
+    onRefresh: subscribeRefresh,
     setting: (key) => state.settings[key] ?? settingFallbacks[key] ?? '',
     updateState,
     state,
@@ -1257,8 +1272,7 @@ function App() {
   const supervisorRunning =
     runtimeStatus?.payload?.supervisor?.running === true;
   const coordinatorRunning =
-    runtimeStatus?.payload?.coordinator?.running === true ||
-    (!runtimeStatus?.ok && runtimeLive);
+    runtimeStatus?.payload?.coordinator?.running === true;
   const lifecycleState =
     runtimeStatus?.payload?.lifecycle?.state || runtimeStatus?.payload?.status;
   const lifecycleHealthy = runtimeStatus?.payload?.lifecycle?.healthy === true;

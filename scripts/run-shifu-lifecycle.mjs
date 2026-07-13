@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const SCRIPT = fileURLToPath(import.meta.url);
 
 export function lifecycleEnvironment(env = process.env) {
   return { ...env };
@@ -46,6 +47,24 @@ export function runShifu(args, options = {}) {
   return result.status ?? 1;
 }
 
+/** Build the canonical cache wrapper without relying on a platform shell. */
+export function cacheAppliedArgs(args, options = {}) {
+  return [
+    'cache',
+    'apply',
+    '--',
+    options.node || process.execPath,
+    options.script || SCRIPT,
+    'direct',
+    ...args,
+  ];
+}
+
+/** Apply the resolved Shifu cache profile, then re-enter the canonical shim. */
+export function runShifuWithCache(args, options = {}) {
+  return runShifu(cacheAppliedArgs(args, options), options);
+}
+
 function main() {
   if (process.argv.length < 3) {
     console.error(
@@ -53,7 +72,24 @@ function main() {
     );
     process.exit(2);
   }
-  process.exitCode = runShifu(process.argv.slice(2));
+  const [mode, ...args] = process.argv.slice(2);
+  if (mode === 'cache-apply') {
+    if (args.length === 0) {
+      console.error('cache-apply requires a Shifu task');
+      process.exit(2);
+    }
+    process.exitCode = runShifuWithCache(args);
+    return;
+  }
+  if (mode === 'direct') {
+    if (args.length === 0) {
+      console.error('direct requires a Shifu task');
+      process.exit(2);
+    }
+    process.exitCode = runShifu(args);
+    return;
+  }
+  process.exitCode = runShifu([mode, ...args]);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)

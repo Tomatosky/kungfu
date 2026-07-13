@@ -8,7 +8,7 @@
 //
 // 冻结腿（nuitka/pyinstaller）已于 2026-07-11 退役（ADR-0046 stage 2 收口：
 // macOS→Linux→Windows 全部组装完整 CPython 树，Windows 为最后一块平台）；去留记账
-// 见 docs/buildchain.md「Freeze retirement ledger」。
+// 见 docs/development/buildchain.md「Freeze retirement ledger」。
 //
 // - assemble（唯一产物腿，见 ADR-0046 与本文件 assemble 段注释）：宿主运行一棵完整精确的
 //   CPython 树。dist/kungfu 保持扁平根（natives/contract/wheels），并在 dist/kungfu/python
@@ -23,6 +23,14 @@ const { shell } = require('../lib');
 
 const CORE = path.resolve(__dirname, '..'); // framework/core
 const isWin = process.platform === 'win32';
+// Product builds (dist.mjs) set this so a missing native host is a hard error,
+// not a warning: the core is always built for the node runtime, so the host
+// (libkungfu_node_host.* / kungfu_node_host.dll, and kungfu_embedding.dll on
+// Windows) must ship, or the product silently falls back to the slow Python node
+// path / the doctor stub (ADR-0046 S3 productization gap). A bare `pnpm run
+// freeze` (dev) leaves it unset and keeps the warn-only behavior — a dev assemble
+// without a built host is legitimate.
+const requireNativeHost = process.env.KF_REQUIRE_NATIVE_HOST === '1';
 const { copyContractArtifacts } = require(
   path.join(CORE, '..', '..', 'scripts', 'contract-registry.cjs'),
 );
@@ -38,7 +46,7 @@ function buildType() {
 function freezer() {
   // ADR-0046 stage 2 rolled out platform by platform and is now complete:
   // macOS, Linux, and Windows all ship the assembled runtime. The frozen legs
-  // retire with this last platform (docs/buildchain.md「Freeze retirement
+  // retire with this last platform (docs/development/buildchain.md「Freeze retirement
   // ledger」). An explicit config value can still select any surviving leg.
   const explicit = shell.getConfigValue('freezer');
   if (explicit) return explicit;
@@ -253,6 +261,28 @@ function copyPyBindingWin(bt) {
   const dll = fs.existsSync(btDll)
     ? btDll
     : findFileShallow(buildDir, /^libnode\.dll$/i);
+  // Python-free node launcher (ADR-0046 stage 3, Phase B): a plain SHARED lib
+  // (no `.node` suffix). MSVC/cmake-js emits kungfu_node_host.dll at the build
+  // root next to the .node addons and pykungfu.pyd; check the multi-config
+  // build/<bt> subdir first (where libnode.dll lands) for resilience, then the
+  // root. The trunk LoadLibraryW's it next to the exe for KUNGFU_AS_VARIANT=node
+  // (variant.rs); absent → the Python variant path still runs node, so staging is
+  // a fast-path, not a requirement.
+  const btHost = path.join(buildDir, bt, 'kungfu_node_host.dll');
+  const host = fs.existsSync(btHost)
+    ? btHost
+    : findFileShallow(buildDir, /^kungfu_node_host\.dll$/i);
+  // Single-export embedding membrane DLL (ADR-0046 stage 3, Phase B2): a SHARED
+  // lib that exports only kungfu_embedding_get_api, which the product trunk links
+  // (import lib) so `doctor` works on Windows where the core is STATIC. MSVC emits
+  // kungfu_embedding.dll at the build root (ARCHIVE/RUNTIME_OUTPUT_DIRECTORY =
+  // KUNGFU_BUILD_DIR); check build/<bt> first for resilience, then the root.
+  const btEmb = path.join(buildDir, bt, 'kungfu_embedding.dll');
+  const emb = fs.existsSync(btEmb)
+    ? btEmb
+    : findFileShallow(buildDir, /^kungfu_embedding\.dll$/i);
+  // ADR-0049 native SDK ABI: the runtime DLL and its import library are both
+  // required so installed consumers can link and load the storage surface.
   const btStorageDll = path.join(buildDir, bt, 'kungfu.dll');
   const storageDll = fs.existsSync(btStorageDll)
     ? btStorageDll
@@ -262,7 +292,7 @@ function copyPyBindingWin(bt) {
     ? btStorageImport
     : findFileShallow(buildDir, /^kungfu_native_storage\.lib$/i);
   let n = 0;
-  for (const src of [pyd, dll, storageDll, storageImport]) {
+  for (const src of [pyd, dll, host, emb, storageDll, storageImport]) {
     if (!src) continue;
     fs.copyFileSync(src, path.join(distKfc, path.basename(src)));
     n++;
@@ -270,9 +300,35 @@ function copyPyBindingWin(bt) {
   // pykungfu.pdb ships the symbols for the python binding + statically-linked
   // core; libnode.dll is third-party and carries no PDB of ours.
   if (pyd) copyPdbSibling(pyd, distKfc);
+  if (host) copyPdbSibling(host, distKfc);
+  if (emb) copyPdbSibling(emb, distKfc);
   if (storageDll) copyPdbSibling(storageDll, distKfc);
   if (!pyd) console.error('[freeze] Win 警告：build 树未找到 pykungfu*.pyd');
   if (!dll) console.error('[freeze] Win 警告：build 树未找到 libnode.dll');
+  // Product builds must ship both Windows native hosts, or the trunk silently
+  // degrades: no kungfu_node_host.dll → KUNGFU_AS_VARIANT=node falls back to the
+  // slow Python path; no kungfu_embedding.dll → doctor is the coreless stub (and
+  // the trunk's --features embedding link would later fail cryptically anyway).
+  // Dev (bare `pnpm run freeze`) keeps warn-only.
+  const missing = [];
+  if (!host) {
+    missing.push('kungfu_node_host.dll（node 变体会回退 Python 路径）');
+  }
+  if (!emb) {
+    missing.push('kungfu_embedding.dll（doctor 会回退 stub）');
+  }
+  if (missing.length) {
+    const label = requireNativeHost ? '错误' : '提示';
+    console.error(
+      `[freeze] Win ${label}：build 树未找到 ${missing.join('、')}`,
+    );
+    if (requireNativeHost) {
+      console.error(
+        '[freeze] Win：产品构建要求原生 host（core 应以 node runtime 构建产出）。',
+      );
+      process.exit(1);
+    }
+  }
   if (!storageDll)
     console.error('[freeze] Win 错误：build 树未找到 kungfu.dll');
   if (!storageImport)
@@ -281,7 +337,7 @@ function copyPyBindingWin(bt) {
     );
   if (!storageDll || !storageImport) process.exit(1);
   console.log(
-    `[freeze] Win：补拷 python binding / SDK ABI → dist/kungfu：${n} 项`,
+    `[freeze] Win：补拷 python binding / native hosts / SDK ABI → dist/kungfu：${n} 项`,
   );
 }
 
@@ -435,13 +491,24 @@ function copyRuntimeNative(bt, distKfc) {
   const wanted =
     /^(pykungfu.*\.(so|pyd)|libkungfu.*|libnode.*|libnodebuildinfo\.json)$/i;
   let n = 0;
+  let hostStaged = false;
   for (const f of fs.readdirSync(rel)) {
     if (!wanted.test(f)) continue;
+    if (/^libkungfu_node_host\./i.test(f)) hostStaged = true;
     fs.copyFileSync(path.join(rel, f), path.join(distKfc, f));
     n++;
   }
   if (!n) {
     console.error(`[freeze] assemble: no runtime natives under build/${bt}`);
+    process.exit(1);
+  }
+  // Product builds must ship the Python-free node launcher; the core is built for
+  // the node runtime, so its absence means the host build silently failed and the
+  // node variant would fall back to the slow Python path.
+  if (requireNativeHost && !hostStaged) {
+    console.error(
+      `[freeze] assemble: 产品构建要求原生 node-host（libkungfu_node_host.*），但 build/${bt} 未找到——core 应以 node runtime 构建产出它；缺席会让 KUNGFU_AS_VARIANT=node 退回慢 Python 路径。`,
+    );
     process.exit(1);
   }
   console.log(`[freeze] assemble: staged ${n} runtime natives`);
@@ -560,7 +627,7 @@ function assembleTree(bt) {
   copyAppNative(bt);
   copyLibwasmRuntime();
   copyConfigContract();
-  stageEntry(distKfc);
+  stageEntry(distKfc, bt);
   generateHelpManifest(layout.python, distKfc);
   console.log(
     '[freeze] ✅ dist/kungfu assembled (interpreter tree + flat natives + ' +
@@ -600,12 +667,36 @@ function generateHelpManifest(pythonExe, distKfc) {
 // yields a runnable assembled dist; dist.mjs stageTrunk later re-stages
 // kungfu-trunk and asserts pins consistency at the product stage — same
 // commit, same profile, same binary.
-/** @param {string} distKfc */
-function stageEntry(distKfc) {
+// ADR-0046 stage 3 productionization: the product trunk links the embedding
+// membrane and ships the real embedding-backed `doctor` on every platform
+// (--features embedding). POSIX links the SHARED libkungfu directly from
+// build/<bt>; Windows links the single-export kungfu_embedding.dll import lib
+// (Phase B2) from the build root, where MSVC archives colocate. The native dir is
+// passed explicitly so build.rs never has to guess a relative path that could
+// fail canonicalize under CI.
+/** @param {string} distKfc @param {string} bt */
+function stageEntry(distKfc, bt) {
   const crates = path.join(CORE, '..', '..', 'crates');
-  shell.run('cargo', ['build', '--release', '-p', 'kungfu-trunk'], true, {
+  const cargoArgs = [
+    'build',
+    '--release',
+    '-p',
+    'kungfu-trunk',
+    '--features',
+    'embedding',
+  ];
+  const runOpts = {
     cwd: crates,
-  });
+    env: {
+      ...process.env,
+      // Windows: kungfu_embedding.lib at the build root; POSIX: libkungfu.* under build/<bt>.
+      KF_TRUNK_NATIVE_DIR: isWin
+        ? path.join(CORE, 'build')
+        : path.join(CORE, 'build', bt),
+      KF_TRUNK_BUILD_TYPE: bt,
+    },
+  };
+  shell.run('cargo', cargoArgs, true, runOpts);
   const built = path.join(
     crates,
     'target',

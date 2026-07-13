@@ -1,13 +1,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
-cmake_minimum_required(VERSION 3.15)
-project(kungfu)
+cmake_minimum_required(VERSION 3.28)
+project(kungfu LANGUAGES C CXX)
 
 ##########################################################################
 
 include(${PROJECT_SOURCE_DIR}/.cmake/editor.cmake)
 include(${PROJECT_SOURCE_DIR}/.cmake/compiler.cmake)
+include(${PROJECT_SOURCE_DIR}/.cmake/toolchain-contract.cmake)
 include(${PROJECT_SOURCE_DIR}/.cmake/libnode.cmake)
+include(${PROJECT_SOURCE_DIR}/.cmake/libwasm-cargo-cache.cmake)
 
 ##########################################################################
 # conan 2：依赖经 CMakeToolchain(工具链) + CMakeDeps(find_package 目标) 提供，
@@ -24,6 +26,11 @@ find_package(SQLite3 REQUIRED)
 find_package(RocksDB REQUIRED)
 find_package(xxHash REQUIRED)
 find_package(tabulate REQUIRED)
+# pybind11 2.13 still uses FindPythonLibsNew for the shipping Python 3.13
+# binding. CMake 3.28 would otherwise select CMP0148 NEW and change the module
+# initialization/link contract. Keep this one policy OLD until pybind11's
+# modern FindPython path passes the three-platform import/stub smoke.
+cmake_policy(SET CMP0148 OLD)
 find_package(pybind11 REQUIRED)
 
 # RxCpp 4.1.1 assigns to a const error_ptr in rx-notification.hpp. Conan's
@@ -47,18 +54,6 @@ set(CONAN_LIBS
     RocksDB::rocksdb
     xxHash::xxhash
     tabulate::tabulate)
-
-# conan2 的 object 库靠 target usage-requirement 传播 include；libkungfu 走 OBJECT
-# 库分别编译，需在定义 target 前全局挂上依赖 include（复刻旧 conan_basic_setup 行为）。
-link_libraries(${CONAN_LIBS})
-
-##########################################################################
-
-add_compile_definitions(HAVE_USLEEP=1)
-
-add_compile_definitions(SPDLOG_ACTIVE_LEVEL=${SPDLOG_LOG_LEVEL_COMPILE})
-add_compile_definitions(SPDLOG_NO_NAME)
-add_compile_definitions(SPDLOG_NO_ATOMIC_LEVELS)
 
 ##########################################################################
 
@@ -85,10 +80,6 @@ endif()
 set(KUNGFU_BUILD_DIR ${CMAKE_BINARY_DIR})
 set(KUNGFU_BUILD_LIBRARY_DIR ${KUNGFU_BUILD_DIR}/${CMAKE_BUILD_TYPE})
 
-link_directories(${KUNGFU_BUILD_LIBRARY_DIR})
-
-##########################################################################
-
 if(DEFINED ENV{LIBKUNGFU_NAME})
   set(LIBKUNGFU_NAME $ENV{LIBKUNGFU_NAME})
 else()
@@ -109,6 +100,14 @@ endif()
 if (TARGET ${LIBKUNGFU_NAME})
   message(STATUS "Enabled production libwasm runtime")
   add_subdirectory(src/libwasm)
+endif()
+
+# ADR-0046 stage 3 (Phase B2): Windows-only single-export embedding DLL so the
+# trunk can link the embedding membrane where the core is STATIC/unexported. On
+# POSIX the trunk links the SHARED libkungfu directly, so this is Windows-only.
+if (WIN32 AND TARGET ${LIBKUNGFU_NAME})
+  message(STATUS "Enabled kungfu_embedding (Windows single-export membrane DLL)")
+  add_subdirectory(src/libembedding)
 endif()
 
 if (NOT DEFINED ENV{KUNGFU_BUILD_SKIP_KUNGFU_NODE} OR NOT $ENV{KUNGFU_BUILD_SKIP_KUNGFU_NODE})

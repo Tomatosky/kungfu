@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 // Minimal Electron main process for the kungfu reference app.
@@ -19,11 +19,14 @@ import {
 } from 'electron';
 
 import {
+  ATLAS_CLI_EXEC_CHANNEL,
   DESTROY_CHANNEL,
   ENSURE_CHANNEL,
   HIDE_CHANNEL,
+  PROFILE_CLI_EXEC_CHANNEL,
   RUNTIME_STATUS_GET_CHANNEL,
   SET_BOUNDS_CHANNEL,
+  SHELL_REFRESH_CHANNEL,
   SHOW_CHANNEL,
   WINDOW_CHROME_CONTROL_CHANNEL,
   WINDOW_CHROME_GET_CHANNEL,
@@ -34,6 +37,7 @@ import {
   WORKSPACE_SELECT_HOME_CHANNEL,
   WORKSPACE_SELECT_RECENT_CHANNEL,
 } from '../sandbox/channels';
+import { executeAtlasCli } from './atlas-cli';
 import {
   firstPartyManifestPath,
   generateFirstPartyManifest,
@@ -42,6 +46,7 @@ import {
   installKungfuCliToPath,
   uninstallKungfuCliFromPath,
 } from './installCli';
+import { executeProfileCli } from './profile-cli';
 import { type Rect, SandboxManager } from './sandbox-manager';
 import { bindSessionWindows } from './session-windows-host';
 import {
@@ -53,6 +58,7 @@ import {
   createMainTerminalHost,
 } from './terminal-host';
 import {
+  clearDesktopWorkspaceEnvForRelaunch,
   defaultHomeDesktopWorkspace,
   listRecentDesktopWorkspaces,
   resolveLastDesktopWorkspace,
@@ -96,6 +102,11 @@ function defaultConfigHome(): string {
   );
 }
 
+const desktopWorkspaceIsRegistryManaged =
+  !process.env.KF_INSTANCE_HOME &&
+  !process.env.KF_HOME &&
+  !process.env.KF_RUNTIME_DIR;
+
 // A product launcher may set KF_INSTANCE_HOME to make a second Kungfu process
 // independent from the default user-global homes. Keep the same mental model as
 // the default install: config and runtime home are separate directories.
@@ -124,11 +135,7 @@ if (process.env.KF_INSTANCE_HOME) {
   process.env.KF_RUNTIME_DIR = path.join(process.env.KF_HOME, 'runtime');
 }
 
-if (
-  !process.env.KF_INSTANCE_HOME &&
-  !process.env.KF_HOME &&
-  !process.env.KF_RUNTIME_DIR
-) {
+if (desktopWorkspaceIsRegistryManaged) {
   const configHome = defaultConfigHome();
   process.env.KF_CONFIG_HOME = configHome;
   const selected =
@@ -674,6 +681,21 @@ ipcMain.on(DESTROY_CHANNEL, (_event, payload) => {
   manager?.destroyView((payload as { id: string }).id);
 });
 
+ipcMain.handle(ATLAS_CLI_EXEC_CHANNEL, (_event, payload) =>
+  executeAtlasCli(payload, {
+    bin: kungfuBinPath(),
+    env: process.env,
+    execFile,
+  }),
+);
+ipcMain.handle(PROFILE_CLI_EXEC_CHANNEL, (_event, payload) =>
+  executeProfileCli(payload, {
+    bin: kungfuBinPath(),
+    env: process.env,
+    execFile,
+  }),
+);
+
 function publishWindowChromeState(win: BrowserWindow) {
   win.webContents.send(WINDOW_CHROME_STATE_CHANNEL, {
     maximized: win.isMaximized(),
@@ -732,6 +754,9 @@ function relaunchWithWorkspaceSelection(args: string[]) {
     timeout: 10000,
   });
   const selected = JSON.parse(out.toString());
+  if (desktopWorkspaceIsRegistryManaged) {
+    clearDesktopWorkspaceEnvForRelaunch(process.env);
+  }
   setImmediate(() => {
     app.relaunch();
     app.exit(0);
@@ -892,7 +917,28 @@ function buildMenu() {
     ...(process.platform === 'darwin' ? [{ role: 'appMenu' as const }] : []),
     { label: 'kungfu', submenu: cliSubmenu },
     { role: 'editMenu' },
-    { role: 'viewMenu' },
+    {
+      label: 'View',
+      submenu: [
+        {
+          label: 'Refresh Product Data',
+          accelerator: 'CmdOrCtrl+R',
+          click: () => {
+            if (shellWindow && !shellWindow.isDestroyed()) {
+              shellWindow.webContents.send(SHELL_REFRESH_CHANNEL);
+            }
+          },
+        },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' },
+      ],
+    },
     { role: 'windowMenu' },
   ];
 

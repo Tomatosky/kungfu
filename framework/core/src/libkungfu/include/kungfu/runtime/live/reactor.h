@@ -7,6 +7,8 @@
 #ifndef KUNGFU_RUNTIME_LIVE_REACTOR_H
 #define KUNGFU_RUNTIME_LIVE_REACTOR_H
 
+#include <atomic>
+
 #include <kungfu/runtime/common.h>
 
 #include <kungfu/runtime/io.h>
@@ -89,11 +91,13 @@ public:
 
   [[nodiscard]] virtual yijinjing::journal::writer_ptr get_writer(uint32_t dest_id) const;
 
-  [[nodiscard]] virtual bool has_band_writer(uint32_t dest_id) const;
+  [[nodiscard]] virtual bool has_off_thread_writer(uint32_t dest_id) const;
 
-  [[nodiscard]] virtual yijinjing::journal::writer_ptr get_band_writer(uint32_t dest_id) const;
+  [[nodiscard]] virtual yijinjing::journal::writer_ptr get_off_thread_writer(uint32_t dest_id) const;
 
-  [[nodiscard]] const WriterMap &get_writers() const;
+  /// Returns a stable management snapshot. The caller may iterate it without
+  /// racing writer membership changes on the reactor thread.
+  [[nodiscard]] WriterMap get_writers() const;
 
   [[nodiscard]] bool has_location(uint32_t uid) const;
 
@@ -113,15 +117,15 @@ public:
 
   [[nodiscard]] const std::unordered_map<uint64_t, yijinjing::types::Channel> &get_channels() const;
 
-  [[nodiscard]] bool has_band(uint32_t source, uint32_t dest) const;
+  [[nodiscard]] bool has_outlet(uint32_t source, uint32_t dest) const;
 
-  [[nodiscard]] bool has_band(uint64_t hash) const;
+  [[nodiscard]] bool has_outlet(uint64_t hash) const;
 
-  [[nodiscard]] const yijinjing::types::Band &get_band(uint32_t source, uint32_t dest) const;
+  [[nodiscard]] const yijinjing::types::Outlet &get_outlet(uint32_t source, uint32_t dest) const;
 
-  [[nodiscard]] const yijinjing::types::Band &get_band(uint64_t hash) const;
+  [[nodiscard]] const yijinjing::types::Outlet &get_outlet(uint64_t hash) const;
 
-  [[nodiscard]] const std::unordered_map<uint64_t, yijinjing::types::Band> &get_bands() const;
+  [[nodiscard]] const std::unordered_map<uint64_t, yijinjing::types::Outlet> &get_outlets() const;
 
   [[nodiscard]] const std::unordered_map<uint32_t, yijinjing::types::Register> &get_registry() const;
 
@@ -181,12 +185,14 @@ protected:
   int64_t end_time_;
   yijinjing::journal::reader_ptr reader_;
   WriterMap writers_ = {};
-  WriterMap band_writers_ = {};
-  mutable std::mutex band_mtx_{};
+  WriterMap off_thread_writers_ = {};
+  mutable std::mutex writers_mtx_{};
+  mutable std::mutex off_thread_mtx_{};
   const size_t main_thread_id_{};
   std::set<std::string> location_uid64s_ = {};
 
   rx::connectable_observable<event_ptr> events_ = {};
+  rx::loop_error_state_ptr loop_error_state_ = std::make_shared<rx::loop_error_state>();
 
   const yijinjing::data::location_ptr coordinator_home_location_;
   const yijinjing::data::location_ptr coordinator_cmd_location_;
@@ -212,9 +218,9 @@ protected:
 
   void deregister_channel(uint32_t source_id);
 
-  void register_band(int64_t trigger_time, const yijinjing::types::Band &band);
+  void register_outlet(int64_t trigger_time, const yijinjing::types::Outlet &outlet);
 
-  void deregister_band(uint32_t source_id);
+  void deregister_outlet(uint32_t source_id);
 
   void require_read_from(int64_t trigger_time, uint32_t dest_id, uint32_t source_id, int64_t from_time,
                          uint64_t page_size = 0);
@@ -227,8 +233,8 @@ protected:
 
   void require_write_to(int64_t trigger_time, uint32_t source_id, uint32_t dest_id, uint64_t page_size = 0);
 
-  void require_write_to_band(int64_t trigger_time, uint32_t source_id, const yijinjing::data::location_ptr &location,
-                             uint64_t page_size = 0) const;
+  void require_write_to_outlet(int64_t trigger_time, uint32_t source_id, const yijinjing::data::location_ptr &location,
+                               uint64_t page_size = 0) const;
 
   virtual void react() = 0;
 
@@ -237,6 +243,8 @@ protected:
   virtual void on_frame() = 0;
 
   void cleanup_reader_disjoin();
+
+  [[nodiscard]] std::exception_ptr get_loop_error() const { return loop_error_state_->first_error(); }
 
 protected:
   kungfu::runtime::io_device_ptr io_device_;
@@ -248,7 +256,7 @@ protected:
   mutable std::mutex peer_db_mtx_ = {};
   inline static const std::string LOCATION_KEYS = "location_uid64";
 
-  std::unordered_map<uint64_t, yijinjing::types::Band> bands_ = {};
+  std::unordered_map<uint64_t, yijinjing::types::Outlet> outlets_ = {};
   std::unordered_map<uint64_t, yijinjing::types::Channel> channels_ = {};
   std::unordered_map<uint32_t, yijinjing::data::location_ptr> locations_ = {};
   std::unordered_map<uint64_t, yijinjing::data::location_ptr> location64s_ = {};
@@ -256,9 +264,9 @@ protected:
   std::set<yijinjing::data::location_ptr> disjoin_locations_ = {};
   std::set<std::pair<yijinjing::data::location_ptr, uint32_t>> disjoin_channels_ = {};
 
-  volatile bool continual_ = true;
-  volatile bool live_ = false;
-  volatile uint32_t step_limit_ = 0;
+  std::atomic_bool continual_{true};
+  std::atomic_bool live_{false};
+  std::atomic_uint32_t step_limit_{0};
 
   void produce(const rx::subscriber<event_ptr> &sb);
 

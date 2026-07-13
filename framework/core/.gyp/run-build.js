@@ -135,13 +135,14 @@ function makePackage() {
 // “node native 编译用哪个 python 不确定”的脆弱点。uv 不可用时静默跳过，回退默认查找。
 function useUvPython() {
   const isWin = process.platform === 'win32';
-  // 直接定位 uv 项目 venv 的 python（__dirname=.gyp → 上一级=core 根 → .venv）。
+  // Shifu strict cache execution supplies a disposable UV_PROJECT_ENVIRONMENT;
+  // ordinary development continues to use the project-local .venv.
   // 不解 realpath：venv 的 python 是指向 base python 的 symlink，靠“在 .venv/bin 下”这一
   // 路径语义才会启用 venv site-packages（setuptools 的 _distutils shim）；解到真身就丢了。
+  const environment =
+    process.env.UV_PROJECT_ENVIRONMENT || path.join(__dirname, '..', '.venv');
   const venvPy = path.join(
-    __dirname,
-    '..',
-    '.venv',
+    environment,
     isWin ? 'Scripts' : 'bin',
     isWin ? 'python.exe' : 'python3',
   );

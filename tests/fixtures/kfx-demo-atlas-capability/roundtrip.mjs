@@ -65,4 +65,11 @@ const markers = atlas.markers();
 ck('marker list is readable', markers.length === 1);
 ck('marker branch preserved', markers[0]?.branch === 'ai/demo/importer');
 
+const dashboard = await atlas.dashboard();
+ck('dashboard snapshot has one request cut', dashboard.cut.kind === 'system_time');
+ck('dashboard snapshot includes import info', dashboard.import_info?.missions === 1);
+ck('dashboard snapshot includes missions', dashboard.missions.length === 1);
+ck('dashboard snapshot includes goals', dashboard.goals.length === 2);
+ck('dashboard snapshot is cached', atlas.currentDashboard() === dashboard);
+
 console.log('[kfx-demo-atlas-capability] roundtrip ok');

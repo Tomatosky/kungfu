@@ -132,11 +132,11 @@ function mergeBase() {
     '@{upstream}',
   ]);
   const candidates = [
-    upstream,
-    'origin/HEAD',
-    'nas/dev/v4/v4.0',
     'origin/dev/v4/v4.0',
+    'nas/dev/v4/v4.0',
     'dev/v4/v4.0',
+    'origin/HEAD',
+    upstream,
   ].filter(Boolean);
   for (const ref of candidates) {
     const base = gitMaybe(['merge-base', String(ref), 'HEAD']);
@@ -331,6 +331,34 @@ function testShifuEntryContract() {
   ]);
 }
 
+function checkShifuCacheContract() {
+  run('Shifu cache contract gate', 'node', [
+    path.join('scripts', 'check-shifu-cache-contract.mjs'),
+  ]);
+}
+
+function testShifuCacheContract() {
+  run('Shifu cache contract tests', 'node', [
+    '--test',
+    path.join('scripts', 'check-shifu-cache-contract.test.mjs'),
+    path.join('scripts', 'shifu-cache-runtime.test.mjs'),
+    path.join('scripts', 'shifu-uv-cache-adapter.test.mjs'),
+  ]);
+}
+
+function checkShifuGateContract() {
+  run('Shifu Gate contract gate', 'node', [
+    path.join('scripts', 'check-shifu-gate-contract.mjs'),
+  ]);
+}
+
+function testShifuGateContract() {
+  run('Shifu Gate contract tests', 'node', [
+    '--test',
+    path.join('scripts', 'shifu-gate-runtime.test.mjs'),
+  ]);
+}
+
 function checkLayerQualification() {
   run('ADR-0049 layer qualification harness tests', 'node', [
     '--test',
@@ -400,29 +428,35 @@ function checkLiveRuntimeTerminology() {
   ]);
 }
 
+function checkDocs() {
+  run('Markdown documentation gate', 'node', [
+    path.join('scripts', 'run-docs-check.mjs'),
+  ]);
+}
+
 function checkAdrIdentities() {
-  const adrDir = path.join(ROOT, 'framework', 'core', 'docs', 'adr');
+  const adrDir = path.join(ROOT, 'docs', 'adr');
   const files = fs
     .readdirSync(adrDir)
-    .filter((file) => /^ADR-\d{4}-.+\.md$/.test(file))
+    .filter((file) => /^(?:SHIFU-)?ADR-\d{4}-.+\.md$/.test(file))
     .sort();
   /** @type {Map<string, string[]>} */
   const byId = new Map();
   /** @type {string[]} */
   const errors = [];
   for (const file of files) {
-    const id = file.slice(4, 8);
+    const id = /^(?:SHIFU-)?ADR-\d{4}/.exec(file)?.[0] || '';
     const siblings = byId.get(id) || [];
     siblings.push(file);
     byId.set(id, siblings);
     const text = fs.readFileSync(path.join(adrDir, file), 'utf8');
-    if (!text.includes(`# ADR-${id}:`)) {
-      errors.push(`${file} heading does not match ADR-${id}`);
+    if (!text.includes(`# ${id}:`)) {
+      errors.push(`${file} heading does not match ${id}`);
     }
   }
   for (const [id, siblings] of byId) {
     if (siblings.length > 1) {
-      errors.push(`ADR-${id} is duplicated: ${siblings.join(', ')}`);
+      errors.push(`${id} is duplicated: ${siblings.join(', ')}`);
     }
   }
   if (errors.length) {
@@ -464,17 +498,36 @@ function checkBuildchainKfdEvidence(files = [], { force = false } = {}) {
   ]);
 }
 
+function checkLibwasmCargoCache(files = [], { force = false } = {}) {
+  const touched = files.some(
+    (file) =>
+      file === 'framework/core/.cmake/libwasm-cargo-cache.cmake' ||
+      file === 'scripts/libwasm-cargo-cache.test.mjs' ||
+      file === 'scripts/qualify-libwasm-cargo-cache.mjs' ||
+      file.endsWith('/libwasm/CMakeLists.txt') ||
+      file.includes('/libwasm-shared-membrane/'),
+  );
+  if (!force && !touched) return;
+  run('libwasm Cargo cache contract tests', 'node', [
+    '--test',
+    path.join('scripts', 'libwasm-cargo-cache.test.mjs'),
+  ]);
+}
+
 function checkStaged() {
   checkNoBashStaged();
   checkPlatformMacros();
   checkShifuVersionSync();
   checkShifuEntryContract();
+  checkShifuCacheContract();
+  checkShifuGateContract();
   checkCarrierActionEnvelope(['--staged']);
   checkRuntimeGreenfield(['--staged']);
   checkSchemaAuthority();
   checkJournalAuthorityBoundary();
   checkLiveRuntimeTerminology();
   checkAdrIdentities();
+  checkDocs();
   const files = stagedFiles();
   if (!files.length) {
     log('[check] no staged source files');
@@ -512,21 +565,29 @@ function checkStaged() {
   checkBiomeFiles('staged', files);
   checkRustFiles('staged', files);
   checkBuildchainKfdEvidence(files);
+  checkLibwasmCargoCache(files);
 
   log('\n[check] staged gate passed');
 }
 
 function checkShared() {
   testShifuEntryContract();
+  testShifuCacheContract();
+  testShifuGateContract();
   testSchemaAuthority();
   checkJournalAuthorityBoundary();
   checkLiveRuntimeTerminology();
   checkAdrIdentities();
+  checkDocs();
   run('journal manager type check', 'pnpm', [
     '--filter',
     '@kungfu-tech/kfx-view-journal-manager',
     'run',
     'check',
+  ]);
+  run('KFX Profile Suite contract tests', 'pnpm', [
+    'run',
+    'test:kfx-profile-suite',
   ]);
   checkLayerQualification();
   run('tooling type check', 'pnpm', ['run', 'check:types']);
@@ -559,6 +620,7 @@ function checkChanged() {
   checkBiomeFiles('changed', files);
   checkRustFiles('changed', files);
   checkBuildchainKfdEvidence(files);
+  checkLibwasmCargoCache(files);
   checkShared();
   log('\n[check] changed-scope gate passed');
 }
@@ -576,6 +638,7 @@ function checkAll() {
   run('repo lint + format check', 'pnpm', ['run', 'lint']);
   checkRustFiles('all', [], { force: true });
   checkBuildchainKfdEvidence([], { force: true });
+  checkLibwasmCargoCache([], { force: true });
   checkShared();
   log('\n[check] whole-tree gate passed');
 }

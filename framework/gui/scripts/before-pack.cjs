@@ -7,8 +7,21 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 
-function beforePackArgs(tsxLoader, generator) {
-  return ['--import', pathToFileURL(tsxLoader).href, generator];
+function toEsmEntrypointSpecifier(entryPath, platform = process.platform) {
+  return platform === 'win32' ? pathToFileURL(entryPath).href : entryPath;
+}
+
+function esmEntrypointArgs(entryPath, platform = process.platform) {
+  const specifier = toEsmEntrypointSpecifier(entryPath, platform);
+  return ['--eval', `import(${JSON.stringify(specifier)})`];
+}
+
+function beforePackArgs(tsxLoader, generator, platform = process.platform) {
+  return [
+    '--import',
+    toEsmEntrypointSpecifier(tsxLoader, platform),
+    ...esmEntrypointArgs(generator, platform),
+  ];
 }
 
 exports.default = async function beforePack() {
@@ -23,3 +36,5 @@ exports.default = async function beforePack() {
 };
 
 exports.beforePackArgs = beforePackArgs;
+exports.toEsmEntrypointSpecifier = toEsmEntrypointSpecifier;
+exports.esmEntrypointArgs = esmEntrypointArgs;

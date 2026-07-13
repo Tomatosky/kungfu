@@ -18,8 +18,6 @@
 #include <kungfu/runtime/state_cache/model.h>
 
 namespace kungfu::node {
-constexpr uint64_t ID_TRANC = 0x00000000FFFFFFFF;
-constexpr uint32_t PAGE_ID_MASK = 0x80000000;
 constexpr uint32_t TRANSFER_STATIC_DATA_LIMIT = 2000;
 
 class Watcher : public Napi::ObjectWrap<Watcher>, public runtime::live::peer {
@@ -66,7 +64,7 @@ public:
 
   void Quit(const Napi::CallbackInfo &info);
 
-  void AfterCoordinatorDown(const Napi::CallbackInfo &info);
+  void AfterCoordinatorDown(Napi::Env env);
 
   void RequestDeregister();
 
@@ -96,6 +94,7 @@ private:
   uv_work_t uv_work_ = {};
   bool uv_work_live_ = false;
   bool quit_ = false;
+  std::exception_ptr worker_error_ = nullptr;
 
   Napi::ObjectReference ledger_ref_;
   Napi::ObjectReference app_states_ref_;
@@ -110,7 +109,7 @@ private:
 
   static constexpr auto is_static_data = []() {
     return rx::filter([&](const event_ptr &event) {
-      return yijinjing::StaticDataTags.find(event->carrier_type()) != yijinjing::StaticDataTags.end();
+      return yijinjing::contains_tag(yijinjing::StaticDataTags, event->carrier_type());
     });
   };
 
@@ -136,16 +135,14 @@ private:
 
   void CancelWorker();
 
-  uint64_t MakeInstructionUID(yijinjing::journal::writer_ptr &writer, uint32_t dest, uint32_t client_id = 0) {
-    uint64_t id_left = (uint64_t)(client_id xor dest) << 32u;
-    uint64_t id_right = (ID_TRANC & writer->current_frame_uid()) | PAGE_ID_MASK;
-    return id_left | id_right;
-  }
+  void RecordWorkerError(const std::exception_ptr &error);
+
+  std::exception_ptr TakeWorkerError();
 
   template <typename DataType> void UpdateLedger(const boost::hana::basic_type<DataType> &type) {
     using DataTypeMap = std::unordered_map<uint64_t, state<DataType>>;
     auto &target_map = const_cast<DataTypeMap &>(data_bank_[type]);
-    auto is_static_data_type = yijinjing::StaticDataTags.find(DataType::tag) != yijinjing::StaticDataTags.end();
+    auto is_static_data_type = yijinjing::contains_tag(yijinjing::StaticDataTags, DataType::tag);
     auto count = 0;
     auto iter = target_map.begin();
     while (iter != target_map.end()) {

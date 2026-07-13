@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-#include <csignal>
-
 #include <kungfu/common.h>
 #include <kungfu/yijinjing/common.h>
 #include <kungfu/yijinjing/journal/journal.h>
@@ -31,18 +29,7 @@ frame_ptr replay_writer::open_frame(int64_t trigger_time, int32_t carrier_type, 
   }
 
   if (not reader_for_write_->data_available()) {
-    SPDLOG_WARN("no more data available for carrier_type {} trigger_time {}, from {} to {}", carrier_type,
-                time::strftime(trigger_time), get_location()->uname, get_dest());
-    raise(SIGINT);
-    cloned_frame_->open(length);
-    cloned_frame_->set_header_length();
-    cloned_frame_->set_trigger_time(trigger_time);
-    cloned_frame_->set_carrier_type(carrier_type);
-    cloned_frame_->set_source(journal_->location_->uid);
-    cloned_frame_->set_initial_source(journal_->location_->uid);
-    cloned_frame_->set_dest(journal_->dest_id_);
-    cloned_frame_->set_stream_id(stream_id);
-    return cloned_frame_;
+    throw replay_exhausted(carrier_type, trigger_time, get_location()->uname, get_dest());
   }
 
   cloned_frame_->copy(*reader_for_write_->current_frame());
@@ -66,5 +53,19 @@ uint64_t replay_writer::current_frame_uid() {
     }
   });
   return uid;
+}
+
+writer::frame_transaction replay_writer::reserve_frame(int64_t trigger_time, int32_t carrier_type, size_t length,
+                                                       uint64_t stream_id) {
+  if (!writer_mtx_.try_lock_for(std::chrono::seconds(30))) {
+    throw journal_error("Can not lock replay writer for " + journal_->location_->uname);
+  }
+  try {
+    auto frame = open_frame(trigger_time, carrier_type, length, stream_id);
+    return frame_transaction(*this, frame.get(), true);
+  } catch (...) {
+    writer_mtx_.unlock();
+    throw;
+  }
 }
 } // namespace kungfu::yijinjing::journal

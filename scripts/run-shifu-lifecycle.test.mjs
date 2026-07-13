@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import {
+  cacheAppliedArgs,
   cmdCommand,
   lifecycleEnvironment,
   runShifu,
@@ -13,6 +14,25 @@ test('copies the lifecycle environment without mutating the caller', () => {
   const env = lifecycleEnvironment(process.env);
   assert.equal(env.PATH, process.env.PATH);
   assert.notEqual(env, process.env);
+});
+
+test('wraps a lifecycle task in cache apply without a shell command', () => {
+  assert.deepEqual(
+    cacheAppliedArgs(['verify', '--fuzz'], {
+      node: '/node path/node',
+      script: '/repo path/run-shifu-lifecycle.mjs',
+    }),
+    [
+      'cache',
+      'apply',
+      '--',
+      '/node path/node',
+      '/repo path/run-shifu-lifecycle.mjs',
+      'direct',
+      'verify',
+      '--fuzz',
+    ],
+  );
 });
 
 test('runs the Unix shim without a shell', () => {

@@ -13,7 +13,7 @@ journal::journal(data::location_ptr location, uint32_t dest_id, journal_open_pol
                  bus_ptr bus, uint64_t page_size, yijinjing::enums::Priority priority)
     : location_(std::move(location)), dest_id_(dest_id), policy_(policy), low_latency_(low_latency),
       bus_(std::move(bus)), frame_(std::shared_ptr<frame>(new frame())), page_frame_nb_(0u), page_size_(page_size),
-      priority_(priority), replica_(false) {
+      priority_(priority) {
   keep_page_ = std::getenv("KF_KEEP_PAGE") != nullptr;
   char *pre_create_size = std::getenv("KF_MAX_PRE_CREATE_SIZE");
   try {
@@ -42,7 +42,6 @@ journal::journal(const journal &other)
   pre_create_page_ = other.pre_create_page_;
   page_ = other.page_;
   frame_ = std::make_shared<frame>(*other.frame_);
-  replica_ = true;
 }
 
 journal::~journal() {
@@ -85,7 +84,7 @@ void journal::load_page(uint32_t page_id) {
     if (not page_ or page_->get_page_id() != page_id) {
       if (page_) {
         if (bus_->is_on_load_page_required()) {
-          std::lock_guard<std::recursive_mutex> lk_passed_page(passed_page_collector_mtx_);
+          std::lock_guard<std::mutex> lk_passed_page(passed_page_collector_mtx_);
           passed_page_collector_.push_back(std::move(page_));
         } else if (keep_page_) {
           passed_page_collector_.push_back(std::move(page_));
@@ -104,7 +103,7 @@ void journal::load_page(uint32_t page_id) {
   };
 
   if (low_latency_) {
-    std::lock_guard<std::recursive_mutex> lk_load_page(load_page_mtx_);
+    std::lock_guard<std::mutex> lk_load_page(load_page_mtx_);
     fn_load();
     bus_->on_load_page();
   } else {
@@ -115,7 +114,7 @@ void journal::load_page(uint32_t page_id) {
 void journal::load_next_page() { load_page(page_->get_page_id() + 1); }
 
 void journal::preload_next_page() {
-  std::lock_guard<std::recursive_mutex> lk(load_page_mtx_);
+  std::lock_guard<std::mutex> lk(load_page_mtx_);
   if ((not low_latency_ or not page_) or                                                   //
       (preload_page_ and preload_page_->get_page_id() == page_->get_page_id() + 1) or      //
       page_->is_pre_open() or                                                              //
@@ -145,27 +144,14 @@ void journal::release_page() {
     return;
   }
 
-  static thread_local std::vector<page_ptr> queue_release_page{};
+  // Drop journal/resource-manager ownership promptly. An external page lease
+  // keeps the mapping alive until its own final release; refcount observation
+  // is not a scheduling protocol and the resource worker never polls it.
+  std::vector<page_ptr> released;
   {
-    std::lock_guard<std::recursive_mutex> lk_passed_page(passed_page_collector_mtx_);
-    if (passed_page_collector_.empty()) {
-      return;
-    }
-
-    for (auto &page : passed_page_collector_) {
-      queue_release_page.push_back(std::move(page));
-    }
-    passed_page_collector_.clear();
+    std::lock_guard<std::mutex> lk_passed_page(passed_page_collector_mtx_);
+    released.swap(passed_page_collector_);
   }
-
-  for (auto &page : queue_release_page) {
-    // wait for the main thread to release shared_ptr<page>, or page would close in the main thread
-    while (page.use_count() > 1 and not replica_) {
-      std::this_thread::sleep_for(std::chrono::microseconds(1));
-    }
-    page.reset();
-  }
-  queue_release_page.clear();
 }
 
 void journal::close_page(int64_t trigger_time, int64_t last_gen_time) {

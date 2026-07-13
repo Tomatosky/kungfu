@@ -172,6 +172,13 @@ std::string sha256_hex(const void *data, size_t size) {
   return hex_encode(hasher.final());
 }
 
+content_bytes as_content_bytes(const void *data, size_t size) {
+  if (data == nullptr && size != 0) {
+    throw std::invalid_argument("content hash data pointer is null");
+  }
+  return {static_cast<const std::byte *>(data), size};
+}
+
 } // namespace
 
 std::string normalize_content_hash_algorithm(const std::string &algorithm) {
@@ -217,32 +224,44 @@ content_hash parse_content_hash(const std::string &formatted) {
   return make_content_hash(formatted.substr(separator + 1), formatted.substr(0, separator));
 }
 
-content_hash compute_content_hash(const void *data, size_t size, const std::string &algorithm) {
+content_hash compute_content_hash(content_bytes data, const std::string &algorithm) {
   auto normalized = normalize_content_hash_algorithm(algorithm);
   content_hash hash{};
   hash.algorithm = normalized;
-  hash.value = sha256_hex(data, size);
+  hash.value = sha256_hex(data.data(), data.size());
   return hash;
 }
 
+content_hash compute_content_hash(const void *data, size_t size, const std::string &algorithm) {
+  return compute_content_hash(as_content_bytes(data, size), algorithm);
+}
+
 content_hash compute_content_hash(const std::string &data, const std::string &algorithm) {
-  return compute_content_hash(data.data(), data.size(), algorithm);
+  return compute_content_hash(std::as_bytes(std::span(data)), algorithm);
+}
+
+std::string compute_content_hash_value(content_bytes data, const std::string &algorithm) {
+  return compute_content_hash(data, algorithm).value;
 }
 
 std::string compute_content_hash_value(const void *data, size_t size, const std::string &algorithm) {
-  return compute_content_hash(data, size, algorithm).value;
+  return compute_content_hash_value(as_content_bytes(data, size), algorithm);
 }
 
 std::string compute_content_hash_value(const std::string &data, const std::string &algorithm) {
   return compute_content_hash(data, algorithm).value;
 }
 
+bool verify_content_hash(content_bytes data, const content_hash &expected) {
+  return compute_content_hash_value(data, expected.algorithm) == to_lower_ascii(expected.value);
+}
+
 bool verify_content_hash(const void *data, size_t size, const content_hash &expected) {
-  return compute_content_hash_value(data, size, expected.algorithm) == to_lower_ascii(expected.value);
+  return verify_content_hash(as_content_bytes(data, size), expected);
 }
 
 bool verify_content_hash(const std::string &data, const content_hash &expected) {
-  return verify_content_hash(data.data(), data.size(), expected);
+  return verify_content_hash(std::as_bytes(std::span(data)), expected);
 }
 
 } // namespace kungfu::yijinjing::storage

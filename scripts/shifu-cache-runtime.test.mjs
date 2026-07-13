@@ -1,0 +1,674 @@
+// SPDX-License-Identifier: Apache-2.0
+
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import http from 'node:http';
+import os from 'node:os';
+import path from 'node:path';
+import test from 'node:test';
+
+import Ajv2020 from 'ajv/dist/2020.js';
+
+import {
+  CacheProfileError,
+  applyCacheProfile,
+  resolveCacheProfile,
+  sha256,
+  validateProfileBytes,
+} from './shifu-cache-runtime.mjs';
+
+const platform =
+  process.platform === 'darwin'
+    ? `darwin-${process.arch}`
+    : process.platform === 'win32'
+      ? `windows-${process.arch}`
+      : `${process.platform}-${process.arch}`;
+
+function profile(overrides = {}) {
+  return {
+    $schema: 'https://libkungfu.dev/schemas/shifu/cache-profile-v1.schema.json',
+    schema: 'shifu.cache-profile/v1',
+    profileId: 'test.cache-profile',
+    revision: 1,
+    generatedAt: '2026-07-12T00:00:00Z',
+    authority: {
+      owner: 'test-inventory',
+      sourceRef: 'test/inventory.json@revision-1',
+      sourceDigest: `sha256:${'1'.repeat(64)}`,
+    },
+    subject: {
+      principal: 'test:runner',
+      platforms: [platform],
+      scopes: ['development', 'self-hosted-runner', 'ci'],
+    },
+    policy: {
+      mode: 'require',
+      onUnavailable: 'fail',
+      allowPublicFallback: false,
+      secretPolicy: 'references-only',
+    },
+    services: {
+      'npm-registry': {
+        kind: 'package-registry',
+        mode: 'require',
+        endpoint: { type: 'http', url: 'http://cache.example.invalid/npm/' },
+        bindings: [
+          {
+            kind: 'environment',
+            key: 'COREPACK_NPM_REGISTRY',
+            valueFrom: 'endpoint.url',
+          },
+        ],
+        fallback: { mode: 'fail' },
+        verification: { method: 'tool-native' },
+      },
+    },
+    evidence: {
+      enabled: true,
+      redaction: 'credentials-userinfo-query-fragment',
+    },
+    ...overrides,
+  };
+}
+
+function bytes(value = profile()) {
+  return Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
+}
+
+function toolConfigProfile() {
+  return profile({
+    services: {
+      'cargo-registry': {
+        kind: 'source-index',
+        mode: 'require',
+        endpoint: {
+          type: 'http',
+          url: 'http://cache.example.invalid/cargo-index/',
+        },
+        bindings: [
+          {
+            kind: 'config-key',
+            key: 'cargo.source.crates-io',
+            name: 'workhub',
+            valueFrom: 'endpoint.url',
+          },
+        ],
+        fallback: { mode: 'fail' },
+        verification: { method: 'tool-native' },
+      },
+      'conan-registry': {
+        kind: 'package-registry',
+        mode: 'require',
+        endpoint: {
+          type: 'http',
+          url: 'http://cache.example.invalid/conan/',
+        },
+        bindings: [
+          {
+            kind: 'config-key',
+            key: 'conan.remote.conancenter',
+            name: 'workhub-conan',
+            valueFrom: 'endpoint.url',
+          },
+        ],
+        fallback: { mode: 'fail' },
+        verification: { method: 'tool-native' },
+      },
+    },
+  });
+}
+
+function pythonCacheProfile(endpoint, { strict = true } = {}) {
+  return profile({
+    policy: strict
+      ? profile().policy
+      : {
+          mode: 'prefer',
+          onUnavailable: 'fallback',
+          allowPublicFallback: true,
+          secretPolicy: 'references-only',
+        },
+    services: {
+      'python-index': {
+        kind: 'package-registry',
+        mode: strict ? 'require' : 'prefer',
+        endpoint: { type: 'http', url: endpoint },
+        bindings: [
+          {
+            kind: 'environment',
+            key: 'UV_DEFAULT_INDEX',
+            valueFrom: 'endpoint.url',
+          },
+        ],
+        fallback: strict
+          ? { mode: 'fail' }
+          : { mode: 'upstream', upstreamUrl: 'https://pypi.org/simple' },
+        verification: { method: 'tool-native' },
+      },
+    },
+  });
+}
+
+function minimalUvLock() {
+  return `version = 1
+revision = 3
+requires-python = ">=3.12"
+
+[[package]]
+name = "demo"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/demo.tar.gz", hash = "sha256:${'a'.repeat(64)}", size = 1 }
+`;
+}
+
+function installFakeUv(bin) {
+  fs.writeFileSync(
+    path.join(bin, 'fake-uv.mjs'),
+    `import fs from 'node:fs';
+import path from 'node:path';
+const args = process.argv.slice(2);
+const projectAt = args.indexOf('--project');
+const project = args[projectAt + 1];
+if (args.includes('lock')) {
+  if (process.env.FAKE_UV_FAIL_LOCK) process.exit(42);
+  const file = path.join(project, 'uv.lock');
+  const endpoint = args[args.indexOf('--default-index') + 1];
+  fs.writeFileSync(file, fs.readFileSync(file, 'utf8')
+    .replaceAll('https://pypi.org/simple', endpoint)
+    .replaceAll('https://files.pythonhosted.org', new URL(endpoint).origin));
+} else if (process.env.FAKE_UV_OUTPUT) {
+  fs.writeFileSync(process.env.FAKE_UV_OUTPUT, JSON.stringify({
+    args,
+    environment: process.env.UV_PROJECT_ENVIRONMENT,
+    frozen: process.env.UV_FROZEN,
+  }));
+}
+`,
+  );
+  if (process.platform === 'win32') {
+    fs.writeFileSync(
+      path.join(bin, 'uv.cmd'),
+      '@node "%~dp0fake-uv.mjs" %*\r\n',
+    );
+  } else {
+    fs.writeFileSync(
+      path.join(bin, 'uv'),
+      '#!/bin/sh\nexec node "$(dirname "$0")/fake-uv.mjs" "$@"\n',
+      { mode: 0o700 },
+    );
+  }
+}
+
+test('validates exact bytes and applies only environment bindings', () => {
+  const raw = bytes();
+  const digest = sha256(raw);
+  const resolved = validateProfileBytes(raw, {
+    expectedDigest: digest,
+    platform,
+    scope: 'self-hosted-runner',
+  });
+  assert.equal(resolved.digest, digest);
+  assert.deepEqual(resolved.bindings, {
+    COREPACK_NPM_REGISTRY: 'http://cache.example.invalid/npm/',
+  });
+});
+
+test('fails closed on digest mismatch and secret-like environment keys', () => {
+  assert.throws(
+    () =>
+      validateProfileBytes(bytes(), {
+        expectedDigest: `sha256:${'0'.repeat(64)}`,
+      }),
+    /digest mismatch/,
+  );
+  const unsafe = profile();
+  unsafe.services['npm-registry'].bindings[0].key = 'CACHE_AUTH_TOKEN';
+  assert.throws(() => validateProfileBytes(bytes(unsafe)), /secret-like/);
+});
+
+test('rejects endpoint credentials, query strings, and unknown fields', () => {
+  for (const url of [
+    'https://user:pass@cache.example.invalid/npm/',
+    'https://cache.example.invalid/npm/?token=redacted',
+    'https://cache.example.invalid/npm/#fragment',
+  ]) {
+    const unsafe = profile();
+    unsafe.services['npm-registry'].endpoint.url = url;
+    assert.throws(() => validateProfileBytes(bytes(unsafe)), CacheProfileError);
+  }
+  const unknown = profile({ unexpected: true });
+  assert.throws(() => validateProfileBytes(bytes(unknown)), /not supported/);
+  const unsupportedConfig = toolConfigProfile();
+  unsupportedConfig.services['cargo-registry'].bindings[0].key =
+    'cargo.credentials';
+  assert.throws(
+    () => validateProfileBytes(bytes(unsupportedConfig)),
+    /config-key is not supported/,
+  );
+  const unsafeAlias = toolConfigProfile();
+  unsafeAlias.services['cargo-registry'].bindings[0].name = 'workhub.bad';
+  assert.throws(
+    () => validateProfileBytes(bytes(unsafeAlias)),
+    /config-key name is invalid/,
+  );
+});
+
+test('resolves an HTTP reference and emits a redacted schema receipt', async (t) => {
+  const raw = bytes();
+  const server = http.createServer((_request, response) => {
+    response.writeHead(200, { 'content-type': 'application/json' });
+    response.end(raw);
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => server.close());
+  const address = server.address();
+  const reference = `http://127.0.0.1:${address.port}/profile.json`;
+  const resolved = await resolveCacheProfile({
+    reference,
+    expectedDigest: sha256(raw),
+    scope: 'self-hosted-runner',
+  });
+  assert.equal(resolved.receipt.schema, 'shifu.cache-resolution/v1');
+  assert.equal(
+    resolved.receipt.redaction,
+    'credentials-userinfo-query-fragment',
+  );
+  assert.equal(
+    resolved.receipt.services['npm-registry'].selected.url,
+    'http://cache.example.invalid/npm/',
+  );
+  const schema = JSON.parse(
+    fs.readFileSync(
+      new URL(
+        '../docs/shifu/schema/cache-resolution-v1.schema.json',
+        import.meta.url,
+      ),
+      'utf8',
+    ),
+  );
+  const ajv = new Ajv2020({ strict: false });
+  ajv.addFormat('date-time', (value) => Number.isFinite(Date.parse(value)));
+  ajv.addFormat('uri-reference', () => true);
+  const validate = ajv.compile(schema);
+  assert.equal(
+    validate(resolved.receipt),
+    true,
+    JSON.stringify(validate.errors),
+  );
+});
+
+test('cache apply injects bindings and writes a receipt', async (t) => {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'shifu-cache-apply-'),
+  );
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const raw = bytes();
+  const profilePath = path.join(directory, 'profile.json');
+  const outputPath = path.join(directory, 'child.json');
+  const receiptPath = path.join(directory, 'receipt.json');
+  fs.writeFileSync(profilePath, raw);
+  const script = `require('node:fs').writeFileSync(${JSON.stringify(outputPath)}, JSON.stringify({value: process.env.COREPACK_NPM_REGISTRY, active: process.env.SHIFU_CACHE_ACTIVE}))`;
+  const status = await applyCacheProfile({
+    reference: profilePath,
+    expectedDigest: sha256(raw),
+    scope: 'development',
+    receiptPath,
+    command: process.execPath,
+    args: ['-e', script],
+  });
+  assert.equal(status, 0);
+  assert.deepEqual(JSON.parse(fs.readFileSync(outputPath, 'utf8')), {
+    value: 'http://cache.example.invalid/npm/',
+    active: '1',
+  });
+  const receipt = JSON.parse(fs.readFileSync(receiptPath, 'utf8'));
+  assert.equal(receipt.profile.digest, sha256(raw));
+  assert.match(receipt.execution.id, /^run:/);
+});
+
+test('strict Python cache uses a disposable effective lock and redacted receipt', async (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'shifu-cache-uv-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const repo = path.join(directory, 'repo');
+  const project = path.join(repo, 'framework', 'core');
+  const bin = path.join(directory, 'bin');
+  fs.mkdirSync(project, { recursive: true });
+  fs.mkdirSync(bin);
+  fs.writeFileSync(
+    path.join(project, 'pyproject.toml'),
+    '[project]\nname="demo"\nversion="1.0.0"\n',
+  );
+  fs.writeFileSync(path.join(project, 'uv.lock'), minimalUvLock());
+  spawnSync('git', ['init', '-q'], { cwd: repo });
+  spawnSync(
+    'git',
+    ['add', 'framework/core/pyproject.toml', 'framework/core/uv.lock'],
+    { cwd: repo },
+  );
+  installFakeUv(bin);
+
+  const server = http.createServer((_request, response) => {
+    response.writeHead(200);
+    response.end();
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => server.close());
+  const address = server.address();
+  const endpoint = `http://127.0.0.1:${address.port}/simple/`;
+  const raw = bytes(pythonCacheProfile(endpoint));
+  const profilePath = path.join(directory, 'profile.json');
+  const outputPath = path.join(directory, 'uv-invocation.json');
+  const receiptPath = path.join(directory, 'receipt.json');
+  fs.writeFileSync(profilePath, raw);
+  const canonical = fs.readFileSync(path.join(project, 'uv.lock'), 'utf8');
+  const statusBefore = spawnSync('git', ['status', '--short'], {
+    cwd: repo,
+    encoding: 'utf8',
+  }).stdout;
+  const script = `const result = require('node:child_process').spawnSync('uv', ['sync'], {stdio:'inherit'}); process.exit(result.status ?? 1)`;
+  const status = await applyCacheProfile({
+    reference: profilePath,
+    expectedDigest: sha256(raw),
+    scope: 'self-hosted-runner',
+    receiptPath,
+    command: process.execPath,
+    args: ['-e', script],
+    cwd: repo,
+    env: {
+      ...process.env,
+      PATH: `${bin}${path.delimiter}${process.env.PATH || ''}`,
+      FAKE_UV_OUTPUT: outputPath,
+    },
+  });
+  assert.equal(status, 0);
+  assert.equal(
+    fs.readFileSync(path.join(project, 'uv.lock'), 'utf8'),
+    canonical,
+  );
+  assert.equal(
+    spawnSync('git', ['status', '--short'], { cwd: repo, encoding: 'utf8' })
+      .stdout,
+    statusBefore,
+  );
+  const invocation = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
+  assert.match(invocation.environment, /shifu-uv-overlay-/);
+  assert.equal(invocation.frozen, '1');
+  const receipt = JSON.parse(fs.readFileSync(receiptPath, 'utf8'));
+  const service = receipt.services['python-index'];
+  assert.equal(service.verification, 'passed');
+  assert.equal(service.application.overlayCleanup, 'completed');
+  assert.equal(service.application.toolEvidence.adapter, 'uv-effective-lock');
+  assert.equal(service.application.toolEvidence.projectCount, 1);
+  assert.doesNotMatch(
+    JSON.stringify(receipt),
+    /shifu-uv-overlay-|framework\/core/,
+  );
+});
+
+test('strict Python cache fails before starting the child when effective lock rebinding fails', async (t) => {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'shifu-cache-uv-fail-'),
+  );
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const repo = path.join(directory, 'repo');
+  const project = path.join(repo, 'framework', 'core');
+  const bin = path.join(directory, 'bin');
+  fs.mkdirSync(project, { recursive: true });
+  fs.mkdirSync(bin);
+  fs.writeFileSync(
+    path.join(project, 'pyproject.toml'),
+    '[project]\nname="demo"\nversion="1.0.0"\n',
+  );
+  fs.writeFileSync(path.join(project, 'uv.lock'), minimalUvLock());
+  spawnSync('git', ['init', '-q'], { cwd: repo });
+  spawnSync(
+    'git',
+    ['add', 'framework/core/pyproject.toml', 'framework/core/uv.lock'],
+    { cwd: repo },
+  );
+  installFakeUv(bin);
+  const raw = bytes(pythonCacheProfile('http://cache.example.invalid/simple/'));
+  const profilePath = path.join(directory, 'profile.json');
+  const receiptPath = path.join(directory, 'receipt.json');
+  const childPath = path.join(directory, 'child-ran');
+  fs.writeFileSync(profilePath, raw);
+  await assert.rejects(
+    applyCacheProfile({
+      reference: profilePath,
+      expectedDigest: sha256(raw),
+      scope: 'self-hosted-runner',
+      receiptPath,
+      command: process.execPath,
+      args: [
+        '-e',
+        `require('node:fs').writeFileSync(${JSON.stringify(childPath)}, 'ran')`,
+      ],
+      cwd: repo,
+      env: {
+        ...process.env,
+        PATH: `${bin}${path.delimiter}${process.env.PATH || ''}`,
+        FAKE_UV_FAIL_LOCK: '1',
+      },
+    }),
+    /uv lock.*failed/,
+  );
+  assert.equal(fs.existsSync(childPath), false);
+  const receipt = JSON.parse(fs.readFileSync(receiptPath, 'utf8'));
+  assert.equal(receipt.services['python-index'].outcome, 'failed');
+  assert.equal(receipt.services['python-index'].verification, 'failed');
+});
+
+test('development Python cache records declared fallback when effective lock is unavailable', async (t) => {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'shifu-cache-uv-fallback-'),
+  );
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const repo = path.join(directory, 'repo');
+  const project = path.join(repo, 'framework', 'core');
+  const bin = path.join(directory, 'bin');
+  fs.mkdirSync(project, { recursive: true });
+  fs.mkdirSync(bin);
+  fs.writeFileSync(
+    path.join(project, 'pyproject.toml'),
+    '[project]\nname="demo"\nversion="1.0.0"\n',
+  );
+  fs.writeFileSync(path.join(project, 'uv.lock'), minimalUvLock());
+  spawnSync('git', ['init', '-q'], { cwd: repo });
+  spawnSync(
+    'git',
+    ['add', 'framework/core/pyproject.toml', 'framework/core/uv.lock'],
+    { cwd: repo },
+  );
+  installFakeUv(bin);
+  const raw = bytes(
+    pythonCacheProfile('http://cache.example.invalid/simple/', {
+      strict: false,
+    }),
+  );
+  const profilePath = path.join(directory, 'profile.json');
+  const receiptPath = path.join(directory, 'receipt.json');
+  const childPath = path.join(directory, 'child-ran');
+  fs.writeFileSync(profilePath, raw);
+  const status = await applyCacheProfile({
+    reference: profilePath,
+    expectedDigest: sha256(raw),
+    scope: 'development',
+    receiptPath,
+    command: process.execPath,
+    args: [
+      '-e',
+      `require('node:fs').writeFileSync(${JSON.stringify(childPath)}, 'ran')`,
+    ],
+    cwd: repo,
+    env: {
+      ...process.env,
+      PATH: `${bin}${path.delimiter}${process.env.PATH || ''}`,
+      FAKE_UV_FAIL_LOCK: '1',
+    },
+  });
+  assert.equal(status, 0);
+  assert.equal(fs.readFileSync(childPath, 'utf8'), 'ran');
+  const service = JSON.parse(fs.readFileSync(receiptPath, 'utf8')).services[
+    'python-index'
+  ];
+  assert.equal(service.outcome, 'fallback');
+  assert.equal(service.fallbackUsed, true);
+  assert.equal(service.verification, 'failed');
+});
+
+test('cache apply overrides Cargo and isolates Conan without mutating persistent config', async (t) => {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'shifu-cache-config-'),
+  );
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const persistentCargo = path.join(directory, 'persistent-cargo');
+  const persistentConan = path.join(directory, 'persistent-conan');
+  fs.mkdirSync(persistentCargo);
+  fs.mkdirSync(persistentConan);
+  const cargoSentinel = '[sentinel]\nvalue = "persistent-cargo"\n';
+  const conanSentinel = '{"sentinel":"persistent-conan"}\n';
+  fs.writeFileSync(path.join(persistentCargo, 'config.toml'), cargoSentinel);
+  fs.writeFileSync(path.join(persistentConan, 'remotes.json'), conanSentinel);
+
+  const raw = bytes(toolConfigProfile());
+  const profilePath = path.join(directory, 'profile.json');
+  const outputPath = path.join(directory, 'child.json');
+  const receiptPath = path.join(directory, 'receipt.json');
+  const fakeCargoArgsPath = path.join(directory, 'fake-cargo-args.json');
+  const fakeBin = path.join(directory, 'fake-bin');
+  fs.mkdirSync(fakeBin);
+  const fakeCargoModule = path.join(fakeBin, 'fake-cargo.mjs');
+  fs.writeFileSync(
+    fakeCargoModule,
+    `import fs from 'node:fs'; fs.writeFileSync(process.env.FAKE_CARGO_ARGS, JSON.stringify(process.argv.slice(2)));\n`,
+  );
+  if (process.platform === 'win32') {
+    fs.writeFileSync(
+      path.join(fakeBin, 'cargo.cmd'),
+      '@node "%~dp0fake-cargo.mjs" %*\r\n',
+    );
+  } else {
+    fs.writeFileSync(
+      path.join(fakeBin, 'cargo'),
+      "#!/usr/bin/env node\nimport './fake-cargo.mjs';\n",
+      { mode: 0o700 },
+    );
+  }
+  fs.writeFileSync(profilePath, raw);
+  const script = [
+    "const cp = require('node:child_process');",
+    "const fs = require('node:fs');",
+    "const path = require('node:path');",
+    "const result = cp.spawnSync('cargo', ['metadata'], {stdio: 'inherit'});",
+    'if (result.status !== 0) process.exit(result.status || 1);',
+    `fs.writeFileSync(${JSON.stringify(outputPath)}, JSON.stringify({`,
+    'cargoHome: process.env.CARGO_HOME,',
+    'conanHome: process.env.CONAN_HOME,',
+    'wrapperDir: process.env.PATH.split(path.delimiter)[0],',
+    "conanRemotes: JSON.parse(fs.readFileSync(path.join(process.env.CONAN_HOME, 'remotes.json'), 'utf8')),",
+    'managedConan: process.env.SHIFU_CACHE_MANAGED_CONAN,',
+    '}));',
+  ].join('');
+  const status = await applyCacheProfile({
+    reference: profilePath,
+    expectedDigest: sha256(raw),
+    scope: 'development',
+    receiptPath,
+    command: process.execPath,
+    args: ['-e', script],
+    env: {
+      ...process.env,
+      CARGO_HOME: persistentCargo,
+      CONAN_HOME: persistentConan,
+      FAKE_CARGO_ARGS: fakeCargoArgsPath,
+      PATH: `${fakeBin}${path.delimiter}${process.env.PATH || ''}`,
+    },
+  });
+  assert.equal(status, 0);
+  const child = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
+  assert.equal(child.cargoHome, persistentCargo);
+  assert.notEqual(child.conanHome, persistentConan);
+  assert.deepEqual(JSON.parse(fs.readFileSync(fakeCargoArgsPath, 'utf8')), [
+    '--config',
+    'source.crates-io.replace-with="workhub"',
+    '--config',
+    'source.workhub.registry="sparse+http://cache.example.invalid/cargo-index/"',
+    'metadata',
+  ]);
+  assert.deepEqual(child.conanRemotes, {
+    remotes: [
+      {
+        name: 'workhub-conan',
+        url: 'http://cache.example.invalid/conan/',
+        verify_ssl: false,
+      },
+    ],
+  });
+  assert.equal(child.managedConan, '1');
+  assert.equal(
+    fs.readFileSync(path.join(persistentCargo, 'config.toml'), 'utf8'),
+    cargoSentinel,
+  );
+  assert.equal(
+    fs.readFileSync(path.join(persistentConan, 'remotes.json'), 'utf8'),
+    conanSentinel,
+  );
+  assert.equal(fs.existsSync(child.wrapperDir), false);
+  assert.equal(fs.existsSync(child.conanHome), false);
+
+  const receipt = JSON.parse(fs.readFileSync(receiptPath, 'utf8'));
+  for (const service of Object.values(receipt.services)) {
+    assert.deepEqual(service.application.bindingKinds, ['config-key']);
+    assert.equal(service.application.scope, 'child-process');
+    assert.equal(
+      service.application.persistentConfig,
+      'not-read-or-written-by-shifu',
+    );
+    assert.equal(service.application.overlayCleanup, 'completed');
+  }
+  assert.doesNotMatch(
+    JSON.stringify(receipt),
+    /persistent-cargo|persistent-conan/,
+  );
+  assert.doesNotMatch(JSON.stringify(receipt), /shifu-cache-overlay-/);
+});
+
+test('cache apply cleans config overlays after a failing child', async (t) => {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'shifu-cache-failure-'),
+  );
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const raw = bytes(toolConfigProfile());
+  const profilePath = path.join(directory, 'profile.json');
+  const outputPath = path.join(directory, 'child.json');
+  fs.writeFileSync(profilePath, raw);
+  const script = `const path = require('node:path'); require('node:fs').writeFileSync(${JSON.stringify(outputPath)}, JSON.stringify({wrapperDir: process.env.PATH.split(path.delimiter)[0], conanHome: process.env.CONAN_HOME})); process.exit(17)`;
+  const status = await applyCacheProfile({
+    reference: profilePath,
+    expectedDigest: sha256(raw),
+    scope: 'development',
+    command: process.execPath,
+    args: ['-e', script],
+  });
+  assert.equal(status, 17);
+  const child = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
+  assert.equal(fs.existsSync(child.wrapperDir), false);
+  assert.equal(fs.existsSync(child.conanHome), false);
+});
+
+test('cache apply is a transparent pass-through when no profile is configured', async (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'shifu-cache-pass-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const outputPath = path.join(directory, 'ran');
+  const status = await applyCacheProfile({
+    command: process.execPath,
+    args: [
+      '-e',
+      `require('node:fs').writeFileSync(${JSON.stringify(outputPath)}, 'yes')`,
+    ],
+  });
+  assert.equal(status, 0);
+  assert.equal(fs.readFileSync(outputPath, 'utf8'), 'yes');
+});

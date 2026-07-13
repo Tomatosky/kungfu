@@ -14,6 +14,33 @@ configure_file(
   @ONLY
 )
 
+# Embed the exact KFX contract document as the sole Profile JSON schema owner.
+# Core validates its profileSuiteSchema before applying lifecycle semantics.
+file(READ "${PROJECT_SOURCE_DIR}/../../../kfx/kungfu-kfx.contract.json" KFX_CONTRACT_JSON)
+# MSVC limits one string literal to 65,535 bytes. Preserve the exact contract
+# bytes while emitting bounded adjacent raw literals that C++ concatenates.
+set(KFX_CONTRACT_JSON_LITERALS "")
+string(LENGTH "${KFX_CONTRACT_JSON}" KFX_CONTRACT_JSON_LENGTH)
+set(KFX_CONTRACT_JSON_OFFSET 0)
+while(KFX_CONTRACT_JSON_OFFSET LESS KFX_CONTRACT_JSON_LENGTH)
+  math(EXPR KFX_CONTRACT_JSON_REMAINING "${KFX_CONTRACT_JSON_LENGTH} - ${KFX_CONTRACT_JSON_OFFSET}")
+  if(KFX_CONTRACT_JSON_REMAINING GREATER 16000)
+    set(KFX_CONTRACT_JSON_CHUNK_LENGTH 16000)
+  else()
+    set(KFX_CONTRACT_JSON_CHUNK_LENGTH ${KFX_CONTRACT_JSON_REMAINING})
+  endif()
+  string(SUBSTRING "${KFX_CONTRACT_JSON}" ${KFX_CONTRACT_JSON_OFFSET} ${KFX_CONTRACT_JSON_CHUNK_LENGTH}
+         KFX_CONTRACT_JSON_CHUNK)
+  string(APPEND KFX_CONTRACT_JSON_LITERALS "R\"KFKFX(${KFX_CONTRACT_JSON_CHUNK})KFKFX\"\n")
+  math(EXPR KFX_CONTRACT_JSON_OFFSET "${KFX_CONTRACT_JSON_OFFSET} + ${KFX_CONTRACT_JSON_CHUNK_LENGTH}")
+endwhile()
+file(MAKE_DIRECTORY "${KUNGFU_GENERATED_INCLUDE_DIR}/kungfu/runtime/profile")
+configure_file(
+  "${PROJECT_SOURCE_DIR}/schemas/profile_source_contract.h.in"
+  "${KUNGFU_GENERATED_INCLUDE_DIR}/kungfu/runtime/profile/profile_source_contract.h"
+  @ONLY
+)
+
 # ADR-0052 assessment jobs use an independent FlatBuffers authority while
 # sharing the ActionEnvelope and Episode substrates with ADR-0051.
 file(READ "${PROJECT_SOURCE_DIR}/schemas/assessment_event.fbs" ASSESSMENT_EVENT_FBS)
@@ -34,6 +61,15 @@ configure_file(
   @ONLY
 )
 
+# ADR-0069 Profile Suite lifecycle facts use the same ActionEnvelope/Episode
+# substrate while retaining an independent typed event authority.
+file(READ "${PROJECT_SOURCE_DIR}/schemas/profile_lifecycle_event.fbs" PROFILE_LIFECYCLE_EVENT_FBS)
+configure_file(
+  "${PROJECT_SOURCE_DIR}/schemas/profile_lifecycle_schema.h.in"
+  "${KUNGFU_GENERATED_INCLUDE_DIR}/kungfu/runtime/profile/profile_lifecycle_schema.h"
+  @ONLY
+)
+
 # this directory holds the libkungfu runtime layer above the standalone
 # yijinjing journal core, so the source GLOB needs no exclusion list beyond the
 # state-cache/optim split
@@ -46,11 +82,12 @@ add_library_object(kungfu_optim "${KUNGFU_OPTIM_SOURCE_FILES}" "${COMPILER_OPTIM
 
 # the OBJECT libraries compile independently of the final target, so they
 # need the runtime headers, the vendored sqlite_orm, and the yijinjing core
-# usage requirements (headers, hana, cxx_std_23) at their own scope
+# usage requirements (headers, hana, public C++20 contract) at their own scope
 set(LIBKUNGFU_SQLITE_ORM_INCLUDE ${PROJECT_SOURCE_DIR}/../../.deps/sqlite_orm-1.7.1/include)
 foreach(_kf_obj kungfu_state_cache kungfu_optim)
-  target_include_directories(${_kf_obj} PRIVATE ${PROJECT_SOURCE_DIR}/include ${KUNGFU_GENERATED_INCLUDE_DIR} ${LIBKUNGFU_SQLITE_ORM_INCLUDE})
-  target_link_libraries(${_kf_obj} PRIVATE yijinjing)
+  target_include_directories(${_kf_obj} PRIVATE ${PROJECT_SOURCE_DIR}/include ${KUNGFU_GENERATED_INCLUDE_DIR})
+  target_include_directories(${_kf_obj} SYSTEM PRIVATE ${LIBKUNGFU_SQLITE_ORM_INCLUDE})
+  target_link_libraries(${_kf_obj} PRIVATE yijinjing kungfu_compile_contract ${CONAN_LIBS})
 endforeach()
 
 # Windows: 用 STATIC。libkungfu 含 rocksdb/boost::hana/sqlite_orm 大量模板实例化，作为 SHARED DLL 时
@@ -70,8 +107,48 @@ target_compile_options(${LIBKUNGFU_NAME} PRIVATE "$<$<CONFIG:Release>:${COMPILER
 # PUBLIC so bindings linking libkungfu inherit the core usage requirements.
 # The runtime headers and sqlite_orm are PUBLIC for the same reason: binding
 # sources include the state-cache/live headers directly.
-target_include_directories(${LIBKUNGFU_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include ${KUNGFU_GENERATED_INCLUDE_DIR} ${LIBKUNGFU_SQLITE_ORM_INCLUDE})
-target_link_libraries(${LIBKUNGFU_NAME} PUBLIC yijinjing ${CONAN_LIBS})
+target_include_directories(${LIBKUNGFU_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include ${KUNGFU_GENERATED_INCLUDE_DIR})
+target_include_directories(${LIBKUNGFU_NAME} SYSTEM PUBLIC ${LIBKUNGFU_SQLITE_ORM_INCLUDE})
+target_link_libraries(${LIBKUNGFU_NAME} PUBLIC yijinjing ${CONAN_LIBS} PRIVATE kungfu_compile_contract)
+kungfu_strip_release_local_symbols(${LIBKUNGFU_NAME})
+
+if(KUNGFU_WITH_CORE_TESTS)
+  find_package(Threads REQUIRED)
+  add_executable(kungfu_durability_contract_tests tests/durability_contract_tests.cpp)
+  target_link_libraries(kungfu_durability_contract_tests PRIVATE ${LIBKUNGFU_NAME})
+  target_compile_features(kungfu_durability_contract_tests PRIVATE cxx_std_20)
+  add_test(NAME kungfu_durability_contract_tests COMMAND kungfu_durability_contract_tests)
+
+  add_executable(kungfu_runtime_error_tests tests/runtime_error_tests.cpp)
+  target_link_libraries(kungfu_runtime_error_tests PRIVATE ${LIBKUNGFU_NAME} Threads::Threads)
+  target_compile_features(kungfu_runtime_error_tests PRIVATE cxx_std_20)
+  add_test(NAME kungfu_runtime_error_tests COMMAND kungfu_runtime_error_tests)
+
+  add_executable(kungfu_state_service_contract_tests tests/state_service_contract_tests.cpp)
+  target_link_libraries(kungfu_state_service_contract_tests PRIVATE ${LIBKUNGFU_NAME} Threads::Threads)
+  target_compile_features(kungfu_state_service_contract_tests PRIVATE cxx_std_20)
+  add_test(NAME kungfu_state_service_contract_tests COMMAND kungfu_state_service_contract_tests)
+
+  add_executable(kungfu_durable_ingest_tests tests/durable_ingest_tests.cpp)
+  target_link_libraries(kungfu_durable_ingest_tests PRIVATE ${LIBKUNGFU_NAME} Threads::Threads)
+  target_compile_features(kungfu_durable_ingest_tests PRIVATE cxx_std_20)
+  add_test(NAME kungfu_durable_ingest_tests COMMAND kungfu_durable_ingest_tests)
+
+  add_executable(kungfu_projection_bootstrap_tests tests/projection_bootstrap_tests.cpp)
+  target_link_libraries(kungfu_projection_bootstrap_tests PRIVATE ${LIBKUNGFU_NAME} Threads::Threads)
+  target_compile_features(kungfu_projection_bootstrap_tests PRIVATE cxx_std_20)
+  add_test(NAME kungfu_projection_bootstrap_tests COMMAND kungfu_projection_bootstrap_tests)
+
+  add_executable(kungfu_crash_recovery_tests tests/crash_recovery_tests.cpp)
+  target_link_libraries(kungfu_crash_recovery_tests PRIVATE ${LIBKUNGFU_NAME} Threads::Threads)
+  target_compile_features(kungfu_crash_recovery_tests PRIVATE cxx_std_20)
+  add_test(NAME kungfu_crash_recovery_tests COMMAND kungfu_crash_recovery_tests)
+
+  add_executable(kungfu_profile_lifecycle_tests tests/profile_lifecycle_tests.cpp)
+  target_link_libraries(kungfu_profile_lifecycle_tests PRIVATE ${LIBKUNGFU_NAME} Threads::Threads)
+  target_compile_features(kungfu_profile_lifecycle_tests PRIVATE cxx_std_20)
+  add_test(NAME kungfu_profile_lifecycle_tests COMMAND kungfu_profile_lifecycle_tests)
+endif()
 
 # The production Windows core stays static to avoid the COFF export-table
 # ceiling above, but the public storage SDK still needs one loadable C ABI.

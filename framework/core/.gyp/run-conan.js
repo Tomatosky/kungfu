@@ -2,6 +2,7 @@
 // @ts-check
 
 const fse = require('fs-extra');
+const os = require('node:os');
 const path = require('node:path');
 const { shell } = require('../lib');
 
@@ -41,7 +42,10 @@ function conan(cmd) {
 }
 
 function ensureBuildchainConanProfile() {
-  if (process.env.KUNGFU_BUILDCHAIN_SOURCE_BUILD !== '1') {
+  if (
+    process.env.KUNGFU_BUILDCHAIN_SOURCE_BUILD !== '1' &&
+    process.env.SHIFU_CACHE_MANAGED_CONAN !== '1'
+  ) {
     return;
   }
   const env = { NODE_GYP_RUN: 'on', ...process.env };
@@ -61,6 +65,60 @@ function ensureBuildchainConanProfile() {
       env,
     },
   );
+}
+
+// Export source-patched legacy recipes before resolution so every host and
+// clean cache builds the same audited package revisions instead of mutating a
+// shared Conan cache after installation. RxCpp needs its GCC 14 fix; RocksDB
+// 6.29.5 keeps the persisted-data compatibility contract while receiving the
+// compiler-portability fixes required by current toolchains.
+function ensureKungfuConanRecipes() {
+  const recipes = [
+    {
+      name: 'rxcpp',
+      version: '4.1.1',
+      files: [
+        'conanfile.py',
+        'conandata.yml',
+        path.join('patches', '0001-fix-notification-assignment.patch'),
+      ],
+    },
+    {
+      name: 'rocksdb',
+      version: '6.29.5',
+      files: [
+        'conanfile.py',
+        'conandata.yml',
+        path.join('patches', '0001-add-include-cstdint-for-gcc-13.patch'),
+        path.join('patches', '0002-exclude-thirdparty.patch'),
+        path.join(
+          'patches',
+          '0003-complete-parallel-compression-before-rep-destruction.patch',
+        ),
+        path.join(
+          'patches',
+          '0004-complete-write-batch-types-before-iterator-destruction.patch',
+        ),
+      ],
+    },
+  ];
+  for (const { name, version, files } of recipes) {
+    const source = path.join(__dirname, '..', '.conan', 'recipes', name);
+    const recipe = fse.mkdtempSync(path.join(os.tmpdir(), `kungfu-${name}-`));
+    try {
+      fse.copySync(source, recipe);
+      for (const file of files) {
+        const absolute = path.join(recipe, file);
+        fse.writeFileSync(
+          absolute,
+          fse.readFileSync(absolute, 'utf8').replace(/\r\n/g, '\n'),
+        );
+      }
+      conan(['export', recipe, '--version', version]);
+    } finally {
+      fse.removeSync(recipe);
+    }
+  }
 }
 
 function getNodeVersionOptions() {
@@ -94,13 +152,12 @@ function makeConanSettings(names) {
   return names.flatMap(makeConanSetting);
 }
 
-// Windows 端口固化：conan profile detect 在 MSVC 上把 compiler.cppstd 探成 14，
-// 依赖(如 flatbuffers/nng)只有 17/20/23 的 prebuilt,cppstd=14 会让 conan install 失败。
-// 这里钉的是 **依赖 ABI 解析用的 cppstd**,与项目自身的 C++ 标准(.cmake/compiler.cmake,
-// 现为 C++23)解耦——依赖多为 header-only 或 C ABI,17 的 prebuilt 与 23 的项目可共存。
-// 显式钉 17 仅在 Windows 加(Mac/Linux profile 本就 gnu17，强制 17 会改 package id 致缓存失效，故不动)。
+// ADR-0063: Conan package identity and the CMake language mode are one
+// contract. A dependency binary resolved as gnu17/17 must not share the cache
+// key of Kungfu's strict C++23 build merely because most current dependencies
+// happen to be header-only or C ABI.
 function platformConanSettings() {
-  return process.platform === 'win32' ? ['-s', 'compiler.cppstd=17'] : [];
+  return ['-s', 'compiler.cppstd=23'];
 }
 
 /** @param {string} name */
@@ -119,6 +176,7 @@ function makeConanOptions(names) {
 // 形态选择（含 macOS 平台默认 assemble）完全由 run-freeze.js 决定。
 function conanInstall() {
   ensureBuildchainConanProfile();
+  ensureKungfuConanRecipes();
   const settings = [
     ...makeConanSettings(['build_type']),
     ...platformConanSettings(),
