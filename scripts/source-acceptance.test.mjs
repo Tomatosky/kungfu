@@ -48,3 +48,8 @@ test('reusable workflow is bound to source mode and the review train', () => {
   assert.match(workflow, /train\/v2\/v2\.3\/source-check-mode-env/);
   assert.doesNotMatch(workflow, /self-hosted/);
 });
+
+test('documentation lint excludes the checked-out Buildchain runtime', async () => {
+  const config = await import('../.markdownlint-cli2.mjs');
+  assert.ok(config.default.globs.includes('!.buildchain/runtime/**'));
+});
