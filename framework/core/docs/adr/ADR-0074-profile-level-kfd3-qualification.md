@@ -1,7 +1,7 @@
 ---
 metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
-adr_id: ADR-0073
+adr_id: ADR-0074
 decision_status: accepted
 implementation_status: partial
 implementation_commits: [e564e51d5196564a44b53081613bed8cb04bfdbb]
@@ -16,7 +16,7 @@ evidence_grade: B
 last_reviewed: 2026-07-13
 ---
 
-# ADR-0073: Kungfu qualifies one KFD-3 collaboration protocol for conforming Profiles
+# ADR-0074: Kungfu qualifies one KFD-3 collaboration protocol for conforming Profiles
 
 - Status: accepted; implementation in progress
 - Date: 2026-07-13

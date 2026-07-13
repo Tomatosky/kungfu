@@ -5,8 +5,8 @@
   "witnessKind": "prebuild",
   "supportLevel": "release",
   "source": {
-    "cwd": "/Users/dkr/Worktrees/kungfu/feature/profile-composition-manager",
-    "sourceSha": "5935895ae780120bbc034194e558108ad258fd43",
+    "cwd": "/Users/dkr/Worktrees/kungfu/feature/profile-kfd3-qualification",
+    "sourceSha": "f7ad48bddcad9d9e6242ffe436987c322721d5b7",
     "registryPath": ".buildchain/kfd/kfd-3/surfaces.json",
     "registryDigest": "sha256:f2e8e23ceba73cceea5c2000a093911244f04c181a0cffc353debc7fc15cdfc3"
   },
