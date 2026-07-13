@@ -241,7 +241,6 @@
       "ADR-0046": "Rust host trunk is staged; qualification evidence remains distributed across spike history.",
       "ADR-0048": "Runtime fact query work is staged and awaiting evidence consolidation.",
       "ADR-0049": "Layer-complete product work is staged and awaiting evidence consolidation.",
-      "ADR-0068": "Durability work is staged across a planned card series and is not closed.",
       "ADR-0069": "The agent-first profile suite is staged and awaiting end-to-end qualification."
     }
   }
