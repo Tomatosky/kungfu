@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -97,6 +98,15 @@ test('retained three-platform process evidence is complete and immutable', () =>
       );
       assert.equal(fs.statSync(raw).isFile(), true, raw);
       assert.equal(sha256(raw), suite.raw_sha256, raw);
+      assert.equal(
+        execFileSync(
+          'git',
+          ['ls-files', '--error-unmatch', path.relative(root, raw)],
+          { cwd: root, encoding: 'utf8' },
+        ).trim(),
+        path.relative(root, raw),
+        `${raw} exists only as untracked local residue`,
+      );
     }
   }
   assert.deepEqual(observed, expectedPairs);
