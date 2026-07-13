@@ -3,6 +3,7 @@
 #ifndef KUNGFU_RUNTIME_CRASH_RECOVERY_H
 #define KUNGFU_RUNTIME_CRASH_RECOVERY_H
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
@@ -13,6 +14,7 @@
 namespace kungfu::runtime::recovery {
 
 inline constexpr const char *RECOVERY_REPORT_SCHEMA_V1 = "kungfu.recovery-report/v1";
+inline constexpr const char *RECOVERY_BACKUP_SCHEMA_V1 = "kungfu.recovery-backup/v1";
 
 enum class recovery_phase : uint8_t { Discover, Verify, Select, Classify, Report };
 enum class recovery_outcome : uint8_t { Ready, Degraded, Blocked };
@@ -53,6 +55,25 @@ struct maintenance_receipt {
   std::string error = {};
 };
 
+struct backup_file_material {
+  std::string relative_path = {};
+  uint64_t size = 0;
+  std::string sha256 = {};
+  std::string bytes = {};
+
+  friend bool operator==(const backup_file_material &, const backup_file_material &) = default;
+};
+
+struct episode_backup_identity {
+  uint64_t episode_id = 0;
+  bool closed = false;
+  std::string content_root_algorithm = {};
+  std::string content_root_value = {};
+  std::vector<std::string> payload_hashes = {};
+
+  friend bool operator==(const episode_backup_identity &, const episode_backup_identity &) = default;
+};
+
 struct recovery_report {
   std::string schema = RECOVERY_REPORT_SCHEMA_V1;
   recovery_outcome outcome = recovery_outcome::Blocked;
@@ -75,6 +96,45 @@ struct recovery_report {
   friend bool operator==(const recovery_report &, const recovery_report &) = default;
 };
 
+struct recovery_backup_bundle {
+  std::string schema = RECOVERY_BACKUP_SCHEMA_V1;
+  std::string bundle_id = {};
+  uint64_t stream_id = 0;
+  uint64_t container_epoch = 0;
+  std::optional<durability::stream_position> backup_cut = std::nullopt;
+  uint64_t durable_record_count = 0;
+  uint64_t lost_visible_tail_bytes = 0;
+  std::string rpo_boundary = "through-checkpoint-covered-durable-frontier";
+  std::string qualification_profile = {};
+  recovery_report source_report = {};
+  std::vector<backup_file_material> files = {};
+  std::vector<episode_backup_identity> episodes = {};
+  bool projection_rebuild_required = true;
+
+  friend bool operator==(const recovery_backup_bundle &, const recovery_backup_bundle &) = default;
+};
+
+struct backup_export_result {
+  bool ok = false;
+  std::optional<recovery_backup_bundle> bundle = std::nullopt;
+  std::string error = {};
+};
+
+struct restore_receipt {
+  std::string schema = "kungfu.recovery-restore-receipt/v1";
+  maintenance_status status = maintenance_status::Rejected;
+  std::string bundle_id = {};
+  std::optional<durability::stream_position> restored_cut = std::nullopt;
+  uint64_t restored_file_count = 0;
+  uint64_t restored_bytes = 0;
+  uint64_t restored_episode_count = 0;
+  bool projection_rebuild_required = true;
+  bool mutation_performed = false;
+  recovery_report restored_report = {};
+  std::string receipt_path = {};
+  std::string error = {};
+};
+
 class recovery_engine {
 public:
   explicit recovery_engine(durability::ingest_options options);
@@ -90,6 +150,17 @@ public:
   // Revalidates the complete preview, acquires exclusive local ownership, and
   // publishes a verified evidence package. Source KFDL bytes are never changed.
   [[nodiscard]] maintenance_receipt quarantine(const quarantine_preview &preview) const;
+
+  // Acquires exclusive local ownership, proves a stable READY cut with two
+  // identical evidence scans, and exports authoritative bytes plus sealed
+  // Episode identities. Ownership, quarantine, and rebuildable projections
+  // are intentionally excluded.
+  [[nodiscard]] backup_export_result export_consistent_backup() const;
+
+  // Restores a verified bundle only into an empty data root or an exact
+  // byte-matching partial restore. The deterministic receipt is published
+  // last; projection snapshots are never restored and must be rebuilt.
+  [[nodiscard]] restore_receipt restore_backup(const recovery_backup_bundle &bundle) const;
 
 private:
   durability::ingest_options options_;

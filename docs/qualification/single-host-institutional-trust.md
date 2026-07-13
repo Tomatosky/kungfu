@@ -23,7 +23,10 @@ Today Kungfu qualifies cross-process visibility, typed journal integrity, and
 deterministic replay from readable journal data. The stronger
 `durable_group` and `durable_sync` profiles, producer-visible durable receipts,
 deterministic recovery of an acknowledged frontier, and retained power-loss
-qualification evidence are designed but not yet implemented end to end.
+qualification evidence remain staged rather than production-qualified. A
+test-only consistent export/empty-root restore and projection rebuild round
+trip now exists, but the external backup procedure and qualified operating
+envelope do not.
 
 An institution that requires every acknowledged critical fact to survive
 power loss should therefore treat the current release as **not admitted** for
@@ -81,7 +84,7 @@ The corresponding named qualification evidence must also pass and be retained.
 | Sudden power loss | recover only the proven durable frontier; report lost or quarantined visible tail | not yet qualified |
 | ENOSPC, permission loss, or I/O error | fail closed; do not issue a false durable receipt | qualification pending |
 | Torn/corrupt tail or stale checkpoint | detect, bound, quarantine or truncate by retained evidence; never invent facts | qualification pending |
-| Whole device or data-root loss | restore only from a verified external backup and report its cut/RPO | operator-owned; verified round trip pending |
+| Whole device or data-root loss | restore only from a verified external backup and report its cut/RPO | test-only verified round trip exists; external procedure and qualification pending |
 
 Recovery is not complete merely because the process starts. A qualified restart
 must emit a machine-readable report naming the recovered durable frontier,

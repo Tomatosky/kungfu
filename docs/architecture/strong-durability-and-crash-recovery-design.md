@@ -9,7 +9,7 @@ period: 2026-07-12
 theme: strong-durability-and-crash-recovery
 confidence: high
 evidence_grade: B
-last_reviewed: 2026-07-12
+last_reviewed: 2026-07-13
 ---
 
 # Strong-durability and crash-recovery design
@@ -54,6 +54,7 @@ Non-goals for the first implementation:
 | projections | source, manifest, Episode, and state SQLite stores use WAL and are rebuildable; several use synchronous mode off | query accelerator, never durability authority |
 | live topology | coordinator calls an in-process state-service boundary that owns `state_cache`; coordinator still triggers compatibility restore and joins business streams | ownership split implemented; bootstrap/business-join cutover remains |
 | Episode | typed manifests, qualification/capability/repair slices and fault matrix exist | semantic recovery boundary is staged, not fully durability-qualified |
+| recovery backup | test-only typed export requires an exclusively owned stable `READY` cut; empty-root restore verifies every byte, sealed Episode root/payload hash, and rebuilt projection cut | round-trip implementation evidence; external backup format, operator workflow, and qualified power-loss envelope remain |
 
 The migration begins from this behavior. It does not relabel existing success as
 durable.
@@ -447,6 +448,24 @@ ownership, copies and hashes each retained file, and publishes the receipt last.
 A repeated apply verifies and reuses the same package; a stale plan is rejected.
 This does not yet replace stream authority or truncate the original tail, and
 the package publication is not a qualified power-loss durability receipt.
+
+The backup/restore slice accepts only a `READY` recovery result with no visible
+tail beyond the checkpoint-covered durable frontier. It acquires the data-root
+and stream-writer owners, scans the authoritative file set twice, and rejects
+any change between the scans. Ownership evidence, quarantine packages, restore
+receipts, and all known projection directories are excluded. The bundle binds
+the durable cut, record count, qualification profile, every file digest, and
+each sealed Episode's verified content root and payload hashes.
+
+Restore validates the complete bundle before writing, accepts only an empty
+data root or byte-identical partial progress, publishes each missing file via a
+verified pending rename, re-runs recovery and Episode identity checks, and
+publishes its deterministic receipt last. Repeating a completed restore
+revalidates authoritative bytes and is idempotent. Projection snapshots are
+never restored: a required peer remains refused until explicit rebuild, whose
+typed state, cut, and integrity hash must equal the source backup cut. This is
+an in-process typed contract, not yet an external archive format or production
+backup command.
 
 ## 10. Migration from coordinator-owned state cache
 
