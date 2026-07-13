@@ -70,6 +70,7 @@ import {
 } from './workspace-selection';
 
 const PRODUCT_NAME = 'Kungfu Episodes';
+const qualificationMode = process.env.KF_QUALIFICATION_MODE === '1';
 
 // Resolve the kungfu runtime directory that holds libkungfu.dylib and the
 // kungfu_electron.node binding. In development it lives in the kungfu-core
@@ -1040,6 +1041,7 @@ function createWindow() {
       nodeIntegration: true,
       contextIsolation: false,
       sandbox: false,
+      offscreen: qualificationMode,
     },
   });
   shellWindow = win;
@@ -1063,18 +1065,31 @@ function createWindow() {
 
   // The trusted renderer holds the real capabilities and runs the capability
   // host; this manager embeds sandboxed views and relays their invokes to it.
-  manager = new SandboxManager({
-    shell: win,
-    ipcMain,
-    WebContentsView,
-    harnessEntry,
-  });
+  // Qualification only proves that the packaged main process and trusted
+  // renderer can boot. Avoid creating embedded native views there: Linux
+  // display-less runners use Ozone headless, which cannot provide the GTK
+  // surface those views require. Normal GUI launches remain unchanged.
+  if (!qualificationMode) {
+    manager = new SandboxManager({
+      shell: win,
+      ipcMain,
+      WebContentsView,
+      harnessEntry,
+    });
+  }
 
-  win.on('ready-to-show', () => {
-    win.show();
-    if (process.platform === 'darwin') void app.dock?.show();
-    buildTrayMenu();
-  });
+  if (qualificationMode) {
+    win.webContents.once('did-finish-load', () => {
+      console.log('KF_GUI_QUALIFICATION_READY');
+      setTimeout(quitGui, 250);
+    });
+  } else {
+    win.on('ready-to-show', () => {
+      win.show();
+      if (process.platform === 'darwin') void app.dock?.show();
+      buildTrayMenu();
+    });
+  }
 
   if (process.env.ELECTRON_RENDERER_URL) {
     win.loadURL(process.env.ELECTRON_RENDERER_URL);
@@ -1085,9 +1100,11 @@ function createWindow() {
 
 app.whenReady().then(() => {
   app.setName(PRODUCT_NAME);
-  ensureRuntimeForGuiStartup();
-  buildMenu();
-  createTray();
+  if (!qualificationMode) ensureRuntimeForGuiStartup();
+  // Menus require a real display backend on Linux. The bounded qualification
+  // path keeps them disabled together with the already-disabled Tray.
+  if (!qualificationMode) buildMenu();
+  if (!qualificationMode) createTray();
   // ADR-0016 stage 1 (flagged): run the durable session host in main so it
   // outlives windows. The ipcMain handlers are global, so bind once; events are
   // sent back to whichever renderer subscribed. Default keeps the in-renderer

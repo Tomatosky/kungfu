@@ -11,9 +11,17 @@ function toEsmEntrypointSpecifier(entryPath, platform = process.platform) {
   return platform === 'win32' ? pathToFileURL(entryPath).href : entryPath;
 }
 
-function esmEntrypointArgs(entryPath) {
-  const specifier = toEsmEntrypointSpecifier(entryPath);
+function esmEntrypointArgs(entryPath, platform = process.platform) {
+  const specifier = toEsmEntrypointSpecifier(entryPath, platform);
   return ['--eval', `import(${JSON.stringify(specifier)})`];
+}
+
+function beforePackArgs(tsxLoader, generator, platform = process.platform) {
+  return [
+    '--import',
+    toEsmEntrypointSpecifier(tsxLoader, platform),
+    ...esmEntrypointArgs(generator, platform),
+  ];
 }
 
 exports.default = async function beforePack() {
@@ -23,16 +31,15 @@ exports.default = async function beforePack() {
     ['gen-system-profile-kfd3.mjs', 'system Profile KFD-3 manifest'],
   ]) {
     const gen = path.join(__dirname, script);
-    const result = spawnSync(
-      process.execPath,
-      ['--import', tsxLoader, ...esmEntrypointArgs(gen)],
-      { stdio: 'inherit' },
-    );
+    const result = spawnSync(process.execPath, beforePackArgs(tsxLoader, gen), {
+      stdio: 'inherit',
+    });
     if (result.status !== 0) {
       throw new Error(`failed to bake the ${label} before pack`);
     }
   }
 };
 
+exports.beforePackArgs = beforePackArgs;
 exports.toEsmEntrypointSpecifier = toEsmEntrypointSpecifier;
 exports.esmEntrypointArgs = esmEntrypointArgs;

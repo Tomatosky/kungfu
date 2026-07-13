@@ -30,6 +30,34 @@ test('compatibility native contract input exists', () => {
   );
 });
 
+test('Windows ships a narrow shared native-storage ABI with symbols', () => {
+  const cmake = fs.readFileSync(
+    path.join(repoRoot, 'framework/core/src/libkungfu/CMakeLists.txt'),
+    'utf8',
+  );
+  assert.match(
+    cmake,
+    /add_library\(kungfu_native_storage_shared SHARED src\/runtime\/native_storage\.cpp\)/,
+  );
+  assert.match(cmake, /KF_NATIVE_STORAGE_BUILD_SHARED=1/);
+  assert.match(cmake, /OUTPUT_NAME kungfu/);
+  assert.match(cmake, /WINDOWS_EXPORT_ALL_SYMBOLS OFF/);
+
+  const freeze = fs.readFileSync(
+    path.join(repoRoot, 'framework/core/.gyp/run-freeze.js'),
+    'utf8',
+  );
+  assert.match(freeze, /findFileShallow\(buildDir, \/\^kungfu\\\.dll\$\/i\)/);
+  assert.match(freeze, /\^kungfu_native_storage\\\.lib\$\/i/);
+  assert.match(freeze, /copyPdbSibling\(storageDll, distKfc\)/);
+
+  const rustBuild = fs.readFileSync(
+    path.join(repoRoot, 'crates/kungfu-sdk/build.rs'),
+    'utf8',
+  );
+  assert.match(rustBuild, /cargo:rustc-link-lib=dylib=kungfu_native_storage/);
+});
+
 test('compatibility tree hash is path-stable and content-sensitive', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'kungfu-compatibility-'));
   try {

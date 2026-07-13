@@ -124,5 +124,10 @@ test('installed SDK keeps esbuild external and carries its native runtime', () =
     dist,
     /copySdkRuntimePackageForCli\(stageRoot, 'esbuild', esbuildResolvePaths\)/,
   );
-  assert.match(dist, /`@esbuild\/\$\{process\.platform\}-\$\{process\.arch\}`/);
+  assert.match(dist, /function esbuildPlatformPackageName\(\)/);
+  assert.match(dist, /kind: 'esbuild'/);
+  assert.match(
+    dist,
+    /esbuildResolvePaths\.push\(path\.dirname\(esbuildNodePath\)\)/,
+  );
 });

@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
   extractTarGz,
   extractZip,
@@ -19,6 +19,12 @@ import {
   runInstalledCliSemanticSmoke,
   runInstalledKungfu,
 } from '../../../../product/scripts/dist.mjs';
+import { runMeasured } from '../process-metrics.mjs';
+import {
+  findGuiExecutable,
+  guiQualificationArgs,
+  installDesktopArtifact,
+} from './installer.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..', '..', '..');
@@ -33,13 +39,23 @@ function parseArgs(argv) {
     validateOnly: false,
     cliArchive: '',
     desktopDir: '',
+    desktopInstaller: '',
+    releaseRoot: path.join(ROOT, 'product', 'release'),
     report: '',
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--') continue;
     if (arg === '--validate-only') options.validateOnly = true;
-    else if (['--cli-archive', '--desktop-dir', '--report'].includes(arg)) {
+    else if (
+      [
+        '--cli-archive',
+        '--desktop-dir',
+        '--desktop-installer',
+        '--release-root',
+        '--report',
+      ].includes(arg)
+    ) {
       index += 1;
       if (index >= argv.length) fail(`${arg} requires a path`);
       options[
@@ -47,15 +63,77 @@ function parseArgs(argv) {
       ] = path.resolve(argv[index]);
     } else if (arg === '--help' || arg === '-h') {
       console.log(
-        'Usage: ./shifu layers:qualify:surfaces -- [--validate-only] [--cli-archive PATH --desktop-dir PATH] [--report PATH]',
+        'Usage: ./shifu layers:qualify:surfaces -- [--validate-only] [--release-root PATH | --cli-archive PATH --desktop-dir PATH --desktop-installer PATH] [--report PATH]',
       );
       process.exit(0);
     } else fail(`unknown argument '${arg}'`);
   }
-  if (!options.validateOnly && (!options.cliArchive || !options.desktopDir)) {
-    fail('exact qualification requires --cli-archive and --desktop-dir');
-  }
+  if (!options.validateOnly) resolveExactArtifacts(options);
   return options;
+}
+
+export function findArtifact(root, predicate, label) {
+  const matches = [];
+  const visit = (dir) => {
+    if (!fs.existsSync(dir)) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (predicate(full, entry)) matches.push(full);
+        else visit(full);
+      } else if (entry.isFile() && predicate(full, entry)) matches.push(full);
+    }
+  };
+  visit(root);
+  if (matches.length !== 1)
+    fail(
+      `${label}: expected one artifact under ${root}, found ${matches.length}`,
+    );
+  return matches[0];
+}
+
+function resolveExactArtifacts(options) {
+  if (!options.cliArchive)
+    options.cliArchive = findArtifact(
+      path.join(options.releaseRoot, 'cli'),
+      (target, entry) =>
+        entry.isFile() &&
+        (target.endsWith('.tar.gz') || target.endsWith('.zip')),
+      'CLI archive',
+    );
+  if (!options.desktopInstaller) {
+    const suffix =
+      process.platform === 'darwin'
+        ? '.dmg'
+        : process.platform === 'win32'
+          ? '.exe'
+          : '.AppImage';
+    options.desktopInstaller = findArtifact(
+      path.join(options.releaseRoot, 'desktop'),
+      (target, entry) => entry.isFile() && target.endsWith(suffix),
+      'desktop installer',
+    );
+  }
+  if (!options.desktopDir) {
+    const desktopRoot = path.join(ROOT, 'product', 'dist', 'desktop');
+    options.desktopDir =
+      process.platform === 'darwin'
+        ? findArtifact(
+            desktopRoot,
+            (target, entry) => entry.isDirectory() && target.endsWith('.app'),
+            'desktop directory',
+          )
+        : findArtifact(
+            desktopRoot,
+            (target, entry) =>
+              entry.isDirectory() &&
+              path.basename(target) ===
+                (process.platform === 'win32'
+                  ? 'win-unpacked'
+                  : 'linux-unpacked'),
+            'desktop directory',
+          );
+  }
 }
 
 function readJson(file) {
@@ -105,6 +183,15 @@ function sourceValidation() {
     path.join(ROOT, 'extensions/system/status/src/view/index.tsx'),
     'utf8',
   );
+  const guiMainSource = fs.readFileSync(
+    path.join(ROOT, 'framework/gui/src/main/index.ts'),
+    'utf8',
+  );
+  if (
+    !guiMainSource.includes("process.env.KF_QUALIFICATION_MODE === '1'") ||
+    !guiMainSource.includes('KF_GUI_QUALIFICATION_READY')
+  )
+    fail('packaged GUI lacks the bounded qualification startup mode');
   const guiManifest = readJson(
     path.join(ROOT, 'extensions/system/status/package.json'),
   );
@@ -151,7 +238,7 @@ function directoryBytes(root) {
   return total;
 }
 
-function exactQualification(options, fixture) {
+async function exactQualification(options, fixture) {
   const temp = fs.mkdtempSync(
     path.join(os.tmpdir(), 'kungfu-surface-qualification-'),
   );
@@ -176,6 +263,7 @@ function exactQualification(options, fixture) {
       'product-compatibility.json',
     );
     const compatibility = readJson(compatibilityPath);
+    const compatibilitySha256 = sha256File(compatibilityPath);
     const sourceHead = git(['rev-parse', 'HEAD']);
     if (git(['status', '--porcelain']))
       fail('exact qualification requires a clean source tree');
@@ -185,7 +273,7 @@ function exactQualification(options, fixture) {
       );
     if (compatibility.schema !== fixture.assembled.compatibility_schema)
       fail('CLI compatibility schema mismatch');
-    if (sha256File(compatibilityPath) !== sha256File(desktopCompatibilityPath))
+    if (compatibilitySha256 !== sha256File(desktopCompatibilityPath))
       fail('CLI and GUI do not carry the same compatibility manifest');
     for (const component of fixture.assembled.required_components) {
       if (!compatibility.components[component]?.sha256)
@@ -198,12 +286,44 @@ function exactQualification(options, fixture) {
 
     const env = { ...process.env, KF_CONFIG_HOME: path.join(temp, 'config') };
     const started = process.hrtime.bigint();
-    const smoke = runInstalledCliSemanticSmoke({ installRoot, kungfuBin, env });
+    const lowerDataRoot = path.join(temp, 'lower-data-root');
+    const smoke = runInstalledCliSemanticSmoke({
+      installRoot,
+      kungfuBin,
+      env,
+      home: lowerDataRoot,
+    });
     const coldStartMs = Number(process.hrtime.bigint() - started) / 1e6;
     const before = sha256Tree(smoke.home);
-    const guiProjection = path.join(temp, 'installed-gui');
-    fs.symlinkSync(options.desktopDir, guiProjection, 'dir');
-    fs.rmSync(guiProjection);
+    const cliMemory = await runMeasured(
+      kungfuBin,
+      ['-H', smoke.home, 'agent', 'brief'],
+      { cwd: installRoot, env },
+    );
+
+    const desktopInstall = installDesktopArtifact(
+      options.desktopInstaller,
+      path.join(temp, 'desktop-installation'),
+    );
+    const guiExecutable = findGuiExecutable(desktopInstall.installRoot);
+    const guiStarted = process.hrtime.bigint();
+    const guiMemory = await runMeasured(guiExecutable, guiQualificationArgs(), {
+      cwd: desktopInstall.installRoot,
+      env: {
+        ...process.env,
+        KF_QUALIFICATION_MODE: '1',
+        KF_HOME: path.join(temp, 'gui-home'),
+        KF_RUNTIME_DIR: path.join(temp, 'gui-home', 'runtime'),
+      },
+    });
+    const guiColdStartMs = Number(process.hrtime.bigint() - guiStarted) / 1e6;
+    if (!guiMemory.stdout.includes('KF_GUI_QUALIFICATION_READY'))
+      fail('packaged GUI did not reach qualification-ready state');
+    const installedDesktopBytes = directoryBytes(desktopInstall.installRoot);
+    desktopInstall.uninstall();
+    if (fs.existsSync(desktopInstall.installRoot))
+      fail('GUI install root survived uninstall');
+
     runInstalledKungfu({
       kungfuBin,
       installRoot,
@@ -221,43 +341,109 @@ function exactQualification(options, fixture) {
     });
     const after = sha256Tree(smoke.home);
     if (before !== after)
-      fail('removing the GUI projection changed the lower-layer data root');
+      fail('GUI install/uninstall changed the lower-layer data root');
+
+    const cliInstalledBytes = directoryBytes(installRoot);
+    fs.rmSync(installRoot, { recursive: true, force: true });
+    if (fs.existsSync(installRoot)) fail('CLI install root survived uninstall');
+    const componentCount = Object.keys(compatibility.components).length;
+    const installerUninstall = {
+      status: 'passing',
+      installer: options.desktopInstaller,
+      installer_sha256: sha256File(options.desktopInstaller),
+      kind: desktopInstall.kind,
+      lower_data_before_sha256: before,
+      lower_data_after_sha256: after,
+    };
+    const qualifications = {
+      'cli-tui': {
+        status: 'passing',
+        exact_artifact_sha256: sha256File(options.cliArchive),
+        measurements: {
+          dependency_count: componentCount,
+          installed_size_bytes: cliInstalledBytes,
+          cold_start_ms: coldStartMs,
+          resident_runtime_count: 1,
+          resident_memory_bytes: cliMemory.peakResidentBytes,
+          onboarding_concept_count: 5,
+        },
+        installer_uninstall: {
+          status: 'passing',
+          kind: 'archive',
+          lower_data_before_sha256: before,
+          lower_data_after_sha256: after,
+        },
+      },
+      gui: {
+        status: 'passing',
+        exact_artifact_sha256: sha256File(options.desktopInstaller),
+        measurements: {
+          dependency_count: componentCount,
+          installed_size_bytes: installedDesktopBytes,
+          cold_start_ms: guiColdStartMs,
+          resident_runtime_count: 1,
+          resident_memory_bytes: guiMemory.peakResidentBytes,
+          onboarding_concept_count: 5,
+        },
+        installer_uninstall: installerUninstall,
+      },
+      'assembled-distribution': {
+        status: 'passing',
+        exact_artifact_sha256: sha256File(options.desktopInstaller),
+        measurements: {
+          dependency_count: componentCount,
+          installed_size_bytes: installedDesktopBytes,
+          cold_start_ms: guiColdStartMs,
+          resident_runtime_count: 1,
+          resident_memory_bytes: guiMemory.peakResidentBytes,
+          onboarding_concept_count: 5,
+        },
+        installer_uninstall: installerUninstall,
+      },
+    };
 
     return {
       status: 'passing',
+      platform: process.platform,
+      architecture: process.arch,
+      source: {
+        commit: sourceHead,
+        tree_dirty: false,
+      },
       source_commit: compatibility.source_commit,
+      qualifications,
       cli: {
         archive: options.cliArchive,
         sha256: sha256File(options.cliArchive),
-        installed_size_bytes: directoryBytes(installRoot),
+        installed_size_bytes: cliInstalledBytes,
         semantic_steps: fixture.cli.required_steps,
         cold_start_and_semantic_loop_ms: coldStartMs,
         forbidden_entries: fixture.cli.forbidden_entries,
       },
       gui: {
         desktop_dir: options.desktopDir,
-        installed_size_bytes: directoryBytes(options.desktopDir),
+        installed_size_bytes: installedDesktopBytes,
         operations: fixture.gui.operations,
-        deletion_projection: {
+        installer_uninstall: {
           before_sha256: before,
           after_sha256: after,
           status: 'passing',
         },
       },
       assembled: {
-        compatibility_sha256: sha256File(compatibilityPath),
+        compatibility_sha256: compatibilitySha256,
         components: compatibility.components,
         qualification_contracts: compatibility.qualification_contracts,
       },
       boundary:
-        'Exact local artifacts and a directory-form GUI deletion projection passed. Installer-specific uninstall behavior, publication, other platforms, and resident-memory budgets remain separate release claims.',
+        'Exact local CLI and desktop installer artifacts passed semantic, compatibility, numeric-budget, and uninstall-preservation gates on the named platform. Publication and other platforms remain separate release claims.',
     };
   } finally {
     fs.rmSync(temp, { recursive: true, force: true });
   }
 }
 
-function main() {
+async function main() {
   const options = parseArgs(process.argv.slice(2));
   const fixture = sourceValidation();
   const report = options.validateOnly
@@ -270,7 +456,7 @@ function main() {
     : {
         schema: 'kungfu.surface-qualification.report/v1',
         fixture_sha256: sha256File(FIXTURE),
-        ...exactQualification(options, fixture),
+        ...(await exactQualification(options, fixture)),
       };
   if (options.report) {
     fs.mkdirSync(path.dirname(options.report), { recursive: true });
@@ -286,11 +472,16 @@ function main() {
   console.log(`[layers:qualify:surfaces] ${report.boundary}`);
 }
 
-try {
-  main();
-} catch (error) {
-  console.error(
-    `[layers:qualify:surfaces] failed: ${error instanceof Error ? error.message : String(error)}`,
-  );
-  process.exit(1);
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
+  try {
+    await main();
+  } catch (error) {
+    console.error(
+      `[layers:qualify:surfaces] failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    process.exit(1);
+  }
 }

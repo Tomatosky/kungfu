@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
-import sys
 import json
+import os
+import sys
+import time
 
 from kungfu_sdk import NativeStorage, REQUIRED_CAPABILITIES
 
@@ -18,6 +20,7 @@ def main() -> int:
             raise RuntimeError("incomplete native capability mask")
         result = storage.execute(operation, json.loads(request_json))
     print(json.dumps(result, sort_keys=True, separators=(",", ":")))
+    time.sleep(int(os.environ.get("KUNGFU_QUALIFICATION_HOLD_MS", "0")) / 1000)
     return 0
 
 

@@ -7,7 +7,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, test } from 'node:test';
 
-import { validateDocumentMetadata } from './document-metadata-contract.mjs';
+import {
+  validateDocumentMetadata,
+  validateReachableCommit,
+} from './document-metadata-contract.mjs';
 
 const roots = [];
 
@@ -466,6 +469,45 @@ test('accepts reachable full-SHA implementation and closure evidence', () => {
   const { root, file } = evidenceFixture();
   const findings = validateDocumentMetadata({ root, files: [file], contract });
   assert.deepEqual(findings, []);
+});
+
+test('accepts evidence reachable through the active merge parent', () => {
+  const root = fixture({ 'seed.txt': 'seed\n' });
+  git(root, ['init', '-q']);
+  git(root, ['config', 'user.name', 'Test']);
+  git(root, ['config', 'user.email', 'test@example.com']);
+  git(root, ['add', 'seed.txt']);
+  git(root, ['-c', 'core.hooksPath=/dev/null', 'commit', '-q', '-m', 'seed']);
+  const base = git(root, ['rev-parse', 'HEAD']);
+
+  git(root, ['checkout', '-q', '-b', 'evidence']);
+  fs.writeFileSync(path.join(root, 'evidence.txt'), 'evidence\n');
+  git(root, ['add', 'evidence.txt']);
+  git(root, [
+    '-c',
+    'core.hooksPath=/dev/null',
+    'commit',
+    '-q',
+    '-m',
+    'evidence',
+  ]);
+  const evidence = git(root, ['rev-parse', 'HEAD']);
+
+  git(root, ['checkout', '-q', '-b', 'integration', base]);
+  fs.writeFileSync(path.join(root, 'integration.txt'), 'integration\n');
+  git(root, ['add', 'integration.txt']);
+  git(root, [
+    '-c',
+    'core.hooksPath=/dev/null',
+    'commit',
+    '-q',
+    '-m',
+    'integration',
+  ]);
+  assert.match(validateReachableCommit(root, evidence), /not reachable/);
+
+  git(root, ['merge', '--no-commit', '--no-ff', 'evidence']);
+  assert.equal(validateReachableCommit(root, evidence), null);
 });
 
 test('accepts stable PR implementation and closure evidence', () => {

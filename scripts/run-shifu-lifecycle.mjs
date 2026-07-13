@@ -1,0 +1,96 @@
+#!/usr/bin/env node
+// SPDX-License-Identifier: Apache-2.0
+
+import { spawnSync } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const SCRIPT = fileURLToPath(import.meta.url);
+
+export function lifecycleEnvironment(env = process.env) {
+  return { ...env };
+}
+
+export function cmdCommand(shim, args) {
+  if ([shim, ...args].some((value) => /[\r\n%!]/.test(String(value))))
+    throw new Error(
+      'Windows Shifu lifecycle arguments contain unsafe cmd syntax',
+    );
+  const quote = (value) => `"${String(value).replaceAll('"', '""')}"`;
+  return [shim, ...args].map(quote).join(' ');
+}
+
+/** Run the canonical repository shim without assuming bash exists on Windows. */
+export function runShifu(args, options = {}) {
+  const platform = options.platform || process.platform;
+  const root = options.root || ROOT;
+  const env = options.env || lifecycleEnvironment();
+  let result;
+  if (platform === 'win32') {
+    const command = options.comspec || env.ComSpec || env.COMSPEC || 'cmd.exe';
+    const shim = path.join(root, 'shifu.cmd');
+    result = spawnSync(cmdCommand(shim, args), [], {
+      cwd: root,
+      env,
+      stdio: options.stdio || 'inherit',
+      shell: command,
+    });
+  } else {
+    result = spawnSync(path.join(root, 'shifu'), args, {
+      cwd: root,
+      env,
+      stdio: options.stdio || 'inherit',
+    });
+  }
+  if (result.error) throw result.error;
+  return result.status ?? 1;
+}
+
+/** Build the canonical cache wrapper without relying on a platform shell. */
+export function cacheAppliedArgs(args, options = {}) {
+  return [
+    'cache',
+    'apply',
+    '--',
+    options.node || process.execPath,
+    options.script || SCRIPT,
+    'direct',
+    ...args,
+  ];
+}
+
+/** Apply the resolved Shifu cache profile, then re-enter the canonical shim. */
+export function runShifuWithCache(args, options = {}) {
+  return runShifu(cacheAppliedArgs(args, options), options);
+}
+
+function main() {
+  if (process.argv.length < 3) {
+    console.error(
+      'usage: node scripts/run-shifu-lifecycle.mjs <task> [args...]',
+    );
+    process.exit(2);
+  }
+  const [mode, ...args] = process.argv.slice(2);
+  if (mode === 'cache-apply') {
+    if (args.length === 0) {
+      console.error('cache-apply requires a Shifu task');
+      process.exit(2);
+    }
+    process.exitCode = runShifuWithCache(args);
+    return;
+  }
+  if (mode === 'direct') {
+    if (args.length === 0) {
+      console.error('direct requires a Shifu task');
+      process.exit(2);
+    }
+    process.exitCode = runShifu(args);
+    return;
+  }
+  process.exitCode = runShifu([mode, ...args]);
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
+  main();

@@ -9,6 +9,11 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const LIFECYCLE_DISPATCHER = path.join(
+  ROOT,
+  'scripts',
+  'run-shifu-lifecycle.mjs',
+);
 
 /** @typedef {{command: string, args: string[], cwd?: string}} Command */
 
@@ -17,14 +22,17 @@ export function installPlan(env = process.env) {
   if (env.BUILDCHAIN_CHECK_MODE !== 'source') {
     return [
       {
-        command: './shifu',
+        command: process.execPath,
+        args: [LIFECYCLE_DISPATCHER, 'cache-apply', 'doctor'],
+      },
+      {
+        command: process.execPath,
         args: [
-          'cache',
-          'apply',
-          '--',
-          'bash',
-          '-c',
-          './shifu doctor && ./shifu install --frozen-lockfile --no-optional',
+          LIFECYCLE_DISPATCHER,
+          'cache-apply',
+          'install',
+          '--frozen-lockfile',
+          '--no-optional',
         ],
       },
     ];

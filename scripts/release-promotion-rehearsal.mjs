@@ -59,6 +59,9 @@ export function validateWorkflowSources(root, contract, overrides = {}) {
   /** @type {any[]} */
   const findings = [];
   const build = overrides.build || readText(root, contract.workflows.build);
+  const qualification =
+    overrides.qualification ||
+    readText(root, 'scripts/run-release-qualification.mjs');
   const promotion =
     overrides.promotion || readText(root, contract.workflows.promotion);
   const validation =
@@ -81,7 +84,7 @@ export function validateWorkflowSources(root, contract, overrides = {}) {
     'manual validation must retain the Buildchain ref pass-through',
   );
   requirePattern(
-    build,
+    `${build}\n${qualification}`,
     /episode:qualify:release[\s\S]*adr:release:gate[\s\S]*adr-release-admissibility\.json/,
     findings,
     'candidate verify must qualify Episodes before ADR release admission',

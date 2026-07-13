@@ -608,8 +608,11 @@ performance SLO, and it preserves the TrustReport gaps for payload volume,
 dependency DAG scale, distributed writers, fleet capacity and long soak.
 
 The existing Buildchain `Build` workflow runs this after the heavy verify path
-for alpha/release candidates and manual dispatches, then retains the envelope
-with the platform product artifacts. It is not added to every development PR.
+on the Linux leg for alpha/release candidates and manual dispatches, then
+retains that platform-scoped envelope with the product artifacts. The macOS and
+Windows legs retain the bounded Episode smoke gate and run their own exact
+ADR-0049 artifact qualifications; they do not repeat this four-hour canonical
+metadata baseline. It is not added to every development PR.
 
 ## First implementation slices
 

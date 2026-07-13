@@ -241,7 +241,7 @@ function isolatedGitEnvironment() {
 }
 
 /** @param {string} root @param {string} commit */
-function validateReachableCommit(root, commit) {
+export function validateReachableCommit(root, commit) {
   if (!/^[0-9a-f]{40}$/.test(commit))
     return 'must be a full 40-character lowercase Git SHA';
   const exists = childProcess.spawnSync(
@@ -250,14 +250,25 @@ function validateReachableCommit(root, commit) {
     { cwd: root, env: isolatedGitEnvironment(), stdio: 'ignore' },
   );
   if (exists.status !== 0) return 'does not identify a commit in this checkout';
-  const reachable = childProcess.spawnSync(
+  const env = isolatedGitEnvironment();
+  const roots = ['HEAD'];
+  const mergeHead = childProcess.spawnSync(
     'git',
-    ['merge-base', '--is-ancestor', commit, 'HEAD'],
-    { cwd: root, env: isolatedGitEnvironment(), stdio: 'ignore' },
+    ['rev-parse', '--verify', '--quiet', 'MERGE_HEAD'],
+    { cwd: root, env, encoding: 'utf8' },
   );
-  return reachable.status === 0
-    ? null
-    : 'is not reachable from the checked-out mainline history';
+  if (mergeHead.status === 0 && mergeHead.stdout.trim()) {
+    roots.push(mergeHead.stdout.trim());
+  }
+  for (const candidate of roots) {
+    const reachable = childProcess.spawnSync(
+      'git',
+      ['merge-base', '--is-ancestor', commit, candidate],
+      { cwd: root, env, stdio: 'ignore' },
+    );
+    if (reachable.status === 0) return null;
+  }
+  return 'is not reachable from the checked-out mainline history';
 }
 
 /** @param {string} value @param {string} field @param {string} rel @param {number} line @param {string} root @param {Finding[]} findings */

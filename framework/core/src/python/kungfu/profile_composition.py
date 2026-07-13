@@ -296,13 +296,13 @@ def compose_query_receipt(
     """Bind a domain reducer's composite result to exact public subreceipts."""
 
     if len(receipts) == 1:
-        receipt = dict(receipts[0])
-        if receipt.get("result") != result:
+        single_receipt = dict(receipts[0])
+        if single_receipt.get("result") != result:
             _fail(
                 "query-composition-result-mismatch",
                 "single query receipt result changed during composition",
             )
-        return receipt
+        return single_receipt
     composed = catalog(source, runtime_dir, require_active=True)
     view = _by_id(composed["views"], view_id, "view")
     if not receipts:

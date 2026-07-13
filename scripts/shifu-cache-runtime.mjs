@@ -975,6 +975,15 @@ export function writeReceipt(receipt, receiptPath) {
   fs.renameSync(temporary, target);
 }
 
+export function windowsShifuCommandLine(args = []) {
+  const quote = (value) => {
+    const text = String(value);
+    if (/^[A-Za-z0-9_./:@=+\\-]+$/.test(text)) return text;
+    return `"${text.replaceAll('"', '""')}"`;
+  };
+  return ['shifu.cmd', ...args.map(quote)].join(' ');
+}
+
 function spawnChild(command, args, options) {
   if (
     process.platform === 'win32' &&
@@ -987,8 +996,10 @@ function spawnChild(command, args, options) {
       '.\\shifu.cmd',
     ].includes(command)
   ) {
-    const quote = (value) => `"${String(value).replaceAll('"', '""')}"`;
-    const line = [quote('shifu.cmd'), ...args.map(quote)].join(' ');
+    // With /s /c, quoting the command name itself makes cmd.exe preserve the
+    // quotes as part of the executable token on current Windows runners.
+    // The welded shim name has no spaces; quote only its arguments.
+    const line = windowsShifuCommandLine(args);
     return spawnSync('cmd.exe', ['/d', '/s', '/c', line], options);
   }
   return spawnSync(command, args, options);

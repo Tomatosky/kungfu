@@ -16,6 +16,10 @@ on:
         description: "Temporary Buildchain train or exact SHA for trusted manual validation"
         required: false
         default: ""
+      platforms-json:
+        description: "Optional custom platform matrix for isolated qualification reruns"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -29,7 +33,8 @@ jobs:
     secrets: inherit
     with:
       buildchain-ref: ${{ inputs.buildchain-ref || '' }}
-      runner-preset: kungfu-v4-self-hosted
+      runner-preset: ${{ inputs.platforms-json && 'custom' || 'kungfu-v4-self-hosted' }}
+      platforms-json: ${{ inputs.platforms-json || '' }}
       setup-rust: true
       rust-toolchain: "1.96.0"
       rustup-dist-server: https://rsproxy.cn
@@ -53,21 +58,16 @@ jobs:
       # libFuzzer long-run is the Linux gate and soft-skips where libFuzzer is
       # absent. KUNGFU_FUZZ_SECONDS bounds the per-target run.
       #
-      # Wrapped in `bash -c`: an explicit verify-command runs under the
-      # platform default shell (cmd.exe on Windows) and does not inherit the
-      # lifecycle stage's shell or [lifecycle.env], so the shell and the env
-      # are inlined here to match the .buildchain/buildchain.toml stages.
-      verify-command: >-
-        bash -c "KUNGFU_BUILDCHAIN_NO_OPTIONAL=1 KUNGFU_BUILDCHAIN_SOURCE_BUILD=1
-        SHIFU_NATIVE=1 SHIFU_REQUIRE_MSVC=1 KUNGFU_FUZZ_SECONDS=90
-        ./shifu cache apply -- ./shifu verify --fuzz &&
-        ./shifu cache apply -- ./shifu episode:qualify:release -- --output
-        product/release/qualification/episode-release-evidence.json &&
-        ./shifu cache apply -- ./shifu adr:release:gate -- --github-event
-        --allow-non-pr --report
-        product/release/qualification/adr-release-admissibility.json"
+      # An explicit verify command runs under the platform default shell and
+      # does not inherit [lifecycle.env]. This Node implementation adapter sets
+      # the same environment, applies the Shifu cache profile, and enters the
+      # canonical shifu/shifu.cmd shim for every qualification stage without
+      # assuming bash exists on Windows. On Linux it qualifies Episodes before
+      # running the ADR release-admissibility gate.
+      # shifu-entry-contract: allow cross-platform release qualification dispatch into the canonical shifu shim
+      verify-command: node scripts/run-release-qualification.mjs
       release-candidate: true
-      publish-channel: ${{ startsWith(github.base_ref, 'release/') && 'release' || 'alpha' }}
+      publish-channel: ${{ github.event_name == 'pull_request' && (startsWith(github.base_ref, 'release/') && 'release' || 'alpha') || 'none' }}
       artifact-transfer-mode: s3-to-github-artifacts
       artifact-retention-days: 14
       checkout-cache-mode: auto
@@ -75,8 +75,11 @@ jobs:
       checkout-cache-reference-repository-template: ${{ vars.BUILDCHAIN_CHECKOUT_CACHE_REFERENCE_REPOSITORY_TEMPLATE }}
       checkout-cache-fallback: github
       checkout-cache-timeout-seconds: 60
-      shifu-cache-profile-ref: ${{ vars.SHIFU_CACHE_PROFILE_REF }}
-      shifu-cache-profile-digest: ${{ vars.SHIFU_CACHE_PROFILE_DIGEST }}
+      # Custom qualification matrices can mix hosted and self-hosted runners.
+      # Do not project the private-LAN runner profile onto hosted legs; use the
+      # checked-in explicit-off profile so cache provenance remains auditable.
+      shifu-cache-profile-ref: ${{ inputs.platforms-json && 'docs/shifu/qualification-portable-off.cache-profile.json' || vars.SHIFU_CACHE_PROFILE_REF }}
+      shifu-cache-profile-digest: ${{ inputs.platforms-json && 'sha256:251ecdb33a34b770a6fbd40b0b05c5c8c0d629a06d9144e6d2d89c9c8e70258b' || vars.SHIFU_CACHE_PROFILE_DIGEST }}
       buildchain-contract-lock-path: .buildchain/contract-lock.json
       buildchain-contract-compatibility-policy: major-compatible
       buildchain-contract-drift-issue-mode: compatible-and-breaking

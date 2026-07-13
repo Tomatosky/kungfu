@@ -8,6 +8,13 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { extractTarGz } from '../../../../product/scripts/archive.mjs';
+import {
+  platformCommand,
+  platformCommandOptions,
+  prependEnvironmentPath,
+} from '../../../../scripts/platform-command.mjs';
+import { qualificationHoldMs, runMeasured } from '../process-metrics.mjs';
 
 const DIR = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(DIR, '..', '..', '..', '..');
@@ -40,7 +47,7 @@ function usage() {
 Usage:
   ./shifu layers:qualify:sdk -- [--validate-only] [--report PATH]
       [--python-wheel PATH] [--npm-core PATH] [--npm-platform PATH]
-      [--native-dir PATH]
+      [--cargo-crate PATH] [--native-dir PATH]
 
 Without --validate-only, exact wheel, npm main/platform archives, a staged
 libkungfu directory, Cargo, uv, and npm are required. Build the core artifacts
@@ -54,6 +61,7 @@ function parseArgs(argv) {
     pythonWheel: null,
     npmCore: null,
     npmPlatform: null,
+    cargoCrate: null,
     nativeDir: path.join(CORE, 'dist', 'kungfu'),
   };
   const keys = {
@@ -61,6 +69,7 @@ function parseArgs(argv) {
     '--python-wheel': 'pythonWheel',
     '--npm-core': 'npmCore',
     '--npm-platform': 'npmPlatform',
+    '--cargo-crate': 'cargoCrate',
     '--native-dir': 'nativeDir',
   };
   for (let index = 0; index < argv.length; index += 1) {
@@ -155,17 +164,25 @@ function resolveArtifacts(options) {
           name.endsWith('.tgz'),
         'npm core platform package',
       ),
+    cargoCrate:
+      options.cargoCrate ||
+      findOne(
+        path.join(sdkStage, 'cargo'),
+        (name) => name.endsWith('.crate'),
+        'Cargo package',
+      ),
     nativeDir: options.nativeDir,
   };
 }
 
 function run(command, args, options = {}) {
   const started = process.hrtime.bigint();
-  const result = spawnSync(command, args, {
+  const result = spawnSync(platformCommand(command), args, {
     cwd: options.cwd || ROOT,
     env: options.env || process.env,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
+    ...platformCommandOptions(command),
   });
   const durationMs = Number(process.hrtime.bigint() - started) / 1e6;
   if (result.error || result.status !== 0) {
@@ -204,14 +221,17 @@ function assertNoForbiddenBasenames(root, forbidden, label) {
 }
 
 function commandVersion(command) {
-  const result = spawnSync(command, ['--version'], { encoding: 'utf8' });
+  const result = spawnSync(platformCommand(command), ['--version'], {
+    encoding: 'utf8',
+    ...platformCommandOptions(command),
+  });
   if (result.error || result.status !== 0)
     fail(`required SDK qualification tool is unavailable: ${command}`);
   return (result.stdout || result.stderr || '').trim().split('\n')[0];
 }
 
 function runtimeEnv(nativeDir) {
-  const env = { ...process.env };
+  let env = { ...process.env };
   if (process.platform === 'darwin')
     env.DYLD_LIBRARY_PATH = [nativeDir, env.DYLD_LIBRARY_PATH]
       .filter(Boolean)
@@ -220,7 +240,7 @@ function runtimeEnv(nativeDir) {
     env.LD_LIBRARY_PATH = [nativeDir, env.LD_LIBRARY_PATH]
       .filter(Boolean)
       .join(path.delimiter);
-  else env.PATH = [nativeDir, env.PATH].filter(Boolean).join(path.delimiter);
+  else env = prependEnvironmentPath(env, nativeDir);
   return env;
 }
 
@@ -294,9 +314,19 @@ function setupNode(root, coreArchive, platformArchive, nativeDir) {
   };
 }
 
-function setupRust(root, nativeDir) {
-  const crateRoot = path.join(ROOT, 'crates', 'kungfu-sdk');
-  const manifest = path.join(crateRoot, 'Cargo.toml');
+function setupRust(root, nativeDir, exactCrate) {
+  const unpacked = path.join(root, 'cargo-source');
+  fs.mkdirSync(unpacked, { recursive: true });
+  extractTarGz({ archiveFile: exactCrate, targetDir: unpacked });
+  const packageDirs = fs
+    .readdirSync(unpacked, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => path.join(unpacked, entry.name));
+  if (packageDirs.length !== 1)
+    fail(
+      `Cargo package: expected one source root, found ${packageDirs.length}`,
+    );
+  const crateRoot = packageDirs[0];
   const cargoTarget = path.join(root, 'cargo-target');
   const installRoot = path.join(root, 'cargo-install');
   const env = {
@@ -304,18 +334,6 @@ function setupRust(root, nativeDir) {
     KUNGFU_NATIVE_DIR: nativeDir,
     CARGO_TARGET_DIR: cargoTarget,
   };
-  run(
-    'cargo',
-    [
-      'package',
-      '--manifest-path',
-      manifest,
-      '--allow-dirty',
-      '--target-dir',
-      cargoTarget,
-    ],
-    { env },
-  );
   run(
     'cargo',
     [
@@ -350,15 +368,6 @@ function setupRust(root, nativeDir) {
     )
   )
     fail('Cargo SDK binary reaches a forbidden sibling runtime');
-  const crate = findOne(
-    path.join(cargoTarget, 'package'),
-    (name) => name.endsWith('.crate'),
-    'Cargo package',
-  );
-  const cargoStage = path.join(CORE, 'build', 'stage', 'sdk', 'cargo');
-  fs.mkdirSync(cargoStage, { recursive: true });
-  const stagedCrate = path.join(cargoStage, path.basename(crate));
-  fs.copyFileSync(crate, stagedCrate);
   return {
     id: 'cargo-sdk',
     command: binary,
@@ -366,7 +375,7 @@ function setupRust(root, nativeDir) {
     env,
     installedSizeBytes: fs.statSync(binary).size,
     dependencyCount: 1,
-    exactArtifact: stagedCrate,
+    exactArtifact: exactCrate,
   };
 }
 
@@ -395,18 +404,26 @@ function interpolate(value, captures) {
   return value;
 }
 
-function qualifyAdapter(adapter, fixture, root) {
+async function qualifyAdapter(adapter, fixture, root) {
   const workspace = path.join(root, `${adapter.id}.kungfu`);
   const captures = {};
   const timings = [];
+  let peakResidentBytes = 0;
   for (const step of fixture.steps) {
     const request = interpolate(step.request, captures);
-    const result = run(
+    const result = await runMeasured(
       adapter.command,
       [...adapter.prefix, workspace, step.operation, JSON.stringify(request)],
-      { env: adapter.env },
+      {
+        cwd: ROOT,
+        env: {
+          ...adapter.env,
+          KUNGFU_QUALIFICATION_HOLD_MS: String(qualificationHoldMs()),
+        },
+      },
     );
     timings.push(result.durationMs);
+    peakResidentBytes = Math.max(peakResidentBytes, result.peakResidentBytes);
     let response;
     let parseError;
     for (const line of result.stdout.trim().split('\n')) {
@@ -461,16 +478,12 @@ function qualifyAdapter(adapter, fixture, root) {
       cold_start_ms: Math.round(timings[0] * 1000) / 1000,
       resident_runtime_count: 1,
       onboarding_concept_count: 4,
-      resident_memory_bytes: {
-        status: 'unverifiable',
-        reason:
-          'The adapter is intentionally one-shot; cross-platform peak-RSS sampling is not yet part of this gate.',
-      },
+      resident_memory_bytes: peakResidentBytes,
     },
   };
 }
 
-function main() {
+async function main() {
   const options = parseArgs(process.argv.slice(2));
   const fixture = readJson(FIXTURE);
   validateFixture(fixture);
@@ -501,10 +514,10 @@ function main() {
         artifacts.npmPlatform,
         artifacts.nativeDir,
       ),
-      setupRust(temp, artifacts.nativeDir),
+      setupRust(temp, artifacts.nativeDir, artifacts.cargoCrate),
     ];
-    const qualifications = adapters.map((adapter) =>
-      qualifyAdapter(adapter, fixture, temp),
+    const qualifications = await Promise.all(
+      adapters.map((adapter) => qualifyAdapter(adapter, fixture, temp)),
     );
     const report = {
       schema: 'kungfu.layer-qualification.sdk-report/v1',
@@ -561,7 +574,7 @@ function main() {
 }
 
 try {
-  main();
+  await main();
 } catch (error) {
   console.error(
     `[layers:qualify:sdk] failed: ${error instanceof Error ? error.message : String(error)}`,

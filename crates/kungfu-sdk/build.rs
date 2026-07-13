@@ -19,7 +19,7 @@ fn main() {
         });
     println!("cargo:rustc-link-search=native={}", native_dir.display());
     if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
-        println!("cargo:rustc-link-lib=static=kungfu");
+        println!("cargo:rustc-link-lib=dylib=kungfu_native_storage");
     } else {
         println!("cargo:rustc-link-lib=dylib=kungfu");
     }

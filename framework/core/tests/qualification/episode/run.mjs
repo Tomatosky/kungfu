@@ -208,6 +208,17 @@ export function episodeRuntimeEnv(
   return env;
 }
 
+function windowsShimCommand(command, args) {
+  if (!/^[a-z0-9_.-]+$/i.test(command)) {
+    fail(`unsafe Windows shim command '${command}'`);
+  }
+  if (args.some((value) => /[\r\n%!]/.test(String(value)))) {
+    fail('Windows Episode worker arguments contain unsafe cmd syntax');
+  }
+  const quote = (value) => `"${String(value).replaceAll('"', '""')}"`;
+  return [command, ...args.map(quote)].join(' ');
+}
+
 function runtimeEnv() {
   return episodeRuntimeEnv();
 }
@@ -257,14 +268,21 @@ function readResult(resultPath, fallback) {
 function runPython(args, resultPath, timeoutSeconds, scriptPath = workerPath) {
   return new Promise((resolve) => {
     const detached = process.platform !== 'win32';
+    const env = runtimeEnv();
+    const uvArgs = ['run', '--frozen', 'python', scriptPath, ...args];
+    const windows = process.platform === 'win32';
     const child = spawn(
-      'uv',
-      ['run', '--frozen', 'python', scriptPath, ...args],
+      windows ? windowsShimCommand('uv', uvArgs) : 'uv',
+      windows ? [] : uvArgs,
       {
         cwd: coreDir,
-        env: runtimeEnv(),
+        env,
         stdio: ['ignore', 'pipe', 'pipe'],
         detached,
+        // Windows tool bootstrap may expose uv through a cmd shim rather than
+        // a directly spawnable executable. Quote every harness-owned argument
+        // through the same tested command builder as the canonical Shifu shim.
+        shell: windows ? env.ComSpec || env.COMSPEC || 'cmd.exe' : false,
       },
     );
     let stdout = '';
@@ -316,6 +334,15 @@ function runPython(args, resultPath, timeoutSeconds, scriptPath = workerPath) {
           ...(result.errors || []),
           { code: 'scenario_timeout', timeout_seconds: timeoutSeconds },
         ];
+      }
+      if (!result.ok) {
+        console.error(
+          `[episode-qualify] worker failed: ${JSON.stringify({
+            kind: processResult.kind,
+            errors: result.errors || [],
+            process: processResult,
+          })}`,
+        );
       }
       resolve(result);
     });
@@ -660,23 +687,27 @@ function performanceScenario(scenario) {
 }
 
 async function validateReport(reportPath) {
+  const env = runtimeEnv();
+  const uvArgs = [
+    'run',
+    '--frozen',
+    'python',
+    workerPath,
+    'validate-report',
+    '--report',
+    reportPath,
+    '--schema',
+    schemaPath,
+  ];
+  const windows = process.platform === 'win32';
   const child = spawnSync(
-    'uv',
-    [
-      'run',
-      '--frozen',
-      'python',
-      workerPath,
-      'validate-report',
-      '--report',
-      reportPath,
-      '--schema',
-      schemaPath,
-    ],
+    windows ? windowsShimCommand('uv', uvArgs) : 'uv',
+    windows ? [] : uvArgs,
     {
       cwd: coreDir,
-      env: runtimeEnv(),
+      env,
       encoding: 'utf8',
+      shell: windows ? env.ComSpec || env.COMSPEC || 'cmd.exe' : false,
     },
   );
   return {
@@ -699,7 +730,21 @@ async function main() {
   fs.mkdirSync(path.dirname(reportPath), { recursive: true });
 
   const sourceRevision = gitText(['rev-parse', 'HEAD']);
-  const sourceDirty = gitText(['status', '--porcelain']).length > 0;
+  // A locked CI checkout starts from the exact commit/tree, then install/build
+  // materializes untracked products before qualification. Those products are
+  // evidence inputs, not source drift; only tracked index/worktree changes can
+  // invalidate the commit-bound release claim.
+  const sourceStatus = gitText([
+    'status',
+    '--porcelain',
+    '--untracked-files=no',
+  ]);
+  const sourceDirty = sourceStatus.length > 0;
+  if (sourceDirty) {
+    console.error(
+      `[episode-qualify] tracked source drift: ${sourceStatus.split(/\r?\n/).slice(0, 20).join(' | ')}`,
+    );
+  }
   const started = Date.now();
   const scenarios = [];
   let semantic = null;

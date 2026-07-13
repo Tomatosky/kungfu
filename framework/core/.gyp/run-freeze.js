@@ -240,7 +240,8 @@ function findFileShallow(root, re) {
   return null;
 }
 
-// Windows only：把 python binding(pykungfu) 与 libnode 运行库补拷进 dist/kungfu。
+// Windows only：把 python binding(pykungfu)、libnode 运行库与窄 C ABI
+// kungfu.dll 补拷进 dist/kungfu。
 //
 // 缘由：MSVC 多配置生成器与 Mac/Linux 单配置生成器的产物布局不一致——Win 把
 // pykungfu.<abi>.pyd 产在 build/ 根、libnode.dll 产在 build/<bt>；而 Nuitka freeze 用
@@ -280,8 +281,18 @@ function copyPyBindingWin(bt) {
   const emb = fs.existsSync(btEmb)
     ? btEmb
     : findFileShallow(buildDir, /^kungfu_embedding\.dll$/i);
+  // ADR-0049 native SDK ABI: the runtime DLL and its import library are both
+  // required so installed consumers can link and load the storage surface.
+  const btStorageDll = path.join(buildDir, bt, 'kungfu.dll');
+  const storageDll = fs.existsSync(btStorageDll)
+    ? btStorageDll
+    : findFileShallow(buildDir, /^kungfu\.dll$/i);
+  const btStorageImport = path.join(buildDir, bt, 'kungfu_native_storage.lib');
+  const storageImport = fs.existsSync(btStorageImport)
+    ? btStorageImport
+    : findFileShallow(buildDir, /^kungfu_native_storage\.lib$/i);
   let n = 0;
-  for (const src of [pyd, dll, host, emb]) {
+  for (const src of [pyd, dll, host, emb, storageDll, storageImport]) {
     if (!src) continue;
     fs.copyFileSync(src, path.join(distKfc, path.basename(src)));
     n++;
@@ -291,6 +302,7 @@ function copyPyBindingWin(bt) {
   if (pyd) copyPdbSibling(pyd, distKfc);
   if (host) copyPdbSibling(host, distKfc);
   if (emb) copyPdbSibling(emb, distKfc);
+  if (storageDll) copyPdbSibling(storageDll, distKfc);
   if (!pyd) console.error('[freeze] Win 警告：build 树未找到 pykungfu*.pyd');
   if (!dll) console.error('[freeze] Win 警告：build 树未找到 libnode.dll');
   // Product builds must ship both Windows native hosts, or the trunk silently
@@ -317,7 +329,16 @@ function copyPyBindingWin(bt) {
       process.exit(1);
     }
   }
-  console.log(`[freeze] Win：补拷 python binding → dist/kungfu：${n} 项`);
+  if (!storageDll)
+    console.error('[freeze] Win 错误：build 树未找到 kungfu.dll');
+  if (!storageImport)
+    console.error(
+      '[freeze] Win 错误：build 树未找到 kungfu_native_storage.lib',
+    );
+  if (!storageDll || !storageImport) process.exit(1);
+  console.log(
+    `[freeze] Win：补拷 python binding / native hosts / SDK ABI → dist/kungfu：${n} 项`,
+  );
 }
 
 // --------------------------------------------------------------- assemble

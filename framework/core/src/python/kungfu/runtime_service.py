@@ -20,7 +20,7 @@ from kungfu.storage import service as storage_service
 from pykungfu.runtime import coordinator as NativeCoordinator
 
 lf = kungfu.__binding__.yijinjing
-yjj = kungfu.__binding__.runtime
+yjj: Any = kungfu.__binding__.runtime
 
 
 SCHEMA_STATUS = "kungfu.runtime.status/v2"

@@ -5,8 +5,8 @@
   "witnessKind": "prebuild",
   "supportLevel": "release",
   "source": {
-    "cwd": "/Users/dkr/Worktrees/kungfu/fix/gate-profile-final-runtime",
-    "sourceSha": "9c9711574fbe50d40918eed128874b3d2162d049",
+    "cwd": "/Users/dkr/Worktrees/kungfu/feature/adr0049-seven-staged-release",
+    "sourceSha": "c7cda021377c4f08d3f8ba50cb65bf2d2f10a0da",
     "registryPath": ".buildchain/kfd/kfd-3/surfaces.json",
     "registryDigest": "sha256:4566b4e5d837d0c6f3dc10e9b1838b9968de21554d3a57497c8840af71994b71"
   },

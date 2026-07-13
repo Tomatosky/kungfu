@@ -65,7 +65,8 @@ function main() {
   // pybind11-stubgen copies C++ parameter names verbatim; `from` is a Python
   // keyword, so `def f(self, from: int)` is invalid Python — rename to `from_`.
   // It also follows the host newline convention; committed stubs are canonical
-  // LF text so a Windows build must not dirty the worktree by line endings alone.
+  // LF text so a Windows build must not dirty the worktree by line endings
+  // alone. Strip trailing whitespace so build then format is idempotent.
   for (const rel of glob.sync('**/*.pyi', { cwd: 'stubs/pykungfu' })) {
     const file = path.join('stubs', 'pykungfu', rel);
     const before = fs.readFileSync(file, 'utf8');

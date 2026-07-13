@@ -14,7 +14,6 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   createBuildchainLogger,
-  readBuildchainLogEvents,
   verifyBuildchainLogEvents,
 } from '@kungfu-tech/buildchain/logging';
 import { extractTarGz, extractZip, writeTarGz, writeZip } from './archive.mjs';
@@ -170,6 +169,15 @@ function rollupPlatformPackageName() {
   return packages[
     `${process.platform}-${process.arch}${libc ? `-${libc}` : ''}`
   ];
+}
+
+function esbuildPlatformPackageName() {
+  const packages = {
+    'darwin-arm64': '@esbuild/darwin-arm64',
+    'linux-x64': '@esbuild/linux-x64',
+    'win32-x64': '@esbuild/win32-x64',
+  };
+  return packages[`${process.platform}-${process.arch}`];
 }
 
 function linuxLibc() {
@@ -763,10 +771,33 @@ function bundleSdkForCli(stageRoot) {
     paths: [SDK_DIR, TUI_DIR, GUI_DIR, ROOT],
   });
   const esbuildResolvePaths = [path.dirname(esbuildPackageJson)];
+  const esbuildPlatformPackage = esbuildPlatformPackageName();
+  if (!esbuildPlatformPackage) {
+    throw new Error(
+      `unsupported esbuild platform: ${process.platform}-${process.arch}`,
+    );
+  }
+  if (
+    process.env.KUNGFU_BUILDCHAIN_NO_OPTIONAL === '1' &&
+    !canResolveFrom(esbuildPlatformPackage, esbuildResolvePaths)
+  ) {
+    const esbuildNodePath = ensureNoOptionalPlatformPackage({
+      kind: 'esbuild',
+      packageName: esbuildPlatformPackage,
+      version: readJson(esbuildPackageJson).version,
+      installRoot: path.join(
+        ROOT,
+        '.buildchain',
+        'esbuild-platform',
+        `${process.platform}-${process.arch}`,
+      ),
+    });
+    esbuildResolvePaths.push(path.dirname(esbuildNodePath));
+  }
   copySdkRuntimePackageForCli(stageRoot, 'esbuild', esbuildResolvePaths);
   copySdkRuntimePackageForCli(
     stageRoot,
-    `@esbuild/${process.platform}-${process.arch}`,
+    esbuildPlatformPackage,
     esbuildResolvePaths,
   );
   copySdkRuntimePackageForCli(stageRoot, '@kungfu-tech/kfd');
@@ -926,8 +957,12 @@ export function runInstalledKungfu({
   return result.stdout || '';
 }
 
-export function runInstalledCliSemanticSmoke({ installRoot, kungfuBin, env }) {
-  const home = path.join(installRoot, '.qualification-home');
+export function runInstalledCliSemanticSmoke({
+  installRoot,
+  kungfuBin,
+  env,
+  home = path.join(installRoot, '.qualification-home'),
+}) {
   const episodeId = 49003;
   const exportPath = path.join(installRoot, 'episode-export.json');
   runInstalledKungfu({
@@ -1434,7 +1469,10 @@ function verifyObservability() {
     return;
   }
   const report = verifyProductObservabilityEvents(
-    readBuildchainLogEvents(buildchainLogger.path),
+    // The persisted Buildchain log is shared by lifecycle processes and may
+    // survive a failed self-hosted runner job. Verify only this product
+    // invocation's events so an earlier run cannot poison a clean retry.
+    buildchainLogger.events,
     productTarget,
   );
   if (!report.ok) {

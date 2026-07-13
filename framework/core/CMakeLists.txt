@@ -33,6 +33,16 @@ find_package(tabulate REQUIRED)
 cmake_policy(SET CMP0148 OLD)
 find_package(pybind11 REQUIRED)
 
+# RxCpp 4.1.1 assigns to a const error_ptr in rx-notification.hpp. Conan's
+# generated compatibility copy deletes that impossible assignment operator so
+# clean GCC builds do not depend on a mutated shared package cache.
+if(NOT DEFINED KUNGFU_RXCPP_COMPAT_INCLUDE_DIR OR
+   NOT EXISTS "${KUNGFU_RXCPP_COMPAT_INCLUDE_DIR}/rxcpp/rx-notification.hpp")
+  message(FATAL_ERROR "missing generated RxCpp compatibility include tree")
+endif()
+target_include_directories(rxcpp::rxcpp BEFORE INTERFACE
+  "${KUNGFU_RXCPP_COMPAT_INCLUDE_DIR}")
+
 set(CONAN_LIBS
     fmt::fmt-header-only
     spdlog::spdlog_header_only
@@ -100,8 +110,12 @@ if (WIN32 AND TARGET ${LIBKUNGFU_NAME})
   add_subdirectory(src/libembedding)
 endif()
 
+set(KUNGFU_BUILD_NODE_BINDINGS OFF)
 if (NOT DEFINED ENV{KUNGFU_BUILD_SKIP_KUNGFU_NODE} OR NOT $ENV{KUNGFU_BUILD_SKIP_KUNGFU_NODE})
-  message(STATUS "Enabled kungfu_node")
+  set(KUNGFU_BUILD_NODE_BINDINGS ON)
+endif()
+if (KUNGFU_BUILD_NODE_BINDINGS OR (WIN32 AND "${NODE_RUNTIME}" STREQUAL "node"))
+  message(STATUS "Enabled node bindings/runtime host")
   add_subdirectory(src/bindings/node)
 endif()
 

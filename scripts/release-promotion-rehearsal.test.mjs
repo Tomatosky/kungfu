@@ -62,6 +62,27 @@ test('promotion workflow drift is rejected before Buildchain promotion', () => {
   );
 });
 
+test('release qualification rejects ADR admission before Episode evidence', () => {
+  const qualification = fs.readFileSync(
+    path.join(ROOT, 'scripts/run-release-qualification.mjs'),
+    'utf8',
+  );
+  const drifted = qualification.replace(
+    "'episode:qualify:release'",
+    "'episode:qualification:missing'",
+  );
+  assert.notEqual(drifted, qualification);
+  const result = validateWorkflowSources(ROOT, CONTRACT, {
+    qualification: drifted,
+  });
+  assert.equal(result.ok, false);
+  assert.ok(
+    result.findings.some((entry) =>
+      entry.message.includes('qualify Episodes before ADR release admission'),
+    ),
+  );
+});
+
 test('promotion preflight owns no release credentials or side-effect commands', () => {
   const workflow = fs.readFileSync(
     path.join(ROOT, CONTRACT.workflows.promotion),

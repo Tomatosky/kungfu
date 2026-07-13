@@ -3,6 +3,8 @@
 use kungfu_sdk::{NativeStorage, REQUIRED_CAPABILITIES};
 use std::env;
 use std::process::ExitCode;
+use std::thread;
+use std::time::Duration;
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = env::args().skip(1);
@@ -25,6 +27,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         return Err(format!("incomplete native capability mask: {capabilities:#x}").into());
     }
     println!("{}", storage.execute_json(&operation, &request_json)?);
+    if let Ok(milliseconds) = env::var("KUNGFU_QUALIFICATION_HOLD_MS") {
+        thread::sleep(Duration::from_millis(milliseconds.parse()?));
+    }
     Ok(())
 }
 

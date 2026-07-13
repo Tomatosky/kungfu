@@ -7,7 +7,7 @@
   },
   "semantic_fixture": {
     "id": "kungfu.layer-qualification.sdk-semantic-fixture/v1",
-    "sha256": "6df951f789d617856cf33c1ca2b8654c7b6cabbfaa487e9c899c6d538c437b6e"
+    "sha256": "c47abad6a7c3474d02d89734b7da6129915cffa0e3ccbcbc2db600b58de9d335"
   },
   "operations": [
     "episode_begin",

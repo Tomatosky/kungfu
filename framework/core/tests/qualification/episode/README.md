@@ -79,10 +79,13 @@ Verify a retained envelope without rerunning the workload:
 
 Add `--check-runtime` only when the exact built runtime is still present and
 should be compared byte-for-byte with the recorded artifact manifest. The
-alpha/release Build workflow and manual workflow dispatch run the release path
-on the existing Buildchain platform matrix and retain the evidence beside the
-product artifacts. Development PRs continue to run only the bounded source and
-smoke gates.
+alpha/release Build workflow and manual workflow dispatch run the complete
+release path once on Linux and retain that platform-scoped evidence beside the
+product artifacts. All three platform legs still run the bounded Episode smoke
+gate plus their exact SDK and product-artifact qualifications. This avoids
+repeating the four-hour canonical metadata baseline where it does not
+strengthen the ADR-0049 cross-platform artifact claim. Development PRs continue
+to run only the bounded source and smoke gates.
 
 ## Semantic evidence
 

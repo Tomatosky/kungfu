@@ -37,6 +37,10 @@ test('source install fails closed off GitHub-hosted Linux in CI', () => {
 
 test('verify install preserves the existing Shifu lifecycle', () => {
   const text = JSON.stringify(installPlan({ BUILDCHAIN_CHECK_MODE: 'verify' }));
-  assert.match(text, /\.\/shifu doctor/);
-  assert.match(text, /\.\/shifu install --frozen-lockfile --no-optional/);
+  assert.match(text, /cache-apply[^}]*doctor/);
+  assert.match(
+    text,
+    /cache-apply[^}]*install[^}]*--frozen-lockfile[^}]*--no-optional/,
+  );
+  assert.doesNotMatch(text, /bash|-c/);
 });

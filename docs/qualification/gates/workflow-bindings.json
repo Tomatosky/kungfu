@@ -186,10 +186,10 @@
       ],
       "activation": "alpha or release pull request",
       "requiredSnippets": [
-        "runner-preset: kungfu-v4-self-hosted",
-        "./shifu cache apply -- ./shifu verify --fuzz",
-        "./shifu cache apply -- ./shifu episode:qualify:release",
-        "./shifu cache apply -- ./shifu adr:release:gate"
+        "runner-preset: ${{ inputs.platforms-json && 'custom' || 'kungfu-v4-self-hosted' }}",
+        "verify-command: node scripts/run-release-qualification.mjs",
+        "publish-channel: ${{ github.event_name == 'pull_request' && (startsWith(github.base_ref, 'release/') && 'release' || 'alpha') || 'none' }}",
+        "docs/shifu/qualification-portable-off.cache-profile.json"
       ]
     },
     {
