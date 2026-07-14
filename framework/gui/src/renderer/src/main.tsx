@@ -778,6 +778,10 @@ function App() {
       window.process.env.KFE_INITIAL_VIEW || profileHomeId(profile, enabled),
   );
   const [params, setParams] = React.useState<Record<string, string>>({});
+  const [contextualView, setContextualView] = React.useState<{
+    kfxId: string;
+    params: Record<string, string>;
+  } | null>(null);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [workspaceOpen, setWorkspaceOpen] = React.useState(false);
   const [commandText, setCommandText] = React.useState('');
@@ -888,11 +892,23 @@ function App() {
 
   const openKfx = React.useCallback(
     (kfxId: string, nextParams?: Record<string, string>) => {
+      setContextualView(null);
       setParams(nextParams ?? {});
       setActive(kfxId);
     },
     [],
   );
+
+  const openContextualView = React.useCallback(
+    (kfxId: string, nextParams?: Record<string, string>) => {
+      setContextualView({ kfxId, params: nextParams ?? {} });
+    },
+    [],
+  );
+
+  const closeContextualView = React.useCallback(() => {
+    setContextualView(null);
+  }, []);
 
   const updateState = React.useCallback(
     (patch: Partial<ShellState>) => {
@@ -1165,6 +1181,8 @@ function App() {
 
   const shell: Shell = {
     open: openKfx,
+    openContextualView,
+    closeContextualView,
     params,
     onRefresh: subscribeRefresh,
     setting: (key) => state.settings[key] ?? settingFallbacks[key] ?? '',
@@ -1242,6 +1260,15 @@ function App() {
   );
 
   const caps = activeKfx ? subsetCaps(runtime, activeKfx) : null;
+  const contextualKfx = contextualView
+    ? (enabled.find((entry) => entry.id === contextualView.kfxId) ?? null)
+    : null;
+  const contextualCaps = contextualKfx
+    ? subsetCaps(runtime, contextualKfx)
+    : null;
+  const contextualShell: Shell = contextualView
+    ? { ...shell, params: contextualView.params }
+    : shell;
   const settingsKfx =
     enabled.find((k) => k.id === 'settings') ??
     loaded.entries.find((k) => k.id === 'settings') ??
@@ -1771,7 +1798,14 @@ function App() {
                 </div>
               )}
             </nav>
-            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+            <div
+              style={{
+                flex: 1,
+                minHeight: 0,
+                overflow: 'hidden',
+                position: 'relative',
+              }}
+            >
               {activeKfx && activeKfx.tier === 'sandboxed-ipc' ? (
                 // isolated third-party view: embedded, not mounted here
                 <KfxErrorBoundary kfxId={activeKfx.id}>
@@ -1802,6 +1836,120 @@ function App() {
                     </div>
                   ))}
                 </section>
+              )}
+              {contextualView && (
+                <aside
+                  aria-label={
+                    contextualView.params.contextTitle || 'Contextual view'
+                  }
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    right: 0,
+                    bottom: 0,
+                    zIndex: 100,
+                    width: 'min(760px, 68vw)',
+                    minWidth: 480,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                    background: '#1e1e1e',
+                    borderLeft: '1px solid #3c3c3c',
+                    boxShadow: '-18px 0 46px rgba(0, 0, 0, 0.48)',
+                    animation: 'kf-contextual-view-in 140ms ease-out',
+                  }}
+                >
+                  <style>
+                    {
+                      '@keyframes kf-contextual-view-in { from { transform: translateX(24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }'
+                    }
+                  </style>
+                  <header
+                    style={{
+                      minHeight: 42,
+                      padding: '7px 10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      borderBottom: '1px solid #333',
+                      background: '#252526',
+                    }}
+                  >
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div
+                        style={{
+                          ...mono,
+                          color: '#9cdcfe',
+                          fontSize: 11,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {contextualView.params.contextTitle ||
+                          contextualKfx?.title ||
+                          'Context'}
+                      </div>
+                      {contextualView.params.contextSubtitle && (
+                        <div
+                          style={{
+                            ...mono,
+                            color: '#858585',
+                            fontSize: 9,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {contextualView.params.contextSubtitle}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={closeContextualView}
+                      title="Close contextual view"
+                      aria-label="Close contextual view"
+                      style={{
+                        ...mono,
+                        width: 28,
+                        height: 28,
+                        border: '1px solid #3c3c3c',
+                        borderRadius: 5,
+                        cursor: 'pointer',
+                        background: '#1e1e1e',
+                        color: '#cccccc',
+                      }}
+                    >
+                      ×
+                    </button>
+                  </header>
+                  <div
+                    style={{
+                      flex: 1,
+                      minHeight: 0,
+                      overflow: 'hidden',
+                      padding: 8,
+                    }}
+                  >
+                    {contextualKfx &&
+                    contextualKfx.tier === 'node-integrated' &&
+                    contextualCaps ? (
+                      <KfxErrorBoundary kfxId={contextualKfx.id}>
+                        <contextualKfx.View
+                          caps={contextualCaps}
+                          shell={contextualShell}
+                        />
+                      </KfxErrorBoundary>
+                    ) : (
+                      <section style={panelStyle}>
+                        <div style={{ ...mono, color: '#f48771' }}>
+                          contextual view unavailable
+                        </div>
+                      </section>
+                    )}
+                  </div>
+                </aside>
               )}
             </div>
           </div>

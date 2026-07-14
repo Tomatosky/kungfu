@@ -28,6 +28,9 @@ externalizable so publishing it later is a move, not a rewrite.
    Activity Rail adds Agent Console, Profiles and Skills; application menus,
    the command palette, `KFE_INITIAL_VIEW`, and cross-kfx navigation with
    parameters (`shell.open('rewind', { run })`) reach the wider installed set.
+   A first-party view can instead request contextual presentation through
+   `shell.openContextualView(...)`; the reference GUI renders that target in a
+   right-side drawer without replacing or remounting the active view.
 5. **Refresh coordination.** A shared refresh bus with one timer; kfx
    subscribe instead of running their own intervals.
 6. **Profiles and suites.** A Profile Suite declares semantic/distribution
@@ -181,6 +184,13 @@ still giving first-party/system kfx a stable notification surface. Sandboxed
 views currently receive inert shell-chrome methods because the sandbox bridge
 only relays declared capabilities; a future shell bridge must be explicit IPC,
 not shared renderer callbacks.
+
+Contextual presentation follows the same ownership boundary. A view supplies a
+target kfx id and string parameters; the shell resolves that target's own
+declared capabilities and mounts it in shell chrome. The requesting view never
+imports the target package or borrows its capability set. Closing the drawer
+removes only that presentation; session lifecycle remains owned by the target
+kfx and its runtime capabilities.
 
 ## Trust tiers (ADR-0011 / ADR-0013 / ADR-0014)
 

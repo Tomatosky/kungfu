@@ -52,6 +52,11 @@ import {
   rememberDiscoveredAgentRuntimeProfile,
 } from './agent-runtime-catalog';
 import {
+  assistantConsoleId,
+  consoleScopeId,
+  workConsoleId,
+} from './console-scope';
+import {
   DEFAULT_PANE_LAYOUT,
   type PaneLayoutAxis,
   type PaneLayoutMode,
@@ -62,6 +67,7 @@ import {
 } from './pane-layout';
 import {
   type PersistedWindow,
+  type WorkConsole,
   type WorkConsoleRegistry,
   type WorkspaceLayout,
   emptyConsoleRegistry,
@@ -893,8 +899,13 @@ function SessionWorkspace({
     (typeof process !== 'undefined'
       ? process.env.KF_WORKSPACE_ID || 'home'
       : 'home');
+  const requestedWorkConsoleId = workConsoleId(shell.params ?? {});
+  const defaultConsoleId = consoleScopeId(workspaceId, shell.params ?? {});
   const [panes, setPanes] = React.useState<Pane[]>([]);
   const [activeRunId, setActiveRunId] = React.useState<string | null>(null);
+  const [selectedConsoleId, setSelectedConsoleId] =
+    React.useState(defaultConsoleId);
+  const [consoleCatalogOpen, setConsoleCatalogOpen] = React.useState(false);
   const [paneLayout, setPaneLayout] =
     React.useState<PaneLayoutMode>(DEFAULT_PANE_LAYOUT);
   const [paneSizes, setPaneSizes] = React.useState<number[]>([1]);
@@ -933,6 +944,11 @@ function SessionWorkspace({
   // read the stored layout, so mounting never clobbers it with an empty set.
   const hydrated = React.useRef(false);
 
+  React.useEffect(() => {
+    setSelectedConsoleId(defaultConsoleId);
+    setConsoleCatalogOpen(false);
+  }, [defaultConsoleId]);
+
   const refreshCatalog = React.useCallback(async () => {
     if (!caps.agentRuntime) {
       setNotice('Agent Runtime capability unavailable');
@@ -965,31 +981,39 @@ function SessionWorkspace({
     [panes],
   );
 
+  const scopedPanes = React.useMemo(
+    () => panes.filter((pane) => pane.consoleId === selectedConsoleId),
+    [panes, selectedConsoleId],
+  );
+
   React.useEffect(() => {
-    if (panes.length === 0) {
+    if (scopedPanes.length === 0) {
       setActiveRunId(null);
       return;
     }
-    if (!activeRunId || !panes.some((pane) => pane.runId === activeRunId)) {
-      setActiveRunId(panes[0].runId);
+    if (
+      !activeRunId ||
+      !scopedPanes.some((pane) => pane.runId === activeRunId)
+    ) {
+      setActiveRunId(scopedPanes[0].runId);
     }
-  }, [activeRunId, panes]);
+  }, [activeRunId, scopedPanes]);
 
   const visiblePanes = React.useMemo(() => {
-    if (panes.length === 0) return [];
+    if (scopedPanes.length === 0) return [];
     const activeIndex = Math.max(
       0,
-      panes.findIndex((pane) => pane.runId === activeRunId),
+      scopedPanes.findIndex((pane) => pane.runId === activeRunId),
     );
     const ordered = [
-      ...panes.slice(activeIndex),
-      ...panes.slice(0, activeIndex),
+      ...scopedPanes.slice(activeIndex),
+      ...scopedPanes.slice(0, activeIndex),
     ];
     return ordered.slice(
       0,
       Math.min(paneCountForLayout(paneLayout), ordered.length),
     );
-  }, [activeRunId, paneLayout, panes]);
+  }, [activeRunId, paneLayout, scopedPanes]);
 
   const selectPaneLayout = React.useCallback((mode: PaneLayoutMode) => {
     setPaneLayout(mode);
@@ -1225,10 +1249,15 @@ function SessionWorkspace({
       }
       const runId = mintRunId();
       const attemptId = `attempt:${runId}`;
-      const workRef = await workRefFromShell(shell);
+      const selectedWorkConsole = consoleRegistry.consoles.find(
+        (candidate) => candidate.consoleId === selectedConsoleId,
+      );
+      const workRef = requestedWorkConsoleId
+        ? await workRefFromShell(shell)
+        : (selectedWorkConsole?.workRef ?? null);
       const consoleId = workRef
         ? `work:${workRef.profileId}:${workRef.entityType}:${workRef.entityId}`
-        : `assistant:${workspaceId}`;
+        : assistantConsoleId(workspaceId);
       const envelope = await buildAgentConsoleEnvelope({
         workspaceId,
         consoleId,
@@ -1305,6 +1334,7 @@ function SessionWorkspace({
         },
       ]);
       setActiveRunId(session.runId);
+      setSelectedConsoleId(consoleId);
       const now = Date.now();
       setConsoleRegistry((current) => {
         const previous = current.consoles.find(
@@ -1341,7 +1371,15 @@ function SessionWorkspace({
         };
       });
     },
-    [caps.agentRuntime, caps.terminal, shell, workspaceId],
+    [
+      caps.agentRuntime,
+      caps.terminal,
+      consoleRegistry.consoles,
+      requestedWorkConsoleId,
+      selectedConsoleId,
+      shell,
+      workspaceId,
+    ],
   );
 
   const markAttempt = React.useCallback(
@@ -1458,6 +1496,34 @@ function SessionWorkspace({
     [markAttempt],
   );
 
+  const selectedConsole = consoleRegistry.consoles.find(
+    (candidate) => candidate.consoleId === selectedConsoleId,
+  );
+  const selectedAttemptIds = new Set(
+    selectedConsole?.attempts.map((attempt) => attempt.runId) ?? [],
+  );
+  const scopedRecoverable = recoverable.filter((session) =>
+    selectedAttemptIds.has(session.runId),
+  );
+  const bindingLabel = selectedConsole?.workRef
+    ? `${selectedConsole.workRef.entityType === 'go' ? 'Go' : 'Work'} · ${selectedConsole.workRef.entityId}`
+    : requestedWorkConsoleId
+      ? `Go · ${shell.params.workEntityId}`
+      : 'Workspace assistant';
+  const orderedConsoles = [...consoleRegistry.consoles].sort(
+    (left, right) => right.updatedAt - left.updatedAt,
+  );
+
+  const consoleLabel = (workConsole: WorkConsole): string =>
+    workConsole.workRef
+      ? `${workConsole.workRef.entityType === 'go' ? 'Go' : 'Work'} · ${workConsole.workRef.entityId}`
+      : 'Workspace assistant';
+
+  const consoleStatus = (workConsole: WorkConsole): string => {
+    const attempts = workConsole.attempts;
+    return attempts.length ? attempts[attempts.length - 1].status : 'idle';
+  };
+
   return (
     <div
       style={{
@@ -1469,11 +1535,7 @@ function SessionWorkspace({
     >
       <LauncherStrip
         profiles={availableAgentRuntimeProfiles(catalog)}
-        bindingLabel={
-          shell.params?.workEntityId
-            ? `Go · ${shell.params.workEntityId}`
-            : 'Workspace assistant'
-        }
+        bindingLabel={bindingLabel}
         busy={catalogBusy}
         loaded={catalog !== null}
         error={catalogError}
@@ -1485,7 +1547,71 @@ function SessionWorkspace({
         onRetry={() => void refreshCatalog()}
         onConfigure={() => shell.open('settings')}
       />
-      {panes.length > 0 && (
+      {!requestedWorkConsoleId && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            flexWrap: 'wrap',
+            paddingBottom: 6,
+            borderBottom: '1px solid #333',
+          }}
+        >
+          <button
+            type="button"
+            onClick={() =>
+              setSelectedConsoleId(assistantConsoleId(workspaceId))
+            }
+            style={{
+              ...iconButtonStyle,
+              color:
+                selectedConsoleId === assistantConsoleId(workspaceId)
+                  ? '#9cdcfe'
+                  : '#858585',
+              borderColor:
+                selectedConsoleId === assistantConsoleId(workspaceId)
+                  ? '#2d8fcc'
+                  : '#3a3a3a',
+            }}
+          >
+            🏠 Assistant
+          </button>
+          <button
+            type="button"
+            onClick={() => setConsoleCatalogOpen((current) => !current)}
+            aria-expanded={consoleCatalogOpen}
+            style={{ ...iconButtonStyle, color: '#858585' }}
+          >
+            ☰ All consoles · {orderedConsoles.length}
+          </button>
+          {consoleCatalogOpen &&
+            orderedConsoles.map((workConsole) => (
+              <button
+                key={workConsole.consoleId}
+                type="button"
+                onClick={() => {
+                  setSelectedConsoleId(workConsole.consoleId);
+                  setConsoleCatalogOpen(false);
+                }}
+                title={workConsole.consoleId}
+                style={{
+                  ...iconButtonStyle,
+                  color:
+                    selectedConsoleId === workConsole.consoleId
+                      ? '#9cdcfe'
+                      : '#858585',
+                }}
+              >
+                {workConsole.bindingKind === 'workspace-assistant'
+                  ? '🏠'
+                  : '🎯'}{' '}
+                {consoleLabel(workConsole)} · {consoleStatus(workConsole)}
+              </button>
+            ))}
+        </div>
+      )}
+      {scopedPanes.length > 0 && (
         <div
           style={{
             display: 'flex',
@@ -1497,7 +1623,7 @@ function SessionWorkspace({
             paddingBottom: 5,
           }}
         >
-          {panes.map((pane) => (
+          {scopedPanes.map((pane) => (
             <button
               key={pane.runId}
               type="button"
@@ -1528,14 +1654,15 @@ function SessionWorkspace({
             <button
               key={mode}
               type="button"
-              disabled={panes.length < paneCountForLayout(mode)}
+              disabled={scopedPanes.length < paneCountForLayout(mode)}
               onClick={() => selectPaneLayout(mode)}
               title={label}
               aria-label={label}
               style={{
                 ...iconButtonStyle,
                 color: paneLayout === mode ? '#9cdcfe' : '#858585',
-                opacity: panes.length < paneCountForLayout(mode) ? 0.35 : 1,
+                opacity:
+                  scopedPanes.length < paneCountForLayout(mode) ? 0.35 : 1,
               }}
             >
               {icon}
@@ -1547,12 +1674,12 @@ function SessionWorkspace({
         <div style={{ ...mono, fontSize: 11, color: '#c9a227' }}>{notice}</div>
       )}
       <RecoverableTray
-        sessions={recoverable}
+        sessions={scopedRecoverable}
         onReattach={reattach}
         onDismiss={dismiss}
         onRefresh={() => void refresh()}
       />
-      {panes.length === 0 ? (
+      {scopedPanes.length === 0 ? (
         <div
           style={{
             ...panelStyle,

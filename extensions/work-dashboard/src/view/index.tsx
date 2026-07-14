@@ -39,6 +39,11 @@ import { headingStyle, mono, panelStyle } from '@kungfu-tech/kfx';
 import React from 'react';
 import { resolveMissionControlProfileRoot } from './agent-console-launch';
 import {
+  dashboardPresentationMatches,
+  readDashboardPresentation,
+  writeDashboardPresentation,
+} from './dashboard-presentation';
+import {
   dashboardMetricVisuals,
   dashboardSnapshotVisual,
   missionControlProfileVisual,
@@ -365,6 +370,7 @@ function AtlasProjectionView({
   storage: Storage;
 }) {
   const initialDashboard = atlas.currentDashboard();
+  const savedPresentation = readDashboardPresentation(shell.state.settings);
   const [repoRoot, setRepoRoot] = React.useState(atlas.defaultRepoRoot);
   const [missions, setMissions] = React.useState<AtlasMission[]>(
     () => initialDashboard?.missions ?? [],
@@ -394,16 +400,24 @@ function AtlasProjectionView({
   const [profileSetupActor, setProfileSetupActor] = React.useState('');
   const profileSetupActorInput = React.useRef<HTMLInputElement>(null);
   const [profileSetupBusy, setProfileSetupBusy] = React.useState(false);
-  const [selectedMission, setSelectedMission] = React.useState<string>(() =>
-    missions.length ? missions[0].mission_id : 'all',
+  const [selectedMission, setSelectedMission] = React.useState<string>(
+    () =>
+      savedPresentation.selectedMission ||
+      (missions.length ? missions[0].mission_id : 'all'),
   );
-  const autoSelectMission = React.useRef(missions.length === 0);
+  const autoSelectMission = React.useRef(
+    !savedPresentation.selectedMission && missions.length === 0,
+  );
   const mounted = React.useRef(true);
   const assessmentRequest = React.useRef(0);
-  const [statusFilter, setStatusFilter] = React.useState<string>('all');
-  const [selectedGoal, setSelectedGoal] = React.useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = React.useState<string>(
+    savedPresentation.statusFilter || 'all',
+  );
+  const [selectedGoal, setSelectedGoal] = React.useState<string | null>(
+    savedPresentation.selectedGoal ?? null,
+  );
   const [displayMode, setDisplayMode] = React.useState<'visual' | 'audit'>(
-    'visual',
+    savedPresentation.displayMode || 'visual',
   );
   const [goalCardQuery, setGoalCardQuery] = React.useState<GoalCardQuerySpec>(
     () => ({
@@ -469,6 +483,20 @@ function AtlasProjectionView({
     };
   }, []);
 
+  React.useEffect(() => {
+    const presentation = {
+      selectedMission,
+      selectedGoal,
+      statusFilter,
+      displayMode,
+    };
+    if (dashboardPresentationMatches(shell.state.settings, presentation))
+      return;
+    shell.updateState({
+      settings: writeDashboardPresentation(shell.state.settings, presentation),
+    });
+  }, [displayMode, selectedGoal, selectedMission, shell, statusFilter]);
+
   const applyDashboard = React.useCallback(
     (snapshot: AtlasDashboardSnapshot) => {
       setInfo(snapshot.import_info);
@@ -500,6 +528,28 @@ function AtlasProjectionView({
     dashboardRefresh.request();
     return () => dashboardRefresh.dispose();
   }, [dashboardRefresh]);
+
+  React.useEffect(() => {
+    if (
+      missions.length > 0 &&
+      selectedMission !== 'all' &&
+      !missions.some((mission) => mission.mission_id === selectedMission)
+    ) {
+      setSelectedMission(missions[0].mission_id);
+      setSelectedGoal(null);
+      return;
+    }
+    if (
+      selectedGoal &&
+      !goals.some(
+        (goal) =>
+          goal.goal_id === selectedGoal &&
+          (selectedMission === 'all' || goal.mission_id === selectedMission),
+      )
+    ) {
+      setSelectedGoal(null);
+    }
+  }, [goals, missions, selectedGoal, selectedMission]);
 
   const refreshProfileStatus = React.useCallback(async () => {
     if (!profile) {
@@ -953,7 +1003,7 @@ function AtlasProjectionView({
       try {
         const profileRoot = await resolveMissionControlProfileRoot(profile);
         if (!mounted.current) return;
-        shell.open('terminal', {
+        const consoleParams = {
           workWorkspaceId:
             (typeof process !== 'undefined'
               ? process.env.KF_WORKSPACE_ID
@@ -966,13 +1016,20 @@ function AtlasProjectionView({
           workPurpose:
             goal.next_action || goal.summary || goal.title || goal.goal_id,
           workSystemTimeCut: dashboardCut || new Date().toISOString(),
-        });
+          contextTitle: goal.title || goal.goal_id,
+          contextSubtitle: currentMission?.title || goal.mission_id || 'Go',
+        };
+        if (shell.openContextualView) {
+          shell.openContextualView('terminal', consoleParams);
+        } else {
+          shell.open('terminal', consoleParams);
+        }
       } catch (error) {
         if (!mounted.current) return;
         setMessage(`Agent Console unavailable · ${(error as Error).message}`);
       }
     },
-    [dashboardCut, profile, shell],
+    [currentMission?.title, dashboardCut, profile, shell],
   );
   const goalTrustById = React.useMemo(
     () =>

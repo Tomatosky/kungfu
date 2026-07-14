@@ -1233,6 +1233,11 @@ export type SessionWindowRecord = {
 export type Shell = {
   // cross-kfx navigation with parameters; params reach the target view
   open: (kfxId: string, params?: Record<string, string>) => void;
+  // Present a KFX beside the current view without replacing its navigation
+  // context. The reference GUI renders this as a right-side contextual drawer;
+  // hosts that do not support contextual presentation leave these undefined.
+  openContextualView?: (kfxId: string, params?: Record<string, string>) => void;
+  closeContextualView?: () => void;
   // the params this view was last opened with
   params: Record<string, string>;
   // shared refresh bus (one shell-owned timer); returns the unsubscribe
