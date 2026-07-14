@@ -2497,10 +2497,10 @@ function runOrFail(cmd, args, opts = {}) {
  * @returns {string}
  */
 function resolveCorePython(coreDir) {
-  const environmentCandidates = [
-    process.env.UV_PROJECT_ENVIRONMENT,
-    path.join(coreDir, '.venv'),
-  ].filter(Boolean);
+  const environmentCandidates = [path.join(coreDir, '.venv')];
+  if (process.env.UV_PROJECT_ENVIRONMENT) {
+    environmentCandidates.unshift(process.env.UV_PROJECT_ENVIRONMENT);
+  }
   const executableNames =
     process.platform === 'win32' ? ['python.exe'] : ['python3', 'python'];
   for (const environment of environmentCandidates) {
