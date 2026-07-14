@@ -6,6 +6,10 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+import {
+  runtimeUpgradeUvCommand,
+  runtimeUvVersion,
+} from './run-runtime-upgrade-tests.mjs';
 import { checkUpgradeContract } from './upgrade-contract.mjs';
 
 test('upgrade contract weld and state fixtures stay complete', () => {
@@ -43,4 +47,22 @@ test('activation authority drift fails closed', () => {
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
+});
+
+test('runtime upgrade tests use the pinned uv through uvx when uv is absent', () => {
+  const command = runtimeUpgradeUvCommand(
+    ['run', '--frozen'],
+    (candidate) => candidate === 'uvx',
+  );
+  assert.deepEqual(command, {
+    command: 'uvx',
+    args: ['--from', `uv==${runtimeUvVersion}`, 'uv', 'run', '--frozen'],
+  });
+});
+
+test('runtime upgrade tests fail clearly when uv and uvx are absent', () => {
+  assert.throws(
+    () => runtimeUpgradeUvCommand(['run'], () => false),
+    /require uv or uvx/,
+  );
 });
