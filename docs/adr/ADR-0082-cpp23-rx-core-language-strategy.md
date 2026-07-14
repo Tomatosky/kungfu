@@ -225,7 +225,14 @@ maintenance under the policy, not an implementation gate for this decision.
    unsatisfied constraint now reports "constraints not satisfied" instead of a
    bare "no type named 'type' in enable_if". No flag-day: remaining SFINAE sites
    may migrate in later maintenance batches when a touched API benefits from
-   clearer diagnostics.
+   clearer diagnostics. A second maintenance batch converts the five `data<T>`
+   member-initialization and JSON-decoding overloads from
+   `enable_if_t<..., void>` to named concepts plus `requires`. Their two-way and
+   three-way partitions, explicit `void` return, and function bodies remain
+   unchanged. The accompanying inventory keeps 14 partial-specialization sites
+   on SFINAE because concepts do not remove their specialization-selection role,
+   and defers the four SQLite `make_default` seam overloads to separately scoped
+   validation rather than forcing a quantity-driven migration.
 4. **Implemented without a deducing-this migration.** Ranges landed:
    `reader::sort_without_buffer()` discharges the `reader.cpp` TODO it named —
    the manual filter loop plus `std::max_element` is now
