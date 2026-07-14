@@ -1,0 +1,666 @@
+{
+  "schema": "kungfu.product-upgrade.contract/v1",
+  "id": "kungfu-product-upgrade",
+  "version": 1,
+  "weldedSurface": "product-upgrade-control-plane",
+  "description": "Shared release identity, immutable runtime image, planning, activation, rollback, and garbage-collection contract for desktop and CLI products.",
+  "contractSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema",
+      "id",
+      "version",
+      "weldedSurface",
+      "description",
+      "authority",
+      "states",
+      "reasonCodes",
+      "invariants",
+      "valueSchemaBundle"
+    ],
+    "properties": {
+      "schema": {
+        "const": "kungfu.product-upgrade.contract/v1"
+      },
+      "id": {
+        "const": "kungfu-product-upgrade"
+      },
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "weldedSurface": {
+        "const": "product-upgrade-control-plane"
+      },
+      "description": {
+        "type": "string",
+        "minLength": 1
+      },
+      "contractSchema": {
+        "type": "object"
+      },
+      "authority": {
+        "type": "object"
+      },
+      "states": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true
+      },
+      "reasonCodes": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true
+      },
+      "invariants": {
+        "type": "array",
+        "minItems": 1
+      },
+      "valueSchemaBundle": {
+        "type": "object"
+      }
+    }
+  },
+  "authority": {
+    "releaseTransport": "desktop-or-cli-distribution-adapter",
+    "install": "runtime-image-inventory",
+    "activation": "kungfu-core-runtime-upgrade-controller",
+    "readiness": "kungfu-runtime-readiness-authority",
+    "durableFacts": "yijinjing-journal-and-episode",
+    "rule": "Transport and installers may stage verified bytes, but only Core may select, fence, reconcile, commit, roll back, or collect a runtime generation."
+  },
+  "states": [
+    "checking",
+    "download-allowed",
+    "apply-now",
+    "defer-until-idle",
+    "compatible-handoff",
+    "resume-required",
+    "blocked-incompatible",
+    "applying",
+    "reconciling",
+    "complete",
+    "failed-rolled-back",
+    "action-required"
+  ],
+  "reasonCodes": [
+    "target-not-installed",
+    "already-current",
+    "workspace-idle",
+    "active-work-compatible",
+    "active-work-incompatible",
+    "provider-resume-required",
+    "provider-resume-unsupported",
+    "irreversible-migration-needs-approval",
+    "rollback-unavailable",
+    "stale-generation",
+    "readiness-failed",
+    "unknown-image-reference",
+    "safe-to-collect"
+  ],
+  "invariants": [
+    "installing bytes never grants live runtime authority",
+    "every live generation pins one immutable runtimeBuildId and artifactRoot",
+    "a new generation becomes active only after semantic readiness succeeds",
+    "active work is never killed merely to make an update automatic",
+    "irreversible migration requires explicit backup or restore evidence and approval",
+    "rollback and garbage collection never delete Episode or workspace facts",
+    "unknown image ownership or references fail closed"
+  ],
+  "valueSchemaBundle": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://libkungfu.dev/schemas/product-upgrade/v1.schema.json",
+    "oneOf": [
+      {
+        "$ref": "#/$defs/releaseManifest"
+      },
+      {
+        "$ref": "#/$defs/runtimeImage"
+      },
+      {
+        "$ref": "#/$defs/runtimeReference"
+      },
+      {
+        "$ref": "#/$defs/upgradePlan"
+      },
+      {
+        "$ref": "#/$defs/upgradeReceipt"
+      },
+      {
+        "$ref": "#/$defs/gcPlan"
+      }
+    ],
+    "$defs": {
+      "contentRoot": {
+        "type": "string",
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      "uint64": {
+        "type": "string",
+        "pattern": "^(0|[1-9][0-9]*)$"
+      },
+      "closedRange": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "min",
+          "max"
+        ],
+        "properties": {
+          "min": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "max": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "artifact": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "url",
+          "size",
+          "digest",
+          "signature"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "runtime",
+              "desktop",
+              "cli"
+            ]
+          },
+          "url": {
+            "type": "string",
+            "minLength": 1
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "digest": {
+            "$ref": "#/$defs/contentRoot"
+          },
+          "signature": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "releaseManifest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema",
+          "productVersion",
+          "releaseChannel",
+          "sourceCommit",
+          "runtimeBuildId",
+          "runtimeArtifactDigest",
+          "runtimeEntrypoint",
+          "frontendBuildId",
+          "controlProtocolRange",
+          "peerWireProtocolRange",
+          "journalSchemaReadRange",
+          "journalSchemaWriteVersion",
+          "migrationClass",
+          "rollbackClass",
+          "minimumSupportedFrontend",
+          "minimumSupportedRuntime",
+          "platform",
+          "architecture",
+          "artifacts",
+          "qualificationEvidenceRef",
+          "documentationUrl"
+        ],
+        "properties": {
+          "schema": {
+            "const": "kungfu.product-upgrade.manifest/v1"
+          },
+          "productVersion": {
+            "type": "string",
+            "minLength": 1
+          },
+          "releaseChannel": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._/-]+$"
+          },
+          "sourceCommit": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{40}$"
+          },
+          "runtimeBuildId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._-]+$"
+          },
+          "runtimeArtifactDigest": {
+            "$ref": "#/$defs/contentRoot"
+          },
+          "runtimeEntrypoint": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?![/\\\\])(?!.*(?:^|[/\\\\])\\.\\.(?:[/\\\\]|$)).+$"
+          },
+          "frontendBuildId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._-]+$"
+          },
+          "controlProtocolRange": {
+            "$ref": "#/$defs/closedRange"
+          },
+          "peerWireProtocolRange": {
+            "$ref": "#/$defs/closedRange"
+          },
+          "journalSchemaReadRange": {
+            "$ref": "#/$defs/closedRange"
+          },
+          "journalSchemaWriteVersion": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "migrationClass": {
+            "enum": [
+              "none",
+              "reversible",
+              "irreversible"
+            ]
+          },
+          "rollbackClass": {
+            "enum": [
+              "automatic",
+              "manual",
+              "none"
+            ]
+          },
+          "minimumSupportedFrontend": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minimumSupportedRuntime": {
+            "type": "string",
+            "minLength": 1
+          },
+          "platform": {
+            "enum": [
+              "darwin",
+              "linux",
+              "win32"
+            ]
+          },
+          "architecture": {
+            "enum": [
+              "arm64",
+              "x64"
+            ]
+          },
+          "artifacts": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/artifact"
+            }
+          },
+          "qualificationEvidenceRef": {
+            "type": "string",
+            "minLength": 1
+          },
+          "documentationUrl": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "runtimeImage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema",
+          "buildId",
+          "artifactRoot",
+          "manifestDigest",
+          "entrypoint",
+          "installedAtNs",
+          "state",
+          "manifest"
+        ],
+        "properties": {
+          "schema": {
+            "const": "kungfu.runtime-image/v1"
+          },
+          "buildId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._-]+$"
+          },
+          "artifactRoot": {
+            "type": "string",
+            "minLength": 1
+          },
+          "manifestDigest": {
+            "$ref": "#/$defs/contentRoot"
+          },
+          "entrypoint": {
+            "type": "string",
+            "minLength": 1
+          },
+          "installedAtNs": {
+            "$ref": "#/$defs/uint64"
+          },
+          "state": {
+            "enum": [
+              "verified",
+              "quarantined"
+            ]
+          },
+          "manifest": {
+            "$ref": "#/$defs/releaseManifest"
+          }
+        }
+      },
+      "runtimeReference": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema",
+          "ownerKind",
+          "ownerId",
+          "buildId",
+          "state"
+        ],
+        "properties": {
+          "schema": {
+            "const": "kungfu.runtime-image-reference/v1"
+          },
+          "ownerKind": {
+            "enum": [
+              "process",
+              "generation",
+              "lease",
+              "rollback-window",
+              "recovery"
+            ]
+          },
+          "ownerId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "buildId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._-]+$"
+          },
+          "state": {
+            "enum": [
+              "active",
+              "retained",
+              "released"
+            ]
+          }
+        }
+      },
+      "compatibilityDecision": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "controlProtocol",
+          "peerWireProtocol",
+          "schemaReadable",
+          "rollbackReadable"
+        ],
+        "properties": {
+          "controlProtocol": {
+            "type": "boolean"
+          },
+          "peerWireProtocol": {
+            "type": "boolean"
+          },
+          "schemaReadable": {
+            "type": "boolean"
+          },
+          "rollbackReadable": {
+            "type": "boolean"
+          }
+        }
+      },
+      "upgradePlan": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema",
+          "planId",
+          "workspaceId",
+          "state",
+          "reasonCode",
+          "current",
+          "target",
+          "activeGeneration",
+          "expectedGeneration",
+          "references",
+          "compatibility",
+          "impact",
+          "nextAction",
+          "createdAtNs"
+        ],
+        "properties": {
+          "schema": {
+            "const": "kungfu.runtime-upgrade-plan/v1"
+          },
+          "planId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "workspaceId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "state": {
+            "enum": [
+              "checking",
+              "download-allowed",
+              "apply-now",
+              "defer-until-idle",
+              "compatible-handoff",
+              "resume-required",
+              "blocked-incompatible",
+              "action-required",
+              "complete"
+            ]
+          },
+          "reasonCode": {
+            "type": "string",
+            "minLength": 1
+          },
+          "current": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/runtimeImage"
+              }
+            ]
+          },
+          "target": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/releaseManifest"
+              },
+              {
+                "$ref": "#/$defs/runtimeImage"
+              }
+            ]
+          },
+          "activeGeneration": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/uint64"
+              }
+            ]
+          },
+          "expectedGeneration": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/uint64"
+              }
+            ]
+          },
+          "references": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/runtimeReference"
+            }
+          },
+          "compatibility": {
+            "$ref": "#/$defs/compatibilityDecision"
+          },
+          "impact": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "activeWorkContinues",
+              "activationTiming",
+              "userActionRequired"
+            ],
+            "properties": {
+              "activeWorkContinues": {
+                "type": "boolean"
+              },
+              "activationTiming": {
+                "type": "string",
+                "minLength": 1
+              },
+              "userActionRequired": {
+                "type": "boolean"
+              }
+            }
+          },
+          "nextAction": {
+            "type": "string",
+            "minLength": 1
+          },
+          "createdAtNs": {
+            "$ref": "#/$defs/uint64"
+          }
+        }
+      },
+      "upgradeReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema",
+          "receiptId",
+          "planId",
+          "workspaceId",
+          "state",
+          "generation",
+          "previous",
+          "target",
+          "reasonCode",
+          "createdAtNs"
+        ],
+        "properties": {
+          "schema": {
+            "const": "kungfu.runtime-upgrade-receipt/v1"
+          },
+          "receiptId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "planId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "workspaceId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "state": {
+            "enum": [
+              "applying",
+              "reconciling",
+              "complete",
+              "failed-rolled-back",
+              "action-required"
+            ]
+          },
+          "generation": {
+            "$ref": "#/$defs/uint64"
+          },
+          "previous": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/runtimeImage"
+              }
+            ]
+          },
+          "target": {
+            "$ref": "#/$defs/runtimeImage"
+          },
+          "reasonCode": {
+            "type": "string",
+            "minLength": 1
+          },
+          "createdAtNs": {
+            "$ref": "#/$defs/uint64"
+          }
+        }
+      },
+      "gcPlan": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema",
+          "planId",
+          "state",
+          "candidates",
+          "blocked",
+          "createdAtNs"
+        ],
+        "properties": {
+          "schema": {
+            "const": "kungfu.runtime-image-gc-plan/v1"
+          },
+          "planId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "state": {
+            "enum": [
+              "complete",
+              "action-required"
+            ]
+          },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/runtimeImage"
+            }
+          },
+          "blocked": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/runtimeImage"
+            }
+          },
+          "createdAtNs": {
+            "$ref": "#/$defs/uint64"
+          }
+        }
+      }
+    }
+  }
+}

@@ -488,6 +488,22 @@ function checkLiveRuntimeTerminology() {
   ]);
 }
 
+function checkUpgradeContract() {
+  run('runtime upgrade contract gate', 'node', [
+    path.join('scripts', 'check-upgrade-contract.mjs'),
+  ]);
+}
+
+function testUpgradeControlPlane() {
+  run('runtime upgrade contract tests', 'node', [
+    '--test',
+    path.join('scripts', 'check-upgrade-contract.test.mjs'),
+  ]);
+  run('runtime upgrade control-plane tests', 'node', [
+    path.join('scripts', 'run-runtime-upgrade-tests.mjs'),
+  ]);
+}
+
 function checkDocs() {
   run('Markdown documentation gate', 'node', [
     path.join('scripts', 'run-docs-check.mjs'),
@@ -587,6 +603,7 @@ function checkStaged() {
   checkSchemaAuthority();
   checkJournalAuthorityBoundary();
   checkLiveRuntimeTerminology();
+  checkUpgradeContract();
   checkAdrIdentities();
   checkDocs();
   const files = stagedFiles();
@@ -639,6 +656,7 @@ function checkShared() {
   testSchemaAuthority();
   checkJournalAuthorityBoundary();
   checkLiveRuntimeTerminology();
+  testUpgradeControlPlane();
   checkAdrIdentities();
   checkDocs();
   run('journal manager type check', 'pnpm', [
@@ -678,6 +696,7 @@ function checkChanged() {
   checkSchemaAuthority();
   checkJournalAuthorityBoundary();
   checkLiveRuntimeTerminology();
+  checkUpgradeContract();
   const files = changedFiles();
   checkPythonFiles('changed', files);
   checkBiomeFiles('changed', files);
@@ -698,6 +717,7 @@ function checkAll() {
   checkSchemaAuthority();
   checkJournalAuthorityBoundary();
   checkLiveRuntimeTerminology();
+  checkUpgradeContract();
   run('repo lint + format check', 'pnpm', ['run', 'lint']);
   checkRustFiles('all', [], { force: true });
   checkBuildchainKfdEvidence([], { force: true });

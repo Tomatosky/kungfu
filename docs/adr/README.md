@@ -156,6 +156,7 @@ implemented and qualified or explicitly waived for that release.
 | [0084](ADR-0084-kfd1-durability-policy-and-runtime-admission.md) | accepted | KFD-1 durability configuration records requested policy; native runtime admission derives the effective fail-closed policy |
 | [0085](ADR-0085-codex-app-server-structured-hybrid-adapter.md) | accepted | Codex App Server is an exact-version structured-hybrid adapter over the shared Agent Interaction Port, with attempt-level PTY fallback and fail-closed schema drift |
 | [0086](ADR-0086-live-peer-continuity-and-coordinator-authority.md) | accepted | live peers reconnect through a shared runtime-generation and coordinator-epoch authority fence, then rebootstrap before readiness |
+| [0087](ADR-0087-versioned-product-runtime-upgrade-control-plane.md) | accepted | product upgrades install verified immutable runtime images first; Core alone plans, fences, activates, rolls back, and reference-collects generations for GUI and CLI |
 | [SHIFU-0001](SHIFU-ADR-0001-cache-profile-contract-and-ownership.md) | accepted | Cache profiles are Shifu-owned contracts; inventories project instances and Buildchain owns process |
 | [SHIFU-0002](SHIFU-ADR-0002-local-artifact-catalog-and-safe-promotion.md) | accepted | Shifu and Kungfu product artifacts share provenance-aware, Git-safe local promotion semantics |
 | [SHIFU-0003](SHIFU-ADR-0003-uv-effective-lock-cache-enforcement.md) | accepted | Strict uv cache execution uses a disposable effective lock while canonical locks stay public |
