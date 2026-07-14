@@ -208,6 +208,62 @@
       }
     },
     {
+      "id": "manual-gate-measurement",
+      "execution": "profile",
+      "workflow": ".github/workflows/gate-measurement.yml",
+      "job": "measure",
+      "profiles": [
+        "measurement"
+      ],
+      "gates": [
+        "gate.catalog",
+        "governance.adr-delivery",
+        "governance.promotion-rehearsal",
+        "source.acceptance",
+        "source.changed-scope",
+        "source.whole-tree",
+        "docs.contracts",
+        "docs.prose",
+        "docs.external-links",
+        "shifu.workspace",
+        "product.distribution",
+        "product.verify-full",
+        "product.verify-fuzz",
+        "layers.contract",
+        "layers.format",
+        "layers.sdk",
+        "layers.surfaces",
+        "layers.release",
+        "episode.smoke",
+        "episode.release",
+        "embedding.membranes",
+        "mmap.contracts",
+        "mmap.performance",
+        "durability.contracts",
+        "state-service.contracts",
+        "profile.suite",
+        "profile.lifecycle",
+        "profile.agent-sdk",
+        "profile.kfd3",
+        "runtime.durable-ingest",
+        "runtime.projection-bootstrap",
+        "runtime.crash-recovery",
+        "runtime.errors",
+        "toolchain.cpp-modules",
+        "toolchain.libwasm-cache"
+      ],
+      "activation": "manual source-bound measurement only; never a publication policy",
+      "currentSource": false,
+      "invocation": {
+        "uses": "kungfu-systems/buildchain/.github/workflows/.gate-profile.yml@a6145efc210a961da0e5c63d7024d42061550f60",
+        "with": {
+          "gate-profile": "measurement",
+          "runner-preset": "kungfu-v4-self-hosted",
+          "gate-command-json": "{\"linux\":[\"./shifu\"],\"macos\":[\"./shifu\"],\"windows\":[\"./shifu.cmd\"]}"
+        }
+      }
+    },
+    {
       "id": "channel-heavy-build",
       "execution": "controller",
       "workflow": ".github/workflows/build.yml",

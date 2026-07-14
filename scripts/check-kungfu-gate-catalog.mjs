@@ -383,7 +383,10 @@ function gatePlatformsLine(gate) {
 
 function gateCurrentSourceLine(gate, bindings) {
   const sources = bindings
-    .filter((binding) => binding.gates?.includes(gate.id))
+    .filter(
+      (binding) =>
+        binding.currentSource !== false && binding.gates?.includes(gate.id),
+    )
     .map(
       (binding) =>
         `${binding.workflow} (${binding.job}; ${binding.activation})`,
@@ -631,6 +634,12 @@ export function checkKungfuGateCatalog(root = ROOT) {
     bindingIds.add(binding.id);
     if (!binding.job || !binding.activation) {
       issues.push(`[workflow] ${binding.id}: job and activation are required`);
+    }
+    if (
+      Object.hasOwn(binding, 'currentSource') &&
+      typeof binding.currentSource !== 'boolean'
+    ) {
+      issues.push(`[workflow] ${binding.id}: currentSource must be boolean`);
     }
     if (Object.hasOwn(binding, 'requiredSnippets')) {
       issues.push(
