@@ -4,8 +4,8 @@ doc_type: architecture-decision
 adr_id: ADR-0085
 decision_status: accepted
 implementation_status: staged
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/849]
-qualification_refs: [framework/agent-session/tests/codex-app-server-contract.test.mjs, framework/agent-session/tests/codex-app-server-schema.native.test.mjs, framework/agent-session/schemas/codex-app-server/codex-v0.144.3-stable-schema-manifest.json]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/849, https://github.com/kungfu-systems/kungfu/pull/850]
+qualification_refs: [framework/agent-session/tests/codex-app-server-contract.test.mjs, framework/agent-session/tests/codex-app-server-schema.native.test.mjs, framework/agent-session/tests/codex-app-server-runtime.test.mjs, framework/agent-session/schemas/codex-app-server/codex-v0.144.3-stable-schema-manifest.json]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -162,6 +162,12 @@ contract major and an explicit migration.
    surfaces are stable.
 6. Qualify provider routing, real Codex dogfood, Mac Product build, and
    promotion with the PTY route.
+
+Stage 2 is delivered by PR #850: the reader is installed before initialize,
+request and server-request ids are correlated exactly, every post-handshake
+write carries attempt/generation/process fencing, and the in-memory consumer
+queue freezes admission before its hard bound. Runtime or stdout loss leaves the
+old attempt outcome unknown and never triggers input replay.
 
 ## Rejected alternatives
 
