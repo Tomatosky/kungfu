@@ -120,6 +120,7 @@ export function sourceAcceptancePlan(files) {
         'scripts/prepare-durability-powercut-qemu.test.mjs',
         'scripts/run-durability-fault-campaign.test.mjs',
         'scripts/run-durability-institutional-qemu.test.mjs',
+        'scripts/run-durability-slo.test.mjs',
       ],
     },
     {

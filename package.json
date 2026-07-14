@@ -81,6 +81,7 @@
     "durability:powercut:qemu": "node scripts/require-shifu.mjs durability:powercut:qemu && node scripts/run-durability-powercut-qemu.mjs",
     "durability:fault-campaign:qemu": "node scripts/require-shifu.mjs durability:fault-campaign:qemu && node scripts/run-durability-fault-campaign.mjs",
     "durability:institutional:qemu": "node scripts/require-shifu.mjs durability:institutional:qemu && node scripts/run-durability-institutional-qemu.mjs",
+    "durability:slo": "node scripts/require-shifu.mjs durability:slo && node scripts/run-durability-slo.mjs",
     "layers:qualify": "node scripts/require-shifu.mjs layers:qualify && node tests/qualification/layers/run.mjs",
     "layers:qualify:format": "node scripts/require-shifu.mjs layers:qualify:format && node tests/qualification/layers/format/run.mjs",
     "layers:qualify:sdk": "node scripts/require-shifu.mjs layers:qualify:sdk && node tests/qualification/layers/sdk/run.mjs",

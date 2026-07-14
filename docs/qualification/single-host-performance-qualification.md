@@ -5,11 +5,11 @@ doc_type: release-gate-contract
 review_state: self-reviewed
 sensitivity: public
 sources: [architecture-decisions, local-files, public-reference-systems]
-period: 2026-07-12
+period: 2026-07-14
 theme: single-host-performance-qualification
 confidence: high
 evidence_grade: B
-last_reviewed: 2026-07-12
+last_reviewed: 2026-07-14
 ---
 
 # Single-host end-to-end performance qualification
@@ -225,6 +225,32 @@ The release evidence must expose, in machine-readable form:
 - comparator results marked `informative`, never `release_authority`;
 - residual risks, unsupported envelopes, and explicit non-claims;
 - final `admitted`, `rejected`, or `unqualified` decision.
+
+## Current hardware candidate slice
+
+The first executable slice is now frozen as
+`linux-ext4-agent120-slo-v1`. It is deliberately narrower than the complete
+profile above: it qualifies the explicit KFDL candidate's `durable_group` and
+`durable_sync` paths on the named `agent-120` Linux/x86_64/NVMe/ext4 worktree.
+It includes single-record latency, batched throughput, rapid 64 KiB segment
+rollover, recovery, projection rebuild/bootstrap, same-host offline
+backup/restore, and one 15-minute sustained run per durability profile.
+
+The absolute ceilings live in the versioned machine profile and were frozen
+before the first agent-120 measurement. Correctness is a knockout. The runner
+retains complete p50/p95/p99/p99.9/max histograms and resource counters, fsyncs
+each raw JSONL result before continuing, refuses existing evidence paths, and
+never invokes GitHub CI. Its command is:
+
+```sh
+./shifu durability:slo -- --run-id SOURCE-agent120-slo-v1
+```
+
+This slice has no Aeron comparator and cannot admit the complete Single-Host
+Institutional Profile. In particular it does not qualify the mmap visible
+frame/typed-agent path, multi-reader backpressure, another host or filesystem,
+physical power loss, off-host backup, or a production-default activation.
+Those remain separate gates rather than inferred results.
 
 The public capability surface may advertise a performance profile only when it
 can resolve to this retained report. Absence, staleness, version drift, or an

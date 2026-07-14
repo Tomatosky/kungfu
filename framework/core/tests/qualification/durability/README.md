@@ -170,6 +170,33 @@ restart the physical QEMU host, move the backup off-host, establish an
 independent backup failure domain, or activate a production profile; the
 machine report records each of those as `false`.
 
+## Agent-120 absolute durability SLO
+
+`./shifu durability:slo` owns the build-tree-local, default-dry-run performance
+slice for `candidate/linux-ext4-agent120-slo-v1`. The profile freezes eight
+workloads before measurement: latency, batched throughput, rapid rollover, and
+15-minute soak runs for both `durable_group` and `durable_sync`. Each run keeps
+complete latency histograms plus recovery, projection, backup/restore, CPU,
+RSS, fault, I/O, mapped-region, and retained-byte measurements.
+
+```sh
+./shifu durability:slo -- --run-id SOURCE-agent120-slo-v1
+```
+
+Execution is local to the exact clean agent-120 worktree and requires the
+explicit `KUNGFU_DURABILITY_SLO_CONFIRMATION=agent120-slo-v1` safeguard. It
+creates only a new run under
+`framework/core/build/qualification/durability-slo/`, fsyncs each append-only
+raw result, refuses an existing workspace or report, and never dispatches a
+GitHub workflow or self-hosted runner. Correctness failure is a knockout; a
+latency or throughput miss is retained as a rejected candidate rather than
+being hidden by changing the frozen profile.
+
+This is an absolute usability gate for one named Linux/x86_64/NVMe/ext4 host.
+It has no comparator, does not qualify the mmap visible path or another host,
+and keeps physical-power-loss, off-host-backup, and production eligibility
+false.
+
 ## Files
 
 - `profiles/*.json` freezes the platform/filesystem process profiles.
@@ -190,3 +217,7 @@ machine report records each of those as `false`.
   before continuing and preserves incomplete or failed workspaces.
 - `scripts/run-durability-institutional-qemu.mjs` owns the explicit real
   ENOSPC, whole-guest reopen, and offline backup/restore drill.
+- `profiles/linux-ext4-agent120-slo-v1.json` freezes the named host's absolute
+  durability SLO and soak workload before its first retained measurement.
+- `scripts/run-durability-slo.mjs` owns its project-local dry-run, execution,
+  append-only raw evidence, correctness knockout, and aggregate verdict.

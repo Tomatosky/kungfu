@@ -133,7 +133,7 @@ as the adoption checklist. Until the named durability profile and exact
 platform/filesystem/device envelope have retained passing evidence, the
 institutional status remains evaluation or controlled shadow operation.
 
-## The single-host end-to-end performance release gate is not yet qualified
+## The single-host end-to-end performance release gate is only partially qualified
 
 The existing mmap qualification measures component behavior and prevents
 speculative policy tuning. It does not establish a product-level latency,
@@ -141,11 +141,20 @@ throughput, resource, replay, recovery, or restore SLO for the complete
 single-host institutional profile.
 
 The [Single-host end-to-end performance qualification](single-host-performance-qualification.md)
-now defines that post-correctness release gate. Its versioned absolute
-thresholds, harness, sustained-load tier, retained reports, and product
-capability integration remain to be implemented. Aeron IPC and Aeron Archive
-may be used as declared reference comparators, but Kungfu currently makes no
-`Aeron-class`, equivalence, compatibility, or superiority claim.
+defines that post-correctness release gate. A first frozen
+`linux-ext4-agent120-slo-v1` harness now measures both candidate durability
+profiles under latency, batched throughput, rapid rollover, and two 15-minute
+soak workloads, together with recovery, projection, same-host backup/restore,
+and resource ceilings. It is default-dry-run, build-tree-local, and never
+dispatches GitHub CI.
+
+This does not yet qualify the complete gate. Retained agent-120 execution,
+visible raw/typed paths, fan-out and slow-reader behavior, wider Episode paths,
+cross-platform storage envelopes, and product capability integration remain
+pending. Aeron IPC and Aeron Archive may be used as declared reference
+comparators, but the current profile intentionally has no comparator and
+Kungfu makes no `Aeron-class`, equivalence, compatibility, or superiority
+claim.
 
 ## The GitHub build-and-release path is still being brought up
 

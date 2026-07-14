@@ -235,7 +235,7 @@ one Episode must not silently invalidate unrelated Episodes.
 | E. Independent KFDL segment/checkpoint backend | **implemented (test-only shadow)** | append-only binary records, SHA-256 coverage, rollover, dual-slot atomic checkpoint, explicit data/checkpoint/directory barriers, persisted request deduplication, cooperative deadline/unknown handling, typed service-unavailable, fenced generations, fail-stop unknown append sessions, and retained tails; production profiles remain disabled |
 | F. Snapshot-through-T projection bootstrap | **implemented (candidate edge)** | versioned binary snapshot, integrity/schema/cut verification, strict replay-after-T, typed required/optional/none outcomes, deterministic rebuild, same-cut compatibility parity, complete hydration validation before required-peer registration, state emission before `RequestStart`, and state-service ownership; the explicit path is default-off and production-ineligible, while default cutover and bridge deletion remain pending |
 | G. Local strong-durability qualification | **implemented for named process/disposable envelopes** | retained three-platform process-crash reports plus the agent-120 Linux/ext4 candidate run cover 360/360 seeded VM/device-model cuts, real ENOSPC, repeated reopen, fsck/hash, Episode load, and same-host external-path restore; the machine reports remain fail-closed for production, physical-host power loss, off-host backup, and independent failure domains |
-| H. Single-host end-to-end performance release gate | **planned** | after correctness passes, qualify absolute latency, throughput, long-tail, resource, replay, recovery, and restore ceilings without weakening semantics |
+| H. Single-host end-to-end performance release gate | **partially implemented (named durability candidate)** | the frozen `linux-ext4-agent120-slo-v1` harness now covers absolute `durable_group`/`durable_sync` latency, throughput, rollover, 30 minutes of aggregate soak, resource, recovery, projection, and same-host backup/restore ceilings; retained agent-120 execution and the wider visible/typed/multi-reader product surfaces remain separate admission work |
 | I. Replication and HA | **future** | add a separate replicated watermark and policy only after local durability is trustworthy |
 
 Passing Stage G in a disposable VM does not qualify a production deployment.
@@ -280,6 +280,14 @@ must then prove the declared operational envelope. Its release authority comes
 from Kungfu's frozen absolute thresholds and retained evidence; Aeron IPC and
 Aeron Archive may be reported as reference comparators but do not define the
 pass/fail contract.
+
+The first post-correctness executable gate is
+`./shifu durability:slo -- --run-id SOURCE-agent120-slo-v1`. It is a
+default-dry-run, project-local harness: no GitHub workflow or self-hosted runner
+is involved. Its profile was frozen before measurement, a correctness failure
+stops later workloads, and every raw result is fsynced before the aggregate
+verdict. Even a passing result remains a named agent-120 durability candidate,
+not physical-power-loss evidence or production admission.
 
 ## Detailed records
 
