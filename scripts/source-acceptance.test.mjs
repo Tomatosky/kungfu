@@ -25,6 +25,17 @@ test('Python source checks use uvx when a bare ruff is unavailable', () => {
   });
 });
 
+test('Python source checks use uv tool run when the uvx shim is absent', () => {
+  const command = sourcePythonCommand(
+    ['format', '--check'],
+    (candidate) => candidate === 'uv',
+  );
+  assert.deepEqual(command, {
+    command: 'uv',
+    args: ['tool', 'run', 'ruff', 'format', '--check'],
+  });
+});
+
 test('Python type checks use the pinned CI mypy when it is healthy', () => {
   const command = sourceMypyCommand(
     ['--config-file', 'pyproject.toml'],
@@ -49,6 +60,25 @@ test('Python type checks isolate a broken ambient mypy behind pinned uvx', () =>
   });
 });
 
+test('Python type checks use pinned uv tool run without a uvx shim', () => {
+  const command = sourceMypyCommand(
+    ['--config-file', 'pyproject.toml'],
+    (candidate) => candidate === 'uv',
+  );
+  assert.deepEqual(command, {
+    command: 'uv',
+    args: [
+      'tool',
+      'run',
+      '--from',
+      'mypy==1.20.2',
+      'mypy',
+      '--config-file',
+      'pyproject.toml',
+    ],
+  });
+});
+
 test('source plan covers representative source-only checks', () => {
   const plan = sourceAcceptancePlan([
     'scripts/example.mjs',
@@ -67,7 +97,7 @@ test('source plan covers representative source-only checks', () => {
   const typeBaseline = plan.find(
     (step) => step.label === 'Python type baseline',
   );
-  assert.ok(['mypy', 'uvx'].includes(typeBaseline.command));
+  assert.ok(['mypy', 'uvx', 'uv'].includes(typeBaseline.command));
   assert.deepEqual(typeBaseline.args.slice(-3), [
     '--config-file',
     'pyproject.toml',

@@ -45,7 +45,10 @@ function commandProbe(command, args) {
 export function sourcePythonCommand(args, available = commandAvailable) {
   if (available('ruff')) return { command: 'ruff', args };
   if (available('uvx')) return { command: 'uvx', args: ['ruff', ...args] };
-  throw new Error('source acceptance requires ruff or uvx');
+  if (available('uv')) {
+    return { command: 'uv', args: ['tool', 'run', 'ruff', ...args] };
+  }
+  throw new Error('source acceptance requires ruff, uvx, or uv');
 }
 
 export function sourceMypyCommand(
@@ -66,7 +69,13 @@ export function sourceMypyCommand(
       args: ['--from', 'mypy==1.20.2', 'mypy', ...args],
     };
   }
-  throw new Error('source acceptance requires mypy 1.20.2 or uvx');
+  if (available('uv')) {
+    return {
+      command: 'uv',
+      args: ['tool', 'run', '--from', 'mypy==1.20.2', 'mypy', ...args],
+    };
+  }
+  throw new Error('source acceptance requires mypy 1.20.2, uvx, or uv');
 }
 
 export function sourceMergeBase() {
