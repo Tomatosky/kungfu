@@ -4,7 +4,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
-import { cliArchiveBase, verifyProductObservabilityEvents } from './dist.mjs';
+import {
+  cliArchiveBase,
+  kfxBundleExternalModules,
+  verifyProductObservabilityEvents,
+} from './dist.mjs';
 
 const require = createRequire(import.meta.url);
 const workDashboardPackage = require('../../extensions/work-dashboard/package.json');
@@ -91,6 +95,19 @@ test('work dashboard declares the storage handle used by its query stream', () =
       'storage',
     ),
   );
+});
+
+test('product kfx gate sees bundle externals but ignores window.require', () => {
+  const code = [
+    'var query = require("@kungfu-tech/api/query");',
+    'var react = require("react");',
+    'window.require("node:fs");',
+    'win.require("node:path");',
+  ].join('\n');
+  assert.deepEqual(kfxBundleExternalModules(code), [
+    '@kungfu-tech/api/query',
+    'react',
+  ]);
 });
 
 test('desktop product carries the installed Agent authoring runtime', () => {

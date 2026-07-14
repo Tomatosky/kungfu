@@ -1,4 +1,5 @@
 import * as capability from '@kungfu-tech/api/capability';
+import * as query from '@kungfu-tech/api/query';
 // Reference app shell: boots the in-process runtime and mounts kfx loaded
 // from extension packages. The shell owns system concerns only — extension
 // scanning and lifecycle, capability injection by declaration, navigation
@@ -57,6 +58,7 @@ import {
   WORKSPACE_SELECT_RECENT_CHANNEL,
 } from '../../sandbox/channels';
 import { publishRefresh } from '../../sandbox/refresh';
+import { createKfxSharedModules } from '../shared-modules';
 import {
   loadKungfuConfig,
   normalizedUiConfig,
@@ -71,14 +73,16 @@ import { sandboxClient } from './sandbox-client';
 import { DEFAULT_STATE, loadShellState, saveShellState } from './shell-state';
 
 // Modules injected into every kfx bundle (the externals contract of
-// `kungfu sdk kfx build`): one React instance, one capability surface.
-const SHARED_MODULES = {
+// `kungfu sdk kfx build`): one React instance and the public API surfaces.
+const SHARED_MODULES = createKfxSharedModules({
   react: React,
-  'react/jsx-runtime': jsxRuntime,
-  'react-dom': ReactDOM,
-  '@kungfu-tech/api': capability,
-  '@kungfu-tech/api/capability': capability,
-};
+  jsxRuntime,
+  reactDom: ReactDOM,
+  reactDomClient: { createRoot },
+  api: capability,
+  capability,
+  query,
+});
 
 // One failing kfx renders its error panel; it never takes the shell down.
 class KfxErrorBoundary extends React.Component<

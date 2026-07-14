@@ -3,9 +3,9 @@
 // Landing evaluates a trusted view's bundle — and injects its sibling CSS —
 // into this document, or stands in a placeholder for a sandboxed view the shell
 // embeds as an isolated renderer. Bundles are built by `kungfu sdk kfx build`
-// with react/react-dom/jsx-runtime and the capability SDK left external; the
-// shell injects its own instances through a require shim, so every kfx shares
-// one React and one capability surface.
+// with the modules declared by `framework/kfx/shared-modules.json` left
+// external; the shell injects its own instances through a require shim, so
+// every kfx shares one React and one public API surface.
 //
 // The discovery + trust/tier rule now lives in `planKfx` so the CLI/TUI host
 // reaches the same verdict for the same kfx (ADR-0017). Only the renderer-

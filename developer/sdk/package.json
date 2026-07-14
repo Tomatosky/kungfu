@@ -30,6 +30,7 @@
     "@kungfu-tech/core": "workspace:*",
     "@kungfu-tech/gui": "workspace:*",
     "@kungfu-tech/kfd": "1.0.0-alpha.21",
+    "@kungfu-tech/kfx": "workspace:*",
     "@kungfu-tech/tui": "workspace:*",
     "ajv": "^8.20.0",
     "esbuild": "^0.28.1"

@@ -38,6 +38,15 @@ run('GUI Profile navigation projection', 'pnpm', [
   path.join(root, 'framework/gui/src/navigation.test.ts'),
 ]);
 
+run('GUI KFX shared-module contract', 'pnpm', [
+  '--filter',
+  '@kungfu-tech/tui',
+  'exec',
+  'tsx',
+  '--test',
+  path.join(root, 'framework/gui/src/renderer/shared-modules.test.ts'),
+]);
+
 run('GUI workspace runtime foreground projection', 'pnpm', [
   '--filter',
   '@kungfu-tech/tui',

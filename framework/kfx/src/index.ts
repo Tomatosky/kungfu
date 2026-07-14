@@ -1,9 +1,10 @@
 // The kfx view contract: the types a view extension implements and the shell
 // consumes, plus the shared UI tokens. This package is bundled INTO each view
 // extension (it is types and plain style objects — nothing stateful), while
-// `react`, `react/jsx-runtime`, `react-dom` and `@kungfu-tech/api/capability`
-// stay external and are injected by the shell at load time, so every kfx
-// shares the shell's React instance and capability handles.
+// React and the public `@kungfu-tech/api` entrypoints stay external and are
+// injected by the shell at load time, so every kfx shares the shell's React
+// instance and capability/query surfaces. The exact list lives in
+// `framework/kfx/shared-modules.json`.
 //
 // Static facts about a view (title, capabilities, settings, system flag)
 // live in the package manifest (`kungfuConfig.config.view`), never in code:

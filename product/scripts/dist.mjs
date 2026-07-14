@@ -532,6 +532,41 @@ function buildKfx(packages, baseEnv = process.env) {
   }
 }
 
+export function kfxBundleExternalModules(code) {
+  const modules = new Set();
+  const literalRequire = /(^|[^\w$.])require\(\s*(['"])([^'"]+)\2\s*\)/gm;
+  for (const match of code.matchAll(literalRequire)) modules.add(match[3]);
+  return [...modules].sort();
+}
+
+function assertKfxBundleExternals(packages) {
+  const contract = readJson(
+    path.join(ROOT, 'framework', 'kfx', 'shared-modules.json'),
+  );
+  const supported = new Set(contract.modules || []);
+  const unsupported = [];
+  for (const pkg of packages) {
+    if (!pkg.config?.config?.view) continue;
+    const entry = pkg.config.config.view.entry || 'dist/view/index.js';
+    const bundlePath = path.join(pkg.dir, entry);
+    for (const moduleId of kfxBundleExternalModules(
+      fs.readFileSync(bundlePath, 'utf8'),
+    )) {
+      if (!supported.has(moduleId)) {
+        unsupported.push(`${pkg.name}: ${moduleId}`);
+      }
+    }
+  }
+  if (unsupported.length > 0) {
+    throw new Error(
+      `kfx bundles require modules the GUI cannot inject:\n${unsupported.join('\n')}`,
+    );
+  }
+  console.log(
+    `[product] kfx shared-module contract: ${supported.size} modules`,
+  );
+}
+
 function assembleKfx(packages) {
   buildchainLogger.spanSync(
     'product.kfx.assemble',
@@ -1365,6 +1400,7 @@ function main() {
       stageTrunk();
 
       buildKfx(kfxPackages, buildEnv);
+      assertKfxBundleExternals(kfxPackages);
       assembleKfx(kfxPackages);
 
       runPnpm('bundle tui', ['--filter', '@kungfu-tech/tui', 'run', 'bundle'], {

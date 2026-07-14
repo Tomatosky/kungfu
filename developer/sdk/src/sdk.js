@@ -31,6 +31,9 @@ import {
   sha256Json as sha256KfdJson,
   validateKfd1ReleaseGateEvidence,
 } from '@kungfu-tech/buildchain/kfd-gate';
+import kfxSharedModuleContract from '@kungfu-tech/kfx/shared-modules' with {
+  type: 'json',
+};
 
 const TEMPLATE_ROOT = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -2325,13 +2328,7 @@ function contractAdd(surfaceArg, options) {
 // ── kfx view extension build ──────────────────────────────────────────────
 // Modules that stay external and are injected by the shell at load time; a
 // view extension must never ship its own copy of these.
-const KFX_EXTERNALS = [
-  'react',
-  'react/jsx-runtime',
-  'react-dom',
-  '@kungfu-tech/api',
-  '@kungfu-tech/api/capability',
-];
+const KFX_EXTERNALS = kfxSharedModuleContract.modules;
 
 /**
  * The subset of a kfx package.json this driver reads.
