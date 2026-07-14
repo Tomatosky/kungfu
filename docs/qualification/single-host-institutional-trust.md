@@ -14,10 +14,10 @@ institution's own risk assessment. Technical details remain authoritative in
 
 ## Current decision
 
-**Kungfu v4 currently supports engineering evaluation, fault-model review, and
-controlled non-authoritative or shadow workloads. It is not yet qualified as a
-strongly durable institutional system of record for acknowledged facts across
-sudden power loss.**
+**Kungfu v4 has completed a default-off, current-hardware single-host
+production candidate for engineering evaluation and controlled candidate or
+shadow workloads. It is not yet production-eligible as a strongly durable
+institutional system of record across sudden physical power loss.**
 
 Today Kungfu qualifies cross-process visibility, typed journal integrity, and
 deterministic replay from readable journal data. Retained test evidence covers
@@ -38,9 +38,12 @@ frontier, Episode, projection, and new owner generations. This does not model
 an unclean shutdown or physical power loss.
 
 The C++ capability authority exposes that boundary unchanged through Python,
-Node, and `kungfu agent capabilities --json`. The report is evidence-bound and
-sets `production_eligible: false`; `durable_group` and `durable_sync` are
-reported as `test-fixture-only`, not as available production profiles.
+Node, and `kungfu agent capabilities --json`. The report is evidence-bound,
+uses support level `production-candidate`, and sets `production_eligible:
+false`; `durable_group` and `durable_sync` are `candidate-explicit`, default
+off, and not available production profiles. Its admission verdict binds all
+six prerequisite deliveries and retains the coordinator compatibility bridge
+until a future production qualification permits removal.
 
 An institution that requires every acknowledged critical fact to survive
 power loss should therefore treat the current release as **not admitted** for
@@ -77,8 +80,8 @@ backup.
 |---|---|---|---|
 | Complete frames become visible to local readers in publication order | Implemented | release/acquire and frame-integrity qualification | keep the deployment inside a supported process and storage envelope |
 | Readable authoritative journals can be replayed and projections rebuilt | Implemented in staged slices | replay, fsck, projection-loss, and idempotent-rebuild evidence | retain authoritative journals and monitor integrity reports |
-| A `durable_group` receipt survives the qualified local crash/power-loss model | Default-off candidate; process and disposable-VM envelopes qualified | production admission plus exact physical platform/filesystem/device qualification | select only a production-qualified profile and reject degraded substitutions |
-| A `durable_sync` receipt establishes the critical fact and required metadata | Default-off candidate; process and disposable-VM envelopes qualified | production admission plus exact barrier/device and physical power-loss evidence | use it for institution-defined critical facts only after production qualification |
+| A `durable_group` receipt survives the qualified local crash/power-loss model | Current-hardware candidate admitted; default off | exact physical platform/filesystem/device power-loss qualification | select only a production-qualified profile and reject degraded substitutions |
+| A `durable_sync` receipt establishes the critical fact and required metadata | Current-hardware candidate admitted; default off | exact barrier/device and physical power-loss qualification | use it for institution-defined critical facts only after production qualification |
 | Recovery identifies the last durable frontier without inventing facts | Qualified in the disposable QEMU evidence envelope | physical-host and production-envelope repeated recovery reports | review loss, quarantine, and repair outcomes before resuming authority |
 | Projection failure cannot erase a durably acknowledged raw fact | Qualified in the test-only backend | production ingest/projection activation and qualification | treat SQLite as a rebuildable query projection, not the raw authority |
 | Whole data-root loss can be recovered | Same-host drill plus named same-office off-host restore passed | independent-failure-domain backup and restore procedure | operate, protect, and periodically restore-test an external backup |
@@ -91,9 +94,9 @@ The corresponding named qualification evidence must also pass and be retained.
 
 | Failure | Required behavior in the qualified profile | Current institutional status |
 |---|---|---|
-| Writer or peer process crash | preserve acknowledged durable frontier; classify any visible tail | test-qualified on three named process profiles; production activation pending |
-| Durability service crash | restart with a new fenced owner generation; never acknowledge an unknown outcome as durable | test-qualified in the disposable QEMU envelope; production activation pending |
-| Projection service or SQLite loss | raw durable facts remain authoritative; rebuild from the recorded projection frontier | test-qualified in the disposable QEMU envelope; production activation pending |
+| Writer or peer process crash | preserve acknowledged durable frontier; classify any visible tail | current-hardware candidate admitted; default-off activation only |
+| Durability service crash | restart with a new fenced owner generation; never acknowledge an unknown outcome as durable | current-hardware candidate admitted; physical power-loss eligibility pending |
+| Projection service or SQLite loss | raw durable facts remain authoritative; rebuild from the recorded projection frontier | candidate-qualified with compatibility rollback retained |
 | Clean host restart | reopen the whole data root and resume from verified frontiers | real agent-120 Linux/ext4/NVMe clean reboot plus repeated fresh guest reopen passed; other hosts remain unqualified |
 | Sudden power loss | recover only the proven durable frontier; report lost or quarantined visible tail | 360/360 seeded abrupt disposable-VM cuts passed across six virtual device/cache envelopes; physical power loss not qualified |
 | ENOSPC, permission loss, or I/O error | fail closed; do not issue a false durable receipt | real guest ENOSPC passed; remaining exact production error envelope pending |
@@ -127,6 +130,8 @@ the exact deployment envelope:
 8. a passing Single-Host Performance Profile report covering absolute
    latency/throughput/resource thresholds, regression ceilings, long-tail
    behavior, sustained load, replay, recovery, and restore time.
+9. the digest-verified production-candidate admission inventory and report,
+   with every freshness invalidator still false for the deployed envelope.
 
 Missing or stale evidence is a failed adoption gate, not an invitation to infer
 the guarantee from `mmap`, `fsync`, SQLite WAL, process residency, or a
@@ -178,11 +183,12 @@ implied by the local durability design.
 | Limited authoritative pilot | bounded institution-selected facts on one qualified host | named durable profile implemented; exact correctness envelope qualified; backup/restore drill passed; performance candidate characterized |
 | Authoritative local ledger | institution-approved production scope | correctness and Single-Host Performance Profile release gates passed; all applicable evidence above retained, independently reviewed, and continuously monitored |
 
-The current project state remains between engineering evaluation and controlled
-shadow operation. The retained test/disposable evidence advances confidence,
-not production admission. Later implementation work must update this page from
-retained evidence; it must not advance the adoption status from design intent
-or from evidence outside the named envelope.
+The current-hardware engineering candidate is complete, but the appropriate
+adoption state remains engineering evaluation or controlled candidate/shadow
+operation. The retained evidence advances confidence, not production
+eligibility. Later qualification must update this page from retained physical
+and independent-domain evidence; it must not advance the adoption status from
+design intent or evidence outside the named envelope.
 
 ## Audit path
 

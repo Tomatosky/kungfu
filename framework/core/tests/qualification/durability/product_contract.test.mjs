@@ -16,16 +16,32 @@ const authority = fs.readFileSync(
 
 const evidence = [
   {
-    path: 'docs/qualification/evidence/durability/12dd26e899/README.md',
-    sha256: '5582d21b3ae0222e0220c956013d86fe562308be968927be9d64f43da1ece732',
+    path: 'framework/core/src/libkungfu/tests/durable_ingest_tests.cpp',
+    sha256: '18520761ccf81843207676fc3dedaf0f8948bd7c830e096ab3ada39e6da24649',
   },
   {
-    path: 'docs/qualification/evidence/durability/c7c0c680e/single-host-institutional-profile-v1.json',
-    sha256: 'a957606deb75644c5b038f067fcabcbb8d128a7015123f818eeccbbd18794f50',
+    path: 'framework/core/src/libkungfu/tests/projection_bootstrap_tests.cpp',
+    sha256: '0d2480afd1eedb7f8376821ba40f1bd650bbe45ee39d0f192c74f454ab02613c',
+  },
+  {
+    path: 'docs/qualification/evidence/durability/791e09a70/evidence/fault-campaign-v2.json',
+    sha256: '0ae769d3befabf3b382f5f116d638d68addafaedb6c263d7171369ff5bda0256',
+  },
+  {
+    path: 'docs/qualification/evidence/durability/070e0804b/agent120-durability-slo-v1.json',
+    sha256: 'bd5497228f51eaea6c38e3e82bb07a7bfb549d6969da03b4bfb0d421511a232e',
   },
   {
     path: 'docs/qualification/evidence/durability/987201493/aggregate-report.json',
     sha256: '4034b2653c1acd5f1b1608d7e68c3328f91fa501c04f180252c4f22e232bc574',
+  },
+  {
+    path: 'docs/qualification/evidence/durability/17e807700/aggregate-report.json',
+    sha256: '7d377977a3bae516624cd1f9d6656e7f2c54b37eb9cef59b77ee68e979c4acb6',
+  },
+  {
+    path: 'docs/qualification/evidence/durability/production-candidate-v1/admission-report.json',
+    sha256: '24bd0a5ff5f40167982227e7a37af23121988a1a9e97f7a38cba3695d91d90f9',
   },
 ];
 
@@ -45,10 +61,12 @@ test('product capability authority is bound to retained evidence', () => {
 });
 
 test('product capability fails closed outside its named envelope', () => {
-  assert.match(authority, /"qualified-test-only"/);
-  assert.match(authority, /"test-fixture-only"/);
+  assert.match(authority, /"production-candidate"/);
+  assert.match(authority, /"candidate-explicit"/);
+  assert.match(authority, /"passed-current-hardware-production-candidate"/);
   assert.match(authority, /"physical power loss"/);
   assert.match(authority, /"same-office-agent120-to-ubuntu222"/);
   assert.match(authority, /"independent backup failure domain"/);
   assert.match(authority, /"production profile eligibility"/);
+  assert.match(authority, /"retained-until-production-qualified"/);
 });

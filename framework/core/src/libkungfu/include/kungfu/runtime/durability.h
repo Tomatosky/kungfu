@@ -110,6 +110,25 @@ struct durability_restore_capability {
   bool independent_failure_domain = false;
 };
 
+struct durability_candidate_admission {
+  std::string schema = "kungfu.durability-production-candidate-report/v1";
+  std::string verdict = {};
+  bool current_hardware_candidate_complete = false;
+  bool candidate_profile_default_enabled = false;
+  bool clean_host_restart_qualified = false;
+  bool off_host_restore_qualified = false;
+  bool physical_power_loss_qualified = false;
+  bool independent_failure_domain_qualified = false;
+  bool production_eligible = false;
+  bool high_availability_supported = false;
+  bool replication_supported = false;
+  bool consensus_supported = false;
+  std::string evidence_path = {};
+  std::string evidence_sha256 = {};
+  std::string freshness_policy = {};
+  std::string compatibility_bridge = {};
+};
+
 // C++ owns the capability semantics. Python, Node and CLI surfaces are thin
 // projections of this value; JSON remains an edge representation only.
 struct durability_capability_report {
@@ -123,6 +142,7 @@ struct durability_capability_report {
   std::vector<durability_profile_capability> profiles = {};
   std::vector<durability_evidence_reference> evidence = {};
   durability_restore_capability restore = {};
+  durability_candidate_admission admission = {};
   std::vector<std::string> trust_assumptions = {};
   std::vector<std::string> non_claims = {};
 };

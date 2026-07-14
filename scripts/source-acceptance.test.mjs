@@ -24,6 +24,7 @@ test('source plan covers representative source-only checks', () => {
   assert.ok(labels.includes('documentation contracts'));
   assert.ok(labels.includes('runtime activation contract'));
   assert.ok(labels.includes('agent session contract'));
+  assert.ok(labels.includes('durability production-candidate admission'));
   const contractTests = plan.find(
     (step) => step.label === 'source-acceptance contract tests',
   );

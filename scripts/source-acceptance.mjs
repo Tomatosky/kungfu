@@ -82,6 +82,10 @@ export function sourceAcceptancePlan(files) {
     ['live runtime terminology', 'scripts/check-live-runtime-terminology.mjs'],
     ['runtime activation contract', 'scripts/check-runtime-contract.mjs'],
     ['agent session contract', 'scripts/check-agent-session-contract.mjs'],
+    [
+      'durability production-candidate admission',
+      'scripts/check-durability-production-candidate.mjs',
+    ],
     ['Shifu version sync', 'scripts/sync-shifu-version.mjs', '--check'],
     ['documentation contracts', 'scripts/run-docs-source-check.mjs'],
   ];
@@ -122,6 +126,7 @@ export function sourceAcceptancePlan(files) {
         'framework/core/tests/qualification/durability/slo_evidence.test.mjs',
         'framework/core/tests/qualification/durability/offhost_evidence.test.mjs',
         'framework/core/tests/qualification/durability/clean_restart_evidence.test.mjs',
+        'framework/core/tests/qualification/durability/production_candidate_admission.test.mjs',
         'scripts/run-durability-powercut-qemu.test.mjs',
         'scripts/prepare-durability-powercut-qemu.test.mjs',
         'scripts/run-durability-fault-campaign.test.mjs',

@@ -179,7 +179,7 @@ candidate may publish only with an explicit degraded result, while `none`
 remains independent. Candidate peers do not join
 the coordinator-owned business PUBLIC/SYNC streams or invoke the compatibility
 restore bridge. Peers without the declaration retain the compatibility path,
-which remains the rollback authority until production admission. C++, Python,
+which remains the rollback authority until production eligibility. C++, Python,
 Node, and CLI expose the same `kungfu.projection-candidate-status/v1` status,
 including `production_eligible: false`.
 
@@ -324,7 +324,7 @@ The evidence binds the report to agent-120, Linux/x86_64, ext4 on NVMe, the
 profile digest, complete histogram/raw digests, recovery and projection times,
 same-host backup/restore, and resource peaks. This is one named durability
 candidate SLO, not qualification of the mmap visible path, another platform,
-physical power loss, off-host backup, a comparator, or production admission.
+physical power loss, off-host backup, a comparator, or production eligibility.
 
 The adjacent default-off off-host slice now has a versioned
 manifest/data/completion-marker-last package and a bounded local Shifu harness.
@@ -334,7 +334,7 @@ digest on Ubuntu 222, restored an empty root, matched records, Episode,
 projection state and cut, and repeated restore idempotently. This upgrades only
 the named same-office two-host backup/restore fact. It does not establish
 independent power, network, site, or administrator failure domains, physical
-power-loss durability, scheduled backup operations, or production admission.
+power-loss durability, scheduled backup operations, or production eligibility.
 
 The adjacent clean-host-restart slice freezes one agent-120
 Linux/x86_64/ext4/NVMe profile and separates preparation from verification.
@@ -344,7 +344,18 @@ After an independently authorized clean reboot, verification requires a changed
 kernel boot ID and a fresh process that recovers the same frontier, records,
 closed Episode and projection while advancing both fenced owner generations.
 The retained `17e807700` execution qualifies only that clean-restart envelope;
-it keeps sudden physical-power-loss and production admission false.
+it keeps sudden physical-power-loss and production eligibility false.
+
+The current-hardware admission slice now freezes the six prerequisite
+deliveries, exact source and delivery commits, PRs, Shifu rerun commands,
+environment envelopes, artifact digests, and freshness invalidators. Its
+machine-readable verdict is
+`passed-current-hardware-production-candidate`. C++ remains the capability
+authority; Python, Node, CLI, Episode, and Storage views project the same
+default-off status. The verdict explicitly keeps physical power loss,
+independent failure domain, production eligibility, HA, replication, and
+consensus false. The coordinator compatibility bridge remains the default and
+rollback authority until a future production qualification permits deletion.
 
 The production mmap claim remains `demand + visibility`. The backup/restore
 round trip and projection cut equality are implementation evidence, not an
@@ -352,7 +363,8 @@ operator-facing backup format or qualified power-loss guarantee. Production
 bootstrap authority cutover, independent-failure-domain backup operations,
 sudden physical-power-loss qualification, clean-host-restart qualification
 outside the named agent-120 envelope, macOS/Windows device-tier qualification,
-and the public durability product contract remain pending. In particular, the
+and production-eligible activation remain pending. The public product contract
+now reports current-hardware candidate completion without widening those gates. In particular, the
 disposable guest, clean-restart, and same-office off-host results do not qualify
 a whole-device loss, an independent backup failure domain, or a production
 profile.

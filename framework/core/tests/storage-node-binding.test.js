@@ -263,11 +263,16 @@ test(
     const report = kungfu.durabilityCapabilityTyped();
     assert.equal(report.schema, 'kungfu.durability.capability/v1');
     assert.equal(report.authority, 'libkungfu');
-    assert.equal(report.support_level, 'qualified-test-only');
+    assert.equal(report.support_level, 'production-candidate');
     assert.equal(report.production_eligible, false);
     assert.equal(report.restore.verified, true);
-    assert.equal(report.restore.off_host, false);
+    assert.equal(report.restore.off_host, true);
     assert.equal(report.restore.independent_failure_domain, false);
+    assert.equal(report.admission.current_hardware_candidate_complete, true);
+    assert.equal(report.admission.candidate_profile_default_enabled, false);
+    assert.equal(report.admission.clean_host_restart_qualified, true);
+    assert.equal(report.admission.physical_power_loss_qualified, false);
+    assert.equal(report.admission.production_eligible, false);
     assert.deepEqual(
       report.profiles.map((profile) => profile.name),
       ['visible', 'durable_group', 'durable_sync', 'replicated'],

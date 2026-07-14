@@ -102,9 +102,12 @@ const pythonResult = spawnSync(
       'c = pykungfu.runtime.durability_capability_typed()',
       "assert c['schema'] == 'kungfu.durability.capability/v1'",
       "assert c['authority'] == 'libkungfu'",
-      "assert c['support_level'] == 'qualified-test-only'",
+      "assert c['support_level'] == 'production-candidate'",
       "assert c['production_eligible'] is False",
-      "assert c['restore']['off_host'] is False",
+      "assert c['restore']['off_host'] is True",
+      "assert c['admission']['current_hardware_candidate_complete'] is True",
+      "assert c['admission']['candidate_profile_default_enabled'] is False",
+      "assert c['admission']['physical_power_loss_qualified'] is False",
       'import json, tempfile',
       'from click.testing import CliRunner',
       'from kungfu import durability',
@@ -180,9 +183,12 @@ const capability = kungfu.durabilityCapabilityTyped();
 if (
   capability.schema !== 'kungfu.durability.capability/v1' ||
   capability.authority !== 'libkungfu' ||
-  capability.support_level !== 'qualified-test-only' ||
+  capability.support_level !== 'production-candidate' ||
   capability.production_eligible !== false ||
-  capability.restore.off_host !== false ||
+  capability.restore.off_host !== true ||
+  capability.admission.current_hardware_candidate_complete !== true ||
+  capability.admission.candidate_profile_default_enabled !== false ||
+  capability.admission.physical_power_loss_qualified !== false ||
   capability.profiles.some(
     (profile) =>
       profile.name !== 'visible' && profile.production_eligible !== false,

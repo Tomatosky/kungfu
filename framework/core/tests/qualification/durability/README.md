@@ -231,6 +231,19 @@ The exact host maintenance command is deliberately outside this harness. This
 profile qualifies one clean agent-120 Linux/x86_64/ext4/NVMe reboot only. It
 keeps physical-power-loss and production eligibility false.
 
+## Current-hardware production-candidate admission
+
+`./shifu durability:admission` is a build-free, read-only verifier over the
+retained admission inventory. It checks all six prerequisite delivery SHAs,
+PRs, rerun commands, environment/freshness boundaries, tracked artifact bytes,
+and claim semantics before accepting
+`passed-current-hardware-production-candidate`.
+
+The result is default-off and fail-closed: candidate completion is true while
+physical power loss, an independent failure domain, production eligibility,
+HA, replication, and consensus remain false. It does not dispatch CI, build
+Core, mutate evidence, or activate a runtime profile.
+
 ## Files
 
 - `profiles/*.json` freezes the platform/filesystem process profiles.
@@ -255,3 +268,5 @@ keeps physical-power-loss and production eligibility false.
   durability SLO and soak workload before its first retained measurement.
 - `scripts/run-durability-slo.mjs` owns its project-local dry-run, execution,
   append-only raw evidence, correctness knockout, and aggregate verdict.
+- `scripts/check-durability-production-candidate.mjs` verifies the frozen
+  admission inventory and derived report without a build or runtime mutation.

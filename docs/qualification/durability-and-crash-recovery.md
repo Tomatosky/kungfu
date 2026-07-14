@@ -15,15 +15,13 @@ evidence, operator responsibilities, and explicit non-claims.
 
 ## Current answer
 
-**Today, Kungfu qualifies cross-process journal visibility and deterministic
-replay from readable journal data. Retained evidence also qualifies the
-test-only durable backend against process crashes on three named platforms and
-power cuts in a disposable Linux/ext4 QEMU envelope. It does not claim that a
-production runtime acknowledgement survives physical-host power loss. A
-separate same-office run also verifies an agent-120 backup on Ubuntu 222 and
-empty-root restore, but not an independent failure domain. One bounded
-agent-120 run additionally qualifies a real clean Linux host reboot; it does
-not qualify sudden physical power loss.**
+**Kungfu has completed the current-hardware engineering work for the default-off
+`Single-Host Institutional Production Candidate v1`. Exact retained evidence
+covers live candidate receipts, projection authority, process and disposable-VM
+faults, agent-120 SLOs, same-office off-host restore, and one real clean
+agent-120 reboot. This is a production candidate, not production eligibility:
+sudden physical power loss and an independent failure domain remain unqualified,
+so `production_eligible` stays false.**
 
 The foundations are implemented:
 
@@ -40,8 +38,8 @@ The foundations are implemented:
   root and one writer per physical stream journal are fail-closed through
   local generation/fence evidence.
 
-The end-to-end strong-durability path is **staged and test-qualified, with a
-default-off live production-candidate receipt seam, but not production-qualified**.
+The end-to-end strong-durability path is **implemented and evidence-admitted as
+a default-off current-hardware production candidate, but not production-qualified**.
 Test-only implementations exist for projection bootstrap, crash classification,
 and backup/restore. The state service can now explicitly activate a matching
 `candidate/*` durable-ingest profile and owns typed append, barrier, retry, and
@@ -71,6 +69,15 @@ the host itself. This qualifies only clean restart on the named
 Linux/x86_64/ext4/NVMe agent-120 envelope; physical power loss and production
 eligibility remain false.
 
+The final admission inventory binds all six prerequisite deliveries to exact
+implementation, delivery, artifact, environment, and rerun coordinates. Its
+derived `passed-current-hardware-production-candidate` verdict fails closed on
+source, digest, profile, or environment drift. The retained report is
+[`production-candidate-v1/admission-report.json`](evidence/durability/production-candidate-v1/admission-report.json),
+with the complete input ledger beside it. Episode recovery is candidate-qualified
+and Storage backup/restore is same-office off-host-qualified; neither result
+widens the physical or failure-domain claims.
+
 Candidate receipts are accepted only through the per-data-root state service
 with explicit activation and matching qualification evidence. A repeated exact
 request is idempotent. After caller timeout or restart, C++, Python, Node, and
@@ -86,8 +93,11 @@ Node, and agent CLI projections. `kungfu agent capabilities --json` includes a
 `durability` report with the schema `kungfu.durability.capability/v1`, retained
 evidence digests, per-profile availability, restore scope, trust assumptions,
 and explicit non-claims. `durable_group` and `durable_sync` remain
-`test-fixture-only` and `production_eligible: false`; the report does not turn
-qualification evidence into a production runtime feature.
+`candidate-explicit` and `production_eligible: false`. The nested `admission`
+object reports candidate completion, default-off activation, clean restart,
+off-host restore, freshness policy, and every remaining false claim from the
+same C++ authority; it does not turn qualification evidence into a default or
+production runtime feature.
 
 An independent KFDL v2 segment/checkpoint backend now exists in test-only shadow
 form. It verifies logical position and SHA-256 records across restart, preserves
@@ -129,8 +139,8 @@ typed parity against the compatibility bank.
 Candidate peers do not join coordinator-owned business PUBLIC/SYNC streams or
 invoke compatibility restore; optional failures are visibly degraded. Peers
 without the declaration retain the compatibility bridge as rollback authority.
-C++, Python, Node, and CLI inspect the same status. This is candidate/cutover
-evidence, not production admission: the path remains default-off and reports
+C++, Python, Node, and CLI inspect the same status. This is admitted candidate/cutover
+evidence, not production eligibility: the path remains default-off and reports
 `production_eligible: false`; public durable profiles remain disabled.
 
 A test-only read-only recovery inspector now runs
@@ -252,12 +262,13 @@ one Episode must not silently invalidate unrelated Episodes.
 | A. Visibility and integrity foundations | **implemented** | release/acquire publication, explicit mmap policy, frame integrity, typed journal records, rebuildable projections |
 | B. Episode and storage safety model | **staged** | typed Episode fold, fsck/repair/capability reporting and fault qualification exist in slices; the complete contract remains under qualification |
 | C. Unified position, watermark, and receipt vocabulary | **implemented (candidate edge)** | C++ owns stable stream positions, four typed watermarks, named profiles, receipts/errors, deduplication, explicit unknown outcomes, and restart reconciliation; Python/Node/CLI are typed edge projections. Stronger profiles require an explicit default-off candidate activation and remain production-ineligible |
-| D. State-service separation and durable ingest | **partially implemented** | coordinator no longer owns the projection store directly; the in-process state-service boundary has independent lifecycle, shadow comparison, single-host owner/writer fencing, and an explicit live candidate append/barrier/reconcile seam. Moving business-journal ingestion out of coordinator and completing production admission remain pending |
+| D. State-service separation and durable ingest | **partially implemented** | coordinator no longer owns the projection store directly; the in-process state-service boundary has independent lifecycle, shadow comparison, single-host owner/writer fencing, and an explicit live candidate append/barrier/reconcile seam. Default production cutover remains pending |
 | E. Independent KFDL segment/checkpoint backend | **implemented (test-only shadow)** | append-only binary records, SHA-256 coverage, rollover, dual-slot atomic checkpoint, explicit data/checkpoint/directory barriers, persisted request deduplication, cooperative deadline/unknown handling, typed service-unavailable, fenced generations, fail-stop unknown append sessions, and retained tails; production profiles remain disabled |
 | F. Snapshot-through-T projection bootstrap | **implemented (candidate edge)** | versioned binary snapshot, integrity/schema/cut verification, strict replay-after-T, typed required/optional/none outcomes, deterministic rebuild, same-cut compatibility parity, complete hydration validation before required-peer registration, state emission before `RequestStart`, and state-service ownership; the explicit path is default-off and production-ineligible, while default cutover and bridge deletion remain pending |
 | G. Local strong-durability qualification | **implemented for named process/disposable, agent-120 clean-restart, and same-office off-host envelopes** | retained three-platform process-crash reports plus the agent-120 Linux/ext4 candidate runs cover 360/360 seeded VM/device-model cuts, real ENOSPC, repeated reopen, fsck/hash, Episode load, one real clean host reboot, same-host external-path restore, and an agent-120 to Ubuntu 222 verified backup/empty-root restore; the machine reports remain fail-closed for production, sudden physical power loss, and independent failure domains |
 | H. Single-host end-to-end performance release gate | **qualified for one named durability candidate slice** | retained `070e0804b` agent-120 evidence passes the frozen `linux-ext4-agent120-slo-v1` absolute `durable_group`/`durable_sync` latency, throughput, rollover, 30-minute soak, resource, recovery, projection, and same-host backup/restore ceilings; the wider visible/typed/multi-reader product surfaces remain separate admission work |
-| I. Replication and HA | **future** | add a separate replicated watermark and policy only after local durability is trustworthy |
+| I. Current-hardware candidate admission | **complete** | one digest-verified inventory admits the default-off live receipt, projection, agent-120 fault/SLO/clean-restart, and same-office off-host restore slices while fixing production, physical-power-loss, independent-domain, HA, replication, and consensus claims to false |
+| J. Replication and HA | **future** | add a separate replicated watermark and policy only after local durability is trustworthy |
 
 Passing Stage G in a disposable VM does not qualify a production deployment.
 Public product language must name the exact evidence envelope and continue to
@@ -320,7 +331,7 @@ default-dry-run, project-local harness: no GitHub workflow or self-hosted runner
 is involved. Its profile was frozen before measurement, a correctness failure
 stops later workloads, and every raw result is fsynced before the aggregate
 verdict. Even a passing result remains a named agent-120 durability candidate,
-not physical-power-loss evidence or production admission.
+not physical-power-loss evidence or production eligibility.
 
 The retained `070e0804b` run passed all eight required workloads with zero
 violations. It preserves the exact 174,665-byte aggregate report and
