@@ -6,11 +6,14 @@ Kungfu can keep live runtime coordination alive independently from the GUI.
 Closing the GUI window should not imply that the runtime stops; stopping it is
 an explicit operator action.
 
-The canonical terminology is defined by
+The topology-neutral activation and readiness contract is defined by
+[ADR-0080](../adr/ADR-0080-topology-neutral-capability-driven-runtime-activation.md).
+The canonical process-adapter terminology is defined by
 [ADR-0057](../adr/ADR-0057-domain-neutral-live-runtime-terminology.md);
 [ADR-0036](../adr/ADR-0036-supervisor-and-workspace-master-topology.md)
-records the original topology decision.
-It defines two live process roles:
+records the original topology decision. The current process-control topology is
+implemented by `ProcessRuntimeHost` over a directly callable
+`CoordinatorEngine` and has two live process roles:
 
 - `supervisor` is one per OS user/session. It owns no workspace facts. It
   starts, discovers, health-checks, and stops workspace coordinators.
@@ -33,7 +36,7 @@ updates. It does not become fact authority or embed every domain assessor. See
 
 ## Current CLI Surface
 
-The current implementation slice exposes the process manager through
+The current implementation slice exposes this process adapter through
 `kungfu runtime ...` commands:
 
 - `kungfu runtime supervise` is the foreground supervisor loop used by a user
@@ -61,7 +64,11 @@ kungfu runtime service uninstall --execute --json
 `install` and `uninstall` are dry-run by default. They write or remove the
 user-level service file only when `--execute` is supplied.
 
-## Target Topology
+The v2 status and route payloads are compatibility diagnostics. A reported
+`running` process lifecycle does not establish the ADR-0080 runtime `ready`
+state, capability set, generation, or durable cut.
+
+## Current ProcessRuntimeHost Topology
 
 The target live command path is:
 
@@ -72,6 +79,33 @@ CLI / GUI / TUI
   -> supervisor ensure_coordinator(data_root)
   -> command talks to that data-root coordinator
 ```
+
+`kungfu.runtime_service.ensure_coordinator` is a compatibility function that
+delegates activation to `ProcessRuntimeHost`. The adapter owns PID files,
+signals, child spawning, detached supervisor startup, and process diagnostics.
+`CoordinatorEngine` owns the directly callable coordinator request seam and
+accepts an injected assessment executor; its no-fork fixture uses no PID,
+signal, argv, environment, or subprocess authority. This seam is qualification
+evidence, not a production EmbeddedRuntimeHost.
+
+## Capability-driven Invocation
+
+The runtime contract owns the machine-readable operation inventory; Profile
+actions reference it through `runtimeOperation` instead of defining a second
+action registry. `RuntimeCapabilityBroker` turns one operation id into the same
+requirement and activation receipt vocabulary for every future product surface.
+
+Storage-only invocation is deliberately lazy: it returns a daemonless
+activation receipt and executes the durable callback without constructing a
+host. Live-required invocation constructs the configured activation client only
+at invoke time and executes the callback only when the returned handle is ready
+at a durable cut with exactly the requested capabilities and authorities.
+
+The current `ProcessRuntimeActivationClient` requests the existing process host
+but returns `readiness_not_established`; PID and health diagnostics cannot admit
+the callback. Stage 4 will replace that fail-closed boundary with
+generation-fenced recovery and cut-bound readiness. Product entrypoints remain
+stage 6 work.
 
 If the supervisor is not running, a product entrypoint may start it. If a
 command only needs closed-data storage access, it may bypass the live coordinator and
@@ -107,7 +141,9 @@ Files in these runtime-state directories include:
 
 The `status --json` command reads process-control state and verifies whether
 the recorded PIDs are still alive. Runtime-state files are not durable facts and
-must not be treated as the source of truth.
+must not be treated as the source of truth. PID, route, socket, service-install,
+and GUI facts may explain an unavailable runtime, but they cannot issue an
+ADR-0080 readiness handle or activation receipt.
 
 The route registry also carries a narrow v1 lifecycle lease for each workspace
 coordinator route:
@@ -120,7 +156,8 @@ coordinator route:
   `lifecycle.warnings`, `route.freshness`, `route.stale`, and
   `routes.staleCount`.
 
-The lifecycle state is deterministic from the route lease and pid probes:
+The diagnostic lifecycle state is deterministic from the route lease and pid
+probes:
 
 - `running`: supervisor and workspace coordinator are both live and the route is
   fresh.
@@ -201,3 +238,6 @@ runtime directory, and route registration without introducing a second process
 control path. Lifecycle health comes from the core status payload, not from GUI
 pid or route reimplementation, so stale and degraded states stay consistent
 between CLI, tray, status bar, and the System Status view.
+The optional foreground continuity projection is a staged UI bridge; final
+`Workspace ready` must project the shared ADR-0080 cut-bound readiness rather
+than infer it from process health.

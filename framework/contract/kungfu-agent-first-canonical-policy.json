@@ -59,7 +59,7 @@
   },
   "contractWorld": {
     "schemaId": "https://kfd.libkungfu.dev/schemas/kfd-1/contract-world.schema.json",
-    "digest": "sha256:3aa7446953e91f366d250331e4feb7d6a3608f56e8c5bc12fa01b2fd597ea05d",
+    "digest": "sha256:e0299a0cff7c2ee8b2109eb8ecb24fd020e4633f5cb236b4109cd18bc412b328",
     "value": {
       "schemaVersion": 1,
       "contract": "kfd-1-contract-world",
@@ -80,6 +80,11 @@
           "id": "kungfu-skill",
           "class": "integration-time",
           "description": "skill contract source framework/skill/kungfu-skill.contract.json is copied byte-for-byte to config/kungfu-skill.contract.json."
+        },
+        {
+          "id": "kungfu-runtime",
+          "class": "integration-time",
+          "description": "runtime contract source framework/runtime/kungfu-runtime.contract.json is copied byte-for-byte to config/kungfu-runtime.contract.json."
         }
       ]
     }
@@ -140,6 +145,25 @@
       "artifact": {
         "path": "config/kungfu-skill.contract.json",
         "expectedSha256": "sha256:fb6fbc59557ac8448226f5ed8b97fd71fcf202742e896bb06e2831abeedc2a52"
+      }
+    },
+    {
+      "surface": "runtime",
+      "id": "kungfu-runtime",
+      "recipe": {
+        "path": "framework/runtime/kungfu-runtime.contract.json",
+        "generator": "kungfu sdk contract render",
+        "evidence": "kungfu sdk contract evidence"
+      },
+      "source": {
+        "path": "framework/runtime/kungfu-runtime.contract.json",
+        "sha256": "sha256:11b4a8b598f5af833b2cf2b21cf2e195b7ac1c2884a444d749be674c3834db78",
+        "renderedSha256": "sha256:11b4a8b598f5af833b2cf2b21cf2e195b7ac1c2884a444d749be674c3834db78",
+        "byteForByte": true
+      },
+      "artifact": {
+        "path": "config/kungfu-runtime.contract.json",
+        "expectedSha256": "sha256:11b4a8b598f5af833b2cf2b21cf2e195b7ac1c2884a444d749be674c3834db78"
       }
     }
   ]

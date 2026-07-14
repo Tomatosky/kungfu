@@ -144,6 +144,37 @@ manifest schema, shared loaders, Python/Node validation, and artifact hash gate
 are intended to be stable before published third-party packages bind to the
 surface.
 
+## Runtime activation is capability-driven and cut-bound
+
+**Guarantee.** Runtime consumers classify an operation as storage-only,
+live-optional, or live-required and use one topology-neutral requirement,
+handle, readiness, generation, lease, receipt, and error vocabulary. A ready
+handle binds a verified durable cut; process, route, service-install, and GUI
+facts remain diagnostics. Live-required fails closed, and storage-only does not
+activate a host as a side effect.
+
+**Verify.** Inspect
+[kungfu-runtime.contract.json](../../framework/runtime/kungfu-runtime.contract.json)
+and [ADR-0080](../adr/ADR-0080-topology-neutral-capability-driven-runtime-activation.md),
+then run:
+
+    kungfu contract show runtime --json
+    ./shifu check:source
+
+The source gate validates four positive contract cases and rejects PID-as-
+readiness, dual active generations, ready without a cut, authority broadening,
+GUI-only activation, and silent live-required downgrade.
+
+**Maturity.** Staged. The contract, registry integration, fixtures, source gate,
+ProcessRuntimeHost placement adapter, directly callable CoordinatorEngine
+no-fork seam, contract-owned operation registry, and RuntimeCapabilityBroker
+atomic invocation seam are implemented. Storage-only qualification proves that
+no activation client is constructed; live-required qualification proves that a
+callback is not accepted without an exact semantic ready receipt. Generation-
+fenced recovery/readiness, full language/product projection, and product
+qualification land in later stages. EmbeddedRuntimeHost is an explicit
+non-claim.
+
 ## The KFD-1 contract registry is the packaging source of truth
 
 **Guarantee.** Registered machine-readable contracts are indexed by

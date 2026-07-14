@@ -11,7 +11,7 @@ import time
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 from xml.sax.saxutils import escape as xml_escape
 
 import kungfu
@@ -37,6 +37,28 @@ LEGACY_STATE_DIR_NAME = "master"
 SERVICE_ID = "tech.kungfu.supervisor"
 SERVICE_NAME = "Kungfu Supervisor"
 ROUTE_LEASE_TTL_SECONDS = 30.0
+
+
+@dataclass(frozen=True)
+class RuntimeEngineRequest:
+    operation: str
+
+
+@dataclass(frozen=True)
+class RuntimeEngineReceipt:
+    operation: str
+    accepted: bool
+    state: str
+    capabilities: tuple[str, ...]
+    error: str | None = None
+
+
+class AssessmentExecutor(Protocol):
+    def ready(self, nanotime: int) -> bool: ...
+
+    def start(self, assessment_key: str, nanotime: int) -> None: ...
+
+    def close(self) -> None: ...
 
 
 def _now() -> float:
@@ -505,7 +527,9 @@ def repair_route_state(
         unlink_coordinator_pid_files(runtime_dir)
         repairs.append("removed-dead-coordinator-pid")
     if current["lifecycle"]["state"] == "orphan-coordinator" and coordinator_pid:
-        if _terminate_and_wait(coordinator_pid):
+        if ProcessRuntimeHost(config_home=config_home).terminate_and_wait(
+            coordinator_pid
+        ):
             unlink_coordinator_pid_files(runtime_dir)
             repairs.append("terminated-orphan-coordinator")
         else:
@@ -515,8 +539,86 @@ def repair_route_state(
     return repairs
 
 
-class Coordinator(NativeCoordinator):
-    def __init__(self, home: str, runtime_dir: str, low_latency: bool = False) -> None:
+class ProcessAssessmentExecutor:
+    def __init__(self, home: str, runtime_dir: str, log_level: str) -> None:
+        self.home = home
+        self.runtime_dir = runtime_dir
+        self.log_level = log_level
+        self.current: tuple[str, subprocess.Popen[Any], int] | None = None
+
+    @staticmethod
+    def _timeout_ns() -> int:
+        raw = os.environ.get("KF_ASSESSMENT_WORKER_TIMEOUT_SECONDS", "30")
+        try:
+            seconds = max(float(raw), 0.1)
+        except ValueError:
+            seconds = 30.0
+        return int(seconds * 1_000_000_000)
+
+    def ready(self, nanotime: int) -> bool:
+        if self.current is None:
+            return True
+        _, child, started_at = self.current
+        if child.poll() is not None:
+            self.current = None
+            return True
+        if nanotime - started_at < self._timeout_ns():
+            return False
+        child.terminate()
+        try:
+            child.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            child.kill()
+            child.wait()
+        self.current = None
+        return True
+
+    def start(self, assessment_key: str, nanotime: int) -> None:
+        command = assessment_worker_command(self.runtime_dir, assessment_key)
+        coordinator_log_path(self.runtime_dir).parent.mkdir(parents=True, exist_ok=True)
+        with coordinator_log_path(self.runtime_dir).open("ab") as log:
+            child = subprocess.Popen(
+                command,
+                stdin=subprocess.DEVNULL,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                env=command_env(
+                    self.home,
+                    self.runtime_dir,
+                    self.log_level,
+                ),
+            )
+        self.current = (assessment_key, child, nanotime)
+
+    def close(self) -> None:
+        if self.current is None:
+            return
+        _, child, _ = self.current
+        if child.poll() is None:
+            child.terminate()
+            try:
+                child.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                child.kill()
+                child.wait()
+        self.current = None
+
+
+class CoordinatorEngine(NativeCoordinator):
+    CAPABILITIES = (
+        "runtime.peer-registry",
+        "runtime.channel-routing",
+        "runtime.assessment-scheduling",
+    )
+
+    def __init__(
+        self,
+        home: str,
+        runtime_dir: str,
+        low_latency: bool = False,
+        *,
+        assessment_executor: AssessmentExecutor | None = None,
+    ) -> None:
         locator = yjj.locator(runtime_dir)
         location = yjj.location(
             lf.enums.mode.LIVE,
@@ -528,17 +630,24 @@ class Coordinator(NativeCoordinator):
         super().__init__(location, low_latency)
         self.home_dir = home
         self.runtime_dir = runtime_dir
-        self._assessment_worker: tuple[str, subprocess.Popen[Any], int] | None = None
+        self._assessment_executor = assessment_executor
         self._assessment_last_check = 0
 
-    @staticmethod
-    def _assessment_worker_timeout_ns() -> int:
-        raw = os.environ.get("KF_ASSESSMENT_WORKER_TIMEOUT_SECONDS", "30")
-        try:
-            seconds = max(float(raw), 0.1)
-        except ValueError:
-            seconds = 30.0
-        return int(seconds * 1_000_000_000)
+    def handle_request(self, request: RuntimeEngineRequest) -> RuntimeEngineReceipt:
+        if request.operation == "inspect":
+            return RuntimeEngineReceipt(
+                operation=request.operation,
+                accepted=True,
+                state="constructed",
+                capabilities=self.CAPABILITIES,
+            )
+        return RuntimeEngineReceipt(
+            operation=request.operation,
+            accepted=False,
+            state="rejected",
+            capabilities=(),
+            error="unsupported-operation",
+        )
 
     def on_register(self, gen_time: int, register_data: Any) -> None:
         return None
@@ -550,18 +659,11 @@ class Coordinator(NativeCoordinator):
         if nanotime - self._assessment_last_check < 500_000_000:
             return
         self._assessment_last_check = nanotime
-        if self._assessment_worker is not None:
-            _, child, started_at = self._assessment_worker
-            if child.poll() is None:
-                if nanotime - started_at < self._assessment_worker_timeout_ns():
-                    return
-                child.terminate()
-                try:
-                    child.wait(timeout=2)
-                except subprocess.TimeoutExpired:
-                    child.kill()
-                    child.wait()
-            self._assessment_worker = None
+        if (
+            self._assessment_executor is not None
+            and not self._assessment_executor.ready(nanotime)
+        ):
+            return
 
         snapshot = publish_assessment_snapshot(self.runtime_dir)
         pending = [
@@ -571,47 +673,196 @@ class Coordinator(NativeCoordinator):
         ]
         if not pending:
             return
+        if self._assessment_executor is None:
+            return
         assessment_key = str(pending[0]["assessment_key"])
-        command = assessment_worker_command(self.runtime_dir, assessment_key)
-        coordinator_log_path(self.runtime_dir).parent.mkdir(parents=True, exist_ok=True)
-        with coordinator_log_path(self.runtime_dir).open("ab") as log:
-            child = subprocess.Popen(
+        self._assessment_executor.start(assessment_key, nanotime)
+
+    def close(self) -> None:
+        if self._assessment_executor is not None:
+            self._assessment_executor.close()
+
+
+class Coordinator(CoordinatorEngine):
+    """Compatibility process coordinator; new no-fork code uses CoordinatorEngine."""
+
+    def __init__(self, home: str, runtime_dir: str, low_latency: bool = False) -> None:
+        super().__init__(
+            home,
+            runtime_dir,
+            low_latency,
+            assessment_executor=ProcessAssessmentExecutor(
+                home,
+                runtime_dir,
+                os.environ.get("KF_LOG_LEVEL", "warning"),
+            ),
+        )
+
+
+class ProcessRuntimeHost:
+    """Owns process placement while CoordinatorEngine owns runtime semantics."""
+
+    def __init__(
+        self,
+        log_level: str = "warning",
+        config_home: str | None = None,
+    ) -> None:
+        self.log_level = log_level
+        self.config_home = resolve_config_home(config_home)
+
+    def run_foreground(
+        self, home: str, runtime_dir: str, low_latency: bool = False
+    ) -> int:
+        home = resolve_runtime_home(home)
+        runtime_dir = resolve_runtime_dir(home, runtime_dir)
+        state_dir(runtime_dir).mkdir(parents=True, exist_ok=True)
+        write_pid(coordinator_pid_path(runtime_dir), os.getpid())
+        _json_write(
+            state_path(runtime_dir),
+            {
+                "schema": SCHEMA_STATUS,
+                "status": "coordinator-running",
+                "home": home,
+                "runtimeDir": runtime_dir,
+                "coordinatorPid": os.getpid(),
+                "updatedAt": _now(),
+            },
+        )
+        engine = CoordinatorEngine(
+            home,
+            runtime_dir,
+            low_latency=low_latency,
+            assessment_executor=ProcessAssessmentExecutor(
+                home, runtime_dir, self.log_level
+            ),
+        )
+        try:
+            engine.run()
+            return 0
+        finally:
+            engine.close()
+            unlink_coordinator_pid_files(runtime_dir)
+
+    def spawn_coordinator(self, home: str, runtime_dir: str) -> subprocess.Popen[Any]:
+        home = resolve_runtime_home(home)
+        runtime_dir = resolve_runtime_dir(home, runtime_dir)
+        command = coordinator_run_command(home, runtime_dir, self.log_level)
+        coordinator_log_path(runtime_dir).parent.mkdir(parents=True, exist_ok=True)
+        with coordinator_log_path(runtime_dir).open("ab") as log:
+            return subprocess.Popen(
                 command,
-                stdin=subprocess.DEVNULL,
-                stdout=log,
-                stderr=subprocess.STDOUT,
                 env=command_env(
-                    self.home_dir,
-                    self.runtime_dir,
-                    os.environ.get("KF_LOG_LEVEL", "warning"),
+                    home,
+                    runtime_dir,
+                    self.log_level,
+                    self.config_home,
                 ),
+                stdout=log,
+                stderr=log,
             )
-        self._assessment_worker = (assessment_key, child, nanotime)
+
+    def spawn_supervisor(
+        self, home: str, runtime_dir: str
+    ) -> tuple[subprocess.Popen[Any], list[str]]:
+        home = resolve_runtime_home(home)
+        runtime_dir = resolve_runtime_dir(home, runtime_dir)
+        supervisor_state_dir(self.config_home).mkdir(parents=True, exist_ok=True)
+        command = supervisor_command(
+            self.config_home,
+            self.log_level,
+            home=home,
+            runtime_dir=runtime_dir,
+            foreground=True,
+        )
+        with supervisor_log_path(self.config_home).open("ab") as log:
+            kwargs: dict[str, Any] = {
+                "env": command_env(
+                    home,
+                    runtime_dir,
+                    self.log_level,
+                    self.config_home,
+                ),
+                "stdout": log,
+                "stderr": log,
+            }
+            if platform.system() == "Windows":
+                detached_process = getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
+                new_process_group = getattr(
+                    subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200
+                )
+                kwargs["creationflags"] = detached_process | new_process_group
+            else:
+                kwargs["start_new_session"] = True
+            child = subprocess.Popen(command, **kwargs)
+        return child, command
+
+    def activate(self, home: str, runtime_dir: str) -> dict[str, Any]:
+        home = resolve_runtime_home(home)
+        runtime_dir = resolve_runtime_dir(home, runtime_dir)
+        repairs = repair_route_state(home, runtime_dir, self.config_home)
+        route = upsert_route(self.config_home, home, runtime_dir)
+        current = route_status(home, runtime_dir, self.config_home)
+        if current["supervisor"]["running"]:
+            return _wait_for_coordinator(
+                home,
+                runtime_dir,
+                self.config_home,
+                changed=False,
+                route=route,
+                repairs=repairs,
+            )
+        _, command = self.spawn_supervisor(home, runtime_dir)
+        return _wait_for_coordinator(
+            home,
+            runtime_dir,
+            self.config_home,
+            changed=True,
+            command=command,
+            route=route,
+            repairs=repairs,
+        )
+
+    def inspect(self, home: str, runtime_dir: str) -> dict[str, Any]:
+        return route_status(home, runtime_dir, self.config_home)
+
+    def drain(self, timeout: float = 10.0) -> dict[str, Any]:
+        return self.stop_supervisor(timeout)
+
+    def install_stop_handlers(self, callback: Any) -> None:
+        signal.signal(signal.SIGTERM, callback)
+        if platform.system() != "Windows":
+            signal.signal(signal.SIGINT, callback)
+
+    @staticmethod
+    def terminate_child(child: subprocess.Popen[Any]) -> None:
+        if child.poll() is None:
+            child.terminate()
+
+    @staticmethod
+    def terminate_and_wait(pid: int, timeout: float = 2.0) -> bool:
+        return _terminate_and_wait(pid, timeout)
+
+    def stop_supervisor(self, timeout: float = 10.0) -> dict[str, Any]:
+        current = supervisor_status(self.config_home)
+        pid = current["supervisor"]["pid"]
+        if not current["supervisor"]["running"] or not pid:
+            return {**current, "changed": False}
+        _terminate_pid(pid)
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            current = supervisor_status(self.config_home)
+            if not current["supervisor"]["running"]:
+                return {**current, "changed": True}
+            time.sleep(0.2)
+        return {
+            **supervisor_status(self.config_home),
+            "changed": False,
+            "error": "timeout",
+        }
 
 
 def run_coordinator(home: str, runtime_dir: str, low_latency: bool = False) -> int:
-    home = resolve_runtime_home(home)
-    runtime_dir = resolve_runtime_dir(home, runtime_dir)
-    service_state_dir = state_dir(runtime_dir)
-    service_state_dir.mkdir(parents=True, exist_ok=True)
-    write_pid(coordinator_pid_path(runtime_dir), os.getpid())
-    _json_write(
-        state_path(runtime_dir),
-        {
-            "schema": SCHEMA_STATUS,
-            "status": "coordinator-running",
-            "home": home,
-            "runtimeDir": runtime_dir,
-            "coordinatorPid": os.getpid(),
-            "updatedAt": _now(),
-        },
-    )
-    try:
-        coordinator = Coordinator(home, runtime_dir, low_latency=low_latency)
-        coordinator.run()
-        return 0
-    finally:
-        unlink_coordinator_pid_files(runtime_dir)
+    return ProcessRuntimeHost().run_foreground(home, runtime_dir, low_latency)
 
 
 def status(home: str, runtime_dir: str) -> dict[str, Any]:
@@ -710,6 +961,7 @@ def run_supervisor(
     restart_delay: float = 2.0,
 ) -> int:
     config_home = resolve_config_home(config_home)
+    process_host = ProcessRuntimeHost(log_level, config_home)
     service_state_dir = supervisor_state_dir(config_home)
     service_state_dir.mkdir(parents=True, exist_ok=True)
     write_pid(supervisor_pid_path(config_home), os.getpid())
@@ -722,12 +974,9 @@ def run_supervisor(
         nonlocal stopping
         stopping = True
         for child in children.values():
-            if child.poll() is None:
-                child.terminate()
+            process_host.terminate_child(child)
 
-    signal.signal(signal.SIGTERM, request_stop)
-    if platform.system() != "Windows":
-        signal.signal(signal.SIGINT, request_stop)
+    process_host.install_stop_handlers(request_stop)
 
     try:
         while not stopping:
@@ -743,7 +992,7 @@ def run_supervisor(
                     if route:
                         unlink_coordinator_pid_files(str(route["runtimeDir"]))
                     if route_id_ not in desired_routes and child.poll() is None:
-                        child.terminate()
+                        process_host.terminate_child(child)
                     children.pop(route_id_, None)
             for route_id_, route in desired_routes.items():
                 running_child = children.get(route_id_)
@@ -757,24 +1006,10 @@ def run_supervisor(
                     continue
                 route_home = str(route["home"])
                 route_runtime_dir = str(route["runtimeDir"])
-                command = coordinator_run_command(
-                    route_home, route_runtime_dir, log_level
+                child = process_host.spawn_coordinator(
+                    route_home,
+                    route_runtime_dir,
                 )
-                coordinator_log_path(route_runtime_dir).parent.mkdir(
-                    parents=True, exist_ok=True
-                )
-                with coordinator_log_path(route_runtime_dir).open("ab") as log:
-                    child = subprocess.Popen(
-                        command,
-                        env=command_env(
-                            route_home,
-                            route_runtime_dir,
-                            log_level,
-                            config_home,
-                        ),
-                        stdout=log,
-                        stderr=log,
-                    )
                 children[route_id_] = child
                 write_pid(coordinator_pid_path(route_runtime_dir), child.pid)
                 touch_route_heartbeat(
@@ -807,10 +1042,9 @@ def run_supervisor(
         return 0
     finally:
         for route_id_, child in list(children.items()):
-            if child.poll() is None:
-                child.terminate()
+            process_host.terminate_child(child)
         for route_id_, child in list(children.items()):
-            child.terminate()
+            process_host.terminate_child(child)
             try:
                 child.wait(timeout=5)
             except subprocess.TimeoutExpired:
@@ -836,48 +1070,7 @@ def ensure_coordinator(
     log_level: str,
     config_home: str | None = None,
 ) -> dict[str, Any]:
-    config_home = resolve_config_home(config_home)
-    home = resolve_runtime_home(home)
-    runtime_dir = resolve_runtime_dir(home, runtime_dir)
-    repairs = repair_route_state(home, runtime_dir, config_home)
-    route = upsert_route(config_home, home, runtime_dir)
-    current = route_status(home, runtime_dir, config_home)
-    if current["supervisor"]["running"]:
-        return _wait_for_coordinator(
-            home, runtime_dir, config_home, changed=False, route=route, repairs=repairs
-        )
-    supervisor_state_dir(config_home).mkdir(parents=True, exist_ok=True)
-    command = supervisor_command(
-        config_home,
-        log_level,
-        home=home,
-        runtime_dir=runtime_dir,
-        foreground=True,
-    )
-    with supervisor_log_path(config_home).open("ab") as log:
-        kwargs: dict[str, Any] = {
-            "env": command_env(home, runtime_dir, log_level, config_home),
-            "stdout": log,
-            "stderr": log,
-        }
-        if platform.system() == "Windows":
-            detached_process = getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
-            new_process_group = getattr(
-                subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200
-            )
-            kwargs["creationflags"] = detached_process | new_process_group
-        else:
-            kwargs["start_new_session"] = True
-        subprocess.Popen(command, **kwargs)
-    return _wait_for_coordinator(
-        home,
-        runtime_dir,
-        config_home,
-        changed=True,
-        command=command,
-        route=route,
-        repairs=repairs,
-    )
+    return ProcessRuntimeHost(log_level, config_home).activate(home, runtime_dir)
 
 
 def _wait_for_coordinator(
@@ -909,7 +1102,11 @@ def _wait_for_coordinator(
         **route_status(home, runtime_dir, config_home),
         "changed": changed,
     }
-    payload["route"] = {**route, **payload.get("route", {})}
+    current_route = payload.get("route")
+    payload["route"] = {
+        **route,
+        **(current_route if isinstance(current_route, dict) else {}),
+    }
     if repairs is not None:
         payload["repairs"] = repairs
     if command:
@@ -920,19 +1117,7 @@ def _wait_for_coordinator(
 def stop_supervisor(
     config_home: str | None = None, timeout: float = 10.0
 ) -> dict[str, Any]:
-    config_home = resolve_config_home(config_home)
-    current = supervisor_status(config_home)
-    pid = current["supervisor"]["pid"]
-    if not current["supervisor"]["running"] or not pid:
-        return {**current, "changed": False}
-    _terminate_pid(pid)
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        current = supervisor_status(config_home)
-        if not current["supervisor"]["running"]:
-            return {**current, "changed": True}
-        time.sleep(0.2)
-    return {**supervisor_status(config_home), "changed": False, "error": "timeout"}
+    return ProcessRuntimeHost(config_home=config_home).stop_supervisor(timeout)
 
 
 def supervisor_status(config_home: str | None = None) -> dict[str, Any]:
