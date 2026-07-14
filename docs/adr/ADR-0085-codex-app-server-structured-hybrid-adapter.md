@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0085
 decision_status: accepted
 implementation_status: staged
-implementation_commits: [6c10cf1e97f2d2cf1fec7f653a3e27782061ca90]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/848]
 qualification_refs: [framework/agent-session/tests/codex-app-server-contract.test.mjs, framework/agent-session/tests/codex-app-server-schema.native.test.mjs, framework/agent-session/schemas/codex-app-server/codex-v0.144.3-stable-schema-manifest.json]
 review_state: self-reviewed
 sensitivity: public
