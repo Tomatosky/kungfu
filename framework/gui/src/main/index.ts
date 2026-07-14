@@ -438,34 +438,6 @@ function readRuntimeStatus(): RuntimeStatusResult {
   }
 }
 
-function ensureRuntimeForGuiStartup() {
-  if (!workspaceRuntimeReady) {
-    console.log('KF_RUNTIME_ENSURE_DEFERRED workspace selected-uninitialized');
-    return;
-  }
-  try {
-    const out = execFileSync(kungfuBinPath(), ['runtime', 'ensure', '--json'], {
-      env: process.env,
-      timeout: 15000,
-    });
-    lastRuntimeStatus = {
-      ok: true,
-      payload: JSON.parse(out.toString()) as RuntimeStatusPayload,
-      error: '',
-      updatedAt: Date.now(),
-    };
-    console.log('KF_RUNTIME_ENSURE_OK');
-  } catch (e) {
-    lastRuntimeStatus = {
-      ok: false,
-      payload: null,
-      error: (e as Error).message,
-      updatedAt: Date.now(),
-    };
-    console.log(`KF_RUNTIME_ENSURE_FAIL ${lastRuntimeStatus.error}`);
-  }
-}
-
 function runtimeStatusLabel(result = lastRuntimeStatus ?? readRuntimeStatus()) {
   return deriveWorkspaceRuntimePresentation(result).label;
 }
@@ -517,22 +489,6 @@ async function showCommandResult(
 function quitGui() {
   appQuitting = true;
   app.quit();
-}
-
-async function stopRuntimeAndQuit() {
-  try {
-    execFileSync(kungfuBinPath(), ['runtime', 'stop', '--json'], {
-      env: process.env,
-      timeout: 10000,
-    });
-    quitGui();
-  } catch (e) {
-    await dialog.showMessageBox({
-      type: 'error',
-      message: 'Could not stop Kungfu Runtime',
-      detail: (e as Error).message,
-    });
-  }
 }
 
 function trayIcon() {
@@ -587,40 +543,18 @@ function buildTrayMenu() {
       },
       { type: 'separator' },
       {
-        label: 'Runtime Status',
+        label: 'Advanced Runtime Diagnostics',
         click: () =>
           void showCommandResult(
             'Could not read Kungfu Runtime status',
             ['runtime', 'status', '--json'],
-            'Kungfu Runtime Status',
-          ),
-      },
-      {
-        label: 'Start Runtime',
-        click: () =>
-          void showCommandResult(
-            'Could not start Kungfu Runtime',
-            ['runtime', 'start', '--json'],
-            'Kungfu Runtime started',
-          ),
-      },
-      {
-        label: 'Stop Runtime',
-        click: () =>
-          void showCommandResult(
-            'Could not stop Kungfu Runtime',
-            ['runtime', 'stop', '--json'],
-            'Kungfu Runtime stopped',
+            'Kungfu Runtime Diagnostics',
           ),
       },
       { type: 'separator' },
       {
         label: 'Quit GUI',
         click: quitGui,
-      },
-      {
-        label: 'Stop Runtime and Quit',
-        click: () => void stopRuntimeAndQuit(),
       },
     ]),
   );
@@ -1055,7 +989,6 @@ function createWindow() {
 
 app.whenReady().then(() => {
   app.setName(PRODUCT_NAME);
-  if (!qualificationMode) ensureRuntimeForGuiStartup();
   // Menus require a real display backend on Linux. The bounded qualification
   // path keeps them disabled together with the already-disabled Tray.
   if (!qualificationMode) buildMenu();

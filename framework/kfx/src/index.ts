@@ -17,6 +17,7 @@ import type {
   Ledger,
   Profile,
   Rewind,
+  RuntimeProductStatus,
   Storage,
   Terminal,
   Work,
@@ -55,6 +56,13 @@ export type {
   QueryChangelogPage,
   QueryChangelogState,
   QueryDefinition,
+  RuntimeError,
+  RuntimeHandle,
+  RuntimeLease,
+  RuntimeOperation,
+  RuntimeOperationCatalog,
+  RuntimeProductStatus,
+  RuntimeReadiness,
   QueryFrontier,
   GenericQueryViewSpec,
   QueryResumeToken,
@@ -1113,9 +1121,11 @@ export type ShellRuntimeInfo = {
   message: string;
   runtimeDir: string;
   kungfuVersion: string;
-  masterStatus: {
+  runtimeStatus: {
     ok: boolean;
-    payload: Record<string, unknown> | null;
+    payload:
+      | ({ product?: RuntimeProductStatus } & Record<string, unknown>)
+      | null;
     error: string;
     updatedAt: number;
   } | null;

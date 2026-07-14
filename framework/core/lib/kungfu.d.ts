@@ -1,5 +1,79 @@
 // SPDX-License-Identifier: Apache-2.0
 
+interface KungfuRuntimeStreamPosition {
+  stream_id: string;
+  container_epoch: string;
+  sequence: string;
+  frame_uid: string;
+}
+
+interface KungfuRuntimeReadiness {
+  schema: 'kungfu.runtime.readiness/v1';
+  state:
+    | 'starting'
+    | 'recovering'
+    | 'ready'
+    | 'draining'
+    | 'failed'
+    | 'restarting'
+    | 'stopped';
+  durableCut: KungfuRuntimeStreamPosition | null;
+  projectionCut: KungfuRuntimeStreamPosition | null;
+  evidence: Array<{ kind: string; ref: string }>;
+  observedAtNs: string;
+}
+
+interface KungfuRuntimeHandle {
+  schema: 'kungfu.runtime.handle/v1';
+  runtimeId: string;
+  requirementId: string;
+  workspaceId: string;
+  generation: string;
+  state: KungfuRuntimeReadiness['state'];
+  capabilities: string[];
+  grantedAuthorities: string[];
+  readiness: KungfuRuntimeReadiness;
+  host: {
+    kind: string;
+    hostId: string;
+    diagnostics: Record<string, unknown>;
+  };
+}
+
+interface KungfuRuntimeLease {
+  schema: 'kungfu.runtime.lease/v1';
+  leaseId: string;
+  runtimeId: string;
+  generation: string;
+  holderId: string;
+  capabilities: string[];
+  issuedAtNs: string;
+  expiresAtNs: string;
+  state: 'active' | 'released' | 'expired';
+}
+
+interface KungfuRuntimeProductStatusBase {
+  schema: 'kungfu.runtime.product-status/v1';
+  workspaceId: string;
+  availability: 'available';
+  leases: { activeCount: number; items: KungfuRuntimeLease[] };
+}
+
+type KungfuRuntimeProductStatus = KungfuRuntimeProductStatusBase &
+  (
+    | { liveState: 'inactive'; handle: null; error: null }
+    | {
+        liveState: Exclude<KungfuRuntimeReadiness['state'], 'failed'>;
+        handle: KungfuRuntimeHandle;
+        error: null;
+      }
+    | {
+        liveState: 'failed';
+        handle: KungfuRuntimeHandle | null;
+        error: { code: string; message: string; retryable: boolean };
+      }
+  );
+
 interface StorageTimeRange {
   since: string;
   until: string;
@@ -1031,6 +1105,14 @@ interface KungfuRuntime {
     runtimeDir: string,
   ): StorageProjectionRebuildResult;
   [name: string]: unknown;
+}
+
+declare namespace createKungfuRuntime {
+  type RuntimeStreamPosition = KungfuRuntimeStreamPosition;
+  type RuntimeReadiness = KungfuRuntimeReadiness;
+  type RuntimeHandle = KungfuRuntimeHandle;
+  type RuntimeLease = KungfuRuntimeLease;
+  type RuntimeProductStatus = KungfuRuntimeProductStatus;
 }
 
 declare function createKungfuRuntime(): KungfuRuntime;
