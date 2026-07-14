@@ -3,7 +3,8 @@ metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
 adr_id: ADR-0086
 decision_status: accepted
-implementation_status: unknown
+implementation_status: staged
+implementation_commits: [da86be83406a219a24f4a0bb75bd6b8cac34e830]
 qualification_refs: [framework/core/tests/python/test_runtime_upgrade.py, scripts/check-upgrade-contract.test.mjs, tests/fixtures/runtime-upgrade-control-plane/cases.json]
 review_state: self-reviewed
 sensitivity: public
@@ -17,7 +18,7 @@ last_reviewed: 2026-07-14
 
 # ADR-0086: product upgrades install immutable runtimes before Core activates them
 
-- Status: accepted; implementation evidence pending
+- Status: accepted; implementation staged
 - Date: 2026-07-14
 - Category: product runtime / upgrade / compatibility / recovery
 - Related: [ADR-0049](ADR-0049-layer-complete-products-and-domain-neutral-core.md),
