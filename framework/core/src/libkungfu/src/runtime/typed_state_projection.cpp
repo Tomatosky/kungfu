@@ -172,4 +172,73 @@ void restore_typed_state_image(const std::map<std::string, std::string> &image, 
   target = staged;
 }
 
+void hydrate_projection_candidate(projection_candidate_result &result, state_cache::bank &target) {
+  if (result.authority_path != "projection_candidate" || result.bootstrap.outcome != bootstrap_outcome::Ready) {
+    return;
+  }
+  if (result.requirement != "none") {
+    restore_typed_state_image(result.bootstrap.state, target);
+  }
+  result.hydrated = true;
+}
+
+void emit_projection_candidate(projection_candidate_result &result, const yijinjing::journal::writer_ptr &writer) {
+  if (!writer) {
+    throw std::invalid_argument("projection_candidate_writer_required");
+  }
+  state_cache::bank staged;
+  hydrate_projection_candidate(result, staged);
+  if (!result.hydrated || result.requirement == "none") {
+    return;
+  }
+  boost::hana::for_each(yijinjing::StateDataTypes, [&](auto entry) {
+    using DataType = typename decltype(+boost::hana::second(entry))::type;
+    for (const auto &[uid, state] : staged[boost::hana::type_c<DataType>]) {
+      (void)uid;
+      writer->write_as(state.update_time, state.data, state.source, state.dest);
+    }
+  });
+}
+
+projection_candidate_status_view inspect_projection_candidate(projection_candidate_inspect_options options) {
+  durability::ingest_options ingest{};
+  ingest.data_root = options.data_root;
+  ingest.stream_id = options.stream_id;
+  ingest.container_epoch = options.container_epoch;
+  ingest.writer_resource_id = options.writer_resource_id;
+  ingest.qualification_profile = options.qualification_profile;
+  ingest.qualification_passed = true;
+  ingest.activation = durability::ingest_activation::ProductionCandidate;
+  ingest.read_only = true;
+
+  projection_options projection{};
+  projection.data_root = options.data_root;
+  projection.stream_id = options.stream_id;
+  projection.container_epoch = options.container_epoch;
+  projection.projection_name = options.projection_name;
+  projection.projection_schema = TYPED_STATE_PROJECTION_SCHEMA_V1;
+  projection.source_qualification_profile = options.qualification_profile;
+
+  const peer_projection_declaration declaration{true, options.requirement, options.qualification_profile};
+  try {
+    durability::durable_ingest_log log(std::move(ingest));
+    projection_bootstrap_store store(std::move(projection), make_typed_state_projector());
+    auto result =
+        make_projection_candidate_result(declaration, store.bootstrap(log.read_durable_records(), options.requirement));
+    state_cache::bank staged;
+    hydrate_projection_candidate(result, staged);
+    return projection_candidate_status(result);
+  } catch (const std::exception &error) {
+    bootstrap_result unavailable;
+    unavailable.outcome = options.requirement == peer_state_requirement::Required ? bootstrap_outcome::Refused
+                                                                                  : bootstrap_outcome::Degraded;
+    unavailable.error = projection_error::ServiceUnavailable;
+    unavailable.message = error.what();
+    unavailable.status.available = false;
+    unavailable.status.last_error = projection_error::ServiceUnavailable;
+    unavailable.status.last_error_message = error.what();
+    return projection_candidate_status(make_projection_candidate_result(declaration, std::move(unavailable)));
+  }
+}
+
 } // namespace kungfu::runtime::state_service

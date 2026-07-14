@@ -26,10 +26,12 @@ struct timer_task {
 class coordinator : public reactor {
 public:
   explicit coordinator(const yijinjing::data::location_ptr &home, bool low_latency = false,
-                       state_service::durability_candidate_config durability_candidate = {});
+                       state_service::durability_candidate_config durability_candidate = {},
+                       state_service::projection_candidate_config projection_candidate = {});
 
   explicit coordinator(const kungfu::runtime::io_device_ptr &io_device,
-                       state_service::durability_candidate_config durability_candidate = {});
+                       state_service::durability_candidate_config durability_candidate = {},
+                       state_service::projection_candidate_config projection_candidate = {});
 
   void on_exit() override;
 

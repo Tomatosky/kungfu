@@ -433,6 +433,25 @@ Napi::Value DurabilityCapabilityTyped(const Napi::CallbackInfo &info) {
                                      runtime::durability::single_host_institutional_capability()));
 }
 
+Napi::Value ProjectionCandidateStatusTyped(const Napi::CallbackInfo &info) {
+  if (!IsValid(info, 0, &Napi::Value::IsObject))
+    throw Napi::TypeError::New(info.Env(), "projectionCandidateStatusTyped(options)");
+  const auto options = info[0].As<Napi::Object>();
+  const auto requirement = StringOption(options, "requirement");
+  runtime::state_service::projection_candidate_inspect_options inspect{
+      StringOption(options, "data_root"),
+      Uint64Option(info.Env(), options, "stream_id"),
+      Uint64Option(info.Env(), options, "container_epoch"),
+      StringOption(options, "writer_resource_id"),
+      StringOption(options, "qualification_profile"),
+      StringOption(options, "projection_name"),
+      runtime::state_service::parse_peer_state_requirement(requirement.empty() ? "required" : requirement),
+  };
+  if (inspect.projection_name.empty())
+    inspect.projection_name = "typed-peer-state";
+  return HanaViewToValue(info.Env(), runtime::state_service::inspect_projection_candidate(std::move(inspect)));
+}
+
 Napi::Value StorageEpisodeBeginTyped(const Napi::CallbackInfo &info) {
   if (!IsValid(info, 0, &Napi::Value::IsString) || !IsValid(info, 1, &Napi::Value::IsObject))
     throw Napi::TypeError::New(info.Env(), "storageEpisodeBeginTyped(runtimeDir, options)");
@@ -912,6 +931,7 @@ Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
   exports.Set("durabilityVisibleReceiptTyped", Napi::Function::New(env, DurabilityVisibleReceiptTyped));
   exports.Set("durabilityReconcileTyped", Napi::Function::New(env, DurabilityReconcileTyped));
   exports.Set("durabilityCapabilityTyped", Napi::Function::New(env, DurabilityCapabilityTyped));
+  exports.Set("projectionCandidateStatusTyped", Napi::Function::New(env, ProjectionCandidateStatusTyped));
   exports.Set("storageStatusTyped", Napi::Function::New(env, StorageStatusTyped));
   exports.Set("storageQueryTyped", Napi::Function::New(env, StorageQueryTyped));
   exports.Set("storageGcPlanTyped", Napi::Function::New(env, StorageGcPlanTyped));

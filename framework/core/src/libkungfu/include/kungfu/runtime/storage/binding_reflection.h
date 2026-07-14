@@ -8,6 +8,7 @@
 #include <kungfu/runtime/durability.h>
 #include <kungfu/runtime/durable_ingest.h>
 #include <kungfu/runtime/storage/service.h>
+#include <kungfu/runtime/typed_state_projection.h>
 
 // Owned API views use Hana field reflection without acquiring a carrier tag,
 // packed layout, mmap lifetime, or journal-schema promise. This is the typed
@@ -18,6 +19,10 @@ BOOST_HANA_ADAPT_STRUCT(kungfu::runtime::durability::durability_receipt_view, sc
                         replicated_watermark, barrier_id, qualification_profile, completed_at, status, error);
 BOOST_HANA_ADAPT_STRUCT(kungfu::runtime::durability::receipt_reconciliation_view, schema, request_id, state, recovered,
                         receipt, error, message);
+BOOST_HANA_ADAPT_STRUCT(kungfu::runtime::state_service::projection_candidate_status_view, schema, authority,
+                        authority_path, requirement, qualification_profile, production_eligible, parity_checked,
+                        parity_equal, hydrated, outcome, error, message, snapshot_through, replay_through,
+                        durable_watermark, projection_watermark, replayed_records, lag_records);
 BOOST_HANA_ADAPT_STRUCT(kungfu::runtime::storage_service_api::storage_projection_count, table, count);
 BOOST_HANA_ADAPT_STRUCT(kungfu::runtime::storage_service_api::storage_projection_drift, table, projection_rows,
                         journal_distinct, reason, projection_digest, journal_digest);

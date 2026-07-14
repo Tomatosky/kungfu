@@ -440,6 +440,25 @@ void bind(pybind11::module &&m) {
       py::arg("data_root"), py::arg("request_id"), py::arg("stream_id"), py::arg("container_epoch"),
       py::arg("sequence"), py::arg("frame_uid"), py::arg("requested_profile"), py::arg("writer_resource_id"),
       py::arg("qualification_profile"));
+  m.def(
+      "projection_candidate_status_typed",
+      [](const std::string &data_root, uint64_t stream_id, uint64_t container_epoch,
+         const std::string &writer_resource_id, const std::string &qualification_profile,
+         const std::string &projection_name, const std::string &requirement) {
+        runtime::state_service::projection_candidate_inspect_options options{
+            data_root,
+            stream_id,
+            container_epoch,
+            writer_resource_id,
+            qualification_profile,
+            projection_name,
+            runtime::state_service::parse_peer_state_requirement(requirement),
+        };
+        return hana_view_to_py(runtime::state_service::inspect_projection_candidate(std::move(options)));
+      },
+      py::arg("data_root"), py::arg("stream_id"), py::arg("container_epoch"), py::arg("writer_resource_id"),
+      py::arg("qualification_profile"), py::arg("projection_name") = "typed-peer-state",
+      py::arg("requirement") = "required");
 
   // nanosecond-time related
   m.def("now_in_nano", &yijinjing::time::now_in_nano);
@@ -1385,6 +1404,8 @@ void bind(pybind11::module &&m) {
       .def("step", &peer::step)
       .def("is_live", &peer::is_live)
       .def("is_started", &peer::is_started)
+      .def("get_projection_candidate_status",
+           [](const peer &runtime_peer) { return hana_view_to_py(runtime_peer.get_projection_candidate_status()); })
       .def("has_writer", &peer::has_writer)
       .def("get_writer", &peer::get_writer)
       .def("observe", &peer::observe, py::arg("carrier_type"), py::arg("callback"))

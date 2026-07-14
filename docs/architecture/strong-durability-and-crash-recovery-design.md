@@ -52,7 +52,7 @@ Non-goals for the first implementation:
 | frame integrity | CRC32C receipt metadata and container-epoch contracts exist | detects classes of corruption; does not create durability |
 | content objects | immutable store can request sync-on-publish | useful backend primitive, not a journal-wide guarantee |
 | projections | source, manifest, Episode, and state SQLite stores use WAL and are rebuildable; several use synchronous mode off | query accelerator, never durability authority |
-| live topology | coordinator calls an in-process state-service boundary that owns `state_cache`; an explicit constructor can supply a default-off durability candidate configuration; coordinator still triggers compatibility restore and joins business streams | ownership split and live candidate seam implemented; bootstrap/business-join cutover remains |
+| live topology | coordinator calls an in-process state-service boundary that owns `state_cache`; explicit default-off durability and projection candidates exist; the projection candidate validates and hydrates before registration without coordinator business PUBLIC/SYNC joins or compatibility restore, while undeclared peers retain that bridge | candidate authority is implemented and production-ineligible; default cutover and bridge deletion remain |
 | Episode | typed manifests, qualification/capability/repair slices and fault matrix exist | semantic recovery boundary is staged, not fully durability-qualified |
 | recovery backup | test-only typed export requires an exclusively owned stable `READY` cut; empty-root restore verifies every byte, sealed Episode root/payload hash, and rebuilt projection cut | round-trip implementation evidence; external backup format, operator workflow, and qualified power-loss envelope remain |
 
@@ -384,9 +384,9 @@ Duplicate boundary delivery must be harmless and tested. Peers declare:
 - `optional`: start with explicit degraded/lag status;
 - `none`: no state bootstrap.
 
-### Current shadow snapshot/replay substrate
+### Current projection-candidate snapshot/replay substrate
 
-The first implementation is a state-service-owned, test-only binary projection
+The underlying implementation is a state-service-owned binary projection
 snapshot. It is intentionally separate from SQLite and from the mmap hot path.
 The snapshot binds projection name/schema, source qualification profile, stream id, container epoch,
 `through_position T`, deterministically ordered key/value state, and a SHA-256
@@ -420,10 +420,21 @@ qualified test barrier and snapshot; the second reopens KFDL, verifies the cut,
 replays after `T`, and hydrates typed state without live mmap addresses or
 process memory from the creator.
 
-This slice still does not replace the production coordinator-triggered
-compatibility restore. That switch remains gated on wiring this projector into
-the production bootstrap authority, removing the business restore/join bridge,
-and the later qualified durable profile.
+An explicit, default-off live candidate now carries a required/optional/none
+declaration as an additive registration JSON extension. It requires a matching
+`candidate/*` profile and the state service reopens the existing KFDL and
+projection namespace. The retained qualification fixture proves same-cut
+parity against the compatibility bank; the live coordinator verifies the
+qualified cut, decodes into a staging bank, and completes required hydration
+validation before registry publication.
+Candidate peers skip coordinator-owned business PUBLIC/SYNC joins and the
+compatibility restore bridge; control and command routing remain coordinator
+owned. Required failures refuse registration, optional failures are explicitly
+degraded, and `none` has no projection dependency. Undeclared peers retain the
+compatibility path as rollback authority. C++, Python, Node, and CLI inspect the
+same `kungfu.projection-candidate-status/v1` authority record. The candidate is
+not the default and reports `production_eligible: false`; default cutover,
+bridge deletion, and production admission remain gated on later qualification.
 
 ## 8. Failure behavior
 
@@ -519,9 +530,11 @@ test-only single-host contracts and do not replace platform qualification.
 4. **Shadow projection** — rebuild a separate projection from the durable cut
    and compare typed state with the compatibility state cache.
 5. **State-service activation** — move the split components to the per-data-root
-   service; coordinator keeps a temporary compatibility bridge.
-6. **Bootstrap cutover** — peers use snapshot-at-`T` plus replay-after-`T`;
-   remove coordinator business joins and restore ownership.
+   service; coordinator keeps a temporary compatibility bridge. An explicit
+   projection candidate now exercises this path without changing the default.
+6. **Bootstrap cutover** — after candidate qualification, make peers use
+   snapshot-at-`T` plus replay-after-`T` by default and remove the coordinator
+   business joins and restore ownership.
 7. **Profile exposure** — expose `durable_group`, then `durable_sync`, only for
    platform profiles whose qualification reports pass.
 

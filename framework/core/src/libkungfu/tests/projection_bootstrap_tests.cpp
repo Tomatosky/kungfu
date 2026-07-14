@@ -24,10 +24,20 @@ using kungfu::runtime::durability::ingest_options;
 using kungfu::runtime::durability::receipt_status;
 using kungfu::runtime::durability::stream_position;
 using kungfu::runtime::state_cache::bank;
+using kungfu::runtime::state_service::attach_peer_projection_declaration;
+using kungfu::runtime::state_service::attach_projection_candidate_status;
 using kungfu::runtime::state_service::bootstrap_outcome;
+using kungfu::runtime::state_service::hydrate_projection_candidate;
+using kungfu::runtime::state_service::make_projection_candidate_result;
 using kungfu::runtime::state_service::make_typed_state_projector;
+using kungfu::runtime::state_service::parse_peer_projection_declaration;
+using kungfu::runtime::state_service::parse_projection_candidate_status;
+using kungfu::runtime::state_service::peer_projection_declaration;
 using kungfu::runtime::state_service::peer_state_requirement;
 using kungfu::runtime::state_service::projection_bootstrap_store;
+using kungfu::runtime::state_service::projection_candidate_config;
+using kungfu::runtime::state_service::projection_candidate_status;
+using kungfu::runtime::state_service::projection_compatibility_view;
 using kungfu::runtime::state_service::projection_error;
 using kungfu::runtime::state_service::projection_mutation;
 using kungfu::runtime::state_service::projection_options;
@@ -328,6 +338,77 @@ void test_actual_typed_projector_fails_closed_and_preserves_rollback_snapshot() 
           "failed typed-state hydration partially replaced the peer state bank");
 }
 
+void test_candidate_declaration_status_parity_and_atomic_hydration() {
+  temp_tree tree;
+  kungfu::yijinjing::types::Config config;
+  config.location_uid = 42;
+  config.namespace_ = "strategy";
+  config.name = "candidate";
+  config.value = "ready";
+  const std::vector<durable_record> durable{state_record(1, 10, 20, 100, config)};
+
+  auto typed_options = options(tree.root(), TYPED_STATE_PROJECTION_SCHEMA_V1, "candidate/test-local-filesystem/v1");
+  typed_options.projection_name = "typed-peer-state";
+  projection_bootstrap_store store(typed_options, make_typed_state_projector());
+  (void)store.rebuild(durable);
+
+  const peer_projection_declaration declaration{true, peer_state_requirement::Required,
+                                                "candidate/test-local-filesystem/v1"};
+  const auto declaration_payload = attach_peer_projection_declaration(config.to_string(), declaration);
+  const auto parsed_declaration = parse_peer_projection_declaration(declaration_payload);
+  require(parsed_declaration.candidate && parsed_declaration.requirement == peer_state_requirement::Required &&
+              parsed_declaration.qualification_profile == declaration.qualification_profile,
+          "candidate declaration did not survive the Register JSON extension");
+  kungfu::yijinjing::types::Register register_data;
+  register_data.location_uid = 99;
+  const auto register_payload = attach_peer_projection_declaration(register_data.to_string(), declaration);
+  const kungfu::yijinjing::types::Register compatible_register(register_payload);
+  require(compatible_register.location_uid == 99, "candidate declaration broke the existing Register wire parser");
+
+  projection_compatibility_view compatibility{TYPED_STATE_PROJECTION_SCHEMA_V1, durable.back().position,
+                                              store.load_snapshot().state};
+  auto accepted = make_projection_candidate_result(
+      parsed_declaration, store.bootstrap(durable, peer_state_requirement::Required), compatibility);
+  require(accepted.bootstrap.outcome == bootstrap_outcome::Ready && accepted.parity_checked && accepted.parity_equal,
+          "same-cut compatibility parity did not admit the candidate");
+  bank target;
+  hydrate_projection_candidate(accepted, target);
+  require(accepted.hydrated && typed_state_image(target) == compatibility.state,
+          "candidate did not atomically hydrate the typed peer bank");
+
+  auto status_payload = attach_projection_candidate_status(declaration_payload, projection_candidate_status(accepted));
+  const auto status = parse_projection_candidate_status(status_payload);
+  require(status.authority_path == "projection_candidate" && status.outcome == "ready" && status.parity_equal &&
+              status.hydrated && !status.production_eligible,
+          "candidate status JSON widened or lost the native semantics");
+  auto widened_status = nlohmann::json::parse(status_payload);
+  widened_status["projection_candidate_status"]["production_eligible"] = true;
+  bool widened_status_rejected = false;
+  try {
+    (void)parse_projection_candidate_status(widened_status.dump());
+  } catch (const std::exception &) {
+    widened_status_rejected = true;
+  }
+  require(widened_status_rejected, "candidate status accepted widened production eligibility");
+
+  projection_compatibility_view drift = compatibility;
+  drift.state.begin()->second += "drift";
+  auto refused = make_projection_candidate_result(parsed_declaration,
+                                                  store.bootstrap(durable, peer_state_requirement::Required), drift);
+  const auto original = typed_state_image(target);
+  hydrate_projection_candidate(refused, target);
+  require(refused.bootstrap.outcome == bootstrap_outcome::Refused &&
+              refused.bootstrap.error == projection_error::ParityMismatch && typed_state_image(target) == original,
+          "failed required cutover partially polluted the peer state");
+
+  auto optional_declaration = parsed_declaration;
+  optional_declaration.requirement = peer_state_requirement::Optional;
+  auto degraded = make_projection_candidate_result(optional_declaration,
+                                                   store.bootstrap(durable, peer_state_requirement::Optional), drift);
+  require(degraded.bootstrap.outcome == bootstrap_outcome::Degraded && degraded.bootstrap.state.empty(),
+          "optional parity drift was not explicitly degraded");
+}
+
 void test_state_service_owns_projection_shadow_and_stopped_service_is_unavailable() {
   temp_tree tree;
   auto page_locator = std::make_shared<locator>(tree.root().string());
@@ -385,14 +466,15 @@ ingest_options restart_ingest_options(const fs::path &root) {
   ingest.stream_id = 71;
   ingest.container_epoch = 5;
   ingest.writer_resource_id = "projection-restart-writer";
-  ingest.qualification_profile = "test/macos-apfs-projection-bootstrap";
+  ingest.qualification_profile = "candidate/test-local-filesystem/v1";
   ingest.qualification_passed = true;
+  ingest.activation = kungfu::runtime::durability::ingest_activation::ProductionCandidate;
   return ingest;
 }
 
 projection_options restart_projection_options(const fs::path &root) {
-  auto projection = options(root, TYPED_STATE_PROJECTION_SCHEMA_V1, "test/macos-apfs-projection-bootstrap");
-  projection.projection_name = "process-restart-state";
+  auto projection = options(root, TYPED_STATE_PROJECTION_SCHEMA_V1, "candidate/test-local-filesystem/v1");
+  projection.projection_name = "typed-peer-state";
   return projection;
 }
 
@@ -416,13 +498,28 @@ void create_process_restart_fixture(const fs::path &root) {
 }
 
 void verify_process_restart_fixture(const fs::path &root) {
-  durable_ingest_log log(restart_ingest_options(root));
-  projection_bootstrap_store projection(restart_projection_options(root), make_typed_state_projector());
-  const auto bootstrap = projection.bootstrap(log.read_durable_records(), peer_state_requirement::Required);
-  require(bootstrap.outcome == bootstrap_outcome::Ready && bootstrap.status.lag_records == 0,
+  auto page_locator = std::make_shared<locator>(root.string());
+  auto home = location::make_shared(mode::LIVE, location_role::SYSTEM, "service", "candidate-restart", page_locator);
+  auto io_device = std::make_shared<kungfu::runtime::io_device_coordinator>(home, false);
+  kungfu::runtime::state_service::durability_candidate_config durability_candidate{
+      true, "candidate/test-local-filesystem/v1", true};
+  projection_candidate_config projection_candidate{true,
+                                                   "candidate/test-local-filesystem/v1",
+                                                   true,
+                                                   71,
+                                                   5,
+                                                   "projection-restart-writer",
+                                                   "typed-peer-state",
+                                                   TYPED_STATE_PROJECTION_SCHEMA_V1};
+  service reopened(io_device, durability_candidate, projection_candidate);
+  reopened.start();
+  const peer_projection_declaration declaration{true, peer_state_requirement::Required,
+                                                "candidate/test-local-filesystem/v1"};
+  auto candidate = reopened.bootstrap_projection_candidate(declaration);
+  require(candidate.bootstrap.outcome == bootstrap_outcome::Ready && candidate.bootstrap.status.lag_records == 0,
           "fresh process did not accept the verified snapshot-through-T plus replay-after-T cut");
   bank restored;
-  restore_typed_state_image(bootstrap.state, restored);
+  hydrate_projection_candidate(candidate, restored);
   kungfu::yijinjing::types::Config expected;
   expected.location_uid = 42;
   const auto &configs = restored[boost::hana::type_c<kungfu::yijinjing::types::Config>];
@@ -430,6 +527,7 @@ void verify_process_restart_fixture(const fs::path &root) {
   require(found != configs.end() && found->second.source == 10 && found->second.dest == 20 &&
               found->second.update_time == 100 && found->second.data.value == "verified",
           "fresh process did not hydrate the expected typed peer state");
+  reopened.stop();
 }
 
 int run_tests() {
@@ -446,6 +544,8 @@ int run_tests() {
        test_actual_state_data_types_match_compatibility_state_at_the_same_cut},
       {"actual typed projector fails closed and preserves rollback",
        test_actual_typed_projector_fails_closed_and_preserves_rollback_snapshot},
+      {"candidate declaration, parity, status and atomic hydration",
+       test_candidate_declaration_status_parity_and_atomic_hydration},
       {"state service owns projection shadow and fails closed when stopped",
        test_state_service_owns_projection_shadow_and_stopped_service_is_unavailable},
   };

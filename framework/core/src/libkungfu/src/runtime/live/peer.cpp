@@ -23,11 +23,25 @@ namespace fs = std::filesystem;
 
 namespace kungfu::runtime::live {
 
+namespace {
+state_service::peer_projection_declaration parse_projection_declaration(const std::string &arguments) {
+  const auto first = arguments.find_first_not_of(" \t\r\n");
+  if (first == std::string::npos || arguments[first] != '{') {
+    // Peer arguments historically accepted opaque strings. Only JSON objects
+    // participate in the candidate protocol; preserve the legacy path for all
+    // other argument forms.
+    return {};
+  }
+  return state_service::parse_peer_projection_declaration(arguments);
+}
+} // namespace
+
 peer::peer(const yijinjing::data::location_ptr &home, bool low_latency, std::string arguments)
     : peer(std::make_shared<kungfu::runtime::io_device_peer>(home, low_latency), std::move(arguments)) {}
 
 peer::peer(const kungfu::runtime::io_device_ptr &io_device, std::string arguments)
-    : reactor(io_device), manager_(*this), arguments_(std::move(arguments)) {}
+    : reactor(io_device), manager_(*this), arguments_(std::move(arguments)),
+      projection_declaration_(parse_projection_declaration(arguments_)) {}
 
 bool peer::is_started() const { return started_; }
 
@@ -38,6 +52,10 @@ uint32_t peer::get_coordinator_command_uid() const { return coordinator_cmd_loca
 int64_t peer::get_checkin_time() const { return checkin_time_; }
 
 const state_cache::bank &peer::get_state_bank() const { return state_bank_; }
+
+const state_service::projection_candidate_status_view &peer::get_projection_candidate_status() const {
+  return projection_candidate_status_;
+}
 
 void peer::request_read_from(int64_t trigger_time, uint32_t source_id, int64_t from_time, uint64_t page_size) {
   require_read_from(trigger_time, get_coordinator_command_uid(), source_id, from_time, page_size);
@@ -141,6 +159,23 @@ void peer::react() {
       registered_ = true;
       auto data = event->data<Register>();
       checkin_time_ = data.checkin_time;
+      projection_candidate_status_ = state_service::parse_projection_candidate_status(event->data_as_string());
+      if (projection_declaration_.candidate && projection_candidate_status_.authority_path != "projection_candidate") {
+        projection_candidate_status_.authority_path = "projection_candidate";
+        projection_candidate_status_.requirement =
+            state_service::peer_state_requirement_name(projection_declaration_.requirement);
+        projection_candidate_status_.qualification_profile = projection_declaration_.qualification_profile;
+        projection_candidate_status_.outcome =
+            projection_declaration_.requirement == state_service::peer_state_requirement::Required ? "refused"
+                                                                                                   : "degraded";
+        projection_candidate_status_.error = "service_unavailable";
+        projection_candidate_status_.message = "coordinator_did_not_acknowledge_projection_candidate";
+      }
+      if (projection_candidate_status_.outcome == "refused") {
+        SPDLOG_ERROR("peer projection bootstrap refused: {}", projection_candidate_status_.message);
+        reactor::signal_stop();
+        return;
+      }
       // in case operation-system time change, begin_time_ mismatch clock of coordinator, keep using event->gen_time()
       reader_->join(coordinator_cmd_location_, get_live_home_uid(), event->gen_time());
     });
@@ -319,11 +354,20 @@ void peer::checkin() {
   register_data.uid64 = home->uid64;
   register_data.pid = GETPID();
   register_data.checkin_time = now;
-  SPDLOG_INFO("peer checkin Register: {}", register_data.to_string());
+  const auto register_payload =
+      state_service::attach_peer_projection_declaration(register_data.to_string(), projection_declaration_);
+  SPDLOG_INFO("peer checkin Register: {}", register_payload);
 
   auto try_register = [&]() {
-    return get_io_device()->get_publisher()->publish(
-               make_nano_msg(get_live_home_uid(), coordinator_home_location_->uid, register_data), 0, true) == 0;
+    auto request = nlohmann::json{{"data_type", int8_t(FrameDataType::Json)},
+                                  {"carrier_type", Register::tag},
+                                  {"gen_time", now},
+                                  {"trigger_time", now},
+                                  {"initial_source", get_live_home_uid()},
+                                  {"source", get_live_home_uid()},
+                                  {"dest", coordinator_home_location_->uid},
+                                  {"data", register_payload}};
+    return get_io_device()->get_publisher()->publish(request.dump(), 0, true) == 0;
   };
 
   int count = (REGISTER_TIMEOUT_SECONDS * 1000) / DEFAULT_NOTICE_TIMEOUT;

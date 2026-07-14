@@ -86,7 +86,7 @@ position, carrier, and payload after reopen.
 It accepts success receipts only under `test/*` qualification fixtures; this
 is implementation evidence, not a production durability claim.
 
-A test-only projection bootstrap substrate now consumes only those verified,
+A projection bootstrap substrate now consumes only those verified,
 checkpoint-covered KFDL records. It writes a versioned binary snapshot through
 logical position `T`, verifies its SHA-256 integrity and projection schema after
 restart, and replays strictly after `T`. Required peers fail closed when the
@@ -102,8 +102,18 @@ Verified images can now hydrate a staging peer state bank and atomically replace
 the target only after every type, uid, and payload validates. A two-process
 fixture creates the durable cut and snapshot in one process, then reopens KFDL,
 bootstraps, and hydrates typed peer state in a fresh process.
-This is shadow/cutover evidence: the production coordinator compatibility
-restore remains active and public durable profiles remain disabled.
+An explicit, default-off live candidate now carries required/optional/none as
+an additive registration JSON extension. It requires a matching `candidate/*`
+profile, reopens the existing KFDL and snapshot after process restart, verifies
+the qualified cut, and validates required hydration before registry
+publication. The retained qualification fixture separately proves same-cut
+typed parity against the compatibility bank.
+Candidate peers do not join coordinator-owned business PUBLIC/SYNC streams or
+invoke compatibility restore; optional failures are visibly degraded. Peers
+without the declaration retain the compatibility bridge as rollback authority.
+C++, Python, Node, and CLI inspect the same status. This is candidate/cutover
+evidence, not production admission: the path remains default-off and reports
+`production_eligible: false`; public durable profiles remain disabled.
 
 A test-only read-only recovery inspector now runs
 `DISCOVER -> VERIFY -> SELECT -> CLASSIFY -> REPORT` over KFDL v2 without
@@ -223,7 +233,7 @@ one Episode must not silently invalidate unrelated Episodes.
 | C. Unified position, watermark, and receipt vocabulary | **implemented (candidate edge)** | C++ owns stable stream positions, four typed watermarks, named profiles, receipts/errors, deduplication, explicit unknown outcomes, and restart reconciliation; Python/Node/CLI are typed edge projections. Stronger profiles require an explicit default-off candidate activation and remain production-ineligible |
 | D. State-service separation and durable ingest | **partially implemented** | coordinator no longer owns the projection store directly; the in-process state-service boundary has independent lifecycle, shadow comparison, single-host owner/writer fencing, and an explicit live candidate append/barrier/reconcile seam. Moving business-journal ingestion out of coordinator and completing production admission remain pending |
 | E. Independent KFDL segment/checkpoint backend | **implemented (test-only shadow)** | append-only binary records, SHA-256 coverage, rollover, dual-slot atomic checkpoint, explicit data/checkpoint/directory barriers, persisted request deduplication, cooperative deadline/unknown handling, typed service-unavailable, fenced generations, fail-stop unknown append sessions, and retained tails; production profiles remain disabled |
-| F. Snapshot-through-T projection bootstrap | **implemented (test-only shadow)** | versioned binary snapshot, integrity/schema/cut verification, strict replay-after-T, typed required/optional/none outcomes, deterministic rebuild, independent projection watermark, and state-service ownership; production bootstrap cutover remains pending |
+| F. Snapshot-through-T projection bootstrap | **implemented (candidate edge)** | versioned binary snapshot, integrity/schema/cut verification, strict replay-after-T, typed required/optional/none outcomes, deterministic rebuild, same-cut compatibility parity, complete hydration validation before required-peer registration, state emission before `RequestStart`, and state-service ownership; the explicit path is default-off and production-ineligible, while default cutover and bridge deletion remain pending |
 | G. Local strong-durability qualification | **implemented for a named test/disposable envelope** | retained three-platform process-crash reports and a disposable Linux/ext4 QEMU run cover 20/20 VM cuts, real ENOSPC, repeated reopen, fsck/hash, Episode load, and same-host external-path restore; the machine-readable product capability remains fail-closed for production, physical-host power loss, off-host backup, and independent failure domains |
 | H. Single-host end-to-end performance release gate | **planned** | after correctness passes, qualify absolute latency, throughput, long-tail, resource, replay, recovery, and restore ceilings without weakening semantics |
 | I. Replication and HA | **future** | add a separate replicated watermark and policy only after local durability is trustworthy |

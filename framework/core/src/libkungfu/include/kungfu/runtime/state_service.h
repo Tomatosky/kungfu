@@ -22,12 +22,26 @@ struct durability_candidate_config {
   bool qualification_passed = false;
 };
 
+struct projection_candidate_config {
+  bool enabled = false;
+  std::string qualification_profile = {};
+  bool qualification_passed = false;
+  uint64_t stream_id = 0;
+  uint64_t container_epoch = 0;
+  std::string writer_resource_id = {};
+  std::string projection_name = "typed-peer-state";
+  std::string projection_schema = "kungfu.typed-state-projection.v1";
+};
+
 struct service_status {
   yijinjing::ownership::evidence ownership = {};
   bool running = false;
   bool durability_candidate_enabled = false;
   bool durability_candidate_qualified = false;
   std::string durability_qualification_profile = {};
+  bool projection_candidate_enabled = false;
+  bool projection_candidate_qualified = false;
+  std::string projection_qualification_profile = {};
 };
 
 // Compatibility implementation of the ADR-0068 state-service boundary.
@@ -35,7 +49,8 @@ struct service_status {
 // state-cache/projection lifecycle and the sole data-root write authority.
 class service {
 public:
-  explicit service(const io_device_ptr &io_device, durability_candidate_config candidate = {});
+  explicit service(const io_device_ptr &io_device, durability_candidate_config candidate = {},
+                   projection_candidate_config projection_candidate = {});
   ~service();
   service(const service &) = delete;
   service &operator=(const service &) = delete;
@@ -93,6 +108,13 @@ public:
                                                              peer_state_requirement requirement);
   [[nodiscard]] projection_status projection_shadow_status(uint64_t stream_id, uint64_t container_epoch,
                                                            const std::string &projection_name) const;
+
+  [[nodiscard]] projection_snapshot
+  rebuild_projection_candidate(std::optional<durability::stream_position> through = std::nullopt);
+  [[nodiscard]] projection_candidate_result
+  bootstrap_projection_candidate(const peer_projection_declaration &declaration,
+                                 const std::optional<projection_compatibility_view> &compatibility = std::nullopt);
+  [[nodiscard]] projection_status projection_candidate_status() const;
 
 private:
   struct impl;

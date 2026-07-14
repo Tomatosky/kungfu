@@ -854,6 +854,40 @@ interface DurabilityReconciliation {
   message: string;
 }
 
+type PeerStateRequirement = 'required' | 'optional' | 'none';
+type ProjectionBootstrapOutcome = 'ready' | 'degraded' | 'refused';
+
+interface ProjectionCandidateStatusOptions {
+  data_root: string;
+  stream_id: bigint | number;
+  container_epoch: bigint | number;
+  writer_resource_id: string;
+  qualification_profile: string;
+  projection_name?: string;
+  requirement?: PeerStateRequirement;
+}
+
+interface ProjectionCandidateStatus {
+  schema: 'kungfu.projection-candidate-status/v1';
+  authority: 'libkungfu';
+  authority_path: 'projection_candidate' | 'compatibility';
+  requirement: PeerStateRequirement;
+  qualification_profile: string;
+  production_eligible: false;
+  parity_checked: boolean;
+  parity_equal: boolean;
+  hydrated: boolean;
+  outcome: ProjectionBootstrapOutcome;
+  error: string;
+  message: string;
+  snapshot_through: StreamPosition | null;
+  replay_through: StreamPosition | null;
+  durable_watermark: StreamPosition | null;
+  projection_watermark: StreamPosition | null;
+  replayed_records: bigint;
+  lag_records: bigint;
+}
+
 interface ActionRecorder {
   recordAction(
     value: ActionEnvelope,
@@ -885,6 +919,9 @@ interface KungfuRuntime {
     options: DurabilityReconcileOptions,
   ): DurabilityReconciliation;
   durabilityCapabilityTyped(): DurabilityCapability;
+  projectionCandidateStatusTyped(
+    options: ProjectionCandidateStatusOptions,
+  ): ProjectionCandidateStatus;
   storageStatusTyped(
     runtimeDir: string,
     sourceId?: string,

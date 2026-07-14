@@ -7,6 +7,7 @@
 #include <kungfu/common.h>
 #include <kungfu/runtime/live/coordinator.h>
 #include <kungfu/runtime/os.h>
+#include <kungfu/runtime/typed_state_projection.h>
 #include <kungfu/yijinjing/journal/frame.h>
 #include <kungfu/yijinjing/schema/registry.h>
 #include <kungfu/yijinjing/time.h>
@@ -23,13 +24,16 @@ using namespace kungfu::runtime::journal;
 namespace kungfu::runtime::live {
 
 coordinator::coordinator(const location_ptr &home, bool low_latency,
-                         state_service::durability_candidate_config durability_candidate)
+                         state_service::durability_candidate_config durability_candidate,
+                         state_service::projection_candidate_config projection_candidate)
     : coordinator(std::make_shared<kungfu::runtime::io_device_coordinator>(home, low_latency),
-                  std::move(durability_candidate)) {}
+                  std::move(durability_candidate), std::move(projection_candidate)) {}
 
 coordinator::coordinator(const kungfu::runtime::io_device_ptr &io_device,
-                         state_service::durability_candidate_config durability_candidate)
-    : reactor(io_device), last_check_(0), state_service_(io_device, std::move(durability_candidate)) {}
+                         state_service::durability_candidate_config durability_candidate,
+                         state_service::projection_candidate_config projection_candidate)
+    : reactor(io_device), last_check_(0),
+      state_service_(io_device, std::move(durability_candidate), std::move(projection_candidate)) {}
 
 void coordinator::pre_setup() {
   reactor::pre_setup();
@@ -94,6 +98,24 @@ void coordinator::register_peer(const event_ptr &event) {
     SPDLOG_ERROR("location {} has already been registered live", peer_location->uname);
     return;
   }
+
+  state_service::peer_projection_declaration projection_declaration;
+  state_service::projection_candidate_result projection_candidate;
+  try {
+    projection_declaration = state_service::parse_peer_projection_declaration(request_data);
+    projection_candidate = state_service_.bootstrap_projection_candidate(projection_declaration);
+    state_cache::bank validated_candidate;
+    state_service::hydrate_projection_candidate(projection_candidate, validated_candidate);
+  } catch (const std::exception &error) {
+    SPDLOG_ERROR("rejecting peer {} with invalid projection declaration: {}", peer_location->uname, error.what());
+    return;
+  }
+  if (projection_declaration.candidate &&
+      projection_candidate.bootstrap.outcome == state_service::bootstrap_outcome::Refused) {
+    SPDLOG_ERROR("rejecting required-state peer {}: {}", peer_location->uname, projection_candidate.bootstrap.message);
+    return;
+  }
+
   register_location(event->gen_time(), register_data);
   try_add_location(event->gen_time(), peer_location);
 
@@ -110,23 +132,32 @@ void coordinator::register_peer(const event_ptr &event) {
     std::lock_guard<std::mutex> lock(writers_mtx_);
     writers_.insert_or_assign(peer_location->uid, peer_cmd_writer);
   }
-  reader_->join(peer_location, location::PUBLIC, now);
-  reader_->join(peer_location, location::SYNC, now); // create sync journal
-  disjoin_channel(peer_location, location::SYNC);    // no need to deal feed from sync
+  if (!projection_declaration.candidate) {
+    reader_->join(peer_location, location::PUBLIC, now);
+    reader_->join(peer_location, location::SYNC, now); // create sync journal
+    disjoin_channel(peer_location, location::SYNC);    // no need to deal feed from sync
+  }
   reader_->join(peer_location, coordinator_cmd_location->uid, now, 0, Priority::High);
 
   auto public_writer = get_writer(location::PUBLIC);
   public_writer->write(event->gen_time(), *std::dynamic_pointer_cast<Location>(peer_location));
-  public_writer->write(event->gen_time(), register_data);
+  const auto published_register = state_service::attach_projection_candidate_status(
+      request_data, state_service::projection_candidate_status(projection_candidate));
+  public_writer->write_raw(event->gen_time(), Register::tag, reinterpret_cast<uintptr_t>(published_register.data()),
+                           static_cast<uint32_t>(published_register.size()));
 
   // hava to be put after register sent, because coordinator cmd journal only be joined after register;
   require_write_to(event->gen_time(), peer_location->uid, location::PUBLIC);
   require_write_to(event->gen_time(), peer_location->uid, location::SYNC);
   require_write_to(event->gen_time(), peer_location->uid, coordinator_cmd_location->uid);
 
-  state_service_.reset_cache_shift(peer_location);
-  state_service_.ensure_storage(peer_location, location::PUBLIC);
-  state_service_.restore(peer_location, peer_cmd_writer);
+  if (projection_declaration.candidate) {
+    state_service::emit_projection_candidate(projection_candidate, peer_cmd_writer);
+  } else {
+    state_service_.reset_cache_shift(peer_location);
+    state_service_.ensure_storage(peer_location, location::PUBLIC);
+    state_service_.restore(peer_location, peer_cmd_writer);
+  }
 
   write_time_reset(event->gen_time(), peer_cmd_writer);
   peer_cmd_writer->mark(yijinjing::time::now_in_nano(), RequestStart::tag);

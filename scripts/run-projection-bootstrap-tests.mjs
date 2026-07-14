@@ -2,6 +2,7 @@
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
@@ -51,6 +52,16 @@ const sources = [
   'framework/core/src/libkungfu/src/runtime/typed_state_projection.cpp',
   'framework/core/src/libkungfu/include/kungfu/runtime/state_service.h',
   'framework/core/src/libkungfu/src/runtime/state_service.cpp',
+  'framework/core/src/libkungfu/include/kungfu/runtime/live/coordinator.h',
+  'framework/core/src/libkungfu/src/runtime/live/coordinator.cpp',
+  'framework/core/src/libkungfu/include/kungfu/runtime/live/peer.h',
+  'framework/core/src/libkungfu/src/runtime/live/peer.cpp',
+  'framework/core/src/bindings/python/binding/py-runtime.cpp',
+  'framework/core/src/bindings/node/binding/kungfu_node.cpp',
+  'framework/core/src/python/kungfu/projection.py',
+  'framework/core/src/python/kungfu/cli/commands/storage.py',
+  'framework/core/lib/kungfu.js',
+  'framework/core/lib/kungfu.d.ts',
   'framework/core/src/libkungfu/tests/projection_bootstrap_tests.cpp',
 ].map((source) => path.join(process.cwd(), source));
 const binaryMtime = fs.statSync(testBinary).mtimeMs;
@@ -95,25 +106,106 @@ try {
       process.exit(child.status ?? 2);
     }
   }
+  const bindingDir = path.join(buildDir, 'Release');
+  const pythonEnvironment =
+    process.env.UV_PROJECT_ENVIRONMENT ||
+    path.join(process.cwd(), 'framework', 'core', '.venv');
+  const python =
+    process.platform === 'win32'
+      ? path.join(pythonEnvironment, 'Scripts', 'python.exe')
+      : path.join(pythonEnvironment, 'bin', 'python');
+  const pythonResult = spawnSync(
+    python,
+    [
+      '-c',
+      [
+        'import json',
+        'from click.testing import CliRunner',
+        'from kungfu import projection',
+        'from kungfu.cli.commands import __registry__, kfc',
+        "root=__import__('os').environ['KUNGFU_PROJECTION_TEST_ROOT']",
+        "s=projection.candidate_status(data_root=root, stream_id=71, container_epoch=5, writer_resource_id='projection-restart-writer', qualification_profile='candidate/test-local-filesystem/v1')",
+        "assert s['schema']=='kungfu.projection-candidate-status/v1' and s['authority']=='libkungfu'",
+        "assert s['outcome']=='ready' and s['hydrated'] is True and s['production_eligible'] is False",
+        "r=CliRunner().invoke(kfc, ['--home', root, 'storage', 'projection-candidate-status', '--data-root', root, '--stream-id', '71', '--container-epoch', '5', '--writer-resource-id', 'projection-restart-writer', '--qualification-profile', 'candidate/test-local-filesystem/v1'])",
+        'assert r.exit_code == 0, r.output',
+        "assert json.loads(r.output)['outcome']=='ready'",
+      ].join('; '),
+    ],
+    {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        KUNGFU_PROJECTION_TEST_ROOT: restartRoot,
+        PYTHONPATH: [
+          bindingDir,
+          path.join(process.cwd(), 'framework', 'core', 'src', 'python'),
+          process.env.PYTHONPATH,
+        ]
+          .filter(Boolean)
+          .join(path.delimiter),
+      },
+      stdio: 'inherit',
+    },
+  );
+  if (pythonResult.error || pythonResult.status !== 0) {
+    if (pythonResult.error)
+      console.error(
+        `[projection-bootstrap-test] Python/CLI: ${pythonResult.error.message}`,
+      );
+    process.exit(pythonResult.status ?? 2);
+  }
+
+  process.env.KUNGFU_DIR = bindingDir;
+  const require = createRequire(import.meta.url);
+  const kungfu = require('../framework/core/lib/kungfu.js')();
+  const nodeStatus = kungfu.projectionCandidateStatusTyped({
+    data_root: restartRoot,
+    stream_id: 71n,
+    container_epoch: 5n,
+    writer_resource_id: 'projection-restart-writer',
+    qualification_profile: 'candidate/test-local-filesystem/v1',
+  });
+  if (
+    nodeStatus.schema !== 'kungfu.projection-candidate-status/v1' ||
+    nodeStatus.authority !== 'libkungfu' ||
+    nodeStatus.outcome !== 'ready' ||
+    nodeStatus.hydrated !== true ||
+    nodeStatus.production_eligible !== false
+  ) {
+    console.error(
+      '[projection-bootstrap-test] Node status diverged from native authority',
+    );
+    process.exit(1);
+  }
+  console.log(
+    '[projection-bootstrap-test] Python/Node/CLI status parity passed',
+  );
   console.log('[projection-bootstrap-test] cross-process restart passed');
 } finally {
   fs.rmSync(restartRoot, { recursive: true, force: true });
 }
 
-for (const source of [
-  'framework/core/src/libkungfu/src/runtime/live/coordinator.cpp',
-  'framework/core/src/libyijinjing/src/journal/writer.cpp',
+const coordinatorSource = fs.readFileSync(
+  path.join(
+    process.cwd(),
+    'framework/core/src/libkungfu/src/runtime/live/coordinator.cpp',
+  ),
+  'utf8',
+);
+for (const requiredSeam of [
+  'bootstrap_projection_candidate',
+  'if (!projection_declaration.candidate)',
+  'state_service_.restore(peer_location, peer_cmd_writer)',
 ]) {
-  const content = fs.readFileSync(path.join(process.cwd(), source), 'utf8');
-  if (
-    content.includes('projection_bootstrap_store') ||
-    content.includes('rebuild_projection_shadow')
-  ) {
+  if (!coordinatorSource.includes(requiredSeam)) {
     console.error(
-      `[projection-bootstrap-test] shadow bootstrap leaked into the production hot path: ${source}`,
+      `[projection-bootstrap-test] live candidate/rollback seam missing: ${requiredSeam}`,
     );
     process.exit(1);
   }
 }
 
-console.log('[projection-bootstrap-test] snapshot/replay contracts passed');
+console.log(
+  '[projection-bootstrap-test] candidate snapshot/replay contracts passed',
+);

@@ -100,6 +100,7 @@ module.exports = () => {
     durabilityVisibleReceiptTyped: binding.durabilityVisibleReceiptTyped,
     durabilityReconcileTyped: binding.durabilityReconcileTyped,
     durabilityCapabilityTyped: binding.durabilityCapabilityTyped,
+    projectionCandidateStatusTyped: binding.projectionCandidateStatusTyped,
     storageServiceCapabilities: binding.storageServiceCapabilities,
     storageStatusTyped: binding.storageStatusTyped,
     storageQueryTyped: binding.storageQueryTyped,

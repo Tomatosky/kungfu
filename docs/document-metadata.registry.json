@@ -428,7 +428,7 @@
       "theme": "strong-durability-and-crash-recovery",
       "confidence": "high",
       "evidence_grade": "B",
-      "last_reviewed": "2026-07-12"
+      "last_reviewed": "2026-07-14"
     },
     "docs/qualification/gates/README.md": {
       "metadata_schema": "kungfu.document-metadata/v1",
@@ -490,8 +490,17 @@
       "metadata_schema": "kungfu.document-metadata/v1",
       "document_status": "active",
       "doc_type": "public-document",
-      "review_state": "unreviewed",
-      "sensitivity": "public"
+      "review_state": "self-reviewed",
+      "sensitivity": "public",
+      "sources": [
+        "architecture-decisions",
+        "local-files"
+      ],
+      "period": "ongoing",
+      "theme": "qualification-known-limits",
+      "confidence": "high",
+      "evidence_grade": "B",
+      "last_reviewed": "2026-07-14"
     },
     "docs/qualification/layer-product-release-qualification.md": {
       "metadata_schema": "kungfu.document-metadata/v1",

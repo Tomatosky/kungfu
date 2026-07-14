@@ -11,6 +11,7 @@
 
 #include <kungfu/runtime/io.h>
 #include <kungfu/runtime/live/reactor.h>
+#include <kungfu/runtime/projection_bootstrap.h>
 #include <kungfu/runtime/state_cache/model.h>
 #include <kungfu/yijinjing/time.h>
 
@@ -52,6 +53,8 @@ public:
   int64_t get_checkin_time() const;
 
   const state_cache::bank &get_state_bank() const;
+
+  [[nodiscard]] const state_service::projection_candidate_status_view &get_projection_candidate_status() const;
 
   // Register a per-frame callback for a carrier_type on the live event stream.
   // Intended to be called from a subclass on_react() (including a Python
@@ -350,6 +353,8 @@ private:
   int64_t register_deadline_ = INT64_MAX;
   int32_t timer_usage_count_{0};
   const std::string arguments_ = {};
+  state_service::peer_projection_declaration projection_declaration_ = {};
+  state_service::projection_candidate_status_view projection_candidate_status_ = {};
   std::unordered_map<int, int64_t> timer_checkpoints_ = {};
   std::unordered_set<uint32_t> try_write_dest_ids_ = {};
   std::unordered_map<int32_t, bool> timers_ = {};

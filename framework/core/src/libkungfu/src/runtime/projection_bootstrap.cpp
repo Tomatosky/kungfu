@@ -435,10 +435,202 @@ const char *projection_error_name(projection_error error) noexcept {
     return "position_gap";
   case projection_error::ProjectorFailed:
     return "projector_failed";
+  case projection_error::QualificationMismatch:
+    return "qualification_mismatch";
+  case projection_error::ParityMismatch:
+    return "parity_mismatch";
   case projection_error::IoError:
     return "io_error";
   }
   return "unknown";
+}
+
+const char *peer_state_requirement_name(peer_state_requirement requirement) noexcept {
+  switch (requirement) {
+  case peer_state_requirement::Required:
+    return "required";
+  case peer_state_requirement::Optional:
+    return "optional";
+  case peer_state_requirement::None:
+    return "none";
+  }
+  return "none";
+}
+
+peer_state_requirement parse_peer_state_requirement(const std::string &name) {
+  if (name == "required") {
+    return peer_state_requirement::Required;
+  }
+  if (name == "optional") {
+    return peer_state_requirement::Optional;
+  }
+  if (name == "none") {
+    return peer_state_requirement::None;
+  }
+  throw std::invalid_argument("invalid_peer_state_requirement");
+}
+
+peer_projection_declaration parse_peer_projection_declaration(const std::string &json_payload) {
+  const auto payload = nlohmann::json::parse(json_payload);
+  peer_projection_declaration declaration;
+  if (!payload.contains("projection_candidate")) {
+    return declaration;
+  }
+  const auto &candidate = payload.at("projection_candidate");
+  if (!candidate.is_object()) {
+    throw std::invalid_argument("projection_candidate_declaration_must_be_object");
+  }
+  declaration.candidate = true;
+  declaration.requirement = parse_peer_state_requirement(candidate.value("requirement", "none"));
+  declaration.qualification_profile = candidate.value("qualification_profile", "");
+  if (declaration.requirement != peer_state_requirement::None && declaration.qualification_profile.empty()) {
+    throw std::invalid_argument("projection_candidate_qualification_profile_required");
+  }
+  return declaration;
+}
+
+std::string attach_peer_projection_declaration(const std::string &json_payload,
+                                               const peer_projection_declaration &declaration) {
+  auto payload = nlohmann::json::parse(json_payload);
+  if (!declaration.candidate) {
+    payload.erase("projection_candidate");
+    return payload.dump();
+  }
+  payload["projection_candidate"] = {
+      {"requirement", peer_state_requirement_name(declaration.requirement)},
+      {"qualification_profile", declaration.qualification_profile},
+  };
+  return payload.dump();
+}
+
+projection_candidate_result
+make_projection_candidate_result(const peer_projection_declaration &declaration, bootstrap_result bootstrap,
+                                 const std::optional<projection_compatibility_view> &compatibility) {
+  projection_candidate_result result;
+  result.authority_path = declaration.candidate ? "projection_candidate" : "compatibility";
+  result.requirement = peer_state_requirement_name(declaration.requirement);
+  result.qualification_profile = declaration.qualification_profile;
+  result.bootstrap = std::move(bootstrap);
+  if (!declaration.candidate || result.bootstrap.outcome != bootstrap_outcome::Ready ||
+      declaration.requirement == peer_state_requirement::None || !compatibility.has_value()) {
+    return result;
+  }
+  result.parity_checked = true;
+  const auto projection_cut = result.bootstrap.status.projection_watermark;
+  result.parity_equal = compatibility->projection_schema == "kungfu.typed-state-projection.v1" &&
+                        projection_cut.has_value() && *projection_cut == compatibility->through_position &&
+                        result.bootstrap.state == compatibility->state;
+  if (!result.parity_equal) {
+    result.bootstrap.error = projection_error::ParityMismatch;
+    result.bootstrap.message = "projection_candidate_compatibility_parity_mismatch";
+    result.bootstrap.outcome = declaration.requirement == peer_state_requirement::Required
+                                   ? bootstrap_outcome::Refused
+                                   : bootstrap_outcome::Degraded;
+    result.bootstrap.state.clear();
+  }
+  return result;
+}
+
+projection_candidate_status_view projection_candidate_status(const projection_candidate_result &result) {
+  projection_candidate_status_view status;
+  status.authority_path = result.authority_path;
+  status.requirement = result.requirement;
+  status.qualification_profile = result.qualification_profile;
+  status.production_eligible = result.production_eligible;
+  status.parity_checked = result.parity_checked;
+  status.parity_equal = result.parity_equal;
+  status.hydrated = result.hydrated;
+  status.outcome = bootstrap_outcome_name(result.bootstrap.outcome);
+  status.error = projection_error_name(result.bootstrap.error);
+  status.message = result.bootstrap.message;
+  status.snapshot_through = result.bootstrap.snapshot_through;
+  status.replay_through = result.bootstrap.replay_through;
+  status.durable_watermark = result.bootstrap.status.durable_watermark;
+  status.projection_watermark = result.bootstrap.status.projection_watermark;
+  status.replayed_records = result.bootstrap.replayed_records;
+  status.lag_records = result.bootstrap.status.lag_records;
+  return status;
+}
+
+namespace {
+nlohmann::json position_json(const std::optional<stream_position> &position) {
+  if (!position.has_value()) {
+    return nullptr;
+  }
+  return {{"stream_id", position->stream_id},
+          {"container_epoch", position->container_epoch},
+          {"sequence", position->sequence},
+          {"frame_uid", position->frame_uid}};
+}
+
+std::optional<stream_position> parse_position_json(const nlohmann::json &value) {
+  if (value.is_null()) {
+    return std::nullopt;
+  }
+  return stream_position{value.at("stream_id").get<uint64_t>(), value.at("container_epoch").get<uint64_t>(),
+                         value.at("sequence").get<uint64_t>(), value.at("frame_uid").get<uint64_t>()};
+}
+} // namespace
+
+nlohmann::json render_projection_candidate_status(const projection_candidate_status_view &status) {
+  return {{"schema", status.schema},
+          {"authority", status.authority},
+          {"authority_path", status.authority_path},
+          {"requirement", status.requirement},
+          {"qualification_profile", status.qualification_profile},
+          {"production_eligible", status.production_eligible},
+          {"parity_checked", status.parity_checked},
+          {"parity_equal", status.parity_equal},
+          {"hydrated", status.hydrated},
+          {"outcome", status.outcome},
+          {"error", status.error},
+          {"message", status.message},
+          {"snapshot_through", position_json(status.snapshot_through)},
+          {"replay_through", position_json(status.replay_through)},
+          {"durable_watermark", position_json(status.durable_watermark)},
+          {"projection_watermark", position_json(status.projection_watermark)},
+          {"replayed_records", status.replayed_records},
+          {"lag_records", status.lag_records}};
+}
+
+std::string attach_projection_candidate_status(const std::string &json_payload,
+                                               const projection_candidate_status_view &status) {
+  auto payload = nlohmann::json::parse(json_payload);
+  payload["projection_candidate_status"] = render_projection_candidate_status(status);
+  return payload.dump();
+}
+
+projection_candidate_status_view parse_projection_candidate_status(const std::string &json_payload) {
+  const auto payload = nlohmann::json::parse(json_payload);
+  projection_candidate_status_view status;
+  if (!payload.contains("projection_candidate_status")) {
+    return status;
+  }
+  const auto &value = payload.at("projection_candidate_status");
+  if (value.value("schema", "") != PROJECTION_CANDIDATE_STATUS_SCHEMA_V1 ||
+      value.value("authority", "") != "libkungfu") {
+    throw std::invalid_argument("projection_candidate_status_schema_or_authority_mismatch");
+  }
+  status.authority_path = value.at("authority_path").get<std::string>();
+  status.requirement = value.at("requirement").get<std::string>();
+  status.qualification_profile = value.at("qualification_profile").get<std::string>();
+  status.production_eligible = value.at("production_eligible").get<bool>();
+  if (status.production_eligible) {
+    throw std::invalid_argument("projection_candidate_status_cannot_widen_production_eligibility");
+  }
+  status.parity_checked = value.at("parity_checked").get<bool>();
+  status.parity_equal = value.at("parity_equal").get<bool>();
+  status.hydrated = value.at("hydrated").get<bool>();
+  status.outcome = value.at("outcome").get<std::string>();
+  status.error = value.at("error").get<std::string>();
+  status.message = value.at("message").get<std::string>();
+  status.snapshot_through = parse_position_json(value.at("snapshot_through"));
+  status.replay_through = parse_position_json(value.at("replay_through"));
+  status.durable_watermark = parse_position_json(value.at("durable_watermark"));
+  status.projection_watermark = parse_position_json(value.at("projection_watermark"));
+  status.replayed_records = value.at("replayed_records").get<uint64_t>();
+  status.lag_records = value.at("lag_records").get<uint64_t>();
+  return status;
 }
 
 const char *bootstrap_outcome_name(bootstrap_outcome outcome) noexcept {

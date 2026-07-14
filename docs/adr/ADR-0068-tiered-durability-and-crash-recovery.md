@@ -171,6 +171,18 @@ restore is complete. A required-state peer waits or fails explicitly if a
 qualified snapshot/cut cannot be supplied; an optional peer may start degraded
 with that condition visible.
 
+The first live cutover is an explicit, default-off projection candidate carried
+as an additive JSON extension to the existing registration message. The
+coordinator validates the complete required candidate image before publishing
+the peer into the registry, then emits it before `RequestStart`; an optional
+candidate may publish only with an explicit degraded result, while `none`
+remains independent. Candidate peers do not join
+the coordinator-owned business PUBLIC/SYNC streams or invoke the compatibility
+restore bridge. Peers without the declaration retain the compatibility path,
+which remains the rollback authority until production admission. C++, Python,
+Node, and CLI expose the same `kungfu.projection-candidate-status/v1` status,
+including `production_eligible: false`.
+
 ### 7. Recovery preserves evidence and reports uncertainty
 
 Recovery validates container/segment identity, frame integrity, checkpoint

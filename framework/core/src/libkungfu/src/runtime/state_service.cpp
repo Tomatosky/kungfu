@@ -10,6 +10,7 @@
 #include <utility>
 
 #include <kungfu/runtime/state_cache/manager.h>
+#include <kungfu/runtime/typed_state_projection.h>
 
 namespace kungfu::runtime::state_service {
 
@@ -62,11 +63,25 @@ bootstrap_result unavailable_bootstrap(const std::string &message, peer_state_re
 } // namespace
 
 struct service::impl {
-  explicit impl(const io_device_ptr &io_device, durability_candidate_config candidate)
+  explicit impl(const io_device_ptr &io_device, durability_candidate_config candidate,
+                projection_candidate_config projection_candidate)
       : ownership(yijinjing::ownership::lease::acquire_data_root_service(io_device->get_locator()->get_root())),
-        manager(io_device), candidate(std::move(candidate)) {
+        manager(io_device), candidate(std::move(candidate)), projection_candidate(std::move(projection_candidate)) {
     if (this->candidate.enabled && !this->candidate.qualification_profile.starts_with("candidate/")) {
       throw std::invalid_argument("durability candidate profile must use candidate/ namespace");
+    }
+    if (this->projection_candidate.enabled) {
+      if (!this->candidate.enabled ||
+          this->projection_candidate.qualification_profile != this->candidate.qualification_profile ||
+          !this->projection_candidate.qualification_profile.starts_with("candidate/") ||
+          this->projection_candidate.stream_id == 0 || this->projection_candidate.container_epoch == 0 ||
+          this->projection_candidate.writer_resource_id.empty() || this->projection_candidate.projection_name.empty() ||
+          this->projection_candidate.projection_schema.empty()) {
+        throw std::invalid_argument("invalid projection candidate configuration");
+      }
+      if (this->projection_candidate.qualification_passed != this->candidate.qualification_passed) {
+        throw std::invalid_argument("projection and durability candidate qualification mismatch");
+      }
     }
   }
 
@@ -79,26 +94,79 @@ struct service::impl {
     }
   }
 
+  void initialize_projection_candidate() {
+    if (!projection_candidate.enabled || projection_candidate_initialized) {
+      return;
+    }
+    require_write_authority();
+    durability::ingest_options ingest{};
+    ingest.data_root = ownership.status().data_root;
+    ingest.stream_id = projection_candidate.stream_id;
+    ingest.container_epoch = projection_candidate.container_epoch;
+    ingest.writer_resource_id = projection_candidate.writer_resource_id;
+    ingest.qualification_profile = projection_candidate.qualification_profile;
+    ingest.qualification_passed = projection_candidate.qualification_passed;
+    ingest.activation = durability::ingest_activation::ProductionCandidate;
+    auto durable = std::make_unique<durability::durable_ingest_log>(std::move(ingest));
+
+    projection_options projection{};
+    projection.data_root = ownership.status().data_root;
+    projection.stream_id = projection_candidate.stream_id;
+    projection.container_epoch = projection_candidate.container_epoch;
+    projection.projection_name = projection_candidate.projection_name;
+    projection.projection_schema = projection_candidate.projection_schema;
+    projection.source_qualification_profile = projection_candidate.qualification_profile;
+    auto projected = std::make_unique<projection_bootstrap_store>(std::move(projection), make_typed_state_projector());
+
+    std::lock_guard lock(durable_shadows_mutex);
+    const auto durable_key = std::make_pair(projection_candidate.stream_id, projection_candidate.container_epoch);
+    const auto projection_key = std::make_tuple(projection_candidate.stream_id, projection_candidate.container_epoch,
+                                                projection_candidate.projection_name);
+    if (durable_shadows.contains(durable_key) || projection_shadows.contains(projection_key)) {
+      throw std::logic_error("projection candidate stream or projection is already open");
+    }
+    durable_shadows.emplace(durable_key, std::move(durable));
+    projection_shadows.emplace(projection_key, std::move(projected));
+    projection_candidate_initialized = true;
+  }
+
   yijinjing::ownership::lease ownership;
   state_cache::manager manager;
   durability_candidate_config candidate;
+  projection_candidate_config projection_candidate;
+  bool projection_candidate_initialized = false;
   std::map<std::pair<uint64_t, uint64_t>, std::unique_ptr<durability::durable_ingest_log>> durable_shadows;
   std::map<std::tuple<uint64_t, uint64_t, std::string>, std::unique_ptr<projection_bootstrap_store>> projection_shadows;
   mutable std::mutex durable_shadows_mutex;
 };
 
-service::service(const io_device_ptr &io_device, durability_candidate_config candidate)
-    : impl_(std::make_unique<impl>(io_device, std::move(candidate))) {}
+service::service(const io_device_ptr &io_device, durability_candidate_config candidate,
+                 projection_candidate_config projection_candidate)
+    : impl_(std::make_unique<impl>(io_device, std::move(candidate), std::move(projection_candidate))) {}
 
 service::~service() { stop(); }
 
-void service::start() { impl_->manager.start(); }
+void service::start() {
+  impl_->manager.start();
+  try {
+    impl_->initialize_projection_candidate();
+  } catch (...) {
+    impl_->manager.stop();
+    throw;
+  }
+}
 
 void service::stop() { impl_->manager.stop(); }
 
 service_status service::status() const {
-  return {impl_->ownership.status(), impl_->manager.running(), impl_->candidate.enabled,
-          impl_->candidate.enabled && impl_->candidate.qualification_passed, impl_->candidate.qualification_profile};
+  return {impl_->ownership.status(),
+          impl_->manager.running(),
+          impl_->candidate.enabled,
+          impl_->candidate.enabled && impl_->candidate.qualification_passed,
+          impl_->candidate.qualification_profile,
+          impl_->projection_candidate.enabled,
+          impl_->projection_candidate.enabled && impl_->projection_candidate.qualification_passed,
+          impl_->projection_candidate.qualification_profile};
 }
 
 std::vector<yijinjing::types::Location> service::locations() {
@@ -346,6 +414,70 @@ projection_status service::projection_shadow_status(uint64_t stream_id, uint64_t
     throw std::logic_error("projection shadow is not open");
   }
   return found->second->status();
+}
+
+projection_snapshot service::rebuild_projection_candidate(std::optional<durability::stream_position> through) {
+  impl_->require_write_authority();
+  if (!impl_->projection_candidate.enabled || !impl_->projection_candidate.qualification_passed) {
+    throw std::logic_error("projection production-candidate path is not admitted");
+  }
+  std::lock_guard lock(impl_->durable_shadows_mutex);
+  const auto durable =
+      impl_->durable_shadows.find({impl_->projection_candidate.stream_id, impl_->projection_candidate.container_epoch});
+  const auto projection = impl_->projection_shadows.find({impl_->projection_candidate.stream_id,
+                                                          impl_->projection_candidate.container_epoch,
+                                                          impl_->projection_candidate.projection_name});
+  if (durable == impl_->durable_shadows.end() || projection == impl_->projection_shadows.end()) {
+    throw std::logic_error("projection candidate is not open");
+  }
+  return projection->second->rebuild(durable->second->read_durable_records(), through);
+}
+
+projection_candidate_result
+service::bootstrap_projection_candidate(const peer_projection_declaration &declaration,
+                                        const std::optional<projection_compatibility_view> &compatibility) {
+  if (!declaration.candidate) {
+    bootstrap_result compatibility_result;
+    compatibility_result.outcome = bootstrap_outcome::Ready;
+    compatibility_result.message = "compatibility_restore";
+    return make_projection_candidate_result(declaration, std::move(compatibility_result));
+  }
+  if (declaration.requirement == peer_state_requirement::None) {
+    bootstrap_result no_state;
+    no_state.outcome = bootstrap_outcome::Ready;
+    no_state.message = "peer_declares_no_state_requirement";
+    return make_projection_candidate_result(declaration, std::move(no_state));
+  }
+  if (!impl_->ownership.owns() || !impl_->manager.running() || !impl_->projection_candidate.enabled ||
+      !impl_->projection_candidate.qualification_passed ||
+      declaration.qualification_profile != impl_->projection_candidate.qualification_profile) {
+    auto unavailable = unavailable_bootstrap("projection_candidate_not_running_qualified_enabled_or_matching",
+                                             declaration.requirement);
+    unavailable.error = projection_error::QualificationMismatch;
+    unavailable.status.last_error = projection_error::QualificationMismatch;
+    return make_projection_candidate_result(declaration, std::move(unavailable));
+  }
+  std::lock_guard lock(impl_->durable_shadows_mutex);
+  const auto durable =
+      impl_->durable_shadows.find({impl_->projection_candidate.stream_id, impl_->projection_candidate.container_epoch});
+  const auto projection = impl_->projection_shadows.find({impl_->projection_candidate.stream_id,
+                                                          impl_->projection_candidate.container_epoch,
+                                                          impl_->projection_candidate.projection_name});
+  if (durable == impl_->durable_shadows.end() || projection == impl_->projection_shadows.end()) {
+    return make_projection_candidate_result(
+        declaration, unavailable_bootstrap("projection_candidate_not_open", declaration.requirement));
+  }
+  return make_projection_candidate_result(
+      declaration, projection->second->bootstrap(durable->second->read_durable_records(), declaration.requirement),
+      compatibility);
+}
+
+projection_status service::projection_candidate_status() const {
+  if (!impl_->projection_candidate.enabled) {
+    throw std::logic_error("projection production-candidate path is disabled");
+  }
+  return projection_shadow_status(impl_->projection_candidate.stream_id, impl_->projection_candidate.container_epoch,
+                                  impl_->projection_candidate.projection_name);
 }
 
 } // namespace kungfu::runtime::state_service

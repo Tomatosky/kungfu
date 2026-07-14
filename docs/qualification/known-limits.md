@@ -92,9 +92,13 @@ projector now covers the actual Hana `StateDataTypes` closed set and proves
 same-cut equality with the compatibility state bank plus rollback on malformed
 known records. Verified images also hydrate peer state atomically, and a fresh
 process reopens KFDL plus the snapshot to prove local restart recovery.
-Production bootstrap still uses the coordinator-triggered
-compatibility restore; business joins/restore cutover and public projection
-capability remain pending.
+An explicit, default-off projection candidate now validates the complete state
+image before required-peer registration and emits it before `RequestStart`,
+without coordinator-owned business PUBLIC/SYNC joins or compatibility restore.
+The undeclared/default production
+path still uses the coordinator compatibility bridge. The candidate reports
+`production_eligible: false`; default cutover, bridge deletion, and public
+production projection admission remain pending.
 
 KFDL v2 also has a test-only read-only recovery inspector and typed report for
 clean, complete-tail, torn-tail, unprovable-checkpoint, and interrupted-Episode

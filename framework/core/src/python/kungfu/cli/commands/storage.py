@@ -105,6 +105,52 @@ def durability_reconcile(
     )
 
 
+@storage.command(
+    name="projection-candidate-status",
+    help="inspect the default-off typed peer-bootstrap candidate",
+)
+@click.option("--data-root", type=click.Path(file_okay=False), required=True)
+@click.option("--stream-id", type=int, required=True)
+@click.option("--container-epoch", type=int, required=True)
+@click.option("--writer-resource-id", type=str, required=True)
+@click.option("--qualification-profile", type=str, required=True)
+@click.option(
+    "--projection-name", type=str, default="typed-peer-state", show_default=True
+)
+@click.option(
+    "--requirement",
+    type=click.Choice(["required", "optional", "none"]),
+    default="required",
+    show_default=True,
+)
+@storage_command_context
+def projection_candidate_status(
+    ctx,
+    data_root,
+    stream_id,
+    container_epoch,
+    writer_resource_id,
+    qualification_profile,
+    projection_name,
+    requirement,
+):
+    """Print the native candidate status; production eligibility stays false."""
+
+    from kungfu import projection
+
+    _echo_json(
+        projection.candidate_status(
+            data_root=data_root,
+            stream_id=stream_id,
+            container_epoch=container_epoch,
+            writer_resource_id=writer_resource_id,
+            qualification_profile=qualification_profile,
+            projection_name=projection_name,
+            requirement=requirement,
+        )
+    )
+
+
 @storage.command(help="show the resolved workspace Episode storage layout")
 @click.option(
     "--provider", type=click.Choice(["content-addressed-file", "rocksdb"]), default=None

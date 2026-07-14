@@ -10,11 +10,14 @@
 #include <string>
 #include <vector>
 
+#include <nlohmann/json.hpp>
+
 #include <kungfu/runtime/durable_ingest.h>
 
 namespace kungfu::runtime::state_service {
 
 inline constexpr const char *PROJECTION_SNAPSHOT_SCHEMA_V1 = "kungfu.projection-snapshot/v1";
+inline constexpr const char *PROJECTION_CANDIDATE_STATUS_SCHEMA_V1 = "kungfu.projection-candidate-status/v1";
 
 enum class peer_state_requirement : uint8_t { Required, Optional, None };
 enum class bootstrap_outcome : uint8_t { Ready, Degraded, Refused };
@@ -28,7 +31,15 @@ enum class projection_error : uint8_t {
   PositionMismatch,
   PositionGap,
   ProjectorFailed,
+  QualificationMismatch,
+  ParityMismatch,
   IoError,
+};
+
+struct peer_projection_declaration {
+  bool candidate = false;
+  peer_state_requirement requirement = peer_state_requirement::None;
+  std::string qualification_profile = {};
 };
 
 struct projection_mutation {
@@ -81,6 +92,46 @@ struct bootstrap_result {
   uint64_t replayed_records = 0;
 };
 
+struct projection_compatibility_view {
+  std::string projection_schema = {};
+  durability::stream_position through_position = {};
+  std::map<std::string, std::string> state = {};
+};
+
+struct projection_candidate_result {
+  std::string schema = PROJECTION_CANDIDATE_STATUS_SCHEMA_V1;
+  std::string authority = "libkungfu";
+  std::string authority_path = "compatibility";
+  std::string requirement = "none";
+  std::string qualification_profile = {};
+  bool production_eligible = false;
+  bool parity_checked = false;
+  bool parity_equal = false;
+  bool hydrated = false;
+  bootstrap_result bootstrap = {};
+};
+
+struct projection_candidate_status_view {
+  std::string schema = PROJECTION_CANDIDATE_STATUS_SCHEMA_V1;
+  std::string authority = "libkungfu";
+  std::string authority_path = "compatibility";
+  std::string requirement = "none";
+  std::string qualification_profile = {};
+  bool production_eligible = false;
+  bool parity_checked = false;
+  bool parity_equal = false;
+  bool hydrated = false;
+  std::string outcome = "ready";
+  std::string error = "none";
+  std::string message = "compatibility_restore";
+  std::optional<durability::stream_position> snapshot_through = std::nullopt;
+  std::optional<durability::stream_position> replay_through = std::nullopt;
+  std::optional<durability::stream_position> durable_watermark = std::nullopt;
+  std::optional<durability::stream_position> projection_watermark = std::nullopt;
+  uint64_t replayed_records = 0;
+  uint64_t lag_records = 0;
+};
+
 // A derived, rebuildable projection snapshot over checkpoint-covered durable
 // records. The snapshot is never a fact authority: its integrity and cut are
 // verified before replay, and deletion is repaired by rebuilding from KFDL.
@@ -106,6 +157,19 @@ private:
 
 [[nodiscard]] const char *projection_error_name(projection_error error) noexcept;
 [[nodiscard]] const char *bootstrap_outcome_name(bootstrap_outcome outcome) noexcept;
+[[nodiscard]] const char *peer_state_requirement_name(peer_state_requirement requirement) noexcept;
+[[nodiscard]] peer_state_requirement parse_peer_state_requirement(const std::string &name);
+[[nodiscard]] peer_projection_declaration parse_peer_projection_declaration(const std::string &json_payload);
+[[nodiscard]] std::string attach_peer_projection_declaration(const std::string &json_payload,
+                                                             const peer_projection_declaration &declaration);
+[[nodiscard]] projection_candidate_result
+make_projection_candidate_result(const peer_projection_declaration &declaration, bootstrap_result bootstrap,
+                                 const std::optional<projection_compatibility_view> &compatibility = std::nullopt);
+[[nodiscard]] projection_candidate_status_view projection_candidate_status(const projection_candidate_result &result);
+[[nodiscard]] nlohmann::json render_projection_candidate_status(const projection_candidate_status_view &status);
+[[nodiscard]] std::string attach_projection_candidate_status(const std::string &json_payload,
+                                                             const projection_candidate_status_view &status);
+[[nodiscard]] projection_candidate_status_view parse_projection_candidate_status(const std::string &json_payload);
 
 } // namespace kungfu::runtime::state_service
 
