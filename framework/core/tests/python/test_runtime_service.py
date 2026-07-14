@@ -128,6 +128,15 @@ def test_coordinator_status_reports_runtime_state(tmp_path):
     assert payload["route"]["registered"] is False
     assert payload["lifecycle"]["state"] == "stopped"
     assert payload["lifecycle"]["healthy"] is False
+    assert payload["product"] == {
+        "schema": "kungfu.runtime.product-status/v1",
+        "workspaceId": runtime_broker.workspace_id(runtime_dir),
+        "availability": "available",
+        "liveState": "inactive",
+        "handle": None,
+        "leases": {"activeCount": 0, "items": []},
+        "error": None,
+    }
 
 
 def test_coordinator_status_detects_live_recorded_pid(tmp_path):
@@ -155,6 +164,8 @@ def test_coordinator_status_detects_live_recorded_pid(tmp_path):
     assert payload["coordinator"]["running"] is True
     assert payload["lifecycle"]["state"] == "running"
     assert payload["lifecycle"]["healthy"] is True
+    assert payload["product"]["liveState"] == "inactive"
+    assert payload["product"]["availability"] == "available"
 
 
 def test_upsert_route_registers_data_root_under_user_supervisor(tmp_path):

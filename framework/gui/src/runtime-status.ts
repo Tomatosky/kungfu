@@ -4,8 +4,11 @@
 // processes. Raw supervisor/coordinator facts remain available to the advanced
 // Status view, while the tray and status bar consume this foreground model.
 
+import type { RuntimeProductStatus } from '@kungfu-tech/api/capability';
+
 export type WorkspaceRuntimeState =
   | 'checking'
+  | 'available'
   | 'online'
   | 'ready'
   | 'starting'
@@ -38,6 +41,7 @@ export type RuntimeStatusPayload = {
     state?: WorkspaceRuntimeContinuityState;
     reason?: string;
   };
+  product?: RuntimeProductStatus;
   supervisor?: { pid?: number | null; running?: boolean };
   coordinator?: { pid?: number | null; running?: boolean };
   route?: {
@@ -113,6 +117,54 @@ export function deriveWorkspaceRuntimePresentation(
   }
 
   const payload = result.payload;
+  const product = payload.product;
+  if (product) {
+    if (product.error || product.liveState === 'failed') {
+      return presentation(
+        'needs-attention',
+        'Live capabilities need attention',
+        product.error?.message || 'Automatic live activation needs attention.',
+        '!',
+        'error',
+      );
+    }
+    if (product.liveState === 'inactive' || product.liveState === 'stopped') {
+      return presentation(
+        'available',
+        'Workspace available',
+        'Durable work is available; live capabilities activate when required.',
+        '●',
+        'ok',
+      );
+    }
+    if (product.liveState === 'ready') {
+      return presentation(
+        'ready',
+        'Workspace ready',
+        'Required live capabilities are ready at the reported durable cut.',
+        '●',
+        'ok',
+      );
+    }
+    if (product.liveState === 'draining') {
+      return presentation(
+        'available',
+        'Workspace available',
+        'Durable work remains available while unused live capabilities stop.',
+        '●',
+        'ok',
+      );
+    }
+    return presentation(
+      product.liveState === 'starting' ? 'starting' : 'recovering',
+      product.liveState === 'starting'
+        ? 'Live capabilities starting'
+        : 'Live capabilities recovering',
+      'Automatic activation is establishing the required durable cut.',
+      '◐',
+      'warning',
+    );
+  }
   const lifecycle = payload.lifecycle?.state || payload.status || '';
   const warnings = payload.lifecycle?.warnings?.filter(Boolean) ?? [];
   const warningDetail = warnings.length ? ` ${warnings.join(', ')}.` : '';

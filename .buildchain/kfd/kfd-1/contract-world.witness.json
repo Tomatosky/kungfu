@@ -69,9 +69,9 @@
     {
       "name": "kungfu-runtime",
       "sourcePath": "framework/runtime/kungfu-runtime.contract.json",
-      "sourceSha256": "11b4a8b598f5af833b2cf2b21cf2e195b7ac1c2884a444d749be674c3834db78",
+      "sourceSha256": "ecacaf692a10245f67a833474c378f3a99a6028774eaa327e3e27ff25b127094",
       "artifactPath": "config/kungfu-runtime.contract.json",
-      "expectedSha256": "11b4a8b598f5af833b2cf2b21cf2e195b7ac1c2884a444d749be674c3834db78",
+      "expectedSha256": "ecacaf692a10245f67a833474c378f3a99a6028774eaa327e3e27ff25b127094",
       "byteForByte": true
     }
   ],

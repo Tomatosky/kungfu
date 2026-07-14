@@ -164,7 +164,7 @@ function App({
         <Text bold>Kungfu v4 reference TUI</Text>
         <Text color="green">● in-process binding · {exportCount} exports</Text>
         <Text color={live ? 'green' : 'gray'}>
-          {live ? '● live (coordinator connected)' : '○ offline'}
+          {live ? '● live updates connected' : '● durable workspace available'}
         </Text>
       </Box>
       <Text dimColor>
@@ -182,8 +182,8 @@ function App({
         </Text>
         {tail.length === 0 ? (
           <Text dimColor>
-            no journal frames yet — start the runtime coordinator against this
-            runtime home
+            no durable frames yet — live capabilities activate when an operation
+            requires them
           </Text>
         ) : null}
         {tail.map((record, index) => (

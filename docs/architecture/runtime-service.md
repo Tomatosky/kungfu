@@ -116,6 +116,28 @@ diagnostics remain insufficient: without an explicitly supplied DurableEngine
 readiness authority the process adapter returns `readiness_not_established`.
 Product evidence discovery and entrypoint wiring remain stage 6 work.
 
+The first stage 6 projection slice adds one
+`kungfu.runtime.product-status/v1` value beside the retained process
+diagnostics. `kungfu runtime status` leads with workspace availability,
+generation, semantic readiness, exact cuts, effective leases, and typed failure;
+supervisor/coordinator facts remain in an explicitly labelled advanced section.
+`kungfu runtime operations --json` exposes the contract-owned operation catalog,
+and `kungfu runtime plan OPERATION --json` produces the same topology-neutral
+requirement used by the broker without activating a host.
+
+The GUI consumes that product projection and no longer starts or stops the
+runtime on application startup, ordinary quit, or tray actions. Node, KFX, and
+the libkungfu-facing TypeScript declaration surface share the exact status,
+handle, readiness, lease, error, and operation vocabulary. These projections
+do not create another lifecycle implementation or external executor ABI.
+
+This slice does not weaken the live admission boundary. A first live-required
+product action still needs an exact minimum cut and an explicitly configured
+`NativeReadinessAuthority`; a process that merely started cannot satisfy it.
+Binding product action invocation to discovered evidence remains required
+before stage 6 can close and before product qualification may claim cold live
+activation.
+
 ## Semantic Leases and Recovery
 
 `RuntimeLeaseManager` persists ADR-0080 leases in the same per-workspace

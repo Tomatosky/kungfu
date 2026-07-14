@@ -7,7 +7,7 @@ import sys
 
 import click
 
-from kungfu import runtime_service
+from kungfu import runtime_broker, runtime_service
 from kungfu.cli.commands import PrioritizedCommandGroup, kfc
 
 runtime_command_context = kfc.pass_context()
@@ -18,19 +18,33 @@ def _json(payload):
 
 
 def _plain_status(payload):
-    click.echo(f"status: {payload['status']}")
-    click.echo(f"lifecycle: {payload.get('lifecycle', {}).get('state', '-')}")
+    product = payload.get("product") or {}
+    click.echo(f"workspace: {product.get('availability', 'unknown')}")
+    click.echo(f"live runtime: {product.get('liveState', 'unknown')}")
+    handle = product.get("handle") or {}
+    if handle:
+        click.echo(f"generation: {handle.get('generation', '-')}")
+        readiness = handle.get("readiness") or {}
+        click.echo(f"readiness: {readiness.get('state', '-')}")
+        click.echo(f"durable cut: {json.dumps(readiness.get('durableCut'))}")
+        click.echo(f"projection cut: {json.dumps(readiness.get('projectionCut'))}")
+        click.echo(f"active leases: {product.get('leases', {}).get('activeCount', 0)}")
+    error = product.get("error") or {}
+    if error:
+        click.echo(f"runtime error: {error.get('code')}: {error.get('message')}")
     click.echo(f"config: {payload['configHome']}")
     click.echo(f"data root: {payload['dataRoot']}")
     click.echo(f"runtime: {payload['runtimeDir']}")
+    click.echo("process diagnostics:")
+    click.echo(f"  lifecycle: {payload.get('lifecycle', {}).get('state', '-')}")
     click.echo(
-        "supervisor: "
+        "  supervisor: "
         f"{payload['supervisor']['pid'] or '-'} "
         f"({'running' if payload['supervisor']['running'] else 'stopped'})"
     )
     if "coordinator" in payload:
         click.echo(
-            "coordinator: "
+            "  coordinator: "
             f"{payload['coordinator']['pid'] or '-'} "
             f"({'running' if payload['coordinator']['running'] else 'stopped'})"
         )
@@ -42,7 +56,7 @@ def _plain_status(payload):
 @kfc.group(
     cls=PrioritizedCommandGroup,
     help_priority=2,
-    help="manage the resident Kungfu runtime",
+    help="inspect or operate the resident runtime (ordinary work auto-activates it)",
 )
 @click.help_option("-h", "--help")
 @kfc.pass_context()
@@ -50,7 +64,10 @@ def runtime(ctx):
     pass
 
 
-@runtime.command(name="status", help="print resident coordinator supervisor status")
+@runtime.command(
+    name="status",
+    help="print workspace runtime status with advanced process diagnostics",
+)
 @click.option("--json", "as_json", is_flag=True, help="machine-readable output")
 @runtime_command_context
 def runtime_status(ctx, as_json):
@@ -59,6 +76,64 @@ def runtime_status(ctx, as_json):
         _json(payload)
         return
     _plain_status(payload)
+
+
+@runtime.command(
+    name="operations",
+    help="list the machine-readable runtime capability operation catalog",
+)
+@click.option("--json", "as_json", is_flag=True, help="machine-readable output")
+def runtime_operations(as_json):
+    payload = runtime_broker.operation_catalog()
+    if as_json:
+        _json(payload)
+        return
+    for operation in payload["operations"]:
+        capabilities = ", ".join(operation["requiredCapabilities"]) or "none"
+        click.echo(
+            f"{operation['id']}: {operation['operationClass']} "
+            f"(capabilities: {capabilities})"
+        )
+
+
+@runtime.command(
+    name="plan",
+    help="project one operation into its topology-neutral runtime requirement",
+)
+@click.argument("operation_id")
+@click.option("--request-id", default=None, help="stable caller request identity")
+@click.option(
+    "--minimum-cut",
+    default=None,
+    help="minimum stream position as a JSON object",
+)
+@click.option("--json", "as_json", is_flag=True, help="machine-readable output")
+@runtime_command_context
+def runtime_plan(ctx, operation_id, request_id, minimum_cut, as_json):
+    try:
+        cut = json.loads(minimum_cut) if minimum_cut else None
+        if cut is not None and not isinstance(cut, dict):
+            raise ValueError("minimum cut must be a JSON object")
+        payload = runtime_broker.plan_operation(
+            operation_id,
+            workspace=runtime_broker.workspace_id(ctx.runtime_dir),
+            request_source="cli",
+            minimum_cut=cut,
+            request_id=request_id,
+        )
+    except (json.JSONDecodeError, KeyError, ValueError) as error:
+        raise click.ClickException(str(error)) from error
+    if as_json:
+        _json(payload)
+        return
+    requirement = payload["requirement"]
+    click.echo(f"operation: {payload['operation']['id']}")
+    click.echo(f"class: {requirement['operationClass']}")
+    click.echo(
+        "required capabilities: "
+        f"{', '.join(requirement['requiredCapabilities']) or 'none'}"
+    )
+    click.echo(f"recovery: {payload['recoveryGuidance']}")
 
 
 @runtime.command(

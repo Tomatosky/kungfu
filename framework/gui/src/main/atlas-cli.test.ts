@@ -30,6 +30,15 @@ test('renderer runtime status does not poll native ledger health', () => {
   assert.match(source, /\.invoke\(RUNTIME_STATUS_GET_CHANNEL\)/);
 });
 
+test('GUI startup and quit do not own the process runtime lifecycle', () => {
+  const source = readFileSync(new URL('./index.ts', import.meta.url), 'utf8');
+
+  assert.doesNotMatch(source, /ensureRuntimeForGuiStartup/);
+  assert.doesNotMatch(source, /Stop Runtime and Quit/);
+  assert.doesNotMatch(source, /\['runtime', '(?:ensure|start|stop)'/);
+  assert.match(source, /Advanced Runtime Diagnostics/);
+});
+
 test('Atlas CLI transport rejects non-Atlas commands before process startup', async () => {
   let called = false;
   const result = await executeAtlasCli(

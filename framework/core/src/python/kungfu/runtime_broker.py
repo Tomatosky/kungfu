@@ -19,6 +19,7 @@ PLAN_SCHEMA = "kungfu.runtime.invocation-plan/v1"
 RECEIPT_SCHEMA = "kungfu.runtime.invocation-receipt/v1"
 REQUIREMENT_SCHEMA = "kungfu.runtime.requirement/v1"
 ACTIVATION_RECEIPT_SCHEMA = "kungfu.runtime.activation-receipt/v1"
+PRODUCT_STATUS_SCHEMA = "kungfu.runtime.product-status/v1"
 REQUEST_SOURCES = {"libkungfu", "cli", "python", "node", "gui", "kfx"}
 
 
@@ -248,6 +249,91 @@ def _write_activation_state(path: Path, value: Mapping[str, Any]) -> None:
         pass
     finally:
         os.close(directory)
+
+
+def product_status(
+    config_home: str | Path,
+    runtime_dir: str | Path,
+    *,
+    clock: RuntimeLeaseClock | None = None,
+    contract: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Project one topology-neutral product status from the fenced snapshot.
+
+    An absent live snapshot is a normal daemonless workspace, not an offline
+    workspace. Process facts deliberately stay on the separate diagnostic
+    status surface and cannot promote this projection to ready.
+    """
+
+    workspace = workspace_id(runtime_dir)
+    status: dict[str, Any] = {
+        "schema": PRODUCT_STATUS_SCHEMA,
+        "workspaceId": workspace,
+        "availability": "available",
+        "liveState": "inactive",
+        "handle": None,
+        "leases": {"activeCount": 0, "items": []},
+        "error": None,
+    }
+    try:
+        state = _read_activation_state(_activation_state_path(config_home, workspace))
+        if state is None:
+            _validate_value("runtimeProductStatus", status, contract)
+            return status
+        _validate_value("runtimeSnapshot", state, contract)
+        if state.get("workspaceId") != workspace:
+            raise RuntimeLifecycleError(
+                "stale_generation",
+                "runtime activation workspace is inconsistent",
+            )
+        projected = copy.deepcopy(state)
+        _expire_leases(projected, (clock or SystemRuntimeLeaseClock()).now_ns())
+        handle = _snapshot_handle(projected)
+        leases = [
+            copy.deepcopy(dict(item))
+            for item in projected["leases"]
+            if isinstance(item, Mapping)
+        ]
+        status.update(
+            {
+                "liveState": str(handle["state"]),
+                "handle": handle,
+                "leases": {
+                    "activeCount": sum(
+                        1 for item in leases if item.get("state") == "active"
+                    ),
+                    "items": leases,
+                },
+            }
+        )
+        if handle["state"] == "failed":
+            status["error"] = {
+                "code": "activation_failed",
+                "message": "The fenced runtime generation is in the failed state.",
+                "retryable": True,
+            }
+        _validate_value("runtimeProductStatus", status, contract)
+        return status
+    except (OSError, ValueError, RuntimeLifecycleError) as error:
+        code = (
+            error.code
+            if isinstance(error, RuntimeLifecycleError)
+            else "stale_generation"
+        )
+        status.update(
+            {
+                "liveState": "failed",
+                "handle": None,
+                "leases": {"activeCount": 0, "items": []},
+                "error": {
+                    "code": code,
+                    "message": str(error),
+                    "retryable": False,
+                },
+            }
+        )
+    _validate_value("runtimeProductStatus", status, contract)
+    return status
 
 
 def _process_diagnostics(value: Mapping[str, Any]) -> dict[str, Any]:

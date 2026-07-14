@@ -11,6 +11,76 @@ function status(payload: RuntimeStatusResult['payload']): RuntimeStatusResult {
   return { ok: true, payload, error: '', updatedAt: 1 };
 }
 
+test('daemonless product status keeps the durable workspace available', () => {
+  const result = deriveWorkspaceRuntimePresentation(
+    status({
+      product: {
+        schema: 'kungfu.runtime.product-status/v1',
+        workspaceId: 'workspace-test',
+        availability: 'available',
+        liveState: 'inactive',
+        handle: null,
+        leases: { activeCount: 0, items: [] },
+        error: null,
+      },
+      lifecycle: { state: 'stopped', healthy: false },
+      supervisor: { running: false },
+      coordinator: { running: false },
+    }),
+  );
+  assert.equal(result.state, 'available');
+  assert.equal(result.label, 'Workspace available');
+  assert.doesNotMatch(result.detail, /start|coordinator|supervisor/i);
+});
+
+test('shared semantic readiness wins over process diagnostics', () => {
+  const result = deriveWorkspaceRuntimePresentation(
+    status({
+      product: {
+        schema: 'kungfu.runtime.product-status/v1',
+        workspaceId: 'workspace-test',
+        availability: 'available',
+        liveState: 'ready',
+        handle: {
+          schema: 'kungfu.runtime.handle/v1',
+          runtimeId: 'runtime-test',
+          requirementId: 'request-test',
+          workspaceId: 'workspace-test',
+          generation: '1',
+          state: 'ready',
+          capabilities: ['runtime.assessment-scheduling'],
+          grantedAuthorities: ['runtime.capability-use'],
+          readiness: {
+            schema: 'kungfu.runtime.readiness/v1',
+            state: 'ready',
+            durableCut: {
+              stream_id: '1',
+              container_epoch: '1',
+              sequence: '1',
+              frame_uid: '1',
+            },
+            projectionCut: null,
+            evidence: [{ kind: 'durability-receipt', ref: 'receipt:test' }],
+            observedAtNs: '1',
+          },
+          host: {
+            kind: 'process',
+            hostId: 'process-test',
+            diagnostics: {},
+          },
+        },
+        leases: { activeCount: 0, items: [] },
+        error: null,
+      },
+      lifecycle: { state: 'orphan-coordinator', healthy: false },
+      supervisor: { running: false },
+      coordinator: { running: true },
+    }),
+  );
+  assert.equal(result.state, 'ready');
+  assert.equal(result.label, 'Workspace ready');
+});
+
 test('process health alone reports online rather than continuity-ready', () => {
   const result = deriveWorkspaceRuntimePresentation(
     status({

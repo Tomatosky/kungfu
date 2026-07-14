@@ -490,6 +490,10 @@
     "operation_cancelled"
   ],
   "compatibility": {
+    "productStatus": {
+      "statusSchema": "kungfu.runtime.product-status/v1",
+      "rule": "One topology-neutral workspace projection for CLI, GUI, Python, Node, libkungfu-facing, and KFX surfaces; process health cannot establish it."
+    },
     "processDiagnostics": {
       "statusSchema": "kungfu.runtime.status/v2",
       "routesSchema": "kungfu.runtime.routes/v2",
@@ -549,6 +553,9 @@
       },
       {
         "$ref": "#/$defs/runtimeSnapshot"
+      },
+      {
+        "$ref": "#/$defs/runtimeProductStatus"
       }
     ],
     "$defs": {
@@ -1188,6 +1195,147 @@
             }
           }
         }
+      },
+      "runtimeProductStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema",
+          "workspaceId",
+          "availability",
+          "liveState",
+          "handle",
+          "leases",
+          "error"
+        ],
+        "properties": {
+          "schema": {
+            "const": "kungfu.runtime.product-status/v1"
+          },
+          "workspaceId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "availability": {
+            "const": "available"
+          },
+          "liveState": {
+            "type": "string",
+            "enum": [
+              "inactive",
+              "starting",
+              "recovering",
+              "ready",
+              "draining",
+              "failed",
+              "restarting",
+              "stopped"
+            ]
+          },
+          "handle": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/runtimeHandle"
+              }
+            ]
+          },
+          "leases": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "activeCount",
+              "items"
+            ],
+            "properties": {
+              "activeCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/runtimeLease"
+                }
+              }
+            }
+          },
+          "error": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/runtimeError"
+              }
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "liveState": {
+                  "const": "inactive"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "handle": {
+                  "type": "null"
+                },
+                "error": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "liveState": {
+                  "const": "failed"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "error": {
+                  "$ref": "#/$defs/runtimeError"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "liveState": {
+                  "enum": [
+                    "starting",
+                    "recovering",
+                    "ready",
+                    "draining",
+                    "restarting",
+                    "stopped"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "handle": {
+                  "$ref": "#/$defs/runtimeHandle"
+                },
+                "error": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
       }
     }
   }

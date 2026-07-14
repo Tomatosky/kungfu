@@ -1087,6 +1087,8 @@ def route_status(
     runtime_dir: str,
     config_home: str | None = None,
 ) -> dict[str, Any]:
+    from kungfu import runtime_broker
+
     config_home = resolve_config_home(config_home)
     home = resolve_runtime_home(home)
     runtime_dir = resolve_runtime_dir(home, runtime_dir)
@@ -1162,6 +1164,7 @@ def route_status(
         },
         "lastSupervisorState": supervisor_state,
         "lastState": state,
+        "product": runtime_broker.product_status(config_home, runtime_dir),
     }
 
 

@@ -5,8 +5,8 @@
   "witnessKind": "prebuild",
   "supportLevel": "release",
   "source": {
-    "cwd": "/Users/dkr/Worktrees/kungfu/feature/runtime-lease-recovery",
-    "sourceSha": "c2b4a81e52d3fe97c051e41811d9e52536555110",
+    "cwd": "/Users/dkr/Worktrees/kungfu/feature/runtime-surface-integration",
+    "sourceSha": "03afe5edde8136b104d4621c56d2a3b7c3eab899",
     "registryPath": ".buildchain/kfd/kfd-3/surfaces.json",
     "registryDigest": "sha256:6b8e5f64c722f6d97c5ff1f23bf5d8bd584a5358588e214424ea8cce461c5b82"
   },
