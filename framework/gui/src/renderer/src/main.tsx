@@ -36,6 +36,10 @@ import {
   profileHomeId,
 } from '../../navigation';
 import {
+  type RuntimeStatusResult,
+  deriveWorkspaceRuntimePresentation,
+} from '../../runtime-status';
+import {
   RUNTIME_STATUS_GET_CHANNEL,
   SESSION_WINDOW_OPEN_CHANNEL,
   SESSION_WINDOW_RESTORE_CHANNEL,
@@ -220,85 +224,6 @@ function statusColor(severity: StatusBarSeverity | undefined): string {
   if (severity === 'warning') return '#dcdcaa';
   if (severity === 'error') return '#f48771';
   return '#cccccc';
-}
-
-type RuntimeStatusPayload = {
-  status?: string;
-  configHome?: string;
-  dataRoot?: string;
-  runtimeDir?: string;
-  lifecycle?: {
-    state?: string;
-    healthy?: boolean;
-    warnings?: string[];
-  };
-  supervisor?: { pid?: number | null; running?: boolean };
-  coordinator?: { pid?: number | null; running?: boolean };
-  route?: { routeId?: string; registered?: boolean; stale?: boolean };
-  routes?: { count?: number; staleCount?: number };
-  assessments?: {
-    assessment_count?: number;
-    counts?: Record<string, number>;
-    assessments?: Array<{
-      state?: string;
-      assessment_key?: string;
-      request?: { claim_id?: string; purpose?: string };
-      report?: { residual_risks?: string[]; query_proof_root?: string };
-    }>;
-  };
-};
-
-type RuntimeStatusResult = {
-  ok: boolean;
-  payload: RuntimeStatusPayload | null;
-  error: string;
-  updatedAt: number;
-};
-
-function runtimeStatusText(status: RuntimeStatusResult | null): string {
-  if (!status) return 'runtime checking';
-  if (!status.ok || !status.payload) return 'runtime unavailable';
-  const lifecycle = status.payload.lifecycle?.state || status.payload.status;
-  if (lifecycle === 'stale-route') return 'runtime stale route';
-  if (lifecycle === 'degraded') return 'runtime degraded';
-  if (lifecycle === 'dead') return 'runtime dead pid';
-  if (lifecycle === 'orphan-coordinator') return 'runtime orphan';
-  const supervisor = status.payload.supervisor?.running;
-  const runtime = status.payload.coordinator?.running;
-  if (supervisor && runtime) return 'runtime live';
-  if (supervisor) return 'runtime starting';
-  if (runtime) return 'runtime orphan';
-  return 'runtime offline';
-}
-
-function supervisorStatusText(status: RuntimeStatusResult | null): string {
-  if (!status) return 'supervisor checking';
-  if (!status.ok || !status.payload) return 'supervisor unavailable';
-  const lifecycle = status.payload.lifecycle?.state || status.payload.status;
-  if (lifecycle === 'dead') return 'supervisor dead pid';
-  if (lifecycle === 'stale-route') return 'supervisor stale route';
-  return status.payload.supervisor?.running
-    ? 'supervisor live'
-    : 'supervisor stopped';
-}
-
-function statusTooltip(status: RuntimeStatusResult | null): string {
-  if (!status) return 'Supervisor/runtime status is being checked';
-  if (!status.ok || !status.payload)
-    return status.error || 'Status unavailable';
-  const payload = status.payload;
-  return [
-    `Status: ${payload.status || '-'}`,
-    `Lifecycle: ${payload.lifecycle?.state || '-'}`,
-    `Warnings: ${payload.lifecycle?.warnings?.join(', ') || '-'}`,
-    `Config: ${payload.configHome || '-'}`,
-    `Data root: ${payload.dataRoot || '-'}`,
-    `Runtime: ${payload.runtimeDir || '-'}`,
-    `Route: ${payload.route?.routeId || '-'}${
-      payload.route?.registered ? ' registered' : ' not registered'
-    }${payload.route?.stale ? ' stale' : ''}`,
-    `Stale routes: ${String(payload.routes?.staleCount ?? 0)}`,
-  ].join('\n');
 }
 
 function trustStatusText(status: RuntimeStatusResult | null): string {
@@ -1342,23 +1267,7 @@ function App() {
     setCommandText('');
   }, [commandText, enabled, openKfx, showNotification]);
 
-  const supervisorRunning =
-    runtimeStatus?.payload?.supervisor?.running === true;
-  const coordinatorRunning =
-    runtimeStatus?.payload?.coordinator?.running === true;
-  const lifecycleState =
-    runtimeStatus?.payload?.lifecycle?.state || runtimeStatus?.payload?.status;
-  const lifecycleHealthy = runtimeStatus?.payload?.lifecycle?.healthy === true;
-  const lifecycleDegraded =
-    lifecycleState === 'stale-route' ||
-    lifecycleState === 'degraded' ||
-    lifecycleState === 'dead' ||
-    lifecycleState === 'orphan-coordinator';
-  const runtimeSeverity: StatusBarSeverity = lifecycleHealthy
-    ? 'ok'
-    : lifecycleDegraded || supervisorRunning
-      ? 'warning'
-      : 'error';
+  const workspaceRuntime = deriveWorkspaceRuntimePresentation(runtimeStatus);
   const trustCounts = runtimeStatus?.payload?.assessments?.counts ?? {};
   const trustBlocked =
     (trustCounts.stale ?? 0) +
@@ -1369,28 +1278,13 @@ function App() {
   const trustPending = (trustCounts.pending ?? 0) + (trustCounts.running ?? 0);
   const systemStatusItems: StatusBarItem[] = [
     {
-      id: 'system.supervisor',
-      text: supervisorStatusText(runtimeStatus),
-      icon: supervisorRunning ? '●' : '○',
-      severity:
-        lifecycleState === 'dead'
-          ? 'error'
-          : supervisorRunning
-            ? 'ok'
-            : 'warning',
-      side: 'left',
-      priority: -110,
-      tooltip: statusTooltip(runtimeStatus),
-      command: { kind: 'open-kfx', kfxId: 'system-status' },
-    },
-    {
-      id: 'system.coordinator',
-      text: runtimeStatusText(runtimeStatus),
-      icon: coordinatorRunning ? '●' : '○',
-      severity: runtimeSeverity,
+      id: 'system.workspace-runtime',
+      text: workspaceRuntime.label,
+      icon: workspaceRuntime.icon,
+      severity: workspaceRuntime.severity,
       side: 'left',
       priority: -100,
-      tooltip: statusTooltip(runtimeStatus),
+      tooltip: workspaceRuntime.detail,
       command: { kind: 'open-kfx', kfxId: 'system-status' },
     },
     {
