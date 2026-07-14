@@ -3,9 +3,11 @@ metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
 adr_id: ADR-0082
 decision_status: accepted
-implementation_status: staged
-implementation_commits: [a296e6dfdf3a43340093accafbee646ef97ea821, 30a849db8a93895686e53076df779717ccd79a24, 6f20d83cf79751415ed9976be310ae610a4eb4bb, 531d40d899685c5a86a51ae721d6388bbe384680, 6232f1e1a3d94055e72a20a86e5193b5ca0a0250]
+implementation_status: implemented
+implementation_commits: [a296e6dfdf3a43340093accafbee646ef97ea821, 30a849db8a93895686e53076df779717ccd79a24, 6f20d83cf79751415ed9976be310ae610a4eb4bb, 531d40d899685c5a86a51ae721d6388bbe384680, 6232f1e1a3d94055e72a20a86e5193b5ca0a0250, e6857cf821d51dd1ce6d5c132a7915dc15bc8cc9]
 implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/660, https://github.com/kungfu-systems/kungfu/pull/858, https://github.com/kungfu-systems/kungfu/pull/869, https://github.com/kungfu-systems/kungfu/pull/871, https://github.com/kungfu-systems/kungfu/pull/874]
+closure_pr: https://github.com/kungfu-systems/kungfu/pull/892
+qualification_refs: [framework/core/.cmake/compiler.cmake, docs/development/cpp-error-handling.md, framework/core/src/libkungfu/tests/durable_ingest_tests.cpp, framework/core/src/libyijinjing/include/kungfu/common.h, framework/core/src/libyijinjing/include/kungfu/yijinjing/schema/registry.h, framework/core/src/libyijinjing/src/journal/reader.cpp]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-decision]
@@ -15,8 +17,7 @@ theme: cpp23-rx-core-language-strategy
 
 # ADR-0082: C++23 + Rx is the core language strategy
 
-- Status: accepted (the language increments it prescribes are staged — see
-  "Staged adoption")
+- Status: accepted; implemented
 - Date: 2026-07-14
 - Category: architecture — core implementation language and expressiveness
   strategy
@@ -190,13 +191,12 @@ Rust `derive` attribute.
   record exists to stop; unwritten conventions do not survive contributor
   turnover.
 
-## Staged adoption
+## Implementation status
 
-The ratified baseline is already on mainline — the compile-time registry and
-its welds (PR #660), and the Rx loop-error boundary with local stop ownership
-(`a296e6dfd`) — which is what the implementation evidence above points at. The
-increments below are the pending stages, in dependency order, each shippable
-independently:
+The ratified baseline and each finite increment below are on mainline. This
+marks the language strategy implemented without claiming that every future
+template-modernization opportunity is complete. Further local conversions are
+maintenance under the policy, not an implementation gate for this decision.
 
 1. **Landed** (PR #858): promote `-Werror=switch` (Clang/GNU) and `/we4062`
    (MSVC) in the compile contract (`.cmake/compiler.cmake`). A pre-promotion
@@ -215,31 +215,36 @@ independently:
    → ingest-error / receipt-code / message projection is identical, valid early
    returns stay values, and a classified failure still yields an `Unknown`
    receipt.
-3. **In progress** (first batch landed): migrate SFINAE constraints to concepts
-   incrementally. The first batch converts the `event::data<T>()` accessor
-   overloads (`common.h`, now selected by a named `frame_inline_payload<T>`
-   concept + `requires`) and the registry `copy()` pair (`schema/registry.h`,
-   `requires size_fixed_v` / `requires (not size_fixed_v)`) — the
-   highest-traffic diagnostics. The two overloads in each pair stay mutually
-   exclusive by construction; the payoff is that an unsatisfied constraint now
-   reports "constraints not satisfied" instead of a bare "no type named 'type'
-   in enable_if". No flag-day: remaining SFINAE sites migrate in later batches.
-   The second batch converts the five `data<T>` member-initialization and JSON
-   decoding overloads from `enable_if_t<..., void>` to named concepts plus
-   `requires`. Their two-way and three-way partitions, explicit `void` return,
-   and function bodies remain unchanged. A concurrent inventory keeps 14
-   partial-specialization sites on SFINAE because concepts do not remove their
-   specialization-selection role, and defers the four SQLite `make_default`
-   seam overloads to separately scoped validation rather than forcing a
-   quantity-driven migration.
-4. Opportunistic. **Ranges landed**: `reader::sort_without_buffer()` discharges
-   the `reader.cpp` TODO it named — the manual filter loop plus `std::max_element`
-   is now `journals_ | std::views::values | std::views::filter(...)` fed to
-   `std::ranges::max_element`, behaviour-preserving. **Deducing this deferred**:
-   the core's CRTP base is `kungfu::data<T>` (via `KF_DEFINE_DATA_TYPE`), a
-   widely-inherited pack-layout base whose replacement is invasive rather than a
-   clean opportunistic win, so it is left for a dedicated change if it ever earns
-   one.
+3. **Implemented** (reference batch landed): migrate SFINAE constraints to
+   concepts incrementally. The reference batch converts the `event::data<T>()`
+   accessor overloads (`common.h`, now selected by a named
+   `frame_inline_payload<T>` concept + `requires`) and the registry `copy()`
+   pair (`schema/registry.h`, `requires size_fixed_v` / `requires (not
+   size_fixed_v)`) — the highest-traffic diagnostics. The two overloads in each
+   pair stay mutually exclusive by construction; the payoff is that an
+   unsatisfied constraint now reports "constraints not satisfied" instead of a
+   bare "no type named 'type' in enable_if". No flag-day: remaining SFINAE sites
+   may migrate in later maintenance batches when a touched API benefits from
+   clearer diagnostics. A second maintenance batch converts the five `data<T>`
+   member-initialization and JSON-decoding overloads from
+   `enable_if_t<..., void>` to named concepts plus `requires`. Their two-way and
+   three-way partitions, explicit `void` return, and function bodies remain
+   unchanged. The accompanying inventory keeps 14 partial-specialization sites
+   on SFINAE because concepts do not remove their specialization-selection role,
+   and defers the four SQLite `make_default` seam overloads to separately scoped
+   validation rather than forcing a quantity-driven migration.
+4. **Implemented without a deducing-this migration.** Ranges landed:
+   `reader::sort_without_buffer()` discharges the `reader.cpp` TODO it named —
+   the manual filter loop plus `std::max_element` is now
+   `journals_ | std::views::values | std::views::filter(...)` fed to
+   `std::ranges::max_element`, behaviour-preserving. Deducing this was evaluated
+   and not adopted: the core's `kungfu::data<T>` CRTP base (via
+   `KF_DEFINE_DATA_TYPE`) is a widely inherited pack-layout and reflection base.
+   Its constructor initializes derived fields through Hana accessors, while
+   `parse()`, `to_json()`, and `uid()` rely on the same derived-type contract.
+   Replacing that structure would be an invasive redesign requiring independent
+   compiler-matrix and layout qualification, with no current defect or recurring
+   maintenance cost that pays for it. The CRTP remains the implemented design.
 
 ## Re-evaluation triggers
 
@@ -265,6 +270,10 @@ sentiment:
    supported compiler matrix — reopen not to reconsider the language, but to
    retire the reflection macros and close the destructuring gap this record
    honestly leaves open until then.
+6. `kungfu::data<T>` becomes a measured correctness or maintenance burden, and
+   explicit-object-member support is qualified across the supported compiler
+   matrix. Only then re-evaluate replacing the CRTP; language-feature availability
+   by itself is not sufficient.
 
 ## Consequences
 
@@ -275,9 +284,9 @@ sentiment:
   cheap parity wins (`-Werror=switch`, concepts) get an ordered adoption path.
 - Negative / accepted residuals: destructuring pattern matching stays absent
   until P2688; error-type composition stays explicit (`transform_error`) where
-  Rust's `From` is implicit; Hana-zone template diagnostics remain a real tax
-  until the concepts migration lands; RxCpp 4.1.1 remains a watched,
-  patch-carrying dependency.
-- The staged increments touch developer-facing configuration and internal
+  Rust's `From` is implicit; Hana-zone template diagnostics outside the
+  migrated high-traffic sites remain a watched maintenance tax; RxCpp 4.1.1
+  remains a watched, patch-carrying dependency.
+- The implemented increments touch developer-facing configuration and internal
   seams only; no public API or product behavior changes are implied by this
   record.
