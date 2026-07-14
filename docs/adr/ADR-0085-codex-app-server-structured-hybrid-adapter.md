@@ -1,7 +1,7 @@
 ---
 metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
-adr_id: ADR-0084
+adr_id: ADR-0085
 decision_status: accepted
 implementation_status: staged
 implementation_commits: [6c10cf1e97f2d2cf1fec7f653a3e27782061ca90]
@@ -16,7 +16,7 @@ evidence_grade: B
 last_reviewed: 2026-07-14
 ---
 
-# ADR-0084: Codex App Server is a pinned structured-hybrid provider adapter
+# ADR-0085: Codex App Server is a pinned structured-hybrid provider adapter
 
 - Status: accepted; implementation staged
 - Date: 2026-07-14
