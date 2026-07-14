@@ -1,4 +1,9 @@
 const MODES = new Set(['when-ready', 'queue', 'interrupt']);
+const PROVIDER_INPUT_WAIT = new Int32Array(new SharedArrayBuffer(4));
+
+function pauseProviderInput(milliseconds) {
+  Atomics.wait(PROVIDER_INPUT_WAIT, 0, 0, milliseconds);
+}
 
 function required(value, label) {
   if (typeof value !== 'string' || value.length === 0) {
@@ -26,6 +31,7 @@ export class AgentSessionInteractionPort {
     adapter,
     queueLimit = 32,
     now = () => Date.now(),
+    pause = pauseProviderInput,
   }) {
     if (
       !host ||
@@ -49,6 +55,12 @@ export class AgentSessionInteractionPort {
         'interaction port requires a provider adapter',
       );
     }
+    if (typeof pause !== 'function') {
+      throw new InteractionPortError(
+        'invalid_argument',
+        'interaction port pause must be a function',
+      );
+    }
     if (!Number.isSafeInteger(queueLimit) || queueLimit < 1) {
       throw new InteractionPortError(
         'invalid_argument',
@@ -60,6 +72,7 @@ export class AgentSessionInteractionPort {
     this.adapter = adapter;
     this.queueLimit = queueLimit;
     this.now = now;
+    this.pause = pause;
     this.queue = [];
   }
 
@@ -269,7 +282,16 @@ export class AgentSessionInteractionPort {
 
   #deliverInstruction(request) {
     const data = this.adapter.encodeInstruction(request.text);
-    const deliveryReceipt = this.transport.submitInput({ ...request, data });
+    let deliveryReceipt = this.transport.submitInput({ ...request, data });
+    if (this.adapter.instructionSubmitStrategy === 'separate-enter') {
+      this.pause(this.adapter.instructionSubmitDelayMilliseconds);
+      deliveryReceipt = this.transport.submitInput({
+        ...request,
+        actionId: `${request.actionId}:submit`,
+        inputId: `${request.inputId}:submit`,
+        data: this.adapter.instructionSubmitData,
+      });
+    }
     return {
       schema: 'kungfu.agent-session.interaction-receipt/v1',
       operation: 'instruct',

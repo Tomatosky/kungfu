@@ -88,11 +88,13 @@ The retained Mac source qualification proves main-process reconnect, provider
 exit fencing, worker-loss fail-closed behavior, bounded overflow gaps, receipt
 privacy, and sub-millisecond local RPC p95. Authenticated Codex 0.144.3 passes
 start, instruction/output, approval detection plus deny-key delivery,
-interrupt, reconnect, and end. Claude Code 2.1.209 passes start, temporary
-workspace trust, instruction/output, and reconnect, but its real tool-approval
-state did not converge to a supported signature; promotion remains blocked by
-that explicit degraded result. Raw terminal bytes and environment values are
-never written to the retained report.
+interrupt, reconnect, and end. Authenticated Claude Code 2.1.209 passes the
+same cases with an explicit `Bash` ask rule under `sonnet`/`low`; its real tool
+approval is detected and denied with Escape before the disposable probe can
+run. Current VT-grid state supersedes erased volatile busy signatures without
+weakening unknown/modal fail-closed behavior. Raw terminal bytes and
+environment values are never written to the retained report. Promotion remains
+blocked until the packaged Mac product passes the same dual-provider loop.
 
 Run the focused qualification through Shifu:
 

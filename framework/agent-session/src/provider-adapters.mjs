@@ -23,6 +23,11 @@ const PROVIDER_PROFILES = {
     testedVersions: ['2.1.209'],
     signatures: {
       approval: [
+        ['claude.approval.needs-permission', /claude needs your permission/iu],
+        [
+          'claude.approval.permission-rule',
+          /permission rule bash requires confirmation/iu,
+        ],
         ['claude.approval.proceed', /do you want to proceed\?/iu],
         ['claude.approval.permission', /allow (?:this|the) action/iu],
         [
@@ -143,6 +148,21 @@ function latestVolatileState(profile, volatileTail) {
   return candidates[0] ?? null;
 }
 
+function currentScreenState(profile, screen) {
+  const approval = matches(profile.signatures.approval, screen);
+  if (approval) {
+    return { state: 'approval-needed', signatureId: approval };
+  }
+  const busy = matches(profile.signatures.busy, screen);
+  if (busy) return { state: 'busy', signatureId: busy };
+  const ready = matches(profile.signatures.ready, screen);
+  if (ready) return { state: 'ready', signatureId: ready };
+  if (GENERIC_MODAL.test(screen)) {
+    return { state: 'unknown', signatureId: null };
+  }
+  return null;
+}
+
 function interactionResult({
   state,
   signatureId = null,
@@ -222,6 +242,10 @@ export function createProviderAdapter({ provider, version }) {
     provider,
     providerVersion: version,
     adapterVersion: profile.adapterVersion,
+    instructionSubmitStrategy:
+      provider === 'claude' ? 'separate-enter' : 'inline-enter',
+    instructionSubmitData: provider === 'claude' ? '\r' : null,
+    instructionSubmitDelayMilliseconds: provider === 'claude' ? 50 : 0,
     compatible,
     tested,
     knownLimits: [
@@ -254,6 +278,17 @@ export function createProviderAdapter({ provider, version }) {
           compatible: false,
         });
       }
+      const screen = cleanScreen(lines);
+      const current = currentScreenState(profile, screen);
+      if (current) {
+        return interactionResult({
+          state: current.state,
+          signatureId: current.signatureId,
+          reason:
+            current.state === 'unknown' ? 'unrecognized-modal-state' : null,
+          compatible: true,
+        });
+      }
       const latest = latestVolatileState(profile, volatileTail);
       if (latest) {
         return interactionResult({
@@ -261,31 +296,6 @@ export function createProviderAdapter({ provider, version }) {
           signatureId: latest.signatureId,
           reason:
             latest.state === 'unknown' ? 'unrecognized-modal-state' : null,
-          compatible: true,
-        });
-      }
-      const screen = cleanScreen(lines);
-      const approval = matches(profile.signatures.approval, screen);
-      if (approval) {
-        return interactionResult({
-          state: 'approval-needed',
-          signatureId: approval,
-          compatible: true,
-        });
-      }
-      const busy = matches(profile.signatures.busy, screen);
-      if (busy) {
-        return interactionResult({
-          state: 'busy',
-          signatureId: busy,
-          compatible: true,
-        });
-      }
-      const ready = matches(profile.signatures.ready, screen);
-      if (ready) {
-        return interactionResult({
-          state: 'ready',
-          signatureId: ready,
           compatible: true,
         });
       }
@@ -310,7 +320,8 @@ export function createProviderAdapter({ provider, version }) {
       if (Buffer.byteLength(text, 'utf8') > 64 * 1024) {
         throw new Error('instruction exceeds the 64 KiB atomic paste limit');
       }
-      return `\u001b[200~${text}\u001b[201~\r`;
+      const submit = provider === 'claude' ? '' : '\r';
+      return `\u001b[200~${text}\u001b[201~${submit}`;
     },
     encodeKey(key) {
       const sequence = KEY_SEQUENCES[key];

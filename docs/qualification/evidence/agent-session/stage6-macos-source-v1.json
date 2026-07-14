@@ -23,6 +23,8 @@
     "codex": {
       "version": "0.144.3",
       "status": "passed",
+      "worker": "source-checkout",
+      "durationMilliseconds": 23224,
       "cases": {
         "start": "passed",
         "instructAndObserveOutput": "passed",
@@ -31,21 +33,31 @@
         "mainRestartReattach": "passed",
         "providerEndClosesInput": "passed"
       },
+      "approvalPolicy": "provider-untrusted-approval",
+      "convergenceTimeoutMilliseconds": 90000,
       "rawTerminalRetained": false,
       "privateEnvironmentValuesRetained": false
     },
     "claude": {
       "version": "2.1.209",
-      "status": "degraded",
-      "passedCases": [
-        "start",
-        "temporaryWorkspaceTrust",
-        "instructAndObserveOutput",
-        "mainRestartReattach"
-      ],
-      "blockingCase": "approval-needed state did not converge within 90000ms",
-      "denyKeyWritten": false,
-      "approvalOutcome": null,
+      "status": "passed",
+      "worker": "source-checkout",
+      "durationMilliseconds": 10413,
+      "cases": {
+        "start": "passed",
+        "instructAndObserveOutput": "passed",
+        "approvalDetectedAndDenyKeyWritten": "passed",
+        "interruptDelivered": "passed",
+        "mainRestartReattach": "passed",
+        "providerEndClosesInput": "passed"
+      },
+      "approvalPolicy": "explicit-bash-ask",
+      "qualificationProfile": {
+        "model": "sonnet",
+        "effort": "low",
+        "convergenceTimeoutMilliseconds": 90000
+      },
+      "temporaryWorkspaceTrustAccepted": false,
       "rawTerminalRetained": false,
       "privateEnvironmentValuesRetained": false
     }
@@ -53,5 +65,5 @@
   "linuxQualification": "not-run",
   "windowsQualification": "not-run",
   "promotionEligible": false,
-  "promotionBlock": "authenticated Claude approval and deny-key loop is incomplete"
+  "promotionBlock": "packaged Mac dual-provider qualification and product promotion are not yet complete"
 }

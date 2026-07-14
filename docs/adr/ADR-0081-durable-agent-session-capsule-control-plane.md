@@ -240,9 +240,9 @@ terminates provider PTYs when worker authority ends. Synthetic Mac source
 qualification covers restart reattachment, worker loss, provider exit, bounded
 overflow, receipt privacy, and local RPC latency. Authenticated Codex `0.144.3`
 passes instruction/output, approval denial, interrupt, main restart, and exit
-closure. Authenticated Claude Code `2.1.209` passes start, temporary workspace
-trust, instruction/output, and main restart, but its approval-needed state did
-not converge within the bounded qualification window; no deny-key or approval
-outcome is claimed. Machine restart, Linux/Windows qualification, the complete
-Claude loop, and promoted Mac product evidence remain open, so
+closure. Authenticated Claude Code `2.1.209` now passes the same loop under an
+explicit `Bash` ask rule: current VT-grid state overrides an erased volatile
+busy signature, the real approval modal is detected, Escape is delivered, and
+the disposable probe remains absent. Machine restart, Linux/Windows
+qualification, and packaged/promoted Mac product evidence remain open, so
 `promotionEligible` is false and the implementation status remains partial.
