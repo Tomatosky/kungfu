@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   sourceAcceptancePlan,
+  sourceMypyCommand,
   sourcePythonCommand,
 } from './source-acceptance.mjs';
 
@@ -21,6 +22,30 @@ test('Python source checks use uvx when a bare ruff is unavailable', () => {
   assert.deepEqual(command, {
     command: 'uvx',
     args: ['ruff', 'format', '--check'],
+  });
+});
+
+test('Python type checks use the pinned CI mypy when it is healthy', () => {
+  const command = sourceMypyCommand(
+    ['--config-file', 'pyproject.toml'],
+    (candidate) => candidate === 'mypy',
+    () => ({ status: 0, stdout: 'mypy 1.20.2 (compiled: yes)\n' }),
+  );
+  assert.deepEqual(command, {
+    command: 'mypy',
+    args: ['--config-file', 'pyproject.toml'],
+  });
+});
+
+test('Python type checks isolate a broken ambient mypy behind pinned uvx', () => {
+  const command = sourceMypyCommand(
+    ['--config-file', 'pyproject.toml'],
+    (candidate) => candidate === 'mypy' || candidate === 'uvx',
+    () => ({ status: 1, stderr: 'broken ambient mypy' }),
+  );
+  assert.deepEqual(command, {
+    command: 'uvx',
+    args: ['--from', 'mypy==1.20.2', 'mypy', '--config-file', 'pyproject.toml'],
   });
 });
 

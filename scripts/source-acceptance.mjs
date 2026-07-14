@@ -38,10 +38,35 @@ function commandAvailable(command) {
   );
 }
 
+function commandProbe(command, args) {
+  return spawnSync(command, args, { encoding: 'utf8' });
+}
+
 export function sourcePythonCommand(args, available = commandAvailable) {
   if (available('ruff')) return { command: 'ruff', args };
   if (available('uvx')) return { command: 'uvx', args: ['ruff', ...args] };
   throw new Error('source acceptance requires ruff or uvx');
+}
+
+export function sourceMypyCommand(
+  args,
+  available = commandAvailable,
+  probe = commandProbe,
+) {
+  if (available('mypy')) {
+    const result = probe('mypy', ['--version']);
+    const version = `${result.stdout || ''}${result.stderr || ''}`;
+    if (result.status === 0 && /(?:^|\n)mypy 1\.20\.2(?:\s|$)/.test(version)) {
+      return { command: 'mypy', args };
+    }
+  }
+  if (available('uvx')) {
+    return {
+      command: 'uvx',
+      args: ['--from', 'mypy==1.20.2', 'mypy', ...args],
+    };
+  }
+  throw new Error('source acceptance requires mypy 1.20.2 or uvx');
 }
 
 export function sourceMergeBase() {
@@ -203,17 +228,14 @@ export function sourceAcceptancePlan(files) {
     file.startsWith('framework/core/src/python/'),
   );
   if (typedPython.length) {
+    const mypy = sourceMypyCommand([
+      '--config-file',
+      'pyproject.toml',
+      'src/python/kungfu',
+    ]);
     plan.push({
       label: 'Python type baseline',
-      command: 'uvx',
-      args: [
-        '--from',
-        'mypy==1.20.2',
-        'mypy',
-        '--config-file',
-        'pyproject.toml',
-        'src/python/kungfu',
-      ],
+      ...mypy,
       cwd: path.join(ROOT, 'framework/core'),
       env: {
         ...process.env,
