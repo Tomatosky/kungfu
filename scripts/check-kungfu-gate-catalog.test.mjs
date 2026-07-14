@@ -24,6 +24,7 @@ function fixture() {
     'docs/qualification/evidence/layer-gates/c4ba70d95/linux-x64.raw/layer-artifact-gate-receipt.json',
     'docs/qualification/evidence/layer-gates/c4ba70d95/macos-arm64.raw/layer-artifact-gate-receipt.json',
     'docs/qualification/evidence/layer-gates/c4ba70d95/windows-x64.raw/layer-artifact-gate-receipt.json',
+    'docs/qualification/evidence/gate-measurements/e978a4c85/linux/governance.dco.controller-receipt.json',
     'framework/core/tests/qualification/episode/profiles',
   ]) {
     const source = path.join(ROOT, relative);
@@ -115,7 +116,7 @@ test('a new Gate requires complete source-bound measurement coverage', () => {
     fs.readFileSync(path.join(root, 'shifu.gates.json'), 'utf8'),
   );
   const gate = structuredClone(
-    registry.gates.find((item) => item.id === 'governance.dco'),
+    registry.gates.find((item) => item.id === 'layers.release'),
   );
   gate.id = 'governance.measurement-fixture';
   gate.title = 'Measurement fixture';
@@ -280,6 +281,48 @@ test('dirty, unsuccessful, and duration-drifted receipts fail measurement covera
   assert.ok(
     issues.some((issue) =>
       issue.includes('gate.catalog:linux: durationMs differs from the receipt'),
+    ),
+  );
+});
+
+test('handler Gate measurements require an intact controller binding receipt', () => {
+  const root = fixture();
+  const registry = JSON.parse(
+    fs.readFileSync(path.join(root, 'shifu.gates.json'), 'utf8'),
+  );
+  const relative =
+    'docs/qualification/evidence/gate-measurements/e978a4c85/linux/governance.dco.controller-receipt.json';
+  const receipt = JSON.parse(
+    fs.readFileSync(path.join(root, relative), 'utf8'),
+  );
+  const coverage = readMeasurementCoverage(root);
+  coverage.measurements.push({
+    gateId: receipt.gateId,
+    definitionDigest: receipt.definitionDigest,
+    observations: [
+      {
+        platform: receipt.environment.platform,
+        sourceSha: receipt.source.sha,
+        registryDigest: receipt.registry.digest,
+        durationMs: receipt.durationMs,
+        receipt: relative,
+      },
+    ],
+  });
+  writeMeasurementCoverage(root, coverage);
+  assert.deepEqual(validateMeasurementCoverage(root, registry).issues, []);
+
+  receipt.binding.adapterDigest = `sha256:${'0'.repeat(64)}`;
+  fs.writeFileSync(path.join(root, relative), JSON.stringify(receipt));
+  const issues = validateMeasurementCoverage(root, registry).issues;
+  assert.ok(
+    issues.some((issue) =>
+      issue.includes('controller binding identity is stale'),
+    ),
+  );
+  assert.ok(
+    issues.some((issue) =>
+      issue.includes('controller receipt integrity is invalid'),
     ),
   );
 });

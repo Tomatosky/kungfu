@@ -535,9 +535,7 @@
         "governance.promotion-rehearsal"
       ],
       "platforms": [
-        "linux",
-        "macos",
-        "windows"
+        "linux"
       ],
       "runner": {
         "capabilities": [

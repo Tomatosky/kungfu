@@ -48,7 +48,7 @@ Each section is bound to the registry id by the catalog meta gate.
 - **Protects:** release regressions from becoming an unexplained green profile or release claim.
 - **Action:** named handler `kungfu.buildchain.artifact-admission`; execution requires the declared remote controller capability.
 - **Dependencies:** `governance.promotion-rehearsal`.
-- **Platforms and runner:** linux, macos, windows; capabilities `buildchain-release`.
+- **Platforms and runner:** linux; capabilities `buildchain-release`.
 - **Pass:** the structured action exits successfully, required artifacts exist, and the Gate receipt remains current for the source and definition.
 - **Failure or skip:** action failure, timeout, unsupported required capability, dependency failure, or missing required artifact is non-qualifying; advisory mode remains visible.
 - **Evidence:** unified Gate receipt; no separate artifact is currently required.
@@ -57,6 +57,10 @@ Each section is bound to the registry id by the catalog meta gate.
 - **Current source:** .github/workflows/release-new-version.yml (promote; merged alpha or release pull request).
 - **Retirement:** remove only after every selecting profile and workflow binding is migrated or explicitly replaced, with the registry and matrix changed in the same review.
 <!-- /gate-doc:release.artifact-admission -->
+
+The handler executes once in the Linux promotion controller. Its admitted
+payload remains cross-platform: the controller still requires exact Linux,
+macOS, and Windows artifacts before the Gate passes.
 
 <a id="layers-release"></a>
 <!-- gate-doc:layers.release -->

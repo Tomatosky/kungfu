@@ -10,6 +10,13 @@ receipt when its implementation or expected cost changes. Any Gate outside the
 frozen 2026-07-14 adoption baseline must have a passing observation for every
 declared platform before the catalog check succeeds.
 
+Task and argv Gates use ordinary Shifu receipts. Handler Gates use controller
+receipts captured from the exact successful workflow job declared by
+`workflow-bindings.json`; their duration is the controller job wall time, not a
+fabricated local handler duration. `scripts/register-gate-measurements.mjs`
+only retires a baseline entry when one source and registry revision covers the
+Gate's complete platform set.
+
 <!-- BEGIN GENERATED GATE MEASUREMENTS -->
 | Gate | Coverage | Source-bound observations |
 | --- | --- | --- |

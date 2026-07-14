@@ -87,6 +87,10 @@ function sameStringSet(actual, expected) {
 export function validateMeasurementCoverage(root, registry) {
   const issues = [];
   const document = readJson(root, MEASUREMENT_COVERAGE);
+  const bindingDocument = readJson(root, BINDINGS);
+  const bindings = new Map(
+    (bindingDocument.bindings || []).map((binding) => [binding.id, binding]),
+  );
   exactObjectKeys(
     document,
     ['schema', 'registry', 'baseline', 'measurements'],
@@ -249,9 +253,114 @@ export function validateMeasurementCoverage(root, registry) {
         );
         continue;
       }
+      if (receipt.schema === 'kungfu.gate-controller-receipt/v1') {
+        if (gate.action?.kind !== 'handler')
+          issues.push(
+            `[measurement] ${record.gateId}:${observation.platform}: controller receipts are only valid for handler Gates`,
+          );
+        exactObjectKeys(
+          receipt,
+          [
+            '$schema',
+            'schema',
+            'gateId',
+            'definitionDigest',
+            'source',
+            'registry',
+            'environment',
+            'binding',
+            'run',
+            'startedAt',
+            'finishedAt',
+            'durationMs',
+            'status',
+            'attempted',
+            'conclusion',
+            'integrity',
+          ],
+          `${record.gateId}:${observation.platform}: controller receipt`,
+          issues,
+        );
+        if (
+          receipt.$schema !==
+          'https://libkungfu.dev/schemas/shifu/gate-controller-receipt-v1.schema.json'
+        )
+          issues.push(
+            `[measurement] ${record.gateId}:${observation.platform}: controller receipt schema URL is invalid`,
+          );
+        if (
+          receipt.gateId !== record.gateId ||
+          receipt.definitionDigest !== currentDefinitionDigest
+        )
+          issues.push(
+            `[measurement] ${record.gateId}:${observation.platform}: controller receipt Gate identity is stale`,
+          );
+        if (
+          receipt.source?.dirty !== false ||
+          receipt.source?.sha !== observation.sourceSha
+        )
+          issues.push(
+            `[measurement] ${record.gateId}:${observation.platform}: controller receipt must match a clean source SHA`,
+          );
+        if (
+          receipt.registry?.ref !== 'shifu.gates.json' ||
+          receipt.registry?.projectId !== registry.project.id ||
+          receipt.registry?.digest !== observation.registryDigest
+        )
+          issues.push(
+            `[measurement] ${record.gateId}:${observation.platform}: controller receipt registry identity does not match`,
+          );
+        if (receipt.environment?.platform !== observation.platform)
+          issues.push(
+            `[measurement] ${record.gateId}:${observation.platform}: controller receipt platform does not match`,
+          );
+        const binding = bindings.get(receipt.binding?.id);
+        if (
+          !binding ||
+          binding.execution !== 'controller' ||
+          !binding.gates?.includes(record.gateId) ||
+          binding.workflow !== receipt.binding?.workflow ||
+          binding.job !== receipt.binding?.job ||
+          gateDigest(binding.adapter) !== receipt.binding?.adapterDigest
+        )
+          issues.push(
+            `[measurement] ${record.gateId}:${observation.platform}: controller binding identity is stale`,
+          );
+        const started = Date.parse(receipt.startedAt);
+        const finished = Date.parse(receipt.finishedAt);
+        if (
+          !Number.isFinite(started) ||
+          !Number.isFinite(finished) ||
+          finished < started ||
+          finished - started !== receipt.durationMs ||
+          receipt.durationMs !== observation.durationMs
+        )
+          issues.push(
+            `[measurement] ${record.gateId}:${observation.platform}: durationMs differs from controller timestamps`,
+          );
+        if (
+          receipt.status !== 'pass' ||
+          receipt.attempted !== true ||
+          receipt.conclusion !== 'success'
+        )
+          issues.push(
+            `[measurement] ${record.gateId}:${observation.platform}: controller result must be an attempted pass`,
+          );
+        const unsigned = structuredClone(receipt);
+        Reflect.deleteProperty(unsigned, 'integrity');
+        if (receipt.integrity?.digest !== gateDigest(unsigned))
+          issues.push(
+            `[measurement] ${record.gateId}:${observation.platform}: controller receipt integrity is invalid`,
+          );
+        continue;
+      }
       if (receipt.schema !== 'shifu.gate-receipt/v1')
         issues.push(
           `[measurement] ${record.gateId}:${observation.platform}: unsupported receipt schema`,
+        );
+      if (gate.action?.kind === 'handler')
+        issues.push(
+          `[measurement] ${record.gateId}:${observation.platform}: handler Gates require a controller receipt`,
         );
       if (
         receipt.source?.dirty !== false ||
