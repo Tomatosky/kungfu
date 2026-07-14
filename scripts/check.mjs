@@ -418,6 +418,14 @@ function checkDurabilityQualification() {
       'durability',
       'slo_evidence.test.mjs',
     ),
+    path.join(
+      'framework',
+      'core',
+      'tests',
+      'qualification',
+      'durability',
+      'offhost_evidence.test.mjs',
+    ),
   ]);
 }
 

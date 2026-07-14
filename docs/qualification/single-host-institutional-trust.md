@@ -25,8 +25,12 @@ deterministic replay from readable journal data. Retained test evidence covers
 Linux/ext4, and Windows/NTFS profiles, plus 20/20 abrupt cuts, real ENOSPC,
 repeated reopen, fsck/hash, Episode load, and same-host external-path restore in
 a disposable Linux/ext4 QEMU envelope. This does not activate producer-visible
-durable receipts in the production runtime, qualify physical-host power loss,
-or establish an off-host backup procedure.
+durable receipts in the production runtime or qualify physical-host power loss.
+A separate retained candidate run verifies a completed backup from agent-120
+to Ubuntu 222, rejects a partial transfer, and restores the same durable cut,
+Episode, payloads, records, and projection on the target. Because both hosts
+are in the same office, that procedure is off-host but not an independently
+qualified disaster domain.
 
 The C++ capability authority exposes that boundary unchanged through Python,
 Node, and `kungfu agent capabilities --json`. The report is evidence-bound and
@@ -72,7 +76,7 @@ backup.
 | A `durable_sync` receipt establishes the critical fact and required metadata | Default-off candidate; process and disposable-VM envelopes qualified | production admission plus exact barrier/device and physical power-loss evidence | use it for institution-defined critical facts only after production qualification |
 | Recovery identifies the last durable frontier without inventing facts | Qualified in the disposable QEMU evidence envelope | physical-host and production-envelope repeated recovery reports | review loss, quarantine, and repair outcomes before resuming authority |
 | Projection failure cannot erase a durably acknowledged raw fact | Qualified in the test-only backend | production ingest/projection activation and qualification | treat SQLite as a rebuildable query projection, not the raw authority |
-| Whole data-root loss can be recovered | Same-host external-path test drill passed | off-host, independent-failure-domain backup and restore procedure | operate, protect, and periodically restore-test an external backup |
+| Whole data-root loss can be recovered | Same-host drill plus named same-office off-host restore passed | independent-failure-domain backup and restore procedure | operate, protect, and periodically restore-test an external backup |
 | A second owner cannot concurrently acknowledge writes for the same data root | Designed | ownership-fencing, stale-owner, and fail-closed tests | avoid unsupported shared-data-root or multi-host mounts |
 
 No row becomes a product guarantee merely because its implementation exists.
@@ -89,7 +93,7 @@ The corresponding named qualification evidence must also pass and be retained.
 | Sudden power loss | recover only the proven durable frontier; report lost or quarantined visible tail | 360/360 seeded abrupt disposable-VM cuts passed across six virtual device/cache envelopes; physical power loss not qualified |
 | ENOSPC, permission loss, or I/O error | fail closed; do not issue a false durable receipt | real guest ENOSPC passed; remaining exact production error envelope pending |
 | Torn/corrupt tail or stale checkpoint | detect, bound, quarantine or truncate by retained evidence; never invent facts | test backend qualification passed; destructive production repair remains pending |
-| Whole device or data-root loss | restore only from a verified external backup and report its cut/RPO | same-host external-path test drill passed; off-host and independent failure domain not qualified |
+| Whole device or data-root loss | restore only from a verified external backup and report its cut/RPO | same-host drill and agent-120 to Ubuntu 222 off-host restore passed; independent failure domain not qualified |
 
 Recovery is not complete merely because the process starts. A qualified restart
 must emit a machine-readable report naming the recovered durable frontier,

@@ -19,7 +19,9 @@ evidence, operator responsibilities, and explicit non-claims.
 replay from readable journal data. Retained evidence also qualifies the
 test-only durable backend against process crashes on three named platforms and
 power cuts in a disposable Linux/ext4 QEMU envelope. It does not claim that a
-production runtime acknowledgement survives physical-host power loss.**
+production runtime acknowledgement survives physical-host power loss. A
+separate same-office run also verifies an agent-120 backup on Ubuntu 222 and
+empty-root restore, but not an independent failure domain.**
 
 The foundations are implemented:
 
@@ -48,10 +50,15 @@ and `durable_sync` process-crash reports for named macOS/APFS, Linux/ext4, and
 Windows/NTFS profiles. A retained disposable Linux/ext4 QEMU run additionally
 passes 20/20 abrupt VM cuts, real ENOSPC, repeated fresh reopen, filesystem/hash
 checks, and a same-host external-path restore drill. That evidence explicitly
-excludes physical-host restart or power loss, off-host backup, independent
-failure domains, and production eligibility. Kungfu still does not expose a
-production-qualified durable-ingest service or a power-loss-qualified durable
-watermark across the journal, Episode manifest, and projections.
+excludes physical-host restart or power loss and production eligibility. A
+separate retained `987201493` run transfers a completed package from agent-120
+to Ubuntu 222, rejects a manifest-only partial transfer, verifies every digest,
+restores an empty root, validates the durable frontier, Episode and rebuilt
+projection, and repeats restore idempotently. Both hosts are in the same office,
+so independent power, network, site, and administrator failure domains remain
+unqualified. Kungfu still does not expose a production-qualified durable-ingest
+service or a power-loss-qualified durable watermark across the journal,
+Episode manifest, and projections.
 
 Candidate receipts are accepted only through the per-data-root state service
 with explicit activation and matching qualification evidence. A repeated exact
@@ -138,8 +145,11 @@ Episode roots and payload hashes, and excludes ownership, quarantine, receipts,
 and derived projections. Restore accepts an empty root or byte-identical partial
 progress, publishes a receipt last, and then requires projection rebuild. The
 fixture proves the restored durable frontier, records, Episode identities, and
-rebuilt projection state/cut/hash equal the backup cut. This is not yet an
-external archive format, operator command, or qualified backup procedure.
+rebuilt projection state/cut/hash equal the backup cut. The versioned transport
+package publishes its completion marker last and a bounded local Shifu harness
+now verifies it across the named two-host path. This is still a
+production-candidate protocol and harness, not a scheduled operator service or
+independent-disaster-domain backup procedure.
 
 The test-only completion fixture now reopens the whole data root in a fresh
 process and executes the declared restart gate: supervisor report verification,
@@ -234,14 +244,15 @@ one Episode must not silently invalidate unrelated Episodes.
 | D. State-service separation and durable ingest | **partially implemented** | coordinator no longer owns the projection store directly; the in-process state-service boundary has independent lifecycle, shadow comparison, single-host owner/writer fencing, and an explicit live candidate append/barrier/reconcile seam. Moving business-journal ingestion out of coordinator and completing production admission remain pending |
 | E. Independent KFDL segment/checkpoint backend | **implemented (test-only shadow)** | append-only binary records, SHA-256 coverage, rollover, dual-slot atomic checkpoint, explicit data/checkpoint/directory barriers, persisted request deduplication, cooperative deadline/unknown handling, typed service-unavailable, fenced generations, fail-stop unknown append sessions, and retained tails; production profiles remain disabled |
 | F. Snapshot-through-T projection bootstrap | **implemented (candidate edge)** | versioned binary snapshot, integrity/schema/cut verification, strict replay-after-T, typed required/optional/none outcomes, deterministic rebuild, same-cut compatibility parity, complete hydration validation before required-peer registration, state emission before `RequestStart`, and state-service ownership; the explicit path is default-off and production-ineligible, while default cutover and bridge deletion remain pending |
-| G. Local strong-durability qualification | **implemented for named process/disposable envelopes** | retained three-platform process-crash reports plus the agent-120 Linux/ext4 candidate run cover 360/360 seeded VM/device-model cuts, real ENOSPC, repeated reopen, fsck/hash, Episode load, and same-host external-path restore; the machine reports remain fail-closed for production, physical-host power loss, off-host backup, and independent failure domains |
+| G. Local strong-durability qualification | **implemented for named process/disposable and same-office off-host envelopes** | retained three-platform process-crash reports plus the agent-120 Linux/ext4 candidate run cover 360/360 seeded VM/device-model cuts, real ENOSPC, repeated reopen, fsck/hash, Episode load, same-host external-path restore, and an agent-120 to Ubuntu 222 verified backup/empty-root restore; the machine reports remain fail-closed for production, physical-host power loss, and independent failure domains |
 | H. Single-host end-to-end performance release gate | **qualified for one named durability candidate slice** | retained `070e0804b` agent-120 evidence passes the frozen `linux-ext4-agent120-slo-v1` absolute `durable_group`/`durable_sync` latency, throughput, rollover, 30-minute soak, resource, recovery, projection, and same-host backup/restore ceilings; the wider visible/typed/multi-reader product surfaces remain separate admission work |
 | I. Replication and HA | **future** | add a separate replicated watermark and policy only after local durability is trustworthy |
 
 Passing Stage G in a disposable VM does not qualify a production deployment.
 Public product language must name the exact evidence envelope and continue to
-refuse physical-host power-loss, off-host-backup, or production durability
-claims until separately retained evidence and release admission exist.
+refuse physical-host power-loss, independent-failure-domain, or production
+durability claims until separately retained evidence and release admission
+exist.
 
 A retained v2 production-candidate campaign now reaches the current local
 evidence ceiling without widening Stage G: 360/360 required trials passed
@@ -253,8 +264,14 @@ real ENOSPC, three whole-guest reopens, fsck/hash, and same-host offline
 backup/restore evidence. See the
 [agent-120 evidence index](evidence/durability/791e09a70/README.md). These
 reports qualify only their named process and QEMU device-model envelopes,
-never physical NVMe cache, sudden host power loss, off-host backup, an
-independent failure domain, or a production profile.
+never physical NVMe cache, sudden host power loss, an independent failure
+domain, or a production profile.
+
+The adjacent [off-host evidence index](evidence/durability/987201493/README.md)
+retains the exact source, manifest, completion, target verification, restore,
+and aggregate reports from agent-120 to Ubuntu 222. It upgrades only the named
+same-office off-host transfer/restore fact; it does not widen the QEMU power-cut
+envelope or establish an independent disaster domain.
 
 ## Qualification standard
 

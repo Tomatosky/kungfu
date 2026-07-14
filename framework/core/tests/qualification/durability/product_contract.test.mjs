@@ -23,6 +23,10 @@ const evidence = [
     path: 'docs/qualification/evidence/durability/c7c0c680e/single-host-institutional-profile-v1.json',
     sha256: 'a957606deb75644c5b038f067fcabcbb8d128a7015123f818eeccbbd18794f50',
   },
+  {
+    path: 'docs/qualification/evidence/durability/987201493/aggregate-report.json',
+    sha256: '4034b2653c1acd5f1b1608d7e68c3328f91fa501c04f180252c4f22e232bc574',
+  },
 ];
 
 function sha256(pathname) {
@@ -44,6 +48,7 @@ test('product capability fails closed outside its named envelope', () => {
   assert.match(authority, /"qualified-test-only"/);
   assert.match(authority, /"test-fixture-only"/);
   assert.match(authority, /"physical power loss"/);
-  assert.match(authority, /"off-host backup"/);
+  assert.match(authority, /"same-office-agent120-to-ubuntu222"/);
+  assert.match(authority, /"independent backup failure domain"/);
   assert.match(authority, /"production profile eligibility"/);
 });

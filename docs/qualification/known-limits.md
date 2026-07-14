@@ -63,8 +63,11 @@ covers six named macOS/APFS, Linux/ext4, and Windows/NTFS process-crash reports
 plus an agent-120 Linux/ext4 campaign with 360/360 seeded abrupt VM cuts across
 six virtual device/cache envelopes, real ENOSPC, repeated fresh reopen,
 fsck/hash, Episode load, and same-host external-path restore. The reports keep
-physical-host, physical-device, off-host, independent-failure-domain, and
-production claims false.
+physical-host, physical-device, independent-failure-domain, and production
+claims false. A separate retained agent-120 to Ubuntu 222 run now verifies a
+same-office off-host backup, partial-transfer rejection, empty-root restore,
+and repeated restore; it does not change those physical or independent-domain
+non-claims.
 
 What is **not yet built or qualified for production**:
 
@@ -76,7 +79,7 @@ What is **not yet built or qualified for production**:
   payload, and checkpoint boundaries;
 - physical-host restart and sudden-power-loss qualification on macOS, Linux,
   or Windows;
-- off-host backup and restore on an independent failure domain;
+- off-host backup and restore on an independent power/network/site failure domain;
 - exact production device/cache qualification and release admission.
 
 The shadow checkpoint currently carries the complete successful request-id
