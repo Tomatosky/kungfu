@@ -11,6 +11,8 @@
 #include <kungfu/yijinjing/schema/registry.h>
 #include <kungfu/yijinjing/time.h>
 
+#include <utility>
+
 using namespace kungfu::rx;
 using namespace kungfu::yijinjing;
 using namespace kungfu::yijinjing::types;
@@ -20,11 +22,14 @@ using namespace kungfu::runtime::journal;
 
 namespace kungfu::runtime::live {
 
-coordinator::coordinator(const location_ptr &home, bool low_latency)
-    : coordinator(std::make_shared<kungfu::runtime::io_device_coordinator>(home, low_latency)) {}
+coordinator::coordinator(const location_ptr &home, bool low_latency,
+                         state_service::durability_candidate_config durability_candidate)
+    : coordinator(std::make_shared<kungfu::runtime::io_device_coordinator>(home, low_latency),
+                  std::move(durability_candidate)) {}
 
-coordinator::coordinator(const kungfu::runtime::io_device_ptr &io_device)
-    : reactor(io_device), last_check_(0), state_service_(io_device) {}
+coordinator::coordinator(const kungfu::runtime::io_device_ptr &io_device,
+                         state_service::durability_candidate_config durability_candidate)
+    : reactor(io_device), last_check_(0), state_service_(io_device, std::move(durability_candidate)) {}
 
 void coordinator::pre_setup() {
   reactor::pre_setup();

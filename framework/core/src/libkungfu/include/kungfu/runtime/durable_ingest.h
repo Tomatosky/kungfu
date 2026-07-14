@@ -18,6 +18,9 @@ namespace kungfu::runtime::durability {
 
 inline constexpr const char *DURABLE_SEGMENT_SCHEMA_V2 = "kungfu.durable-segment/v2";
 inline constexpr const char *DURABLE_CHECKPOINT_SCHEMA_V2 = "kungfu.durable-checkpoint/v2";
+inline constexpr const char *DURABILITY_RECONCILIATION_SCHEMA_V1 = "kungfu.durability.reconciliation/v1";
+
+enum class ingest_activation : uint8_t { Shadow, ProductionCandidate };
 
 enum class ingest_fault_point : uint8_t {
   BeforeRecordWrite,
@@ -57,6 +60,10 @@ struct ingest_options {
   bool qualification_passed = false;
   uint64_t segment_max_bytes = 64ULL * 1024ULL * 1024ULL;
   bool read_only = false;
+  // Strong profiles remain disabled by default. ProductionCandidate is an
+  // explicit, evidence-bound activation mode; it does not imply production
+  // eligibility.
+  ingest_activation activation = ingest_activation::Shadow;
 };
 
 struct ingest_status {
@@ -78,6 +85,14 @@ struct ingest_status {
   bool available = true;
   bool requires_reopen = false;
   uint64_t persisted_request_count = 0;
+  uint64_t barrier_attempt_count = 0;
+  uint64_t barrier_succeeded_count = 0;
+  uint64_t barrier_terminal_failure_count = 0;
+  uint64_t barrier_unknown_count = 0;
+  uint64_t reconciled_request_count = 0;
+  uint64_t reconciliation_unknown_count = 0;
+  uint64_t recovered_request_count = 0;
+  bool production_candidate_enabled = false;
   ingest_error last_error = ingest_error::None;
   std::string last_error_message = {};
 };
@@ -93,6 +108,21 @@ struct barrier_result {
   durability_receipt receipt = {};
   ingest_status status = {};
   ingest_error error = ingest_error::None;
+  std::string message = {};
+};
+
+enum class reconciliation_state : uint8_t { Reconciled, Unknown, TerminalFailure };
+
+// Edge-ready view of the C++ receipt authority. A missing request after a
+// restart remains Unknown: callers must retry the original fact and request id
+// rather than infer success or failure from absence.
+struct receipt_reconciliation_view {
+  std::string schema = DURABILITY_RECONCILIATION_SCHEMA_V1;
+  uint64_t request_id = 0;
+  std::string state = {};
+  bool recovered = false;
+  std::optional<durability_receipt_view> receipt = std::nullopt;
+  std::string error = {};
   std::string message = {};
 };
 
@@ -177,6 +207,12 @@ public:
                                        const yijinjing::ownership::lease &service_owner);
   [[nodiscard]] barrier_result barrier(uint64_t request_id, durability_profile profile,
                                        const yijinjing::ownership::lease &service_owner, barrier_options options);
+  [[nodiscard]] barrier_result barrier(const durability_request &request,
+                                       const yijinjing::ownership::lease &service_owner,
+                                       const yijinjing::ownership::lease &writer_owner, barrier_options options = {});
+  [[nodiscard]] barrier_result barrier(const durability_request &request,
+                                       const yijinjing::ownership::lease &service_owner, barrier_options options = {});
+  [[nodiscard]] receipt_reconciliation_view reconcile(const durability_request &request);
   [[nodiscard]] ingest_status status() const;
   // Reads only the checkpoint-covered chain. Unknown tails are never returned
   // as durable records; any identity, ordering, or checksum disagreement
@@ -189,6 +225,13 @@ private:
 };
 
 [[nodiscard]] const char *ingest_error_name(ingest_error error) noexcept;
+[[nodiscard]] const char *reconciliation_state_name(reconciliation_state state) noexcept;
+
+// Opens the named stream read-only and reconciles one request against the
+// checkpoint-covered receipt index. This is the shared C++ authority used by
+// Python, Node and CLI inspection surfaces.
+[[nodiscard]] receipt_reconciliation_view reconcile_durable_receipt(ingest_options options,
+                                                                    const durability_request &request);
 
 } // namespace kungfu::runtime::durability
 

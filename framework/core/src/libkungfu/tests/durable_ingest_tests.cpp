@@ -56,6 +56,13 @@ ingest_options options(const fs::path &root, bool qualified = true, uint64_t seg
   return {root.string(), 7, 11, "00000001.00000002", "test/macos-apfs-local-file/v1", qualified, segment_max_bytes};
 }
 
+ingest_options candidate_options(const fs::path &root) {
+  auto result = options(root);
+  result.qualification_profile = "candidate/test-local-filesystem/v1";
+  result.activation = ingest_activation::ProductionCandidate;
+  return result;
+}
+
 stream_position position(uint64_t sequence) { return {7, 11, sequence, 100 + sequence}; }
 
 struct owners {
@@ -686,7 +693,8 @@ void test_state_service_owns_shadow_ingest_lifecycle() {
   auto page_locator = std::make_shared<locator>(tree.root().string());
   auto home = location::make_shared(mode::LIVE, location_role::SYSTEM, "service", "coordinator", page_locator);
   auto io_device = std::make_shared<kungfu::runtime::io_device_coordinator>(home, false);
-  kungfu::runtime::state_service::service state_service(io_device);
+  kungfu::runtime::state_service::durability_candidate_config config{true, "candidate/test-local-filesystem/v1", true};
+  kungfu::runtime::state_service::service state_service(io_device, config);
   state_service.start();
   auto writer = lease::acquire_stream_writer(tree.root().string(), "00000001.00000002");
   state_service.open_durable_shadow(options(tree.root()));
@@ -696,12 +704,60 @@ void test_state_service_owns_shadow_ingest_lifecycle() {
           "state service did not own shadow ingest/barrier lifecycle");
   require(state_service.durable_shadow_status(7, 11).durable_watermark == position(1),
           "state service shadow status lost durable cut");
+  auto live_options = candidate_options(tree.root());
+  live_options.stream_id = 8;
+  live_options.container_epoch = 12;
+  const stream_position live_position{8, 12, 1, 201};
+  state_service.open_durability_candidate(live_options);
+  state_service.append_durability_candidate(live_position, 1001, "candidate-live", writer.status());
+  const durability_request request{700, live_position, durability_profile::DurableSync};
+  const auto completed = state_service.request_durability_candidate(request);
+  require(completed.receipt.status == receipt_status::Succeeded &&
+              completed.receipt.durable_watermark == request.position,
+          "candidate typed request did not return its exact durable frontier");
+  const auto duplicate = state_service.request_durability_candidate(request);
+  require(duplicate.receipt.barrier_id == completed.receipt.barrier_id,
+          "candidate retry created a duplicate barrier fact");
+  const auto reconciled = state_service.reconcile_durability_candidate(request);
+  require(reconciled.state == "reconciled" && reconciled.receipt.has_value() && !reconciled.recovered,
+          "live candidate receipt was not reconciled from the C++ authority");
+  const auto metrics = state_service.durability_candidate_status(8, 12);
+  require(metrics.production_candidate_enabled && metrics.barrier_succeeded_count == 2 &&
+              metrics.reconciled_request_count == 2 && metrics.pending_records == 0,
+          "candidate metrics did not expose attempts, dedup reconciliation, and queue depth");
   state_service.stop();
   const auto unavailable = state_service.barrier_durable_shadow(7, 11, 545, durability_profile::DurableSync);
   require(unavailable.receipt.status == receipt_status::Unknown &&
               unavailable.receipt.error == durability_error_code::ServiceUnavailable &&
               unavailable.error == ingest_error::ServiceUnavailable,
           "stopped state service did not return typed service-unavailable");
+}
+
+void test_candidate_receipt_reconciliation_survives_restart_and_fails_conflicts_closed() {
+  temp_tree tree;
+  owners owner(tree.root());
+  const durability_request request{701, position(1), durability_profile::DurableGroup};
+  {
+    durable_ingest_log log(candidate_options(tree.root()));
+    log.append(position(1), 1001, "candidate-restart", owner.service, owner.writer);
+    require(log.barrier(request, owner.service, owner.writer).receipt.status == receipt_status::Succeeded,
+            "candidate fixture did not publish a durable receipt");
+  }
+  const auto recovered = reconcile_durable_receipt(candidate_options(tree.root()), request);
+  require(recovered.state == "reconciled" && recovered.recovered && recovered.receipt.has_value() &&
+              recovered.receipt->durable_watermark == request.position,
+          "restart reconciliation did not return the checkpoint-covered receipt");
+  auto conflict = request;
+  conflict.position.frame_uid += 1;
+  const auto rejected = reconcile_durable_receipt(candidate_options(tree.root()), conflict);
+  require(rejected.state == "terminal_failure" && rejected.error == "conflicting_request_id" &&
+              !rejected.receipt.has_value(),
+          "conflicting request-id reuse was not rejected after restart");
+  auto missing = request;
+  missing.request_id += 1;
+  const auto unknown = reconcile_durable_receipt(candidate_options(tree.root()), missing);
+  require(unknown.state == "unknown" && unknown.error == "outcome_unknown" && !unknown.receipt.has_value(),
+          "missing checkpoint receipt was guessed instead of reported unknown");
 }
 
 void test_read_only_recovery_inspection_classifies_complete_tail_without_mutation() {
@@ -848,6 +904,8 @@ int main(int argc, char **argv) {
       {"published hot frame matches inspected durable record after restart",
        test_published_hot_frame_matches_inspected_durable_record_after_restart},
       {"state service owns shadow ingest lifecycle", test_state_service_owns_shadow_ingest_lifecycle},
+      {"candidate receipt reconciliation survives restart and rejects conflicts",
+       test_candidate_receipt_reconciliation_survives_restart_and_fails_conflicts_closed},
       {"read-only recovery classifies complete tail without mutation",
        test_read_only_recovery_inspection_classifies_complete_tail_without_mutation},
       {"read-only recovery classifies torn tail", test_read_only_recovery_classifies_torn_tail},

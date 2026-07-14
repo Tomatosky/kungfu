@@ -30,6 +30,16 @@ durability::barrier_result unavailable_barrier(uint64_t request_id, durability::
   return result;
 }
 
+durability::receipt_reconciliation_view unavailable_reconciliation(const durability::durability_request &request,
+                                                                   const std::string &message) {
+  durability::receipt_reconciliation_view result;
+  result.request_id = request.request_id;
+  result.state = durability::reconciliation_state_name(durability::reconciliation_state::Unknown);
+  result.error = durability::durability_error_name(durability::durability_error_code::ServiceUnavailable);
+  result.message = message;
+  return result;
+}
+
 bootstrap_result unavailable_bootstrap(const std::string &message, peer_state_requirement requirement) {
   bootstrap_result result;
   if (requirement == peer_state_requirement::None) {
@@ -52,9 +62,13 @@ bootstrap_result unavailable_bootstrap(const std::string &message, peer_state_re
 } // namespace
 
 struct service::impl {
-  explicit impl(const io_device_ptr &io_device)
+  explicit impl(const io_device_ptr &io_device, durability_candidate_config candidate)
       : ownership(yijinjing::ownership::lease::acquire_data_root_service(io_device->get_locator()->get_root())),
-        manager(io_device) {}
+        manager(io_device), candidate(std::move(candidate)) {
+    if (this->candidate.enabled && !this->candidate.qualification_profile.starts_with("candidate/")) {
+      throw std::invalid_argument("durability candidate profile must use candidate/ namespace");
+    }
+  }
 
   void require_write_authority() const {
     if (!ownership.owns()) {
@@ -67,12 +81,14 @@ struct service::impl {
 
   yijinjing::ownership::lease ownership;
   state_cache::manager manager;
+  durability_candidate_config candidate;
   std::map<std::pair<uint64_t, uint64_t>, std::unique_ptr<durability::durable_ingest_log>> durable_shadows;
   std::map<std::tuple<uint64_t, uint64_t, std::string>, std::unique_ptr<projection_bootstrap_store>> projection_shadows;
   mutable std::mutex durable_shadows_mutex;
 };
 
-service::service(const io_device_ptr &io_device) : impl_(std::make_unique<impl>(io_device)) {}
+service::service(const io_device_ptr &io_device, durability_candidate_config candidate)
+    : impl_(std::make_unique<impl>(io_device, std::move(candidate))) {}
 
 service::~service() { stop(); }
 
@@ -80,7 +96,10 @@ void service::start() { impl_->manager.start(); }
 
 void service::stop() { impl_->manager.stop(); }
 
-service_status service::status() const { return {impl_->ownership.status(), impl_->manager.running()}; }
+service_status service::status() const {
+  return {impl_->ownership.status(), impl_->manager.running(), impl_->candidate.enabled,
+          impl_->candidate.enabled && impl_->candidate.qualification_passed, impl_->candidate.qualification_profile};
+}
 
 std::vector<yijinjing::types::Location> service::locations() {
   return impl_->manager.get_all(yijinjing::types::Location{});
@@ -125,6 +144,9 @@ void service::ingest(const event_ptr &event) {
 
 void service::open_durable_shadow(durability::ingest_options options) {
   impl_->require_write_authority();
+  if (options.activation != durability::ingest_activation::Shadow) {
+    throw std::invalid_argument("durable shadow cannot activate production-candidate mode");
+  }
   if (std::filesystem::absolute(options.data_root).lexically_normal() !=
       std::filesystem::absolute(impl_->ownership.status().data_root).lexically_normal()) {
     throw std::invalid_argument("durable shadow data root does not match state service ownership");
@@ -175,6 +197,95 @@ durability::ingest_status service::durable_shadow_status(uint64_t stream_id, uin
   const auto found = impl_->durable_shadows.find({stream_id, container_epoch});
   if (found == impl_->durable_shadows.end()) {
     throw std::logic_error("durable shadow stream epoch is not open");
+  }
+  return found->second->status();
+}
+
+void service::open_durability_candidate(durability::ingest_options options) {
+  impl_->require_write_authority();
+  if (!impl_->candidate.enabled) {
+    throw std::logic_error("durability production-candidate path is disabled");
+  }
+  if (!impl_->candidate.qualification_passed) {
+    throw std::logic_error("durability production-candidate profile has no matching qualification evidence");
+  }
+  if (options.qualification_profile != impl_->candidate.qualification_profile) {
+    throw std::invalid_argument("durability candidate qualification profile mismatch");
+  }
+  if (std::filesystem::absolute(options.data_root).lexically_normal() !=
+      std::filesystem::absolute(impl_->ownership.status().data_root).lexically_normal()) {
+    throw std::invalid_argument("durability candidate data root does not match state service ownership");
+  }
+  options.activation = durability::ingest_activation::ProductionCandidate;
+  options.qualification_passed = true;
+  std::lock_guard lock(impl_->durable_shadows_mutex);
+  const auto key = std::make_pair(options.stream_id, options.container_epoch);
+  if (impl_->durable_shadows.contains(key)) {
+    throw std::logic_error("durability candidate stream epoch is already open");
+  }
+  impl_->durable_shadows.emplace(key, std::make_unique<durability::durable_ingest_log>(std::move(options)));
+}
+
+void service::append_durability_candidate(const durability::stream_position &position, int32_t carrier_type,
+                                          const std::string &payload,
+                                          const yijinjing::ownership::evidence &writer_generation) {
+  append_durability_candidate(position, carrier_type, durability::durable_frame_context{}, payload, writer_generation);
+}
+
+void service::append_durability_candidate(const durability::stream_position &position, int32_t carrier_type,
+                                          const durability::durable_frame_context &frame, const std::string &payload,
+                                          const yijinjing::ownership::evidence &writer_generation) {
+  impl_->require_write_authority();
+  if (!impl_->candidate.enabled || !impl_->candidate.qualification_passed) {
+    throw std::logic_error("durability production-candidate path is not admitted");
+  }
+  std::lock_guard lock(impl_->durable_shadows_mutex);
+  const auto found = impl_->durable_shadows.find({position.stream_id, position.container_epoch});
+  if (found == impl_->durable_shadows.end()) {
+    throw std::logic_error("durability candidate stream epoch is not open");
+  }
+  found->second->append(position, carrier_type, frame, payload.data(), payload.size(), impl_->ownership,
+                        writer_generation);
+}
+
+durability::barrier_result service::request_durability_candidate(const durability::durability_request &request,
+                                                                 durability::barrier_options options) {
+  if (!impl_->ownership.owns() || !impl_->manager.running() || !impl_->candidate.enabled ||
+      !impl_->candidate.qualification_passed) {
+    return unavailable_barrier(request.request_id, request.requested_profile,
+                               "durability_candidate_not_running_qualified_or_enabled");
+  }
+  std::lock_guard lock(impl_->durable_shadows_mutex);
+  const auto found = impl_->durable_shadows.find({request.position.stream_id, request.position.container_epoch});
+  if (found == impl_->durable_shadows.end()) {
+    return unavailable_barrier(request.request_id, request.requested_profile,
+                               "durability_candidate_stream_epoch_not_open");
+  }
+  return found->second->barrier(request, impl_->ownership, options);
+}
+
+durability::receipt_reconciliation_view
+service::reconcile_durability_candidate(const durability::durability_request &request) {
+  if (!impl_->ownership.owns() || !impl_->manager.running() || !impl_->candidate.enabled ||
+      !impl_->candidate.qualification_passed) {
+    return unavailable_reconciliation(request, "durability_candidate_not_running_qualified_or_enabled");
+  }
+  std::lock_guard lock(impl_->durable_shadows_mutex);
+  const auto found = impl_->durable_shadows.find({request.position.stream_id, request.position.container_epoch});
+  if (found == impl_->durable_shadows.end()) {
+    return unavailable_reconciliation(request, "durability_candidate_stream_epoch_not_open");
+  }
+  return found->second->reconcile(request);
+}
+
+durability::ingest_status service::durability_candidate_status(uint64_t stream_id, uint64_t container_epoch) const {
+  if (!impl_->candidate.enabled) {
+    throw std::logic_error("durability production-candidate path is disabled");
+  }
+  std::lock_guard lock(impl_->durable_shadows_mutex);
+  const auto found = impl_->durable_shadows.find({stream_id, container_epoch});
+  if (found == impl_->durable_shadows.end()) {
+    throw std::logic_error("durability candidate stream epoch is not open");
   }
   return found->second->status();
 }

@@ -71,6 +71,8 @@ const char *durability_error_name(durability_error_code error) noexcept {
     return "unsupported_profile";
   case durability_error_code::Timeout:
     return "timeout";
+  case durability_error_code::OutcomeUnknown:
+    return "outcome_unknown";
   case durability_error_code::ServiceUnavailable:
     return "service_unavailable";
   case durability_error_code::ConflictingRequestId:

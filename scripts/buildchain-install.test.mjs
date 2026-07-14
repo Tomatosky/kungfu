@@ -44,7 +44,7 @@ test('verify install preserves the existing Shifu lifecycle', () => {
     /cache-apply[^}]*install[^}]*--frozen-lockfile[^}]*--no-optional/,
   );
   for (const step of plan) {
-    assert.notEqual(step.command, 'bash');
+    assert.notEqual(step.command.split(/[\\/]/).at(-1), 'bash');
     assert.ok(!step.args.includes('-c'));
   }
 });

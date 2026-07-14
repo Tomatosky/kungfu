@@ -10,6 +10,7 @@
 
 #include <kungfu/runtime/action_recorder.h>
 #include <kungfu/runtime/durability.h>
+#include <kungfu/runtime/durable_ingest.h>
 #include <kungfu/runtime/io.h>
 #include <kungfu/runtime/live/coordinator.h>
 #include <kungfu/runtime/live/peer.h>
@@ -416,6 +417,29 @@ void bind(pybind11::module &&m) {
     return json_to_py(
         runtime::durability::render_durability_capability(runtime::durability::single_host_institutional_capability()));
   });
+  m.def(
+      "durability_reconcile_typed",
+      [](const std::string &data_root, uint64_t request_id, uint64_t stream_id, uint64_t container_epoch,
+         uint64_t sequence, uint64_t frame_uid, const std::string &requested_profile,
+         const std::string &writer_resource_id, const std::string &qualification_profile) {
+        runtime::durability::ingest_options options{};
+        options.data_root = data_root;
+        options.stream_id = stream_id;
+        options.container_epoch = container_epoch;
+        options.writer_resource_id = writer_resource_id;
+        options.qualification_profile = qualification_profile;
+        options.qualification_passed = true;
+        options.activation = runtime::durability::ingest_activation::ProductionCandidate;
+        const runtime::durability::durability_request request{
+            request_id,
+            {stream_id, container_epoch, sequence, frame_uid},
+            runtime::durability::parse_durability_profile(requested_profile),
+        };
+        return hana_view_to_py(runtime::durability::reconcile_durable_receipt(std::move(options), request));
+      },
+      py::arg("data_root"), py::arg("request_id"), py::arg("stream_id"), py::arg("container_epoch"),
+      py::arg("sequence"), py::arg("frame_uid"), py::arg("requested_profile"), py::arg("writer_resource_id"),
+      py::arg("qualification_profile"));
 
   // nanosecond-time related
   m.def("now_in_nano", &yijinjing::time::now_in_nano);

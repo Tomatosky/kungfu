@@ -4,6 +4,7 @@
 #define KUNGFU_RUNTIME_STATE_SERVICE_H
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include <kungfu/runtime/common.h>
@@ -15,9 +16,18 @@
 
 namespace kungfu::runtime::state_service {
 
+struct durability_candidate_config {
+  bool enabled = false;
+  std::string qualification_profile = {};
+  bool qualification_passed = false;
+};
+
 struct service_status {
   yijinjing::ownership::evidence ownership = {};
   bool running = false;
+  bool durability_candidate_enabled = false;
+  bool durability_candidate_qualified = false;
+  std::string durability_qualification_profile = {};
 };
 
 // Compatibility implementation of the ADR-0068 state-service boundary.
@@ -25,7 +35,7 @@ struct service_status {
 // state-cache/projection lifecycle and the sole data-root write authority.
 class service {
 public:
-  explicit service(const io_device_ptr &io_device);
+  explicit service(const io_device_ptr &io_device, durability_candidate_config candidate = {});
   ~service();
   service(const service &) = delete;
   service &operator=(const service &) = delete;
@@ -56,6 +66,23 @@ public:
                                                                   durability::durability_profile profile,
                                                                   durability::barrier_options options = {});
   [[nodiscard]] durability::ingest_status durable_shadow_status(uint64_t stream_id, uint64_t container_epoch) const;
+
+  // Explicit production-candidate surface. It is disabled by default and is
+  // admitted only when the configured candidate profile matches local
+  // qualification evidence. It deliberately does not imply production
+  // eligibility.
+  void open_durability_candidate(durability::ingest_options options);
+  void append_durability_candidate(const durability::stream_position &position, int32_t carrier_type,
+                                   const std::string &payload, const yijinjing::ownership::evidence &writer_generation);
+  void append_durability_candidate(const durability::stream_position &position, int32_t carrier_type,
+                                   const durability::durable_frame_context &frame, const std::string &payload,
+                                   const yijinjing::ownership::evidence &writer_generation);
+  [[nodiscard]] durability::barrier_result request_durability_candidate(const durability::durability_request &request,
+                                                                        durability::barrier_options options = {});
+  [[nodiscard]] durability::receipt_reconciliation_view
+  reconcile_durability_candidate(const durability::durability_request &request);
+  [[nodiscard]] durability::ingest_status durability_candidate_status(uint64_t stream_id,
+                                                                      uint64_t container_epoch) const;
 
   void open_projection_shadow(projection_options options, durable_projector projector);
   [[nodiscard]] projection_snapshot

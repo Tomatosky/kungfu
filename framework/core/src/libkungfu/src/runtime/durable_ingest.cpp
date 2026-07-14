@@ -586,6 +586,8 @@ struct durable_ingest_log::impl {
       current_status.durable_watermark = selected->position;
       completed_requests = selected->completed_requests;
       current_status.persisted_request_count = completed_requests.size();
+      current_status.recovered_request_count = completed_requests.size();
+      checkpoint_loaded = true;
       if (corrupt_seen) {
         current_status.last_error = ingest_error::CheckpointCorrupt;
         current_status.last_error_message = "newer_or_peer_checkpoint_slot_is_corrupt";
@@ -605,8 +607,11 @@ struct durable_ingest_log::impl {
       }
     }
     current_status.qualification_profile = options.qualification_profile;
-    current_status.qualification_passed =
-        options.qualification_passed && options.qualification_profile.starts_with("test/");
+    current_status.production_candidate_enabled = options.activation == ingest_activation::ProductionCandidate;
+    const auto qualified_test = options.qualification_profile.starts_with("test/");
+    const auto qualified_candidate =
+        current_status.production_candidate_enabled && options.qualification_profile.starts_with("candidate/");
+    current_status.qualification_passed = options.qualification_passed && (qualified_test || qualified_candidate);
   }
 
   fs::path existing_segment(uint64_t segment_id) const {
@@ -924,24 +929,44 @@ struct durable_ingest_log::impl {
     }
   }
 
-  barrier_result barrier(uint64_t request_id, durability_profile profile, const lease &service_owner,
-                         const lease *writer_owner, barrier_options barrier_options) {
+  barrier_result barrier(uint64_t request_id, durability_profile profile, const durability_request *expected_request,
+                         const lease &service_owner, const lease *writer_owner, barrier_options barrier_options) {
     std::lock_guard lock(mutex);
     const auto barrier_started_at = yijinjing::time::now_in_nano();
+    ++current_status.barrier_attempt_count;
     barrier_result result;
     result.receipt.request_id = request_id;
     result.receipt.requested_profile = profile;
+    if (expected_request != nullptr) {
+      result.receipt.position = expected_request->position;
+    }
     result.receipt.status = receipt_status::Failed;
     result.receipt.error = durability_error_code::InvalidRequest;
     if (options.read_only) {
       result.error = ingest_error::InvalidArgument;
       result.message = "durable_ingest_read_only";
+      ++current_status.barrier_terminal_failure_count;
       result.status = current_status;
       return result;
     }
     const auto set_current_error = [&](ingest_error error, const std::string &message) {
       current_status.last_error = error;
       current_status.last_error_message = message;
+    };
+    const auto complete_result = [&]() {
+      switch (result.receipt.status) {
+      case receipt_status::Succeeded:
+        ++current_status.barrier_succeeded_count;
+        break;
+      case receipt_status::Failed:
+        ++current_status.barrier_terminal_failure_count;
+        break;
+      case receipt_status::Unknown:
+        ++current_status.barrier_unknown_count;
+        break;
+      }
+      result.status = current_status;
+      return result;
     };
     const auto deadline_expired = [&]() {
       return barrier_options.deadline_at_ns > 0 && yijinjing::time::now_in_nano() >= barrier_options.deadline_at_ns;
@@ -954,30 +979,38 @@ struct durable_ingest_log::impl {
       result.receipt.error = durability_error_code::Timeout;
       result.receipt.status = barrier_io_started ? receipt_status::Unknown : receipt_status::Failed;
       result.message = current_status.last_error_message;
-      result.status = current_status;
-      return result;
+      return complete_result();
     };
     if (request_id == 0) {
       result.error = ingest_error::InvalidArgument;
       result.message = "durable_request_id_zero";
       set_current_error(result.error, result.message);
-      result.status = current_status;
-      return result;
+      return complete_result();
     }
     const auto completed = completed_requests.find(request_id);
     if (completed != completed_requests.end()) {
       if (completed->second.requested_profile == profile &&
           (!pending_position.has_value() || *pending_position == completed->second.position)) {
         result.receipt = completed->second;
-        result.status = current_status;
-        return result;
+        if (expected_request != nullptr &&
+            (!(completed->second.position == expected_request->position) ||
+             completed->second.requested_profile != expected_request->requested_profile)) {
+          result.receipt.error = durability_error_code::ConflictingRequestId;
+          result.receipt.status = receipt_status::Failed;
+          result.error = ingest_error::InvalidArgument;
+          result.message = "durable_request_id_conflict";
+          set_current_error(result.error, result.message);
+          return complete_result();
+        }
+        result.receipt = completed->second;
+        ++current_status.reconciled_request_count;
+        return complete_result();
       }
       result.receipt.error = durability_error_code::ConflictingRequestId;
       result.error = ingest_error::InvalidArgument;
       result.message = "durable_request_id_conflict";
       set_current_error(result.error, result.message);
-      result.status = current_status;
-      return result;
+      return complete_result();
     }
     if (!current_status.available || append_poisoned) {
       result.error = append_poisoned ? ingest_error::AppendOutcomeUnknown : ingest_error::ServiceUnavailable;
@@ -986,15 +1019,20 @@ struct durable_ingest_log::impl {
       result.message =
           append_poisoned ? "durable_ingest_requires_reopen_after_unknown_append" : "durable_ingest_is_unavailable";
       set_current_error(result.error, result.message);
-      result.status = current_status;
-      return result;
+      return complete_result();
     }
     if (!pending_position.has_value()) {
       result.error = ingest_error::InvalidArgument;
       result.message = "durable_barrier_without_pending_record";
       set_current_error(result.error, result.message);
-      result.status = current_status;
-      return result;
+      return complete_result();
+    }
+    if (expected_request != nullptr && !(*pending_position == expected_request->position)) {
+      result.receipt.error = durability_error_code::PositionEpochMismatch;
+      result.error = ingest_error::PositionMismatch;
+      result.message = "durable_request_position_does_not_match_pending_frontier";
+      set_current_error(result.error, result.message);
+      return complete_result();
     }
     result.receipt.position = *pending_position;
     try {
@@ -1014,8 +1052,7 @@ struct durable_ingest_log::impl {
         result.receipt.error = durability_error_code::UnsupportedProfile;
         result.message = "durability profile is not qualified for this local storage envelope";
         set_current_error(result.error, result.message);
-        result.status = current_status;
-        return result;
+        return complete_result();
       }
       if (deadline_expired()) {
         return timeout_result(false);
@@ -1102,8 +1139,7 @@ struct durable_ingest_log::impl {
       completed_requests = next.completed_requests;
       current_status.persisted_request_count = completed_requests.size();
       result.error = ingest_error::None;
-      result.status = current_status;
-      return result;
+      return complete_result();
     } catch (const std::logic_error &error) {
       current_status.last_error = ingest_error::FencingLost;
       current_status.last_error_message = error.what();
@@ -1124,7 +1160,41 @@ struct durable_ingest_log::impl {
       result.message = error.what();
     }
     result.receipt.status = receipt_status::Unknown;
-    result.status = current_status;
+    return complete_result();
+  }
+
+  receipt_reconciliation_view reconcile(const durability_request &request) {
+    std::lock_guard lock(mutex);
+    receipt_reconciliation_view result;
+    result.request_id = request.request_id;
+    if (request.request_id == 0) {
+      result.state = reconciliation_state_name(reconciliation_state::TerminalFailure);
+      result.error = durability_error_name(durability_error_code::InvalidRequest);
+      result.message = "durable_request_id_zero";
+      return result;
+    }
+    const auto completed = completed_requests.find(request.request_id);
+    if (completed == completed_requests.end()) {
+      ++current_status.reconciliation_unknown_count;
+      result.state = reconciliation_state_name(reconciliation_state::Unknown);
+      result.error = durability_error_name(durability_error_code::OutcomeUnknown);
+      result.message = "request_id_not_present_in_checkpoint_covered_receipt_index";
+      return result;
+    }
+    if (!(completed->second.position == request.position) ||
+        completed->second.requested_profile != request.requested_profile) {
+      result.state = reconciliation_state_name(reconciliation_state::TerminalFailure);
+      result.error = durability_error_name(durability_error_code::ConflictingRequestId);
+      result.message = "durable_request_id_conflict";
+      return result;
+    }
+    ++current_status.reconciled_request_count;
+    result.state = reconciliation_state_name(reconciliation_state::Reconciled);
+    result.recovered = checkpoint_loaded;
+    result.receipt = make_receipt_view(completed->second);
+    result.error = durability_error_name(durability_error_code::None);
+    result.message =
+        checkpoint_loaded ? "receipt_reconciled_from_durable_checkpoint" : "receipt_reconciled_from_live_service";
     return result;
   }
 
@@ -1143,6 +1213,7 @@ struct durable_ingest_log::impl {
   std::string pending_writer_fence = {};
   uint64_t chain_start_segment_id = 1;
   bool checkpoint_blocked = false;
+  bool checkpoint_loaded = false;
   bool append_poisoned = false;
   std::map<uint64_t, durability_receipt> completed_requests = {};
   mutable std::mutex mutex;
@@ -1181,7 +1252,7 @@ barrier_result durable_ingest_log::barrier(uint64_t request_id, durability_profi
 
 barrier_result durable_ingest_log::barrier(uint64_t request_id, durability_profile profile, const lease &service_owner,
                                            const lease &writer_owner, barrier_options options) {
-  return impl_->barrier(request_id, profile, service_owner, &writer_owner, options);
+  return impl_->barrier(request_id, profile, nullptr, service_owner, &writer_owner, options);
 }
 
 barrier_result durable_ingest_log::barrier(uint64_t request_id, durability_profile profile,
@@ -1191,7 +1262,21 @@ barrier_result durable_ingest_log::barrier(uint64_t request_id, durability_profi
 
 barrier_result durable_ingest_log::barrier(uint64_t request_id, durability_profile profile, const lease &service_owner,
                                            barrier_options options) {
-  return impl_->barrier(request_id, profile, service_owner, nullptr, options);
+  return impl_->barrier(request_id, profile, nullptr, service_owner, nullptr, options);
+}
+
+barrier_result durable_ingest_log::barrier(const durability_request &request, const lease &service_owner,
+                                           const lease &writer_owner, barrier_options options) {
+  return impl_->barrier(request.request_id, request.requested_profile, &request, service_owner, &writer_owner, options);
+}
+
+barrier_result durable_ingest_log::barrier(const durability_request &request, const lease &service_owner,
+                                           barrier_options options) {
+  return impl_->barrier(request.request_id, request.requested_profile, &request, service_owner, nullptr, options);
+}
+
+receipt_reconciliation_view durable_ingest_log::reconcile(const durability_request &request) {
+  return impl_->reconcile(request);
 }
 
 ingest_status durable_ingest_log::status() const { return impl_->status(); }
@@ -1226,6 +1311,24 @@ const char *ingest_error_name(ingest_error error) noexcept {
     return "injected_fault";
   }
   return "unknown";
+}
+
+const char *reconciliation_state_name(reconciliation_state state) noexcept {
+  switch (state) {
+  case reconciliation_state::Reconciled:
+    return "reconciled";
+  case reconciliation_state::Unknown:
+    return "unknown";
+  case reconciliation_state::TerminalFailure:
+    return "terminal_failure";
+  }
+  return "unknown";
+}
+
+receipt_reconciliation_view reconcile_durable_receipt(ingest_options options, const durability_request &request) {
+  options.read_only = true;
+  durable_ingest_log log(std::move(options));
+  return log.reconcile(request);
 }
 
 } // namespace kungfu::runtime::durability

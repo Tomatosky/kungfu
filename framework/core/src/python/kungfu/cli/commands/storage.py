@@ -56,6 +56,55 @@ def storage(ctx):
         initialize_runtime_context(ctx)
 
 
+@storage.command(
+    name="durability-reconcile",
+    help="reconcile a durability request against checkpoint-covered receipts",
+)
+@click.option("--data-root", type=click.Path(file_okay=False), required=True)
+@click.option("--request-id", type=int, required=True)
+@click.option("--stream-id", type=int, required=True)
+@click.option("--container-epoch", type=int, required=True)
+@click.option("--sequence", type=int, required=True)
+@click.option("--frame-uid", type=int, required=True)
+@click.option(
+    "--requested-profile",
+    type=click.Choice(["visible", "durable_group", "durable_sync", "replicated"]),
+    required=True,
+)
+@click.option("--writer-resource-id", type=str, required=True)
+@click.option("--qualification-profile", type=str, required=True)
+@storage_command_context
+def durability_reconcile(
+    ctx,
+    data_root,
+    request_id,
+    stream_id,
+    container_epoch,
+    sequence,
+    frame_uid,
+    requested_profile,
+    writer_resource_id,
+    qualification_profile,
+):
+    """Print the native reconciliation state without inferring an outcome."""
+
+    from kungfu import durability
+
+    _echo_json(
+        durability.reconcile(
+            data_root=data_root,
+            request_id=request_id,
+            stream_id=stream_id,
+            container_epoch=container_epoch,
+            sequence=sequence,
+            frame_uid=frame_uid,
+            requested_profile=requested_profile,
+            writer_resource_id=writer_resource_id,
+            qualification_profile=qualification_profile,
+        )
+    )
+
+
 @storage.command(help="show the resolved workspace Episode storage layout")
 @click.option(
     "--provider", type=click.Choice(["content-addressed-file", "rocksdb"]), default=None
