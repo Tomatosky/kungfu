@@ -62,7 +62,9 @@ jobs:
       # does not inherit [lifecycle.env]. This Node implementation adapter sets
       # the same environment, applies the Shifu cache profile, and enters the
       # canonical shifu/shifu.cmd shim for every qualification stage without
-      # assuming bash exists on Windows. On Linux it qualifies Episodes before
+      # assuming bash exists on Windows. Exact layer artifacts enter through
+      # the registered layers.format, layers.sdk, and layers.surfaces Gates and
+      # emit a source-bound receipt. On Linux it qualifies Episodes before
       # running the ADR release-admissibility gate.
       # shifu-entry-contract: allow cross-platform release qualification dispatch into the canonical shifu shim
       verify-command: node scripts/run-release-qualification.mjs

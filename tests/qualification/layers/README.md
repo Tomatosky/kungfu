@@ -95,13 +95,7 @@ trusting a hand-edited matrix status:
 
 ```sh
 ./shifu layers:qualify:release -- \
-  --format-report <format-report.json> \
-  --sdk-report <darwin-sdk-report.json> \
-  --sdk-report <linux-sdk-report.json> \
-  --sdk-report <windows-sdk-report.json> \
-  --surface-report <darwin-surface-report.json> \
-  --surface-report <linux-surface-report.json> \
-  --surface-report <windows-surface-report.json> \
+  --evidence-root <downloaded-three-host-evidence> \
   --publication-report <publication-report.json> \
   --report <release-report.json>
 ```
@@ -112,3 +106,9 @@ for all six budgets, and immutable publication coordinates. CLI, GUI, and the
 assembled distribution additionally require installer-uninstall evidence. A
 missing platform, an `unverifiable` budget, or a publication placeholder is a
 hard failure; the aggregator never fills or infers absent evidence.
+
+The alpha/release build adapter invokes `layers.format`, `layers.sdk`, and
+`layers.surfaces` through `./shifu gate run` and retains a source-bound receipt.
+The post-publication workflow invokes `layers.release`; see
+[`docs/qualification/layer-product-release-qualification.md`](../../../docs/qualification/layer-product-release-qualification.md)
+for profile ownership, receipt semantics, and the publication boundary.

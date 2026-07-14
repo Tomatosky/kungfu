@@ -181,6 +181,10 @@
         "governance.adr-delivery",
         "product.distribution",
         "product.verify-fuzz",
+        "layers.contract",
+        "layers.format",
+        "layers.sdk",
+        "layers.surfaces",
         "episode.smoke",
         "episode.release"
       ],
@@ -246,6 +250,24 @@
         "required-status-check: build",
         "required-artifact-count: 3",
         "release-passport: true"
+      ]
+    },
+    {
+      "id": "layer-publication-verdict",
+      "execution": "gate",
+      "workflow": ".github/workflows/publish-layer-artifacts.yml",
+      "job": "verify-publication",
+      "profiles": [
+        "release-promotion"
+      ],
+      "gates": [
+        "layers.release"
+      ],
+      "activation": "manually executed public layer publication",
+      "requiredSnippets": [
+        "./shifu gate run layers.release",
+        "--capability publication-evidence",
+        "product/release/qualification/layer-publication-gate-receipt.json"
       ]
     }
   ]

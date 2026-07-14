@@ -27,7 +27,11 @@ Do not hand-edit the generated block. A mode applies when the corresponding
 | [`product.verify-full`](build-and-runtime.md#product-verify-full) | heavy | off | required | off | off | off |
 | [`product.verify-fuzz`](build-and-runtime.md#product-verify-fuzz) | heavy | off | off | required | required | off |
 | [`release.artifact-admission`](release-and-promotion.md#release-artifact-admission) | heavy | off | off | off | off | required |
-| [`layers.contract`](native-qualification.md#layers-contract) | light | off | off | off | off | off |
+| [`layers.contract`](native-qualification.md#layers-contract) | light | off | off | required | required | off |
+| [`layers.format`](native-qualification.md#layers-format) | heavy | off | off | required | required | off |
+| [`layers.sdk`](native-qualification.md#layers-sdk) | heavy | off | off | required | required | off |
+| [`layers.surfaces`](native-qualification.md#layers-surfaces) | heavy | off | off | required | required | off |
+| [`layers.release`](release-and-promotion.md#layers-release) | light | off | off | off | off | required |
 | [`episode.smoke`](native-qualification.md#episode-smoke) | heavy | off | off | required | required | off |
 | [`episode.release`](native-qualification.md#episode-release) | heavy | off | off | required | required | off |
 | [`embedding.membranes`](native-qualification.md#embedding-membranes) | heavy | off | off | required | required | off |

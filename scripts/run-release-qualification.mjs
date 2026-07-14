@@ -35,28 +35,24 @@ export function releaseQualificationStages(platform = process.platform) {
       'product/release/qualification/adr-release-admissibility.json',
     ]);
   }
-  stages.push(
-    ['pack:spec'],
-    [
-      'layers:qualify:format',
-      '--',
-      '--report',
-      'product/release/qualification/layer-format-report.json',
-    ],
-    ['pack:sdk'],
-    [
-      'layers:qualify:sdk',
-      '--',
-      '--report',
-      'product/release/qualification/layer-sdk-report.json',
-    ],
-    [
-      'layers:qualify:surfaces',
-      '--',
-      '--report',
-      'product/release/qualification/layer-surface-report.json',
-    ],
-  );
+  stages.push([
+    'gate',
+    'run',
+    'layers.format',
+    'layers.sdk',
+    'layers.surfaces',
+    '--capability',
+    'node',
+    '--capability',
+    'native-toolchain',
+    '--capability',
+    'product-artifacts',
+    '--capability',
+    'rust',
+    '--receipt',
+    'product/release/qualification/layer-artifact-gate-receipt.json',
+    '--overwrite',
+  ]);
   return stages;
 }
 

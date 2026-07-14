@@ -3,16 +3,18 @@ metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
 adr_id: ADR-0049
 decision_status: accepted
-implementation_status: staged
+implementation_status: implemented
 review_state: legacy-unreviewed
 sensitivity: public
 implementation_commits: [360c1dfcaf12aa410158f22ff175e5c608b0a77a]
-qualification_refs: [tests/qualification/layers/run.mjs, tests/qualification/layers/release/run.mjs, tests/qualification/layers/surfaces/run.mjs, scripts/run-release-qualification.mjs]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/797]
+closure_pr: https://github.com/kungfu-systems/kungfu/pull/797
+qualification_refs: [docs/qualification/layer-product-release-qualification.md, shifu.gates.json, tests/qualification/layers/run.mjs, tests/qualification/layers/release/run.mjs, tests/qualification/layers/surfaces/run.mjs, scripts/run-release-qualification.mjs]
 ---
 
 # ADR-0049: every product layer is independently complete and the core remains domain-neutral
 
-- Status: accepted; qualification staged
+- Status: accepted; implemented
 - Date: 2026-07-11
 - Category: architecture — adoption closure, distribution boundaries, and
   domain neutrality
@@ -179,6 +181,10 @@ roadmaps. Agent runtime remains the current focus.
 Dependency, size, cold-start, and resident-memory budgets are recorded per
 artifact. Budget changes are release-review inputs rather than invisible
 consequences of adding a feature.
+
+The current executable Gate, receipt, workflow-binding, and publication
+boundary is documented in
+[Layer-complete Product Release Qualification](../qualification/layer-product-release-qualification.md).
 
 ## Domain-horizon gate
 

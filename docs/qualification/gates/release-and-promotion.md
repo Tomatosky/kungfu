@@ -57,3 +57,21 @@ Each section is bound to the registry id by the catalog meta gate.
 - **Current source:** .github/workflows/release-new-version.yml (promote; merged alpha or release pull request).
 - **Retirement:** remove only after every selecting profile and workflow binding is migrated or explicitly replaced, with the registry and matrix changed in the same review.
 <!-- /gate-doc:release.artifact-admission -->
+
+<a id="layers-release"></a>
+<!-- gate-doc:layers.release -->
+## Seven-layer publication verdict (`layers.release`)
+
+- **Problem:** Aggregates exact three-platform qualification and public publication coordinates for all seven layers.
+- **Protects:** a release from claiming seven usable layers when any exact artifact, required platform, six-budget measurement, installer-uninstall proof, or immutable public coordinate is absent.
+- **Action:** `./shifu layers:qualify:release -- --evidence-root product/release/qualification/publication-set/evidence --publication-report product/release/qualification/layer-publication-report.json --report product/release/qualification/layer-release-report.json`
+- **Dependencies:** `gate.catalog`.
+- **Platforms and runner:** linux; capabilities `publication-evidence`.
+- **Pass:** one fail-closed seven-row verdict binds clean-source three-host reports to the exact immutable public coordinates, then emits required task evidence and a source-bound Gate receipt.
+- **Failure or skip:** divergent portable reports, a missing or duplicate platform, non-numeric budget, absent uninstall proof, digest mismatch, mutable or local coordinate, missing capability, or missing evidence is non-qualifying.
+- **Evidence:** required `kungfu.layer-qualification.release-gate-evidence/v1` pointers, `product/release/qualification/layer-publication-report.json`, `product/release/qualification/layer-release-report.json`, and the unified Gate receipt.
+- **Diagnosis:** `./shifu gate explain layers.release --profile release-promotion`; inspect the publication report, discovered host reports, release report, and receipt without rerunning publication.
+- **Cost:** light; timeout 300 seconds.
+- **Current source:** .github/workflows/publish-layer-artifacts.yml (verify-publication; manually executed public layer publication)
+- **Retirement:** remove only after all seven layers leave the release policy or a replacement Gate preserves exact artifacts, three-platform evidence, public-coordinate binding, and promotion-profile coverage.
+<!-- /gate-doc:layers.release -->
