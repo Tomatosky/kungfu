@@ -65,7 +65,9 @@ function(kungfu_resolve_libwasm_cargo_target OUTPUT_DIR OUTPUT_KEY)
     endif()
     set(CARGO_VERSION_COMMAND "${KF_CARGO}" -Vv)
     if(WIN32 AND KF_CARGO MATCHES "\\.(cmd|bat)$")
-      set(CARGO_VERSION_COMMAND cmd.exe /d /s /c "\"${KF_CARGO}\" -Vv")
+      # `call` keeps cmd.exe from treating a quoted wrapper path as the outer
+      # /c command delimiter, which otherwise exits without running the shim.
+      set(CARGO_VERSION_COMMAND cmd.exe /d /s /c call "${KF_CARGO}" -Vv)
     endif()
     execute_process(
       COMMAND ${CARGO_VERSION_COMMAND}
