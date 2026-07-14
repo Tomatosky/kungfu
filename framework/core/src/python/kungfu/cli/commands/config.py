@@ -15,6 +15,7 @@ from kungfu.config import (
     set_user_config_value,
     unset_user_config_value,
     user_config_path,
+    workspace_config_path,
 )
 
 config_command_context = kfc.pass_context()
@@ -84,6 +85,7 @@ def path(ctx, as_json):
                 "schema": "kungfu.config.path/v1",
                 "configHome": data["configHome"],
                 "configPath": data["configPath"],
+                "workspaceConfigPath": workspace_config_path() or "",
                 "runtimeHome": data["runtimeHome"],
                 "workspaceDataHome": data["workspaceDataHome"],
                 "machineDataHome": data["machineDataHome"],
@@ -115,38 +117,69 @@ def show(ctx, as_json):
     click.echo(json.dumps(data, indent=2, sort_keys=True))
 
 
+@config.command(help="print the requested KFD-1 durability policy and identity")
+@click.option("--json", "as_json", is_flag=True, help="machine-readable output")
+@config_command_context
+def durability(ctx, as_json):
+    try:
+        from kungfu import durability as durability_runtime
+
+        data = durability_runtime.resolve_policy(runtime_home=ctx.home)
+    except (OSError, RuntimeError, ValueError, json.JSONDecodeError) as e:
+        click.echo(f"[config] failed to load durability policy: {e}", err=True)
+        sys.exit(1)
+    if as_json:
+        _json(data)
+        return
+    click.echo(json.dumps(data, indent=2, sort_keys=True))
+
+
 @config.command(name="set", help="set a user config override by dotted key")
 @click.argument("key")
 @click.argument("value")
+@click.option(
+    "--scope",
+    type=click.Choice(["user", "workspace"]),
+    default="user",
+    show_default=True,
+    help="override scope",
+)
 @click.option("--json", "as_json", is_flag=True, help="machine-readable output")
 @config_command_context
-def set_value(ctx, key, value, as_json):
+def set_value(ctx, key, value, scope, as_json):
     try:
         parsed = parse_config_value(value)
-        data = set_user_config_value(key, parsed, runtime_home=ctx.home)
+        data = set_user_config_value(key, parsed, runtime_home=ctx.home, scope=scope)
     except (OSError, ValueError, json.JSONDecodeError) as e:
         click.echo(f"[config] failed to set {key}: {e}", err=True)
         sys.exit(1)
     if as_json:
         _json(data)
         return
-    click.echo(f"{key} = {json.dumps(parsed, sort_keys=True)}")
+    click.echo(f"{scope}:{key} = {json.dumps(parsed, sort_keys=True)}")
 
 
 @config.command(name="unset", help="remove a user config override by dotted key")
 @click.argument("key")
+@click.option(
+    "--scope",
+    type=click.Choice(["user", "workspace"]),
+    default="user",
+    show_default=True,
+    help="override scope",
+)
 @click.option("--json", "as_json", is_flag=True, help="machine-readable output")
 @config_command_context
-def unset_value(ctx, key, as_json):
+def unset_value(ctx, key, scope, as_json):
     try:
-        data = unset_user_config_value(key, runtime_home=ctx.home)
+        data = unset_user_config_value(key, runtime_home=ctx.home, scope=scope)
     except (OSError, ValueError, json.JSONDecodeError) as e:
         click.echo(f"[config] failed to unset {key}: {e}", err=True)
         sys.exit(1)
     if as_json:
         _json(data)
         return
-    click.echo(f"{key} unset")
+    click.echo(f"{scope}:{key} unset")
 
 
 def _default_config(ctx):

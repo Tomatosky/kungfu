@@ -1141,13 +1141,48 @@ export type KungfuUiConfig = {
   scale: number;
 };
 
+export type KungfuDurabilityProfile =
+  | 'visible'
+  | 'durable_group'
+  | 'durable_sync';
+
+export type KungfuDurabilityRule = {
+  id: string;
+  priority: number;
+  match: {
+    carrierTypes?: number[];
+    sourceIds?: number[];
+    destinationIds?: number[];
+  };
+  profile: KungfuDurabilityProfile;
+};
+
+export type KungfuDurabilityConfig = {
+  activation: 'off' | 'qualified-candidate';
+  qualificationProfile: string;
+  defaultProfile: KungfuDurabilityProfile;
+  segmentMaxBytes: number;
+  requestTimeoutMs: number;
+  reconcileOnTimeout: boolean;
+  failurePolicy: 'fail-closed';
+  group: {
+    maxDelayMs: number;
+    maxRecords: number;
+    maxBytes: number;
+  };
+  rules: KungfuDurabilityRule[];
+};
+
 export type KungfuResolvedConfig = {
   schema: 'kungfu.config.resolved/v1';
   configHome: string;
   configPath: string;
   runtimeHome: string;
+  workspaceDataHome: string;
+  machineDataHome: string;
   config: {
     ui: KungfuUiConfig;
+    storage: { durability: KungfuDurabilityConfig };
     [key: string]: unknown;
   };
   sources: {
@@ -1157,6 +1192,7 @@ export type KungfuResolvedConfig = {
     [key: string]: unknown;
   }[];
   contract: Record<string, unknown>;
+  digests: { storageDurability: string };
 };
 
 export type ShellCommand =

@@ -41,10 +41,15 @@ The foundations are implemented:
 The end-to-end strong-durability path is **implemented and evidence-admitted as
 a default-off current-hardware production candidate, but not production-qualified**.
 Test-only implementations exist for projection bootstrap, crash classification,
-and backup/restore. The state service can now explicitly activate a matching
-`candidate/*` durable-ingest profile and owns typed append, barrier, retry, and
-restart reconciliation. This does not change the default visible path or the
-product admission verdict. A
+and backup/restore. The KFD-1 config contract now lets a user or workspace
+request the matching candidate, choose `visible`, `durable_group`, or
+`durable_sync` deterministically, and tune bounded batch, segment, timeout, and
+reconciliation behavior. The standard coordinator carries that policy into the
+state service, which independently re-derives admission and owns typed append,
+barrier, retry, and restart reconciliation. This does not change the default
+visible path or the product admission verdict. See
+[Configure durability](../guides/durability-configuration.md) for the complete
+mechanism and cost model. A
 versioned local qualification harness now produces separate `durable_group`
 and `durable_sync` process-crash reports for named macOS/APFS, Linux/ext4, and
 Windows/NTFS profiles. A retained disposable Linux/ext4 QEMU run additionally
@@ -261,13 +266,13 @@ one Episode must not silently invalidate unrelated Episodes.
 |---|---|---|
 | A. Visibility and integrity foundations | **implemented** | release/acquire publication, explicit mmap policy, frame integrity, typed journal records, rebuildable projections |
 | B. Episode and storage safety model | **staged** | typed Episode fold, fsck/repair/capability reporting and fault qualification exist in slices; the complete contract remains under qualification |
-| C. Unified position, watermark, and receipt vocabulary | **implemented (candidate edge)** | C++ owns stable stream positions, four typed watermarks, named profiles, receipts/errors, deduplication, explicit unknown outcomes, and restart reconciliation; Python/Node/CLI are typed edge projections. Stronger profiles require an explicit default-off candidate activation and remain production-ineligible |
+| C. Unified position, watermark, receipt, and requested-policy vocabulary | **implemented (candidate edge)** | C++ owns stable stream positions, four typed watermarks, named profiles, receipts/errors, deduplication, explicit unknown outcomes, and restart reconciliation; KFD-1 config plus Python/Node/CLI expose requested/admission/effective policy and one canonical digest. Stronger profiles require explicit default-off candidate activation and native re-admission, and remain production-ineligible |
 | D. State-service separation and durable ingest | **partially implemented** | coordinator no longer owns the projection store directly; the in-process state-service boundary has independent lifecycle, shadow comparison, single-host owner/writer fencing, and an explicit live candidate append/barrier/reconcile seam. Default production cutover remains pending |
 | E. Independent KFDL segment/checkpoint backend | **implemented (test-only shadow)** | append-only binary records, SHA-256 coverage, rollover, dual-slot atomic checkpoint, explicit data/checkpoint/directory barriers, persisted request deduplication, cooperative deadline/unknown handling, typed service-unavailable, fenced generations, fail-stop unknown append sessions, and retained tails; production profiles remain disabled |
 | F. Snapshot-through-T projection bootstrap | **implemented (candidate edge)** | versioned binary snapshot, integrity/schema/cut verification, strict replay-after-T, typed required/optional/none outcomes, deterministic rebuild, same-cut compatibility parity, complete hydration validation before required-peer registration, state emission before `RequestStart`, and state-service ownership; the explicit path is default-off and production-ineligible, while default cutover and bridge deletion remain pending |
 | G. Local strong-durability qualification | **implemented for named process/disposable, agent-120 clean-restart, and same-office off-host envelopes** | retained three-platform process-crash reports plus the agent-120 Linux/ext4 candidate runs cover 360/360 seeded VM/device-model cuts, real ENOSPC, repeated reopen, fsck/hash, Episode load, one real clean host reboot, same-host external-path restore, and an agent-120 to Ubuntu 222 verified backup/empty-root restore; the machine reports remain fail-closed for production, sudden physical power loss, and independent failure domains |
 | H. Single-host end-to-end performance release gate | **qualified for one named durability candidate slice** | retained `070e0804b` agent-120 evidence passes the frozen `linux-ext4-agent120-slo-v1` absolute `durable_group`/`durable_sync` latency, throughput, rollover, 30-minute soak, resource, recovery, projection, and same-host backup/restore ceilings; the wider visible/typed/multi-reader product surfaces remain separate admission work |
-| I. Current-hardware candidate admission | **complete** | one digest-verified inventory admits the default-off live receipt, projection, agent-120 fault/SLO/clean-restart, and same-office off-host restore slices while fixing production, physical-power-loss, independent-domain, HA, replication, and consensus claims to false |
+| I. Current-hardware candidate admission and configurable execution | **complete** | one digest-verified inventory admits the default-off live receipt, projection, agent-120 fault/SLO/clean-restart, and same-office off-host restore slices; the KFD-1 policy reaches native state-service append/barrier/reconcile execution while fixing production, physical-power-loss, independent-domain, HA, replication, and consensus claims to false |
 | J. Replication and HA | **future** | add a separate replicated watermark and policy only after local durability is trustworthy |
 
 Passing Stage G in a disposable VM does not qualify a production deployment.

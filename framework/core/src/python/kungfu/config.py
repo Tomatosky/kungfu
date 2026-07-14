@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import copy
+import hashlib
 import json
 import os
 import platform
@@ -36,6 +37,21 @@ def user_config_path(config_home: str | None = None) -> str:
         config_home or default_config_home(),
         contract["resolution"]["userOverrideFile"],
     )
+
+
+def workspace_config_path(
+    workspace_home: str | None = None,
+    *,
+    cwd: str | None = None,
+    env: Mapping[str, str] | None = None,
+) -> str | None:
+    """Return the workspace-scoped override path, or None outside a workspace."""
+
+    contract = load_contract(env=env)
+    home = workspace_home or workspace_data_home(cwd, env=env)
+    if not home:
+        return None
+    return os.path.join(home, contract["resolution"]["workspaceOverrideFile"])
 
 
 def load_contract(
@@ -125,12 +141,13 @@ def default_config(
     config_home: str | None = None,
     env: Mapping[str, str] | None = None,
     contract_path: str | None = None,
+    cwd: str | None = None,
 ) -> dict[str, Any]:
     env = os.environ if env is None else env
     contract = load_contract(contract_path, env=env)
     runtime_home = runtime_home or default_runtime_home(env)
     config_home = config_home or default_config_home(env)
-    workspace_home = workspace_data_home(env=env) or ""
+    workspace_home = workspace_data_home(cwd, env=env) or ""
     machine_home = machine_runtime_home(env)
     defaults = _expand_placeholders(
         contract["defaults"],
@@ -175,16 +192,20 @@ def set_user_config_value(
     *,
     config_home: str | None = None,
     runtime_home: str | None = None,
+    scope: str = "user",
+    cwd: str | None = None,
 ) -> dict[str, Any]:
     contract = load_contract()
     config_home = default_config_home() if config_home is None else config_home
-    config_path = user_config_path(config_home)
+    config_path = _config_override_path(
+        scope, config_home=config_home, cwd=cwd, contract=contract
+    )
     override = load_user_config(config_path, contract=contract)
     override.setdefault("schema", contract["resolution"]["overrideSchema"])
     _set_dotted(override, key, value)
     validate_config(override, contract=contract, partial=True)
     _write_user_config(config_path, override)
-    return resolve_config(runtime_home=runtime_home, config_home=config_home)
+    return resolve_config(runtime_home=runtime_home, config_home=config_home, cwd=cwd)
 
 
 def unset_user_config_value(
@@ -192,16 +213,20 @@ def unset_user_config_value(
     *,
     config_home: str | None = None,
     runtime_home: str | None = None,
+    scope: str = "user",
+    cwd: str | None = None,
 ) -> dict[str, Any]:
     contract = load_contract()
     config_home = default_config_home() if config_home is None else config_home
-    config_path = user_config_path(config_home)
+    config_path = _config_override_path(
+        scope, config_home=config_home, cwd=cwd, contract=contract
+    )
     override = load_user_config(config_path, contract=contract)
     override.setdefault("schema", contract["resolution"]["overrideSchema"])
     _unset_dotted(override, key)
     validate_config(override, contract=contract, partial=True)
     _write_user_config(config_path, override)
-    return resolve_config(runtime_home=runtime_home, config_home=config_home)
+    return resolve_config(runtime_home=runtime_home, config_home=config_home, cwd=cwd)
 
 
 def resolve_config(
@@ -210,11 +235,12 @@ def resolve_config(
     config_home: str | None = None,
     env: Mapping[str, str] | None = None,
     contract_path: str | None = None,
+    cwd: str | None = None,
 ) -> dict[str, Any]:
     env = os.environ if env is None else env
     contract = load_contract(contract_path, env=env)
     resolution = contract["resolution"]
-    workspace_home = workspace_data_home(env=env)
+    workspace_home = workspace_data_home(cwd, env=env)
     machine_home = machine_runtime_home(env)
     runtime_home = os.path.abspath(
         os.path.expanduser(
@@ -230,16 +256,29 @@ def resolve_config(
         else os.path.abspath(os.path.expanduser(config_home))
     )
     config_path = os.path.join(config_home, resolution["userOverrideFile"])
+    workspace_path = (
+        os.path.join(workspace_home, resolution["workspaceOverrideFile"])
+        if workspace_home
+        else None
+    )
     defaults = default_config(
         runtime_home,
         config_home=config_home,
         env=env,
         contract_path=resolve_contract_path(contract_path, env=env),
+        cwd=cwd,
     )
     override = load_user_config(config_path, contract=contract)
-    merged = _deep_merge(defaults, override)
+    workspace_override = (
+        load_user_config(workspace_path, contract=contract)
+        if workspace_path
+        else {"schema": resolution["overrideSchema"]}
+    )
+    merged = _deep_merge(_deep_merge(defaults, override), workspace_override)
     validate_config(merged, contract=contract)
     metadata = contract_metadata(contract_path, env=env)
+    durability_policy = cast(dict[str, Any], merged["storage"])["durability"]
+    durability_digest = _policy_digest(metadata["hash"], durability_policy)
     return {
         "schema": resolution["resolvedSchema"],
         "contract": metadata,
@@ -262,8 +301,45 @@ def resolve_config(
                 "path": config_path,
                 "exists": os.path.exists(config_path),
             },
+            {
+                "type": "workspace",
+                "schema": workspace_override.get(
+                    "schema", resolution["overrideSchema"]
+                ),
+                "path": workspace_path or "",
+                "exists": bool(workspace_path and os.path.exists(workspace_path)),
+                "active": bool(workspace_path),
+            },
         ],
+        "digests": {"storageDurability": durability_digest},
         "config": merged,
+    }
+
+
+def durability_policy(
+    *,
+    runtime_home: str | None = None,
+    config_home: str | None = None,
+    env: Mapping[str, str] | None = None,
+    contract_path: str | None = None,
+    cwd: str | None = None,
+) -> dict[str, Any]:
+    """Return the KFD-1 requested durability policy plus its canonical identity."""
+
+    resolved = resolve_config(
+        runtime_home=runtime_home,
+        config_home=config_home,
+        env=env,
+        contract_path=contract_path,
+        cwd=cwd,
+    )
+    return {
+        "schema": "kungfu.durability-policy.requested/v1",
+        "contract": resolved["contract"],
+        "policyDigest": resolved["digests"]["storageDurability"],
+        "workspaceDataHome": resolved["workspaceDataHome"],
+        "policy": copy.deepcopy(resolved["config"]["storage"]["durability"]),
+        "sources": copy.deepcopy(resolved["sources"]),
     }
 
 
@@ -374,6 +450,34 @@ def _write_user_config(config_path: str, data: dict[str, Any]) -> None:
         f.write("\n")
 
 
+def _config_override_path(
+    scope: str,
+    *,
+    config_home: str,
+    cwd: str | None,
+    contract: dict[str, Any],
+) -> str:
+    if scope == "user":
+        return os.path.join(config_home, contract["resolution"]["userOverrideFile"])
+    if scope != "workspace":
+        raise ValueError(f"unknown config scope: {scope}")
+    home = workspace_data_home(cwd)
+    if home is None:
+        raise ValueError("workspace config scope requires a Kungfu or Git workspace")
+    return os.path.join(home, contract["resolution"]["workspaceOverrideFile"])
+
+
+def _policy_digest(contract_hash_value: Any, policy: Any) -> str:
+    payload = {
+        "contractHash": str(contract_hash_value),
+        "policy": policy,
+    }
+    encoded = json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
 def _expand_placeholders(
     value: Any,
     replacements: dict[str, str],
@@ -469,6 +573,8 @@ def _nearest_existing_workspace_home(start: str) -> str | None:
 
 
 def _git_worktree_root(cwd: str) -> str | None:
+    if not os.path.isdir(cwd):
+        return None
     try:
         result = subprocess.run(
             ["git", "-C", cwd, "rev-parse", "--show-toplevel"],

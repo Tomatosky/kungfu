@@ -19,7 +19,20 @@ namespace kungfu::runtime::state_service {
 struct durability_candidate_config {
   bool enabled = false;
   std::string qualification_profile = {};
+  // Internal fixture seam only. Product bindings never accept this value;
+  // current-hardware admission is re-derived by libkungfu.
   bool qualification_passed = false;
+  std::string contract_hash = {};
+  std::string policy_digest = {};
+  std::string default_profile = "visible";
+  bool strong_profiles_requested = false;
+  uint64_t segment_max_bytes = 64ULL * 1024ULL * 1024ULL;
+  uint64_t request_timeout_ms = 5000;
+  bool reconcile_on_timeout = true;
+  std::string failure_policy = "fail-closed";
+  uint64_t group_max_delay_ms = 10;
+  uint64_t group_max_records = 32;
+  uint64_t group_max_bytes = 1024ULL * 1024ULL;
 };
 
 struct projection_candidate_config {
@@ -39,6 +52,17 @@ struct service_status {
   bool durability_candidate_enabled = false;
   bool durability_candidate_qualified = false;
   std::string durability_qualification_profile = {};
+  std::string durability_contract_hash = {};
+  std::string durability_policy_digest = {};
+  std::string durability_default_profile = "visible";
+  std::string durability_admission_reason = {};
+  uint64_t durability_segment_max_bytes = 64ULL * 1024ULL * 1024ULL;
+  uint64_t durability_request_timeout_ms = 5000;
+  bool durability_reconcile_on_timeout = true;
+  std::string durability_failure_policy = "fail-closed";
+  uint64_t durability_group_max_delay_ms = 10;
+  uint64_t durability_group_max_records = 32;
+  uint64_t durability_group_max_bytes = 1024ULL * 1024ULL;
   bool projection_candidate_enabled = false;
   bool projection_candidate_qualified = false;
   std::string projection_qualification_profile = {};

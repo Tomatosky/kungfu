@@ -57,8 +57,11 @@ reported as written will survive sudden power loss. The current production mmap
 policy rejects unqualified `asynchronous` and `durable` modes rather than
 silently treating OS writeback as a durability contract.
 
-The KFDL v2 append/checkpoint backend remains production-ineligible, with
-default-off live receipt and projection candidate seams. Retained evidence
+The KFDL v2 append/checkpoint backend remains production-ineligible. The KFD-1
+config contract now exposes an explicit default-off current-hardware candidate,
+and the standard coordinator executes its admitted receipt path with native
+re-admission, deterministic profile rules, batching, deadlines, and exact-id
+reconciliation. Retained evidence
 covers six named macOS/APFS, Linux/ext4, and Windows/NTFS process-crash reports
 plus an agent-120 Linux/ext4 campaign with 360/360 seeded abrupt VM cuts across
 six virtual device/cache envelopes, real ENOSPC, repeated fresh reopen,
@@ -78,8 +81,8 @@ What is **not yet built or qualified for production**:
 
 - default-on activation of KFDL ingestion as a dedicated service independent
   of coordinator and projection lifecycle;
-- default-on or production-eligible activation of the admitted `durable_group`
-  and `durable_sync` request/receipt/reconciliation candidate path;
+- default-on or production-eligible activation of the now-configurable
+  `durable_group` and `durable_sync` request/receipt/reconciliation candidate;
 - sudden-power-loss qualification on physical macOS, Linux, or Windows hosts,
   plus clean-host-restart qualification outside the named agent-120 Linux
   envelope;
@@ -131,7 +134,9 @@ institution-operated backup transport/retention, crash-ordered restore
 qualification, and a public backup command remain pending.
 
 SQLite WAL, a mapped-region flush, or a resident process is not a substitute for
-that evidence. See [Strong durability and crash recovery](durability-and-crash-recovery.md)
+that evidence. See [Configure durability](../guides/durability-configuration.md)
+for the explicit candidate controls and costs, and
+[Strong durability and crash recovery](durability-and-crash-recovery.md)
 for the current status and [ADR-0068](../adr/ADR-0068-tiered-durability-and-crash-recovery.md)
 for the staged architecture.
 

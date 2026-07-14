@@ -79,6 +79,11 @@ separate defaults. Resolved config output reports the contract hash so users,
 agents, and release gates can identify the exact contract world.
 The contract also carries `contractSchema`, so resolution rules and required
 metadata are schema-validated before defaults or user overrides are accepted.
+Its `storage.durability` section is the KFD-1 requested-policy surface. The
+canonical `storageDurability` digest is shared by Python and Node, while the
+native state service independently re-derives admission and reports the
+effective policy. Configuration cannot manufacture qualification, power-loss
+evidence, or production eligibility; unsupported strong requests fail closed.
 
 **Verify.** Run:
 
@@ -87,6 +92,7 @@ kungfu config contract --json
 kungfu config schema --json
 kungfu config defaults --json
 kungfu config show --json
+kungfu config durability --json
 ./shifu verify
 ```
 

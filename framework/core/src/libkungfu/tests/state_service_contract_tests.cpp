@@ -14,6 +14,7 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <vector>
 
 namespace fs = std::filesystem;
 using kungfu::runtime::durability::stream_position;
@@ -34,6 +35,19 @@ namespace {
 
 constexpr size_t TEST_PAGE_SIZE = 2 * kungfu::yijinjing::MB;
 
+std::vector<fs::path> &retained_test_roots() {
+  static std::vector<fs::path> roots;
+  return roots;
+}
+
+void cleanup_test_roots() {
+  for (const auto &root : retained_test_roots()) {
+    std::error_code ignored;
+    fs::remove_all(root, ignored);
+  }
+  retained_test_roots().clear();
+}
+
 void require(bool condition, const std::string &message) {
   if (!condition) {
     throw std::runtime_error(message);
@@ -47,10 +61,7 @@ public:
     root_ = fs::temp_directory_path() / ("kungfu-state-service-test-" + std::to_string(nonce));
     fs::create_directories(root_);
   }
-  ~temp_tree() {
-    std::error_code ignored;
-    fs::remove_all(root_, ignored);
-  }
+  ~temp_tree() { retained_test_roots().push_back(root_); }
   [[nodiscard]] const fs::path &root() const { return root_; }
 
 private:
@@ -199,6 +210,117 @@ void test_state_service_lifecycle_is_independent_and_fail_closed() {
   require(refused_after_stop, "state mutation was accepted after service stop");
 }
 
+void test_kfd1_durability_policy_is_rederived_and_inspectable() {
+  temp_tree tree;
+  auto page_locator = std::make_shared<locator>(tree.root().string());
+  auto home = location::make_shared(mode::LIVE, location_role::SYSTEM, "service", "coordinator", page_locator);
+  auto io_device = std::make_shared<kungfu::runtime::io_device_coordinator>(home, false);
+  io_device->setup();
+  kungfu::runtime::state_service::durability_candidate_config candidate{};
+  candidate.enabled = true;
+  candidate.qualification_profile =
+      kungfu::runtime::durability::single_host_institutional_capability().qualification_profile;
+  candidate.contract_hash = "sha256:" + std::string(64, 'a');
+  candidate.policy_digest = "sha256:" + std::string(64, 'b');
+  candidate.default_profile = "durable_group";
+  candidate.segment_max_bytes = 8ULL * 1024ULL * 1024ULL;
+  candidate.request_timeout_ms = 7500;
+  candidate.reconcile_on_timeout = false;
+  candidate.failure_policy = "fail-closed";
+  candidate.group_max_delay_ms = 25;
+  candidate.group_max_records = 64;
+  candidate.group_max_bytes = 2ULL * 1024ULL * 1024ULL;
+
+  service state_service(io_device, candidate);
+  state_service.start();
+  const auto status = state_service.status();
+  require(status.durability_candidate_enabled, "configured candidate activation was lost");
+  require(status.durability_candidate_qualified, "current-hardware qualification was not re-derived");
+  require(status.durability_admission_reason == "admitted_current_hardware_candidate",
+          "candidate admission reason was not explicit");
+  require(status.durability_contract_hash == candidate.contract_hash &&
+              status.durability_policy_digest == candidate.policy_digest,
+          "KFD-1 policy identity was not retained");
+  require(status.durability_default_profile == candidate.default_profile &&
+              status.durability_segment_max_bytes == candidate.segment_max_bytes &&
+              status.durability_request_timeout_ms == candidate.request_timeout_ms &&
+              status.durability_reconcile_on_timeout == candidate.reconcile_on_timeout &&
+              status.durability_failure_policy == candidate.failure_policy &&
+              status.durability_group_max_delay_ms == candidate.group_max_delay_ms &&
+              status.durability_group_max_records == candidate.group_max_records &&
+              status.durability_group_max_bytes == candidate.group_max_bytes,
+          "effective durability policy parameters are not inspectable");
+  state_service.stop();
+}
+
+void test_kfd1_durability_policy_rejects_spoofed_qualification() {
+  temp_tree tree;
+  auto page_locator = std::make_shared<locator>(tree.root().string());
+  auto home = location::make_shared(mode::LIVE, location_role::SYSTEM, "service", "coordinator", page_locator);
+  auto io_device = std::make_shared<kungfu::runtime::io_device_coordinator>(home, false);
+  io_device->setup();
+  kungfu::runtime::state_service::durability_candidate_config candidate{};
+  candidate.enabled = true;
+  candidate.qualification_passed = true;
+  candidate.qualification_profile =
+      kungfu::runtime::durability::single_host_institutional_capability().qualification_profile;
+  candidate.contract_hash = "not-a-contract-hash";
+  candidate.policy_digest = "sha256:" + std::string(64, 'b');
+  candidate.default_profile = "durable_sync";
+  bool refused = false;
+  try {
+    service state_service(io_device, candidate);
+  } catch (const std::invalid_argument &) {
+    refused = true;
+  }
+  require(refused, "caller-provided qualification bypassed native policy admission");
+}
+
+void test_kfd1_durability_policy_executes_request_receipt_and_reconcile() {
+  temp_tree tree;
+  auto page_locator = std::make_shared<locator>(tree.root().string());
+  auto home = location::make_shared(mode::LIVE, location_role::SYSTEM, "service", "coordinator", page_locator);
+  auto io_device = std::make_shared<kungfu::runtime::io_device_coordinator>(home, false);
+  io_device->setup();
+  kungfu::runtime::state_service::durability_candidate_config candidate{};
+  candidate.enabled = true;
+  candidate.qualification_profile =
+      kungfu::runtime::durability::single_host_institutional_capability().qualification_profile;
+  candidate.contract_hash = "sha256:" + std::string(64, 'a');
+  candidate.policy_digest = "sha256:" + std::string(64, 'b');
+  candidate.default_profile = "durable_group";
+  candidate.segment_max_bytes = 2ULL * 1024ULL * 1024ULL;
+  service state_service(io_device, candidate);
+  state_service.start();
+
+  constexpr uint64_t stream_id = 7;
+  constexpr uint64_t epoch = 11;
+  const std::string writer_resource_id = "00000001.00000002";
+  kungfu::runtime::durability::ingest_options options{};
+  options.data_root = tree.root().string();
+  options.stream_id = stream_id;
+  options.container_epoch = epoch;
+  options.writer_resource_id = writer_resource_id;
+  options.qualification_profile = candidate.qualification_profile;
+  state_service.open_durability_candidate(options);
+  auto writer_owner = lease::acquire_stream_writer(tree.root().string(), writer_resource_id);
+  const stream_position position{stream_id, epoch, 1, 101};
+  state_service.append_durability_candidate(position, 1001, "fact", writer_owner.status());
+  const kungfu::runtime::durability::durability_request request{
+      101, position, kungfu::runtime::durability::durability_profile::DurableGroup};
+  const auto barrier = state_service.request_durability_candidate(request);
+  require(barrier.receipt.status == kungfu::runtime::durability::receipt_status::Succeeded,
+          "configured durable_group request did not earn a receipt");
+  require(barrier.receipt.durable_watermark == position,
+          "configured durability receipt did not bind the requested frontier");
+  const auto reconciliation = state_service.reconcile_durability_candidate(request);
+  require(reconciliation.state == "reconciled" && reconciliation.receipt.has_value(),
+          "configured durability receipt was not reconcilable");
+  require(state_service.durability_candidate_status(stream_id, epoch).persisted_request_count == 1,
+          "configured durability request was not persisted");
+  state_service.stop();
+}
+
 int run_default_tests() {
   const std::pair<const char *, void (*)()> tests[] = {
       {"data-root lease is unique and generations are monotonic",
@@ -210,6 +332,12 @@ int run_default_tests() {
        test_shadow_compare_survives_restart_and_reports_drift},
       {"state service lifecycle is independent and fail closed",
        test_state_service_lifecycle_is_independent_and_fail_closed},
+      {"KFD-1 durability policy is re-derived and inspectable",
+       test_kfd1_durability_policy_is_rederived_and_inspectable},
+      {"KFD-1 durability policy rejects spoofed qualification",
+       test_kfd1_durability_policy_rejects_spoofed_qualification},
+      {"KFD-1 durability policy executes request, receipt, and reconcile",
+       test_kfd1_durability_policy_executes_request_receipt_and_reconcile},
   };
   int failed = 0;
   for (const auto &[name, test] : tests) {
@@ -221,6 +349,7 @@ int run_default_tests() {
       std::cerr << "not ok - " << name << ": " << error.what() << '\n';
     }
   }
+  cleanup_test_roots();
   return failed == 0 ? 0 : 1;
 }
 
