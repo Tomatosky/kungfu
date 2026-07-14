@@ -79,6 +79,7 @@ function publicStatus(session) {
     inputAdmission: status.inputAdmission,
     foreground: status.foreground,
     output: status.output,
+    exit: status.exit,
     providerAdapter: status.providerAdapter,
     queuedInstructions: status.queuedInstructions,
     binding: session.binding,
