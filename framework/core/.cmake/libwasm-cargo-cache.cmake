@@ -78,7 +78,10 @@ function(kungfu_resolve_libwasm_cargo_target OUTPUT_DIR OUTPUT_KEY)
       RESULT_VARIABLE CARGO_VERSION_RESULT)
     if(NOT CARGO_VERSION_RESULT EQUAL 0)
       message(FATAL_ERROR
-        "Failed to identify Cargo for libwasm cache: ${CARGO_VERSION_ERROR}")
+        "Failed to identify Cargo for libwasm cache "
+        "(result=${CARGO_VERSION_RESULT}):\n"
+        "stdout:\n${CARGO_VERSION}\n"
+        "stderr:\n${CARGO_VERSION_ERROR}")
     endif()
 
     if(KF_RUSTC)

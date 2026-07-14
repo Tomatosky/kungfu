@@ -807,7 +807,12 @@ function prepareConfigOverlays(configBindings, baseEnv, scope) {
           '@node "%~dp0cargo-wrapper.mjs" %*\r\n',
           { mode: 0o600 },
         );
-        const originalPath = baseEnv.PATH || '';
+        // A lifecycle can invoke Shifu again while already inside a cache
+        // projection.  Reusing PATH here would make the inner Cargo wrapper
+        // discover the outer wrapper as its "real" Cargo and recurse.  Carry
+        // forward the first unwrapped PATH instead.
+        const originalPath =
+          baseEnv.SHIFU_CARGO_ORIGINAL_PATH || baseEnv.PATH || '';
         overlayEnv.PATH = `${wrapperDir}${path.delimiter}${originalPath}`;
         overlayEnv.SHIFU_CARGO_ORIGINAL_PATH = originalPath;
         overlayEnv.SHIFU_CARGO_SOURCE_NAME = binding.name;

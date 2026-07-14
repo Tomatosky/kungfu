@@ -598,7 +598,9 @@ test('cache apply overrides Cargo and isolates Conan without mutating persistent
     'development',
   );
   const fakeBin = path.join(directory, 'fake-bin');
+  const inheritedWrapperBin = path.join(directory, 'inherited-wrapper-bin');
   fs.mkdirSync(fakeBin);
+  fs.mkdirSync(inheritedWrapperBin);
   const fakeCargoModule = path.join(fakeBin, 'fake-cargo.mjs');
   fs.writeFileSync(
     fakeCargoModule,
@@ -609,10 +611,19 @@ test('cache apply overrides Cargo and isolates Conan without mutating persistent
       path.join(fakeBin, 'cargo.cmd'),
       '@node "%~dp0fake-cargo.mjs" %*\r\n',
     );
+    fs.writeFileSync(
+      path.join(inheritedWrapperBin, 'cargo.cmd'),
+      '@exit /b 99\r\n',
+    );
   } else {
     fs.writeFileSync(
       path.join(fakeBin, 'cargo'),
       "#!/usr/bin/env node\nimport './fake-cargo.mjs';\n",
+      { mode: 0o700 },
+    );
+    fs.writeFileSync(
+      path.join(inheritedWrapperBin, 'cargo'),
+      '#!/bin/sh\nexit 99\n',
       { mode: 0o700 },
     );
   }
@@ -649,7 +660,8 @@ test('cache apply overrides Cargo and isolates Conan without mutating persistent
       CONAN_HOME: persistentConan,
       XDG_CACHE_HOME: xdgCache,
       FAKE_CARGO_ARGS: fakeCargoArgsPath,
-      PATH: `${fakeBin}${path.delimiter}${process.env.PATH || ''}`,
+      PATH: `${inheritedWrapperBin}${path.delimiter}${fakeBin}${path.delimiter}${process.env.PATH || ''}`,
+      SHIFU_CARGO_ORIGINAL_PATH: `${fakeBin}${path.delimiter}${process.env.PATH || ''}`,
     },
   });
   assert.equal(status, 0);
