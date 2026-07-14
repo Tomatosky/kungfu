@@ -162,6 +162,7 @@ export function sourceAcceptancePlan(files) {
         'framework/agent-session/tests/provider-adapters.test.mjs',
         'framework/agent-session/tests/interaction-port.test.mjs',
         'framework/agent-session/tests/codex-app-server-contract.test.mjs',
+        'framework/agent-session/tests/codex-app-server-runtime.test.mjs',
         'framework/agent-session/tests/product-surface.test.mjs',
         'framework/core/tests/qualification/durability/run.test.mjs',
         'framework/core/tests/qualification/durability/powercut_plan.test.mjs',

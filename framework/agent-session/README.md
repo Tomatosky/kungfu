@@ -119,9 +119,21 @@ Shifu:
 ```
 
 The native gate generates stable schema under a temporary `HOME` and
-`CODEX_HOME`; it does not inspect provider auth or session state. Runtime,
-normalization, recovery guards, product routing, and real authenticated dogfood
-belong to later ADR-0085 implementation stages.
+`CODEX_HOME`; it does not inspect provider auth or session state. Normalization,
+recovery guards, product routing, and real authenticated dogfood belong to later
+ADR-0085 implementation stages.
+
+The Stage 2 direct-stdio runtime host adds a single continuously draining JSONL
+reader, exact request/server-request correlation, attempt/generation/process
+fencing, metadata-only stderr observation, and a bounded in-memory consumer
+queue. Reaching the admission threshold permanently freezes new writes for that
+attempt; crossing the hard bound fails visibly and terminates the provider.
+Runtime loss never replays input or claims a provider outcome. The synthetic
+provider smoke reads no credentials or private provider state:
+
+```sh
+./shifu test:codex-app-server-runtime
+```
 
 On Darwin, packaged products must restore the executable bit on node-pty's
 `spawn-helper`. The existing Electron `afterPack` audit already owns that
