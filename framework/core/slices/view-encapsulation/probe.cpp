@@ -13,12 +13,25 @@
 #include <flatbuffers/idl.h>
 #include <sqlite3.h>
 
-#include <cassert>
 #include <cstdint>
 #include <cstdio>
+#include <stdexcept>
 #include <string>
 
 using namespace kungfu;
+
+// This probe is built in Release mode, where the standard assert macro removes
+// both the check and any side effect in its expression. Keep every operation
+// and invariant live so the qualification remains meaningful under -DNDEBUG.
+static void require(bool condition, const char *expression) {
+  if (!condition)
+    throw std::runtime_error(std::string("view-encapsulation probe failed: ") + expression);
+}
+
+#ifdef assert
+#undef assert
+#endif
+#define assert(expression) require(static_cast<bool>(expression), #expression)
 
 static const char *FBS = R"fbs(
 attribute "pk";

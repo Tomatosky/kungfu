@@ -51,6 +51,14 @@ endif()
 macro(kungfu_cpp_extension _target)
   file(GLOB _kf_srcs CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/*.cpp")
   pybind11_add_module(${_target} SHARED ${_kf_srcs})
+  # Keep external C++ consumers on the same narrow fmt compatibility contract
+  # as Core. AppleClang 21 rejects fmt 10.2.1's consteval parser in C++23 mode.
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" AND
+     CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 21 AND
+     CMAKE_CXX_COMPILER_VERSION VERSION_LESS 22)
+    target_compile_options(${_target} PRIVATE
+      "$<$<COMPILE_LANGUAGE:CXX>:-DFMT_CONSTEVAL=>")
+  endif()
   target_include_directories(${_target} PRIVATE
     "${KF_CORE_DIR}/src/libkungfu/include"
     "${KF_CORE_DIR}/src/libyijinjing/include")

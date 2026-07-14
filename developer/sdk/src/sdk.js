@@ -2490,6 +2490,53 @@ function runOrFail(cmd, args, opts = {}) {
 }
 
 /**
+ * Resolve the Python executable from the Core uv project without assuming a
+ * checkout-local .venv. Shifu's managed cache keeps the effective environment
+ * outside the repository and exposes it through the uv command adapter.
+ * @param {string} coreDir
+ * @returns {string}
+ */
+function resolveCorePython(coreDir) {
+  const environmentCandidates = [
+    process.env.UV_PROJECT_ENVIRONMENT,
+    path.join(coreDir, '.venv'),
+  ].filter(Boolean);
+  const executableNames =
+    process.platform === 'win32' ? ['python.exe'] : ['python3', 'python'];
+  for (const environment of environmentCandidates) {
+    for (const executable of executableNames) {
+      const candidate = path.join(
+        environment,
+        process.platform === 'win32' ? 'Scripts' : 'bin',
+        executable,
+      );
+      if (fs.existsSync(candidate)) return candidate;
+    }
+  }
+
+  const result = spawnSync(
+    'uv',
+    [
+      'run',
+      '--project',
+      coreDir,
+      'python',
+      '-c',
+      'import sys; print(sys.executable)',
+    ],
+    { encoding: 'utf8' },
+  );
+  const resolved = result.status === 0 ? result.stdout.trim() : '';
+  if (resolved && path.isAbsolute(resolved) && fs.existsSync(resolved)) {
+    return resolved;
+  }
+  const detail = result.error?.message || result.stderr?.trim() || 'not found';
+  fail(
+    `core Python could not be resolved through uv: ${detail}. Run \`./shifu rebuild:core\` first.`,
+  );
+}
+
+/**
  * Configure and build a C++ kfx into a native pybind11 module.
  * @param {Manifest} manifest
  * @returns {void}
@@ -2522,19 +2569,11 @@ function cppBuild(manifest) {
   // compatible with the runtime and loads alongside pykungfu. Pass both the
   // classic (FindPythonInterp) and modern (FindPython) hint variables so the
   // pin holds regardless of which pybind11 lookup mode is active.
-  const pythonEnvironment =
-    process.env.UV_PROJECT_ENVIRONMENT || path.join(coreDir, '.venv');
-  const corePython = path.join(
-    pythonEnvironment,
-    process.platform === 'win32' ? 'Scripts' : 'bin',
-    process.platform === 'win32' ? 'python.exe' : 'python3',
+  const corePython = resolveCorePython(coreDir);
+  configureArgs.push(
+    `-DPYTHON_EXECUTABLE=${corePython}`,
+    `-DPython_EXECUTABLE=${corePython}`,
   );
-  if (fs.existsSync(corePython)) {
-    configureArgs.push(
-      `-DPYTHON_EXECUTABLE=${corePython}`,
-      `-DPython_EXECUTABLE=${corePython}`,
-    );
-  }
   runOrFail('cmake', configureArgs);
   runOrFail('cmake', ['--build', buildDir, '--config', 'Release']);
   process.stdout.write(
@@ -2559,16 +2598,7 @@ function pythonAotBuild(manifest) {
     fail(
       'cannot locate framework/core (a python-AOT kfx build needs the monorepo core)',
     );
-  const pythonEnvironment =
-    process.env.UV_PROJECT_ENVIRONMENT || path.join(coreDir, '.venv');
-  const py = path.join(
-    pythonEnvironment,
-    process.platform === 'win32' ? 'Scripts' : 'bin',
-    process.platform === 'win32' ? 'python.exe' : 'python3',
-  );
-  if (!fs.existsSync(py)) {
-    fail(`core Python not found: ${py}. Run \`./shifu rebuild:core\` first.`);
-  }
+  const py = resolveCorePython(coreDir);
   const pkgRoot = path.resolve('src', 'python');
   const pkg = fs.existsSync(pkgRoot)
     ? fs

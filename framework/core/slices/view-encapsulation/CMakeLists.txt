@@ -23,6 +23,7 @@ set(_view_inc ${CMAKE_CURRENT_SOURCE_DIR}/../../src/libkungfu/include)
 
 add_executable(view_encapsulation_probe probe.cpp ${_view_src})
 target_include_directories(view_encapsulation_probe PRIVATE ${_view_inc})
-# Only FlatBuffers + SQLite (both from the directory-wide CONAN_LIBS via the
-# top-level link_libraries); deliberately no yijinjing / libkungfu link.
-target_link_libraries(view_encapsulation_probe flatbuffers::flatbuffers)
+# Only FlatBuffers + SQLite; deliberately no yijinjing / libkungfu link.
+target_link_libraries(view_encapsulation_probe
+  flatbuffers::flatbuffers
+  SQLite::SQLite3)
