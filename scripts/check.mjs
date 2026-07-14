@@ -410,6 +410,7 @@ function checkDurabilityQualification() {
     ),
     path.join('scripts', 'run-durability-slo.test.mjs'),
     path.join('scripts', 'run-durability-offhost-restore.test.mjs'),
+    path.join('scripts', 'run-durability-clean-host-restart.test.mjs'),
     path.join(
       'framework',
       'core',
