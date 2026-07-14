@@ -77,6 +77,40 @@ function resolveExplicitApp(appArg) {
   return appArg;
 }
 
+function nodePtySpawnHelpers(appDir) {
+  const prebuilds = path.join(
+    appDir,
+    'Contents',
+    'Resources',
+    'app',
+    'node_modules',
+    'node-pty',
+    'prebuilds',
+  );
+  if (!exists(prebuilds)) return [];
+  return fs
+    .readdirSync(prebuilds, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && entry.name.startsWith('darwin-'))
+    .map((entry) => path.join(prebuilds, entry.name, 'spawn-helper'))
+    .filter(exists)
+    .sort();
+}
+
+function repairNodePtySpawnHelpers(appDir) {
+  const helpers = nodePtySpawnHelpers(appDir);
+  if (helpers.length === 0) {
+    throw new Error('missing packaged node-pty Darwin spawn-helper');
+  }
+  for (const helper of helpers) {
+    const mode = fs.statSync(helper).mode & 0o777;
+    if ((mode & 0o111) === 0) {
+      fs.chmodSync(helper, mode | 0o111);
+      console.log(`[bundle-core-audit] restored executable mode: ${helper}`);
+    }
+  }
+  return helpers;
+}
+
 function auditPackagedApp(appDir, options = {}) {
   const prune = Boolean(options.prune);
   const resources = path.join(appDir, 'Contents', 'Resources');
@@ -148,6 +182,19 @@ function auditPackagedApp(appDir, options = {}) {
   );
 
   const failures = [];
+  const spawnHelpers = nodePtySpawnHelpers(appDir);
+  if (spawnHelpers.length === 0) {
+    failures.push('missing packaged node-pty Darwin spawn-helper');
+  } else {
+    const nonExecutableHelpers = spawnHelpers.filter(
+      (helper) => (fs.statSync(helper).mode & 0o111) === 0,
+    );
+    if (nonExecutableHelpers.length > 0) {
+      failures.push(
+        `non-executable node-pty Darwin spawn-helper:\n${nonExecutableHelpers.join('\n')}`,
+      );
+    }
+  }
   if (remainingCore.length > 0) {
     failures.push(
       `duplicate @kungfu-tech/core package trees:\n${remainingCore.join('\n')}`,
@@ -194,4 +241,8 @@ if (require.main === module) {
   }
 }
 
-module.exports = { auditPackagedApp, findAppFromContext };
+module.exports = {
+  auditPackagedApp,
+  findAppFromContext,
+  repairNodePtySpawnHelpers,
+};

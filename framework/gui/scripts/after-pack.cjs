@@ -4,9 +4,14 @@
 const {
   auditPackagedApp,
   findAppFromContext,
+  repairNodePtySpawnHelpers,
 } = require('./bundle-core-audit.cjs');
 
 exports.default = async function afterPack(context) {
   if (context.electronPlatformName !== 'darwin') return;
-  auditPackagedApp(findAppFromContext(context), { prune: true });
+  const appDir = findAppFromContext(context);
+  // electron-builder can copy node-pty's native helper without its executable
+  // bit. The addon then fails every PTY launch with only "posix_spawnp failed".
+  repairNodePtySpawnHelpers(appDir);
+  auditPackagedApp(appDir, { prune: true });
 };
