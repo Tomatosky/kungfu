@@ -3,7 +3,9 @@ metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
 adr_id: ADR-0081
 decision_status: accepted
-implementation_status: not-started
+implementation_status: partial
+implementation_commits: [eed8a90cb760593025afe457f98db79289cd506b]
+qualification_refs: [scripts/check-agent-session-contract.test.mjs, tests/fixtures/agent-session-capsule-contract]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-decision]
@@ -16,7 +18,7 @@ last_reviewed: 2026-07-14
 
 # ADR-0081: one fenced AgentSessionCapsule owns each live agent PTY
 
-- Status: accepted; implementation not started
+- Status: accepted; implementation partial
 - Date: 2026-07-14
 - Category: product runtime / agent interaction / process ownership / recovery
 - Related: [ADR-0016](ADR-0016-managed-session-host-placement.md),
@@ -214,7 +216,6 @@ evidence input under Profile/KFD authority.
 6. Fault, privacy, performance, Mac product, and promoted real-provider evidence
    close the decision.
 
-Until the contract slice has an immutable implementation commit, the
-implementation status remains not started. After that first slice is recorded,
-it becomes partial; stages 2–6 remain required before the product may claim it
-survives GUI, Coordinator, Supervisor, Capsule, or machine restart.
+The contract slice is implemented and recorded, so the implementation status is
+partial. Stages 2–6 remain required before the product may claim it survives
+GUI, Coordinator, Supervisor, Capsule, or machine restart.
