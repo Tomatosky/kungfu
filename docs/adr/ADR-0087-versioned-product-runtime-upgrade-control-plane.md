@@ -1,7 +1,7 @@
 ---
 metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
-adr_id: ADR-0086
+adr_id: ADR-0087
 decision_status: accepted
 implementation_status: staged
 implementation_commits: [da86be83406a219a24f4a0bb75bd6b8cac34e830]
@@ -16,7 +16,7 @@ evidence_grade: B
 last_reviewed: 2026-07-14
 ---
 
-# ADR-0086: product upgrades install immutable runtimes before Core activates them
+# ADR-0087: product upgrades install immutable runtimes before Core activates them
 
 - Status: accepted; implementation staged
 - Date: 2026-07-14
