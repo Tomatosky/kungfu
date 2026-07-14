@@ -204,7 +204,7 @@ evidence input under Profile/KFD authority.
 - Privacy configuration governs raw prompt/output retention; secrets and
   environment values are not part of lifecycle or control facts.
 - Synthetic provider qualification can prove host/transport invariants, but
-  final product promotion still requires real Codex and Claude interactive
+  product promotion also requires packaged real Codex and Claude interactive
   smoke.
 
 ## Implementation and qualification stages
@@ -243,6 +243,10 @@ passes instruction/output, approval denial, interrupt, main restart, and exit
 closure. Authenticated Claude Code `2.1.209` now passes the same loop under an
 explicit `Bash` ask rule: current VT-grid state overrides an erased volatile
 busy signature, the real approval modal is detected, Escape is delivered, and
-the disposable probe remains absent. Machine restart, Linux/Windows
-qualification, and packaged/promoted Mac product evidence remain open, so
-`promotionEligible` is false and the implementation status remains partial.
+the disposable probe remains absent. The packaged Mac build
+`20260714T150829Z-237b7662f` passes Codex PTY, Codex structured, and Claude PTY
+loops through the packaged worker, retains no raw terminal or private
+environment values, and is promoted at `/Applications/Kungfu Episodes.app`.
+Machine restart and Linux/Windows qualification remain open, so the
+implementation status remains partial even though Mac `promotionEligible` is
+true and the qualified build is current.
