@@ -5,6 +5,7 @@ adr_id: ADR-0081
 decision_status: accepted
 implementation_status: partial
 implementation_commits: [90e878b696a6a6a6a1a9d21f166f0e63bc527bb2]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/834]
 qualification_refs: [scripts/check-agent-session-contract.test.mjs, tests/fixtures/agent-session-capsule-contract, framework/agent-session/tests/capsule-host.test.mjs, framework/agent-session/tests/capsule-worker.test.mjs]
 review_state: self-reviewed
 sensitivity: public
