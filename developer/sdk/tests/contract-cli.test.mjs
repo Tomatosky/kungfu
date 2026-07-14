@@ -67,6 +67,7 @@ for (const [surface, source] of [
   ['kfx', 'framework/kfx/kungfu-kfx.contract.json'],
   ['skill', 'framework/skill/kungfu-skill.contract.json'],
   ['runtime', 'framework/runtime/kungfu-runtime.contract.json'],
+  ['upgrade', 'framework/upgrade/kungfu-upgrade.contract.json'],
 ]) {
   test(`adopts the registered ${surface} source contract file`, () => {
     const data = runJson([
@@ -114,10 +115,11 @@ test('emits KFD-1 contract evidence for registered surfaces', () => {
     'kfx',
     'skill',
     'runtime',
+    'upgrade',
     'agent-session',
   ]);
-  assert.equal(data.summary.count, 5);
-  assert.equal(data.contracts.length, 5);
+  assert.equal(data.summary.count, 6);
+  assert.equal(data.contracts.length, 6);
   for (const contract of data.contracts) {
     assert.match(contract.contract.sourceHash, /^sha256:[0-9a-f]{64}$/);
     assert.match(contract.contract.renderedHash, /^sha256:[0-9a-f]{64}$/);
@@ -145,7 +147,7 @@ test('prints the agent-first canonical policy from upstream KFD and Buildchain m
   assert.equal(data.upstream.buildchain.releaseGate.passportKey, 'kfd-1');
   assert.deepEqual(
     data.surfaces.map((surface) => surface.surface),
-    ['config', 'kfx', 'skill', 'runtime', 'agent-session'],
+    ['config', 'kfx', 'skill', 'runtime', 'upgrade', 'agent-session'],
   );
   for (const surface of data.surfaces) {
     assert.match(surface.source.sha256, /^sha256:[0-9a-f]{64}$/);
@@ -171,6 +173,7 @@ test('emits a Buildchain KFD-1 contract-world witness for registered surfaces', 
       'kungfu-kfx',
       'kungfu-skill',
       'kungfu-runtime',
+      'kungfu-product-upgrade',
       'kungfu-agent-session',
     ],
   );
@@ -190,7 +193,7 @@ test('audits the contract world as current and Buildchain-release-gate compatibl
   assert.equal(data.failures.length, 0);
   assert.deepEqual(
     data.contracts.map((contract) => contract.status),
-    ['current', 'current', 'current', 'current', 'current'],
+    ['current', 'current', 'current', 'current', 'current', 'current'],
   );
 });
 

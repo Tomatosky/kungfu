@@ -188,6 +188,12 @@ export function releaseQualificationStages(
   const stages = [
     ['verify', '--fuzz'],
     [
+      'live-peer:qualify',
+      '--',
+      '--retain',
+      'product/release/qualification/live-peer-continuity',
+    ],
+    [
       'runtime:qualify',
       '--',
       '--mode',
@@ -195,6 +201,12 @@ export function releaseQualificationStages(
       '--with-product',
       '--retain',
       'product/release/qualification/runtime-activation',
+    ],
+    [
+      'zero-burden:qualify',
+      '--',
+      '--retain',
+      'product/release/qualification/zero-burden-desktop',
     ],
   ];
   if (platform === 'linux') {

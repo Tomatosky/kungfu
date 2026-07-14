@@ -27,6 +27,7 @@ artifact catalog.
 | daemonless storage | `activation-core` | storage-only invocation constructs no activation client |
 | no-fork seam | `activation-core` | `CoordinatorEngine` accepts a direct request with subprocess construction forbidden |
 | live activation and recovery | `activation-core` | exact-cut readiness, first-call serialization, generation replacement, crash window, lease expiry, and idle drain remain fenced |
+| on-demand self-maintenance | `activation-core` | concurrent activation starts one supervisor, 100 start/stop rounds retire routes, idle exit cannot overwrite a replacement, and unknown or PID-reused processes are never signalled |
 | readiness publication | `activation-core` | native durability/projection authorities establish the requested cut before coordinates are atomically published |
 | Profile/KFX action admission | `profile-action-admission` | live-required callbacks run only after a matching broker receipt; storage-only callbacks stay daemonless |
 | language/product parity | `runtime-surface-parity` | CLI, GUI, Python, Node, libkungfu declarations, and KFX use the canonical registry/status vocabulary |
@@ -49,6 +50,13 @@ newline-delimited JSON: each row binds the suite id, raw log path, byte count,
 SHA-256, and base64-preserved output. The report records the bundle SHA-256 and
 per-suite member manifest; a report without the adjacent bundle is not complete
 retained release evidence.
+
+The subsequent
+[zero-burden desktop gate](zero-burden-desktop-runtime.md) verifies this retained
+pair together with live Peer evidence, then binds Agent Session and frontend
+recovery results into the final cross-layer report. Runtime qualification stays
+the authority for runtime and product-artifact claims; the aggregate gate does
+not reimplement them.
 
 The current retained complete product report is the
 [Darwin arm64 `b325b9739` evidence](evidence/runtime-activation/b325b9739/README.md).

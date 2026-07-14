@@ -52,6 +52,13 @@ import {
   rememberDiscoveredAgentRuntimeProfile,
 } from './agent-runtime-catalog';
 import {
+  type AgentSessionProductProjection,
+  agentSessionProductDetail,
+  agentSessionProductLabel,
+  resolveAgentSessionProduct,
+} from './agent-session-presentation';
+import { agentSessionSnapshotText } from './agent-session-snapshot';
+import {
   DEFAULT_PANE_LAYOUT,
   type PaneLayoutAxis,
   type PaneLayoutMode,
@@ -733,6 +740,8 @@ type CapsuleSurfaceStatus = {
   interactionState: string;
   inputAdmission: string;
   queuedInstructions: number;
+  live?: boolean;
+  product?: AgentSessionProductProjection;
   providerAdapter?: {
     provider?: string;
     compatible?: boolean;
@@ -751,11 +760,13 @@ type CapsuleSurfaceStatus = {
 
 type CapsuleSurfaceList = {
   sessions: CapsuleSurfaceStatus[];
+  attempts?: CapsuleSurfaceStatus[];
 };
 
 type CapsuleSurfaceSnapshot = {
   status: CapsuleSurfaceStatus;
-  terminal: { vt: { lines: string[] } };
+  terminal?: { vt?: { lines: string[] } };
+  retainedTranscript?: boolean;
 };
 
 async function invokeAgentSession(
@@ -800,11 +811,20 @@ function CapsuleSessionPane({
     let active = true;
     const pull = async () => {
       try {
-        const value = (await invokeAgentSession(caps, {
+        const received = (await invokeAgentSession(caps, {
           operation: 'snapshot',
           session: ref,
           requestedSequence: 0,
         })) as unknown as CapsuleSurfaceSnapshot;
+        const value = received.status
+          ? received
+          : {
+              ...received,
+              status: (await invokeAgentSession(caps, {
+                operation: 'status',
+                session: ref,
+              })) as unknown as CapsuleSurfaceStatus,
+            };
         if (!active) return;
         setSnapshot(value);
         if (value.status.lifecycleState === 'ended') onExit?.(pane);
@@ -864,6 +884,7 @@ function CapsuleSessionPane({
       .catch((error) => setNotice((error as Error).message));
   };
   const status = snapshot?.status;
+  const product = status ? resolveAgentSessionProduct(status) : null;
   const ended = status?.lifecycleState === 'ended';
 
   return (
@@ -890,7 +911,7 @@ function CapsuleSessionPane({
       >
         <span style={providerChipStyle(pane.provider)}>{pane.provider}</span>
         <span style={{ flex: 1, fontSize: 12, color: '#e6e6e6' }}>
-          {pane.title} · Capsule
+          {pane.title} · Agent session
         </span>
         <span
           style={{
@@ -899,9 +920,7 @@ function CapsuleSessionPane({
             color: ended ? '#c46b6b' : '#5bbf6a',
           }}
         >
-          {status
-            ? `${status.lifecycleState} · ${status.interactionState}`
-            : 'attaching'}
+          {product ? agentSessionProductLabel(product) : 'Attaching'}
         </span>
         {!ended && (
           <button
@@ -953,8 +972,7 @@ function CapsuleSessionPane({
           fontSize: 12,
         }}
       >
-        {snapshot?.terminal.vt.lines.join('\n') ??
-          'Waiting for Capsule output…'}
+        {agentSessionSnapshotText(snapshot)}
       </pre>
       {!ended && (
         <div
@@ -1206,7 +1224,7 @@ function CapsuleHubTray({
     <div style={{ ...panelStyle, padding: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ ...headingStyle, margin: 0 }}>
-          Capsule Console Hub · {sessions.length}
+          Agent sessions · {sessions.length}
         </span>
         <button type="button" onClick={onRefresh} style={iconButtonStyle}>
           Refresh
@@ -1223,6 +1241,8 @@ function CapsuleHubTray({
         >
           {sessions.map((session) => {
             const attached = attachedAttemptIds.has(session.sessionAttemptId);
+            const attachable = session.live !== false;
+            const product = resolveAgentSessionProduct(session);
             return (
               <div
                 key={session.sessionAttemptId}
@@ -1244,20 +1264,26 @@ function CapsuleHubTray({
                   {session.providerAdapter?.provider ?? 'agent'}
                 </span>
                 <span style={{ ...mono, fontSize: 10.5, color: '#9a9a9a' }}>
-                  {session.workConsoleId} · {session.lifecycleState} ·{' '}
-                  {session.interactionState}
+                  {session.workConsoleId} · {agentSessionProductLabel(product)}
                 </span>
-                <button
-                  type="button"
-                  disabled={attached}
-                  onClick={() => onAttach(session)}
-                  style={{
-                    ...iconButtonStyle,
-                    color: attached ? '#666' : '#7fb4d8',
-                  }}
-                >
-                  {attached ? 'Attached' : 'Attach'}
-                </button>
+                {product.state === 'action-required' && (
+                  <span style={{ ...mono, fontSize: 10.5, color: '#c9a227' }}>
+                    {agentSessionProductDetail(product)}
+                  </span>
+                )}
+                {attachable && (
+                  <button
+                    type="button"
+                    disabled={attached}
+                    onClick={() => onAttach(session)}
+                    style={{
+                      ...iconButtonStyle,
+                      color: attached ? '#666' : '#7fb4d8',
+                    }}
+                  >
+                    {attached ? 'Attached' : 'Attach'}
+                  </button>
+                )}
               </div>
             );
           })}
@@ -1522,7 +1548,7 @@ function SessionWorkspace({
         const listed = (await invokeAgentSession(caps, {
           operation: 'list',
         })) as unknown as CapsuleSurfaceList;
-        setCapsuleSessions(listed.sessions);
+        setCapsuleSessions(listed.attempts ?? listed.sessions);
       } catch {
         setCapsuleSessions([]);
       }

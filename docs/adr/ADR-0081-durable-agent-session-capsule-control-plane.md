@@ -5,8 +5,8 @@ adr_id: ADR-0081
 decision_status: accepted
 implementation_status: partial
 implementation_commits: [80593936763261a38eb1fb696a254390c2decd67, 8b02979d68751924810d1dc25424dd7289f5d3e6, f3743218981bee7b1ffbe4fc14511845b8ac0b53]
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/834, https://github.com/kungfu-systems/kungfu/pull/837, https://github.com/kungfu-systems/kungfu/pull/840]
-qualification_refs: [scripts/check-agent-session-contract.test.mjs, tests/fixtures/agent-session-capsule-contract, framework/agent-session/tests/capsule-host.test.mjs, framework/agent-session/tests/capsule-worker.test.mjs, framework/agent-session/tests/peer-transport.test.mjs, framework/agent-session/tests/runtime-port.test.mjs, framework/agent-session/tests/runtime-port.native.test.mjs, framework/agent-session/tests/provider-adapters.test.mjs, framework/agent-session/tests/interaction-port.test.mjs, framework/agent-session/tests/provider-version.native.test.mjs, framework/agent-session/tests/product-surface.test.mjs, framework/agent-session/tests/product-detached-host.test.mjs, framework/agent-session/tests/product-recovery-qualification.test.mjs, framework/core/tests/python/test_agent_console_contract.py, docs/qualification/evidence/agent-session/stage6-macos-source-v1.json]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/834, https://github.com/kungfu-systems/kungfu/pull/837, https://github.com/kungfu-systems/kungfu/pull/840, https://github.com/kungfu-systems/kungfu/pull/885]
+qualification_refs: [scripts/check-agent-session-contract.test.mjs, scripts/run-zero-burden-product-qualification.mjs, tests/fixtures/agent-session-capsule-contract, framework/agent-session/tests/capsule-host.test.mjs, framework/agent-session/tests/capsule-worker.test.mjs, framework/agent-session/tests/peer-transport.test.mjs, framework/agent-session/tests/runtime-port.test.mjs, framework/agent-session/tests/runtime-port.native.test.mjs, framework/agent-session/tests/provider-adapters.test.mjs, framework/agent-session/tests/interaction-port.test.mjs, framework/agent-session/tests/provider-version.native.test.mjs, framework/agent-session/tests/product-surface.test.mjs, framework/agent-session/tests/product-detached-host.test.mjs, framework/agent-session/tests/product-recovery-qualification.test.mjs, framework/core/tests/python/test_agent_console_contract.py, docs/qualification/zero-burden-desktop-runtime.md, docs/qualification/evidence/agent-session/stage6-macos-source-v1.json]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-decision]
@@ -250,3 +250,11 @@ environment values, and is promoted at `/Applications/Kungfu Episodes.app`.
 Machine restart and Linux/Windows qualification remain open, so the
 implementation status remains partial even though Mac `promotionEligible` is
 true and the qualified build is current.
+
+The shared surface also projects each live or retained attempt into the same
+product states for GUI, CLI, and Agent clients: `available`, `starting`,
+`working`, `recovering`, `action-required`, or `ended`. A lost worker never
+turns an unrecoverable attempt into an empty successful Hub: it retains the
+attempt as `action-required` with the single safe recommendation to start a new
+attempt or use provider-supported resume. Normal presentation does not expose
+Capsule, worker, PID, Supervisor, or Coordinator terminology.

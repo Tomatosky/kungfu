@@ -4,8 +4,8 @@ doc_type: architecture-decision
 adr_id: ADR-0082
 decision_status: accepted
 implementation_status: staged
-implementation_commits: [a296e6dfdf3a43340093accafbee646ef97ea821, 30a849db8a93895686e53076df779717ccd79a24, 6f20d83cf79751415ed9976be310ae610a4eb4bb, 531d40d899685c5a86a51ae721d6388bbe384680]
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/660, https://github.com/kungfu-systems/kungfu/pull/858, https://github.com/kungfu-systems/kungfu/pull/869, https://github.com/kungfu-systems/kungfu/pull/871]
+implementation_commits: [a296e6dfdf3a43340093accafbee646ef97ea821, 30a849db8a93895686e53076df779717ccd79a24, 6f20d83cf79751415ed9976be310ae610a4eb4bb, 531d40d899685c5a86a51ae721d6388bbe384680, 6232f1e1a3d94055e72a20a86e5193b5ca0a0250]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/660, https://github.com/kungfu-systems/kungfu/pull/858, https://github.com/kungfu-systems/kungfu/pull/869, https://github.com/kungfu-systems/kungfu/pull/871, https://github.com/kungfu-systems/kungfu/pull/874]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-decision]
@@ -224,8 +224,14 @@ independently:
    exclusive by construction; the payoff is that an unsatisfied constraint now
    reports "constraints not satisfied" instead of a bare "no type named 'type'
    in enable_if". No flag-day: remaining SFINAE sites migrate in later batches.
-4. Opportunistic: deducing this where CRTP is boilerplate; ranges where the
-   `reader.cpp` TODO already points.
+4. Opportunistic. **Ranges landed**: `reader::sort_without_buffer()` discharges
+   the `reader.cpp` TODO it named — the manual filter loop plus `std::max_element`
+   is now `journals_ | std::views::values | std::views::filter(...)` fed to
+   `std::ranges::max_element`, behaviour-preserving. **Deducing this deferred**:
+   the core's CRTP base is `kungfu::data<T>` (via `KF_DEFINE_DATA_TYPE`), a
+   widely-inherited pack-layout base whose replacement is invasive rather than a
+   clean opportunistic win, so it is left for a dedicated change if it ever earns
+   one.
 
 ## Re-evaluation triggers
 

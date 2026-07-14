@@ -78,6 +78,25 @@ export function sourceMypyCommand(
   throw new Error('source acceptance requires mypy 1.20.2, uvx, or uv');
 }
 
+export function sourceClangFormatCommand(
+  args,
+  available = commandAvailable,
+  probe = commandProbe,
+) {
+  if (available('clang-format')) {
+    const result = probe('clang-format', ['--version']);
+    const version = `${result.stdout || ''}${result.stderr || ''}`;
+    if (
+      result.status === 0 &&
+      /clang-format version 20\.1\.8(?:\s|$)/u.test(version)
+    )
+      return { command: 'clang-format', args };
+  }
+  if (available('uvx'))
+    return { command: 'uvx', args: ['clang-format@20.1.8', ...args] };
+  throw new Error('source acceptance requires clang-format 20.1.8 or uvx');
+}
+
 export function sourceMergeBase() {
   const candidates = [
     process.env.GITHUB_BASE_REF ? `origin/${process.env.GITHUB_BASE_REF}` : '',
@@ -131,6 +150,7 @@ export function sourceAcceptancePlan(files) {
     ],
     ['live runtime terminology', 'scripts/check-live-runtime-terminology.mjs'],
     ['runtime activation contract', 'scripts/check-runtime-contract.mjs'],
+    ['runtime upgrade contract', 'scripts/check-upgrade-contract.mjs'],
     ['agent session contract', 'scripts/check-agent-session-contract.mjs'],
     [
       'durability production-candidate admission',
@@ -153,6 +173,7 @@ export function sourceAcceptancePlan(files) {
       args: [
         '--test',
         'scripts/buildchain-install.test.mjs',
+        'scripts/check-typescript-files.test.mjs',
         'scripts/source-acceptance.test.mjs',
         'scripts/check-shifu-entry-contract.test.mjs',
         'scripts/check-shifu-cache-contract.test.mjs',
@@ -164,6 +185,7 @@ export function sourceAcceptancePlan(files) {
         'scripts/check-kungfu-gate-catalog.test.mjs',
         'scripts/check-schema-authority.test.mjs',
         'scripts/check-runtime-contract.test.mjs',
+        'scripts/check-upgrade-contract.test.mjs',
         'scripts/check-agent-session-contract.test.mjs',
         'framework/agent-session/tests/capsule-host.test.mjs',
         'framework/agent-session/tests/peer-transport.test.mjs',
@@ -177,6 +199,7 @@ export function sourceAcceptancePlan(files) {
         'framework/agent-session/tests/codex-app-server-product.test.mjs',
         'framework/agent-session/tests/product-surface.test.mjs',
         'framework/agent-session/tests/product-detached-host.test.mjs',
+        'extensions/terminal/tests/agent-session-snapshot.test.ts',
         'framework/core/tests/qualification/runtime-activation/run.test.mjs',
         'framework/core/tests/qualification/durability/run.test.mjs',
         'framework/core/tests/qualification/durability/powercut_plan.test.mjs',
@@ -199,6 +222,11 @@ export function sourceAcceptancePlan(files) {
       ],
     },
     {
+      label: 'runtime upgrade control-plane tests',
+      command: process.execPath,
+      args: ['scripts/run-runtime-upgrade-tests.mjs'],
+    },
+    {
       label: 'tooling type check',
       command: process.execPath,
       args: ['node_modules/typescript/bin/tsc', '-p', 'tsconfig.tools.json'],
@@ -215,6 +243,22 @@ export function sourceAcceptancePlan(files) {
         'check',
         '--no-errors-on-unmatched',
         ...web,
+      ],
+    });
+  }
+
+  const guiTypeScript = files.filter(
+    (file) => file.startsWith('framework/gui/src/') && /\.tsx?$/.test(file),
+  );
+  if (guiTypeScript.length) {
+    plan.push({
+      label: 'changed GUI TypeScript check',
+      command: process.execPath,
+      args: [
+        'scripts/check-typescript-files.mjs',
+        '--project',
+        'framework/gui/tsconfig.json',
+        ...guiTypeScript,
       ],
     });
   }
@@ -265,10 +309,15 @@ export function sourceAcceptancePlan(files) {
 
   const cpp = files.filter((file) => CPP.test(file));
   if (cpp.length) {
+    const formatter = sourceClangFormatCommand([
+      '-style=file',
+      '--dry-run',
+      '-Werror',
+      ...cpp,
+    ]);
     plan.push({
       label: 'changed C/C++ format',
-      command: 'clang-format',
-      args: ['-style=file', '--dry-run', '-Werror', ...cpp],
+      ...formatter,
     });
   }
   return plan;

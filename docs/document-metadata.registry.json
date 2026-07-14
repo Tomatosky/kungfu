@@ -426,6 +426,28 @@
       "review_state": "unreviewed",
       "sensitivity": "public"
     },
+    "docs/qualification/gui-capability-boundary.md": {
+      "metadata_schema": "kungfu.document-metadata/v1",
+      "document_status": "active",
+      "doc_type": "qualification-contract",
+      "review_state": "self-reviewed",
+      "sensitivity": "public",
+      "sources": [
+        "local-files",
+        "executable-probe"
+      ],
+      "period": "2026-07-14",
+      "theme": "gui-capability-boundary",
+      "confidence": "high",
+      "evidence_grade": "B",
+      "last_reviewed": "2026-07-14",
+      "ai_provenance": {
+        "model_family": "OpenAI GPT-5",
+        "product": "Codex",
+        "generated_at": "2026-07-14",
+        "invisible_context_boundary": "exact internal checkpoint and hidden system state are not claimed"
+      }
+    },
     "docs/qualification/durability-and-crash-recovery.md": {
       "metadata_schema": "kungfu.document-metadata/v1",
       "document_status": "draft",
@@ -441,6 +463,27 @@
       "confidence": "high",
       "evidence_grade": "B",
       "last_reviewed": "2026-07-14"
+    },
+    "docs/qualification/evidence/gui-capability-boundary/611e39d82/README.md": {
+      "metadata_schema": "kungfu.document-metadata/v1",
+      "document_status": "active",
+      "doc_type": "qualification-evidence-index",
+      "review_state": "self-reviewed",
+      "sensitivity": "public",
+      "sources": [
+        "executable-probe"
+      ],
+      "period": "2026-07-14",
+      "theme": "gui-capability-boundary",
+      "confidence": "high",
+      "evidence_grade": "B",
+      "last_reviewed": "2026-07-14",
+      "ai_provenance": {
+        "model_family": "OpenAI GPT-5",
+        "product": "Codex",
+        "generated_at": "2026-07-14",
+        "invisible_context_boundary": "exact internal checkpoint and hidden system state are not claimed"
+      }
     },
     "docs/qualification/evidence/durability/070e0804b/README.md": {
       "metadata_schema": "kungfu.document-metadata/v1",
@@ -719,6 +762,23 @@
       ],
       "period": "2026-07-14",
       "theme": "adr-0049-layer-product-release-qualification",
+      "confidence": "high",
+      "evidence_grade": "B",
+      "last_reviewed": "2026-07-14"
+    },
+    "docs/qualification/zero-burden-desktop-runtime.md": {
+      "metadata_schema": "kungfu.document-metadata/v1",
+      "document_status": "active",
+      "doc_type": "release-gate-contract",
+      "review_state": "self-reviewed",
+      "sensitivity": "public",
+      "sources": [
+        "architecture-decisions",
+        "local-files",
+        "executable-probe"
+      ],
+      "period": "2026-07-14",
+      "theme": "zero-burden-desktop-runtime",
       "confidence": "high",
       "evidence_grade": "B",
       "last_reviewed": "2026-07-14"

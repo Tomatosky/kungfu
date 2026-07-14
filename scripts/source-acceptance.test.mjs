@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   sourceAcceptancePlan,
+  sourceClangFormatCommand,
   sourceMypyCommand,
   sourcePythonCommand,
 } from './source-acceptance.mjs';
@@ -33,6 +34,30 @@ test('Python source checks use uv tool run when the uvx shim is absent', () => {
   assert.deepEqual(command, {
     command: 'uv',
     args: ['tool', 'run', 'ruff', 'format', '--check'],
+  });
+});
+
+test('C++ source checks use the exact ambient formatter when it matches the repository pin', () => {
+  const command = sourceClangFormatCommand(
+    ['--dry-run', 'example.cpp'],
+    (candidate) => candidate === 'clang-format',
+    () => ({ status: 0, stdout: 'clang-format version 20.1.8\n' }),
+  );
+  assert.deepEqual(command, {
+    command: 'clang-format',
+    args: ['--dry-run', 'example.cpp'],
+  });
+});
+
+test('C++ source checks isolate an incompatible ambient formatter behind pinned uvx', () => {
+  const command = sourceClangFormatCommand(
+    ['--dry-run', 'example.cpp'],
+    (candidate) => candidate === 'clang-format' || candidate === 'uvx',
+    () => ({ status: 0, stdout: 'clang-format version 13.0.0\n' }),
+  );
+  assert.deepEqual(command, {
+    command: 'uvx',
+    args: ['clang-format@20.1.8', '--dry-run', 'example.cpp'],
   });
 });
 
@@ -92,6 +117,7 @@ test('source plan covers representative source-only checks', () => {
   assert.ok(labels.includes('changed C/C++ format'));
   assert.ok(labels.includes('documentation contracts'));
   assert.ok(labels.includes('runtime activation contract'));
+  assert.ok(labels.includes('runtime upgrade contract'));
   assert.ok(labels.includes('agent session contract'));
   assert.ok(labels.includes('durability production-candidate admission'));
   const typeBaseline = plan.find(
@@ -114,6 +140,18 @@ test('source plan covers representative source-only checks', () => {
   const contractTests = plan.find(
     (step) => step.label === 'source-acceptance contract tests',
   );
+  assert.ok(
+    contractTests.args.includes('scripts/check-upgrade-contract.test.mjs'),
+  );
+  assert.ok(
+    contractTests.args.includes('scripts/check-typescript-files.test.mjs'),
+  );
+  const upgradeTests = plan.find(
+    (step) => step.label === 'runtime upgrade control-plane tests',
+  );
+  assert.deepEqual(upgradeTests.args, [
+    'scripts/run-runtime-upgrade-tests.mjs',
+  ]);
   assert.ok(
     contractTests.args.includes(
       'framework/agent-session/tests/capsule-host.test.mjs',
@@ -184,6 +222,24 @@ test('Conan recipe Python is linted without widening into the product type basel
   assert.ok(labels.includes('changed Python format'));
   assert.ok(labels.includes('changed Python lint'));
   assert.ok(!labels.includes('Python type baseline'));
+});
+
+test('changed GUI TypeScript receives a file-scoped semantic check', () => {
+  const plan = sourceAcceptancePlan([
+    'framework/gui/src/renderer/src/runtime.ts',
+    'framework/gui/src/renderer/src/app.tsx',
+    'framework/gui/src/renderer/src/theme.css',
+  ]);
+  const typeCheck = plan.find(
+    (step) => step.label === 'changed GUI TypeScript check',
+  );
+  assert.deepEqual(typeCheck?.args, [
+    'scripts/check-typescript-files.mjs',
+    '--project',
+    'framework/gui/tsconfig.json',
+    'framework/gui/src/renderer/src/runtime.ts',
+    'framework/gui/src/renderer/src/app.tsx',
+  ]);
 });
 
 test('RocksDB source archive keeps an explicit tar filename', () => {

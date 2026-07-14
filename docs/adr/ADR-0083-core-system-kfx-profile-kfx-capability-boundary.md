@@ -3,8 +3,11 @@ metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
 adr_id: ADR-0083
 decision_status: accepted
-implementation_status: partial
-implementation_commits: [c6266fe3ea37e096ced272c497b6e729218c7a3b, ef4421c8607860978f7d2b890ab68c149d97747a, bdf3800cb34182b59d3f341dee08056a5ebf6bd0, fb67a700c748e8c355bec7d15077d654a2a9c3ea, 4734113513cb7f1868e29b45f505f3b6fd33eee1, 36381447657fcda49b7b5c48eafd9703236adcb0, 19ed717bd1db545782f366fd47b14ec3a1c35add, 88624d97677a439f557d07f7ae0eeb577a7d8206]
+implementation_status: implemented
+implementation_commits: [c6266fe3ea37e096ced272c497b6e729218c7a3b, ef4421c8607860978f7d2b890ab68c149d97747a, bdf3800cb34182b59d3f341dee08056a5ebf6bd0, fb67a700c748e8c355bec7d15077d654a2a9c3ea, 4734113513cb7f1868e29b45f505f3b6fd33eee1, 36381447657fcda49b7b5c48eafd9703236adcb0, 19ed717bd1db545782f366fd47b14ec3a1c35add, 88624d97677a439f557d07f7ae0eeb577a7d8206, 3e9d6e20708233d9316ad2e02b5d2d5b7ab50f90]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/842, https://github.com/kungfu-systems/kungfu/pull/843, https://github.com/kungfu-systems/kungfu/pull/852, https://github.com/kungfu-systems/kungfu/pull/854, https://github.com/kungfu-systems/kungfu/pull/860, https://github.com/kungfu-systems/kungfu/pull/862, https://github.com/kungfu-systems/kungfu/pull/863, https://github.com/kungfu-systems/kungfu/pull/864, https://github.com/kungfu-systems/kungfu/pull/865, https://github.com/kungfu-systems/kungfu/pull/867, https://github.com/kungfu-systems/kungfu/pull/873]
+closure_pr: https://github.com/kungfu-systems/kungfu/pull/873
+qualification_refs: [docs/qualification/gui-capability-boundary.md, docs/qualification/evidence/gui-capability-boundary/611e39d82/report.json, scripts/source-acceptance.mjs, framework/gui/scripts/bundle-core-audit.cjs, scripts/run-agent-session-provider-dogfood.mjs]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -17,7 +20,7 @@ last_reviewed: 2026-07-14
 
 # ADR-0083: capability ownership follows Core, System KFX, and Profile KFX boundaries
 
-- Status: accepted; implementation partial
+- Status: accepted; implemented and qualified on macOS arm64
 - Date: 2026-07-14
 - Category: product architecture / capability ownership / GUI composition
 - Subsystem: Core capability API, KFX/Profile runtime, GUI Shell, Query/ViewSpec,
@@ -238,6 +241,20 @@ The final boundary audit also removes Terminal KFX's Mission Control fallback
 when constructing a WorkRef. A work-bound launch must supply its Profile id,
 Profile root, and entity id together; a partial identity now fails visibly
 instead of silently binding another Profile's work to Mission Control.
+
+The staged implementation is closed by PR #873. Its canonical mainline commit
+packages the Agent Session runtime in both Product and standalone GUI builders
+and makes the bundle audit verify every external main-process dependency. The
+exact clean `611e39d82` candidate passed the 268-case source gate, GUI
+distribution, packaged dependency audit, qualification-mode cold start, and a
+six-case authenticated Codex structured-transport run before promotion to the
+macOS application slot. The retained report is
+[`docs/qualification/evidence/gui-capability-boundary/611e39d82/report.json`](../qualification/evidence/gui-capability-boundary/611e39d82/report.json).
+
+This closes the declared migration and macOS product gate. Linux, Windows,
+machine-restart, and interactive-pixel qualification remain explicit nonclaims;
+they do not reopen the ownership decision or imply evidence for an unmeasured
+platform.
 
 ## Acceptance gates
 

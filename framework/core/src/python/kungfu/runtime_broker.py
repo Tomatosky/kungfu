@@ -1568,9 +1568,16 @@ class ProcessRuntimeActivationClient:
             else:
                 generation = str(int(str(previous_generation or "0")) + 1)
                 try:
-                    self.diagnostics = dict(
-                        self.host.activate(self.home, self.runtime_dir)
+                    activate_with_generation = getattr(
+                        self.host, "activate_with_generation", None
                     )
+                    if callable(activate_with_generation):
+                        activated = activate_with_generation(
+                            self.home, self.runtime_dir, generation
+                        )
+                    else:
+                        activated = self.host.activate(self.home, self.runtime_dir)
+                    self.diagnostics = dict(activated)
                 except (OSError, RuntimeError, ValueError) as error:
                     return _failed_activation(
                         requirement,

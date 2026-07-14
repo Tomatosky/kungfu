@@ -127,6 +127,16 @@ class _FileProcessHost:
         return self._diagnostics(True)
 
 
+class _GenerationAwareProcessHost(_FileProcessHost):
+    def __init__(self, counter_path):
+        super().__init__(counter_path)
+        self.generations = []
+
+    def activate_with_generation(self, home, runtime_dir, generation):
+        self.generations.append(generation)
+        return self.activate(home, runtime_dir)
+
+
 class _LeaseClock:
     def __init__(self, now_ns):
         self.value = now_ns
@@ -414,6 +424,31 @@ def test_process_activation_fences_a_replaced_process_generation(tmp_path):
     assert replacement["outcome"] == "activated"
     assert replacement["handle"]["generation"] == "2"
     assert counter_path.read_text() == "2"
+
+
+def test_process_activation_projects_planned_generation_to_capable_host(tmp_path):
+    config_home = tmp_path / "config"
+    runtime_dir = tmp_path / "home" / "runtime"
+    host = _GenerationAwareProcessHost(tmp_path / "activation-count")
+    requirement = runtime_broker.plan_operation(
+        "assessment.request",
+        workspace=runtime_broker.workspace_id(runtime_dir),
+        request_source="python",
+        minimum_cut=_cut(),
+        request_id="request-generation-aware",
+    )["requirement"]
+
+    receipt = runtime_broker.ProcessRuntimeActivationClient(
+        str(runtime_dir.parent),
+        str(runtime_dir),
+        config_home=str(config_home),
+        host=host,
+        readiness_authority=_CutReadinessAuthority(),
+    ).activate(requirement, "python")
+
+    assert receipt["outcome"] == "activated"
+    assert receipt["handle"]["generation"] == "1"
+    assert host.generations == ["1"]
 
 
 def test_same_process_expands_readiness_without_advancing_generation(tmp_path):

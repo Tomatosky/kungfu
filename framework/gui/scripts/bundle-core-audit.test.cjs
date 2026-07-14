@@ -25,9 +25,10 @@ function packagedAppFixture() {
     'darwin-arm64',
     'spawn-helper',
   );
+  const appRoot = path.join(resources, 'app');
+  const main = path.join(appRoot, 'out', 'main', 'index.js');
   const agentSessionPackage = path.join(
-    resources,
-    'app',
+    appRoot,
     'node_modules',
     '@kungfu-tech',
     'agent-session',
@@ -43,16 +44,31 @@ function packagedAppFixture() {
   }
   fs.mkdirSync(path.dirname(helper), { recursive: true });
   fs.writeFileSync(helper, 'fixture', { mode: 0o644 });
-  for (const required of [
-    'package.json',
-    path.join('src', 'product-client.mjs'),
-    path.join('src', 'product-worker.mjs'),
-  ]) {
-    const requiredPath = path.join(agentSessionPackage, required);
-    fs.mkdirSync(path.dirname(requiredPath), { recursive: true });
-    fs.writeFileSync(requiredPath, 'fixture');
-  }
-  return { root, app, helper, agentSessionPackage };
+  fs.mkdirSync(path.dirname(main), { recursive: true });
+  fs.writeFileSync(
+    path.join(appRoot, 'package.json'),
+    JSON.stringify({ main: 'out/main/index.js' }),
+  );
+  fs.writeFileSync(main, 'require("electron"); require("node:path");');
+  fs.mkdirSync(path.join(agentSessionPackage, 'src'), { recursive: true });
+  fs.writeFileSync(
+    path.join(agentSessionPackage, 'package.json'),
+    JSON.stringify({
+      name: '@kungfu-tech/agent-session',
+      version: '0.0.0',
+      type: 'module',
+      exports: { './product-client': './src/product-client.mjs' },
+    }),
+  );
+  fs.writeFileSync(
+    path.join(agentSessionPackage, 'src', 'product-client.mjs'),
+    '',
+  );
+  fs.writeFileSync(
+    path.join(agentSessionPackage, 'src', 'product-worker.mjs'),
+    '',
+  );
+  return { root, app, appRoot, helper, main, agentSessionPackage };
 }
 
 test('repairs and audits the packaged node-pty Darwin spawn helper', (t) => {
@@ -80,4 +96,31 @@ test('rejects an app without the detached Agent Session worker', (t) => {
     () => auditPackagedApp(fixture.app),
     /missing packaged Agent Session runtime file/,
   );
+});
+
+test('rejects an external main dependency missing from the packaged app', (t) => {
+  const fixture = packagedAppFixture();
+  t.after(() => fs.rmSync(fixture.root, { recursive: true, force: true }));
+  repairNodePtySpawnHelpers(fixture.app);
+  fs.writeFileSync(
+    fixture.main,
+    'require("@kungfu-tech/missing-runtime/entry");',
+  );
+
+  assert.throws(
+    () => auditPackagedApp(fixture.app),
+    /unresolved packaged main dependencies:[\s\S]+missing-runtime\/entry/,
+  );
+});
+
+test('accepts a packaged external main dependency', (t) => {
+  const fixture = packagedAppFixture();
+  t.after(() => fs.rmSync(fixture.root, { recursive: true, force: true }));
+  repairNodePtySpawnHelpers(fixture.app);
+  fs.writeFileSync(
+    fixture.main,
+    'require("@kungfu-tech/agent-session/product-client");',
+  );
+
+  assert.doesNotThrow(() => auditPackagedApp(fixture.app));
 });
