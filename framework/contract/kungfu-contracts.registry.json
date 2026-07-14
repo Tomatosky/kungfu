@@ -94,6 +94,20 @@
       }
     },
     {
+      "surface": "upgrade",
+      "id": "kungfu-product-upgrade",
+      "schema": "kungfu.product-upgrade.contract/v1",
+      "weldedSurface": "product-upgrade-control-plane",
+      "env": "KUNGFU_UPGRADE_CONTRACT",
+      "file": "kungfu-upgrade.contract.json",
+      "source": "framework/upgrade/kungfu-upgrade.contract.json",
+      "artifact": "config/kungfu-upgrade.contract.json",
+      "cli": {
+        "contract": ["contract", "show", "upgrade", "--json"],
+        "schema": ["contract", "show", "upgrade", "--json"]
+      }
+    },
+    {
       "surface": "agent-session",
       "id": "kungfu-agent-session",
       "schema": "kungfu.agent-session.contract/v1",

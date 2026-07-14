@@ -80,6 +80,10 @@ export function buildCompatibilityManifest({ root, includeGui }) {
       'tree',
     ),
     sdk_contract: component(root, 'framework/sdk/kungfu-storage.contract.json'),
+    upgrade_contract: component(
+      root,
+      'framework/upgrade/kungfu-upgrade.contract.json',
+    ),
     sdk_fixture: component(
       root,
       'tests/qualification/layers/sdk/semantic-fixture-v1.json',
@@ -118,7 +122,7 @@ export function buildCompatibilityManifest({ root, includeGui }) {
       ),
     },
     boundary:
-      'Component hashes prove one source-bound assembly. Independent lower-layer reports remain separate release gates.',
+      'Component hashes prove one source-bound assembly. Runtime negotiation and activation use the separately welded kungfu.product-upgrade.contract/v1; this manifest does not grant live authority.',
   };
 }
 

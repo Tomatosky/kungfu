@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import os
 import platform
@@ -13,7 +14,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Mapping, Protocol
 from xml.sax.saxutils import escape as xml_escape
 
 import kungfu
@@ -435,8 +436,22 @@ def unlink_if_exists(path: Path) -> None:
         pass
 
 
-def entry_command() -> list[str]:
-    return host.entry_command()
+def entry_command(runtime_image: Mapping[str, Any] | None = None) -> list[str]:
+    from kungfu import runtime_upgrade
+
+    image = runtime_image or runtime_upgrade.image_from_environment()
+    if image is None:
+        return host.entry_command()
+    if image.get("schema") == runtime_upgrade.IMAGE_SCHEMA:
+        return runtime_upgrade.pinned_entry_command(image)
+    root = Path(str(image["artifactRoot"])).expanduser().resolve()
+    entrypoint = (root / str(image["entrypoint"])).resolve()
+    if root not in entrypoint.parents or not entrypoint.is_file():
+        raise runtime_upgrade.UpgradeError(
+            "entrypoint-missing",
+            "pinned runtime entrypoint is missing or escapes the image root",
+        )
+    return [str(entrypoint)]
 
 
 def command_env(
@@ -445,6 +460,7 @@ def command_env(
     log_level: str,
     config_home: str | None = None,
     runtime_generation: str | int | None = None,
+    runtime_image: Mapping[str, Any] | None = None,
 ) -> dict[str, str]:
     env = dict(os.environ)
     env["KF_HOME"] = home
@@ -455,12 +471,31 @@ def command_env(
         env["KF_RUNTIME_GENERATION"] = _positive_generation(
             runtime_generation, "runtime generation"
         )
+    if runtime_image is not None:
+        from kungfu import runtime_upgrade
+
+        if runtime_image.get("schema") == runtime_upgrade.IMAGE_SCHEMA:
+            env.update(runtime_upgrade.pinned_environment(runtime_image))
+        else:
+            env.update(
+                {
+                    "KF_RUNTIME_BUILD_ID": str(runtime_image["buildId"]),
+                    "KF_RUNTIME_ARTIFACT_ROOT": str(runtime_image["artifactRoot"]),
+                    "KF_RUNTIME_ENTRYPOINT": str(runtime_image["entrypoint"]),
+                    "KF_RUNTIME_MANIFEST_DIGEST": str(runtime_image["manifestDigest"]),
+                }
+            )
     return env
 
 
-def coordinator_run_command(home: str, runtime_dir: str, log_level: str) -> list[str]:
+def coordinator_run_command(
+    home: str,
+    runtime_dir: str,
+    log_level: str,
+    runtime_image: Mapping[str, Any] | None = None,
+) -> list[str]:
     return [
-        *entry_command(),
+        *entry_command(runtime_image),
         "--log_level",
         log_level,
         "runtime",
@@ -520,9 +555,10 @@ def supervisor_command(
     home: str | None = None,
     runtime_dir: str | None = None,
     foreground: bool = True,
+    runtime_image: Mapping[str, Any] | None = None,
 ) -> list[str]:
     command = [
-        *entry_command(),
+        *entry_command(runtime_image),
         "--log_level",
         log_level,
         "runtime",
@@ -1292,9 +1328,15 @@ class ProcessRuntimeHost:
         self,
         log_level: str = "warning",
         config_home: str | None = None,
+        runtime_image: Mapping[str, Any] | None = None,
     ) -> None:
         self.log_level = log_level
         self.config_home = resolve_config_home(config_home)
+        if runtime_image is None:
+            from kungfu import runtime_upgrade
+
+            runtime_image = runtime_upgrade.image_from_environment()
+        self.runtime_image = runtime_image
 
     def run_foreground(
         self,
@@ -1322,6 +1364,9 @@ class ProcessRuntimeHost:
                 **authority,
                 "coordinatorPid": os.getpid(),
                 "coordinatorStartIdentity": coordinator_start_identity,
+                "runtimeImage": copy.deepcopy(dict(self.runtime_image))
+                if self.runtime_image is not None
+                else None,
                 "updatedAt": _now(),
             },
         )
@@ -1350,7 +1395,12 @@ class ProcessRuntimeHost:
     ) -> subprocess.Popen[Any]:
         home = resolve_runtime_home(home)
         runtime_dir = resolve_runtime_dir(home, runtime_dir)
-        command = coordinator_run_command(home, runtime_dir, self.log_level)
+        command = coordinator_run_command(
+            home,
+            runtime_dir,
+            self.log_level,
+            self.runtime_image,
+        )
         coordinator_log_path(runtime_dir).parent.mkdir(parents=True, exist_ok=True)
         with coordinator_log_path(runtime_dir).open("ab") as log:
             return subprocess.Popen(
@@ -1360,7 +1410,8 @@ class ProcessRuntimeHost:
                     runtime_dir,
                     self.log_level,
                     self.config_home,
-                    runtime_generation,
+                    runtime_generation=runtime_generation,
+                    runtime_image=self.runtime_image,
                 ),
                 stdout=log,
                 stderr=log,
@@ -1381,6 +1432,7 @@ class ProcessRuntimeHost:
             home=home,
             runtime_dir=runtime_dir,
             foreground=True,
+            runtime_image=self.runtime_image,
         )
         with supervisor_log_path(self.config_home).open("ab") as log:
             kwargs: dict[str, Any] = {
@@ -1389,7 +1441,8 @@ class ProcessRuntimeHost:
                     runtime_dir,
                     self.log_level,
                     self.config_home,
-                    runtime_generation,
+                    runtime_generation=runtime_generation,
+                    runtime_image=self.runtime_image,
                 ),
                 "stdout": log,
                 "stderr": log,
