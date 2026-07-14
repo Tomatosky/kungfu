@@ -8,8 +8,8 @@ explains Kungfu's current policy and does not redefine Shifu semantics.
 ## Authority and current-state boundary
 
 - Shifu owns the registry, plan, execution, and receipt contracts.
-- Kungfu owns the 38 concrete gate ids, actions, documentation, and five remote
-  policy profiles.
+- Kungfu owns the 38 concrete gate ids, actions, documentation, five remote
+  policy profiles, and one non-policy measurement profile.
 - [Workflow bindings](workflow-bindings.json) record how current GitHub
   workflows activate profiles and gates. Schema v2 makes direct Gate,
   Buildchain Gate-profile, and controller entries structure-checked.
@@ -35,12 +35,24 @@ explains Kungfu's current policy and does not redefine Shifu semantics.
 | `alpha-pr` | three-platform self-hosted build/verify/fuzz/release evidence plus conditional membrane and Shifu matrices |
 | `release-pr` | currently the same qualification strength as alpha, with the release publication channel |
 | `release-promotion` | post-merge promotion rehearsal and Buildchain artifact/passport admission |
+| `measurement` | manual three-platform source-bound observation of every task-backed Gate; all selected actions are advisory and it never publishes |
 
 `local-changed` is intentionally not a qualifying profile. Local diagnosis uses
 `./shifu gate run source.changed-scope` or an explicit list of Gate ids, and the
 result is non-qualifying by contract. Keeping it outside the remote profile
 matrix prevents a partial changed-file selection from minting a release receipt
 or becoming a sixth publication policy by accident.
+
+`measurement` is likewise not a publication policy. It exists so one manual
+workflow can lock a clean source revision, execute every task-backed Gate on
+each supported self-hosted platform, and retain the resulting Shifu receipts.
+Its three remote handler Gates stay `off`: DCO, Buildchain configuration, and
+artifact admission must be observed at their real embedding controllers rather
+than replaced by local no-op handlers.
+
+Its workflow binding sets `currentSource: false`: the checker still proves the
+profile invocation and full non-`off` Gate set in both directions, but the
+one-shot observation runner is not rendered as a Gate's standing policy source.
 
 The matrix is deliberately conservative during rollout. Existing blocking
 checks remain `required`; independently runnable heavy Gates without a current
@@ -137,6 +149,7 @@ responsible for that cross-repository evidence.
 ./shifu gate plan alpha-pr --platform linux
 ./shifu gate run source.acceptance --receipt build/gate-receipts/source.json
 ./shifu check:gate-catalog
+gh workflow run gate-measurement.yml --ref dev/v4/v4.0 -f source-ref=<FULL_SHA>
 ```
 
 Explicit `gate run GATE` is diagnostic and non-qualifying. A qualifying receipt
