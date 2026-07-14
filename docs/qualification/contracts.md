@@ -184,6 +184,42 @@ contract. Full language/product projection and product qualification land in
 later stages. Cross-machine leases, distributed election, high availability,
 and EmbeddedRuntimeHost remain explicit non-claims.
 
+## Agent session control has one PTY owner and one interaction port
+
+**Guarantee.** A live `SessionAttempt` has exactly one generation-fenced
+`AgentSessionCapsule` as its PTY-master owner. CLI, GUI, and KFX/Agent clients
+share the same plan, action, status, and receipt schemas; only the current
+controller lease may write. Coordinator restart does not reset the session
+stream epoch, duplicate `inputId` cannot produce a second write, and bounded
+output loss is returned as an explicit gap with a recovery snapshot.
+
+A delivery receipt proves only that validated input was written to the PTY. It
+does not prove provider understanding, semantic outcome, work progress, or
+closeout. Those claims remain under provider structured events and
+Profile/KFD/Episode authority. Provider exit closes input admission so queued
+text cannot fall through into a shell.
+
+**Verify.** Inspect
+[kungfu-agent-session.contract.json](../../framework/agent-session/kungfu-agent-session.contract.json)
+and
+[ADR-0081](../adr/ADR-0081-durable-agent-session-capsule-control-plane.md),
+then run:
+
+    kungfu contract show agent-session --json
+    ./shifu test:agent-session-contract
+    ./shifu check:source
+
+The fixture gate accepts seven canonical plan/status/receipt cases and rejects
+dual Capsule ownership, stale controller lease, wrong stream epoch, duplicate
+input write, blind instruction in unknown modal state, provider-exit shell
+fallthrough, silent replay gaps, and terminal delivery promoted to work proof.
+
+**Maturity.** Partial. The registered contract, schemas, canonical policy,
+positive fixtures, negative fixtures, and source gate are implemented. The
+Capsule process host, peer transport, provider adapters, product surfaces,
+restart qualification, and real Codex/Claude smoke remain staged; this contract
+does not claim those runtime behaviors already exist.
+
 ## The KFD-1 contract registry is the packaging source of truth
 
 **Guarantee.** Registered machine-readable contracts are indexed by
