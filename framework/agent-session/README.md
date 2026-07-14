@@ -135,6 +135,18 @@ provider smoke reads no credentials or private provider state:
 ./shifu test:codex-app-server-runtime
 ```
 
+The Stage 3 structured interaction adapter consumes only the fenced runtime
+event stream. It emits deterministic provider-private plans and typed receipts
+for thread, turn, item, tool, approval, usage, error, and lifecycle traffic.
+Provider request, thread, turn, and item identities remain exact; approvals and
+other server controls default to deny; stale targets, event gaps, repeated turn
+terminals, and mutated plans fail closed. Request admission and control delivery
+never claim semantic work outcome, Profile/KFD work state, or proof:
+
+```sh
+./shifu test:codex-app-server-interaction
+```
+
 On Darwin, packaged products must restore the executable bit on node-pty's
 `spawn-helper`. The existing Electron `afterPack` audit already owns that
 repair. The Mac smoke copies node-pty into a temporary harness directory and

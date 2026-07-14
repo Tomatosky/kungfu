@@ -91,6 +91,14 @@ test('continuous reader exposes turn identity before a late turn/start response'
   assert.ok(completed > started);
   assert.ok(correlated > completed);
   assert.equal(events[started].message.params.turn.id, 'turn-authority');
+  assert.deepEqual(
+    {
+      sessionAttemptId: events[started].sessionAttemptId,
+      runtimeGeneration: events[started].runtimeGeneration,
+      processStartIdentity: events[started].processStartIdentity,
+    },
+    host.currentFence(),
+  );
   assert.equal(response.providerMethod, 'turn/start');
   assert.equal(response.status, 'observed');
 });
