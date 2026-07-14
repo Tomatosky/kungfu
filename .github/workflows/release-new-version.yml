@@ -45,10 +45,10 @@ jobs:
   promote:
     needs: promotion-contract
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true }}
-    uses: kungfu-systems/buildchain/.github/workflows/release-candidate-promote.yml@bb54bd1fadc0edadf40f77555e5bba5c6168d739
+    uses: kungfu-systems/buildchain/.github/workflows/release-candidate-promote.yml@21a3bf97bb19dd0475c4223f734581ae81f374f9
     with:
       channel: ${{ startsWith(inputs.target-ref || github.event.pull_request.base.ref, 'alpha/') && 'alpha' || 'release' }}
-      buildchain-ref: ${{ github.event_name == 'workflow_dispatch' && 'bb54bd1fadc0edadf40f77555e5bba5c6168d739' || startsWith(github.event.pull_request.base.ref, 'alpha/') && 'v2-alpha' || 'v2' }}
+      buildchain-ref: ${{ github.event_name == 'workflow_dispatch' && '21a3bf97bb19dd0475c4223f734581ae81f374f9' || startsWith(github.event.pull_request.base.ref, 'alpha/') && 'v2-alpha' || 'v2' }}
       target-ref: ${{ inputs.target-ref || github.event.pull_request.base.ref }}
       target-sha: ${{ inputs.target-sha || github.event.pull_request.merge_commit_sha || github.sha }}
       buildchain-contract-lock-path: ${{ startsWith(inputs.target-ref || github.event.pull_request.base.ref, 'alpha/') && '.buildchain/alpha-contract-lock.json' || '.buildchain/contract-lock.json' }}

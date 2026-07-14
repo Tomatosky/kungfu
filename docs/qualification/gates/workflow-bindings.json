@@ -363,7 +363,7 @@
       "adapter": {
         "type": "buildchain-release-admission",
         "kind": "job-uses",
-        "uses": "kungfu-systems/buildchain/.github/workflows/release-candidate-promote.yml@bb54bd1fadc0edadf40f77555e5bba5c6168d739",
+        "uses": "kungfu-systems/buildchain/.github/workflows/release-candidate-promote.yml@21a3bf97bb19dd0475c4223f734581ae81f374f9",
       "job": {
         "needs": "promotion-contract",
         "if": "${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true }}"
