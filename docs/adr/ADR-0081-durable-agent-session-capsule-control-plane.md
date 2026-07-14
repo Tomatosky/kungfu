@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0081
 decision_status: accepted
 implementation_status: partial
-implementation_commits: [eed8a90cb760593025afe457f98db79289cd506b]
+implementation_commits: [90e878b696a6a6a6a1a9d21f166f0e63bc527bb2]
 qualification_refs: [scripts/check-agent-session-contract.test.mjs, tests/fixtures/agent-session-capsule-contract]
 review_state: self-reviewed
 sensitivity: public
