@@ -157,7 +157,7 @@
     "currentTopology": [
       {
         "id": "process",
-        "implementation": "kungfu.runtime_service supervisor/coordinator",
+        "implementation": "kungfu.runtime_service ProcessRuntimeHost over CoordinatorEngine",
         "contractAdapter": "ProcessRuntimeHost",
         "contractAdapterImplemented": false
       }
@@ -345,7 +345,7 @@
     "processDiagnostics": {
       "statusSchema": "kungfu.runtime.status/v2",
       "routesSchema": "kungfu.runtime.routes/v2",
-      "rule": "Retained as process-control and advanced diagnostic surfaces until the ProcessRuntimeHost adapter lands; running and healthy do not imply runtime readiness."
+      "rule": "Retained as ProcessRuntimeHost control and advanced diagnostic surfaces; running and healthy do not imply runtime readiness."
     },
     "legacyAliases": [
       {

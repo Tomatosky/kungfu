@@ -23,18 +23,19 @@ def _install_fake_pykungfu():
             location_role=types.SimpleNamespace(SYSTEM="SYSTEM"),
         )
     )
-    fake.runtime = types.SimpleNamespace(
-        coordinator=_FakeCoordinator,
-        locator=lambda runtime_dir: {"runtime_dir": runtime_dir},
-        location=lambda mode, role, namespace, name, locator: {
-            "mode": mode,
-            "role": role,
-            "namespace": namespace,
-            "name": name,
-            "locator": locator,
-        },
-    )
+    runtime = types.ModuleType("pykungfu.runtime")
+    runtime.coordinator = _FakeCoordinator
+    runtime.locator = lambda runtime_dir: {"runtime_dir": runtime_dir}
+    runtime.location = lambda mode, role, namespace, name, locator: {
+        "mode": mode,
+        "role": role,
+        "namespace": namespace,
+        "name": name,
+        "locator": locator,
+    }
+    fake.runtime = runtime
     sys.modules.setdefault("pykungfu", fake)
+    sys.modules.setdefault("pykungfu.runtime", runtime)
 
 
 _install_fake_pykungfu()
@@ -185,6 +186,58 @@ def test_coordinator_keeps_wire_v1_location_identity(tmp_path):
 
     assert coordinator.location["namespace"] == "master"
     assert coordinator.location["name"] == "master"
+
+
+def test_coordinator_engine_handles_inspect_request_without_process_state(
+    tmp_path, monkeypatch
+):
+    def _process_boundary_used(*args, **kwargs):
+        raise AssertionError("no-fork engine crossed the process boundary")
+
+    monkeypatch.setattr(runtime_service.subprocess, "Popen", _process_boundary_used)
+    monkeypatch.setattr(runtime_service.os, "getpid", _process_boundary_used)
+    monkeypatch.setattr(runtime_service.signal, "signal", _process_boundary_used)
+
+    engine = runtime_service.CoordinatorEngine(
+        str(tmp_path / "home"),
+        str(tmp_path / "runtime"),
+    )
+    receipt = engine.handle_request(runtime_service.RuntimeEngineRequest("inspect"))
+
+    assert receipt.accepted is True
+    assert receipt.state == "constructed"
+    assert receipt.capabilities == (
+        "runtime.peer-registry",
+        "runtime.channel-routing",
+        "runtime.assessment-scheduling",
+    )
+
+
+def test_process_runtime_host_wraps_engine_with_pid_lifecycle(tmp_path, monkeypatch):
+    events = []
+
+    class _FakeEngine:
+        def __init__(self, *args, **kwargs):
+            events.append(("constructed", args, kwargs))
+
+        def run(self):
+            events.append(("run",))
+
+        def close(self):
+            events.append(("close",))
+
+    monkeypatch.setattr(runtime_service, "CoordinatorEngine", _FakeEngine)
+    runtime_dir = tmp_path / "runtime"
+    result = runtime_service.ProcessRuntimeHost().run_foreground(
+        str(tmp_path / "home"), str(runtime_dir)
+    )
+
+    assert result == 0
+    assert [event[0] for event in events] == ["constructed", "run", "close"]
+    assert runtime_service.read_coordinator_pid(str(runtime_dir)) is None
+    state = runtime_service._json_read(runtime_service.state_path(str(runtime_dir)))
+    assert state["status"] == "coordinator-running"
+    assert state["coordinatorPid"] == os.getpid()
 
 
 def test_repair_route_state_removes_dead_pid_files(tmp_path, monkeypatch):
@@ -346,7 +399,7 @@ def test_workspace_coordinator_schedules_one_pending_assessment_process(
 
     assert len(spawned) == 1
     assert spawned[0][0] == ["worker", str(runtime_dir), pending_key]
-    assert coordinator._assessment_worker[0] == pending_key
+    assert coordinator._assessment_executor.current[0] == pending_key
 
 
 def test_workspace_coordinator_cancels_timed_out_assessor_and_retries_pending_request(
@@ -395,7 +448,7 @@ def test_workspace_coordinator_cancels_timed_out_assessor_and_retries_pending_re
 
     assert len(spawned) == 2
     assert spawned[0].terminated is True
-    assert coordinator._assessment_worker[1] is spawned[1]
+    assert coordinator._assessment_executor.current[1] is spawned[1]
 
 
 def test_assessment_subscription_snapshot_exposes_summary_before_proof(

@@ -11,8 +11,9 @@ The topology-neutral activation and readiness contract is defined by
 The canonical process-adapter terminology is defined by
 [ADR-0057](../adr/ADR-0057-domain-neutral-live-runtime-terminology.md);
 [ADR-0036](../adr/ADR-0036-supervisor-and-workspace-master-topology.md)
-records the original topology decision. The current process-control topology
-has two live process roles:
+records the original topology decision. The current process-control topology is
+implemented by `ProcessRuntimeHost` over a directly callable
+`CoordinatorEngine` and has two live process roles:
 
 - `supervisor` is one per OS user/session. It owns no workspace facts. It
   starts, discovers, health-checks, and stops workspace coordinators.
@@ -35,7 +36,7 @@ updates. It does not become fact authority or embed every domain assessor. See
 
 ## Current CLI Surface
 
-The current implementation slice exposes the process-control topology through
+The current implementation slice exposes this process adapter through
 `kungfu runtime ...` commands:
 
 - `kungfu runtime supervise` is the foreground supervisor loop used by a user
@@ -67,7 +68,7 @@ The v2 status and route payloads are compatibility diagnostics. A reported
 `running` process lifecycle does not establish the ADR-0080 runtime `ready`
 state, capability set, generation, or durable cut.
 
-## Current Process-control Topology
+## Current ProcessRuntimeHost Topology
 
 The target live command path is:
 
@@ -78,6 +79,14 @@ CLI / GUI / TUI
   -> supervisor ensure_coordinator(data_root)
   -> command talks to that data-root coordinator
 ```
+
+`kungfu.runtime_service.ensure_coordinator` is a compatibility function that
+delegates activation to `ProcessRuntimeHost`. The adapter owns PID files,
+signals, child spawning, detached supervisor startup, and process diagnostics.
+`CoordinatorEngine` owns the directly callable coordinator request seam and
+accepts an injected assessment executor; its no-fork fixture uses no PID,
+signal, argv, environment, or subprocess authority. This seam is qualification
+evidence, not a production EmbeddedRuntimeHost.
 
 If the supervisor is not running, a product entrypoint may start it. If a
 command only needs closed-data storage access, it may bypass the live coordinator and

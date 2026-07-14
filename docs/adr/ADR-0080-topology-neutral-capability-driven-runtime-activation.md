@@ -179,13 +179,16 @@ layouts, a C ABI, thread affinity, re-entrancy, or an external executor
 interface. RuntimeClockExecutor remains internal and provisional until a second
 host requires a qualified implementation.
 
-The current supervisor/coordinator process topology is the first target for
-ProcessRuntimeHost; that contract adapter and broker implementation belong to
-delivery stage 2. EmbeddedRuntimeHost is a reserved non-claim: v1 deliberately
-contains no production implementation, thread model, or qualification claim
-for it. A future host must implement the same requirement, handle, readiness,
-generation, lease, receipt, and error semantics rather than introduce an
-embedded-only public path.
+The current supervisor/coordinator process topology is now behind the Python
+ProcessRuntimeHost placement adapter. CoordinatorEngine provides the directly
+callable, no-fork request seam while process placement, PIDs, signals, spawning,
+and OS service diagnostics stay in the adapter. The semantic RuntimeHost
+requirement/handle adapter remains incomplete until the Core capability broker
+lands in a later delivery stage. EmbeddedRuntimeHost is a reserved non-claim:
+v1 deliberately contains no production implementation, thread model, or
+qualification claim for it. A future host must implement the same requirement,
+handle, readiness, generation, lease, receipt, and error semantics rather than
+introduce an embedded-only public path.
 
 ## Current capability vocabulary
 
@@ -218,7 +221,7 @@ to report one of these errors.
 | Current surface | Migration role | Compatibility rule |
 | --- | --- | --- |
 | kungfu.runtime.status/v2 and kungfu.runtime.routes/v2 | process diagnostics | retain; running/healthy never imply semantic readiness |
-| Python runtime_service.ensure_coordinator | current process-control implementation | move behind ProcessRuntimeHost.activate; do not expose it as the new public requirement |
+| Python runtime_service.ensure_coordinator | compatibility entrypoint | delegates to ProcessRuntimeHost.activate; do not expose it as the new public requirement |
 | kungfu runtime ensure/start/status/stop/restart | operator commands | retain command compatibility while projecting requirement, receipt, handle, and advanced diagnostics |
 | C++ runtime::live::coordinator | coordinator engine | keep domain-neutral terminology and historic wire identity adapter from ADR-0057 |
 | GUI tray/status bar | request and presentation | consume the shared handle/readiness projection; no GUI-only activation authority |
@@ -274,7 +277,7 @@ products copy the exact contract through the existing KFD-1 contract registry.
 ## Delivery stages
 
 1. Land this ADR, the KFD-1 contract, fixtures, and source gate.
-2. Put the current supervisor/coordinator path behind ProcessRuntimeHost.
+2. Put the current supervisor/coordinator path behind ProcessRuntimeHost. **Complete:** CoordinatorEngine supplies the no-fork request seam; ProcessRuntimeHost owns process placement. The full semantic RuntimeHost adapter remains stage 3 work.
 3. Add the Core capability broker and generation-fenced handles.
 4. Bind recovery and projection readiness to an exact durable cut.
 5. Add leases, idle draining, adoption, and restart recovery.

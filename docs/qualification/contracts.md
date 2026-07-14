@@ -165,11 +165,12 @@ The source gate validates four positive contract cases and rejects PID-as-
 readiness, dual active generations, ready without a cut, authority broadening,
 GUI-only activation, and silent live-required downgrade.
 
-**Maturity.** Staged. The contract, registry integration, fixtures, and source
-gate are implemented. The current supervisor/coordinator process topology
-remains active; ProcessRuntimeHost, the Core broker, recovery-bound activation,
-full language/product projection, and product qualification land in later
-stages. EmbeddedRuntimeHost is an explicit non-claim.
+**Maturity.** Staged. The contract, registry integration, fixtures, source gate,
+ProcessRuntimeHost placement adapter, and directly callable CoordinatorEngine
+no-fork seam are implemented. The semantic RuntimeHost requirement/handle
+adapter, Core broker, recovery-bound activation, full language/product
+projection, and product qualification land in later stages. EmbeddedRuntimeHost
+is an explicit non-claim.
 
 ## The KFD-1 contract registry is the packaging source of truth
 

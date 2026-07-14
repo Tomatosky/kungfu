@@ -65,7 +65,7 @@ test('process diagnostics do not upgrade a handle without a durable cut', () => 
   assert.ok(issues.some((item) => item.code === 'readiness-cut-missing'));
 });
 
-test('process is the current topology while both contract adapters remain honest', () => {
+test('process placement is explicit while semantic host and embedded remain non-claims', () => {
   assert.deepEqual(
     CONTRACT.hostKinds.currentTopology.map((item) => item.id),
     ['process'],
