@@ -211,6 +211,8 @@ then run:
     ./shifu test:agent-session-peer-transport
     ./shifu build:core
     ./shifu test:agent-session-peer-transport:native
+    ./shifu test:agent-session-interaction-adapters
+    ./shifu test:agent-session-interaction-adapters:native
     ./shifu check:source
 
 The fixture gate accepts seven canonical plan/status/receipt cases and rejects
@@ -231,8 +233,14 @@ count. The native ADR-0077 adapter is also implemented and qualified with a
 real Coordinator plus separate writer and reader Watcher processes: action
 envelopes traverse the writer's public mmap journal, the existing nng notice
 wakes the reader, and the Coordinator does not proxy payload bytes. Provider
-adapters, product surfaces, machine restart, and real Codex/Claude smoke remain
-staged; this contract does not claim those behaviors already exist.
+adapters now implement versioned redacted state classification,
+when-ready/queue/interrupt policy, atomic bracketed paste, manual-only keys,
+provider-exit closure, opaque-shell fallback, and delivery/outcome separation.
+Local no-private-state version probes match Codex `0.144.3` and Claude Code
+`2.1.209`; they do not prove authenticated interaction, approval outcome, or
+provider semantic response. Product surfaces, machine restart, and real
+Codex/Claude dogfood remain staged; this contract does not claim those behaviors
+already exist.
 
 ## The KFD-1 contract registry is the packaging source of truth
 

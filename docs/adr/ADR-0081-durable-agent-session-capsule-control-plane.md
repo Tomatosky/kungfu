@@ -6,7 +6,7 @@ decision_status: accepted
 implementation_status: partial
 implementation_commits: [80593936763261a38eb1fb696a254390c2decd67, 8b02979d68751924810d1dc25424dd7289f5d3e6, f3743218981bee7b1ffbe4fc14511845b8ac0b53]
 implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/834, https://github.com/kungfu-systems/kungfu/pull/837]
-qualification_refs: [scripts/check-agent-session-contract.test.mjs, tests/fixtures/agent-session-capsule-contract, framework/agent-session/tests/capsule-host.test.mjs, framework/agent-session/tests/capsule-worker.test.mjs, framework/agent-session/tests/peer-transport.test.mjs, framework/agent-session/tests/runtime-port.test.mjs, framework/agent-session/tests/runtime-port.native.test.mjs]
+qualification_refs: [scripts/check-agent-session-contract.test.mjs, tests/fixtures/agent-session-capsule-contract, framework/agent-session/tests/capsule-host.test.mjs, framework/agent-session/tests/capsule-worker.test.mjs, framework/agent-session/tests/peer-transport.test.mjs, framework/agent-session/tests/runtime-port.test.mjs, framework/agent-session/tests/runtime-port.native.test.mjs, framework/agent-session/tests/provider-adapters.test.mjs, framework/agent-session/tests/interaction-port.test.mjs, framework/agent-session/tests/provider-version.native.test.mjs]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-decision]
@@ -217,14 +217,17 @@ evidence input under Profile/KFD authority.
 6. Fault, privacy, performance, Mac product, and promoted real-provider evidence
    close the decision.
 
-The contract slice, Stage 2 independent synthetic Capsule PTY host, and the
-Stage 3 journal/notice transport authority state machine are implemented and
-recorded, so the implementation status is partial. Deterministic transport
-fixtures prove multi-reader cursors, one-controller arbitration, input dedup,
-bounded gaps, Coordinator re-registration, Supervisor adoption fencing and
-writer-path fanout bounds. The production adapter binds that seam to native
-Watcher Peers: action envelopes use the Capsule's public mmap journal, the
-existing writer publication provides the nng notice, and a cross-process
-Coordinator/writer/reader qualification proves cursor reconstruction without a
-Coordinator byte proxy. Stages 4–6 remain required for real-provider semantics,
-shared product surfaces and machine-restart qualification.
+The contract slice, Stage 2 independent synthetic Capsule PTY host, Stage 3
+journal/notice transport authority, and Stage 4 provider-neutral interaction
+port are implemented and recorded, so the implementation status remains
+partial. Deterministic transport fixtures prove multi-reader cursors,
+one-controller arbitration, input dedup, bounded gaps, Coordinator
+re-registration, Supervisor adoption fencing and writer-path fanout bounds.
+The production adapter binds that seam to native Watcher Peers without a
+Coordinator byte proxy. Versioned, redacted Codex and Claude Code fixtures now
+prove ready/busy/approval/unknown admission policy, atomic paste, bounded queue,
+manual-only keys, interrupt fencing, exit closure and visible adapter drift.
+Local `--version` probes match Codex `0.144.3` and Claude Code `2.1.209` without
+reading private state; they do not qualify authenticated TUI behavior. Stages 5
+and 6 remain required for shared product surfaces, real-provider semantic
+dogfood, machine restart and promoted product evidence.

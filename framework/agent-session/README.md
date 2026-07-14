@@ -1,4 +1,4 @@
-# AgentSessionCapsule host and peer transport
+# AgentSessionCapsule host, peer transport, and interaction port
 
 `@kungfu-tech/agent-session` contains the process-lifetime boundary that owns
 one provider PTY for one `SessionAttempt`. It directly spawns an absolute
@@ -39,8 +39,24 @@ a production broker. `NativeKungfuJournalNoticePort` binds the same authority
 state machine to a native Watcher Peer: one public mmap journal writer carries
 `kungfu.action-envelope/v1` frames and the writer's existing nng publication is
 the payload-free wakeup plane. The Coordinator never proxies frame bytes and
-the Capsule worker's local test socket is not a public relay. Codex and Claude
-semantic adapters belong to Stage 4, and product surfaces belong to Stage 5.
+the Capsule worker's local test socket is not a public relay.
+
+The Stage 4 provider-neutral Interaction Port adds:
+
+- `status`, `snapshot`, `instruct`, `sendKey`, and `interrupt` over the same
+  generation-, epoch-, controller-, and foreground-fenced transport;
+- deterministic `when-ready`, bounded `queue`, and interrupt-then-wait policy;
+- versioned Codex `0.144.x` and Claude Code `2.1.x` redacted TUI signatures for
+  `ready`, `busy`, `approval-needed`, `ended`, and `unknown`;
+- one atomic bracketed-paste instruction plus one Enter, with duplicate input
+  and trailing-Enter rejection; and
+- visible adapter drift and opaque-shell fallback to explicit raw human input.
+
+An automatic instruction is never delivered or queued from
+`approval-needed` or `unknown`. `sendKey` is manual-only. Delivery receipts do
+not contain instruction text and never claim provider understanding, semantic
+outcome, work state, approval result, or interrupt result. Adapter fixtures are
+synthetic and redacted. Product surfaces still belong to Stage 5.
 
 Run the focused qualification through Shifu:
 
@@ -49,6 +65,8 @@ Run the focused qualification through Shifu:
 ./shifu test:agent-session-peer-transport
 ./shifu build:core
 ./shifu test:agent-session-peer-transport:native
+./shifu test:agent-session-interaction-adapters
+./shifu test:agent-session-interaction-adapters:native
 ```
 
 The build-free source gate runs the pure host and transport tests only. Native
@@ -58,6 +76,12 @@ cursor reconstruction and absence of a Coordinator byte proxy. The Capsule host
 focused command also runs the native node-pty worker smoke; native checks stay
 outside the source-only lifecycle because that runner installs dependencies
 without native build scripts.
+
+The interaction adapter native command is build-free and local-only: it checks
+installed Codex and Claude Code version output under a temporary HOME without
+reading provider auth, private transcripts, or hidden session databases. Real
+authenticated instruction, approval/deny, and provider-outcome dogfood remains
+a Stage 6 product qualification obligation.
 
 On Darwin, packaged products must restore the executable bit on node-pty's
 `spawn-helper`. The existing Electron `afterPack` audit already owns that

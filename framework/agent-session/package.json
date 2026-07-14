@@ -1,7 +1,7 @@
 {
   "name": "@kungfu-tech/agent-session",
   "version": "4.0.0-alpha.0",
-  "description": "Kungfu AgentSessionCapsule process and PTY host",
+  "description": "Kungfu AgentSessionCapsule process, PTY transport, and interaction port",
   "license": "Apache-2.0",
   "type": "module",
   "repository": {
