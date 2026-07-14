@@ -7,7 +7,7 @@ implementation_status: implemented
 implementation_commits: [92b30d70f08ea51ecdaf36844fe5eb953f3686ac, cb9e86bf81c3d1997f7a4b725ab6fcf6bb6e89c8, 10f7bc09dfb016b26cba7b6b68005b102a9c8dc1]
 implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/815, https://github.com/kungfu-systems/kungfu/pull/818, https://github.com/kungfu-systems/kungfu/pull/819, https://github.com/kungfu-systems/kungfu/pull/822, https://github.com/kungfu-systems/kungfu/pull/823, https://github.com/kungfu-systems/kungfu/pull/825, https://github.com/kungfu-systems/kungfu/pull/831, https://github.com/kungfu-systems/kungfu/pull/841]
 closure_pr: https://github.com/kungfu-systems/kungfu/pull/841
-qualification_refs: [docs/qualification/runtime-activation-and-product-delivery.md, docs/qualification/evidence/runtime-activation/fb1574844/report.json]
+qualification_refs: [docs/qualification/runtime-activation-and-product-delivery.md, docs/qualification/evidence/runtime-activation/fea9ea4ae/report.json]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-decision]
@@ -306,8 +306,8 @@ products copy the exact contract through the existing KFD-1 contract registry.
    qualification report records eight passing suites for daemonless and
    no-fork behavior, concurrent activation, catch-up, crash/lease/idle
    recovery, surface parity, measured performance, and the packaged product.
-   The report is bound to clean source revision `fb1574844`, product artifact
-   `20260714T092910Z-fb1574844`, and its documented SHA-256. Linux and Windows
+   The report is bound to clean source revision `fea9ea4ae`, product artifact
+   `20260714T102912Z-fea9ea4ae`, and its documented SHA-256. Linux and Windows
    remain contract/CI surfaces; production `EmbeddedRuntimeHost`, HA or
    replication, and physical power-cut behavior remain explicit non-claims.
 
