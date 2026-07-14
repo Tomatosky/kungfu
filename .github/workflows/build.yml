@@ -89,7 +89,7 @@ jobs:
 
   controller-evidence-train:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.buildchain-ref != '' }}
-    uses: kungfu-systems/buildchain/.github/workflows/check.yml@9394cc16fad3b0c430cba854aa2131ee28e028d2
+    uses: kungfu-systems/buildchain/.github/workflows/check.yml@839ab985bcf182cc8d497f95fc0fcd3b578c5296
     with:
       buildchain-ref: ${{ inputs.buildchain-ref }}
       mode: source
@@ -105,7 +105,7 @@ jobs:
       EXPECTED_SOURCE_REPOSITORY: ${{ github.repository }}
       EXPECTED_SOURCE_SHA: ${{ github.sha }}
       EXPECTED_RUNTIME_REF: ${{ inputs.buildchain-ref }}
-      EXPECTED_RUNTIME_SHA: 9394cc16fad3b0c430cba854aa2131ee28e028d2
+      EXPECTED_RUNTIME_SHA: 839ab985bcf182cc8d497f95fc0fcd3b578c5296
     steps:
       - name: Checkout Buildchain runtime
         uses: actions/checkout@v7.0.0
