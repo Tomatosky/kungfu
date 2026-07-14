@@ -7,6 +7,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { prepareGateMeasurementHistory } from './prepare-gate-measurement-history.mjs';
+
 const node = process.execPath;
 const root = fileURLToPath(new URL('..', import.meta.url));
 const shifuLauncher = path.join(
@@ -107,16 +109,7 @@ function prepareWorkspace() {
 }
 
 function prepareHistory() {
-  const shallow = spawn('git', ['rev-parse', '--is-shallow-repository'], {
-    stdio: ['ignore', 'pipe', 'inherit'],
-    encoding: 'utf8',
-  });
-  if (process.exitCode) process.exit(process.exitCode);
-  const args = ['fetch'];
-  if (shallow.stdout.trim() === 'true') args.push('--unshallow');
-  args.push('--no-tags', 'origin', '+refs/heads/*:refs/remotes/origin/*');
-  spawn('git', args);
-  if (process.exitCode) process.exit(process.exitCode);
+  prepareGateMeasurementHistory(process.cwd());
 }
 
 // Dependency installation, catalog bootstrap, and managed Python materialization
