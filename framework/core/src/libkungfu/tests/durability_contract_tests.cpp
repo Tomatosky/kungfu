@@ -102,8 +102,8 @@ void test_capability_report_is_evidence_bound_and_fail_closed() {
   const auto &report = single_host_institutional_capability();
   require(report.schema == DURABILITY_CAPABILITY_SCHEMA_V1, "capability schema drifted");
   require(report.authority == "libkungfu", "capability authority moved outside C++");
-  require(report.support_level == "qualified-test-only" && not report.production_eligible,
-          "test evidence was promoted into production eligibility");
+  require(report.support_level == "production-candidate" && not report.production_eligible,
+          "candidate evidence was promoted into production eligibility");
   require(report.profiles.size() == 4, "profile catalog is incomplete");
   require(report.profiles[0].name == "visible" && report.profiles[0].availability == "runtime",
           "visible compatibility profile disappeared");
@@ -113,14 +113,24 @@ void test_capability_report_is_evidence_bound_and_fail_closed() {
           "durable_sync was over-advertised");
   require(report.profiles[3].name == "replicated" && report.profiles[3].availability == "unavailable",
           "future replication was advertised");
-  require(report.evidence.size() == 2 && report.restore.verified && not report.restore.off_host &&
+  require(report.evidence.size() == 7 && report.restore.verified && report.restore.off_host &&
               not report.restore.independent_failure_domain,
           "restore evidence lost its exact failure-domain boundary");
+  require(report.admission.current_hardware_candidate_complete &&
+              not report.admission.candidate_profile_default_enabled && report.admission.clean_host_restart_qualified &&
+              report.admission.off_host_restore_qualified && not report.admission.physical_power_loss_qualified &&
+              not report.admission.independent_failure_domain_qualified && not report.admission.production_eligible &&
+              not report.admission.replication_supported,
+          "candidate admission widened or lost its claim boundary");
 
   const auto rendered = render_durability_capability(report);
   require(rendered.at("schema") == DURABILITY_CAPABILITY_SCHEMA_V1, "capability JSON lost schema identity");
   require(rendered.at("authority") == "libkungfu", "capability JSON lost C++ authority");
   require(not rendered.at("production_eligible").get<bool>(), "capability JSON overclaimed production support");
+  require(rendered.at("admission").at("current_hardware_candidate_complete").get<bool>() &&
+              not rendered.at("admission").at("candidate_profile_default_enabled").get<bool>() &&
+              not rendered.at("admission").at("physical_power_loss_qualified").get<bool>(),
+          "capability JSON lost the candidate admission boundary");
   require(rendered.at("profiles").at(2).at("refusal_reason").is_string(),
           "strong profile rejection stopped being machine-readable");
   require(rendered.at("non_claims").size() >= 10, "capability JSON omitted load-bearing non-claims");

@@ -52,7 +52,7 @@ Non-goals for the first implementation:
 | frame integrity | CRC32C receipt metadata and container-epoch contracts exist | detects classes of corruption; does not create durability |
 | content objects | immutable store can request sync-on-publish | useful backend primitive, not a journal-wide guarantee |
 | projections | source, manifest, Episode, and state SQLite stores use WAL and are rebuildable; several use synchronous mode off | query accelerator, never durability authority |
-| live topology | coordinator calls an in-process state-service boundary that owns `state_cache`; explicit default-off durability and projection candidates exist; the projection candidate validates and hydrates before registration without coordinator business PUBLIC/SYNC joins or compatibility restore, while undeclared peers retain that bridge | candidate authority is implemented and production-ineligible; default cutover and bridge deletion remain |
+| live topology | coordinator calls an in-process state-service boundary that owns `state_cache`; explicit default-off durability and projection candidates exist; the projection candidate validates and hydrates before registration without coordinator business PUBLIC/SYNC joins or compatibility restore, while undeclared peers retain that bridge | current-hardware candidate admission is complete but production-ineligible; default cutover and bridge deletion remain |
 | Episode | typed manifests, qualification/capability/repair slices and fault matrix exist | semantic recovery boundary is staged, not fully durability-qualified |
 | recovery backup | test-only typed export requires an exclusively owned stable `READY` cut; empty-root restore verifies every byte, sealed Episode root/payload hash, and rebuilt projection cut | round-trip implementation evidence; external backup format, operator workflow, and qualified power-loss envelope remain |
 
@@ -227,9 +227,10 @@ successes, terminal failures, unknown outcomes, recovered requests, reconciled
 requests, reconciliation unknowns, queue depth/bytes, and last barrier latency.
 
 Python, Node, and `kungfu storage durability-reconcile` project the same native
-record. They do not own a second receipt state machine. This seam remains
-production-ineligible until the named hardware candidate evidence and final
-admission gate exist.
+record. They do not own a second receipt state machine. The named current-hardware
+evidence and admission gate now pass, but this seam remains default-off and
+production-ineligible until physical power loss and independent-domain inputs
+required by the production gate exist.
 
 ## 5. Ingest and acknowledgement protocol
 
@@ -434,7 +435,8 @@ degraded, and `none` has no projection dependency. Undeclared peers retain the
 compatibility path as rollback authority. C++, Python, Node, and CLI inspect the
 same `kungfu.projection-candidate-status/v1` authority record. The candidate is
 not the default and reports `production_eligible: false`; default cutover,
-bridge deletion, and production admission remain gated on later qualification.
+bridge deletion, and production eligibility remain gated on later physical and
+independent-domain qualification.
 
 ## 8. Failure behavior
 

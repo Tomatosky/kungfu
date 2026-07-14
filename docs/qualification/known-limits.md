@@ -70,16 +70,16 @@ and repeated restore; it does not change those physical or independent-domain
 non-claims. A bounded agent-120 run also crosses a real clean Linux host reboot,
 proves the kernel boot identity changed, and reopens the same durable frontier,
 Episode, projection, and fenced ownership generations. It is clean-restart
-evidence only, not sudden-power-loss or production admission evidence.
+evidence only, not sudden-power-loss or production-eligibility evidence. The
+six prerequisite deliveries are now aggregated by a digest-verified
+current-hardware admission report; its candidate verdict remains default-off.
 
 What is **not yet built or qualified for production**:
 
 - default-on activation of KFDL ingestion as a dedicated service independent
   of coordinator and projection lifecycle;
-- production admission for the default-off `durable_group` and `durable_sync`
-  request/receipt/reconciliation candidate path;
-- deterministic recovery of an acknowledged frontier across journal, Episode,
-  payload, and checkpoint boundaries;
+- default-on or production-eligible activation of the admitted `durable_group`
+  and `durable_sync` request/receipt/reconciliation candidate path;
 - sudden-power-loss qualification on physical macOS, Linux, or Windows hosts,
   plus clean-host-restart qualification outside the named agent-120 Linux
   envelope;
@@ -105,8 +105,9 @@ image before required-peer registration and emits it before `RequestStart`,
 without coordinator-owned business PUBLIC/SYNC joins or compatibility restore.
 The undeclared/default production
 path still uses the coordinator compatibility bridge. The candidate reports
-`production_eligible: false`; default cutover, bridge deletion, and public
-production projection admission remain pending.
+`production_eligible: false`; bridge deletion and public production projection
+eligibility remain pending even though current-hardware candidate admission is
+complete.
 
 KFDL v2 also has a test-only read-only recovery inspector and typed report for
 clean, complete-tail, torn-tail, unprovable-checkpoint, and interrupted-Episode

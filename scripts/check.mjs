@@ -435,6 +435,17 @@ function checkDurabilityQualification() {
       'durability',
       'clean_restart_evidence.test.mjs',
     ),
+    path.join(
+      'framework',
+      'core',
+      'tests',
+      'qualification',
+      'durability',
+      'production_candidate_admission.test.mjs',
+    ),
+  ]);
+  run('ADR-0068 production-candidate admission', 'node', [
+    path.join('scripts', 'check-durability-production-candidate.mjs'),
   ]);
 }
 

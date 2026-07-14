@@ -858,10 +858,10 @@ interface DurabilityReceipt {
 
 interface DurabilityProfileCapability {
   name: DurabilityProfile;
-  availability: 'runtime' | 'test-fixture-only' | 'unavailable';
+  availability: 'runtime' | 'candidate-explicit' | 'unavailable';
   qualification:
     | 'compatibility'
-    | 'process-and-disposable-vm-qualified'
+    | 'current-hardware-candidate-qualified'
     | 'unqualified';
   production_eligible: boolean;
   guarantee: string;
@@ -877,8 +877,8 @@ interface DurabilityEvidenceReference {
 interface DurabilityCapability {
   schema: 'kungfu.durability.capability/v1';
   authority: 'libkungfu';
-  profile: 'single-host-institutional-v1';
-  support_level: 'qualified-test-only';
+  profile: 'single-host-institutional-production-candidate-v1';
+  support_level: 'production-candidate';
   production_eligible: false;
   qualified_envelope: string;
   qualification_profile: string;
@@ -891,6 +891,24 @@ interface DurabilityCapability {
     maximum_observed_rpo_records: number;
     off_host: boolean;
     independent_failure_domain: boolean;
+  };
+  admission: {
+    schema: 'kungfu.durability-production-candidate-report/v1';
+    verdict: 'passed-current-hardware-production-candidate';
+    current_hardware_candidate_complete: true;
+    candidate_profile_default_enabled: false;
+    clean_host_restart_qualified: true;
+    off_host_restore_qualified: true;
+    physical_power_loss_qualified: false;
+    independent_failure_domain_qualified: false;
+    production_eligible: false;
+    high_availability_supported: false;
+    replication_supported: false;
+    consensus_supported: false;
+    evidence_path: string;
+    evidence_sha256: string;
+    freshness_policy: string;
+    compatibility_bridge: string;
   };
   trust_assumptions: string[];
   non_claims: string[];
