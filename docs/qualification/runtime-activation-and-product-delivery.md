@@ -40,6 +40,11 @@ The full command is:
 ./shifu runtime:qualify -- --mode execute --with-product
 ```
 
+The first retained complete product report is the
+[Darwin arm64 `fb1574844` evidence](evidence/runtime-activation/fb1574844/README.md).
+Its machine report binds a clean source tree, all eight passing suites, and the
+claim/non-claim boundary below.
+
 Plan-only inspection is:
 
 ```sh
