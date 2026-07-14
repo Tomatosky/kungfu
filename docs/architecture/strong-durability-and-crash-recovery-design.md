@@ -9,7 +9,7 @@ period: 2026-07-12
 theme: strong-durability-and-crash-recovery
 confidence: high
 evidence_grade: B
-last_reviewed: 2026-07-13
+last_reviewed: 2026-07-14
 ---
 
 # Strong-durability and crash-recovery design
