@@ -197,6 +197,12 @@ It has no comparator, does not qualify the mmap visible path or another host,
 and keeps physical-power-loss, off-host-backup, and production eligibility
 false.
 
+The first retained execution at source `070e0804b` passed all eight workloads
+with zero violations. Its repository evidence index is
+[`docs/qualification/evidence/durability/070e0804b/`](../../../../../docs/qualification/evidence/durability/070e0804b/);
+the complete 245,668 bytes of report/raw histogram evidence remain in the
+named agent-120 workspace under the exact digests recorded there.
+
 ## Files
 
 - `profiles/*.json` freezes the platform/filesystem process profiles.

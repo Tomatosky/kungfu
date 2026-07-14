@@ -409,6 +409,14 @@ function checkDurabilityQualification() {
       'run.test.mjs',
     ),
     path.join('scripts', 'run-durability-slo.test.mjs'),
+    path.join(
+      'framework',
+      'core',
+      'tests',
+      'qualification',
+      'durability',
+      'slo_evidence.test.mjs',
+    ),
   ]);
 }
 

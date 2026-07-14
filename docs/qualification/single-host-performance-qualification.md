@@ -252,6 +252,15 @@ frame/typed-agent path, multi-reader backpressure, another host or filesystem,
 physical power loss, off-host backup, or a production-default activation.
 Those remain separate gates rather than inferred results.
 
+The first retained agent-120 run at source `070e0804b` passed all eight frozen
+workloads with zero correctness or SLO violations. The two 15-minute soaks
+completed 449,984 `durable_group` and 224,992 `durable_sync` records at 492.95
+and 247.17 end-to-end records/s. Their receipt p99.9 values were 73.4 ms and
+109.1 ms; the largest RSS was 1,002,196 KiB and the slowest verified reopen was
+6.18 seconds. See the
+[retained evidence index](evidence/durability/070e0804b/README.md) for the
+machine-report/raw hashes and the exact non-claims.
+
 The public capability surface may advertise a performance profile only when it
 can resolve to this retained report. Absence, staleness, version drift, or an
 unmatched environment removes the claim rather than substituting a generic

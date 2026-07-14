@@ -116,6 +116,7 @@ export function sourceAcceptancePlan(files) {
         'framework/core/tests/qualification/durability/retained_evidence.test.mjs',
         'framework/core/tests/qualification/durability/institutional_evidence.test.mjs',
         'framework/core/tests/qualification/durability/product_contract.test.mjs',
+        'framework/core/tests/qualification/durability/slo_evidence.test.mjs',
         'scripts/run-durability-powercut-qemu.test.mjs',
         'scripts/prepare-durability-powercut-qemu.test.mjs',
         'scripts/run-durability-fault-campaign.test.mjs',

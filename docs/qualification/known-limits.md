@@ -148,13 +148,15 @@ soak workloads, together with recovery, projection, same-host backup/restore,
 and resource ceilings. It is default-dry-run, build-tree-local, and never
 dispatches GitHub CI.
 
-This does not yet qualify the complete gate. Retained agent-120 execution,
-visible raw/typed paths, fan-out and slow-reader behavior, wider Episode paths,
-cross-platform storage envelopes, and product capability integration remain
-pending. Aeron IPC and Aeron Archive may be used as declared reference
-comparators, but the current profile intentionally has no comparator and
-Kungfu makes no `Aeron-class`, equivalence, compatibility, or superiority
-claim.
+The first retained agent-120 execution passed all eight frozen workloads with
+zero violations; its report and raw-histogram digests are indexed under
+[`evidence/durability/070e0804b/`](evidence/durability/070e0804b/README.md).
+This still does not qualify the complete gate. Visible raw/typed paths, fan-out
+and slow-reader behavior, wider Episode paths, cross-platform storage
+envelopes, and product capability integration remain pending. Aeron IPC and
+Aeron Archive may be used as declared reference comparators, but the current
+profile intentionally has no comparator and Kungfu makes no `Aeron-class`,
+equivalence, compatibility, or superiority claim.
 
 ## The GitHub build-and-release path is still being brought up
 
