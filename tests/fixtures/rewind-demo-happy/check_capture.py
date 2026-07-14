@@ -215,19 +215,31 @@ episodes = storage_service.episode_list(runtime_dir, limit=0)
 matching_episodes = [
     row
     for row in episodes.get("episodes", [])
-    if row.get("source") == f"rewind:{run_id}"
+    if row.get("open", {}).get("source") == f"rewind:{run_id}"
 ]
 check("Episode created for traced run", len(matching_episodes) == 1)
 if matching_episodes:
     episode = matching_episodes[0]
-    check("Episode status ended", episode.get("status") == "ended", str(episode))
-    check("Episode actor is trace", episode.get("actor") == "kungfu trace")
+    check(
+        "Episode status ended",
+        episode.get("closed") is True and episode.get("close", {}).get("status") == 2,
+    )
+    check(
+        "Episode actor is trace",
+        episode.get("open", {}).get("actor") == "kungfu trace",
+    )
     inspected = storage_service.episode_inspect(
         runtime_dir, episode_id=int(episode["episode_id"])
     )
-    attached_uids = {row.get("frame_uid") for row in inspected.get("frames", [])}
-    expected_uids = {
-        row[0].frame_uid
+    typed_episode = inspected["episode"]
+    records = typed_episode.get("records", [])
+    attached_gen_times = {
+        records[index].get("body", {}).get("gen_time")
+        for index in typed_episode.get("frame_indices", [])
+        if 0 <= index < len(records)
+    }
+    expected_gen_times = {
+        row[0].gen_time
         for rows in (
             begin_frames,
             req_frames,
@@ -239,8 +251,11 @@ if matching_episodes:
         )
         for row in rows
     }
-    check("Episode attached every run frame", attached_uids == expected_uids)
-    check("Episode has payload refs", len(inspected.get("refs", [])) >= 1)
+    check(
+        "Episode attached every run frame",
+        attached_gen_times == expected_gen_times,
+    )
+    check("Episode has payload refs", len(typed_episode.get("ref_indices", [])) >= 1)
     fsck = storage_service.fsck(runtime_dir, episode_id=int(episode["episode_id"]))
     check("Episode fsck ok", fsck.get("ok") is True, str(fsck.get("errors", [])))
     exported = storage_service.build_export_bundle(
@@ -248,7 +263,8 @@ if matching_episodes:
     )
     check("Episode export bundle ok", exported.get("scope") == "episode")
     check(
-        "Episode export has frames", exported.get("frame_count") == len(expected_uids)
+        "Episode export has frames",
+        exported.get("frame_count") == len(expected_gen_times),
     )
 
 if failures:

@@ -113,8 +113,8 @@ void test_capability_report_is_evidence_bound_and_fail_closed() {
           "durable_sync was over-advertised");
   require(report.profiles[3].name == "replicated" && report.profiles[3].availability == "unavailable",
           "future replication was advertised");
-  require(report.evidence.size() == 7 && report.restore.verified && report.restore.off_host &&
-              not report.restore.independent_failure_domain,
+  require(report.evidence.size() == 7 && report.evidence[4].id == "same-office-offhost-restore" &&
+              report.restore.verified && report.restore.off_host && not report.restore.independent_failure_domain,
           "restore evidence lost its exact failure-domain boundary");
   require(report.admission.current_hardware_candidate_complete &&
               not report.admission.candidate_profile_default_enabled && report.admission.clean_host_restart_qualified &&

@@ -195,13 +195,15 @@ from kungfu.storage import service as storage_service  # noqa: E402
 
 listed = storage_service.episode_list(runtime_dir, limit=0).get("episodes", [])
 atlas_episodes = [
-    row for row in listed if str(row.get("source") or "").startswith("atlas:imp")
+    row
+    for row in listed
+    if str(row.get("open", {}).get("source") or "").startswith("atlas:imp")
 ]
 check(
     "one sealed episode per import batch",
     len(atlas_episodes) == 2
-    and all(row.get("status") == "ended" for row in atlas_episodes),
-    f"got {[(row.get('episode_id'), row.get('status')) for row in atlas_episodes]}",
+    and all(row.get("closed") is True for row in atlas_episodes),
+    f"got {[(row.get('episode_id'), row.get('closed')) for row in atlas_episodes]}",
 )
 
 episode_id = 0
@@ -218,17 +220,25 @@ if episode_id:
     episode = inspected.get("episode", {})
     check(
         "episode source names the import",
-        episode.get("source") == f"atlas:{latest_import_id}",
-        f"got {episode.get('source')}",
+        episode.get("open", {}).get("source") == f"atlas:{latest_import_id}",
+        f"got {episode.get('open', {}).get('source')}",
     )
-    attached = inspected.get("frames", [])
+    records = episode.get("records", [])
+    attached = [
+        records[index]
+        for index in episode.get("frame_indices", [])
+        if 0 <= index < len(records)
+    ]
     check(
         "episode frames == batch frames (begin + snapshots + end)",
         len(attached) == len(entries) + 2,
         f"got {len(attached)}, want {len(entries) + 2}",
     )
     payload_refs = [
-        ref for ref in inspected.get("refs", []) if ref.get("ref_kind") == "payload"
+        records[index]
+        for index in episode.get("ref_indices", [])
+        if 0 <= index < len(records)
+        and records[index].get("body", {}).get("ref_kind") == 2
     ]
     present_hashes = {
         entry.get("payload_hash")
@@ -255,11 +265,15 @@ if episode_id:
         f"got {report.get('checked', {}).get('episode_frames_verified')}",
     )
     qualification = report.get("qualification", {})
+    safe_capabilities = {
+        capability.get("name")
+        for capability in qualification.get("capabilities", [])
+        if capability.get("safe") is True
+    }
     check(
         "sealed batch qualifies for replay/depend_on",
-        "replay" in qualification.get("safe_capabilities", [])
-        and "depend_on" in qualification.get("safe_capabilities", []),
-        f"got {qualification.get('safe_capabilities')}",
+        "replay" in safe_capabilities and "depend_on" in safe_capabilities,
+        f"got {sorted(safe_capabilities)}",
     )
 
     # ── negative (destructive, keep last): losing the event journal must ──
@@ -277,7 +291,11 @@ if episode_id:
     report = storage_service.fsck(
         runtime_dir, episode_id=episode_id, verify_frames=True
     )
-    codes = {error.get("code") for error in report.get("errors", [])}
+    codes = {
+        issue.get("code")
+        for issue in report.get("issues", [])
+        if issue.get("severity") == "error"
+    }
     check(
         "sealed episode fails fsck after journal loss",
         report.get("ok") is False and "episode_attached_frame_missing" in codes,

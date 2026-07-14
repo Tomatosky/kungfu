@@ -3967,6 +3967,34 @@ def test_atlas_producer_enrich_and_write_honor_withheld_states(tmp_path):
     assert rows["marker-gone"]["payload"] is None
 
 
+def test_atlas_producer_normalizes_missing_source_time_for_typed_sync_root(tmp_path):
+    [entry] = payloads.enrich_source_records(
+        [
+            {
+                "kind": "goal",
+                "source_id": "goal-without-time",
+                "source_path": "goals/without-time.json",
+                "schema_version": 1,
+                "payload": {"goal_id": "goal-without-time"},
+            }
+        ]
+    )
+
+    assert entry["source_time"] == ""
+    manifest = payloads.write_import_payloads(
+        tmp_path / "store",
+        import_id="imp-without-time",
+        repo_root=str(tmp_path),
+        repo_head="head-1",
+        source_records=[entry],
+        counts={},
+    )
+    accepted = storage_service.accept_manifest(
+        tmp_path / "runtime", manifest["storage_manifest"]
+    )
+    assert accepted["sync_root"] == manifest["sync_root"]
+
+
 def test_source_registry_records_round_trip_through_journal(tmp_path):
     # ADR-0037: source-registry records are Hana-core kernel metadata written to
     # an append-only yijinjing journal; JSON is only an edge projection. This

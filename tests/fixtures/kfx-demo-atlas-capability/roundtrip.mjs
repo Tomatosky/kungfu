@@ -4,9 +4,9 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { openAtlas } from '../../../framework/api/src/capability/atlas.ts';
-import { fail, locate, tmpDir } from '../_harness.mjs';
+import { fail, locate, tmpDir, uvPython } from '../_harness.mjs';
 
-const { fixtureDir } = locate(import.meta.url);
+const { fixtureDir, coreDir } = locate(import.meta.url);
 const repoDir = path.resolve(fixtureDir, '..', '..', '..');
 const sampleRoot = path.resolve(
   fixtureDir,
@@ -20,6 +20,12 @@ const bin = path.join(repoDir, 'framework', 'core', 'dist', 'kungfu', 'kungfu');
 if (!fs.existsSync(bin)) {
   fail('kungfu CLI is not frozen (run ./shifu freeze first)');
 }
+
+uvPython(coreDir, [
+  path.join(fixtureDir, '..', '_activate_mission_profile.py'),
+  runtimeDir,
+  path.join(repoDir, 'extensions', 'mission-control'),
+]);
 
 const atlas = openAtlas({
   runtimeDir,
@@ -38,7 +44,10 @@ const imported = atlas.importRepo(sampleRoot);
 ck('import counted one mission', imported.missions === 1);
 ck('import counted two goals', imported.goals === 2);
 ck('import counted one marker', imported.markers === 1);
-ck('import surfaced broken-json warning', imported.warnings.length === 1);
+ck(
+  'import surfaced broken-json warning',
+  imported.warnings.some((warning) => warning.includes('broken.json')),
+);
 
 const info = atlas.importInfo();
 ck('import info is readable', info?.import_id === imported.import_id);

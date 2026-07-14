@@ -274,6 +274,14 @@ test(
     assert.equal(report.admission.physical_power_loss_qualified, false);
     assert.equal(report.admission.production_eligible, false);
     assert.deepEqual(
+      report.evidence.map((evidence) => evidence.id),
+      [
+        'three-platform-process-crash',
+        'single-host-disposable-qemu',
+        'same-office-offhost-restore',
+      ],
+    );
+    assert.deepEqual(
       report.profiles.map((profile) => profile.name),
       ['visible', 'durable_group', 'durable_sync', 'replicated'],
     );

@@ -5,9 +5,9 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { openAtlas } from '../../../framework/api/src/capability/atlas.ts';
-import { fail, locate, tmpDir } from '../_harness.mjs';
+import { fail, locate, tmpDir, uvPython } from '../_harness.mjs';
 
-const { fixtureDir } = locate(import.meta.url);
+const { fixtureDir, coreDir } = locate(import.meta.url);
 const repoDir = path.resolve(fixtureDir, '..', '..', '..');
 const sampleRoot = path.resolve(
   fixtureDir,
@@ -35,6 +35,12 @@ if (!fs.existsSync(bin)) {
 if (!fs.existsSync(bundlePath)) {
   fail('work-dashboard is not built (run kungfu sdk kfx build first)');
 }
+
+uvPython(coreDir, [
+  path.join(fixtureDir, '..', '_activate_mission_profile.py'),
+  runtimeDir,
+  path.join(repoDir, 'extensions', 'mission-control'),
+]);
 
 const atlas = openAtlas({
   runtimeDir,
@@ -67,6 +73,35 @@ const fakeShell = {
 };
 const capabilityModule = {
   WORK_STATUS_NAMES: ['active', 'blocked', 'waiting', 'ready', 'done'],
+  DEFAULT_GOAL_CARD_QUERY: {
+    schema: 'kungfu.mission-control.goal-card-query/v1',
+    text: '',
+    sections: [],
+    statuses: [],
+    trust: [],
+    actors: [],
+    tracks: [],
+    roles: [],
+    importance: [],
+    stages: [],
+    updatedWithinDays: null,
+    hasChildren: 'all',
+    closed: 'include',
+    hideClosedChildren: false,
+    sort: { field: 'decision-priority', direction: 'desc' },
+  },
+  emptyQueryChangelogState: () => ({
+    rows: {},
+    evidence: {},
+    changes: {},
+    appliedMessageIds: [],
+    resultSchema: null,
+    frontier: { kind: 'empty', record_count: '0' },
+    resultHash: '',
+    gap: null,
+  }),
+  applyQueryChangelogPage: (state) => state,
+  parseGoalCardQuerySpec: (value) => value,
 };
 const module = { exports: {} };
 const code = fs.readFileSync(bundlePath, 'utf8');
@@ -90,13 +125,11 @@ const html = ReactDomServer.renderToStaticMarkup(
 );
 
 for (const needle of [
-  'Atlas projection',
   'Demo platform stewardship',
-  '2026-01-02-demo-importer',
   'Demo importer goal',
-  '1 missions',
-  '2 goals',
-  '1 markers',
+  '1 Mission',
+  '2 Go cards',
+  '1 imported timeline marker',
 ]) {
   if (!html.includes(needle)) fail(`live Atlas tab missing ${needle}`);
 }

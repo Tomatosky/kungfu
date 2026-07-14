@@ -118,7 +118,10 @@ def enrich_source_records(source_records: list[dict[str, Any]]) -> list[dict[str
                 "kind": record.get("kind"),
                 "source_id": record.get("source_id"),
                 "source_path": record.get("source_path"),
-                "source_time": record.get("source_time"),
+                # The typed manifest core represents an absent timestamp as an
+                # empty string. Normalize at the producer edge so the sync-root
+                # commitment is byte-identical before and after typed parsing.
+                "source_time": str(record.get("source_time") or ""),
                 "schema_version": record.get("schema_version"),
                 "content_type": CONTENT_TYPE_JSON,
                 "payload_hash": ""
@@ -136,7 +139,7 @@ def enrich_source_records(source_records: list[dict[str, Any]]) -> list[dict[str
                 "kind": record.get("kind"),
                 "source_id": record.get("source_id"),
                 "source_path": record.get("source_path"),
-                "source_time": record.get("source_time"),
+                "source_time": str(record.get("source_time") or ""),
                 "schema_version": record.get("schema_version"),
                 "content_type": CONTENT_TYPE_JSON,
                 "payload_hash": digest,
