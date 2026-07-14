@@ -63,8 +63,12 @@ function(kungfu_resolve_libwasm_cargo_target OUTPUT_DIR OUTPUT_KEY)
     if(NOT KF_CARGO)
       message(FATAL_ERROR "libwasm Cargo cache resolution requires CARGO")
     endif()
+    set(CARGO_VERSION_COMMAND "${KF_CARGO}" -Vv)
+    if(WIN32 AND KF_CARGO MATCHES "\\.(cmd|bat)$")
+      set(CARGO_VERSION_COMMAND cmd.exe /d /s /c "\"${KF_CARGO}\" -Vv")
+    endif()
     execute_process(
-      COMMAND "${KF_CARGO}" -Vv
+      COMMAND ${CARGO_VERSION_COMMAND}
       WORKING_DIRECTORY "${KF_MANIFEST_DIR}"
       OUTPUT_VARIABLE CARGO_VERSION
       ERROR_VARIABLE CARGO_VERSION_ERROR

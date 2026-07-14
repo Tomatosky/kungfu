@@ -17,6 +17,12 @@ const modulePath = path.join(
   'libwasm-cargo-cache.cmake',
 );
 
+test('Windows Cargo command wrappers are identified through cmd.exe', () => {
+  const source = fs.readFileSync(modulePath, 'utf8');
+  assert.match(source, /WIN32 AND KF_CARGO MATCHES/);
+  assert.match(source, /set\(CARGO_VERSION_COMMAND cmd\.exe \/d \/s \/c/);
+});
+
 function cmakePath(value) {
   return value.replaceAll('\\', '/').replaceAll('"', '\\"');
 }
