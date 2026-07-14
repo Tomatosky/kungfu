@@ -23,6 +23,7 @@ enum class durability_error_code : uint8_t {
   InvalidRequest,
   UnsupportedProfile,
   Timeout,
+  OutcomeUnknown,
   ServiceUnavailable,
   ConflictingRequestId,
   PositionEpochMismatch,

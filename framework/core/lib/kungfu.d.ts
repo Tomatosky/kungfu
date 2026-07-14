@@ -750,6 +750,7 @@ type DurabilityError =
   | 'invalid_request'
   | 'unsupported_profile'
   | 'timeout'
+  | 'outcome_unknown'
   | 'service_unavailable'
   | 'conflicting_request_id'
   | 'position_epoch_mismatch'
@@ -831,6 +832,28 @@ interface DurabilityVisibleReceiptOptions {
   completed_at?: bigint | number;
 }
 
+interface DurabilityReconcileOptions {
+  data_root: string;
+  request_id: bigint | number;
+  stream_id: bigint | number;
+  container_epoch: bigint | number;
+  sequence: bigint | number;
+  frame_uid: bigint | number;
+  requested_profile: 'durable_group' | 'durable_sync';
+  writer_resource_id: string;
+  qualification_profile: string;
+}
+
+interface DurabilityReconciliation {
+  schema: 'kungfu.durability.reconciliation/v1';
+  request_id: bigint;
+  state: 'reconciled' | 'unknown' | 'terminal_failure';
+  recovered: boolean;
+  receipt: DurabilityReceipt | null;
+  error: DurabilityError;
+  message: string;
+}
+
 interface ActionRecorder {
   recordAction(
     value: ActionEnvelope,
@@ -858,6 +881,9 @@ interface KungfuRuntime {
   durabilityVisibleReceiptTyped(
     options: DurabilityVisibleReceiptOptions,
   ): DurabilityReceipt;
+  durabilityReconcileTyped(
+    options: DurabilityReconcileOptions,
+  ): DurabilityReconciliation;
   durabilityCapabilityTyped(): DurabilityCapability;
   storageStatusTyped(
     runtimeDir: string,

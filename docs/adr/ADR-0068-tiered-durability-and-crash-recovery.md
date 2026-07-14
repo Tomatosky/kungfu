@@ -133,6 +133,16 @@ failure when the request cannot be satisfied.
 - receipts are themselves recordable facts, but recording a receipt does not
   recursively redefine the barrier it reports.
 
+The first live adoption seam is an explicit, default-off
+`production_candidate` activation. It is available only through the per-data-root
+state service, requires a matching qualified `candidate/*` profile, and keeps
+the normal `visible` path unchanged. A timeout or interrupted caller does not
+guess whether a barrier completed: the caller reconciles the exact request id,
+position, profile, and writer resource against checkpoint-covered receipt
+evidence after restart. The only reconciliation outcomes are `reconciled`,
+`unknown`, and `terminal_failure`; absence is `unknown`, never inferred failure
+or success. Python, Node, and CLI surfaces are projections of this C++ result.
+
 ### 5. Coordinator owns control; a per-data-root state service owns persistence
 
 The coordinator converges on membership, topology, channel authority, and
@@ -211,6 +221,8 @@ platforms remain explicit non-claims.
    initially preserving same-process behavior and comparing old/new results.
 3. Introduce the per-data-root state service and shadow durable ingest while
    coordinator remains the active compatibility path.
+   The default-off live receipt candidate and restart reconciliation seam are
+   implemented at this stage; they do not enable a production profile.
 4. Switch bootstrap to snapshot-at-`T` plus replay-after-`T`; remove coordinator
    business-journal ownership.
 5. Qualify and expose `durable_group`, then `durable_sync`, on named local

@@ -169,6 +169,21 @@ void test_state_service_lifecycle_is_independent_and_fail_closed() {
   state_service.start();
   state_service.start();
   require(state_service.status().running, "state service did not start idempotently");
+  require(!state_service.status().durability_candidate_enabled,
+          "state service enabled the durability production-candidate path by default");
+  kungfu::runtime::durability::ingest_options candidate{};
+  candidate.data_root = tree.root().string();
+  candidate.stream_id = 7;
+  candidate.container_epoch = 11;
+  candidate.writer_resource_id = "00000001.00000002";
+  candidate.qualification_profile = "candidate/test-local-filesystem/v1";
+  bool candidate_refused = false;
+  try {
+    state_service.open_durability_candidate(candidate);
+  } catch (const std::logic_error &) {
+    candidate_refused = true;
+  }
+  require(candidate_refused, "default state service admitted a durability production-candidate stream");
   state_service.pause_projection(true);
   state_service.pause_projection(false);
   state_service.stop();

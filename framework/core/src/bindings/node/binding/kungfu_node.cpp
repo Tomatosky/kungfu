@@ -44,6 +44,7 @@ decltype(__pfnDliNotifyHook2) __pfnDliNotifyHook2 = load_exe_hook;
 
 #include <kungfu/common.h>
 #include <kungfu/runtime/durability.h>
+#include <kungfu/runtime/durable_ingest.h>
 #include <kungfu/runtime/io.h>
 #include <kungfu/runtime/storage/binding_reflection.h>
 #include <kungfu/runtime/storage/hana_view.h>
@@ -404,6 +405,27 @@ Napi::Value DurabilityVisibleReceiptTyped(const Napi::CallbackInfo &info) {
   };
   return HanaViewToValue(info.Env(), runtime::durability::make_receipt_view(runtime::durability::make_visible_receipt(
                                          request, Int64Option(options, "completed_at"))));
+}
+
+Napi::Value DurabilityReconcileTyped(const Napi::CallbackInfo &info) {
+  if (!IsValid(info, 0, &Napi::Value::IsObject))
+    throw Napi::TypeError::New(info.Env(), "durabilityReconcileTyped(options)");
+  const auto options = info[0].As<Napi::Object>();
+  runtime::durability::ingest_options ingest{};
+  ingest.data_root = StringOption(options, "data_root");
+  ingest.stream_id = Uint64Option(info.Env(), options, "stream_id");
+  ingest.container_epoch = Uint64Option(info.Env(), options, "container_epoch");
+  ingest.writer_resource_id = StringOption(options, "writer_resource_id");
+  ingest.qualification_profile = StringOption(options, "qualification_profile");
+  ingest.qualification_passed = true;
+  ingest.activation = runtime::durability::ingest_activation::ProductionCandidate;
+  runtime::durability::durability_request request{
+      Uint64Option(info.Env(), options, "request_id"),
+      {ingest.stream_id, ingest.container_epoch, Uint64Option(info.Env(), options, "sequence"),
+       Uint64Option(info.Env(), options, "frame_uid")},
+      runtime::durability::parse_durability_profile(StringOption(options, "requested_profile")),
+  };
+  return HanaViewToValue(info.Env(), runtime::durability::reconcile_durable_receipt(std::move(ingest), request));
 }
 
 Napi::Value DurabilityCapabilityTyped(const Napi::CallbackInfo &info) {
@@ -888,6 +910,7 @@ Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
   exports.Set("verifyContentHash", Napi::Function::New(env, VerifyContentHash));
   exports.Set("storageServiceCapabilities", Napi::Function::New(env, StorageServiceCapabilities));
   exports.Set("durabilityVisibleReceiptTyped", Napi::Function::New(env, DurabilityVisibleReceiptTyped));
+  exports.Set("durabilityReconcileTyped", Napi::Function::New(env, DurabilityReconcileTyped));
   exports.Set("durabilityCapabilityTyped", Napi::Function::New(env, DurabilityCapabilityTyped));
   exports.Set("storageStatusTyped", Napi::Function::New(env, StorageStatusTyped));
   exports.Set("storageQueryTyped", Napi::Function::New(env, StorageQueryTyped));

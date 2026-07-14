@@ -36,19 +36,32 @@ The foundations are implemented:
   root and one writer per physical stream journal are fail-closed through
   local generation/fence evidence.
 
-The end-to-end strong-durability path is **staged and test-qualified, but not
-activated or production-qualified**. Test-only implementations exist for durable ingest,
-receipts, projection bootstrap, crash classification, and backup/restore. A
+The end-to-end strong-durability path is **staged and test-qualified, with a
+default-off live production-candidate receipt seam, but not production-qualified**.
+Test-only implementations exist for projection bootstrap, crash classification,
+and backup/restore. The state service can now explicitly activate a matching
+`candidate/*` durable-ingest profile and owns typed append, barrier, retry, and
+restart reconciliation. This does not change the default visible path or the
+product admission verdict. A
 versioned local qualification harness now produces separate `durable_group`
 and `durable_sync` process-crash reports for named macOS/APFS, Linux/ext4, and
 Windows/NTFS profiles. A retained disposable Linux/ext4 QEMU run additionally
 passes 20/20 abrupt VM cuts, real ENOSPC, repeated fresh reopen, filesystem/hash
 checks, and a same-host external-path restore drill. That evidence explicitly
 excludes physical-host restart or power loss, off-host backup, independent
-failure domains, and production eligibility. Kungfu still does not expose a production
-durable-ingest service, producer-visible durable acknowledgement, or a
-power-loss-qualified durable watermark across the journal, Episode manifest,
-and projections.
+failure domains, and production eligibility. Kungfu still does not expose a
+production-qualified durable-ingest service or a power-loss-qualified durable
+watermark across the journal, Episode manifest, and projections.
+
+Candidate receipts are accepted only through the per-data-root state service
+with explicit activation and matching qualification evidence. A repeated exact
+request is idempotent. After caller timeout or restart, C++, Python, Node, and
+`kungfu storage durability-reconcile` report the same checkpoint-derived
+`reconciled`, `unknown`, or `terminal_failure` state; missing evidence remains
+`outcome_unknown` and is never guessed into success or failure. Candidate
+status includes barrier, unknown, recovery/reconciliation, queue, byte, and
+latency counters. The capability report intentionally remains
+`production_eligible: false`.
 
 The product reports this boundary from the C++ authority through the Python,
 Node, and agent CLI projections. `kungfu agent capabilities --json` includes a
@@ -207,8 +220,8 @@ one Episode must not silently invalidate unrelated Episodes.
 |---|---|---|
 | A. Visibility and integrity foundations | **implemented** | release/acquire publication, explicit mmap policy, frame integrity, typed journal records, rebuildable projections |
 | B. Episode and storage safety model | **staged** | typed Episode fold, fsck/repair/capability reporting and fault qualification exist in slices; the complete contract remains under qualification |
-| C. Unified position, watermark, and receipt vocabulary | **implemented (contract-only)** | C++ owns stable stream positions, four typed watermarks, named profiles, receipts/errors, deduplication, and explicit unknown outcomes; Python/Node expose typed edge adapters, while current behavior remains `visible` only and rejects stronger profiles |
-| D. State-service separation and durable ingest | **partially implemented** | coordinator no longer owns the projection store directly; the in-process state-service boundary has independent lifecycle, shadow comparison, and single-host owner/writer fencing. Moving business-journal ingestion out of coordinator and persisting raw facts before projection remain pending |
+| C. Unified position, watermark, and receipt vocabulary | **implemented (candidate edge)** | C++ owns stable stream positions, four typed watermarks, named profiles, receipts/errors, deduplication, explicit unknown outcomes, and restart reconciliation; Python/Node/CLI are typed edge projections. Stronger profiles require an explicit default-off candidate activation and remain production-ineligible |
+| D. State-service separation and durable ingest | **partially implemented** | coordinator no longer owns the projection store directly; the in-process state-service boundary has independent lifecycle, shadow comparison, single-host owner/writer fencing, and an explicit live candidate append/barrier/reconcile seam. Moving business-journal ingestion out of coordinator and completing production admission remain pending |
 | E. Independent KFDL segment/checkpoint backend | **implemented (test-only shadow)** | append-only binary records, SHA-256 coverage, rollover, dual-slot atomic checkpoint, explicit data/checkpoint/directory barriers, persisted request deduplication, cooperative deadline/unknown handling, typed service-unavailable, fenced generations, fail-stop unknown append sessions, and retained tails; production profiles remain disabled |
 | F. Snapshot-through-T projection bootstrap | **implemented (test-only shadow)** | versioned binary snapshot, integrity/schema/cut verification, strict replay-after-T, typed required/optional/none outcomes, deterministic rebuild, independent projection watermark, and state-service ownership; production bootstrap cutover remains pending |
 | G. Local strong-durability qualification | **implemented for a named test/disposable envelope** | retained three-platform process-crash reports and a disposable Linux/ext4 QEMU run cover 20/20 VM cuts, real ENOSPC, repeated reopen, fsck/hash, Episode load, and same-host external-path restore; the machine-readable product capability remains fail-closed for production, physical-host power loss, off-host backup, and independent failure domains |

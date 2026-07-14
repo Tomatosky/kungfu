@@ -52,7 +52,7 @@ Non-goals for the first implementation:
 | frame integrity | CRC32C receipt metadata and container-epoch contracts exist | detects classes of corruption; does not create durability |
 | content objects | immutable store can request sync-on-publish | useful backend primitive, not a journal-wide guarantee |
 | projections | source, manifest, Episode, and state SQLite stores use WAL and are rebuildable; several use synchronous mode off | query accelerator, never durability authority |
-| live topology | coordinator calls an in-process state-service boundary that owns `state_cache`; coordinator still triggers compatibility restore and joins business streams | ownership split implemented; bootstrap/business-join cutover remains |
+| live topology | coordinator calls an in-process state-service boundary that owns `state_cache`; an explicit constructor can supply a default-off durability candidate configuration; coordinator still triggers compatibility restore and joins business streams | ownership split and live candidate seam implemented; bootstrap/business-join cutover remains |
 | Episode | typed manifests, qualification/capability/repair slices and fault matrix exist | semantic recovery boundary is staged, not fully durability-qualified |
 | recovery backup | test-only typed export requires an exclusively owned stable `READY` cut; empty-root restore verifies every byte, sealed Episode root/payload hash, and rebuilt projection cut | round-trip implementation evidence; external backup format, operator workflow, and qualified power-loss envelope remain |
 
@@ -203,6 +203,33 @@ The machine-readable status reports at least:
 
 JSON may project this typed result at CLI/SDK edges; it is not the internal
 service protocol.
+
+### Default-off live candidate and reconciliation
+
+The state service is the only live owner of candidate append and barrier
+requests. Candidate activation requires all of the following:
+
+- an explicit `production_candidate` activation rather than the shadow default;
+- `enabled=true` in the service construction configuration;
+- a matching, passed qualification profile whose name begins with
+  `candidate/`;
+- current data-root and writer ownership evidence for append; and
+- an exact typed request containing request id, logical position, and requested
+  durability profile.
+
+The service persists request identity inside the checkpoint-covered receipt
+index. A same-identity retry is idempotent; conflicting request-id reuse is a
+terminal failure. After a timeout, process loss, or caller restart, the read-only
+reconciliation path returns one of `reconciled`, `unknown`, or
+`terminal_failure`. A missing request is explicitly `outcome_unknown`; it is not
+treated as evidence that the append failed. Status exposes barrier attempts,
+successes, terminal failures, unknown outcomes, recovered requests, reconciled
+requests, reconciliation unknowns, queue depth/bytes, and last barrier latency.
+
+Python, Node, and `kungfu storage durability-reconcile` project the same native
+record. They do not own a second receipt state machine. This seam remains
+production-ineligible until the named hardware candidate evidence and final
+admission gate exist.
 
 ## 5. Ingest and acknowledgement protocol
 
