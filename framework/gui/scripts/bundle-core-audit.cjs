@@ -3,6 +3,7 @@
 // exactly once: Contents/Resources/kungfu. Workspace/package-manager layouts can
 // otherwise copy @kungfu-tech/core through nested app dependencies.
 const fs = require('node:fs');
+const { createRequire } = require('node:module');
 const path = require('node:path');
 
 function exists(p) {
@@ -109,6 +110,52 @@ function repairNodePtySpawnHelpers(appDir) {
     }
   }
   return helpers;
+}
+
+function auditPackagedMainDependencies(appDir) {
+  const appRoot = path.join(appDir, 'Contents', 'Resources', 'app');
+  const packageJson = path.join(appRoot, 'package.json');
+  if (!exists(packageJson)) {
+    throw new Error(`missing packaged app metadata: ${packageJson}`);
+  }
+  const main = JSON.parse(fs.readFileSync(packageJson, 'utf8')).main;
+  if (typeof main !== 'string' || main.length === 0) {
+    throw new Error(`packaged app metadata has no main entry: ${packageJson}`);
+  }
+  const mainPath = path.join(appRoot, main);
+  if (!exists(mainPath)) {
+    throw new Error(`missing packaged app main entry: ${mainPath}`);
+  }
+
+  const code = fs.readFileSync(mainPath, 'utf8');
+  const externalRequires = [...code.matchAll(/\brequire\(["']([^"']+)["']\)/g)]
+    .map((match) => match[1])
+    .filter(
+      (specifier) =>
+        specifier !== 'electron' &&
+        !specifier.startsWith('node:') &&
+        !specifier.startsWith('.') &&
+        !path.isAbsolute(specifier),
+    );
+  const packagedRequire = createRequire(mainPath);
+  const unresolved = [...new Set(externalRequires)]
+    .sort()
+    .filter((specifier) => {
+      try {
+        packagedRequire.resolve(specifier);
+        return false;
+      } catch {
+        return true;
+      }
+    });
+  if (unresolved.length > 0) {
+    throw new Error(
+      `unresolved packaged main dependencies:\n${unresolved.join('\n')}`,
+    );
+  }
+  console.log(
+    `[bundle-core-audit] ok: ${new Set(externalRequires).size} packaged main dependencies resolve`,
+  );
 }
 
 function auditPackagedApp(appDir, options = {}) {
@@ -236,6 +283,7 @@ function auditPackagedApp(appDir, options = {}) {
     throw new Error(failures.join('\n\n'));
   }
 
+  auditPackagedMainDependencies(appDir);
   console.log(`[bundle-core-audit] ok: single kungfu runtime at ${runtimeDir}`);
 }
 
@@ -260,6 +308,7 @@ if (require.main === module) {
 
 module.exports = {
   auditPackagedApp,
+  auditPackagedMainDependencies,
   findAppFromContext,
   repairNodePtySpawnHelpers,
 };
