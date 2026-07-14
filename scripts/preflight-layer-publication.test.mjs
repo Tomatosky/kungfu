@@ -11,7 +11,7 @@ import {
 } from './preflight-layer-publication.mjs';
 
 test('normalizes the release SemVer for PyPI lookup', () => {
-  assert.equal(pythonVersion('4.0.0-alpha.0'), '4.0.0a0');
+  assert.equal(pythonVersion('4.0.0-alpha.1'), '4.0.0a1');
   assert.equal(pythonVersion('4.0.0-beta.2'), '4.0.0b2');
   assert.equal(pythonVersion('4.0.0-rc.3'), '4.0.0rc3');
 });

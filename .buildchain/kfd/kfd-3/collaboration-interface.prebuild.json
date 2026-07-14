@@ -6,7 +6,7 @@
   "supportLevel": "release",
   "source": {
     "cwd": "/Users/dkr/Worktrees/kungfu/fix/gate-measurement-receipts",
-    "sourceSha": "b6c511eea24dc038d8d8f7eac57b95e859ae6365",
+    "sourceSha": "f0ee41193b4e0269f1bcfe10ff52c5959b2dc544",
     "registryPath": ".buildchain/kfd/kfd-3/surfaces.json",
     "registryDigest": "sha256:176e6473ca0ffca24b56388b0ac15ecb7f3cc1a7a944cb46d80c7d2fa1dd14cb"
   },

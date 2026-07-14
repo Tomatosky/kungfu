@@ -361,7 +361,7 @@ export class AgentSessionProductSurface {
           initializeParams: input.structured?.initializeParams ?? {
             clientInfo: {
               name: 'kungfu-agent-session',
-              version: '4.0.0-alpha.0',
+              version: '4.0.0-alpha.1',
             },
           },
           threadStartParams: input.structured?.threadStartParams ?? {
