@@ -62,6 +62,7 @@ test('source plan covers representative source-only checks', () => {
   assert.ok(labels.includes('changed C/C++ format'));
   assert.ok(labels.includes('documentation contracts'));
   assert.ok(labels.includes('runtime activation contract'));
+  assert.ok(labels.includes('runtime upgrade contract'));
   assert.ok(labels.includes('agent session contract'));
   assert.ok(labels.includes('durability production-candidate admission'));
   const typeBaseline = plan.find(
@@ -84,6 +85,15 @@ test('source plan covers representative source-only checks', () => {
   const contractTests = plan.find(
     (step) => step.label === 'source-acceptance contract tests',
   );
+  assert.ok(
+    contractTests.args.includes('scripts/check-upgrade-contract.test.mjs'),
+  );
+  const upgradeTests = plan.find(
+    (step) => step.label === 'runtime upgrade control-plane tests',
+  );
+  assert.deepEqual(upgradeTests.args, [
+    'scripts/run-runtime-upgrade-tests.mjs',
+  ]);
   assert.ok(
     contractTests.args.includes(
       'framework/agent-session/tests/capsule-host.test.mjs',

@@ -122,6 +122,7 @@ export function sourceAcceptancePlan(files) {
     ],
     ['live runtime terminology', 'scripts/check-live-runtime-terminology.mjs'],
     ['runtime activation contract', 'scripts/check-runtime-contract.mjs'],
+    ['runtime upgrade contract', 'scripts/check-upgrade-contract.mjs'],
     ['agent session contract', 'scripts/check-agent-session-contract.mjs'],
     [
       'durability production-candidate admission',
@@ -155,6 +156,7 @@ export function sourceAcceptancePlan(files) {
         'scripts/check-kungfu-gate-catalog.test.mjs',
         'scripts/check-schema-authority.test.mjs',
         'scripts/check-runtime-contract.test.mjs',
+        'scripts/check-upgrade-contract.test.mjs',
         'scripts/check-agent-session-contract.test.mjs',
         'framework/agent-session/tests/capsule-host.test.mjs',
         'framework/agent-session/tests/peer-transport.test.mjs',
@@ -188,6 +190,11 @@ export function sourceAcceptancePlan(files) {
         'scripts/run-durability-offhost-restore.test.mjs',
         'scripts/run-durability-clean-host-restart.test.mjs',
       ],
+    },
+    {
+      label: 'runtime upgrade control-plane tests',
+      command: process.execPath,
+      args: ['scripts/run-runtime-upgrade-tests.mjs'],
     },
     {
       label: 'tooling type check',

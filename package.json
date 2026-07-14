@@ -107,6 +107,7 @@
     "test:profile-lifecycle": "node scripts/require-shifu.mjs test:profile-lifecycle && node scripts/run-profile-lifecycle-tests.mjs",
     "test:agent-profile-sdk": "node scripts/require-shifu.mjs test:agent-profile-sdk && node scripts/run-agent-profile-sdk-tests.mjs",
     "test:agent-console-contract": "node scripts/require-shifu.mjs test:agent-console-contract && node scripts/run-agent-console-contract-tests.mjs",
+    "test:runtime-upgrade": "node scripts/require-shifu.mjs test:runtime-upgrade && node scripts/run-runtime-upgrade-tests.mjs",
     "test:agent-session-contract": "node scripts/require-shifu.mjs test:agent-session-contract && node --test scripts/check-agent-session-contract.test.mjs",
     "test:agent-session-capsule-host": "node scripts/require-shifu.mjs test:agent-session-capsule-host && pnpm --filter @kungfu-tech/agent-session test",
     "test:agent-session-peer-transport": "node scripts/require-shifu.mjs test:agent-session-peer-transport && node --test framework/agent-session/tests/peer-transport.test.mjs framework/agent-session/tests/runtime-port.test.mjs",
