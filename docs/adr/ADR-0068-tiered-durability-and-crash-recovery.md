@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0068
 decision_status: accepted
 implementation_status: staged
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/668, https://github.com/kungfu-systems/kungfu/pull/673, https://github.com/kungfu-systems/kungfu/pull/682, https://github.com/kungfu-systems/kungfu/pull/687, https://github.com/kungfu-systems/kungfu/pull/691, https://github.com/kungfu-systems/kungfu/pull/693, https://github.com/kungfu-systems/kungfu/pull/697, https://github.com/kungfu-systems/kungfu/pull/701, https://github.com/kungfu-systems/kungfu/pull/705, https://github.com/kungfu-systems/kungfu/pull/754, https://github.com/kungfu-systems/kungfu/pull/770, https://github.com/kungfu-systems/kungfu/pull/783, https://github.com/kungfu-systems/kungfu/pull/784, https://github.com/kungfu-systems/kungfu/pull/788, https://github.com/kungfu-systems/kungfu/pull/794, https://github.com/kungfu-systems/kungfu/pull/795, https://github.com/kungfu-systems/kungfu/pull/809, https://github.com/kungfu-systems/kungfu/pull/813, https://github.com/kungfu-systems/kungfu/pull/820, https://github.com/kungfu-systems/kungfu/pull/821, https://github.com/kungfu-systems/kungfu/pull/824]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/668, https://github.com/kungfu-systems/kungfu/pull/673, https://github.com/kungfu-systems/kungfu/pull/682, https://github.com/kungfu-systems/kungfu/pull/687, https://github.com/kungfu-systems/kungfu/pull/691, https://github.com/kungfu-systems/kungfu/pull/693, https://github.com/kungfu-systems/kungfu/pull/697, https://github.com/kungfu-systems/kungfu/pull/701, https://github.com/kungfu-systems/kungfu/pull/705, https://github.com/kungfu-systems/kungfu/pull/754, https://github.com/kungfu-systems/kungfu/pull/770, https://github.com/kungfu-systems/kungfu/pull/783, https://github.com/kungfu-systems/kungfu/pull/784, https://github.com/kungfu-systems/kungfu/pull/788, https://github.com/kungfu-systems/kungfu/pull/794, https://github.com/kungfu-systems/kungfu/pull/795, https://github.com/kungfu-systems/kungfu/pull/809, https://github.com/kungfu-systems/kungfu/pull/813, https://github.com/kungfu-systems/kungfu/pull/820, https://github.com/kungfu-systems/kungfu/pull/821, https://github.com/kungfu-systems/kungfu/pull/824, https://github.com/kungfu-systems/kungfu/pull/826]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -326,11 +326,22 @@ same-host backup/restore, and resource peaks. This is one named durability
 candidate SLO, not qualification of the mmap visible path, another platform,
 physical power loss, off-host backup, a comparator, or production admission.
 
+The adjacent default-off off-host slice now has a versioned
+manifest/data/completion-marker-last package and a bounded local Shifu harness.
+The retained `987201493` execution exported the checkpoint-covered cut from
+agent-120, rejected a manifest-only partial transfer, verified every package
+digest on Ubuntu 222, restored an empty root, matched records, Episode,
+projection state and cut, and repeated restore idempotently. This upgrades only
+the named same-office two-host backup/restore fact. It does not establish
+independent power, network, site, or administrator failure domains, physical
+power-loss durability, scheduled backup operations, or production admission.
+
 The production mmap claim remains `demand + visibility`. The backup/restore
 round trip and projection cut equality are implementation evidence, not an
 operator-facing backup format or qualified power-loss guarantee. Production
-bootstrap authority cutover, off-host backup operations, physical-host restart
-and physical-power-loss qualification, macOS/Windows device-tier qualification,
-and the public durability product contract remain pending. In particular, the
-disposable guest result does not qualify a physical host, a whole-device loss,
-an independent backup failure domain, or a production profile.
+bootstrap authority cutover, independent-failure-domain backup operations,
+physical-host restart and physical-power-loss qualification, macOS/Windows
+device-tier qualification, and the public durability product contract remain
+pending. In particular, the disposable guest and same-office host results do
+not qualify a physical host, a whole-device loss, an independent backup failure
+domain, or a production profile.
