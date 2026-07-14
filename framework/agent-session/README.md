@@ -102,6 +102,27 @@ reading provider auth, private transcripts, or hidden session databases. Real
 authenticated instruction, approval/deny, and provider-outcome dogfood remains
 a Stage 6 product qualification obligation.
 
+The Codex App Server structured-hybrid contract is a separate provider adapter
+stage under ADR-0085. It pins direct stdio, Codex CLI `0.144.3`, the generated
+non-experimental stable schema bundle, admitted methods, provider identity, raw
+retention, and recovery limits without changing the shared Interaction Port or
+Claude/PTTY authority. Its committed 267-file manifest defines an independently
+recomputable bundle digest; unknown versions, capabilities, methods, required
+fields, or schema bytes fail closed.
+
+Run the credential-free contract and installed-schema drift gates through
+Shifu:
+
+```sh
+./shifu test:codex-app-server-contract
+./shifu test:codex-app-server-contract:native
+```
+
+The native gate generates stable schema under a temporary `HOME` and
+`CODEX_HOME`; it does not inspect provider auth or session state. Runtime,
+normalization, recovery guards, product routing, and real authenticated dogfood
+belong to later ADR-0085 implementation stages.
+
 On Darwin, packaged products must restore the executable bit on node-pty's
 `spawn-helper`. The existing Electron `afterPack` audit already owns that
 repair. The Mac smoke copies node-pty into a temporary harness directory and
