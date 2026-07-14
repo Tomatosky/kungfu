@@ -41,10 +41,11 @@ The full command is:
 ```
 
 The current retained complete product report is the
-[Darwin arm64 `080f330db` evidence](evidence/runtime-activation/080f330db/README.md).
-Its machine report binds the latest rebased clean source tree, all eight
-passing suites, and the claim/non-claim boundary below. The earlier
-[`fea9ea4ae`](evidence/runtime-activation/fea9ea4ae/README.md) and
+[Darwin arm64 `527652f13` evidence](evidence/runtime-activation/527652f13/README.md).
+Its machine report binds the latest rebased clean source tree, refreshed KFD-1
+release evidence, all eight passing suites, and the claim/non-claim boundary
+below. The [`080f330db`](evidence/runtime-activation/080f330db/README.md),
+[`fea9ea4ae`](evidence/runtime-activation/fea9ea4ae/README.md), and
 [`fb1574844`](evidence/runtime-activation/fb1574844/README.md) reports remain as
 historical evidence from prior `dev/v4/v4.0` synchronization points.
 
