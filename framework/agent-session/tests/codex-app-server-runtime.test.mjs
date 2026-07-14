@@ -265,6 +265,17 @@ test('stdout pipe loss terminates the provider with an unknown attempt boundary'
   assert.equal(status.exit.boundary, 'attempt-outcome-unknown');
 });
 
+test('unexpected provider exit is visible and never claims a terminal outcome', async () => {
+  const host = await start('unexpected-exit');
+  const status = await host.waitForExit();
+  assert.equal(status.lifecycleState, 'failed');
+  assert.equal(status.exit.code, 23);
+  assert.equal(status.exit.expected, false);
+  assert.equal(status.exit.boundary, 'attempt-outcome-unknown');
+  assert.equal(status.failure.boundary, 'attempt-outcome-unknown');
+  assert.notEqual(status.inputAdmission, 'open');
+});
+
 test('version drift fails before spawn', async () => {
   let spawned = false;
   const host = createHost({
