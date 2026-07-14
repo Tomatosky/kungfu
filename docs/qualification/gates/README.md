@@ -18,7 +18,7 @@ explains Kungfu's current policy and does not redefine Shifu semantics.
   digest, and retained Shifu receipt for measured Gates.
 - Buildchain owns runner allocation and aggregate checks; the standing patrol
   is pinned to the immutable `v2.12.4` release commit
-  `a6145efc210a961da0e5c63d7024d42061550f60`. Buildchain cannot weaken a
+  `94b06408475bc651c536fcb33b2f19b40bb9fab0`. Buildchain cannot weaken a
   Kungfu profile or mint missing Gate receipts.
 - `required` means blocking when the workflow activation condition matches.
   Path filters, same-repository restrictions, schedules, and post-merge events

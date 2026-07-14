@@ -33,7 +33,7 @@ permissions:
 
 jobs:
   verify:
-    uses: kungfu-systems/buildchain/.github/workflows/.gate-profile.yml@a6145efc210a961da0e5c63d7024d42061550f60
+    uses: kungfu-systems/buildchain/.github/workflows/.gate-profile.yml@94b06408475bc651c536fcb33b2f19b40bb9fab0
     with:
       buildchain-ref: ${{ inputs.buildchain-ref || '' }}
       gate-profile: dev-patrol
