@@ -453,6 +453,25 @@ test('the published v2 schema admits the Core registry and excludes presentation
   assert.equal('presentation' in schema.properties, false);
 });
 
+test('provider exit metadata remains visible without retaining terminal output', () => {
+  const { clients, input, runtime } = fixture();
+  const ref = {
+    workConsoleId: input.workConsoleId,
+    sessionAttemptId: input.sessionAttemptId,
+  };
+  clients.gui.start(clients.gui.planStart(input), {
+    attachmentId: 'view:go-card',
+    presentation: 'go-card-side-console',
+  });
+  runtime.list()[0].child.emit('exit', { exitCode: 64, signal: 0 });
+  const status = clients.cli.show(ref);
+  assert.equal(status.lifecycleState, 'ended');
+  assert.equal(status.inputAdmission, 'closed');
+  assert.equal(status.exit.exitCode, 64);
+  assert.equal(status.exit.signal, 0);
+  assert.doesNotMatch(JSON.stringify(status.exit), /terminal|stderr|output/iu);
+});
+
 test('controller lease has one winner and transfers only after exact release', () => {
   const { clients, input, runtime, surface } = fixture();
   const ref = {

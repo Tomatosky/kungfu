@@ -42,6 +42,7 @@ function fixture({
   provider = 'codex',
   version = '0.144.3',
   queueLimit = 4,
+  pause,
 } = {}) {
   const child = new FakePtyProcess();
   const host = new AgentSessionCapsuleHost({
@@ -83,6 +84,7 @@ function fixture({
     adapter,
     queueLimit,
     now: () => 1001,
+    ...(pause ? { pause } : {}),
   });
   const authority = {
     leaseId: 'lease-1',
@@ -137,6 +139,30 @@ test('ready instruction is one idempotent atomic paste and proves no outcome', (
     () =>
       port.instruct(instruction(authority, 'newline', { text: 'unsafe\n' })),
     /cannot end with Enter/u,
+  );
+});
+
+test('Claude instruction submits paste and Enter as separately idempotent writes', () => {
+  const pauses = [];
+  const { authority, child, port, screen } = fixture({
+    provider: 'claude',
+    version: '2.1.209',
+    pause: (milliseconds) => pauses.push(milliseconds),
+  });
+  screen('❯ Ask about this workspace');
+  const request = instruction(authority, 'claude-ready');
+  const first = port.instruct(request);
+  const duplicate = port.instruct(request);
+  assert.equal(first.status, 'written');
+  assert.equal(duplicate.status, 'duplicate');
+  assert.deepEqual(child.writes, [
+    '\u001b[200~instruction claude-ready\u001b[201~',
+    '\r',
+  ]);
+  assert.deepEqual(pauses, [50, 50]);
+  assert.equal(
+    first.deliveryReceipt.proves,
+    'validated-input-written-to-pty-only',
   );
 });
 

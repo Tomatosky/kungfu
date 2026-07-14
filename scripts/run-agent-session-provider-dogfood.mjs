@@ -1,6 +1,13 @@
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { chmodSync, cpSync, statSync } from 'node:fs';
+import {
+  constants,
+  accessSync,
+  chmodSync,
+  cpSync,
+  existsSync,
+  statSync,
+} from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -11,6 +18,10 @@ import { createDetachedAgentSessionHost } from '../framework/agent-session/src/p
 
 const PROFILE_ROOT = `sha256:${'8'.repeat(64)}`;
 const PRIVATE_ENV_NAMES = new Set(['ANTHROPIC_API_KEY', 'OPENAI_API_KEY']);
+const CLAUDE_APPROVAL_SETTINGS = JSON.stringify({
+  permissions: { ask: ['Bash'] },
+  sandbox: { autoAllowBashIfSandboxed: false },
+});
 const require = createRequire(
   new URL('../framework/agent-session/package.json', import.meta.url),
 );
@@ -26,7 +37,26 @@ function requiredArgument(name) {
   return path.resolve(value);
 }
 
-async function eventually(probe, label, timeoutMs = 90_000) {
+function positiveIntegerArgument(name, fallback) {
+  const value = argument(name);
+  if (value === undefined) return fallback;
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 1) {
+    throw new Error(`${name} must be a positive integer`);
+  }
+  return parsed;
+}
+
+const convergenceTimeoutMilliseconds = positiveIntegerArgument(
+  '--convergence-timeout-ms',
+  90_000,
+);
+
+async function eventually(
+  probe,
+  label,
+  timeoutMs = convergenceTimeoutMilliseconds,
+) {
   const deadline = Date.now() + timeoutMs;
   let lastError;
   while (Date.now() < deadline) {
@@ -67,7 +97,7 @@ function environment() {
   return selected;
 }
 
-function providerArguments(provider) {
+function providerArguments(provider, { claudeModel, claudeEffort }) {
   return provider === 'codex'
     ? [
         '--no-alt-screen',
@@ -76,7 +106,15 @@ function providerArguments(provider) {
         '--ask-for-approval',
         'untrusted',
       ]
-    : ['--safe-mode', '--permission-mode', 'manual'];
+    : [
+        '--safe-mode',
+        '--permission-mode',
+        'manual',
+        '--settings',
+        CLAUDE_APPROVAL_SETTINGS,
+        ...(claudeModel ? ['--model', claudeModel] : []),
+        ...(claudeEffort ? ['--effort', claudeEffort] : []),
+      ];
 }
 
 function prepareCheckoutNodePty(runtimeDir) {
@@ -134,6 +172,8 @@ async function waitForReady(host, ref, provider, label) {
         lifecycleState: current.lifecycleState,
         interactionState: current.interactionState,
         inputAdmission: current.inputAdmission,
+        signatureIds: current.providerAdapter?.signatureIds ?? [],
+        adapterReason: current.providerAdapter?.reason ?? null,
         providerSessionObserved: Boolean(current.foreground?.providerSessionId),
         providerTurnObserved: Boolean(current.foreground?.providerTurnId),
         adapterFailureCode: current.providerAdapter?.failureCode ?? null,
@@ -142,6 +182,8 @@ async function waitForReady(host, ref, provider, label) {
         stderrBytesObserved:
           current.providerAdapter?.stderrBytesObserved ?? null,
         attemptBoundary: current.attemptBoundary ?? null,
+        outputBytesObserved:
+          current.output.nextSequence - current.output.earliestSequence,
       };
       if (current.interactionState === 'ready') return current;
       if (
@@ -202,12 +244,33 @@ async function waitForReady(host, ref, provider, label) {
       temporaryTrustAccepted = true;
       return null;
     }, label);
+    if (status.interactionState !== 'ready') {
+      throw new Error(`${label} provider ended before ready`);
+    }
   } catch (error) {
     throw new Error(
       `${error.message}; adapterReason=${adapterReason ?? 'none'}; safeStatus=${JSON.stringify(lastSafeStatus)}; trustTokens=${observedTrustTokens.join(',') || 'none'}; readyTokens=${observedReadyTokens.join(',') || 'none'}`,
     );
   }
   return { status, temporaryTrustAccepted };
+}
+
+function redactedScreenSignals(snapshot, probePath) {
+  const vt = snapshot?.terminal?.vt;
+  const screen = Array.isArray(vt?.lines) ? vt.lines.join('\n') : '';
+  return {
+    currentReadyPrompt: /^\s*❯(?:\s|$)/mu.test(screen),
+    currentBusyHint: /esc to interrupt/iu.test(screen),
+    currentPermissionPrompt: /permission/iu.test(screen),
+    currentApprovalPrompt: /(?:allow|approve|proceed)/iu.test(screen),
+    currentBashPrompt: /bash(?: command)?/iu.test(screen),
+    currentProbeReference: screen.includes(path.basename(probePath)),
+    activeBuffer: vt?.activeBuffer ?? null,
+    cursor: vt?.cursor ?? null,
+    nonEmptyLines: Array.isArray(vt?.lines)
+      ? vt.lines.filter((line) => line.trim().length > 0).length
+      : 0,
+  };
 }
 
 async function stopWorker(metadata) {
@@ -229,6 +292,19 @@ const provider = argument('--provider');
 if (!['codex', 'claude'].includes(provider)) {
   throw new Error('--provider must be codex or claude');
 }
+const claudeModel = argument('--claude-model');
+const claudeEffort = argument('--claude-effort');
+if (provider !== 'claude' && (claudeModel || claudeEffort)) {
+  throw new Error(
+    '--claude-model and --claude-effort require --provider claude',
+  );
+}
+if (
+  claudeEffort &&
+  !['low', 'medium', 'high', 'xhigh', 'max'].includes(claudeEffort)
+) {
+  throw new Error('--claude-effort must be low, medium, high, xhigh, or max');
+}
 const transport = argument('--transport') ?? 'pty';
 if (!['pty', 'structured'].includes(transport)) {
   throw new Error('--transport must be pty or structured');
@@ -239,6 +315,11 @@ if (transport === 'structured' && provider !== 'codex') {
 const runtimeDir = requiredArgument('--runtime-dir');
 const workspace = requiredArgument('--workspace');
 const providerExecutable = requiredArgument('--provider-executable');
+try {
+  accessSync(providerExecutable, constants.X_OK);
+} catch {
+  throw new Error('--provider-executable must identify an executable file');
+}
 const workerExecutable = path.resolve(
   argument('--worker-executable') ?? process.execPath,
 );
@@ -276,7 +357,7 @@ try {
       providerVersion: provider === 'codex' ? '0.144.3' : '2.1.209',
       profileRoot: PROFILE_ROOT,
       executable: providerExecutable,
-      argv: providerArguments(provider),
+      argv: providerArguments(provider, { claudeModel, claudeEffort }),
       cwd: workspace,
       env,
     },
@@ -367,7 +448,7 @@ try {
       providerVersion: provider === 'codex' ? '0.144.3' : '2.1.209',
       profileRoot: PROFILE_ROOT,
       executable: providerExecutable,
-      argv: providerArguments(provider),
+      argv: providerArguments(provider, { claudeModel, claudeEffort }),
       cwd: workspace,
       env,
     },
@@ -390,13 +471,13 @@ try {
     provider,
     `${provider} approval attempt ready`,
   );
-  const approvalProbe = path.join(workspace, 'approval-probe-must-not-exist');
+  const approvalProbe = path.join(workspace, 'qualification-tool-call-probe');
   const approvalInstruction = await control(
     restartedMain,
     approvalRef,
     'instruct',
     {
-      text: `Use the shell tool to run touch ${JSON.stringify(approvalProbe)}. Do not avoid the tool request.`,
+      text: `Create the qualification fixture at ${JSON.stringify(approvalProbe)} now. Use the ${provider === 'claude' ? 'Bash' : 'shell'} tool with exactly this command: printf qualification > ${JSON.stringify(approvalProbe)}. Request confirmation instead of explaining the command.`,
     },
   );
   if (
@@ -406,6 +487,8 @@ try {
   ) {
     throw new Error(`${provider} approval probe instruction was not delivered`);
   }
+  const approvalObservations = new Set();
+  let approvalLastStatus = approvalReady.status;
   let approvalSafeStatus = null;
   try {
     await eventually(async () => {
@@ -413,6 +496,16 @@ try {
         operation: 'status',
         session: approvalRef,
       });
+      approvalLastStatus = status;
+      approvalObservations.add(
+        JSON.stringify({
+          interactionState: status.interactionState,
+          signatureIds: status.providerAdapter.signatureIds,
+          adapterReason: status.providerAdapter.reason,
+          lifecycleState: status.lifecycleState,
+          inputAdmission: status.inputAdmission,
+        }),
+      );
       approvalSafeStatus = {
         lifecycleState: status.lifecycleState,
         interactionState: status.interactionState,
@@ -424,8 +517,35 @@ try {
       return status.interactionState === 'approval-needed';
     }, `${provider} approval-needed state`);
   } catch (error) {
+    let screenSignals = { snapshotAvailable: false };
+    let cleanup = 'not-attempted';
+    try {
+      const snapshot = await restartedMain.invoke({
+        operation: 'snapshot',
+        session: approvalRef,
+        requestedSequence: approvalLastStatus.output.earliestSequence,
+      });
+      screenSignals = redactedScreenSignals(snapshot, approvalProbe);
+    } catch {
+      screenSignals = { snapshotAvailable: false };
+    }
+    try {
+      const stopped = await control(restartedMain, approvalRef, 'end', {});
+      cleanup = stopped.status;
+    } catch {
+      cleanup = 'failed';
+    }
     throw new Error(
-      `${error.message}; safeStatus=${JSON.stringify(approvalSafeStatus)}`,
+      `${error.message}; metadata=${JSON.stringify({
+        safeStatus: approvalSafeStatus,
+        observations: [...approvalObservations],
+        outputBytesObserved:
+          approvalLastStatus.output.nextSequence -
+          approvalReady.status.output.nextSequence,
+        probeExists: existsSync(approvalProbe),
+        screenSignals,
+        cleanup,
+      })}`,
     );
   }
   const pendingControl = (
@@ -454,6 +574,9 @@ try {
   ) {
     throw new Error(`${provider} approval denial was not delivered`);
   }
+  if (existsSync(approvalProbe)) {
+    throw new Error(`${provider} approval probe executed before denial`);
+  }
 
   const ended = await control(restartedMain, approvalRef, 'end', {});
   if (
@@ -472,6 +595,9 @@ try {
       status.lifecycleState === 'ended' && status.inputAdmission === 'closed'
     );
   }, `${provider} provider exit`);
+  if (existsSync(approvalProbe)) {
+    throw new Error(`${provider} approval probe executed despite denial`);
+  }
 
   const interruptRef = {
     workConsoleId: `work:provider-dogfood:${provider}:interrupt`,
@@ -485,7 +611,7 @@ try {
       providerVersion: provider === 'codex' ? '0.144.3' : '2.1.209',
       profileRoot: PROFILE_ROOT,
       executable: providerExecutable,
-      argv: providerArguments(provider),
+      argv: providerArguments(provider, { claudeModel, claudeEffort }),
       cwd: workspace,
       env,
     },
@@ -578,6 +704,19 @@ try {
     runtimeRoot: `sha256:${createHash('sha256').update(runtimeDir).digest('hex')}`,
     rawTerminalRetained: false,
     privateEnvironmentValuesRetained: false,
+    approvalPolicy:
+      provider === 'claude'
+        ? 'explicit-bash-ask'
+        : 'provider-untrusted-approval',
+    qualificationProfile: {
+      convergenceTimeoutMilliseconds,
+      ...(provider === 'claude'
+        ? {
+            model: claudeModel ?? 'provider-default',
+            effort: claudeEffort ?? 'provider-default',
+          }
+        : {}),
+    },
     temporaryWorkspaceTrustAccepted:
       initialReady.temporaryTrustAccepted ||
       approvalReady.temporaryTrustAccepted ||
