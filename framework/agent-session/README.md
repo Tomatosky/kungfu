@@ -1,10 +1,10 @@
-# AgentSessionCapsule PTY host
+# AgentSessionCapsule host and peer transport
 
 `@kungfu-tech/agent-session` contains the process-lifetime boundary that owns
 one provider PTY for one `SessionAttempt`. It directly spawns an absolute
 executable plus argv; it never launches a persistent interactive shell.
 
-This stage provides:
+The host stage provides:
 
 - an injectable Capsule host with exact attempt, generation, stream-epoch and
   process-start fencing;
@@ -20,15 +20,31 @@ This stage provides:
   approval prompt, burst output and provider exit.
 
 The worker's newline-JSON POSIX local socket is a Stage 2 test port, not the
-public interaction transport. Runtime Peer registration, controller leases,
-Coordinator re-registration and supervisor adoption belong to Stage 3. Codex
-and Claude semantic adapters belong to Stage 4, and product surfaces belong to
-Stage 5.
+public interaction transport.
+
+The Stage 3 transport state machine adds:
+
+- an injectable append-only journal + payload-free notice port shaped for the
+  ADR-0077 mmap journal and nng wakeup planes;
+- one Capsule output writer with independent cursors for every attachment;
+- one generation-fenced controller lease, explicit takeover policy, input
+  deduplication and expected-provider fencing;
+- Coordinator re-registration without a stream-epoch reset and Supervisor
+  adoption only with exact runtime/generation/process identity evidence; and
+- bounded journal recovery, explicit gaps, VT snapshots, resize coalescing and
+  a structural no-per-reader-fanout benchmark.
+
+`InMemoryJournalNoticePort` is deterministic qualification infrastructure, not
+a production broker. The production adapter must inject the existing Kungfu
+mmap journal + nng notice plane; it must not turn the Capsule worker's local
+test socket into a public relay. Codex and Claude semantic adapters belong to
+Stage 4, and product surfaces belong to Stage 5.
 
 Run the focused qualification through Shifu:
 
 ```sh
 ./shifu test:agent-session-capsule-host
+./shifu test:agent-session-peer-transport
 ```
 
 The build-free source gate runs the pure host tests only. The focused command

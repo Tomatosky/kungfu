@@ -208,6 +208,7 @@ then run:
     kungfu contract show agent-session --json
     ./shifu test:agent-session-contract
     ./shifu test:agent-session-capsule-host
+    ./shifu test:agent-session-peer-transport
     ./shifu check:source
 
 The fixture gate accepts seven canonical plan/status/receipt cases and rejects
@@ -216,14 +217,17 @@ input write, blind instruction in unknown modal state, provider-exit shell
 fallthrough, silent replay gaps, and terminal delivery promoted to work proof.
 
 **Maturity.** Partial. The registered contract, schemas, canonical policy,
-fixtures, source gate, and independent synthetic Capsule PTY host are
-implemented. The host proves direct executable/argv spawn, exact process
-fencing, bounded replay with explicit gaps, text-grid VT snapshots, client-loss
-reattachment, input closure on provider exit, and delivery/lifecycle proof
-boundaries. Peer transport, controller leases, Coordinator/Supervisor recovery,
-provider adapters, product surfaces, machine restart, and real Codex/Claude
-smoke remain staged; this contract does not claim those behaviors already
-exist.
+fixtures, source gate, independent synthetic Capsule PTY host, and injectable
+journal/notice transport authority state machine are implemented. The host
+proves direct executable/argv spawn, exact process fencing, bounded replay with
+explicit gaps, text-grid VT snapshots, client-loss reattachment, input closure
+on provider exit, and delivery/lifecycle proof boundaries. The transport tests
+prove multi-reader cursors, one-controller arbitration, input dedup, explicit
+takeover, Coordinator re-registration, exact-identity Supervisor adoption,
+bounded slow-reader recovery, resize coalescing, and no writer fanout by reader
+count. The native ADR-0077 mmap journal + nng adapter, provider adapters,
+product surfaces, machine restart, and real Codex/Claude smoke remain staged;
+this contract does not claim those behaviors already exist.
 
 ## The KFD-1 contract registry is the packaging source of truth
 

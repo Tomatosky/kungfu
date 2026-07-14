@@ -6,7 +6,7 @@ decision_status: accepted
 implementation_status: partial
 implementation_commits: [90e878b696a6a6a6a1a9d21f166f0e63bc527bb2]
 implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/834]
-qualification_refs: [scripts/check-agent-session-contract.test.mjs, tests/fixtures/agent-session-capsule-contract, framework/agent-session/tests/capsule-host.test.mjs, framework/agent-session/tests/capsule-worker.test.mjs]
+qualification_refs: [scripts/check-agent-session-contract.test.mjs, tests/fixtures/agent-session-capsule-contract, framework/agent-session/tests/capsule-host.test.mjs, framework/agent-session/tests/capsule-worker.test.mjs, framework/agent-session/tests/peer-transport.test.mjs]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-decision]
@@ -217,8 +217,12 @@ evidence input under Profile/KFD authority.
 6. Fault, privacy, performance, Mac product, and promoted real-provider evidence
    close the decision.
 
-The contract slice and Stage 2 independent synthetic Capsule PTY host are
-implemented and recorded, so the implementation status is partial. Stages 3–6
-remain required before the product may claim controller-lease transport,
-Coordinator/Supervisor recovery, real-provider semantics, shared product
-surfaces, or machine-restart qualification.
+The contract slice, Stage 2 independent synthetic Capsule PTY host, and the
+Stage 3 journal/notice transport authority state machine are implemented and
+recorded, so the implementation status is partial. The deterministic transport
+fixture proves multi-reader cursors, one-controller arbitration, input dedup,
+bounded gaps, Coordinator re-registration, Supervisor adoption fencing and
+writer-path fanout bounds. A production adapter must still bind this seam to
+the existing ADR-0077 mmap journal + nng notice plane before the product claims
+a live native Peer. Stages 4–6 remain required for real-provider semantics,
+shared product surfaces and machine-restart qualification.

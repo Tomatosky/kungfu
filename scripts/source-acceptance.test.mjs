@@ -34,6 +34,11 @@ test('source plan covers representative source-only checks', () => {
     ),
   );
   assert.ok(
+    contractTests.args.includes(
+      'framework/agent-session/tests/peer-transport.test.mjs',
+    ),
+  );
+  assert.ok(
     !contractTests.args.includes(
       'framework/agent-session/tests/capsule-worker.test.mjs',
     ),
