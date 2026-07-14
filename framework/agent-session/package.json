@@ -1,0 +1,29 @@
+{
+  "name": "@kungfu-tech/agent-session",
+  "version": "4.0.0-alpha.0",
+  "description": "Kungfu AgentSessionCapsule process and PTY host",
+  "license": "Apache-2.0",
+  "type": "module",
+  "repository": {
+    "url": "https://github.com/kungfu-systems/kungfu.git"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
+  "exports": {
+    ".": "./src/capsule-host.mjs",
+    "./worker": "./src/capsule-worker.mjs",
+    "./vt-snapshot": "./src/vt-snapshot.mjs"
+  },
+  "files": [
+    "src",
+    "kungfu-agent-session.contract.json"
+  ],
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "node-pty": "^1.1.0"
+  }
+}

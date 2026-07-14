@@ -4,6 +4,7 @@ export default {
   globs: [
     '**/*.md',
     '!.buildchain/runtime/**',
+    '!.buildchain/tmp/**',
     '!framework/core/.deps/**',
     '!**/node_modules/**',
     '!**/.venv/**',

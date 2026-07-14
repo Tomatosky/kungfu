@@ -5,7 +5,7 @@ adr_id: ADR-0081
 decision_status: accepted
 implementation_status: partial
 implementation_commits: [90e878b696a6a6a6a1a9d21f166f0e63bc527bb2]
-qualification_refs: [scripts/check-agent-session-contract.test.mjs, tests/fixtures/agent-session-capsule-contract]
+qualification_refs: [scripts/check-agent-session-contract.test.mjs, tests/fixtures/agent-session-capsule-contract, framework/agent-session/tests/capsule-host.test.mjs, framework/agent-session/tests/capsule-worker.test.mjs]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-decision]
@@ -216,6 +216,8 @@ evidence input under Profile/KFD authority.
 6. Fault, privacy, performance, Mac product, and promoted real-provider evidence
    close the decision.
 
-The contract slice is implemented and recorded, so the implementation status is
-partial. Stages 2–6 remain required before the product may claim it survives
-GUI, Coordinator, Supervisor, Capsule, or machine restart.
+The contract slice and Stage 2 independent synthetic Capsule PTY host are
+implemented and recorded, so the implementation status is partial. Stages 3–6
+remain required before the product may claim controller-lease transport,
+Coordinator/Supervisor recovery, real-provider semantics, shared product
+surfaces, or machine-restart qualification.

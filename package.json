@@ -106,6 +106,7 @@
     "test:agent-profile-sdk": "node scripts/require-shifu.mjs test:agent-profile-sdk && node scripts/run-agent-profile-sdk-tests.mjs",
     "test:agent-console-contract": "node scripts/require-shifu.mjs test:agent-console-contract && node scripts/run-agent-console-contract-tests.mjs",
     "test:agent-session-contract": "node scripts/require-shifu.mjs test:agent-session-contract && node --test scripts/check-agent-session-contract.test.mjs",
+    "test:agent-session-capsule-host": "node scripts/require-shifu.mjs test:agent-session-capsule-host && pnpm --filter @kungfu-tech/agent-session test",
     "test:profile-kfd3-qualification": "node scripts/require-shifu.mjs test:profile-kfd3-qualification && node tests/qualification/profile-kfd3/run.ts",
     "schema:profile-lifecycle": "node scripts/require-shifu.mjs schema:profile-lifecycle && node scripts/generate-profile-lifecycle-schema.mjs",
     "test:durable-ingest": "node scripts/require-shifu.mjs test:durable-ingest && node scripts/run-durable-ingest-tests.mjs",

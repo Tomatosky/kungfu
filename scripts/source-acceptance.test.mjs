@@ -84,4 +84,5 @@ test('the native membrane matrix is a promotion gate, not a dev PR gate', () => 
 test('documentation lint excludes the checked-out Buildchain runtime', async () => {
   const config = await import('../.markdownlint-cli2.mjs');
   assert.ok(config.default.globs.includes('!.buildchain/runtime/**'));
+  assert.ok(config.default.globs.includes('!.buildchain/tmp/**'));
 });

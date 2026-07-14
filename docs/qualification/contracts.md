@@ -207,6 +207,7 @@ then run:
 
     kungfu contract show agent-session --json
     ./shifu test:agent-session-contract
+    ./shifu test:agent-session-capsule-host
     ./shifu check:source
 
 The fixture gate accepts seven canonical plan/status/receipt cases and rejects
@@ -215,10 +216,14 @@ input write, blind instruction in unknown modal state, provider-exit shell
 fallthrough, silent replay gaps, and terminal delivery promoted to work proof.
 
 **Maturity.** Partial. The registered contract, schemas, canonical policy,
-positive fixtures, negative fixtures, and source gate are implemented. The
-Capsule process host, peer transport, provider adapters, product surfaces,
-restart qualification, and real Codex/Claude smoke remain staged; this contract
-does not claim those runtime behaviors already exist.
+fixtures, source gate, and independent synthetic Capsule PTY host are
+implemented. The host proves direct executable/argv spawn, exact process
+fencing, bounded replay with explicit gaps, text-grid VT snapshots, client-loss
+reattachment, input closure on provider exit, and delivery/lifecycle proof
+boundaries. Peer transport, controller leases, Coordinator/Supervisor recovery,
+provider adapters, product surfaces, machine restart, and real Codex/Claude
+smoke remain staged; this contract does not claim those behaviors already
+exist.
 
 ## The KFD-1 contract registry is the packaging source of truth
 

@@ -111,6 +111,8 @@ export function sourceAcceptancePlan(files) {
         'scripts/check-schema-authority.test.mjs',
         'scripts/check-runtime-contract.test.mjs',
         'scripts/check-agent-session-contract.test.mjs',
+        'framework/agent-session/tests/capsule-host.test.mjs',
+        'framework/agent-session/tests/capsule-worker.test.mjs',
         'framework/core/tests/qualification/durability/run.test.mjs',
         'framework/core/tests/qualification/durability/powercut_plan.test.mjs',
         'framework/core/tests/qualification/durability/fault_campaign.test.mjs',
