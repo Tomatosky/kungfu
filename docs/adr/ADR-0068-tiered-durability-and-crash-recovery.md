@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0068
 decision_status: accepted
 implementation_status: staged
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/668, https://github.com/kungfu-systems/kungfu/pull/673, https://github.com/kungfu-systems/kungfu/pull/682, https://github.com/kungfu-systems/kungfu/pull/687, https://github.com/kungfu-systems/kungfu/pull/691, https://github.com/kungfu-systems/kungfu/pull/693, https://github.com/kungfu-systems/kungfu/pull/697, https://github.com/kungfu-systems/kungfu/pull/701, https://github.com/kungfu-systems/kungfu/pull/705, https://github.com/kungfu-systems/kungfu/pull/754, https://github.com/kungfu-systems/kungfu/pull/770, https://github.com/kungfu-systems/kungfu/pull/783, https://github.com/kungfu-systems/kungfu/pull/784, https://github.com/kungfu-systems/kungfu/pull/788, https://github.com/kungfu-systems/kungfu/pull/794, https://github.com/kungfu-systems/kungfu/pull/795, https://github.com/kungfu-systems/kungfu/pull/809, https://github.com/kungfu-systems/kungfu/pull/813, https://github.com/kungfu-systems/kungfu/pull/820]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/668, https://github.com/kungfu-systems/kungfu/pull/673, https://github.com/kungfu-systems/kungfu/pull/682, https://github.com/kungfu-systems/kungfu/pull/687, https://github.com/kungfu-systems/kungfu/pull/691, https://github.com/kungfu-systems/kungfu/pull/693, https://github.com/kungfu-systems/kungfu/pull/697, https://github.com/kungfu-systems/kungfu/pull/701, https://github.com/kungfu-systems/kungfu/pull/705, https://github.com/kungfu-systems/kungfu/pull/754, https://github.com/kungfu-systems/kungfu/pull/770, https://github.com/kungfu-systems/kungfu/pull/783, https://github.com/kungfu-systems/kungfu/pull/784, https://github.com/kungfu-systems/kungfu/pull/788, https://github.com/kungfu-systems/kungfu/pull/794, https://github.com/kungfu-systems/kungfu/pull/795, https://github.com/kungfu-systems/kungfu/pull/809, https://github.com/kungfu-systems/kungfu/pull/813, https://github.com/kungfu-systems/kungfu/pull/820, https://github.com/kungfu-systems/kungfu/pull/821, https://github.com/kungfu-systems/kungfu/pull/824]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -315,6 +315,16 @@ trial to fsynced JSONL before continuing, emits an aggregate digest, and leaves
 failed or interrupted workspaces intact instead of enabling selective reruns.
 This is device-model evidence only; its schemas fix physical power-loss,
 physical device-cache, and production eligibility claims to false.
+
+The first absolute current-hardware SLO slice is now retained for
+`linux-ext4-agent120-slo-v1`. Its thresholds were frozen before execution and
+all eight required latency, throughput, rapid-rollover, and 15-minute soak
+workloads passed at source `070e0804b` with zero correctness or SLO violations.
+The evidence binds the report to agent-120, Linux/x86_64, ext4 on NVMe, the
+profile digest, complete histogram/raw digests, recovery and projection times,
+same-host backup/restore, and resource peaks. This is one named durability
+candidate SLO, not qualification of the mmap visible path, another platform,
+physical power loss, off-host backup, a comparator, or production admission.
 
 The production mmap claim remains `demand + visibility`. The backup/restore
 round trip and projection cut equality are implementation evidence, not an
