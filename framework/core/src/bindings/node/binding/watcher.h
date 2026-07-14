@@ -10,6 +10,8 @@
 #include <napi.h>
 #include <uv.h>
 
+#include <deque>
+
 #include "common.h"
 #include "io.h"
 #include "journal.h"
@@ -54,6 +56,12 @@ public:
 
   Napi::Value IssueCustomData(const Napi::CallbackInfo &info);
 
+  Napi::Value IssueRawPublic(const Napi::CallbackInfo &info);
+
+  Napi::Value RequestReadFromPublic(const Napi::CallbackInfo &info);
+
+  Napi::Value DrainCustomData(const Napi::CallbackInfo &info);
+
   Napi::Value IssueMark(const Napi::CallbackInfo &info);
 
   Napi::Value Start(const Napi::CallbackInfo &info);
@@ -94,7 +102,25 @@ private:
   uv_work_t uv_work_ = {};
   bool uv_work_live_ = false;
   bool quit_ = false;
+  bool capture_custom_ = false;
   std::exception_ptr worker_error_ = nullptr;
+
+  struct custom_frame_record {
+    int64_t gen_time;
+    int64_t trigger_time;
+    uint64_t frame_uid;
+    int32_t carrier_type;
+    uint32_t source;
+    uint32_t dest;
+    std::vector<uint8_t> payload;
+  };
+
+  static constexpr size_t MAX_CUSTOM_FRAME_BYTES = 1024 * 1024;
+  static constexpr size_t CUSTOM_FRAME_QUEUE_BYTES = 4 * 1024 * 1024;
+  std::mutex custom_frames_mutex_;
+  std::deque<custom_frame_record> custom_frames_;
+  size_t custom_frames_bytes_ = 0;
+  uint64_t custom_frames_dropped_ = 0;
 
   Napi::ObjectReference ledger_ref_;
   Napi::ObjectReference app_states_ref_;
@@ -128,6 +154,8 @@ private:
   void SyncAppStates();
 
   void UpdateEventCache(const event_ptr &event);
+
+  void CaptureCustomEvent(const event_ptr &event);
 
   void SyncEventCache();
 

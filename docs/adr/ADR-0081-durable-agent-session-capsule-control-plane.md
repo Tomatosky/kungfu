@@ -4,9 +4,9 @@ doc_type: architecture-decision
 adr_id: ADR-0081
 decision_status: accepted
 implementation_status: partial
-implementation_commits: [90e878b696a6a6a6a1a9d21f166f0e63bc527bb2]
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/834]
-qualification_refs: [scripts/check-agent-session-contract.test.mjs, tests/fixtures/agent-session-capsule-contract, framework/agent-session/tests/capsule-host.test.mjs, framework/agent-session/tests/capsule-worker.test.mjs, framework/agent-session/tests/peer-transport.test.mjs]
+implementation_commits: [90e878b696a6a6a6a1a9d21f166f0e63bc527bb2, 4a4597fbf04de9de6863a98ce4d90ae3493904d9]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/834, https://github.com/kungfu-systems/kungfu/pull/837]
+qualification_refs: [scripts/check-agent-session-contract.test.mjs, tests/fixtures/agent-session-capsule-contract, framework/agent-session/tests/capsule-host.test.mjs, framework/agent-session/tests/capsule-worker.test.mjs, framework/agent-session/tests/peer-transport.test.mjs, framework/agent-session/tests/runtime-port.test.mjs, framework/agent-session/tests/runtime-port.native.test.mjs]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-decision]
@@ -219,10 +219,12 @@ evidence input under Profile/KFD authority.
 
 The contract slice, Stage 2 independent synthetic Capsule PTY host, and the
 Stage 3 journal/notice transport authority state machine are implemented and
-recorded, so the implementation status is partial. The deterministic transport
-fixture proves multi-reader cursors, one-controller arbitration, input dedup,
+recorded, so the implementation status is partial. Deterministic transport
+fixtures prove multi-reader cursors, one-controller arbitration, input dedup,
 bounded gaps, Coordinator re-registration, Supervisor adoption fencing and
-writer-path fanout bounds. A production adapter must still bind this seam to
-the existing ADR-0077 mmap journal + nng notice plane before the product claims
-a live native Peer. Stages 4–6 remain required for real-provider semantics,
+writer-path fanout bounds. The production adapter binds that seam to native
+Watcher Peers: action envelopes use the Capsule's public mmap journal, the
+existing writer publication provides the nng notice, and a cross-process
+Coordinator/writer/reader qualification proves cursor reconstruction without a
+Coordinator byte proxy. Stages 4–6 remain required for real-provider semantics,
 shared product surfaces and machine-restart qualification.

@@ -8,6 +8,7 @@
 #include "config_store.h"
 #include "history.h"
 #include <kungfu/runtime/state_cache/manager.h>
+#include <kungfu/view/action_envelope.h>
 #include <sstream>
 #include <typeinfo>
 #include <utility>
@@ -59,6 +60,10 @@ inline int GetMillisecondsSleepAfterStep(const Napi::CallbackInfo &info) {
   return info[3].As<Napi::Number>().Int32Value();
 }
 
+inline bool GetCaptureCustom(const Napi::CallbackInfo &info) {
+  return info.Length() > 4 && info[4].IsBoolean() && info[4].As<Napi::Boolean>().Value();
+}
+
 // The function-try-block is deliberate: base-class construction (peer
 // opens the io device and session index storage) can throw under
 // cross-process contention, and a body-level try cannot catch member
@@ -68,6 +73,7 @@ Watcher::Watcher(const Napi::CallbackInfo &info) try
     : ObjectWrap(info),                                                                           //
       peer(GetWatcherLocation(info), true),                                                       //
       milliseconds_sleep_after_step_(GetNumber(info, 3)),                                         //
+      capture_custom_(GetCaptureCustom(info)),                                                    //
       ledger_ref_(Napi::ObjectReference::New(Napi::Object::New(info.Env()), 1)),                  //
       app_states_ref_(Napi::ObjectReference::New(Napi::Object::New(info.Env()), 1)),              //
       config_ref_(Napi::ObjectReference::New(ConfigStore::NewInstance({info[0]}).ToObject(), 1)), //
@@ -203,6 +209,71 @@ Napi::Value Watcher::IssueCustomData(const Napi::CallbackInfo &info) {
   return InteractWithLocation<TimeKeyValue>(info, info[0].ToObject());
 }
 
+Napi::Value Watcher::IssueRawPublic(const Napi::CallbackInfo &info) {
+  if (not capture_custom_) {
+    throw Napi::Error::New(info.Env(), "custom frame capture was not enabled for this peer");
+  }
+  if (not IsValid(info, 0, &Napi::Value::IsNumber) || not info[1].IsBuffer()) {
+    throw Napi::Error::New(info.Env(), "issueRawPublic requires carrierType and Buffer");
+  }
+  auto carrier_type = info[0].As<Napi::Number>().Int32Value();
+  if (carrier_type <= 0 || (carrier_type != kungfu::view::action::ACTION_ENVELOPE_CARRIER_TYPE &&
+                            yijinjing::contains_tag(yijinjing::AllTypesTags, carrier_type))) {
+    throw Napi::Error::New(info.Env(), "carrierType must be the action envelope or an open custom carrier");
+  }
+  auto &writer = get_public_writer();
+  if (not writer) {
+    return Napi::Boolean::New(info.Env(), false);
+  }
+  auto payload = info[1].As<Napi::Buffer<uint8_t>>();
+  if (payload.Length() > MAX_CUSTOM_FRAME_BYTES) {
+    throw Napi::Error::New(info.Env(), "custom frame exceeds the 1 MiB peer limit");
+  }
+  writer->write_raw(now(), carrier_type, reinterpret_cast<uintptr_t>(payload.Data()), payload.Length());
+  return Napi::Boolean::New(info.Env(), true);
+}
+
+Napi::Value Watcher::RequestReadFromPublic(const Napi::CallbackInfo &info) {
+  if (not capture_custom_) {
+    throw Napi::Error::New(info.Env(), "custom frame capture was not enabled for this peer");
+  }
+  if (not is_live()) {
+    return Napi::Boolean::New(info.Env(), false);
+  }
+  auto source_location = IODevice::ExtractLocation(info, 0, get_locator());
+  auto from_time = GetBigInt(info, 1);
+  request_read_from_public(now(), source_location->uid, from_time);
+  return Napi::Boolean::New(info.Env(), true);
+}
+
+Napi::Value Watcher::DrainCustomData(const Napi::CallbackInfo &info) {
+  std::deque<custom_frame_record> drained;
+  uint64_t dropped = 0;
+  {
+    std::lock_guard<std::mutex> guard(custom_frames_mutex_);
+    drained.swap(custom_frames_);
+    dropped = std::exchange(custom_frames_dropped_, 0);
+    custom_frames_bytes_ = 0;
+  }
+  auto frames = Napi::Array::New(info.Env(), drained.size());
+  for (size_t index = 0; index < drained.size(); ++index) {
+    const auto &record = drained[index];
+    auto item = Napi::Object::New(info.Env());
+    item.Set("genTime", Napi::BigInt::New(info.Env(), record.gen_time));
+    item.Set("triggerTime", Napi::BigInt::New(info.Env(), record.trigger_time));
+    item.Set("frameUid", Napi::BigInt::New(info.Env(), record.frame_uid));
+    item.Set("carrierType", Napi::Number::New(info.Env(), record.carrier_type));
+    item.Set("source", Napi::Number::New(info.Env(), record.source));
+    item.Set("dest", Napi::Number::New(info.Env(), record.dest));
+    item.Set("data", Napi::Buffer<uint8_t>::Copy(info.Env(), record.payload.data(), record.payload.size()));
+    frames.Set(index, item);
+  }
+  auto result = Napi::Object::New(info.Env());
+  result.Set("dropped", Napi::BigInt::New(info.Env(), dropped));
+  result.Set("frames", frames);
+  return result;
+}
+
 Napi::Value Watcher::IssueMark(const Napi::CallbackInfo &info) {
   SPDLOG_INFO("issue mark");
   uint32_t tag = GetNumber(info, 0);
@@ -220,23 +291,26 @@ void Watcher::Init(Napi::Env env, Napi::Object exports) {
 
   Napi::Function func = DefineClass(env, "Watcher",
                                     {
-                                        InstanceMethod("now", &Watcher::Now),                                   //
-                                        InstanceMethod("isUsable", &Watcher::IsUsable),                         //
-                                        InstanceMethod("isLive", &Watcher::IsLive),                             //
-                                        InstanceMethod("isStarted", &Watcher::IsStarted),                       //
-                                        InstanceMethod("requestStop", &Watcher::RequestStop),                   //
-                                        InstanceMethod("hasLocation", &Watcher::HasLocation),                   //
-                                        InstanceMethod("getLocation", &Watcher::GetLocation),                   //
-                                        InstanceMethod("getLocationUID", &Watcher::GetLocationUID),             //
-                                        InstanceMethod("publishState", &Watcher::PublishState),                 //
-                                        InstanceMethod("isReadyToInteract", &Watcher::IsReadyToInteract),       //
-                                        InstanceMethod("issueCustomData", &Watcher::IssueCustomData),           //
-                                        InstanceMethod("issueMark", &Watcher::IssueMark),                       //
-                                        InstanceMethod("start", &Watcher::Start),                               //
-                                        InstanceMethod("sync", &Watcher::Sync),                                 //
-                                        InstanceMethod("quit", &Watcher::Quit),                                 //
-                                        InstanceAccessor("ledger", &Watcher::GetLedger, &Watcher::NoSet),       //
-                                        InstanceAccessor("appStates", &Watcher::GetAppStates, &Watcher::NoSet), //
+                                        InstanceMethod("now", &Watcher::Now),                                     //
+                                        InstanceMethod("isUsable", &Watcher::IsUsable),                           //
+                                        InstanceMethod("isLive", &Watcher::IsLive),                               //
+                                        InstanceMethod("isStarted", &Watcher::IsStarted),                         //
+                                        InstanceMethod("requestStop", &Watcher::RequestStop),                     //
+                                        InstanceMethod("hasLocation", &Watcher::HasLocation),                     //
+                                        InstanceMethod("getLocation", &Watcher::GetLocation),                     //
+                                        InstanceMethod("getLocationUID", &Watcher::GetLocationUID),               //
+                                        InstanceMethod("publishState", &Watcher::PublishState),                   //
+                                        InstanceMethod("isReadyToInteract", &Watcher::IsReadyToInteract),         //
+                                        InstanceMethod("issueCustomData", &Watcher::IssueCustomData),             //
+                                        InstanceMethod("issueRawPublic", &Watcher::IssueRawPublic),               //
+                                        InstanceMethod("requestReadFromPublic", &Watcher::RequestReadFromPublic), //
+                                        InstanceMethod("drainCustomData", &Watcher::DrainCustomData),             //
+                                        InstanceMethod("issueMark", &Watcher::IssueMark),                         //
+                                        InstanceMethod("start", &Watcher::Start),                                 //
+                                        InstanceMethod("sync", &Watcher::Sync),                                   //
+                                        InstanceMethod("quit", &Watcher::Quit),                                   //
+                                        InstanceAccessor("ledger", &Watcher::GetLedger, &Watcher::NoSet),         //
+                                        InstanceAccessor("appStates", &Watcher::GetAppStates, &Watcher::NoSet),   //
                                     });
 
   constructor = Napi::Persistent(func);
@@ -250,6 +324,11 @@ void Watcher::on_react() {
 
   events_ | is(Register::tag) | $$(OnRegister(event->gen_time(), event->data<Register>()));
   events_ | is(Deregister::tag) | $$(OnDeregister(event->gen_time(), event->data<Deregister>()));
+  if (capture_custom_) {
+    events_ | filter([](const event_ptr &event) {
+      return is_custom_event(event) || event->carrier_type() == kungfu::view::action::ACTION_ENVELOPE_CARRIER_TYPE;
+    }) | $$(CaptureCustomEvent(event));
+  }
   auto before_start_events = events_ | take_until(events_ | is(RequestStart::tag));
   before_start_events | $$(manager::feed_state_data(event, data_bank_));
 }
@@ -325,6 +404,30 @@ void Watcher::UpdateEventCache(const event_ptr &event) {
     }
   });
   reset_cache_states_.push_back(state<CacheReset>(event));
+}
+
+void Watcher::CaptureCustomEvent(const event_ptr &event) {
+  custom_frame_record record{
+      event->gen_time(),
+      event->trigger_time(),
+      event->frame_uid(),
+      event->carrier_type(),
+      event->source(),
+      event->dest(),
+      std::vector<uint8_t>(reinterpret_cast<const uint8_t *>(event->data_address()),
+                           reinterpret_cast<const uint8_t *>(event->data_address()) + event->data_length())};
+  std::lock_guard<std::mutex> guard(custom_frames_mutex_);
+  if (record.payload.size() > CUSTOM_FRAME_QUEUE_BYTES) {
+    ++custom_frames_dropped_;
+    return;
+  }
+  while (custom_frames_bytes_ + record.payload.size() > CUSTOM_FRAME_QUEUE_BYTES && not custom_frames_.empty()) {
+    custom_frames_bytes_ -= custom_frames_.front().payload.size();
+    custom_frames_.pop_front();
+    ++custom_frames_dropped_;
+  }
+  custom_frames_bytes_ += record.payload.size();
+  custom_frames_.push_back(std::move(record));
 }
 
 location_ptr Watcher::FindLocation(const Napi::CallbackInfo &info) {
@@ -515,7 +618,7 @@ void Watcher::AfterCoordinatorDown(Napi::Env env) {
   serialize::InitStateMap(env, ledger_ref_, "ledger");
 }
 
-bool Watcher::is_reactable(const event_ptr &event) { return not is_custom_event(event); }
+bool Watcher::is_reactable(const event_ptr &event) { return capture_custom_ || not is_custom_event(event); }
 
 bool Watcher::is_step_continually() { return reader_->data_available(); }
 

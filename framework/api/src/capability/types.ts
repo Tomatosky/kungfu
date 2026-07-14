@@ -213,6 +213,7 @@ export type KfNativeBinding = {
     lastFrameUid: () => bigint;
   };
   decodeActionEnvelope: (value: Uint8Array) => KfActionEnvelope | null;
+  encodeActionEnvelope: (value: Record<string, unknown>) => Uint8Array;
   verifyFlatbufferPayload: (
     schemaBfbs: Uint8Array,
     payload: Uint8Array,
@@ -249,11 +250,31 @@ export type KfNativeBinding = {
     name: string,
     bypassRestore: boolean,
     millisecondsSleepAfterStep: number,
+    captureCustom?: boolean,
   ) => {
     isUsable: () => boolean;
     isLive: () => boolean;
     isStarted: () => boolean;
     start: () => void;
+    getLocation: (uid?: number | string) => Record<string, unknown> | undefined;
+    issueRawPublic: (carrierType: number, data: Buffer) => boolean;
+    requestReadFromPublic: (
+      location: Record<string, unknown>,
+      fromTime: bigint,
+    ) => boolean;
+    drainCustomData: () => {
+      dropped: bigint;
+      frames: Array<{
+        genTime: bigint;
+        triggerTime: bigint;
+        frameUid: bigint;
+        carrierType: number;
+        source: number;
+        dest: number;
+        data: Buffer;
+      }>;
+    };
+    quit: () => void;
   };
   formatTime?: (nano: bigint, format?: string) => string;
 };

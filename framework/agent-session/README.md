@@ -35,22 +35,29 @@ The Stage 3 transport state machine adds:
   a structural no-per-reader-fanout benchmark.
 
 `InMemoryJournalNoticePort` is deterministic qualification infrastructure, not
-a production broker. The production adapter must inject the existing Kungfu
-mmap journal + nng notice plane; it must not turn the Capsule worker's local
-test socket into a public relay. Codex and Claude semantic adapters belong to
-Stage 4, and product surfaces belong to Stage 5.
+a production broker. `NativeKungfuJournalNoticePort` binds the same authority
+state machine to a native Watcher Peer: one public mmap journal writer carries
+`kungfu.action-envelope/v1` frames and the writer's existing nng publication is
+the payload-free wakeup plane. The Coordinator never proxies frame bytes and
+the Capsule worker's local test socket is not a public relay. Codex and Claude
+semantic adapters belong to Stage 4, and product surfaces belong to Stage 5.
 
 Run the focused qualification through Shifu:
 
 ```sh
 ./shifu test:agent-session-capsule-host
 ./shifu test:agent-session-peer-transport
+./shifu build:core
+./shifu test:agent-session-peer-transport:native
 ```
 
-The build-free source gate runs the pure host tests only. The focused command
-also runs the native node-pty worker smoke; it is intentionally not part of the
-source-only lifecycle because that runner installs dependencies without native
-build scripts.
+The build-free source gate runs the pure host and transport tests only. Native
+qualification is separate: after `build:core`, it starts a real Coordinator and
+two cross-process Watcher Peers, then proves public-journal replay, nng wakeup,
+cursor reconstruction and absence of a Coordinator byte proxy. The Capsule host
+focused command also runs the native node-pty worker smoke; native checks stay
+outside the source-only lifecycle because that runner installs dependencies
+without native build scripts.
 
 On Darwin, packaged products must restore the executable bit on node-pty's
 `spawn-helper`. The existing Electron `afterPack` audit already owns that

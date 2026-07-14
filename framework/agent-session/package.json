@@ -14,6 +14,7 @@
   "exports": {
     ".": "./src/capsule-host.mjs",
     "./peer-transport": "./src/peer-transport.mjs",
+    "./runtime-port": "./src/runtime-port.mjs",
     "./worker": "./src/capsule-worker.mjs",
     "./vt-snapshot": "./src/vt-snapshot.mjs"
   },
