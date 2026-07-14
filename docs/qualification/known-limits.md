@@ -67,7 +67,10 @@ physical-host, physical-device, independent-failure-domain, and production
 claims false. A separate retained agent-120 to Ubuntu 222 run now verifies a
 same-office off-host backup, partial-transfer rejection, empty-root restore,
 and repeated restore; it does not change those physical or independent-domain
-non-claims.
+non-claims. A bounded agent-120 run also crosses a real clean Linux host reboot,
+proves the kernel boot identity changed, and reopens the same durable frontier,
+Episode, projection, and fenced ownership generations. It is clean-restart
+evidence only, not sudden-power-loss or production admission evidence.
 
 What is **not yet built or qualified for production**:
 
@@ -77,8 +80,9 @@ What is **not yet built or qualified for production**:
   request/receipt/reconciliation candidate path;
 - deterministic recovery of an acknowledged frontier across journal, Episode,
   payload, and checkpoint boundaries;
-- physical-host restart and sudden-power-loss qualification on macOS, Linux,
-  or Windows;
+- sudden-power-loss qualification on physical macOS, Linux, or Windows hosts,
+  plus clean-host-restart qualification outside the named agent-120 Linux
+  envelope;
 - off-host backup and restore on an independent power/network/site failure domain;
 - exact production device/cache qualification and release admission.
 

@@ -336,12 +336,23 @@ the named same-office two-host backup/restore fact. It does not establish
 independent power, network, site, or administrator failure domains, physical
 power-loss durability, scheduled backup operations, or production admission.
 
+The adjacent clean-host-restart slice freezes one agent-120
+Linux/x86_64/ext4/NVMe profile and separates preparation from verification.
+Preparation durably writes a source-bound resume token and then relinquishes
+control; the repository harness contains no reboot or host-service command.
+After an independently authorized clean reboot, verification requires a changed
+kernel boot ID and a fresh process that recovers the same frontier, records,
+closed Episode and projection while advancing both fenced owner generations.
+The retained `17e807700` execution qualifies only that clean-restart envelope;
+it keeps sudden physical-power-loss and production admission false.
+
 The production mmap claim remains `demand + visibility`. The backup/restore
 round trip and projection cut equality are implementation evidence, not an
 operator-facing backup format or qualified power-loss guarantee. Production
 bootstrap authority cutover, independent-failure-domain backup operations,
-physical-host restart and physical-power-loss qualification, macOS/Windows
-device-tier qualification, and the public durability product contract remain
-pending. In particular, the disposable guest and same-office host results do
-not qualify a physical host, a whole-device loss, an independent backup failure
-domain, or a production profile.
+sudden physical-power-loss qualification, clean-host-restart qualification
+outside the named agent-120 envelope, macOS/Windows device-tier qualification,
+and the public durability product contract remain pending. In particular, the
+disposable guest, clean-restart, and same-office off-host results do not qualify
+a whole-device loss, an independent backup failure domain, or a production
+profile.

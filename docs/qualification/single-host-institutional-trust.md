@@ -32,6 +32,11 @@ Episode, payloads, records, and projection on the target. Because both hosts
 are in the same office, that procedure is off-host but not an independently
 qualified disaster domain.
 
+A separate retained agent-120 run crosses one real clean host reboot and
+requires a changed Linux kernel boot ID before it reopens the same durable
+frontier, Episode, projection, and new owner generations. This does not model
+an unclean shutdown or physical power loss.
+
 The C++ capability authority exposes that boundary unchanged through Python,
 Node, and `kungfu agent capabilities --json`. The report is evidence-bound and
 sets `production_eligible: false`; `durable_group` and `durable_sync` are
@@ -89,7 +94,7 @@ The corresponding named qualification evidence must also pass and be retained.
 | Writer or peer process crash | preserve acknowledged durable frontier; classify any visible tail | test-qualified on three named process profiles; production activation pending |
 | Durability service crash | restart with a new fenced owner generation; never acknowledge an unknown outcome as durable | test-qualified in the disposable QEMU envelope; production activation pending |
 | Projection service or SQLite loss | raw durable facts remain authoritative; rebuild from the recorded projection frontier | test-qualified in the disposable QEMU envelope; production activation pending |
-| Clean host restart | reopen the whole data root and resume from verified frontiers | repeated fresh guest reopen passed; physical-host restart not qualified |
+| Clean host restart | reopen the whole data root and resume from verified frontiers | real agent-120 Linux/ext4/NVMe clean reboot plus repeated fresh guest reopen passed; other hosts remain unqualified |
 | Sudden power loss | recover only the proven durable frontier; report lost or quarantined visible tail | 360/360 seeded abrupt disposable-VM cuts passed across six virtual device/cache envelopes; physical power loss not qualified |
 | ENOSPC, permission loss, or I/O error | fail closed; do not issue a false durable receipt | real guest ENOSPC passed; remaining exact production error envelope pending |
 | Torn/corrupt tail or stale checkpoint | detect, bound, quarantine or truncate by retained evidence; never invent facts | test backend qualification passed; destructive production repair remains pending |

@@ -21,7 +21,9 @@ test-only durable backend against process crashes on three named platforms and
 power cuts in a disposable Linux/ext4 QEMU envelope. It does not claim that a
 production runtime acknowledgement survives physical-host power loss. A
 separate same-office run also verifies an agent-120 backup on Ubuntu 222 and
-empty-root restore, but not an independent failure domain.**
+empty-root restore, but not an independent failure domain. One bounded
+agent-120 run additionally qualifies a real clean Linux host reboot; it does
+not qualify sudden physical power loss.**
 
 The foundations are implemented:
 
@@ -59,6 +61,15 @@ so independent power, network, site, and administrator failure domains remain
 unqualified. Kungfu still does not expose a production-qualified durable-ingest
 service or a power-loss-qualified durable watermark across the journal,
 Episode manifest, and projections.
+
+The retained `17e807700` clean-restart run prepares a durable root and fsynced
+resume token, crosses a separately authorized clean reboot, requires the Linux
+kernel boot ID to change, and then uses a fresh process to recover the same
+durable frontier, three records, closed Episode, projection state/cut, and
+strictly newer service/writer generations. The harness cannot reboot or control
+the host itself. This qualifies only clean restart on the named
+Linux/x86_64/ext4/NVMe agent-120 envelope; physical power loss and production
+eligibility remain false.
 
 Candidate receipts are accepted only through the per-data-root state service
 with explicit activation and matching qualification evidence. A repeated exact
@@ -244,7 +255,7 @@ one Episode must not silently invalidate unrelated Episodes.
 | D. State-service separation and durable ingest | **partially implemented** | coordinator no longer owns the projection store directly; the in-process state-service boundary has independent lifecycle, shadow comparison, single-host owner/writer fencing, and an explicit live candidate append/barrier/reconcile seam. Moving business-journal ingestion out of coordinator and completing production admission remain pending |
 | E. Independent KFDL segment/checkpoint backend | **implemented (test-only shadow)** | append-only binary records, SHA-256 coverage, rollover, dual-slot atomic checkpoint, explicit data/checkpoint/directory barriers, persisted request deduplication, cooperative deadline/unknown handling, typed service-unavailable, fenced generations, fail-stop unknown append sessions, and retained tails; production profiles remain disabled |
 | F. Snapshot-through-T projection bootstrap | **implemented (candidate edge)** | versioned binary snapshot, integrity/schema/cut verification, strict replay-after-T, typed required/optional/none outcomes, deterministic rebuild, same-cut compatibility parity, complete hydration validation before required-peer registration, state emission before `RequestStart`, and state-service ownership; the explicit path is default-off and production-ineligible, while default cutover and bridge deletion remain pending |
-| G. Local strong-durability qualification | **implemented for named process/disposable and same-office off-host envelopes** | retained three-platform process-crash reports plus the agent-120 Linux/ext4 candidate run cover 360/360 seeded VM/device-model cuts, real ENOSPC, repeated reopen, fsck/hash, Episode load, same-host external-path restore, and an agent-120 to Ubuntu 222 verified backup/empty-root restore; the machine reports remain fail-closed for production, physical-host power loss, and independent failure domains |
+| G. Local strong-durability qualification | **implemented for named process/disposable, agent-120 clean-restart, and same-office off-host envelopes** | retained three-platform process-crash reports plus the agent-120 Linux/ext4 candidate runs cover 360/360 seeded VM/device-model cuts, real ENOSPC, repeated reopen, fsck/hash, Episode load, one real clean host reboot, same-host external-path restore, and an agent-120 to Ubuntu 222 verified backup/empty-root restore; the machine reports remain fail-closed for production, sudden physical power loss, and independent failure domains |
 | H. Single-host end-to-end performance release gate | **qualified for one named durability candidate slice** | retained `070e0804b` agent-120 evidence passes the frozen `linux-ext4-agent120-slo-v1` absolute `durable_group`/`durable_sync` latency, throughput, rollover, 30-minute soak, resource, recovery, projection, and same-host backup/restore ceilings; the wider visible/typed/multi-reader product surfaces remain separate admission work |
 | I. Replication and HA | **future** | add a separate replicated watermark and policy only after local durability is trustworthy |
 
@@ -272,6 +283,11 @@ retains the exact source, manifest, completion, target verification, restore,
 and aggregate reports from agent-120 to Ubuntu 222. It upgrades only the named
 same-office off-host transfer/restore fact; it does not widen the QEMU power-cut
 envelope or establish an independent disaster domain.
+
+The adjacent [clean-restart evidence index](evidence/durability/17e807700/README.md)
+retains the exact pre/post reports, resume token, and aggregate report across a
+real clean agent-120 reboot. It upgrades only that named clean-host restart
+fact and keeps sudden physical power loss and production eligibility false.
 
 ## Qualification standard
 
