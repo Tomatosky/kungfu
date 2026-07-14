@@ -94,6 +94,7 @@ export interface KungfuResolvedConfig {
   workspaceDataHome: string;
   machineDataHome: string;
   sources: Array<Record<string, unknown>>;
+  digests: { storageDurability: string };
   config: Record<string, unknown>;
 }
 
@@ -797,6 +798,10 @@ export function resolveKungfuConfig(
     resolution?.userOverrideFile,
     'resolution.userOverrideFile',
   );
+  const workspaceOverrideFile = requiredString(
+    resolution?.workspaceOverrideFile,
+    'resolution.workspaceOverrideFile',
+  );
   const workspaceDataHome = workspaceKungfuDataHome(
     env.PWD ?? process.cwd(),
     env,
@@ -814,14 +819,48 @@ export function resolveKungfuConfig(
     expandUserPath(options.configHome || defaultKungfuConfigHome(env)),
   );
   const configPath = join(configHome, overrideFile);
+  const workspaceConfigPath = workspaceDataHome
+    ? join(workspaceDataHome, workspaceOverrideFile)
+    : '';
   const override = readKungfuUserConfig(configPath, contract);
+  const workspaceOverride = workspaceConfigPath
+    ? readKungfuUserConfig(workspaceConfigPath, contract)
+    : {
+        schema: requiredString(
+          resolution?.overrideSchema,
+          'resolution.overrideSchema',
+        ),
+      };
   const config = expandConfigPlaceholders(
-    deepMerge(defaultKungfuConfig(runtimeHome, { configHome, env }), override),
+    deepMerge(
+      deepMerge(
+        defaultKungfuConfig(runtimeHome, {
+          configHome,
+          env,
+          cwd: env.PWD ?? process.cwd(),
+        }),
+        override,
+      ),
+      workspaceOverride,
+    ),
     { configHome, runtimeHome, workspaceDataHome, machineDataHome },
     requiredStringArray(resolution?.placeholders, 'resolution.placeholders'),
   ) as Record<string, unknown>;
   validateKungfuConfig(config, contract);
   const metadata = kungfuConfigContractMetadata({ env });
+  const storage = requiredObject(config.storage, 'config.storage');
+  const durability = requiredObject(
+    storage.durability,
+    'config.storage.durability',
+  );
+  const storageDurability = `sha256:${createHash('sha256')
+    .update(
+      stableStringify({
+        contractHash: requiredString(metadata.hash, 'contract.hash'),
+        policy: durability,
+      }),
+    )
+    .digest('hex')}`;
   return {
     schema: requiredString(
       resolution?.resolvedSchema,
@@ -852,7 +891,20 @@ export function resolveKungfuConfig(
         path: configPath,
         exists: existsSync(configPath),
       },
+      {
+        type: 'workspace',
+        schema:
+          stringValue(objectValue(workspaceOverride)?.schema) ||
+          requiredString(
+            resolution?.overrideSchema,
+            'resolution.overrideSchema',
+          ),
+        path: workspaceConfigPath,
+        exists: Boolean(workspaceConfigPath && existsSync(workspaceConfigPath)),
+        active: Boolean(workspaceConfigPath),
+      },
     ],
+    digests: { storageDurability },
     config,
   };
 }

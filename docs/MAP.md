@@ -57,9 +57,10 @@ contracts remain in [Shifu](shifu/README.md).
 | Which Kungfu layer can I adopt independently, and what does each product promise? | [`product-layers.md`](concepts/product-layers.md) + [`layer-product-release-qualification.md`](qualification/layer-product-release-qualification.md) + [ADR-0049](./adr/ADR-0049-layer-complete-products-and-domain-neutral-core.md) | why, use, verify | qualification implemented · publication remains a separate release action |
 | Which application domains guide the neutral core without expanding the current roadmap? | [`domain-horizons.md`](concepts/domain-horizons.md) | why | draft · agent runtime current; trading evidence; games/virtual worlds horizon |
 | What are the known limits / what is *not* yet guaranteed? | [`known-limits.md`](qualification/known-limits.md) | verify | stable |
-| Can my institution use Kungfu as an authoritative local ledger on one host, and what evidence and controls are required? | [`single-host-institutional-trust.md`](qualification/single-host-institutional-trust.md) | use, verify | draft · evaluation/shadow use only; strong local durability qualification pending |
-| What end-to-end performance gate must the single-host institutional profile pass, and how may Aeron be used as a comparator? | [`single-host-performance-qualification.md`](qualification/single-host-performance-qualification.md) | verify | draft · contract defined; thresholds, harness, and retained reports not implemented |
-| Does Kungfu provide strong durability and crash recovery without giving up mmap latency, and what is implemented today? | [`durability-and-crash-recovery.md`](qualification/durability-and-crash-recovery.md) + [ADR-0068](./adr/ADR-0068-tiered-durability-and-crash-recovery.md) | why, verify | draft · visibility foundations implemented; end-to-end durable receipts and power-loss qualification designed, not implemented |
+| Can my institution use Kungfu as an authoritative local ledger on one host, and what evidence and controls are required? | [`single-host-institutional-trust.md`](qualification/single-host-institutional-trust.md) | use, verify | current-hardware candidate · production eligibility remains false |
+| How do I configure visible, grouped durable, or synchronous durable writes, and what latency/throughput cost does each choice impose? | [`durability-configuration.md`](guides/durability-configuration.md) + [ADR-0084](./adr/ADR-0084-kfd1-durability-policy-and-runtime-admission.md) | use, why, verify | pre-release · explicit current-hardware candidate; fail-closed and production-ineligible |
+| What end-to-end performance gate must the single-host institutional profile pass, and how may Aeron be used as a comparator? | [`single-host-performance-qualification.md`](qualification/single-host-performance-qualification.md) | verify | one named agent-120 candidate slice qualified · wider product and production admission remain separate |
+| Does Kungfu provide strong durability and crash recovery without giving up mmap latency, and what is implemented today? | [`durability-and-crash-recovery.md`](qualification/durability-and-crash-recovery.md) + [ADR-0068](./adr/ADR-0068-tiered-durability-and-crash-recovery.md) | why, verify | current-hardware candidate implemented and admitted · physical power loss and production eligibility remain false |
 | How do C++ / Python / Node share data zero-copy (the membrane)? | [`architecture.md`](architecture/overview.md) (membrane diagram) | verify | stable |
 | What does it actually guarantee (layout / replay / compatibility)? | [`contracts.md`](qualification/contracts.md) | verify | stable |
 | What KFD-2 release claims can Buildchain audit? | [`contracts.md`](qualification/contracts.md) (KFD-2 release claims) + [`kfd-native-sdk-release-gates.md`](qualification/kfd-native-sdk-release-gates.md) | verify | draft |
@@ -167,11 +168,14 @@ route to the row that answers them:
 - **latency / performance / zero-copy / serialization** → *the membrane*
   ([`architecture.md`](architecture/overview.md)) and *the event model*
   ([`event-model.md`](architecture/event-model.md)).
-- **durability / fsync / power loss / crash recovery / durable receipt /
+- **durability / fsync / config / durable_group / durable_sync / power loss /
+  crash recovery / durable receipt /
   durable watermark / projection watermark / data loss** → *what Kungfu
-  guarantees now and the staged strong-durability design*
-  ([`durability-and-crash-recovery.md`](qualification/durability-and-crash-recovery.md)) and
-  [ADR-0068](./adr/ADR-0068-tiered-durability-and-crash-recovery.md).
+  guarantees now, how to request a profile, and the staged strong-durability
+  design* ([`durability-configuration.md`](guides/durability-configuration.md),
+  [`durability-and-crash-recovery.md`](qualification/durability-and-crash-recovery.md),
+  [ADR-0068](./adr/ADR-0068-tiered-durability-and-crash-recovery.md), and
+  [ADR-0084](./adr/ADR-0084-kfd1-durability-policy-and-runtime-admission.md)).
 - **institution / institutional adoption / local ledger / system of record /
   production approval / single host / RPO / restore drill** → *whether an
   institution can adopt Kungfu as an authoritative local ledger, what evidence

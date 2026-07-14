@@ -56,6 +56,9 @@ public execution vocabulary.
   explicit re-execution; use the current agent-work capture slice.
 - [Configuration](guides/config.md) — understand workspace, user, and machine data
   homes.
+- [Durability Configuration](guides/durability-configuration.md) — choose a
+  requested persistence profile and understand admission, effects, costs,
+  receipts, timeouts, and recovery.
 - [Debugging](guides/debugging.md) — localize failures in the runtime and build.
 - [Python Environments](guides/python-environments.md) — manage packages inside the
   assembled runtime.

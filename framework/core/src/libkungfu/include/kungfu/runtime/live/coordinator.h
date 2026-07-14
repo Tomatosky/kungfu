@@ -7,6 +7,8 @@
 #ifndef KUNGFU_RUNTIME_LIVE_COORDINATOR_H
 #define KUNGFU_RUNTIME_LIVE_COORDINATOR_H
 
+#include <utility>
+
 #include <kungfu/runtime/common.h>
 
 #include <kungfu/runtime/io.h>
@@ -32,6 +34,31 @@ public:
   explicit coordinator(const kungfu::runtime::io_device_ptr &io_device,
                        state_service::durability_candidate_config durability_candidate = {},
                        state_service::projection_candidate_config projection_candidate = {});
+  [[nodiscard]] state_service::service_status state_service_status() const { return state_service_.status(); }
+
+  // Configured durability execution remains owned by the state-service
+  // boundary. These narrow forwards let product bindings execute the admitted
+  // request/receipt protocol without exposing the service object itself.
+  void open_durability_candidate(durability::ingest_options options) {
+    state_service_.open_durability_candidate(std::move(options));
+  }
+  void append_durability_candidate(const durability::stream_position &position, int32_t carrier_type,
+                                   const durability::durable_frame_context &frame, const std::string &payload,
+                                   const yijinjing::ownership::evidence &writer_generation) {
+    state_service_.append_durability_candidate(position, carrier_type, frame, payload, writer_generation);
+  }
+  [[nodiscard]] durability::barrier_result request_durability_candidate(const durability::durability_request &request,
+                                                                        durability::barrier_options options = {}) {
+    return state_service_.request_durability_candidate(request, options);
+  }
+  [[nodiscard]] durability::receipt_reconciliation_view
+  reconcile_durability_candidate(const durability::durability_request &request) {
+    return state_service_.reconcile_durability_candidate(request);
+  }
+  [[nodiscard]] durability::ingest_status durability_candidate_status(uint64_t stream_id,
+                                                                      uint64_t container_epoch) const {
+    return state_service_.durability_candidate_status(stream_id, container_epoch);
+  }
 
   void on_exit() override;
 

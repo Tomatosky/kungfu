@@ -417,7 +417,9 @@ Napi::Value DurabilityReconcileTyped(const Napi::CallbackInfo &info) {
   ingest.container_epoch = Uint64Option(info.Env(), options, "container_epoch");
   ingest.writer_resource_id = StringOption(options, "writer_resource_id");
   ingest.qualification_profile = StringOption(options, "qualification_profile");
-  ingest.qualification_passed = true;
+  // Read-only reconciliation validates checkpoint identity. It must not
+  // manufacture live qualification from caller input.
+  ingest.qualification_passed = false;
   ingest.activation = runtime::durability::ingest_activation::ProductionCandidate;
   runtime::durability::durability_request request{
       Uint64Option(info.Env(), options, "request_id"),

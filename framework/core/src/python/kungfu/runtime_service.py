@@ -832,7 +832,21 @@ class CoordinatorEngine(NativeCoordinator):
             COORDINATOR_WIRE_NAME,
             locator,
         )
-        super().__init__(location, low_latency)
+        self.location = {
+            "namespace": COORDINATOR_WIRE_NAMESPACE,
+            "name": COORDINATOR_WIRE_NAME,
+        }
+        from kungfu import durability as durability_runtime
+
+        self.durability_policy = durability_runtime.resolve_policy(
+            runtime_home=home,
+            config_home=os.environ.get("KF_CONFIG_HOME"),
+            cwd=home,
+        )
+        super().__init__(location, low_latency, self.durability_policy["native"])
+        self.durability = durability_runtime.ConfiguredDurabilityRuntime(
+            self, self.durability_policy, data_root=runtime_dir
+        )
         self.home_dir = home
         self.runtime_dir = runtime_dir
         self._assessment_executor = assessment_executor
@@ -962,6 +976,7 @@ class CoordinatorEngine(NativeCoordinator):
         self._assessment_executor.start(assessment_key, nanotime)
 
     def close(self) -> None:
+        self.durability.close()
         if self._assessment_executor is not None:
             self._assessment_executor.close()
 

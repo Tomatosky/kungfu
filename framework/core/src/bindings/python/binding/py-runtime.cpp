@@ -88,6 +88,104 @@ std::vector<nlohmann::json> py_entries_to_json(py::iterable entries) {
   return result;
 }
 
+kungfu::runtime::state_service::durability_candidate_config durability_candidate_config_from_py(py::dict value) {
+  const auto options = py_to_json(value);
+  if (!options.is_object()) {
+    throw std::invalid_argument("durability config must be an object");
+  }
+  const auto group = options.value("group", nlohmann::json::object());
+  kungfu::runtime::state_service::durability_candidate_config result;
+  result.enabled = options.value("enabled", false);
+  result.qualification_profile = options.value("qualificationProfile", "");
+  result.contract_hash = options.value("contractHash", "");
+  result.policy_digest = options.value("policyDigest", "");
+  result.default_profile = options.value("defaultProfile", "visible");
+  result.strong_profiles_requested = options.value("strongProfilesRequested", false);
+  result.segment_max_bytes = options.value("segmentMaxBytes", 64ULL * 1024ULL * 1024ULL);
+  result.request_timeout_ms = options.value("requestTimeoutMs", 5000ULL);
+  result.reconcile_on_timeout = options.value("reconcileOnTimeout", true);
+  result.failure_policy = options.value("failurePolicy", "fail-closed");
+  result.group_max_delay_ms = group.value("maxDelayMs", 10ULL);
+  result.group_max_records = group.value("maxRecords", 32ULL);
+  result.group_max_bytes = group.value("maxBytes", 1024ULL * 1024ULL);
+  return result;
+}
+
+py::object json_to_py(const nlohmann::json &value);
+template <typename T> py::object hana_view_to_py(const T &value);
+
+class durability_writer_lease {
+public:
+  durability_writer_lease(const std::string &data_root, const std::string &resource_id)
+      : value_(kungfu::yijinjing::ownership::lease::acquire_stream_writer(data_root, resource_id)) {}
+
+  [[nodiscard]] const kungfu::yijinjing::ownership::evidence &status() const { return value_.status(); }
+
+private:
+  kungfu::yijinjing::ownership::lease value_;
+};
+
+py::dict ownership_evidence_to_py(const kungfu::yijinjing::ownership::evidence &value) {
+  py::dict result;
+  result["schema"] = value.schema;
+  result["scope"] = kungfu::yijinjing::ownership::scope_name(value.ownership_scope);
+  result["dataRoot"] = value.data_root;
+  result["resourceId"] = value.resource_id;
+  result["generation"] = value.generation;
+  result["fenceToken"] = value.fence_token;
+  result["ownerPid"] = value.owner_pid;
+  result["acquiredAt"] = value.acquired_at;
+  result["recoveredStaleOwner"] = value.recovered_stale_owner;
+  result["owned"] = value.owned;
+  return result;
+}
+
+py::dict ingest_status_to_py(const kungfu::runtime::durability::ingest_status &value) {
+  py::dict result;
+  result["segmentSchema"] = value.segment_schema;
+  result["checkpointSchema"] = value.checkpoint_schema;
+  result["activeSegmentId"] = value.active_segment_id;
+  result["durableChainStartSegmentId"] = value.durable_chain_start_segment_id;
+  result["durableSegmentId"] = value.durable_segment_id;
+  result["durableOffset"] = value.durable_offset;
+  result["pendingRecords"] = value.pending_records;
+  result["pendingBytes"] = value.pending_bytes;
+  result["unacknowledgedTailBytes"] = value.unacknowledged_tail_bytes;
+  result["lastBarrierId"] = value.last_barrier_id;
+  result["lastBarrierDurationNs"] = value.last_barrier_duration_ns;
+  result["qualificationProfile"] = value.qualification_profile;
+  result["qualificationPassed"] = value.qualification_passed;
+  result["available"] = value.available;
+  result["requiresReopen"] = value.requires_reopen;
+  result["persistedRequestCount"] = value.persisted_request_count;
+  result["barrierAttemptCount"] = value.barrier_attempt_count;
+  result["barrierSucceededCount"] = value.barrier_succeeded_count;
+  result["barrierTerminalFailureCount"] = value.barrier_terminal_failure_count;
+  result["barrierUnknownCount"] = value.barrier_unknown_count;
+  result["reconciledRequestCount"] = value.reconciled_request_count;
+  result["reconciliationUnknownCount"] = value.reconciliation_unknown_count;
+  result["recoveredRequestCount"] = value.recovered_request_count;
+  result["productionCandidateEnabled"] = value.production_candidate_enabled;
+  result["lastError"] = kungfu::runtime::durability::ingest_error_name(value.last_error);
+  result["lastErrorMessage"] = value.last_error_message;
+  if (value.durable_watermark.has_value()) {
+    result["durableWatermark"] = hana_view_to_py(*value.durable_watermark);
+  } else {
+    result["durableWatermark"] = py::none();
+  }
+  return result;
+}
+
+py::dict barrier_result_to_py(const kungfu::runtime::durability::barrier_result &value) {
+  py::dict result;
+  result["schema"] = "kungfu.durability.execution/v1";
+  result["receipt"] = json_to_py(kungfu::runtime::durability::render_durability_receipt(value.receipt));
+  result["status"] = ingest_status_to_py(value.status);
+  result["error"] = kungfu::runtime::durability::ingest_error_name(value.error);
+  result["message"] = value.message;
+  return result;
+}
+
 py::object json_to_py(const nlohmann::json &value) {
   return py::module_::import("json").attr("loads")(value.dump(-1, ' ', false));
 }
@@ -433,7 +531,9 @@ void bind(pybind11::module &&m) {
         options.container_epoch = container_epoch;
         options.writer_resource_id = writer_resource_id;
         options.qualification_profile = qualification_profile;
-        options.qualification_passed = true;
+        // Read-only reconciliation validates checkpoint identity. It must not
+        // manufacture live qualification from caller input.
+        options.qualification_passed = false;
         options.activation = runtime::durability::ingest_activation::ProductionCandidate;
         const runtime::durability::durability_request request{
             request_id,
@@ -1368,8 +1468,17 @@ void bind(pybind11::module &&m) {
     profile_class.def("remove", &profile::remove<DataType>);
   });
 
+  py::class_<durability_writer_lease>(m, "durability_writer_lease")
+      .def(py::init<const std::string &, const std::string &>(), py::arg("data_root"), py::arg("resource_id"))
+      .def_property_readonly(
+          "status", [](const durability_writer_lease &self) { return ownership_evidence_to_py(self.status()); });
+
   py::class_<coordinator, PyCoordinator>(m, "coordinator")
-      .def(py::init<location_ptr, bool>(), py::arg("home"), py::arg("low_latency") = false)
+      .def(py::init([](const location_ptr &home, bool low_latency, py::dict durability_config) {
+             return std::make_unique<PyCoordinator>(home, low_latency,
+                                                    durability_candidate_config_from_py(std::move(durability_config)));
+           }),
+           py::arg("home"), py::arg("low_latency") = false, py::arg("durability_config") = py::dict())
       .def_property_readonly("io_device", &coordinator::get_io_device)
       .def_property_readonly("home", &coordinator::get_home)
       .def_property_readonly("live", &coordinator::is_live)
@@ -1395,7 +1504,91 @@ void bind(pybind11::module &&m) {
       .def("observe", &coordinator::observe, py::arg("carrier_type"), py::arg("callback"))
       .def("has_writer", &coordinator::has_writer)
       .def("get_writer", &coordinator::get_writer)
-      .def("get_registry", &coordinator::get_registry);
+      .def("get_registry", &coordinator::get_registry)
+      .def(
+          "durability_open",
+          [](coordinator &self, const std::string &data_root, uint64_t stream_id, uint64_t container_epoch,
+             const std::string &writer_resource_id, const std::string &qualification_profile) {
+            runtime::durability::ingest_options options;
+            options.data_root = data_root;
+            options.stream_id = stream_id;
+            options.container_epoch = container_epoch;
+            options.writer_resource_id = writer_resource_id;
+            options.qualification_profile = qualification_profile;
+            self.open_durability_candidate(std::move(options));
+            return ingest_status_to_py(self.durability_candidate_status(stream_id, container_epoch));
+          },
+          py::arg("data_root"), py::arg("stream_id"), py::arg("container_epoch"), py::arg("writer_resource_id"),
+          py::arg("qualification_profile"))
+      .def(
+          "durability_append",
+          [](coordinator &self, const durability_writer_lease &writer, uint64_t stream_id, uint64_t container_epoch,
+             uint64_t sequence, uint64_t frame_uid, int32_t carrier_type, py::bytes payload, int64_t gen_time,
+             int64_t trigger_time, uint32_t source, uint32_t dest, int32_t data_type, uint32_t initial_source,
+             uint64_t trigger_frame_uid) {
+            const runtime::durability::stream_position position{stream_id, container_epoch, sequence, frame_uid};
+            const runtime::durability::durable_frame_context frame{gen_time,  trigger_time,   source,           dest,
+                                                                   data_type, initial_source, trigger_frame_uid};
+            self.append_durability_candidate(position, carrier_type, frame, payload.cast<std::string>(),
+                                             writer.status());
+            return ingest_status_to_py(self.durability_candidate_status(stream_id, container_epoch));
+          },
+          py::arg("writer"), py::arg("stream_id"), py::arg("container_epoch"), py::arg("sequence"),
+          py::arg("frame_uid"), py::arg("carrier_type"), py::arg("payload"), py::arg("gen_time") = 0,
+          py::arg("trigger_time") = 0, py::arg("source") = 0, py::arg("dest") = 0, py::arg("data_type") = 0,
+          py::arg("initial_source") = 0, py::arg("trigger_frame_uid") = 0)
+      .def(
+          "durability_request",
+          [](coordinator &self, uint64_t request_id, uint64_t stream_id, uint64_t container_epoch, uint64_t sequence,
+             uint64_t frame_uid, const std::string &requested_profile, int64_t deadline_at_ns) {
+            const runtime::durability::durability_request request{
+                request_id,
+                {stream_id, container_epoch, sequence, frame_uid},
+                runtime::durability::parse_durability_profile(requested_profile),
+            };
+            return barrier_result_to_py(
+                self.request_durability_candidate(request, runtime::durability::barrier_options{deadline_at_ns}));
+          },
+          py::arg("request_id"), py::arg("stream_id"), py::arg("container_epoch"), py::arg("sequence"),
+          py::arg("frame_uid"), py::arg("requested_profile"), py::arg("deadline_at_ns") = 0)
+      .def(
+          "durability_reconcile",
+          [](coordinator &self, uint64_t request_id, uint64_t stream_id, uint64_t container_epoch, uint64_t sequence,
+             uint64_t frame_uid, const std::string &requested_profile) {
+            const runtime::durability::durability_request request{
+                request_id,
+                {stream_id, container_epoch, sequence, frame_uid},
+                runtime::durability::parse_durability_profile(requested_profile),
+            };
+            return hana_view_to_py(self.reconcile_durability_candidate(request));
+          },
+          py::arg("request_id"), py::arg("stream_id"), py::arg("container_epoch"), py::arg("sequence"),
+          py::arg("frame_uid"), py::arg("requested_profile"))
+      .def("durability_status",
+           [](const coordinator &self, uint64_t stream_id, uint64_t container_epoch) {
+             return ingest_status_to_py(self.durability_candidate_status(stream_id, container_epoch));
+           })
+      .def("state_service_status", [](const coordinator &self) {
+        const auto status = self.state_service_status();
+        py::dict result;
+        result["schema"] = "kungfu.state-service-status/v1";
+        result["running"] = status.running;
+        result["durabilityCandidateEnabled"] = status.durability_candidate_enabled;
+        result["durabilityCandidateQualified"] = status.durability_candidate_qualified;
+        result["durabilityQualificationProfile"] = status.durability_qualification_profile;
+        result["durabilityContractHash"] = status.durability_contract_hash;
+        result["durabilityPolicyDigest"] = status.durability_policy_digest;
+        result["durabilityDefaultProfile"] = status.durability_default_profile;
+        result["durabilityAdmissionReason"] = status.durability_admission_reason;
+        result["durabilitySegmentMaxBytes"] = status.durability_segment_max_bytes;
+        result["durabilityRequestTimeoutMs"] = status.durability_request_timeout_ms;
+        result["durabilityReconcileOnTimeout"] = status.durability_reconcile_on_timeout;
+        result["durabilityFailurePolicy"] = status.durability_failure_policy;
+        result["durabilityGroupMaxDelayMs"] = status.durability_group_max_delay_ms;
+        result["durabilityGroupMaxRecords"] = status.durability_group_max_records;
+        result["durabilityGroupMaxBytes"] = status.durability_group_max_bytes;
+        return result;
+      });
 
   py::class_<peer, PyPeer, peer_ptr>(m, "peer")
       .def(py::init<location_ptr, bool, std::string>(), py::arg("home"), py::arg("low_latency") = false,

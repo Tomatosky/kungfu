@@ -2,6 +2,8 @@
 
 #include <kungfu/runtime/state_service.h>
 
+#include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <map>
 #include <mutex>
@@ -15,6 +17,53 @@
 namespace kungfu::runtime::state_service {
 
 namespace {
+
+bool valid_sha256_identity(const std::string &value) {
+  if (!value.starts_with("sha256:") || value.size() != 71) {
+    return false;
+  }
+  return std::all_of(value.begin() + 7, value.end(),
+                     [](unsigned char c) { return std::isdigit(c) != 0 || (c >= 'a' && c <= 'f'); });
+}
+
+bool valid_sha256_hex(const std::string &value) {
+  return value.size() == 64 && std::all_of(value.begin(), value.end(), [](unsigned char c) {
+           return std::isdigit(c) != 0 || (c >= 'a' && c <= 'f');
+         });
+}
+
+bool admit_current_hardware_candidate(durability_candidate_config &candidate, std::string &reason) {
+  const auto &capability = durability::single_host_institutional_capability();
+  if (candidate.qualification_profile != capability.qualification_profile) {
+    reason = "durability_candidate_qualification_profile_mismatch";
+    return false;
+  }
+  if (!capability.admission.current_hardware_candidate_complete ||
+      !valid_sha256_hex(capability.admission.evidence_sha256)) {
+    reason = "durability_candidate_evidence_incomplete";
+    return false;
+  }
+  if (!valid_sha256_identity(candidate.contract_hash) || !valid_sha256_identity(candidate.policy_digest)) {
+    reason = "durability_candidate_policy_identity_invalid";
+    return false;
+  }
+  if (candidate.failure_policy != "fail-closed") {
+    reason = "durability_candidate_failure_policy_not_fail_closed";
+    return false;
+  }
+  try {
+    const auto profile = durability::parse_durability_profile(candidate.default_profile);
+    if (profile == durability::durability_profile::Replicated) {
+      reason = "durability_candidate_replicated_profile_unavailable";
+      return false;
+    }
+  } catch (const std::exception &) {
+    reason = "durability_candidate_default_profile_invalid";
+    return false;
+  }
+  reason = "admitted_current_hardware_candidate";
+  return true;
+}
 
 durability::barrier_result unavailable_barrier(uint64_t request_id, durability::durability_profile profile,
                                                const std::string &message) {
@@ -67,8 +116,34 @@ struct service::impl {
                 projection_candidate_config projection_candidate)
       : ownership(yijinjing::ownership::lease::acquire_data_root_service(io_device->get_locator()->get_root())),
         manager(io_device), candidate(std::move(candidate)), projection_candidate(std::move(projection_candidate)) {
+    if (this->candidate.segment_max_bytes < 1024ULL * 1024ULL ||
+        this->candidate.segment_max_bytes > 1024ULL * 1024ULL * 1024ULL || this->candidate.request_timeout_ms == 0 ||
+        this->candidate.request_timeout_ms > 600000 || this->candidate.group_max_delay_ms > 1000 ||
+        this->candidate.group_max_records == 0 || this->candidate.group_max_records > 65536 ||
+        this->candidate.group_max_bytes < 4096 || this->candidate.group_max_bytes > 64ULL * 1024ULL * 1024ULL) {
+      throw std::invalid_argument("durability candidate policy limits are invalid");
+    }
     if (this->candidate.enabled && !this->candidate.qualification_profile.starts_with("candidate/")) {
       throw std::invalid_argument("durability candidate profile must use candidate/ namespace");
+    }
+    if (this->candidate.default_profile != "visible") {
+      this->candidate.strong_profiles_requested = true;
+    }
+    const auto &current_capability = durability::single_host_institutional_capability();
+    if (this->candidate.enabled && this->candidate.qualification_profile == current_capability.qualification_profile) {
+      this->candidate.qualification_passed = admit_current_hardware_candidate(this->candidate, admission_reason);
+    } else if (this->candidate.qualification_passed) {
+      admission_reason = "admitted_internal_test_fixture";
+    } else if (!this->candidate.enabled) {
+      admission_reason = "durability_candidate_disabled";
+    } else {
+      admission_reason = "durability_candidate_not_admitted";
+    }
+    if (this->candidate.strong_profiles_requested && !this->candidate.enabled) {
+      throw std::invalid_argument("strong durability profiles require qualified-candidate activation");
+    }
+    if (this->candidate.strong_profiles_requested && !this->candidate.qualification_passed) {
+      throw std::invalid_argument(admission_reason);
     }
     if (this->projection_candidate.enabled) {
       if (!this->candidate.enabled ||
@@ -135,6 +210,7 @@ struct service::impl {
   durability_candidate_config candidate;
   projection_candidate_config projection_candidate;
   bool projection_candidate_initialized = false;
+  std::string admission_reason = "durability_candidate_disabled";
   std::map<std::pair<uint64_t, uint64_t>, std::unique_ptr<durability::durable_ingest_log>> durable_shadows;
   std::map<std::tuple<uint64_t, uint64_t, std::string>, std::unique_ptr<projection_bootstrap_store>> projection_shadows;
   mutable std::mutex durable_shadows_mutex;
@@ -159,14 +235,28 @@ void service::start() {
 void service::stop() { impl_->manager.stop(); }
 
 service_status service::status() const {
-  return {impl_->ownership.status(),
-          impl_->manager.running(),
-          impl_->candidate.enabled,
-          impl_->candidate.enabled && impl_->candidate.qualification_passed,
-          impl_->candidate.qualification_profile,
-          impl_->projection_candidate.enabled,
-          impl_->projection_candidate.enabled && impl_->projection_candidate.qualification_passed,
-          impl_->projection_candidate.qualification_profile};
+  service_status result;
+  result.ownership = impl_->ownership.status();
+  result.running = impl_->manager.running();
+  result.durability_candidate_enabled = impl_->candidate.enabled;
+  result.durability_candidate_qualified = impl_->candidate.enabled && impl_->candidate.qualification_passed;
+  result.durability_qualification_profile = impl_->candidate.qualification_profile;
+  result.durability_contract_hash = impl_->candidate.contract_hash;
+  result.durability_policy_digest = impl_->candidate.policy_digest;
+  result.durability_default_profile = impl_->candidate.default_profile;
+  result.durability_admission_reason = impl_->admission_reason;
+  result.durability_segment_max_bytes = impl_->candidate.segment_max_bytes;
+  result.durability_request_timeout_ms = impl_->candidate.request_timeout_ms;
+  result.durability_reconcile_on_timeout = impl_->candidate.reconcile_on_timeout;
+  result.durability_failure_policy = impl_->candidate.failure_policy;
+  result.durability_group_max_delay_ms = impl_->candidate.group_max_delay_ms;
+  result.durability_group_max_records = impl_->candidate.group_max_records;
+  result.durability_group_max_bytes = impl_->candidate.group_max_bytes;
+  result.projection_candidate_enabled = impl_->projection_candidate.enabled;
+  result.projection_candidate_qualified =
+      impl_->projection_candidate.enabled && impl_->projection_candidate.qualification_passed;
+  result.projection_qualification_profile = impl_->projection_candidate.qualification_profile;
+  return result;
 }
 
 std::vector<yijinjing::types::Location> service::locations() {
@@ -286,6 +376,7 @@ void service::open_durability_candidate(durability::ingest_options options) {
   }
   options.activation = durability::ingest_activation::ProductionCandidate;
   options.qualification_passed = true;
+  options.segment_max_bytes = impl_->candidate.segment_max_bytes;
   std::lock_guard lock(impl_->durable_shadows_mutex);
   const auto key = std::make_pair(options.stream_id, options.container_epoch);
   if (impl_->durable_shadows.contains(key)) {

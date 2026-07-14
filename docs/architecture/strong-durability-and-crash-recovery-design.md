@@ -52,7 +52,7 @@ Non-goals for the first implementation:
 | frame integrity | CRC32C receipt metadata and container-epoch contracts exist | detects classes of corruption; does not create durability |
 | content objects | immutable store can request sync-on-publish | useful backend primitive, not a journal-wide guarantee |
 | projections | source, manifest, Episode, and state SQLite stores use WAL and are rebuildable; several use synchronous mode off | query accelerator, never durability authority |
-| live topology | coordinator calls an in-process state-service boundary that owns `state_cache`; explicit default-off durability and projection candidates exist; the projection candidate validates and hydrates before registration without coordinator business PUBLIC/SYNC joins or compatibility restore, while undeclared peers retain that bridge | current-hardware candidate admission is complete but production-ineligible; default cutover and bridge deletion remain |
+| live topology | coordinator calls an in-process state-service boundary that owns `state_cache`; the KFD-1 config resolver carries an explicit default-off requested durability policy into that boundary, which independently re-derives admission before opening the candidate backend; the projection candidate validates and hydrates before registration without coordinator business PUBLIC/SYNC joins or compatibility restore, while undeclared peers retain that bridge | current-hardware candidate admission and the requested-policy execution chain are complete but production-ineligible; default cutover and bridge deletion remain |
 | Episode | typed manifests, qualification/capability/repair slices and fault matrix exist | semantic recovery boundary is staged, not fully durability-qualified |
 | recovery backup | test-only typed export requires an exclusively owned stable `READY` cut; empty-root restore verifies every byte, sealed Episode root/payload hash, and rebuilt projection cut | round-trip implementation evidence; external backup format, operator workflow, and qualified power-loss envelope remain |
 
@@ -209,10 +209,10 @@ service protocol.
 The state service is the only live owner of candidate append and barrier
 requests. Candidate activation requires all of the following:
 
-- an explicit `production_candidate` activation rather than the shadow default;
-- `enabled=true` in the service construction configuration;
-- a matching, passed qualification profile whose name begins with
-  `candidate/`;
+- an explicit KFD-1 `qualified-candidate` request rather than the `off` default;
+- a matching current-hardware qualification profile and immutable policy
+  identity;
+- native re-admission of that profile against the compiled capability authority;
 - current data-root and writer ownership evidence for append; and
 - an exact typed request containing request id, logical position, and requested
   durability profile.
@@ -227,7 +227,9 @@ successes, terminal failures, unknown outcomes, recovered requests, reconciled
 requests, reconciliation unknowns, queue depth/bytes, and last barrier latency.
 
 Python, Node, and `kungfu storage durability-reconcile` project the same native
-record. They do not own a second receipt state machine. The named current-hardware
+record. `kungfu config durability --json` separately explains requested,
+admission, and effective policy. These edges do not own a second receipt state
+machine. The named current-hardware
 evidence and admission gate now pass, but this seam remains default-off and
 production-ineligible until physical power loss and independent-domain inputs
 required by the production gate exist.

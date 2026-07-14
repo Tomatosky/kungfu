@@ -8,9 +8,10 @@ from pathlib import Path
 
 
 class _FakeCoordinator:
-    def __init__(self, location, low_latency=False):
+    def __init__(self, location, low_latency=False, durability_config=None):
         self.location = location
         self.low_latency = low_latency
+        self.durability_config = durability_config
 
     def run(self):
         return None
@@ -27,6 +28,19 @@ def _install_fake_pykungfu():
     )
     runtime = types.ModuleType("pykungfu.runtime")
     runtime.coordinator = _FakeCoordinator
+    runtime.compute_content_hash = lambda payload, algorithm="sha256": (
+        algorithm + ":" + __import__("hashlib").sha256(payload).hexdigest()
+    )
+    runtime.durability_capability_typed = lambda: {
+        "schema": "kungfu.durability.capability/v1",
+        "profile": "single-host-institutional-production-candidate-v1",
+        "qualification_profile": "candidate/current-hardware-single-host/v1",
+        "production_eligible": False,
+        "admission": {
+            "current_hardware_candidate_complete": True,
+            "evidence_sha256": "8" * 64,
+        },
+    }
     runtime.locator = lambda runtime_dir: {"runtime_dir": runtime_dir}
     runtime.location = lambda mode, role, namespace, name, locator: {
         "mode": mode,
@@ -619,7 +633,7 @@ def test_service_plan_is_dry_run_material(tmp_path):
     ).as_dict()
 
     assert plan["schema"] == "kungfu.runtime.service-plan/v2"
-    assert "supervisor" in plan["content"]
+    assert "supervisor" in plan["content"].lower()
     assert "KF_CONFIG_HOME" in plan["content"]
     assert "supervise" in plan["content"]
     assert plan["path"]

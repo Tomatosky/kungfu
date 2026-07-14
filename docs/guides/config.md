@@ -10,6 +10,9 @@ fallback. The architecture decision is
 - `KF_CONFIG_HOME` is the agent-facing global configuration home. Its default is
   `~/.kungfu-config`; the first user override file is
   `~/.kungfu-config/config.json`.
+- A workspace can override that user policy at `.kungfu/config.json`. This file
+  contains configuration only; the surrounding `.kungfu/` remains the
+  workspace fact-ledger home.
 - `KF_HOME` remains the explicit or machine-level runtime data fallback when no
   workspace `.kungfu/` applies. It stores machine-level runtime state, global
   catalog/cache/service state, and non-workspace facts.
@@ -41,7 +44,8 @@ That contract contains:
 - the JSON Schema for valid config;
 - the default config values;
 - resolution rules such as `KF_CONFIG_HOME`, `KF_HOME`, `config.json`,
-  placeholder expansion, workspace data home discovery, and merge behavior.
+  placeholder expansion, workspace data home discovery, user/workspace
+  precedence, and merge behavior.
 
 Python, Node, and the frozen product load the same contract. The frozen product
 ships it at:
@@ -56,8 +60,8 @@ that the runtime-reported contract hash is the same. Defaults, resolution rules,
 and schema must not be redefined in Python, Node, GUI, or other feature
 modules.
 
-A user config file is optional. If `~/.kungfu-config/config.json` does not exist,
-config resolution still succeeds and no file is created as a side effect.
+User and workspace config files are optional. If neither exists, config
+resolution succeeds from defaults and creates no file as a side effect.
 
 The user file is a JSON object that overrides only the keys it needs:
 
@@ -74,12 +78,17 @@ The user file is a JSON object that overrides only the keys it needs:
 }
 ```
 
-Object values merge recursively. Array and scalar values replace the default.
-This keeps the user file small while preserving a complete resolved view for
-agents and GUI code.
+Resolution is defaults, then user, then workspace. Object values merge
+recursively. Array and scalar values replace the lower-precedence value. This
+keeps override files small while preserving a complete resolved view for agents
+and GUI code.
 
 User overrides are validated as partial config. The final resolved config is
 validated as a complete config against the same contract schema.
+
+Durability is the first policy with a complete native execution chain. Its
+requested policy, admission result, effects, costs, receipts, timeout handling,
+and rollback are documented in [Configure durability](durability-configuration.md).
 
 ## First default surface
 
@@ -107,8 +116,10 @@ kungfu config contract --json
 kungfu config schema --json
 kungfu config defaults --json
 kungfu config show --json
-kungfu config set ui.fontSize 16 --json
+kungfu config durability --json
+kungfu config set ui.fontSize 16 --scope user --json
 kungfu config set ui.scale 1.1 --json
+kungfu config set storage.durability.defaultProfile durable_group --scope workspace --json
 kungfu config unset ui.scale --json
 kungfu agent context --json
 kungfu agent verify --json
@@ -122,8 +133,13 @@ kungfu agent verify --json
 defaults, optional user overrides, contract metadata, source metadata,
 `configHome`, `configPath`, `runtimeHome`, `workspaceDataHome`, and
 `machineDataHome`. `kungfu config path --json` returns the same path decision in
-a compact `kungfu.config.path/v1` payload. The `contract.hash` field makes the
+a compact `kungfu.config.path/v1` payload, including `workspaceConfigPath` when
+a workspace is active. The `contract.hash` field makes the
 exact contract world inspectable by users, agents, and release gates.
+`digests.storageDurability` identifies the canonical requested durability
+policy. `kungfu config durability --json` then separates requested, admission,
+effective, and native-capability state; editing configuration cannot create
+qualification.
 
 Use `kungfu storage layout --json` when the question is not "which config wins"
 but "where do workspace Episode journals, payloads, provider state, and
