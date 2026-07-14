@@ -42,6 +42,12 @@ function shellQuote(input) {
   return `'${String(input).replaceAll("'", `'"'"'`)}'`;
 }
 
+export function normalizedArchitecture(nodeArchitecture = os.arch()) {
+  if (nodeArchitecture === 'x64') return 'x86_64';
+  if (nodeArchitecture === 'arm64') return 'aarch64';
+  return nodeArchitecture;
+}
+
 function exactKeys(object, expected, label) {
   const actual = Object.keys(object).sort();
   const wanted = [...expected].sort();
@@ -253,7 +259,7 @@ function execute(profile, plan) {
   }
   if (
     os.hostname() !== profile.source.hostname ||
-    os.arch() !== profile.source.arch
+    normalizedArchitecture() !== profile.source.arch
   ) {
     fail('source host identity does not match the frozen profile');
   }

@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildPlan, loadProfile } from './run-durability-offhost-restore.mjs';
+import {
+  buildPlan,
+  loadProfile,
+  normalizedArchitecture,
+} from './run-durability-offhost-restore.mjs';
 
 test('off-host plan is frozen, build-local, sentinel-protected, and delete-free', () => {
   const profile = loadProfile();
@@ -37,6 +41,12 @@ test('unsafe run identities fail before any host operation', () => {
     () => buildPlan(profile, 'short'),
     /unsafe or missing --run-id/,
   );
+});
+
+test('Node architecture names normalize to the frozen Linux hardware vocabulary', () => {
+  assert.equal(normalizedArchitecture('x64'), 'x86_64');
+  assert.equal(normalizedArchitecture('arm64'), 'aarch64');
+  assert.equal(normalizedArchitecture('riscv64'), 'riscv64');
 });
 
 test('runner contains no self-hosted CI, deletion, or host-service authority', async () => {
