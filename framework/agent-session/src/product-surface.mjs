@@ -363,7 +363,12 @@ export class AgentSessionProductSurface {
               version: '4.0.0-alpha.0',
             },
           },
-          threadStartParams: input.structured?.threadStartParams ?? {},
+          threadStartParams: input.structured?.threadStartParams ?? {
+            ...(input.cwd ? { cwd: input.cwd } : {}),
+            approvalPolicy: 'untrusted',
+            approvalsReviewer: 'user',
+            sandbox: 'read-only',
+          },
         }
       : null;
     const registeredConsole = this.registry.console(consoleId);

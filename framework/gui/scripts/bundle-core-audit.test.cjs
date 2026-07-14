@@ -25,6 +25,13 @@ function packagedAppFixture() {
     'darwin-arm64',
     'spawn-helper',
   );
+  const agentSessionPackage = path.join(
+    resources,
+    'app',
+    'node_modules',
+    '@kungfu-tech',
+    'agent-session',
+  );
   fs.mkdirSync(runtime, { recursive: true });
   for (const name of [
     'kungfu',
@@ -36,7 +43,16 @@ function packagedAppFixture() {
   }
   fs.mkdirSync(path.dirname(helper), { recursive: true });
   fs.writeFileSync(helper, 'fixture', { mode: 0o644 });
-  return { root, app, helper };
+  for (const required of [
+    'package.json',
+    path.join('src', 'product-client.mjs'),
+    path.join('src', 'product-worker.mjs'),
+  ]) {
+    const requiredPath = path.join(agentSessionPackage, required);
+    fs.mkdirSync(path.dirname(requiredPath), { recursive: true });
+    fs.writeFileSync(requiredPath, 'fixture');
+  }
+  return { root, app, helper, agentSessionPackage };
 }
 
 test('repairs and audits the packaged node-pty Darwin spawn helper', (t) => {
@@ -50,4 +66,18 @@ test('repairs and audits the packaged node-pty Darwin spawn helper', (t) => {
   repairNodePtySpawnHelpers(fixture.app);
   assert.notEqual(fs.statSync(fixture.helper).mode & 0o111, 0);
   assert.doesNotThrow(() => auditPackagedApp(fixture.app));
+});
+
+test('rejects an app without the detached Agent Session worker', (t) => {
+  const fixture = packagedAppFixture();
+  t.after(() => fs.rmSync(fixture.root, { recursive: true, force: true }));
+
+  repairNodePtySpawnHelpers(fixture.app);
+  fs.rmSync(
+    path.join(fixture.agentSessionPackage, 'src', 'product-worker.mjs'),
+  );
+  assert.throws(
+    () => auditPackagedApp(fixture.app),
+    /missing packaged Agent Session runtime file/,
+  );
 });

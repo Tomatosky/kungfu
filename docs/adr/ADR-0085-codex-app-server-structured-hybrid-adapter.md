@@ -5,7 +5,7 @@ adr_id: ADR-0085
 decision_status: accepted
 implementation_status: staged
 implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/849, https://github.com/kungfu-systems/kungfu/pull/851, https://github.com/kungfu-systems/kungfu/pull/855, https://github.com/kungfu-systems/kungfu/pull/857, https://github.com/kungfu-systems/kungfu/pull/861]
-qualification_refs: [framework/agent-session/tests/codex-app-server-contract.test.mjs, framework/agent-session/tests/codex-app-server-schema.native.test.mjs, framework/agent-session/tests/codex-app-server-runtime.test.mjs, framework/agent-session/tests/codex-app-server-interaction.test.mjs, framework/agent-session/tests/codex-app-server-recovery.test.mjs, framework/agent-session/tests/codex-app-server-product.test.mjs, framework/agent-session/schemas/codex-app-server/codex-v0.144.3-stable-schema-manifest.json]
+qualification_refs: [framework/agent-session/tests/codex-app-server-contract.test.mjs, framework/agent-session/tests/codex-app-server-schema.native.test.mjs, framework/agent-session/tests/codex-app-server-runtime.test.mjs, framework/agent-session/tests/codex-app-server-interaction.test.mjs, framework/agent-session/tests/codex-app-server-recovery.test.mjs, framework/agent-session/tests/codex-app-server-product.test.mjs, framework/agent-session/schemas/codex-app-server/codex-v0.144.3-stable-schema-manifest.json, scripts/run-agent-session-provider-dogfood.mjs]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -197,6 +197,26 @@ PTY fallback preserves the WorkConsole and provider, retains old structured
 receipts, and creates a distinct attempt only after an `unknown` or
 `interrupted` boundary. Product receipts still claim no semantic outcome,
 Profile/KFD work state, or proof.
+
+Stage 6 convergence makes that structured route the default for new Codex
+`0.144.3` attempts. `KUNGFU_AGENT_SESSION_CODEX_APP_SERVER=0` is the explicit
+rollback to a new PTY attempt; it never changes an in-flight attempt or erases
+its receipts. New structured threads pin `approvalPolicy=untrusted`,
+`approvalsReviewer=user`, `sandbox=read-only`, and the reviewed workspace cwd.
+The contract now admits three stable-schema notifications observed in real
+dogfood—remote-control status, MCP startup status, and account rate limits—as
+typed telemetry only. None can become session, work, outcome, or proof
+authority.
+
+Authenticated Mac source dogfood against Codex `0.144.3` passes start,
+instruction/output, exact approval denial, interrupt, main-process reattach,
+and provider exit closure through the structured route. It retains no raw
+terminal, prompt, transcript, credential, or private environment value. The
+same run shows the current Codex PTY screen no longer matches the pinned PTY
+adapter and therefore remains rollback/manual-recovery only. Claude Code stays
+PTY-authoritative and its separate approval-modal degradation remains an
+explicit provider limit; Codex structured qualification does not overwrite or
+upgrade that result.
 
 ## Rejected alternatives
 

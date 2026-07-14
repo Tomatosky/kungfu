@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import process from 'node:process';
 import { setTimeout as delay } from 'node:timers/promises';
+import { CODEX_APP_SERVER_FEATURE_FLAG } from '../framework/agent-session/src/codex-app-server-product.mjs';
 import { createDetachedAgentSessionHost } from '../framework/agent-session/src/product-client.mjs';
 
 const PROFILE_ROOT = `sha256:${'8'.repeat(64)}`;
@@ -95,21 +96,28 @@ function prepareCheckoutNodePty(runtimeDir) {
 }
 
 async function control(host, ref, operation, payload, automatic = true) {
-  const plan = await host.invoke({
-    operation: 'plan-control',
-    controlOperation: operation,
-    session: ref,
-    payload,
-  });
-  return host.invoke({
-    operation,
-    actorId: 'qualification-controller',
-    client: 'gui',
-    plan,
-    expectedPlanRoot: plan.root,
-    payload,
-    automatic,
-  });
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const plan = await host.invoke({
+      operation: 'plan-control',
+      controlOperation: operation,
+      session: ref,
+      payload,
+    });
+    try {
+      return await host.invoke({
+        operation,
+        actorId: 'qualification-controller',
+        client: 'gui',
+        plan,
+        expectedPlanRoot: plan.root,
+        payload,
+        automatic,
+      });
+    } catch (error) {
+      if (error.code !== 'stale_plan' || attempt === 3) throw error;
+    }
+  }
+  throw new Error('unreachable control planning state');
 }
 
 async function waitForReady(host, ref, provider, label) {
@@ -117,11 +125,31 @@ async function waitForReady(host, ref, provider, label) {
   let observedTrustTokens = [];
   let observedReadyTokens = [];
   let adapterReason = null;
+  let lastSafeStatus = null;
   let status;
   try {
     status = await eventually(async () => {
       const current = await host.invoke({ operation: 'status', session: ref });
+      lastSafeStatus = {
+        lifecycleState: current.lifecycleState,
+        interactionState: current.interactionState,
+        inputAdmission: current.inputAdmission,
+        providerSessionObserved: Boolean(current.foreground?.providerSessionId),
+        providerTurnObserved: Boolean(current.foreground?.providerTurnId),
+        adapterFailureCode: current.providerAdapter?.failureCode ?? null,
+        adapterFailureDetail: current.providerAdapter?.failureDetail ?? null,
+        adapterExit: current.providerAdapter?.exit ?? null,
+        stderrBytesObserved:
+          current.providerAdapter?.stderrBytesObserved ?? null,
+        attemptBoundary: current.attemptBoundary ?? null,
+      };
       if (current.interactionState === 'ready') return current;
+      if (
+        ['ended', 'failed'].includes(current.lifecycleState) ||
+        current.inputAdmission === 'closed'
+      ) {
+        throw new Error(`${provider} attempt ended before ready`);
+      }
       adapterReason = current.providerAdapter.reason;
       if (provider !== 'claude' || current.interactionState !== 'unknown') {
         return null;
@@ -176,7 +204,7 @@ async function waitForReady(host, ref, provider, label) {
     }, label);
   } catch (error) {
     throw new Error(
-      `${error.message}; adapterReason=${adapterReason ?? 'none'}; trustTokens=${observedTrustTokens.join(',') || 'none'}; readyTokens=${observedReadyTokens.join(',') || 'none'}`,
+      `${error.message}; adapterReason=${adapterReason ?? 'none'}; safeStatus=${JSON.stringify(lastSafeStatus)}; trustTokens=${observedTrustTokens.join(',') || 'none'}; readyTokens=${observedReadyTokens.join(',') || 'none'}`,
     );
   }
   return { status, temporaryTrustAccepted };
@@ -201,6 +229,13 @@ const provider = argument('--provider');
 if (!['codex', 'claude'].includes(provider)) {
   throw new Error('--provider must be codex or claude');
 }
+const transport = argument('--transport') ?? 'pty';
+if (!['pty', 'structured'].includes(transport)) {
+  throw new Error('--transport must be pty or structured');
+}
+if (transport === 'structured' && provider !== 'codex') {
+  throw new Error('structured transport is qualified only for codex');
+}
 const runtimeDir = requiredArgument('--runtime-dir');
 const workspace = requiredArgument('--workspace');
 const providerExecutable = requiredArgument('--provider-executable');
@@ -212,6 +247,8 @@ const ptyModule = process.argv.includes('--prepare-checkout-node-pty')
   ? prepareCheckoutNodePty(runtimeDir)
   : argument('--pty-module');
 const workerEnv = { ...process.env };
+workerEnv[CODEX_APP_SERVER_FEATURE_FLAG] =
+  transport === 'structured' ? '1' : '0';
 if (ptyModule)
   workerEnv.KUNGFU_AGENT_SESSION_NODE_PTY_MODULE = path.resolve(ptyModule);
 
@@ -277,21 +314,35 @@ try {
   const instruct = await control(restartedMain, ref, 'instruct', {
     text: `Reply with exactly ${token}. Do not use tools.`,
   });
-  if (instruct.status !== 'written') {
-    throw new Error(`${provider} instruction was not written`);
+  if (
+    transport === 'structured'
+      ? instruct.status !== 'delivered'
+      : instruct.status !== 'written'
+  ) {
+    throw new Error(`${provider} instruction was not delivered`);
   }
   const responseStatus = await eventually(async () => {
     const status = await restartedMain.invoke({
       operation: 'status',
       session: ref,
     });
+    if (transport === 'structured') {
+      return status.output.nextSequence > sequenceBeforeInstruction &&
+        status.interactionState === 'ready'
+        ? status
+        : null;
+    }
     return status.output.nextSequence > sequenceBeforeInstruction + 32
       ? status
       : null;
   }, `${provider} output after instruction`);
 
   const instructedEnd = await control(restartedMain, ref, 'end', {});
-  if (instructedEnd.status !== 'applied') {
+  if (
+    transport === 'structured'
+      ? instructedEnd.status !== 'signalled'
+      : instructedEnd.status !== 'applied'
+  ) {
     throw new Error(`${provider} instruction attempt did not end`);
   }
   await eventually(async () => {
@@ -348,29 +399,68 @@ try {
       text: `Use the shell tool to run touch ${JSON.stringify(approvalProbe)}. Do not avoid the tool request.`,
     },
   );
-  if (approvalInstruction.status !== 'written') {
-    throw new Error(`${provider} approval probe instruction was not written`);
+  if (
+    transport === 'structured'
+      ? approvalInstruction.status !== 'delivered'
+      : approvalInstruction.status !== 'written'
+  ) {
+    throw new Error(`${provider} approval probe instruction was not delivered`);
   }
-  await eventually(async () => {
-    const status = await restartedMain.invoke({
-      operation: 'status',
-      session: approvalRef,
-    });
-    return status.interactionState === 'approval-needed';
-  }, `${provider} approval-needed state`);
-  const denied = await control(
-    restartedMain,
-    approvalRef,
-    'send-key',
-    { key: 'Escape' },
-    false,
-  );
-  if (denied.status !== 'written') {
-    throw new Error(`${provider} approval denial key was not written`);
+  let approvalSafeStatus = null;
+  try {
+    await eventually(async () => {
+      const status = await restartedMain.invoke({
+        operation: 'status',
+        session: approvalRef,
+      });
+      approvalSafeStatus = {
+        lifecycleState: status.lifecycleState,
+        interactionState: status.interactionState,
+        inputAdmission: status.inputAdmission,
+        pendingControls: status.structuredControl?.pending?.length ?? null,
+        adapterFailureCode: status.providerAdapter?.failureCode ?? null,
+        adapterFailureDetail: status.providerAdapter?.failureDetail ?? null,
+      };
+      return status.interactionState === 'approval-needed';
+    }, `${provider} approval-needed state`);
+  } catch (error) {
+    throw new Error(
+      `${error.message}; safeStatus=${JSON.stringify(approvalSafeStatus)}`,
+    );
+  }
+  const pendingControl = (
+    await restartedMain.invoke({ operation: 'status', session: approvalRef })
+  ).structuredControl?.pending?.[0];
+  const denied =
+    transport === 'structured'
+      ? await control(
+          restartedMain,
+          approvalRef,
+          'respond-control',
+          { requestId: pendingControl?.requestId, decision: 'deny' },
+          false,
+        )
+      : await control(
+          restartedMain,
+          approvalRef,
+          'send-key',
+          { key: 'Escape' },
+          false,
+        );
+  if (
+    transport === 'structured'
+      ? denied.status !== 'delivered'
+      : denied.status !== 'written'
+  ) {
+    throw new Error(`${provider} approval denial was not delivered`);
   }
 
   const ended = await control(restartedMain, approvalRef, 'end', {});
-  if (ended.status !== 'applied') {
+  if (
+    transport === 'structured'
+      ? ended.status !== 'signalled'
+      : ended.status !== 'applied'
+  ) {
     throw new Error(`${provider} end signal was not delivered`);
   }
   await eventually(async () => {
@@ -418,17 +508,47 @@ try {
     provider,
     `${provider} interrupt attempt ready`,
   );
+  if (transport === 'structured') {
+    const longInstruction = await control(
+      restartedMain,
+      interruptRef,
+      'instruct',
+      {
+        text: 'Begin outputting consecutive integers from 1 to 10000, one per line. Do not use tools.',
+      },
+    );
+    if (longInstruction.status !== 'delivered') {
+      throw new Error(
+        `${provider} interrupt probe instruction was not delivered`,
+      );
+    }
+    await eventually(async () => {
+      const status = await restartedMain.invoke({
+        operation: 'status',
+        session: interruptRef,
+      });
+      return status.interactionState === 'busy';
+    }, `${provider} interrupt probe busy state`);
+  }
   const interrupted = await control(
     restartedMain,
     interruptRef,
     'interrupt',
     {},
   );
-  if (interrupted.status !== 'applied') {
+  if (
+    transport === 'structured'
+      ? interrupted.status !== 'delivered'
+      : interrupted.status !== 'applied'
+  ) {
     throw new Error(`${provider} interrupt signal was not delivered`);
   }
   const interruptEnd = await control(restartedMain, interruptRef, 'end', {});
-  if (interruptEnd.status !== 'applied') {
+  if (
+    transport === 'structured'
+      ? interruptEnd.status !== 'signalled'
+      : interruptEnd.status !== 'applied'
+  ) {
     throw new Error(`${provider} interrupt attempt did not end`);
   }
 
@@ -436,6 +556,11 @@ try {
     schema: 'kungfu.agent-session.provider-dogfood/v1',
     provider,
     providerVersion: initial.providerAdapter.providerVersion,
+    transport,
+    transportAuthority:
+      transport === 'structured'
+        ? 'codex-app-server-structured-events'
+        : `${provider}-pty-state-adapter`,
     platform: `${process.platform}-${process.arch}`,
     worker: workerPath ? 'packaged-app' : 'source-checkout',
     cases: {
@@ -457,6 +582,10 @@ try {
       initialReady.temporaryTrustAccepted ||
       approvalReady.temporaryTrustAccepted ||
       interruptReady.temporaryTrustAccepted,
+    rollback:
+      transport === 'structured'
+        ? `${CODEX_APP_SERVER_FEATURE_FLAG}=0 creates a new PTY attempt`
+        : null,
     linuxQualification: 'not-run',
     windowsQualification: 'not-run',
   };
