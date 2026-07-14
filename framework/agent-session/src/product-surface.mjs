@@ -6,6 +6,7 @@ const CONTROL_OPERATIONS = new Set([
   'instruct',
   'send-key',
   'interrupt',
+  'respond-control',
   'end',
 ]);
 const READ_OPERATIONS = new Set([
@@ -92,6 +93,13 @@ function publicStatus(session) {
       : null,
     workOutcome: null,
     proof: null,
+    ...(status.transportRoute
+      ? {
+          transportRoute: status.transportRoute,
+          structuredControl: status.structuredControl,
+          attemptBoundary: status.attemptBoundary,
+        }
+      : {}),
   };
 }
 
@@ -147,6 +155,7 @@ export class AgentSessionProductSurface {
   }
 
   capabilities() {
+    const productRoutes = this.runtime.capabilities?.();
     return {
       schema: 'kungfu.agent-session.surface-capabilities/v1',
       actions: [
@@ -165,6 +174,7 @@ export class AgentSessionProductSurface {
         'instruct',
         'send-key',
         'interrupt',
+        ...(productRoutes ? ['respond-control'] : []),
         'end',
       ],
       clients: ['gui', 'cli', 'kfd3-agent'],
@@ -189,6 +199,7 @@ export class AgentSessionProductSurface {
         'capsule-worker-loss-ends-the-old-attempt-and-cannot-fake-continuity',
         'machine-reboot-requires-a-new-attempt-or-provider-resume',
       ],
+      ...(productRoutes ? { providerRoutes: productRoutes } : {}),
     };
   }
 
@@ -236,6 +247,61 @@ export class AgentSessionProductSurface {
           publicStatus(session).lifecycleState !== 'ended',
       );
     const existingStatus = existing ? publicStatus(existing) : null;
+    let fallback = null;
+    let fallbackSession = null;
+    let fallbackStatus = null;
+    if (input.fallbackFrom) {
+      const previous = this.#session(input.fallbackFrom);
+      const previousStatus = publicStatus(previous);
+      if (
+        previousStatus.transportRoute?.kind !== 'structured' ||
+        previousStatus.lifecycleState !== 'ended' ||
+        !['unknown', 'interrupted'].includes(previousStatus.attemptBoundary)
+      ) {
+        throw new AgentSessionSurfaceError(
+          'fallback_not_ready',
+          'fallback requires an ended structured attempt boundary',
+        );
+      }
+      if (previous.sessionAttemptId === input.sessionAttemptId) {
+        throw new AgentSessionSurfaceError(
+          'hot_switch_forbidden',
+          'fallback must create a new session attempt',
+        );
+      }
+      if (previous.workConsoleId !== consoleId) {
+        throw new AgentSessionSurfaceError(
+          'fallback_console_mismatch',
+          'fallback must preserve the original WorkConsole identity',
+        );
+      }
+      if (input.provider !== previousStatus.foreground.provider) {
+        throw new AgentSessionSurfaceError(
+          'fallback_provider_mismatch',
+          'fallback must preserve the original provider identity',
+        );
+      }
+      fallbackSession = previous;
+      fallbackStatus = previousStatus;
+      fallback = {
+        workConsoleId: previous.workConsoleId,
+        sessionAttemptId: previous.sessionAttemptId,
+        boundary: previousStatus.attemptBoundary,
+      };
+    }
+    const transportRoute =
+      existingStatus?.transportRoute ?? this.runtime.planRoute?.(input) ?? null;
+    const structured = transportRoute
+      ? {
+          initializeParams: input.structured?.initializeParams ?? {
+            clientInfo: {
+              name: 'kungfu-agent-session',
+              version: '4.0.0-alpha.0',
+            },
+          },
+          threadStartParams: input.structured?.threadStartParams ?? {},
+        }
+      : null;
     const body = {
       schema: 'kungfu.agent-session.start-plan/v1',
       operation: existing ? 'attach-existing' : 'start',
@@ -245,31 +311,51 @@ export class AgentSessionProductSurface {
         : required(input.sessionAttemptId, 'sessionAttemptId'),
       provider:
         existingStatus?.foreground.provider ??
+        fallbackStatus?.foreground.provider ??
         required(input.provider, 'provider'),
       providerVersion:
         existingStatus?.providerAdapter.providerVersion ??
+        fallbackStatus?.providerAdapter.providerVersion ??
         required(input.providerVersion, 'providerVersion'),
       profileRoot:
         existingStatus?.foreground.profileRoot ??
+        fallbackStatus?.foreground.profileRoot ??
         required(input.profileRoot, 'profileRoot'),
       executable:
         existingStatus?.foreground.executable ??
+        fallbackStatus?.foreground.executable ??
         required(input.executable, 'executable'),
       argv:
         existingStatus?.foreground.argv ??
+        transportRoute?.argv ??
         (Array.isArray(input.argv) ? [...input.argv] : []),
       cwd: existing ? null : (input.cwd ?? null),
       environmentNames: existing ? [] : Object.keys(input.env ?? {}).sort(),
-      binding: existing?.binding ?? binding,
+      binding: existing?.binding ?? fallbackSession?.binding ?? binding,
       effects: existing
         ? ['attach-presentation-to-existing-capsule']
-        : [
-            'spawn-provider-in-capsule',
-            'register-session',
-            'attach-presentation',
-          ],
+        : transportRoute
+          ? [
+              'spawn-codex-app-server-direct-stdio',
+              'start-one-provider-thread',
+              'register-session',
+              'attach-presentation',
+            ]
+          : fallback
+            ? [
+                'create-new-pty-attempt-only',
+                'preserve-old-structured-receipts',
+                'attach-presentation',
+              ]
+            : [
+                'spawn-provider-in-capsule',
+                'register-session',
+                'attach-presentation',
+              ],
       workEffects: [],
       rollback: existing ? 'detach-presentation' : 'end-new-session-attempt',
+      ...(transportRoute ? { transportRoute, structured } : {}),
+      ...(fallback ? { fallbackFrom: fallback } : {}),
     };
     return { ...body, root: agentSessionSurfaceRoot(body) };
   }
@@ -290,7 +376,20 @@ export class AgentSessionProductSurface {
           'planned existing session is no longer available',
         );
       }
-      session = this.runtime.start(plan, execution);
+      const started = this.runtime.start(plan, execution);
+      if (started && typeof started.then === 'function') {
+        return started.then((resolved) =>
+          this.#finishStart({
+            actorId,
+            client,
+            plan,
+            attachment,
+            session: resolved,
+            reused: false,
+          }),
+        );
+      }
+      session = started;
       reused = false;
     } else if (plan.operation !== 'attach-existing') {
       throw new AgentSessionSurfaceError(
@@ -298,26 +397,14 @@ export class AgentSessionProductSurface {
         'start plan would duplicate an existing live WorkConsole',
       );
     }
-    const attachReceipt = this.#attach(session, {
+    return this.#finishStart({
       actorId,
       client,
-      attachment: attachment ?? {},
-      acquireControl: !session.controller,
+      plan,
+      attachment,
+      session,
+      reused,
     });
-    return receipt(
-      'start',
-      actorId,
-      {
-        status: reused ? 'reused' : 'started',
-        planRoot: plan.root,
-        workConsoleId: session.workConsoleId,
-        sessionAttemptId: session.sessionAttemptId,
-        capsuleId: session.port.status().capsuleId,
-        autoAttached: true,
-        attachReceipt,
-      },
-      this.now,
-    );
   }
 
   attach({
@@ -377,6 +464,15 @@ export class AgentSessionProductSurface {
     }
     const session = this.#session(ref);
     const status = publicStatus(session);
+    if (
+      operation === 'respond-control' &&
+      status.transportRoute?.kind !== 'structured'
+    ) {
+      throw new AgentSessionSurfaceError(
+        'unsupported_operation',
+        'provider control responses require a structured route',
+      );
+    }
     const body = {
       schema: 'kungfu.agent-session.control-plan/v1',
       operation,
@@ -397,14 +493,21 @@ export class AgentSessionProductSurface {
               ? ['end-exact-provider-attempt']
               : operation === 'interrupt'
                 ? ['signal-exact-provider-attempt']
-                : ['deliver-to-exact-provider-pty'],
+                : operation === 'respond-control'
+                  ? ['respond-to-exact-provider-control-request']
+                  : ['deliver-to-exact-provider-pty'],
       workEffects: [],
       proves:
         operation === 'acquire-control' || operation === 'release-control'
           ? 'controller-lease-decision-only'
           : operation === 'end'
             ? 'control-request-delivery-only'
-            : 'validated-input-written-to-pty-only',
+            : operation === 'respond-control'
+              ? 'provider-control-response-written-only'
+              : 'validated-input-written-to-pty-only',
+      ...(status.transportRoute
+        ? { transportRoute: status.transportRoute }
+        : {}),
     };
     return { ...body, root: agentSessionSurfaceRoot(body) };
   }
@@ -464,22 +567,30 @@ export class AgentSessionProductSurface {
         result = session.port.sendKey(request);
       else if (plan.operation === 'interrupt')
         result = session.port.interrupt(request);
+      else if (plan.operation === 'respond-control')
+        result = session.port.respondControl(request);
       else result = session.end(request);
     }
-    return receipt(
-      plan.operation,
-      actorId,
-      {
-        status: result.status,
-        reason: result.reason ?? null,
-        planRoot: plan.root,
-        workConsoleId: session.workConsoleId,
-        sessionAttemptId: session.sessionAttemptId,
-        deliveryReceipt: result.deliveryReceipt ?? null,
-        controlReceipt: result.controlReceipt ?? result,
-      },
-      this.now,
-    );
+    const finish = (resolved) =>
+      receipt(
+        plan.operation,
+        actorId,
+        {
+          status: resolved.status,
+          reason: resolved.reason ?? null,
+          planRoot: plan.root,
+          workConsoleId: session.workConsoleId,
+          sessionAttemptId: session.sessionAttemptId,
+          deliveryReceipt: resolved.deliveryReceipt ?? null,
+          controlReceipt: resolved.controlReceipt ?? resolved,
+          ...(publicStatus(session).transportRoute
+            ? { transportRoute: publicStatus(session).transportRoute }
+            : {}),
+        },
+        this.now,
+      );
+    if (result && typeof result.then === 'function') return result.then(finish);
+    return finish(result);
   }
 
   invoke(request) {
@@ -549,6 +660,33 @@ export class AgentSessionProductSurface {
         attachmentId,
         controller,
         providerStarted: false,
+      },
+      this.now,
+    );
+  }
+
+  #finishStart({ actorId, client, plan, attachment, session, reused }) {
+    const attachReceipt = this.#attach(session, {
+      actorId,
+      client,
+      attachment: attachment ?? {},
+      acquireControl: !session.controller,
+    });
+    const status = publicStatus(session);
+    return receipt(
+      'start',
+      actorId,
+      {
+        status: reused ? 'reused' : 'started',
+        planRoot: plan.root,
+        workConsoleId: session.workConsoleId,
+        sessionAttemptId: session.sessionAttemptId,
+        capsuleId: session.port.status().capsuleId,
+        autoAttached: true,
+        attachReceipt,
+        ...(status.transportRoute
+          ? { transportRoute: status.transportRoute }
+          : {}),
       },
       this.now,
     );

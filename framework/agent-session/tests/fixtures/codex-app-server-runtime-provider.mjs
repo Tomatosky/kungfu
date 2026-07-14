@@ -60,12 +60,34 @@ lines.on('line', (line) => {
     }
     return;
   }
+  if (message.method === 'thread/start' && mode === 'product-route') {
+    send({
+      method: 'thread/started',
+      params: { thread: { id: 'thread-product' } },
+    });
+    send({ id: message.id, result: { thread: { id: 'thread-product' } } });
+    return;
+  }
   if (message.method === 'turn/start') {
     const threadId = message.params.threadId;
     send({
       method: 'turn/started',
       params: { threadId, turn: turn(threadId, 'turn-authority') },
     });
+    if (mode === 'product-route') {
+      send({
+        id: 'approval-product',
+        method: 'item/commandExecution/requestApproval',
+        params: {
+          threadId,
+          turnId: 'turn-authority',
+          itemId: 'item-product',
+          startedAtMs: 1,
+        },
+      });
+      send({ id: message.id, result: { turn: { id: 'turn-authority' } } });
+      return;
+    }
     send({
       method: 'turn/completed',
       params: {
@@ -77,6 +99,38 @@ lines.on('line', (line) => {
       () => send({ id: message.id, result: { turn: { id: 'turn-authority' } } }),
       10,
     );
+    return;
+  }
+  if (message.id === 'approval-product' && mode === 'product-route') {
+    send({
+      method: 'serverRequest/resolved',
+      params: {
+        requestId: 'approval-product',
+        threadId: 'thread-product',
+      },
+    });
+    send({
+      method: 'turn/completed',
+      params: {
+        threadId: 'thread-product',
+        turn: turn('thread-product', 'turn-authority', 'completed'),
+      },
+    });
+    return;
+  }
+  if (message.method === 'turn/interrupt' && mode === 'product-route') {
+    send({
+      method: 'turn/completed',
+      params: {
+        threadId: message.params.threadId,
+        turn: turn(
+          message.params.threadId,
+          message.params.turnId,
+          'interrupted',
+        ),
+      },
+    });
+    send({ id: message.id, result: {} });
   }
 });
 

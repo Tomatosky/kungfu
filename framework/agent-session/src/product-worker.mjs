@@ -2,6 +2,10 @@ import { mkdirSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import {
+  CODEX_APP_SERVER_FEATURE_FLAG,
+  CodexAppServerProductRuntime,
+} from './codex-app-server-product.mjs';
 import { bindAgentSessionSurfaceRpc } from './product-rpc.mjs';
 import { InProcessAgentSessionProductRuntime } from './product-runtime.mjs';
 import { AgentSessionProductSurface } from './product-surface.mjs';
@@ -24,6 +28,10 @@ export async function runAgentSessionProductWorker({
   const runtime = new InProcessAgentSessionProductRuntime({
     pty: loadedPty,
     baseEnv,
+    structuredRuntime:
+      baseEnv[CODEX_APP_SERVER_FEATURE_FLAG] === '1'
+        ? new CodexAppServerProductRuntime({ baseEnv })
+        : null,
   });
   const surface = new AgentSessionProductSurface({ runtime });
   const server = bindAgentSessionSurfaceRpc({

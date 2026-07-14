@@ -131,6 +131,11 @@ test('source plan covers representative source-only checks', () => {
   );
   assert.ok(
     contractTests.args.includes(
+      'framework/agent-session/tests/codex-app-server-product.test.mjs',
+    ),
+  );
+  assert.ok(
+    contractTests.args.includes(
       'framework/agent-session/tests/product-surface.test.mjs',
     ),
   );

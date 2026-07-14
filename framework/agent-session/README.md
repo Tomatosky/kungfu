@@ -180,6 +180,26 @@ existing Agent Session journal authority behind this append/read seam. The
 Stage 4 source test uses only a deterministic in-memory journal and synthetic
 runtime; it does not read provider credentials or private session state.
 
+The Stage 5 product adapter routes Codex `0.144.3` through direct stdio only
+when `KUNGFU_AGENT_SESSION_CODEX_APP_SERVER=1`. With the flag absent, Codex and
+Claude retain the existing PTY plan, capabilities, authority, and receipt
+shape. GUI, CLI, and KFD-3 use the same product `invoke` seam for structured
+start, instruction, interrupt, exact provider control response, status, and
+receipts; no presentation owns a private provider mutation path.
+
+The route is frozen for one `SessionAttempt`. Runtime loss or explicit end
+closes the structured attempt at an `unknown` or `interrupted` boundary. PTY
+fallback must preserve the same WorkConsole, create a distinct attempt, and
+retain the old structured receipts; hot switching the live attempt is
+forbidden. Product status projects provider thread/turn identity and pending
+controls, but receipts still claim neither semantic outcome, work state, nor
+proof. The source-only product qualification uses a synthetic provider and
+reads no provider credentials or private state:
+
+```sh
+./shifu test:codex-app-server-product
+```
+
 On Darwin, packaged products must restore the executable bit on node-pty's
 `spawn-helper`. The existing Electron `afterPack` audit already owns that
 repair. The Mac smoke copies node-pty into a temporary harness directory and

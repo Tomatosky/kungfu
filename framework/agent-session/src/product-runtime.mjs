@@ -21,7 +21,13 @@ function sameKeys(left, right) {
  * can replace this in-process constructor without changing any product client.
  */
 export class InProcessAgentSessionProductRuntime {
-  constructor({ pty, baseEnv = {}, now = () => Date.now(), maxOutputBytes }) {
+  constructor({
+    pty,
+    baseEnv = {},
+    now = () => Date.now(),
+    maxOutputBytes,
+    structuredRuntime = null,
+  }) {
     if (!pty || typeof pty.spawn !== 'function') {
       throw new Error('product runtime requires a node-pty compatible module');
     }
@@ -29,23 +35,40 @@ export class InProcessAgentSessionProductRuntime {
     this.baseEnv = baseEnv;
     this.now = now;
     this.maxOutputBytes = maxOutputBytes;
+    this.structuredRuntime = structuredRuntime;
     this.sessions = new Map();
     this.generation = 0;
   }
 
   list() {
-    return [...this.sessions.values()];
+    return [
+      ...this.sessions.values(),
+      ...(this.structuredRuntime?.list() ?? []),
+    ];
   }
 
   get(ref) {
-    const session = this.sessions.get(ref.sessionAttemptId) ?? null;
+    const session =
+      this.sessions.get(ref.sessionAttemptId) ??
+      this.structuredRuntime?.get(ref) ??
+      null;
     if (!session || session.workConsoleId !== ref.workConsoleId) return null;
     return session;
   }
 
   start(plan, execution = {}) {
-    if (this.sessions.has(plan.sessionAttemptId)) {
+    if (
+      this.list().some(
+        (session) => session.sessionAttemptId === plan.sessionAttemptId,
+      )
+    ) {
       throw new Error(`session '${plan.sessionAttemptId}' already exists`);
+    }
+    if (plan.transportRoute?.kind === 'structured') {
+      if (!this.structuredRuntime) {
+        throw new Error('structured provider route is not enabled');
+      }
+      return this.structuredRuntime.start(plan, execution);
     }
     if (!sameKeys(execution.env, plan.environmentNames)) {
       throw new Error(
@@ -144,5 +167,14 @@ export class InProcessAgentSessionProductRuntime {
         signal: 'SIGTERM',
       });
     }
+    this.structuredRuntime?.shutdown();
+  }
+
+  planRoute(input) {
+    return this.structuredRuntime?.planRoute(input) ?? null;
+  }
+
+  capabilities() {
+    return this.structuredRuntime?.capabilities() ?? null;
   }
 }
