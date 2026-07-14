@@ -16,6 +16,7 @@ class FakePtyProcess extends EventEmitter {
     this.pid = 8118;
     this.writes = [];
     this.resizes = [];
+    this.signals = [];
   }
 
   onData(listener) {
@@ -34,7 +35,9 @@ class FakePtyProcess extends EventEmitter {
     this.resizes.push([cols, rows]);
   }
 
-  kill() {}
+  kill(signal) {
+    this.signals.push(signal);
+  }
 }
 
 function fixture({ maxFrames = 256, maxOutputBytes = 1024 } = {}) {
@@ -159,6 +162,46 @@ test('one controller wins, duplicate input is idempotent, and stale authority fa
         coordinatorEpoch: '2',
       }),
     (error) => error.code === 'stale_coordinator',
+  );
+});
+
+test('interrupt signal is idempotent and uses the same controller and foreground fencing', () => {
+  const { child, current, foreground, transport } = fixture();
+  transport.acquireControl({
+    leaseId: 'lease-gui',
+    holderId: 'gui',
+    planRoot: 'plan-gui',
+  });
+  const action = {
+    ...current,
+    actionId: 'interrupt-1',
+    inputId: 'interrupt-input-1',
+    signal: 'SIGINT',
+    leaseId: 'lease-gui',
+    holderId: 'gui',
+    coordinatorEpoch: '3',
+    expectedForeground: foreground,
+  };
+  assert.equal(transport.submitSignal(action).status, 'applied');
+  assert.equal(transport.submitSignal(action).status, 'duplicate');
+  assert.deepEqual(child.signals, ['SIGINT']);
+  assert.throws(
+    () =>
+      transport.submitSignal({
+        ...action,
+        inputId: 'interrupt-input-2',
+        leaseId: 'stale-lease',
+      }),
+    (error) => error.code === 'stale_controller_lease',
+  );
+  assert.throws(
+    () =>
+      transport.submitSignal({
+        ...action,
+        inputId: 'interrupt-input-3',
+        expectedForeground: { ...foreground, processStartIdentity: 'stale' },
+      }),
+    (error) => error.code === 'foreground_mismatch',
   );
 });
 

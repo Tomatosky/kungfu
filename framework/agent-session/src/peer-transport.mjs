@@ -430,6 +430,52 @@ export class AgentSessionCapsulePeerTransport {
     return delivered;
   }
 
+  submitSignal({
+    leaseId,
+    holderId,
+    coordinatorEpoch,
+    expectedForeground,
+    ...action
+  }) {
+    const existing = this.inputReceipts.get(action.inputId);
+    if (existing) return { ...existing, status: 'duplicate' };
+    if (coordinatorEpoch !== this.#requireRegistration().coordinatorEpoch) {
+      throw new PeerTransportError(
+        'stale_coordinator',
+        'signal Coordinator epoch does not match current registration',
+      );
+    }
+    const current = this.#activeController(this.now());
+    if (
+      !current ||
+      current.leaseId !== leaseId ||
+      current.holderId !== holderId
+    ) {
+      throw new PeerTransportError(
+        'stale_controller_lease',
+        'signal requires the exact active controller lease',
+      );
+    }
+    const status = this.host.status();
+    if (!sameForeground(expectedForeground, status.foreground)) {
+      throw new PeerTransportError(
+        'foreground_mismatch',
+        'signal expected foreground does not match the provider',
+      );
+    }
+    const receipt = this.host.signal(action);
+    const delivered = this.#append('auditable-control', 'interrupt-delivered', {
+      ...receipt,
+      inputId: required(action.inputId, 'inputId'),
+      controllerLeaseId: leaseId,
+      controllerHolderId: holderId,
+      semanticOutcome: null,
+      workState: null,
+    });
+    this.inputReceipts.set(action.inputId, delivered);
+    return delivered;
+  }
+
   queueResize({ leaseId, holderId, ...action }) {
     const current = this.#activeController(this.now());
     if (

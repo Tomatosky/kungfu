@@ -13,7 +13,9 @@
   },
   "exports": {
     ".": "./src/capsule-host.mjs",
+    "./interaction-port": "./src/interaction-port.mjs",
     "./peer-transport": "./src/peer-transport.mjs",
+    "./provider-adapters": "./src/provider-adapters.mjs",
     "./runtime-port": "./src/runtime-port.mjs",
     "./worker": "./src/capsule-worker.mjs",
     "./vt-snapshot": "./src/vt-snapshot.mjs"

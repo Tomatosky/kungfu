@@ -118,6 +118,8 @@ export function sourceAcceptancePlan(files) {
         'framework/agent-session/tests/capsule-host.test.mjs',
         'framework/agent-session/tests/peer-transport.test.mjs',
         'framework/agent-session/tests/runtime-port.test.mjs',
+        'framework/agent-session/tests/provider-adapters.test.mjs',
+        'framework/agent-session/tests/interaction-port.test.mjs',
         'framework/core/tests/qualification/durability/run.test.mjs',
         'framework/core/tests/qualification/durability/powercut_plan.test.mjs',
         'framework/core/tests/qualification/durability/fault_campaign.test.mjs',
