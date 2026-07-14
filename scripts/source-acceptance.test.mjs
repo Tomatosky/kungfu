@@ -24,6 +24,19 @@ test('source plan covers representative source-only checks', () => {
   assert.ok(labels.includes('documentation contracts'));
   assert.ok(labels.includes('runtime activation contract'));
   assert.ok(labels.includes('agent session contract'));
+  const contractTests = plan.find(
+    (step) => step.label === 'source-acceptance contract tests',
+  );
+  assert.ok(
+    contractTests.args.includes(
+      'framework/agent-session/tests/capsule-host.test.mjs',
+    ),
+  );
+  assert.ok(
+    !contractTests.args.includes(
+      'framework/agent-session/tests/capsule-worker.test.mjs',
+    ),
+  );
 });
 
 test('Conan recipe Python is linted without widening into the product type baseline', () => {
