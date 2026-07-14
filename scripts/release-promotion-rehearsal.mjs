@@ -104,7 +104,7 @@ export function validateWorkflowSources(root, contract, overrides = {}) {
   );
   requirePattern(
     preflight,
-    /if: \$\{\{ github\.event\.pull_request\.merged == true \}\}/,
+    /if: \$\{\{ github\.event_name == 'workflow_dispatch' \|\| github\.event\.pull_request\.merged == true \}\}/,
     findings,
     'promotion contract preflight must run only for a merged promotion PR',
   );
@@ -122,7 +122,7 @@ export function validateWorkflowSources(root, contract, overrides = {}) {
   );
   requirePattern(
     promote,
-    /uses: kungfu-systems\/buildchain\/\.github\/workflows\/release-candidate-promote\.yml@v2/,
+    /uses: kungfu-systems\/buildchain\/\.github\/workflows\/release-candidate-promote\.yml@[0-9a-f]{40}/,
     findings,
     'promotion must consume the stable Buildchain workflow shell',
   );
@@ -144,19 +144,19 @@ export function validateWorkflowSources(root, contract, overrides = {}) {
   );
   requirePattern(
     promote,
-    /buildchain-ref: \$\{\{ startsWith\(github\.event\.pull_request\.base\.ref, 'alpha\/'\) && 'v2-alpha' \|\| 'v2' \}\}/,
+    /buildchain-ref: \$\{\{ github\.event_name == 'workflow_dispatch' && '[0-9a-f]{40}' \|\| startsWith\(github\.event\.pull_request\.base\.ref, 'alpha\/'\) && 'v2-alpha' \|\| 'v2' \}\}/,
     findings,
     'alpha/stable Buildchain ref routing drifted',
   );
   requirePattern(
     promote,
-    /buildchain-contract-lock-path: \$\{\{ startsWith\(github\.event\.pull_request\.base\.ref, 'alpha\/'\) && '\.buildchain\/alpha-contract-lock\.json' \|\| '\.buildchain\/contract-lock\.json' \}\}/,
+    /buildchain-contract-lock-path: \$\{\{ startsWith\(inputs\.target-ref \|\| github\.event\.pull_request\.base\.ref, 'alpha\/'\) && '\.buildchain\/alpha-contract-lock\.json' \|\| '\.buildchain\/contract-lock\.json' \}\}/,
     findings,
     'alpha/stable Buildchain contract-lock routing drifted',
   );
   requirePattern(
     promote,
-    /publish-dist-tag: \$\{\{ startsWith\(github\.event\.pull_request\.base\.ref, 'alpha\/'\) && 'alpha' \|\| 'latest' \}\}/,
+    /publish-dist-tag: \$\{\{ startsWith\(inputs\.target-ref \|\| github\.event\.pull_request\.base\.ref, 'alpha\/'\) && 'alpha' \|\| 'latest' \}\}/,
     findings,
     'alpha/stable distribution-tag routing drifted',
   );
@@ -173,6 +173,18 @@ export function validateWorkflowSources(root, contract, overrides = {}) {
     /needs: promote/,
     findings,
     'launcher tagging must remain downstream of Buildchain promotion',
+  );
+  requirePattern(
+    promote,
+    /dry-run: \$\{\{ github\.event_name == 'workflow_dispatch' \}\}/,
+    findings,
+    'manual promotion measurement must remain dry-run only',
+  );
+  requirePattern(
+    launcher,
+    /if: \$\{\{ github\.event_name == 'pull_request' && github\.event\.pull_request\.merged == true \}\}/,
+    findings,
+    'manual promotion measurement must not tag the launcher',
   );
   requirePattern(
     rehearsal,

@@ -342,7 +342,7 @@
         "gate.catalog",
         "governance.promotion-rehearsal"
       ],
-      "activation": "merged alpha or release pull request",
+      "activation": "merged alpha or release pull request, or manual source-locked dry-run measurement",
       "invocation": {
         "args": []
       }
@@ -359,23 +359,24 @@
         "governance.buildchain-config",
         "release.artifact-admission"
       ],
-      "activation": "merged alpha or release pull request",
+      "activation": "merged alpha or release pull request, or manual source-locked dry-run measurement",
       "adapter": {
         "type": "buildchain-release-admission",
         "kind": "job-uses",
-        "uses": "kungfu-systems/buildchain/.github/workflows/release-candidate-promote.yml@v2",
-        "job": {
-          "needs": "promotion-contract",
-          "if": "${{ github.event.pull_request.merged == true }}"
-        },
-        "with": {
-          "channel": "${{ startsWith(github.event.pull_request.base.ref, 'alpha/') && 'alpha' || 'release' }}",
-          "target-sha": "${{ github.event.pull_request.merge_commit_sha || github.sha }}",
+        "uses": "kungfu-systems/buildchain/.github/workflows/release-candidate-promote.yml@bb54bd1fadc0edadf40f77555e5bba5c6168d739",
+      "job": {
+        "needs": "promotion-contract",
+        "if": "${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true }}"
+      },
+      "with": {
+        "channel": "${{ startsWith(inputs.target-ref || github.event.pull_request.base.ref, 'alpha/') && 'alpha' || 'release' }}",
+          "target-sha": "${{ inputs.target-sha || github.event.pull_request.merge_commit_sha || github.sha }}",
           "required-status-check": "build",
           "publish-command": "node scripts/buildchain-custom-publish-evidence.mjs",
           "runner-preset": "kungfu-v4-self-hosted",
           "required-artifact-count": 3,
-          "release-passport": true
+          "release-passport": true,
+          "dry-run": "${{ github.event_name == 'workflow_dispatch' }}"
         }
       }
     },

@@ -106,7 +106,11 @@ function main() {
     fail(`${bindingId} is not a controller binding for ${gateId}`);
   if (workflowPath(run.path) !== workflowPath(binding.workflow))
     fail(`workflow path does not match binding ${bindingId}`);
-  if (job.name !== binding.job && !job.name.endsWith(` / ${binding.job}`))
+  if (
+    job.name !== binding.job &&
+    !job.name.endsWith(` / ${binding.job}`) &&
+    !job.name.startsWith(`${binding.job} / `)
+  )
     fail(`job name '${job.name}' does not match binding job '${binding.job}'`);
 
   const receipt = {
