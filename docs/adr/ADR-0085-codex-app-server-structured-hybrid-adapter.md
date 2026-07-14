@@ -4,8 +4,8 @@ doc_type: architecture-decision
 adr_id: ADR-0085
 decision_status: accepted
 implementation_status: staged
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/849, https://github.com/kungfu-systems/kungfu/pull/851, https://github.com/kungfu-systems/kungfu/pull/855, https://github.com/kungfu-systems/kungfu/pull/857]
-qualification_refs: [framework/agent-session/tests/codex-app-server-contract.test.mjs, framework/agent-session/tests/codex-app-server-schema.native.test.mjs, framework/agent-session/tests/codex-app-server-runtime.test.mjs, framework/agent-session/tests/codex-app-server-interaction.test.mjs, framework/agent-session/tests/codex-app-server-recovery.test.mjs, framework/agent-session/schemas/codex-app-server/codex-v0.144.3-stable-schema-manifest.json]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/849, https://github.com/kungfu-systems/kungfu/pull/851, https://github.com/kungfu-systems/kungfu/pull/855, https://github.com/kungfu-systems/kungfu/pull/857, https://github.com/kungfu-systems/kungfu/pull/861]
+qualification_refs: [framework/agent-session/tests/codex-app-server-contract.test.mjs, framework/agent-session/tests/codex-app-server-schema.native.test.mjs, framework/agent-session/tests/codex-app-server-runtime.test.mjs, framework/agent-session/tests/codex-app-server-interaction.test.mjs, framework/agent-session/tests/codex-app-server-recovery.test.mjs, framework/agent-session/tests/codex-app-server-product.test.mjs, framework/agent-session/schemas/codex-app-server/codex-v0.144.3-stable-schema-manifest.json]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -186,6 +186,17 @@ observation-only, resume and PTY fallback require a new attempt, and queue
 admission, runtime-fence, journal-gap, and receipt-root drift fail closed. The
 guard injects the existing Agent Session journal seam and adds no database or
 provider-private state reader.
+
+Stage 5 is delivered by PR #861: an opt-in product adapter freezes the exact
+Codex `0.144.3` `app-server --stdio` launch in the reviewed start plan and
+routes structured start, instruction, interrupt, exact control response,
+status, snapshot, and receipts through the same GUI, CLI, and KFD-3 action
+surface. The feature flag is off by default, so existing Codex and Claude PTY
+plans and capabilities remain unchanged. One attempt cannot hot-switch routes;
+PTY fallback preserves the WorkConsole and provider, retains old structured
+receipts, and creates a distinct attempt only after an `unknown` or
+`interrupted` boundary. Product receipts still claim no semantic outcome,
+Profile/KFD work state, or proof.
 
 ## Rejected alternatives
 
