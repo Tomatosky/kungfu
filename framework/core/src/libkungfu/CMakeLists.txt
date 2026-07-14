@@ -124,6 +124,11 @@ if(KUNGFU_WITH_CORE_TESTS)
   target_compile_features(kungfu_runtime_error_tests PRIVATE cxx_std_20)
   add_test(NAME kungfu_runtime_error_tests COMMAND kungfu_runtime_error_tests)
 
+  add_executable(kungfu_peer_continuity_tests tests/peer_continuity_tests.cpp)
+  target_link_libraries(kungfu_peer_continuity_tests PRIVATE ${LIBKUNGFU_NAME} kungfu_compile_contract Threads::Threads)
+  target_compile_features(kungfu_peer_continuity_tests PRIVATE cxx_std_20)
+  add_test(NAME kungfu_peer_continuity_tests COMMAND kungfu_peer_continuity_tests)
+
   add_executable(kungfu_state_service_contract_tests tests/state_service_contract_tests.cpp)
   target_link_libraries(kungfu_state_service_contract_tests PRIVATE ${LIBKUNGFU_NAME} kungfu_compile_contract Threads::Threads)
   target_compile_features(kungfu_state_service_contract_tests PRIVATE cxx_std_20)

@@ -69,6 +69,25 @@ export function sourceMypyCommand(
   throw new Error('source acceptance requires mypy 1.20.2 or uvx');
 }
 
+export function sourceClangFormatCommand(
+  args,
+  available = commandAvailable,
+  probe = commandProbe,
+) {
+  if (available('clang-format')) {
+    const result = probe('clang-format', ['--version']);
+    const version = `${result.stdout || ''}${result.stderr || ''}`;
+    if (
+      result.status === 0 &&
+      /clang-format version 20\.1\.8(?:\s|$)/u.test(version)
+    )
+      return { command: 'clang-format', args };
+  }
+  if (available('uvx'))
+    return { command: 'uvx', args: ['clang-format@20.1.8', ...args] };
+  throw new Error('source acceptance requires clang-format 20.1.8 or uvx');
+}
+
 export function sourceMergeBase() {
   const candidates = [
     process.env.GITHUB_BASE_REF ? `origin/${process.env.GITHUB_BASE_REF}` : '',
@@ -263,10 +282,15 @@ export function sourceAcceptancePlan(files) {
 
   const cpp = files.filter((file) => CPP.test(file));
   if (cpp.length) {
+    const formatter = sourceClangFormatCommand([
+      '-style=file',
+      '--dry-run',
+      '-Werror',
+      ...cpp,
+    ]);
     plan.push({
       label: 'changed C/C++ format',
-      command: 'clang-format',
-      args: ['-style=file', '--dry-run', '-Werror', ...cpp],
+      ...formatter,
     });
   }
   return plan;

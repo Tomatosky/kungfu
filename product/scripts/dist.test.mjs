@@ -125,6 +125,15 @@ test('desktop product carries the installed Agent authoring runtime', () => {
   }
 });
 
+test('desktop product carries the externalized Agent Session runtime', () => {
+  const config = fs.readFileSync(
+    new URL('../electron-builder.yml', import.meta.url),
+    'utf8',
+  );
+  assert.match(config, /from: \.\.\/agent-session/);
+  assert.match(config, /to: app\/node_modules\/@kungfu-tech\/agent-session/);
+});
+
 test('installed SDK resolves the packaged KFX contract beside its resources', () => {
   const sdk = fs.readFileSync(
     new URL('../../developer/sdk/src/sdk.js', import.meta.url),

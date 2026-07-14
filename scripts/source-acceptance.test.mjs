@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   sourceAcceptancePlan,
+  sourceClangFormatCommand,
   sourceMypyCommand,
   sourcePythonCommand,
 } from './source-acceptance.mjs';
@@ -22,6 +23,30 @@ test('Python source checks use uvx when a bare ruff is unavailable', () => {
   assert.deepEqual(command, {
     command: 'uvx',
     args: ['ruff', 'format', '--check'],
+  });
+});
+
+test('C++ source checks use the exact ambient formatter when it matches the repository pin', () => {
+  const command = sourceClangFormatCommand(
+    ['--dry-run', 'example.cpp'],
+    (candidate) => candidate === 'clang-format',
+    () => ({ status: 0, stdout: 'clang-format version 20.1.8\n' }),
+  );
+  assert.deepEqual(command, {
+    command: 'clang-format',
+    args: ['--dry-run', 'example.cpp'],
+  });
+});
+
+test('C++ source checks isolate an incompatible ambient formatter behind pinned uvx', () => {
+  const command = sourceClangFormatCommand(
+    ['--dry-run', 'example.cpp'],
+    (candidate) => candidate === 'clang-format' || candidate === 'uvx',
+    () => ({ status: 0, stdout: 'clang-format version 13.0.0\n' }),
+  );
+  assert.deepEqual(command, {
+    command: 'uvx',
+    args: ['clang-format@20.1.8', '--dry-run', 'example.cpp'],
   });
 });
 

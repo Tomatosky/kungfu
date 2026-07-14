@@ -684,6 +684,9 @@ test('schema v2 rejects missing invocation contracts and legacy snippets', () =>
   bindings.bindings.find(
     (binding) => binding.id === 'channel-heavy-build',
   ).requiredSnippets = ['verify-command:'];
+  bindings.bindings.find(
+    (binding) => binding.id === 'manual-gate-measurement',
+  ).currentSource = 'false';
   fs.writeFileSync(bindingsPath, JSON.stringify(bindings));
 
   const issues = checkKungfuGateCatalog(root).issues;
@@ -704,6 +707,11 @@ test('schema v2 rejects missing invocation contracts and legacy snippets', () =>
       issue.includes(
         'channel-heavy-build: requiredSnippets is not an execution proof in schema v2',
       ),
+    ),
+  );
+  assert.ok(
+    issues.some((issue) =>
+      issue.includes('manual-gate-measurement: currentSource must be boolean'),
     ),
   );
 });

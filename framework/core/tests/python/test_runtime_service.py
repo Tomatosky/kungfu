@@ -6,12 +6,23 @@ import sys
 import types
 from pathlib import Path
 
+import pytest
+
 
 class _FakeCoordinator:
-    def __init__(self, location, low_latency=False, durability_config=None):
+    def __init__(
+        self,
+        location,
+        low_latency=False,
+        durability_config=None,
+        runtime_generation=1,
+        coordinator_epoch=1,
+    ):
         self.location = location
         self.low_latency = low_latency
         self.durability_config = durability_config
+        self.runtime_generation = runtime_generation
+        self.coordinator_epoch = coordinator_epoch
 
     def run(self):
         return None
@@ -229,6 +240,42 @@ def test_upsert_route_registers_data_root_under_user_supervisor(tmp_path):
     assert payload["route"]["registered"] is True
     assert payload["route"]["freshness"]["state"] == "fresh"
     assert payload["routes"]["count"] == 1
+
+
+def test_route_projects_runtime_generation_into_coordinator_environment(tmp_path):
+    config_home = tmp_path / "config"
+    home = tmp_path / "workspace" / ".kungfu"
+    runtime_dir = home / "runtime"
+
+    route = runtime_service.upsert_route(
+        str(config_home), str(home), str(runtime_dir), "17"
+    )
+    env = runtime_service.command_env(
+        str(home),
+        str(runtime_dir),
+        "warning",
+        str(config_home),
+        route["runtimeGeneration"],
+    )
+
+    assert route["runtimeGeneration"] == "17"
+    assert env["KF_RUNTIME_GENERATION"] == "17"
+
+
+def test_coordinator_authority_persists_epoch_and_rejects_stale_generation(
+    tmp_path,
+):
+    runtime_dir = tmp_path / "runtime"
+
+    first = runtime_service.allocate_coordinator_authority(str(runtime_dir), "7")
+    restarted = runtime_service.allocate_coordinator_authority(str(runtime_dir), "7")
+    replaced = runtime_service.allocate_coordinator_authority(str(runtime_dir), "8")
+
+    assert first == {"runtimeGeneration": "7", "coordinatorEpoch": "1"}
+    assert restarted == {"runtimeGeneration": "7", "coordinatorEpoch": "2"}
+    assert replaced == {"runtimeGeneration": "8", "coordinatorEpoch": "3"}
+    with pytest.raises(RuntimeError, match="older than the persisted"):
+        runtime_service.allocate_coordinator_authority(str(runtime_dir), "7")
 
 
 def test_coordinator_status_detects_stale_route_lease(tmp_path, monkeypatch):
@@ -515,6 +562,10 @@ def test_process_runtime_host_wraps_engine_with_pid_lifecycle(tmp_path, monkeypa
     state = runtime_service._json_read(runtime_service.state_path(str(runtime_dir)))
     assert state["status"] == "coordinator-running"
     assert state["coordinatorPid"] == os.getpid()
+    assert state["runtimeGeneration"] == "1"
+    assert state["coordinatorEpoch"] == "1"
+    assert events[0][2]["runtime_generation"] == "1"
+    assert events[0][2]["coordinator_epoch"] == "1"
 
 
 def test_repair_route_state_removes_dead_pid_files(tmp_path, monkeypatch):

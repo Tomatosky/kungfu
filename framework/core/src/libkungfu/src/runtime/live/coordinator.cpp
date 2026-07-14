@@ -26,15 +26,18 @@ namespace kungfu::runtime::live {
 
 coordinator::coordinator(const location_ptr &home, bool low_latency,
                          state_service::durability_candidate_config durability_candidate,
-                         state_service::projection_candidate_config projection_candidate)
+                         state_service::projection_candidate_config projection_candidate,
+                         coordinator_authority continuity_authority)
     : coordinator(std::make_shared<kungfu::runtime::io_device_coordinator>(home, low_latency),
-                  std::move(durability_candidate), std::move(projection_candidate)) {}
+                  std::move(durability_candidate), std::move(projection_candidate), continuity_authority) {}
 
 coordinator::coordinator(const kungfu::runtime::io_device_ptr &io_device,
                          state_service::durability_candidate_config durability_candidate,
-                         state_service::projection_candidate_config projection_candidate)
+                         state_service::projection_candidate_config projection_candidate,
+                         coordinator_authority continuity_authority)
     : reactor(io_device), last_check_(0),
-      state_service_(io_device, std::move(durability_candidate), std::move(projection_candidate)) {}
+      state_service_(io_device, std::move(durability_candidate), std::move(projection_candidate)),
+      continuity_authority_(continuity_authority.valid() ? continuity_authority : coordinator_authority{1, 1}) {}
 
 void coordinator::pre_setup() {
   reactor::pre_setup();
@@ -94,10 +97,27 @@ void coordinator::register_peer(const event_ptr &event) {
     return;
   }
 
-  auto peer_location = location::make_shared(register_data, home->locator);
-  if (is_location_live(peer_location->uid)) {
-    SPDLOG_ERROR("location {} has already been registered live", peer_location->uname);
+  try {
+    const auto observation = parse_peer_continuity_observation(request_data);
+    const auto continuity = admit_peer_observation(observation, continuity_authority_);
+    if (!continuity.accepted()) {
+      SPDLOG_ERROR("rejecting peer continuity: {}", continuity.reason);
+      return;
+    }
+  } catch (const std::exception &error) {
+    SPDLOG_ERROR("rejecting peer with invalid continuity observation: {}", error.what());
     return;
+  }
+
+  auto peer_location = location::make_shared(register_data, home->locator);
+  const auto already_registered = is_location_live(peer_location->uid);
+  if (already_registered) {
+    const auto &current = get_registry().at(peer_location->uid);
+    if (current.pid != register_data.pid || current.uid64 != register_data.uid64) {
+      SPDLOG_ERROR("location {} is already owned by a different live peer", peer_location->uname);
+      return;
+    }
+    SPDLOG_WARN("replaying continuity bootstrap for live peer {}", peer_location->uname);
   }
 
   state_service::peer_projection_declaration projection_declaration;
@@ -118,7 +138,9 @@ void coordinator::register_peer(const event_ptr &event) {
   }
 
   register_location(event->gen_time(), register_data);
-  try_add_location(event->gen_time(), peer_location);
+  if (!already_registered) {
+    try_add_location(event->gen_time(), peer_location);
+  }
 
   auto now = yijinjing::time::now_in_nano();
   auto uid_str = fmt::format("{:08x}", peer_location->uid);
@@ -126,24 +148,39 @@ void coordinator::register_peer(const event_ptr &event) {
                                                         uid_str, home->locator, peer_location->seed);
   SPDLOG_INFO("registering location {} uname {} uid {}, coordinator_cmd_location {} uid {}", uid_str,
               peer_location->uname, peer_location->uid, coordinator_cmd_location->uname, coordinator_cmd_location->uid);
-  try_add_location(event->gen_time(), coordinator_cmd_location);
+  if (!already_registered) {
+    try_add_location(event->gen_time(), coordinator_cmd_location);
+  }
 
-  auto peer_cmd_writer = get_io_device()->open_writer_at(coordinator_cmd_location, peer_location->uid);
-  {
-    std::lock_guard<std::mutex> lock(writers_mtx_);
-    writers_.insert_or_assign(peer_location->uid, peer_cmd_writer);
+  yijinjing::journal::writer_ptr peer_cmd_writer;
+  if (already_registered) {
+    if (!has_writer(peer_location->uid)) {
+      SPDLOG_ERROR("live peer {} has no coordinator command writer", peer_location->uname);
+      return;
+    }
+    peer_cmd_writer = get_writer(peer_location->uid);
+  } else {
+    peer_cmd_writer = get_io_device()->open_writer_at(coordinator_cmd_location, peer_location->uid);
+    {
+      std::lock_guard<std::mutex> lock(writers_mtx_);
+      writers_.insert_or_assign(peer_location->uid, peer_cmd_writer);
+    }
+    if (!projection_declaration.candidate) {
+      reader_->join(peer_location, location::PUBLIC, now);
+      reader_->join(peer_location, location::SYNC, now); // create sync journal
+      disjoin_channel(peer_location, location::SYNC);    // no need to deal feed from sync
+    }
+    reader_->join(peer_location, coordinator_cmd_location->uid, now, 0, Priority::High);
   }
-  if (!projection_declaration.candidate) {
-    reader_->join(peer_location, location::PUBLIC, now);
-    reader_->join(peer_location, location::SYNC, now); // create sync journal
-    disjoin_channel(peer_location, location::SYNC);    // no need to deal feed from sync
-  }
-  reader_->join(peer_location, coordinator_cmd_location->uid, now, 0, Priority::High);
 
   auto public_writer = get_writer(location::PUBLIC);
-  public_writer->write(event->gen_time(), *std::dynamic_pointer_cast<Location>(peer_location));
-  const auto published_register = state_service::attach_projection_candidate_status(
-      request_data, state_service::projection_candidate_status(projection_candidate));
+  if (!already_registered) {
+    public_writer->write(event->gen_time(), *std::dynamic_pointer_cast<Location>(peer_location));
+  }
+  const auto published_register =
+      attach_coordinator_authority(state_service::attach_projection_candidate_status(
+                                       request_data, state_service::projection_candidate_status(projection_candidate)),
+                                   continuity_authority_);
   public_writer->write_raw(event->gen_time(), Register::tag, reinterpret_cast<uintptr_t>(published_register.data()),
                            static_cast<uint32_t>(published_register.size()));
 
@@ -242,7 +279,11 @@ void coordinator::react() {
 
 void coordinator::on_active() {
   auto now = yijinjing::time::now_in_nano();
-  if (last_check_ + yijinjing::time_unit::NANOSECONDS_PER_SECOND < now) {
+  if (last_check_ + COORDINATOR_HEARTBEAT_INTERVAL_NS < now) {
+    const auto heartbeat = attach_coordinator_authority("{}", continuity_authority_);
+    get_writer(location::PUBLIC)
+        ->write_raw(now, Ping::tag, reinterpret_cast<uintptr_t>(heartbeat.data()),
+                    static_cast<uint32_t>(heartbeat.size()));
     on_interval_check(now);
     last_check_ = now;
   }

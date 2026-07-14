@@ -125,7 +125,8 @@ void peer::react() {
 
   if (get_io_device()->get_home()->mode != mode::BACKTEST) {
     events_ | is(Location::tag) | $$(add_location(event->gen_time(), event->data<Location>()));
-    events_ | is(Register::tag) | $$(on_register(event->trigger_time(), event->data<Register>()));
+    events_ | is(Register::tag) | $$(on_register_event(event));
+    events_ | is(Ping::tag) | $$(on_coordinator_heartbeat(event));
     events_ | is(RequestReadFromOthers::tag) | $$(on_request_read_from_others(event));
     events_ | is(RequestReadFrom::tag) | $$(on_read_from(event));
     events_ | is(RequestReadFromPublic::tag) | $$(on_read_from_public(event));
@@ -135,8 +136,10 @@ void peer::react() {
     events_ | is(Channel::tag) | $$(register_channel(event->gen_time(), event->data<Channel>()));
     events_ | is(Outlet::tag) | $$(register_outlet(event->gen_time(), event->data<Outlet>()));
     events_ | is(RequestStop::tag) | to(get_live_home_uid()) | $$(signal_stop());
-    events_ | take_until(events_ | is(RequestStart::tag)) | $$(manager::feed_state_data(event, state_bank_));
+    events_ | filter([&](const event_ptr &) { return not started_; }) |
+        $$(manager::feed_state_data(event, state_bank_));
     events_ | is(Deregister::tag) | $$(on_deregister(event));
+    events_ | is(RequestStart::tag) | $$(on_request_start(event));
     events_ | is(TimeReset::tag) | first() | $$(reset_time(event->data<TimeReset>()));
   }
 
@@ -149,39 +152,8 @@ void peer::react() {
     register_deadline_ =
         yijinjing::time::now_in_nano() + REGISTER_TIMEOUT_SECONDS * yijinjing::time_unit::NANOSECONDS_PER_SECOND;
 
-    auto self_register_event = events_ | skip_until(events_ | is(Register::tag) | filter([&](const event_ptr &event) {
-                                                      auto uid = event->data<Register>().location_uid;
-                                                      return uid == get_live_home_uid();
-                                                    })) |
-                               first();
-
-    self_register_event | $([&](const event_ptr &event) {
-      registered_ = true;
-      auto data = event->data<Register>();
-      checkin_time_ = data.checkin_time;
-      projection_candidate_status_ = state_service::parse_projection_candidate_status(event->data_as_string());
-      if (projection_declaration_.candidate && projection_candidate_status_.authority_path != "projection_candidate") {
-        projection_candidate_status_.authority_path = "projection_candidate";
-        projection_candidate_status_.requirement =
-            state_service::peer_state_requirement_name(projection_declaration_.requirement);
-        projection_candidate_status_.qualification_profile = projection_declaration_.qualification_profile;
-        projection_candidate_status_.outcome =
-            projection_declaration_.requirement == state_service::peer_state_requirement::Required ? "refused"
-                                                                                                   : "degraded";
-        projection_candidate_status_.error = "service_unavailable";
-        projection_candidate_status_.message = "coordinator_did_not_acknowledge_projection_candidate";
-      }
-      if (projection_candidate_status_.outcome == "refused") {
-        SPDLOG_ERROR("peer projection bootstrap refused: {}", projection_candidate_status_.message);
-        reactor::signal_stop();
-        return;
-      }
-      // in case operation-system time change, begin_time_ mismatch clock of coordinator, keep using event->gen_time()
-      reader_->join(coordinator_cmd_location_, get_live_home_uid(), event->gen_time());
-    });
-
     expect_start();
-    checkin();
+    begin_reconnect(yijinjing::time::now_in_nano());
   }
   if (get_io_device()->get_home()->mode == mode::REPLAY) {
     reader_->join(coordinator_cmd_location_, get_live_home_uid(), begin_time_);
@@ -220,13 +192,29 @@ void peer::on_active() {
   // is driven by produce() even when the coordinator is silent, so this is the
   // one live path during a stalled handshake. Wall-clock, because the peer has
   // no trustworthy journal time before it is live.
-  if (registered_ or get_io_device()->get_home()->mode != mode::LIVE) {
+  if (get_io_device()->get_home()->mode != mode::LIVE) {
     return;
   }
-  if (yijinjing::time::now_in_nano() >= register_deadline_) {
-    registered_ = true; // report once and stop checking
-    SPDLOG_ERROR("peer register timeout");
-    reactor::signal_stop();
+  const auto now = yijinjing::time::now_in_nano();
+  if (registered_) {
+    if (last_coordinator_heartbeat_ != INT64_MIN &&
+        now - last_coordinator_heartbeat_ > COORDINATOR_HEARTBEAT_TIMEOUT_NS) {
+      SPDLOG_WARN("coordinator heartbeat timed out; peer is entering bounded recovery");
+      begin_reconnect(now);
+    } else {
+      return;
+    }
+  }
+  if (continuity_.retry_due(now)) {
+    continuity_.begin_attempt(now);
+    if (!checkin()) {
+      SPDLOG_WARN("peer continuity registration attempt {} could not reach the coordinator",
+                  continuity_.reconnect_attempt());
+    }
+  }
+  if (!register_timeout_reported_ && now >= register_deadline_) {
+    register_timeout_reported_ = true;
+    SPDLOG_ERROR("peer continuity registration timed out; bounded retries remain active");
   }
 }
 
@@ -246,6 +234,83 @@ void peer::on_register(int64_t trigger_time, const Register &register_data) {
   register_location(trigger_time, register_data);
 }
 
+void peer::on_register_event(const event_ptr &event) {
+  const auto &register_data = event->data<Register>();
+  if (register_data.location_uid == get_live_home_uid() && get_home()->mode == mode::LIVE) {
+    coordinator_authority authority;
+    try {
+      authority = parse_coordinator_authority(event->data_as_string());
+    } catch (const std::exception &error) {
+      if (continuity_.authority().has_value()) {
+        SPDLOG_ERROR("rejecting coordinator registration without continuity authority: {}", error.what());
+        return;
+      }
+      SPDLOG_WARN("legacy coordinator registration has no continuity authority; restart continuity is unavailable");
+      authority = {1, 1};
+    }
+    const auto decision = continuity_.admit(authority, event->trigger_time());
+    if (!decision.accepted()) {
+      SPDLOG_ERROR("rejecting coordinator registration: {}", decision.reason);
+      return;
+    }
+    registered_ = true;
+    last_coordinator_heartbeat_ = yijinjing::time::now_in_nano();
+    register_timeout_reported_ = false;
+    checkin_time_ = register_data.checkin_time;
+    projection_candidate_status_ = state_service::parse_projection_candidate_status(event->data_as_string());
+    if (projection_declaration_.candidate && projection_candidate_status_.authority_path != "projection_candidate") {
+      projection_candidate_status_.authority_path = "projection_candidate";
+      projection_candidate_status_.requirement =
+          state_service::peer_state_requirement_name(projection_declaration_.requirement);
+      projection_candidate_status_.qualification_profile = projection_declaration_.qualification_profile;
+      projection_candidate_status_.outcome =
+          projection_declaration_.requirement == state_service::peer_state_requirement::Required ? "refused"
+                                                                                                 : "degraded";
+      projection_candidate_status_.error = "service_unavailable";
+      projection_candidate_status_.message = "coordinator_did_not_acknowledge_projection_candidate";
+    }
+    if (projection_candidate_status_.outcome == "refused") {
+      SPDLOG_ERROR("peer projection bootstrap refused: {}", projection_candidate_status_.message);
+      reactor::signal_stop();
+      return;
+    }
+    if (projection_declaration_.candidate) {
+      state_bank_.clear();
+    }
+    // Rejoin from the accepted registration cut. Old command frames stay below
+    // this cut and cannot complete the replacement coordinator's bootstrap.
+    reader_->join(coordinator_cmd_location_, get_live_home_uid(), event->gen_time());
+  }
+  on_register(event->trigger_time(), register_data);
+}
+
+void peer::on_coordinator_heartbeat(const event_ptr &event) {
+  if (get_home()->mode != mode::LIVE || !registered_ || event->source() != coordinator_home_location_->uid) {
+    return;
+  }
+  coordinator_authority candidate;
+  try {
+    candidate = parse_coordinator_authority(event->data_as_string());
+  } catch (const std::exception &error) {
+    SPDLOG_WARN("ignoring invalid coordinator heartbeat: {}", error.what());
+    return;
+  }
+  const auto &observed = continuity_.authority();
+  const auto heartbeat_at = yijinjing::time::now_in_nano();
+  if (observed.has_value() && candidate.runtime_generation == observed->runtime_generation &&
+      candidate.coordinator_epoch == observed->coordinator_epoch) {
+    last_coordinator_heartbeat_ = heartbeat_at;
+    return;
+  }
+  const auto decision = admit_coordinator(observed, candidate);
+  if (!decision.accepted()) {
+    SPDLOG_WARN("ignoring stale coordinator heartbeat: {}", decision.reason);
+    return;
+  }
+  SPDLOG_WARN("replacement coordinator heartbeat observed; peer is entering bounded recovery");
+  begin_reconnect(heartbeat_at);
+}
+
 void peer::on_deregister(const event_ptr &event) {
   const auto &deregister = event->data<Deregister>();
   SPDLOG_DEBUG("deregister: {}", deregister.to_string());
@@ -259,12 +324,32 @@ void peer::on_deregister(const event_ptr &event) {
     return;
   }
 
+  if (location_uid == coordinator_home_location_->uid && get_home()->mode == mode::LIVE) {
+    SPDLOG_WARN("coordinator authority was lost; peer is entering bounded recovery");
+    begin_reconnect(yijinjing::time::now_in_nano());
+  }
+
   if (has_location(location_uid)) {
     disjoin(get_location(location_uid));
   }
   deregister_channel(location_uid);
   deregister_outlet(location_uid);
   deregister_location(event->trigger_time(), location_uid);
+}
+
+void peer::on_request_start(const event_ptr &event) {
+  if (get_home()->mode == mode::LIVE) {
+    if (!registered_ || continuity_.phase() != peer_continuity_phase::Recovering || event->gen_time() < checkin_time_) {
+      SPDLOG_WARN("ignoring RequestStart outside the admitted continuity bootstrap");
+      return;
+    }
+    continuity_.mark_ready();
+  }
+  if (!started_) {
+    started_ = true;
+    SPDLOG_INFO("ready to start");
+    on_start();
+  }
 }
 
 void peer::on_read_from(const event_ptr &event) { do_read_from<RequestReadFrom>(event, get_live_home_uid()); }
@@ -334,7 +419,7 @@ void peer::reader_join(uint32_t source_id, uint32_t dest_id, int64_t from_time, 
   writer->close_data();
 }
 
-void peer::checkin() {
+bool peer::checkin() {
   auto now = yijinjing::time::now_in_nano();
   auto home = get_live_home();
   Register register_data{};
@@ -347,42 +432,35 @@ void peer::checkin() {
   register_data.uid64 = home->uid64;
   register_data.pid = GETPID();
   register_data.checkin_time = now;
-  const auto register_payload =
-      state_service::attach_peer_projection_declaration(register_data.to_string(), projection_declaration_);
+  const auto register_payload = attach_peer_continuity_observation(
+      state_service::attach_peer_projection_declaration(register_data.to_string(), projection_declaration_),
+      continuity_.observation());
   SPDLOG_INFO("peer checkin Register: {}", register_payload);
 
-  auto try_register = [&]() {
-    auto request = nlohmann::json{{"data_type", int8_t(FrameDataType::Json)},
-                                  {"carrier_type", Register::tag},
-                                  {"gen_time", now},
-                                  {"trigger_time", now},
-                                  {"initial_source", get_live_home_uid()},
-                                  {"source", get_live_home_uid()},
-                                  {"dest", coordinator_home_location_->uid},
-                                  {"data", register_payload}};
-    return get_io_device()->get_publisher()->publish(request.dump(), 0, true) == 0;
-  };
-
-  int count = (REGISTER_TIMEOUT_SECONDS * 1000) / DEFAULT_NOTICE_TIMEOUT;
-  while (not try_register()) {
-    SPDLOG_WARN("try register failed, retrying...");
-
-    if (count-- <= 0) {
-      SPDLOG_ERROR("register failed");
-      throw yijinjing_error("register failed");
-    }
+  auto request = nlohmann::json{{"data_type", int8_t(FrameDataType::Json)},
+                                {"carrier_type", Register::tag},
+                                {"gen_time", now},
+                                {"trigger_time", now},
+                                {"initial_source", get_live_home_uid()},
+                                {"source", get_live_home_uid()},
+                                {"dest", coordinator_home_location_->uid},
+                                {"data", register_payload}};
+  const auto published = get_io_device()->get_publisher()->publish(request.dump(), PUBLISH_NONBLOCK, true) == 0;
+  if (published) {
+    SPDLOG_INFO("peer continuity checkin published");
   }
-
-  SPDLOG_INFO("peer checkin done");
+  return published;
 }
 
-void peer::expect_start() {
-  reader_->join(coordinator_home_location_, location::PUBLIC, begin_time_);
-  events_ | is(RequestStart::tag) | first() | $([&](const event_ptr &event) {
-    started_ = true;
-    SPDLOG_INFO("ready to start");
-    on_start();
-  });
+void peer::expect_start() { reader_->join(coordinator_home_location_, location::PUBLIC, begin_time_); }
+
+void peer::begin_reconnect(int64_t now) {
+  pause();
+  registered_ = false;
+  register_timeout_reported_ = false;
+  register_deadline_ = now + REGISTER_TIMEOUT_SECONDS * yijinjing::time_unit::NANOSECONDS_PER_SECOND;
+  continuity_.disconnect(now);
+  last_coordinator_heartbeat_ = INT64_MIN;
 }
 
 void peer::reset_time(const yijinjing::types::TimeReset &time_reset) {

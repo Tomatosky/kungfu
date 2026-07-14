@@ -30,10 +30,28 @@
     "signatureId": "claude.approval.proceed"
   },
   {
+    "id": "claude-approval-permission-title-redacted",
+    "lines": ["Claude needs your permission", "Bash command", "Esc to cancel"],
+    "expectedState": "approval-needed",
+    "signatureId": "claude.approval.needs-permission"
+  },
+  {
+    "id": "claude-approval-permission-rule-redacted",
+    "lines": ["Bash command", "Permission rule Bash requires confirmation", "Esc to cancel"],
+    "expectedState": "approval-needed",
+    "signatureId": "claude.approval.permission-rule"
+  },
+  {
     "id": "claude-approval-command-redacted",
     "lines": ["Allow this command?", "Esc to cancel"],
     "expectedState": "approval-needed",
     "signatureId": "claude.approval.allow-command"
+  },
+  {
+    "id": "claude-approval-bash-confirmation-with-ready-prompt-redacted",
+    "lines": ["Bash", "Allow", "❯"],
+    "expectedState": "approval-needed",
+    "signatureId": "claude.approval.bash-confirmation"
   },
   {
     "id": "claude-unknown-redacted",

@@ -17,6 +17,17 @@ files:
   - "!node_modules/@kungfu-tech/**/build{,/**}"
   - "!node_modules/@kungfu-tech/**/dist/kungfu{,/**}"
 extraResources:
+  # electron-vite keeps production dependencies external in the main bundle.
+  # pnpm workspace links are outside the packaged app and electron-builder does
+  # not follow them reliably, so copy the complete Agent Session runtime into
+  # the app-local node_modules tree explicitly.
+  - from: ../agent-session
+    to: app/node_modules/@kungfu-tech/agent-session
+    filter:
+      - package.json
+      - src/**/*
+      - "*.contract.json"
+      - schemas/**/*
   # Ship the kungfu runtime (libkungfu.dylib + kungfu_electron.node) so the
   # packaged app loads the binding from Resources/kungfu, matching its rpath.
   - from: ../core/dist/kungfu

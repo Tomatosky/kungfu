@@ -154,6 +154,12 @@ export function releaseQualificationStages(
   const stages = [
     ['verify', '--fuzz'],
     [
+      'live-peer:qualify',
+      '--',
+      '--retain',
+      'product/release/qualification/live-peer-continuity',
+    ],
+    [
       'runtime:qualify',
       '--',
       '--mode',

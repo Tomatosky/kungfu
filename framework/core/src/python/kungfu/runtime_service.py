@@ -18,6 +18,7 @@ from xml.sax.saxutils import escape as xml_escape
 import kungfu
 from kungfu import host
 from kungfu.action_envelope import CARRIER_ACTION_ENVELOPE
+from kungfu.coordination import locks as coordination_locks
 from kungfu.coordination.arbiter import (
     ACTION_GRANT,
     ACTION_RELEASE,
@@ -39,6 +40,7 @@ SCHEMA_PLAN = "kungfu.runtime.service-plan/v2"
 SCHEMA_RESULT = "kungfu.runtime.service-result/v2"
 SCHEMA_ROUTES = "kungfu.runtime.routes/v2"
 SCHEMA_ASSESSMENT_SUBSCRIPTION = "kungfu.runtime.assessment-subscription/v2"
+SCHEMA_COORDINATOR_CONTINUITY = "kungfu.runtime.coordinator-continuity/v1"
 LEGACY_SCHEMA_ROUTES = "kungfu.master-service.routes/v1"
 # Stable wire-v1 identity. New code calls this process the coordinator, while
 # existing journals and RocksDB records continue to resolve the historic UID.
@@ -213,7 +215,16 @@ def route_id(home: str, runtime_dir: str) -> str:
     return digest[:16]
 
 
-def route_record(home: str, runtime_dir: str) -> dict[str, Any]:
+def _positive_generation(value: str | int, label: str) -> str:
+    raw = str(value)
+    if not raw.isdigit() or int(raw) <= 0 or int(raw) > (2**64 - 1):
+        raise ValueError(f"{label} must be a positive uint64")
+    return raw
+
+
+def route_record(
+    home: str, runtime_dir: str, runtime_generation: str | int = "1"
+) -> dict[str, Any]:
     home = resolve_runtime_home(home)
     runtime_dir = resolve_runtime_dir(home, runtime_dir)
     now = _now()
@@ -222,6 +233,9 @@ def route_record(home: str, runtime_dir: str) -> dict[str, Any]:
         "dataRoot": home,
         "home": home,
         "runtimeDir": runtime_dir,
+        "runtimeGeneration": _positive_generation(
+            runtime_generation, "runtime generation"
+        ),
         "desired": True,
         "leaseTtlSeconds": ROUTE_LEASE_TTL_SECONDS,
         "leaseUpdatedAt": now,
@@ -259,6 +273,69 @@ def legacy_coordinator_pid_path(runtime_dir: str) -> Path:
 
 def state_path(runtime_dir: str) -> Path:
     return state_dir(runtime_dir) / "state.json"
+
+
+def coordinator_continuity_path(runtime_dir: str) -> Path:
+    return state_dir(runtime_dir) / "runtime-continuity.json"
+
+
+def allocate_coordinator_authority(
+    runtime_dir: str, runtime_generation: str | int
+) -> dict[str, str]:
+    """Allocate one monotonic coordinator epoch for a fenced runtime generation."""
+
+    generation = _positive_generation(runtime_generation, "runtime generation")
+    path = coordinator_continuity_path(runtime_dir)
+    lock_root = path.parent / "continuity-locks"
+    with coordination_locks.held(
+        lock_root,
+        "coordinator-authority",
+        label=f"coordinator-authority:generation-{generation}",
+    ):
+        previous_generation = 0
+        previous_epoch = 0
+        if path.exists():
+            try:
+                previous = json.loads(path.read_text("utf-8"))
+                if previous.get("schema") != SCHEMA_COORDINATOR_CONTINUITY:
+                    raise ValueError("coordinator continuity schema mismatch")
+                previous_generation = int(
+                    _positive_generation(
+                        previous.get("runtimeGeneration", ""),
+                        "recorded runtime generation",
+                    )
+                )
+                previous_epoch = int(
+                    _positive_generation(
+                        previous.get("coordinatorEpoch", ""),
+                        "recorded coordinator epoch",
+                    )
+                )
+            except (OSError, json.JSONDecodeError, TypeError, ValueError) as error:
+                raise RuntimeError(
+                    f"invalid coordinator continuity state at {path}: {error}"
+                ) from error
+        generation_value = int(generation)
+        if generation_value < previous_generation:
+            raise RuntimeError(
+                "runtime generation is older than the persisted coordinator authority"
+            )
+        epoch = previous_epoch + 1
+        if epoch > (2**64 - 1):
+            raise RuntimeError("coordinator epoch exhausted uint64 range")
+        authority = {
+            "runtimeGeneration": generation,
+            "coordinatorEpoch": str(epoch),
+        }
+        _json_write(
+            path,
+            {
+                "schema": SCHEMA_COORDINATOR_CONTINUITY,
+                **authority,
+                "updatedAt": _now(),
+            },
+        )
+        return authority
 
 
 def legacy_state_path(runtime_dir: str) -> Path:
@@ -338,6 +415,7 @@ def command_env(
     runtime_dir: str,
     log_level: str,
     config_home: str | None = None,
+    runtime_generation: str | int | None = None,
     runtime_image: Mapping[str, Any] | None = None,
 ) -> dict[str, str]:
     env = dict(os.environ)
@@ -345,6 +423,10 @@ def command_env(
     env["KF_RUNTIME_DIR"] = runtime_dir
     env["KF_CONFIG_HOME"] = resolve_config_home(config_home)
     env["KF_LOG_LEVEL"] = log_level
+    if runtime_generation is not None:
+        env["KF_RUNTIME_GENERATION"] = _positive_generation(
+            runtime_generation, "runtime generation"
+        )
     if runtime_image is not None:
         from kungfu import runtime_upgrade
 
@@ -475,13 +557,18 @@ def write_routes(config_home: str | None, payload: dict[str, Any]) -> None:
 
 
 def upsert_route(
-    config_home: str | None, home: str, runtime_dir: str
+    config_home: str | None,
+    home: str,
+    runtime_dir: str,
+    runtime_generation: str | int | None = None,
 ) -> dict[str, Any]:
-    route = route_record(home, runtime_dir)
+    route = route_record(home, runtime_dir, runtime_generation or "1")
     payload = read_routes(config_home)
     previous = payload["routes"].get(route["routeId"])
     if isinstance(previous, dict):
         route["createdAt"] = previous.get("createdAt", route["createdAt"])
+        if runtime_generation is None:
+            route["runtimeGeneration"] = previous.get("runtimeGeneration", "1")
     payload["routes"][route["routeId"]] = route
     write_routes(config_home, payload)
     return route
@@ -859,6 +946,8 @@ class CoordinatorEngine(NativeCoordinator):
         low_latency: bool = False,
         *,
         assessment_executor: AssessmentExecutor | None = None,
+        runtime_generation: str | int = "1",
+        coordinator_epoch: str | int = "1",
     ) -> None:
         locator = yjj.locator(runtime_dir)
         location = yjj.location(
@@ -879,7 +968,13 @@ class CoordinatorEngine(NativeCoordinator):
             config_home=os.environ.get("KF_CONFIG_HOME"),
             cwd=home,
         )
-        super().__init__(location, low_latency, self.durability_policy["native"])
+        super().__init__(
+            location,
+            low_latency,
+            self.durability_policy["native"],
+            int(_positive_generation(runtime_generation, "runtime generation")),
+            int(_positive_generation(coordinator_epoch, "coordinator epoch")),
+        )
         self.durability = durability_runtime.ConfiguredDurabilityRuntime(
             self, self.durability_policy, data_root=runtime_dir
         )
@@ -1051,10 +1146,18 @@ class ProcessRuntimeHost:
         self.runtime_image = runtime_image
 
     def run_foreground(
-        self, home: str, runtime_dir: str, low_latency: bool = False
+        self,
+        home: str,
+        runtime_dir: str,
+        low_latency: bool = False,
+        runtime_generation: str | int | None = None,
     ) -> int:
         home = resolve_runtime_home(home)
         runtime_dir = resolve_runtime_dir(home, runtime_dir)
+        authority = allocate_coordinator_authority(
+            runtime_dir,
+            runtime_generation or os.environ.get("KF_RUNTIME_GENERATION", "1"),
+        )
         state_dir(runtime_dir).mkdir(parents=True, exist_ok=True)
         write_pid(coordinator_pid_path(runtime_dir), os.getpid())
         _json_write(
@@ -1064,6 +1167,7 @@ class ProcessRuntimeHost:
                 "status": "coordinator-running",
                 "home": home,
                 "runtimeDir": runtime_dir,
+                **authority,
                 "coordinatorPid": os.getpid(),
                 "runtimeImage": copy.deepcopy(dict(self.runtime_image))
                 if self.runtime_image is not None
@@ -1075,6 +1179,8 @@ class ProcessRuntimeHost:
             home,
             runtime_dir,
             low_latency=low_latency,
+            runtime_generation=authority["runtimeGeneration"],
+            coordinator_epoch=authority["coordinatorEpoch"],
             assessment_executor=ProcessAssessmentExecutor(
                 home, runtime_dir, self.log_level
             ),
@@ -1086,7 +1192,12 @@ class ProcessRuntimeHost:
             engine.close()
             unlink_coordinator_pid_files(runtime_dir)
 
-    def spawn_coordinator(self, home: str, runtime_dir: str) -> subprocess.Popen[Any]:
+    def spawn_coordinator(
+        self,
+        home: str,
+        runtime_dir: str,
+        runtime_generation: str | int = "1",
+    ) -> subprocess.Popen[Any]:
         home = resolve_runtime_home(home)
         runtime_dir = resolve_runtime_dir(home, runtime_dir)
         command = coordinator_run_command(
@@ -1104,14 +1215,18 @@ class ProcessRuntimeHost:
                     runtime_dir,
                     self.log_level,
                     self.config_home,
-                    self.runtime_image,
+                    runtime_generation=runtime_generation,
+                    runtime_image=self.runtime_image,
                 ),
                 stdout=log,
                 stderr=log,
             )
 
     def spawn_supervisor(
-        self, home: str, runtime_dir: str
+        self,
+        home: str,
+        runtime_dir: str,
+        runtime_generation: str | int = "1",
     ) -> tuple[subprocess.Popen[Any], list[str]]:
         home = resolve_runtime_home(home)
         runtime_dir = resolve_runtime_dir(home, runtime_dir)
@@ -1131,7 +1246,8 @@ class ProcessRuntimeHost:
                     runtime_dir,
                     self.log_level,
                     self.config_home,
-                    self.runtime_image,
+                    runtime_generation=runtime_generation,
+                    runtime_image=self.runtime_image,
                 ),
                 "stdout": log,
                 "stderr": log,
@@ -1148,10 +1264,15 @@ class ProcessRuntimeHost:
         return child, command
 
     def activate(self, home: str, runtime_dir: str) -> dict[str, Any]:
+        return self.activate_with_generation(home, runtime_dir, "1")
+
+    def activate_with_generation(
+        self, home: str, runtime_dir: str, runtime_generation: str | int
+    ) -> dict[str, Any]:
         home = resolve_runtime_home(home)
         runtime_dir = resolve_runtime_dir(home, runtime_dir)
         repairs = repair_route_state(home, runtime_dir, self.config_home)
-        route = upsert_route(self.config_home, home, runtime_dir)
+        route = upsert_route(self.config_home, home, runtime_dir, runtime_generation)
         current = route_status(home, runtime_dir, self.config_home)
         if current["supervisor"]["running"]:
             return _wait_for_coordinator(
@@ -1162,7 +1283,7 @@ class ProcessRuntimeHost:
                 route=route,
                 repairs=repairs,
             )
-        _, command = self.spawn_supervisor(home, runtime_dir)
+        _, command = self.spawn_supervisor(home, runtime_dir, runtime_generation)
         return _wait_for_coordinator(
             home,
             runtime_dir,
@@ -1338,7 +1459,12 @@ def run_supervisor(
     service_state_dir.mkdir(parents=True, exist_ok=True)
     write_pid(supervisor_pid_path(config_home), os.getpid())
     if home and runtime_dir:
-        upsert_route(config_home, home, runtime_dir)
+        upsert_route(
+            config_home,
+            home,
+            runtime_dir,
+            os.environ.get("KF_RUNTIME_GENERATION"),
+        )
     stopping = False
     children: dict[str, CoordinatorProcess] = {}
     restart_attempts: dict[str, list[float]] = {}
@@ -1457,6 +1583,7 @@ def run_supervisor(
                 child = process_host.spawn_coordinator(
                     route_home,
                     route_runtime_dir,
+                    route.get("runtimeGeneration", "1"),
                 )
                 _set_route_restart_status(
                     config_home,

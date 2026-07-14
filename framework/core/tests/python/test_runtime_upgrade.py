@@ -353,7 +353,7 @@ def test_generation_pin_is_immutable_when_current_pointer_changes(
         str(tmp_path / "runtime"),
         "warning",
         str(config_home),
-        image_a,
+        runtime_image=image_a,
     )
     assert coordinator[0] == command_a[0]
     assert child_env["KF_RUNTIME_BUILD_ID"] == "runtime-a"
