@@ -19,6 +19,13 @@ export function paneAxisForLayout(mode: PaneLayoutMode): PaneLayoutAxis {
   return mode.startsWith('rows') ? 'rows' : 'columns';
 }
 
+export function emptyPaneSlotsForLayout(
+  mode: PaneLayoutMode,
+  visiblePaneCount: number,
+): number {
+  return Math.max(0, paneCountForLayout(mode) - Math.max(0, visiblePaneCount));
+}
+
 export function normalizePaneSizes(
   sizes: readonly number[],
   count: number,

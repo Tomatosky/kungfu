@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   DEFAULT_PANE_LAYOUT,
+  emptyPaneSlotsForLayout,
   normalizePaneSizes,
   paneAxisForLayout,
   paneCountForLayout,
@@ -27,6 +28,13 @@ test('the standard layout choices map to the expected axis and pane count', () =
       ['rows', 3],
     ],
   );
+});
+
+test('layout capacity remains visible before every pane is launched', () => {
+  assert.equal(emptyPaneSlotsForLayout('columns-3', 2), 1);
+  assert.equal(emptyPaneSlotsForLayout('rows-3', 1), 2);
+  assert.equal(emptyPaneSlotsForLayout('columns-2', 2), 0);
+  assert.equal(emptyPaneSlotsForLayout('single', 3), 0);
 });
 
 test('invalid or stale pane sizes fall back to equal tracks', () => {

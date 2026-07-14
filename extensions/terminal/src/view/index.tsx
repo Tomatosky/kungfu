@@ -61,6 +61,7 @@ import {
   DEFAULT_PANE_LAYOUT,
   type PaneLayoutAxis,
   type PaneLayoutMode,
+  emptyPaneSlotsForLayout,
   normalizePaneSizes,
   paneAxisForLayout,
   paneCountForLayout,
@@ -141,6 +142,7 @@ interface Pane {
 const PANE_SEPARATOR_SIZE = 8;
 const MIN_PANE_COLUMN_WIDTH = 240;
 const MIN_PANE_ROW_HEIGHT = 180;
+const EMPTY_PANE_SLOT_IDS = ['primary', 'secondary', 'tertiary'] as const;
 
 function ResizablePaneLayout({
   axis,
@@ -1018,6 +1020,10 @@ function SessionWorkspace({
       Math.min(paneCountForLayout(paneLayout), ordered.length),
     );
   }, [activeRunId, paneLayout, scopedPanes]);
+  const emptyPaneSlotCount = emptyPaneSlotsForLayout(
+    paneLayout,
+    visiblePanes.length,
+  );
 
   const selectPaneLayout = React.useCallback((mode: PaneLayoutMode) => {
     setPaneLayout(mode);
@@ -1694,15 +1700,13 @@ function SessionWorkspace({
             <button
               key={mode}
               type="button"
-              disabled={scopedPanes.length < paneCountForLayout(mode)}
               onClick={() => selectPaneLayout(mode)}
               title={label}
               aria-label={label}
+              aria-pressed={paneLayout === mode}
               style={{
                 ...iconButtonStyle,
                 color: paneLayout === mode ? '#9cdcfe' : '#858585',
-                opacity:
-                  scopedPanes.length < paneCountForLayout(mode) ? 0.35 : 1,
               }}
             >
               {icon}
@@ -1739,7 +1743,10 @@ function SessionWorkspace({
       ) : (
         <ResizablePaneLayout
           axis={paneAxisForLayout(paneLayout)}
-          sizes={normalizePaneSizes(paneSizes, visiblePanes.length)}
+          sizes={normalizePaneSizes(
+            paneSizes,
+            visiblePanes.length + emptyPaneSlotCount,
+          )}
           onSizesChange={setPaneSizes}
         >
           {visiblePanes.map((pane) => (
@@ -1767,6 +1774,28 @@ function SessionWorkspace({
               poppedOut={poppedOutRunIds.has(pane.runId)}
             />
           ))}
+          {EMPTY_PANE_SLOT_IDS.slice(0, emptyPaneSlotCount).map(
+            (slotId, index) => (
+              <div
+                key={`empty-pane-${slotId}`}
+                aria-label={`Empty Agent pane ${index + 1}`}
+                style={{
+                  ...panelStyle,
+                  minWidth: 0,
+                  minHeight: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderStyle: 'dashed',
+                  color: '#6a6a6a',
+                  ...mono,
+                  fontSize: 11,
+                }}
+              >
+                ＋ launch another Agent above
+              </div>
+            ),
+          )}
         </ResizablePaneLayout>
       )}
     </div>
