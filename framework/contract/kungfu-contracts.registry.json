@@ -92,6 +92,21 @@
         "contract": ["contract", "show", "runtime", "--json"],
         "schema": ["contract", "show", "runtime", "--json"]
       }
+    },
+    {
+      "surface": "agent-session",
+      "id": "kungfu-agent-session",
+      "schema": "kungfu.agent-session.contract/v1",
+      "weldedSurface": "agent-session-control-plane-contract",
+      "env": "KUNGFU_AGENT_SESSION_CONTRACT",
+      "file": "kungfu-agent-session.contract.json",
+      "source": "framework/agent-session/kungfu-agent-session.contract.json",
+      "artifact": "config/kungfu-agent-session.contract.json",
+      "probeFixture": "tests/fixtures/agent-session-capsule-contract/valid-cases.json",
+      "cli": {
+        "contract": ["contract", "show", "agent-session", "--json"],
+        "schema": ["contract", "show", "agent-session", "--json"]
+      }
     }
   ]
 }
