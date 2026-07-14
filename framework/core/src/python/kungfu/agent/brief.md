@@ -110,6 +110,25 @@ kungfu atlas show markers --json
 The source repo remains the authority. Kungfu stores a read-only projection for
 inspection in CLI, GUI, and kfx work views.
 
+Runtime activation is capability-driven rather than PID-driven. Inspect the
+contract and plan before assuming a resident process is needed:
+
+```sh
+kungfu runtime operations --json
+kungfu runtime plan episode.inspect --json
+kungfu runtime status --json
+```
+
+Storage-only operations remain daemonless. Live-required operations fail closed
+unless the Core broker returns matching capabilities and native readiness at
+the requested durable cut. `runtime ensure` and process status are advanced
+operator diagnostics; process liveness, GUI visibility, and readiness
+descriptor bytes are not semantic readiness. The descriptor carries only
+workspace-bound native authority coordinates and is revalidated when consumed.
+The shipped process host is qualified in a named platform envelope; Kungfu does
+not claim a production `EmbeddedRuntimeHost`, cross-machine lease/election, HA,
+or universal activation SLO.
+
 The pack is included by the Electron artifact, the standalone CLI, npm
 `@kungfu-tech/core`, and the PyPI wheel. Future Homebrew, winget, container, and
 kfx packaging must keep the same pack validation gate before claiming support.

@@ -245,6 +245,30 @@ storage contract, not as a completed distributed storage protocol. Legacy
 loose-file journal archive/clean commands are retired; this release deliberately
 has no destructive retention command.
 
+## Runtime activation is process-host qualified, not universally embedded
+
+ADR-0080 now has one retained qualification harness for daemonless storage,
+the directly callable no-fork engine seam, exact-cut process activation,
+generation/lease/crash recovery, Profile action admission, surface parity, and
+the current-platform product artifact. Native readiness coordinates are
+published only after durability/projection authority succeeds and are
+revalidated when consumed.
+
+What is **not guaranteed**:
+
+- a production `EmbeddedRuntimeHost`, thread model, re-entrancy contract, or
+  external executor ABI;
+- semantic readiness from PID, route, service-install, GUI, or descriptor-file
+  existence;
+- distributed election, cross-machine leases, replication, or HA;
+- default-on production durability/projection candidate profiles;
+- physical-host or sudden-power-loss recovery from process-crash evidence;
+- a universal activation latency/resource SLO; or
+- product qualification on a platform without its own retained complete report.
+
+See [Runtime activation and product delivery](runtime-activation-and-product-delivery.md)
+for the exact matrix and report semantics.
+
 ## KFX runtime confinement is staged
 
 The trust boundary is decided in

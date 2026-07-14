@@ -626,6 +626,131 @@ def test_product_discovers_exact_native_readiness_coordinates(tmp_path, monkeypa
     )
 
 
+def test_product_publishes_native_coordinates_only_after_exact_authority(
+    tmp_path, monkeypatch
+):
+    from kungfu import durability, projection
+
+    runtime_dir = tmp_path / "home" / "runtime"
+    config_home = tmp_path / "config"
+    evidence = _native_evidence(runtime_dir)
+    calls = []
+    monkeypatch.setattr(
+        durability,
+        "reconcile",
+        lambda **kwargs: (
+            calls.append(("durability", kwargs))
+            or _reconciliation(evidence["minimumCut"])
+        ),
+    )
+    monkeypatch.setattr(
+        projection,
+        "candidate_status",
+        lambda **kwargs: (
+            calls.append(("projection", kwargs))
+            or _projection_status(evidence["minimumCut"])
+        ),
+    )
+    original_replace = runtime_broker.os.replace
+
+    def replace_after_authority(source, destination):
+        assert [kind for kind, _ in calls] == ["durability", "projection"]
+        assert not Path(destination).exists()
+        original_replace(source, destination)
+
+    monkeypatch.setattr(runtime_broker.os, "replace", replace_after_authority)
+
+    published = runtime_broker.publish_native_readiness_evidence(
+        runtime_dir,
+        evidence,
+        operation_id="projection.subscribe",
+        config_home=config_home,
+    )
+
+    assert published == evidence
+    assert (
+        runtime_broker.discover_native_readiness_evidence(runtime_dir, config_home)
+        == evidence
+    )
+    assert calls[0][1]["sequence"] == 1
+    assert calls[1][1]["container_epoch"] == 1
+
+
+def test_native_coordinate_publication_failure_preserves_previous_descriptor(
+    tmp_path, monkeypatch
+):
+    from kungfu import durability
+
+    runtime_dir = tmp_path / "home" / "runtime"
+    config_home = tmp_path / "config"
+    previous = _native_evidence(runtime_dir)
+    path = runtime_broker.native_readiness_evidence_path(runtime_dir, config_home)
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps(previous, indent=2, sort_keys=True) + "\n")
+    original = path.read_bytes()
+    replacement = copy.deepcopy(previous)
+    replacement["durability"]["requestId"] = "18"
+    monkeypatch.setattr(
+        durability,
+        "reconcile",
+        lambda **kwargs: (_ for _ in ()).throw(ValueError("authority unavailable")),
+    )
+
+    with pytest.raises(ValueError, match="authority unavailable"):
+        runtime_broker.publish_native_readiness_evidence(
+            runtime_dir,
+            replacement,
+            operation_id="assessment.request",
+            config_home=config_home,
+        )
+
+    assert path.read_bytes() == original
+    assert (
+        runtime_broker.discover_native_readiness_evidence(runtime_dir, config_home)
+        == previous
+    )
+
+
+def test_native_coordinate_publication_rejects_non_live_and_lagging_evidence(
+    tmp_path, monkeypatch
+):
+    from kungfu import durability, projection
+
+    runtime_dir = tmp_path / "home" / "runtime"
+    config_home = tmp_path / "config"
+    evidence = _native_evidence(runtime_dir, _cut(sequence="2", frame_uid="2"))
+
+    with pytest.raises(ValueError, match="live-required"):
+        runtime_broker.publish_native_readiness_evidence(
+            runtime_dir,
+            evidence,
+            operation_id="episode.inspect",
+            config_home=config_home,
+        )
+
+    monkeypatch.setattr(
+        durability,
+        "reconcile",
+        lambda **kwargs: _reconciliation(_cut(sequence="1", frame_uid="1")),
+    )
+    monkeypatch.setattr(
+        projection,
+        "candidate_status",
+        lambda **kwargs: _projection_status(_cut(sequence="1", frame_uid="1")),
+    )
+    with pytest.raises(ValueError, match="did not establish"):
+        runtime_broker.publish_native_readiness_evidence(
+            runtime_dir,
+            evidence,
+            operation_id="projection.subscribe",
+            config_home=config_home,
+        )
+
+    assert not runtime_broker.native_readiness_evidence_path(
+        runtime_dir, config_home
+    ).exists()
+
+
 def test_product_rejects_foreign_native_readiness_coordinates(tmp_path, monkeypatch):
     runtime_dir = tmp_path / "home" / "runtime"
     monkeypatch.setenv("KF_CONFIG_HOME", str(tmp_path / "config"))

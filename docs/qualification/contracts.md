@@ -171,7 +171,9 @@ The source gate validates four positive contract cases and rejects PID-as-
 readiness, dual active generations, ready without a cut, authority broadening,
 GUI-only activation, and silent live-required downgrade.
 
-**Maturity.** Staged. The contract, registry integration, fixtures, source gate,
+**Maturity.** Qualified for the named current-platform process-host envelope;
+not a universal host or platform claim. The contract, registry integration,
+fixtures, source gate,
 ProcessRuntimeHost placement adapter, directly callable CoordinatorEngine
 no-fork seam, contract-owned operation registry, and RuntimeCapabilityBroker
 atomic invocation seam are implemented. Storage-only qualification proves that
@@ -186,8 +188,12 @@ generation supervisor adoption, untracked-orphan termination, and a bounded
 crash restart window using
 [`runtime-lease-recovery`](../../tests/fixtures/runtime-lease-recovery). The
 route heartbeat TTL remains diagnostic and does not satisfy the semantic lease
-contract. Full language/product projection and product qualification land in
-later stages. Cross-machine leases, distributed election, high availability,
+contract. The language/product projection and retained product qualification
+are defined by
+[Runtime activation and product delivery](runtime-activation-and-product-delivery.md).
+Native readiness coordinates are published only after the existing authorities
+establish the exact cut and are revalidated again when consumed. Cross-machine
+leases, distributed election, high availability, other unexecuted platforms,
 and EmbeddedRuntimeHost remain explicit non-claims.
 
 ## Agent session control has one PTY owner and one interaction port

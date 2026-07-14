@@ -1,0 +1,353 @@
+// SPDX-License-Identifier: Apache-2.0
+// @ts-check
+
+import { spawnSync } from 'node:child_process';
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import process from 'node:process';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+import Ajv2020 from 'ajv/dist/2020.js';
+
+const HARNESS_DIR = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.resolve(HARNESS_DIR, '..', '..', '..', '..', '..');
+const REPORT_SCHEMA_PATH = path.join(
+  HARNESS_DIR,
+  'schemas',
+  'runtime-activation-qualification-report-v1.schema.json',
+);
+const LAUNCHER = process.platform === 'win32' ? 'shifu.cmd' : './shifu';
+
+export const SUITES = [
+  {
+    id: 'activation-core',
+    product: false,
+    command: [
+      LAUNCHER,
+      'exec',
+      'uv',
+      'run',
+      '--project',
+      'framework/core',
+      'python',
+      '-m',
+      'pytest',
+      'framework/core/tests/python/test_runtime_broker.py',
+      'framework/core/tests/python/test_runtime_service.py',
+      '-q',
+    ],
+  },
+  {
+    id: 'profile-action-admission',
+    product: false,
+    command: [LAUNCHER, 'test:agent-profile-sdk'],
+  },
+  {
+    id: 'runtime-surface-parity',
+    product: false,
+    command: [LAUNCHER, 'test:runtime-surface'],
+  },
+  {
+    id: 'activation-performance',
+    product: false,
+    command: [
+      LAUNCHER,
+      'exec',
+      'uv',
+      'run',
+      '--project',
+      'framework/core',
+      'python',
+      'framework/core/tests/qualification/runtime-activation/performance_workload.py',
+    ],
+  },
+  {
+    id: 'product-distribution',
+    product: true,
+    command: [LAUNCHER, 'dist'],
+  },
+  {
+    id: 'product-runtime-smoke',
+    product: true,
+    command: [
+      LAUNCHER,
+      'exec',
+      process.execPath,
+      'framework/core/tests/qualification/runtime-activation/product_smoke.mjs',
+    ],
+  },
+  {
+    id: 'product-verification',
+    product: true,
+    command: [LAUNCHER, 'verify', '--full', '--with-app'],
+  },
+  {
+    id: 'product-catalog',
+    product: true,
+    command: [LAUNCHER, 'builds', '--json'],
+  },
+];
+
+const COVERAGE = {
+  'daemonless-storage': ['activation-core'],
+  'direct-no-fork-coordinator': ['activation-core'],
+  'process-crash-recovery': ['activation-core'],
+  'native-readiness-publication': ['activation-core'],
+  'profile-action-admission': ['profile-action-admission'],
+  'language-product-parity': ['runtime-surface-parity'],
+  'bounded-latency-and-resource-report': ['activation-performance'],
+  'product-artifact-build': ['product-distribution'],
+  'temporary-product-runtime-smoke': ['product-runtime-smoke'],
+  'product-artifact-verification': ['product-verification'],
+  'product-artifact-catalog': ['product-catalog'],
+};
+
+const NON_CLAIMS = [
+  'production EmbeddedRuntimeHost',
+  'distributed election, cross-machine leases, or high availability',
+  'physical-host power-loss qualification from process-crash evidence',
+  'default-on production durability or projection candidate profiles',
+  'universal startup, recovery, or activation latency SLO',
+  'readiness descriptor bytes as authority without native revalidation',
+];
+
+function sha256(value) {
+  return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+function git(args) {
+  const result = spawnSync('git', args, { cwd: ROOT, encoding: 'utf8' });
+  return result.status === 0 ? (result.stdout || '').trim() : null;
+}
+
+export function sourceFacts() {
+  const status = git(['status', '--porcelain']);
+  return {
+    revision: git(['rev-parse', 'HEAD']) || 'unknown',
+    tree: git(['rev-parse', 'HEAD^{tree}']) || 'unknown',
+    dirty: status === null || status !== '',
+  };
+}
+
+export function qualificationPlan({ mode, withProduct }) {
+  return SUITES.map((suite) => {
+    const required = !suite.product || withProduct;
+    return {
+      id: suite.id,
+      command: [...suite.command],
+      required,
+      status: mode === 'dry-run' ? 'planned' : required ? 'planned' : 'skipped',
+      exit_code: null,
+      duration_ms: 0,
+      raw_log: null,
+      raw_sha256: null,
+    };
+  });
+}
+
+function coverageStatus(ids, suites, mode) {
+  const evidence = ids.map((id) => suites.find((suite) => suite.id === id));
+  if (mode === 'dry-run') return 'planned';
+  if (evidence.some((suite) => !suite || suite.status === 'skipped')) {
+    return 'unqualified';
+  }
+  return evidence.every((suite) => suite.status === 'passed')
+    ? 'passed'
+    : 'failed';
+}
+
+export function evaluateQualification({
+  mode,
+  withProduct,
+  source,
+  platform,
+  suites,
+  runId,
+}) {
+  const coverage = Object.entries(COVERAGE).map(([id, evidenceSuites]) => ({
+    id,
+    evidence_suites: evidenceSuites,
+    status: coverageStatus(evidenceSuites, suites, mode),
+  }));
+  const violations = [];
+  if (mode === 'execute' && source.dirty) {
+    violations.push('source tree is dirty; evidence is not source-exact');
+  }
+  if (mode === 'execute' && !withProduct) {
+    violations.push('product artifact qualification was omitted');
+  }
+  const failed = suites.some(
+    (suite) => suite.required && suite.status === 'failed',
+  );
+  const complete = suites
+    .filter((suite) => suite.required)
+    .every((suite) => suite.status === 'passed');
+  const passed =
+    mode === 'execute' &&
+    withProduct &&
+    !source.dirty &&
+    !failed &&
+    complete &&
+    coverage.every((item) => item.status === 'passed');
+  const corePassed = (id) =>
+    suites.find((suite) => suite.id === id)?.status === 'passed';
+  return {
+    schema: 'kungfu.runtime-activation.qualification-report/v1',
+    run_id: runId,
+    mode,
+    product_mode: withProduct ? 'required' : 'omitted',
+    source,
+    platform,
+    suites,
+    coverage,
+    claims: {
+      daemonless_storage_operations: passed && corePassed('activation-core'),
+      direct_no_fork_coordinator: passed && corePassed('activation-core'),
+      process_crash_recovery: passed && corePassed('activation-core'),
+      native_readiness_publication: passed && corePassed('activation-core'),
+      product_artifacts_verified:
+        passed &&
+        corePassed('product-distribution') &&
+        corePassed('product-runtime-smoke') &&
+        corePassed('product-verification') &&
+        corePassed('product-catalog'),
+      embedded_runtime_host: false,
+    },
+    non_claims: NON_CLAIMS,
+    violations,
+    verdict:
+      mode === 'dry-run'
+        ? 'planned'
+        : failed
+          ? 'failed'
+          : passed
+            ? 'passed'
+            : 'unqualified',
+  };
+}
+
+function runSuite(suite, outputDir) {
+  console.log(`[runtime-activation-qualify] running ${suite.id}`);
+  const started = Date.now();
+  const result = spawnSync(suite.command[0], suite.command.slice(1), {
+    cwd: ROOT,
+    env: {
+      ...process.env,
+      ...(suite.id === 'activation-core' ||
+      suite.id === 'activation-performance'
+        ? {
+            PYTHONPATH: [
+              path.join(ROOT, 'framework', 'core', 'src', 'python'),
+              process.env.PYTHONPATH,
+            ]
+              .filter(Boolean)
+              .join(path.delimiter),
+          }
+        : {}),
+    },
+    encoding: 'utf8',
+    maxBuffer: 128 * 1024 * 1024,
+  });
+  const output = `${result.stdout || ''}${result.stderr || ''}`;
+  const rawName = `${suite.id}.log`;
+  fs.writeFileSync(path.join(outputDir, rawName), output, { flag: 'wx' });
+  const passed = !result.error && result.status === 0;
+  console.log(
+    `[runtime-activation-qualify] suite=${suite.id} status=${passed ? 'passed' : 'failed'} duration_ms=${Date.now() - started}`,
+  );
+  return {
+    ...suite,
+    status: passed ? 'passed' : 'failed',
+    exit_code: result.status,
+    duration_ms: Date.now() - started,
+    raw_log: rawName,
+    raw_sha256: sha256(output),
+  };
+}
+
+function parseArgs(argv) {
+  const value = (name) => {
+    const index = argv.indexOf(name);
+    return index >= 0 ? argv[index + 1] : null;
+  };
+  const mode = value('--mode') || 'dry-run';
+  if (!['dry-run', 'execute'].includes(mode)) {
+    throw new Error(`invalid --mode '${mode}'`);
+  }
+  return {
+    mode,
+    withProduct: argv.includes('--with-product'),
+    output: value('--output'),
+  };
+}
+
+function writeJson(pathname, value) {
+  const temporary = `${pathname}.${process.pid}.tmp`;
+  fs.writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, {
+    flag: 'wx',
+  });
+  fs.renameSync(temporary, pathname);
+}
+
+export function validateReport(report) {
+  const schema = JSON.parse(fs.readFileSync(REPORT_SCHEMA_PATH, 'utf8'));
+  const validate = new Ajv2020({ allErrors: true, strict: false }).compile(
+    schema,
+  );
+  if (!validate(report)) {
+    throw new Error(
+      `runtime activation report schema invalid: ${JSON.stringify(validate.errors)}`,
+    );
+  }
+}
+
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
+  const runId = `runtime-activation-${Date.now()}-${process.pid}`;
+  const outputDir = path.resolve(
+    args.output ||
+      path.join(
+        ROOT,
+        'framework',
+        'core',
+        'build',
+        'qualification',
+        'runtime-activation',
+        runId,
+      ),
+  );
+  fs.mkdirSync(outputDir, { recursive: true });
+  let suites = qualificationPlan(args);
+  if (args.mode === 'execute') {
+    suites = suites.map((suite) =>
+      suite.required ? runSuite(suite, outputDir) : suite,
+    );
+  }
+  const report = evaluateQualification({
+    ...args,
+    source: sourceFacts(),
+    platform: {
+      os: process.platform,
+      arch: process.arch,
+      release: os.release(),
+    },
+    suites,
+    runId,
+  });
+  validateReport(report);
+  const reportPath = path.join(outputDir, 'report.json');
+  writeJson(reportPath, report);
+  console.log(
+    `[runtime-activation-qualify] verdict=${report.verdict} report=${reportPath}`,
+  );
+  if (args.mode === 'execute' && report.verdict !== 'passed') process.exit(1);
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error(error?.stack || String(error));
+    process.exit(1);
+  });
+}

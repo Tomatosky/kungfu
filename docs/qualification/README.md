@@ -6,6 +6,7 @@ implemented behavior, retained evidence, and released guarantees. Begin with
 
 - [Contracts](contracts.md)
 - [Known Limits](known-limits.md)
+- [Runtime Activation and Product Delivery](runtime-activation-and-product-delivery.md)
 - [Strong Durability and Crash Recovery](durability-and-crash-recovery.md)
 - [Durability Qualification Harness](../../framework/core/tests/qualification/durability/README.md)
 - [Current-hardware Production-candidate Admission Evidence](evidence/durability/production-candidate-v1/README.md)

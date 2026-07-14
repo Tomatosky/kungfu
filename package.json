@@ -75,6 +75,7 @@
     "episode:qualify": "node scripts/require-shifu.mjs episode:qualify && node framework/core/tests/qualification/episode/run.mjs",
     "episode:qualify:release": "node scripts/require-shifu.mjs episode:qualify:release && node framework/core/tests/qualification/episode/release_evidence.mjs",
     "durability:qualify": "node scripts/require-shifu.mjs durability:qualify && node framework/core/tests/qualification/durability/run.mjs",
+    "runtime:qualify": "node scripts/require-shifu.mjs runtime:qualify && node framework/core/tests/qualification/runtime-activation/run.mjs",
     "durability:powercut:fixture": "node scripts/require-shifu.mjs durability:powercut:fixture && node scripts/run-durability-powercut-fixture.mjs",
     "durability:powercut:plan": "node scripts/require-shifu.mjs durability:powercut:plan && node scripts/plan-durability-powercut.mjs",
     "durability:powercut:prepare": "node scripts/require-shifu.mjs durability:powercut:prepare && node scripts/prepare-durability-powercut-qemu.mjs",

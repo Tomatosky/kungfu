@@ -151,6 +151,17 @@ def discover_native_readiness_evidence(
         raise ValueError("native runtime readiness evidence is unreadable") from None
     if not isinstance(value, dict):
         raise ValueError("native runtime readiness evidence is not an object")
+    _validate_native_readiness_evidence(runtime_dir, value, contract)
+    return copy.deepcopy(value)
+
+
+def _validate_native_readiness_evidence(
+    runtime_dir: str | Path,
+    value: Mapping[str, Any],
+    contract: Mapping[str, Any] | None = None,
+) -> None:
+    """Validate descriptor shape plus its exact workspace and root binding."""
+
     _validate_value("nativeReadinessEvidence", value, contract)
     expected_workspace = workspace_id(runtime_dir)
     if value.get("workspaceId") != expected_workspace:
@@ -170,7 +181,64 @@ def discover_native_readiness_evidence(
         raise ValueError(
             "native runtime readiness evidence runtime home does not match"
         )
-    return copy.deepcopy(value)
+
+
+def publish_native_readiness_evidence(
+    runtime_dir: str | Path,
+    evidence: Mapping[str, Any],
+    *,
+    operation_id: str,
+    config_home: str | Path | None = None,
+    contract: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Establish native readiness before atomically publishing its coordinates.
+
+    The descriptor remains a discovery aid rather than proof: every consumer
+    reconstructs and invokes the native authorities again.  Publication only
+    proves that the same coordinates established one explicit live-required
+    operation at the descriptor's minimum cut at publication time.
+    """
+
+    _validate_native_readiness_evidence(runtime_dir, evidence, contract)
+    operation = operation_definition(operation_id, contract)
+    if operation.get("operationClass") != "live-required":
+        raise ValueError(
+            "native readiness publication requires a live-required operation"
+        )
+    minimum_cut = evidence.get("minimumCut")
+    if not isinstance(minimum_cut, Mapping):
+        raise ValueError(
+            "native readiness publication requires an explicit minimum cut"
+        )
+    plan = plan_operation(
+        operation_id,
+        workspace=workspace_id(runtime_dir),
+        request_source="python",
+        minimum_cut=minimum_cut,
+        contract=contract,
+    )
+    requirement = plan["requirement"]
+    readiness = native_readiness_authority(evidence, contract=contract).establish(
+        requirement,
+        "publication",
+        {"source": "native-readiness-publication"},
+    )
+    _validate_value("runtimeReadiness", readiness, contract)
+    if not _readiness_admits_requirement(requirement, readiness):
+        raise ValueError(
+            "native readiness authority did not establish the publication requirement"
+        )
+
+    path = native_readiness_evidence_path(runtime_dir, config_home)
+    _write_runtime_json(path, evidence)
+    discovered = discover_native_readiness_evidence(
+        runtime_dir,
+        config_home,
+        contract=contract,
+    )
+    if discovered != dict(evidence):
+        raise ValueError("published native readiness evidence did not round-trip")
+    return copy.deepcopy(discovered)
 
 
 def plan_operation(
@@ -285,15 +353,21 @@ def _read_activation_state(path: Path) -> dict[str, Any] | None:
     return value
 
 
-def _write_activation_state(path: Path, value: Mapping[str, Any]) -> None:
+def _write_runtime_json(path: Path, value: Mapping[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(".json.tmp")
-    with temporary.open("w", encoding="utf-8") as state_file:
-        json.dump(value, state_file, indent=2, sort_keys=True)
-        state_file.write("\n")
-        state_file.flush()
-        os.fsync(state_file.fileno())
-    os.replace(temporary, path)
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.{time.time_ns()}.tmp")
+    try:
+        with temporary.open("x", encoding="utf-8") as state_file:
+            json.dump(value, state_file, indent=2, sort_keys=True)
+            state_file.write("\n")
+            state_file.flush()
+            os.fsync(state_file.fileno())
+        os.replace(temporary, path)
+    finally:
+        try:
+            temporary.unlink()
+        except FileNotFoundError:
+            pass
     try:
         directory = os.open(path.parent, os.O_RDONLY)
     except OSError:
@@ -304,6 +378,10 @@ def _write_activation_state(path: Path, value: Mapping[str, Any]) -> None:
         pass
     finally:
         os.close(directory)
+
+
+def _write_activation_state(path: Path, value: Mapping[str, Any]) -> None:
+    _write_runtime_json(path, value)
 
 
 def product_status(
