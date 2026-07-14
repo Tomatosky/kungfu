@@ -2,39 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { spawnSync } from 'node:child_process';
-import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const runtimePins = fs.readFileSync(
-  path.join(root, 'product', 'runtime-pins.env'),
-  'utf8',
-);
-export const runtimeUvVersion = runtimePins.match(/^UV_VERSION=(.+)$/m)?.[1];
-if (!runtimeUvVersion) {
-  throw new Error('product/runtime-pins.env carries no UV_VERSION');
-}
 
-function commandAvailable(command) {
-  return (
-    spawnSync(process.platform === 'win32' ? 'where' : 'which', [command], {
-      stdio: 'ignore',
-      shell: process.platform === 'win32',
-    }).status === 0
-  );
-}
-
-export function runtimeUpgradeUvCommand(args, available = commandAvailable) {
-  if (available('uv')) return { command: 'uv', args };
-  if (available('uvx')) {
-    return {
-      command: 'uvx',
-      args: ['--from', `uv==${runtimeUvVersion}`, 'uv', ...args],
-    };
-  }
-  throw new Error('runtime upgrade tests require uv or uvx');
+export function runtimeUpgradeUvCommand(args, platform = process.platform) {
+  return {
+    command: path.join(root, platform === 'win32' ? 'shifu.cmd' : 'shifu'),
+    args: ['exec', 'uv', ...args],
+  };
 }
 
 export function runRuntimeUpgradeTests() {

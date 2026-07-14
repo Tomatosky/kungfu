@@ -6,10 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import {
-  runtimeUpgradeUvCommand,
-  runtimeUvVersion,
-} from './run-runtime-upgrade-tests.mjs';
+import { runtimeUpgradeUvCommand } from './run-runtime-upgrade-tests.mjs';
 import { checkUpgradeContract } from './upgrade-contract.mjs';
 
 test('upgrade contract weld and state fixtures stay complete', () => {
@@ -49,20 +46,14 @@ test('activation authority drift fails closed', () => {
   }
 });
 
-test('runtime upgrade tests use the pinned uv through uvx when uv is absent', () => {
-  const command = runtimeUpgradeUvCommand(
-    ['run', '--frozen'],
-    (candidate) => candidate === 'uvx',
-  );
-  assert.deepEqual(command, {
-    command: 'uvx',
-    args: ['--from', `uv==${runtimeUvVersion}`, 'uv', 'run', '--frozen'],
-  });
+test('runtime upgrade tests enter pinned uv through Shifu', () => {
+  const command = runtimeUpgradeUvCommand(['run', '--frozen'], 'linux');
+  assert.equal(path.basename(command.command), 'shifu');
+  assert.deepEqual(command.args, ['exec', 'uv', 'run', '--frozen']);
 });
 
-test('runtime upgrade tests fail clearly when uv and uvx are absent', () => {
-  assert.throws(
-    () => runtimeUpgradeUvCommand(['run'], () => false),
-    /require uv or uvx/,
-  );
+test('runtime upgrade tests use the welded Windows Shifu entry', () => {
+  const command = runtimeUpgradeUvCommand(['run'], 'win32');
+  assert.equal(path.basename(command.command), 'shifu.cmd');
+  assert.deepEqual(command.args, ['exec', 'uv', 'run']);
 });
