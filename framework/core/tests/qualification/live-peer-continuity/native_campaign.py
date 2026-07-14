@@ -74,6 +74,25 @@ def _wait_for_process_exit(
         process.wait(timeout=timeout)
 
 
+def _wait_for_coordinator_storage(
+    runtime_dir: Path,
+    process: subprocess.Popen[Any],
+    timeout: float = 20.0,
+) -> None:
+    current = runtime_dir / "map" / "system" / "master" / "master" / "live" / "CURRENT"
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if current.is_file():
+            return
+        return_code = process.poll()
+        if return_code is not None:
+            raise RuntimeError(
+                f"Coordinator exited with code {return_code} before storage readiness"
+            )
+        time.sleep(0.1)
+    raise RuntimeError("timed out waiting for Coordinator storage readiness")
+
+
 def _stop_test_process(process: subprocess.Popen[Any] | None, *, hard: bool) -> None:
     if process is None or process.poll() is not None:
         return
@@ -244,7 +263,7 @@ def _run_campaign(output_dir: Path) -> int:
                 "1",
             )
             streams.append(stream)
-            time.sleep(0.5)
+            _wait_for_coordinator_storage(runtime_dir, coordinator)
             peer, stream = _spawn_role(
                 "peer",
                 runtime_dir,
