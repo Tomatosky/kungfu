@@ -104,7 +104,7 @@ The production-candidate v2 campaign is a separate, stricter local Shifu task:
 ```sh
 ./shifu durability:powercut:prepare -- \
   --run-id SOURCE-linux-ext4-fault-v2 \
-  --repo /data/worktrees/kungfu/feature/agent120-fault-campaign \
+  --repo /home/dkr/Worktrees/kungfu/feature/agent120-fault-campaign \
   --image kungfu-linux-build-probe:conanfix-20260630T101847Z \
   --kernel-release 6.8.0-134-generic \
   --kernel-version 6.8.0-134.134

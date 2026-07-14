@@ -9,7 +9,7 @@ import { preparationView } from './prepare-durability-powercut-qemu.mjs';
 
 const input = {
   runId: 'candidate-v2',
-  repo: '/data/worktrees/kungfu/feature/agent120-fault-campaign',
+  repo: '/home/dkr/Worktrees/kungfu/feature/agent120-fault-campaign',
   sourceRevision: '19aab0b6033bb2e7431223b7cfcd62de126da77c',
   image: 'kungfu-linux-build-probe:conanfix-20260630T101847Z',
   kernelRelease: '6.8.0-134-generic',

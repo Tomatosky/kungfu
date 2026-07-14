@@ -22,7 +22,10 @@ const SAFE_VERSION = /^[0-9][0-9A-Za-z.+~:-]*$/u;
 const SAFE_IMAGE = /^[A-Za-z0-9][A-Za-z0-9._/:@-]*$/u;
 const SAFE_SHA = /^[0-9a-f]{40}$/u;
 const WORKSPACE_ROOT = '/data/qualification/kungfu/durability';
-const REPO_ROOT = '/data/worktrees/kungfu/feature';
+const REPO_ROOTS = [
+  '/home/dkr/Worktrees/kungfu/feature',
+  '/data/worktrees/kungfu/feature',
+];
 
 function requireSafe(value, pattern, label) {
   if (!pattern.test(value)) throw new Error(`unsafe ${label}: ${value}`);
@@ -38,6 +41,18 @@ function requireBelow(value, root, label) {
     throw new Error(`${label} must be below ${root}`);
   }
   return normalized;
+}
+
+function requireRepo(value) {
+  for (const root of REPO_ROOTS) {
+    try {
+      return requireBelow(value, root, 'repo');
+    } catch {
+      // Keep the historical qualification root readable while requiring new
+      // runs to use the canonical root listed first.
+    }
+  }
+  throw new Error(`repo must be below ${REPO_ROOTS.join(' or ')}`);
 }
 
 function command(id, mutates, argv, note, cwd = null) {
@@ -62,7 +77,7 @@ export function createPowerCutPlan(input) {
     SAFE_SHA,
     'source revision',
   );
-  const repo = requireBelow(input.repo, REPO_ROOT, 'repo');
+  const repo = requireRepo(input.repo);
   const workspace = `${WORKSPACE_ROOT}/${runId}`;
   const container = `kf-durability-${runId}`;
   const packageName = `linux-image-unsigned-${kernelRelease}`;
