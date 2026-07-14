@@ -126,6 +126,7 @@ export function sourceAcceptancePlan(files) {
         'scripts/run-durability-institutional-qemu.test.mjs',
         'scripts/run-durability-slo.test.mjs',
         'scripts/run-durability-offhost-restore.test.mjs',
+        'scripts/run-durability-clean-host-restart.test.mjs',
       ],
     },
     {

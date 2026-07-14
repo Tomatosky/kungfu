@@ -120,6 +120,15 @@ json record_json(const std::vector<durable_record> &records) {
   return values;
 }
 
+json ownership_json(const kungfu::yijinjing::ownership::evidence &value) {
+  return {{"scope", kungfu::yijinjing::ownership::scope_name(value.ownership_scope)},
+          {"resource_id", value.resource_id},
+          {"generation", value.generation},
+          {"owner_pid", value.owner_pid},
+          {"recovered_stale_owner", value.recovered_stale_owner},
+          {"owned", value.owned}};
+}
+
 void begin_episode(const fs::path &root) {
   storage_episode_begin_request request{};
   request.runtime_dir = root.string();
@@ -167,10 +176,14 @@ json export_fixture(const fs::path &source_root, const fs::path &store_root) {
     throw std::runtime_error("offhost_fixture_source_root_exists");
   }
   fs::create_directories(source_root);
+  kungfu::yijinjing::ownership::evidence service_ownership;
+  kungfu::yijinjing::ownership::evidence writer_ownership;
   {
     auto service = lease::acquire_data_root_service(source_root.string());
     auto writer = lease::acquire_stream_writer(source_root.string(), "offhost-backup-writer");
     require(service.owns() && writer.owns(), "offhost_fixture_source_ownership_failed");
+    service_ownership = service.status();
+    writer_ownership = writer.status();
     durable_ingest_log log(fixture_options(source_root));
     log.append(fixture_position(1), 7201, "account=42", service, writer);
     log.append(fixture_position(2), 7201, "position=17", service, writer);
@@ -213,8 +226,67 @@ json export_fixture(const fs::path &source_root, const fs::path &store_root) {
           {"projection_state", projected.state},
           {"projection_integrity_sha256", projected.integrity_sha256},
           {"projection_cut", position_json(projected.through_position)},
+          {"ownership", {{"service", ownership_json(service_ownership)}, {"writer", ownership_json(writer_ownership)}}},
+          {"fresh_process_reopen_verified", false},
+          {"clean_host_restart_qualified", false},
+          {"physical_power_loss_qualified", false},
           {"off_host_verified", false},
           {"independent_failure_domain_qualified", false},
+          {"production_eligible", false}};
+}
+
+json reopen_fixture(const fs::path &source_root) {
+  require(fs::is_directory(source_root), "offhost_fixture_reopen_source_root_missing");
+  auto service = lease::acquire_data_root_service(source_root.string());
+  auto writer = lease::acquire_stream_writer(source_root.string(), "offhost-backup-writer");
+  require(service.owns() && writer.owns(), "offhost_fixture_reopen_ownership_failed");
+
+  const auto recovery = recovery_engine(fixture_options(source_root)).inspect();
+  require(recovery.outcome == recovery_outcome::Ready, "offhost_fixture_reopen_recovery_not_ready");
+  require(recovery.durable_frontier == fixture_position(3), "offhost_fixture_reopen_frontier_mismatch");
+  require(recovery.durable_record_count == 3, "offhost_fixture_reopen_record_count_mismatch");
+  require(recovery.unacknowledged_tail_bytes == 0, "offhost_fixture_reopen_visible_tail_present");
+  require(recovery.qualification_passed, "offhost_fixture_reopen_qualification_missing");
+
+  ingest_options read_options = fixture_options(source_root);
+  read_options.read_only = true;
+  durable_ingest_log read_log(read_options);
+  const auto records = read_log.read_durable_records();
+  projection_bootstrap_store projection(fixture_projection_options(source_root), fixture_projector);
+  const auto bootstrapped = projection.bootstrap(records, peer_state_requirement::Required);
+  require(bootstrapped.outcome == bootstrap_outcome::Ready, "offhost_fixture_reopen_projection_not_ready");
+  require(bootstrapped.status.projection_watermark == fixture_position(3),
+          "offhost_fixture_reopen_projection_cut_mismatch");
+
+  storage_fsck_request request{};
+  request.runtime_dir = source_root.string();
+  request.scope = storage_fsck_scope::Episode;
+  request.episode_id = EPISODE_ID;
+  request.verify_frames = true;
+  const auto checked = default_storage_service().fsck(request);
+  require(checked.qualification.has_value() && checked.qualification->status == "ok" &&
+              checked.qualification->lifecycle == "ended",
+          "offhost_fixture_reopen_episode_fsck_failed");
+
+  return {{"schema", "kungfu.offhost-backup-fixture-report/v1"},
+          {"mode", "reopen"},
+          {"qualification_profile", PROFILE},
+          {"recovery_outcome", recovery_outcome_name(recovery.outcome)},
+          {"durable_frontier", position_json(recovery.durable_frontier)},
+          {"durable_record_count", records.size()},
+          {"unacknowledged_tail_bytes", recovery.unacknowledged_tail_bytes},
+          {"records", record_json(records)},
+          {"episodes", json::array({{{"episode_id", EPISODE_ID},
+                                     {"status", checked.qualification->status},
+                                     {"lifecycle", checked.qualification->lifecycle}}})},
+          {"projection_state", bootstrapped.state},
+          {"projection_integrity_sha256", projection.load_snapshot().integrity_sha256},
+          {"projection_cut", position_json(bootstrapped.status.projection_watermark)},
+          {"projection_outcome", bootstrap_outcome_name(bootstrapped.outcome)},
+          {"ownership", {{"service", ownership_json(service.status())}, {"writer", ownership_json(writer.status())}}},
+          {"fresh_process_reopen_verified", true},
+          {"clean_host_restart_qualified", false},
+          {"physical_power_loss_qualified", false},
           {"production_eligible", false}};
 }
 
@@ -311,6 +383,8 @@ int main(int argc, char **argv) {
       report = verify_package(required(args, "package"));
     } else if (mode == "restore") {
       report = restore_fixture(required(args, "package"), required(args, "restore-root"));
+    } else if (mode == "reopen") {
+      report = reopen_fixture(required(args, "source-root"));
     } else {
       throw std::invalid_argument("unsupported offhost fixture mode");
     }
