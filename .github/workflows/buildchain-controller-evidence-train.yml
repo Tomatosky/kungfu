@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: Apache-2.0
+
+name: Buildchain Controller Evidence Train
+
+on:
+  workflow_dispatch:
+    inputs:
+      buildchain-ref:
+        description: "Buildchain train ref whose runtime identity must match the reusable workflow"
+        required: false
+        default: "train/v2/v2.3/gate-controller-evidence-contract"
+
+permissions:
+  contents: read
+
+jobs:
+  source-check:
+    uses: kungfu-systems/buildchain/.github/workflows/check.yml@9394cc16fad3b0c430cba854aa2131ee28e028d2
+    with:
+      buildchain-ref: ${{ inputs.buildchain-ref }}
+      mode: source
+      upload-artifacts: true
+
+  validate-binding:
+    needs: source-check
+    runs-on: ubuntu-24.04
+    env:
+      CONTROLLER_PLAN_JSON: ${{ needs.source-check.outputs.controller-plan-json }}
+      CONTROLLER_RECEIPT_JSON: ${{ needs.source-check.outputs.controller-receipt-json }}
+      EXPECTED_SOURCE_REPOSITORY: ${{ github.repository }}
+      EXPECTED_SOURCE_SHA: ${{ github.sha }}
+      EXPECTED_RUNTIME_REF: ${{ inputs.buildchain-ref }}
+      EXPECTED_RUNTIME_SHA: 9394cc16fad3b0c430cba854aa2131ee28e028d2
+    steps:
+      - name: Checkout Buildchain runtime
+        uses: actions/checkout@v7.0.0
+        with:
+          repository: kungfu-systems/buildchain
+          ref: ${{ inputs.buildchain-ref }}
+          path: .buildchain/runtime
+          persist-credentials: false
+
+      - name: Validate controller receipt and consumer binding
+        run: |
+          mkdir -p .buildchain/controller
+          printf '%s\n' "$CONTROLLER_PLAN_JSON" > .buildchain/controller/plan.json
+          printf '%s\n' "$CONTROLLER_RECEIPT_JSON" > .buildchain/controller/receipt.json
+          jq -e \
+            --arg source_repository "$EXPECTED_SOURCE_REPOSITORY" \
+            --arg source_sha "$EXPECTED_SOURCE_SHA" \
+            --arg runtime_ref "$EXPECTED_RUNTIME_REF" \
+            --arg runtime_sha "$EXPECTED_RUNTIME_SHA" \
+            '.source.repository == $source_repository and .source.sha == $source_sha and .runtime.ref == $runtime_ref and .runtime.sha == $runtime_sha' \
+            .buildchain/controller/plan.json
+          jq -e --slurpfile plan .buildchain/controller/plan.json \
+            '.planDigest == $plan[0].digest' \
+            .buildchain/controller/receipt.json
+          # shifu-entry-contract: allow validate an external Buildchain plan artifact with its owning runtime
+          env BUILDCHAIN_CONTROLLER_EVIDENCE_KIND=plan BUILDCHAIN_CONTROLLER_EVIDENCE_PATH=.buildchain/controller/plan.json node .buildchain/runtime/scripts/controller-evidence.mjs --mode validate
+          # shifu-entry-contract: allow validate an external Buildchain receipt artifact with its owning runtime
+          env BUILDCHAIN_CONTROLLER_EVIDENCE_KIND=receipt BUILDCHAIN_CONTROLLER_EVIDENCE_PATH=.buildchain/controller/receipt.json node .buildchain/runtime/scripts/controller-evidence.mjs --mode validate --require-qualifying
