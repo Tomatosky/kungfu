@@ -71,6 +71,7 @@ export function createPowerCutPlan(input) {
   const library = `${repo}/framework/core/build/Release/libkungfu.so`;
   const guestInit = `${repo}/framework/core/tests/qualification/durability/powercut_guest_init`;
   const sentinel = `${repo}/framework/core/tests/qualification/durability/powercut_disposable_root_sentinel`;
+  const workspaceSentinel = `${repo}/framework/core/tests/qualification/durability/powercut_qemu_workspace_sentinel`;
   const rootfsTree = `${workspace}/rootfs-tree`;
   const dataSeed = `${workspace}/data-seed`;
 
@@ -148,6 +149,18 @@ export function createPowerCutPlan(input) {
         ['apt-get', 'download', `${packageName}=${kernelVersion}`],
         `downloads ${deb}`,
         workspace,
+      ),
+      command(
+        'install-workspace-sentinel',
+        true,
+        [
+          'install',
+          '-m',
+          '0644',
+          workspaceSentinel,
+          `${workspace}/.kungfu-disposable-qemu-workspace`,
+        ],
+        'binds later execution to this exact disposable workspace',
       ),
       command(
         'extract-kernel',

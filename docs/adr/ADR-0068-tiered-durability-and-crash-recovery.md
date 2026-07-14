@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0068
 decision_status: accepted
 implementation_status: staged
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/668, https://github.com/kungfu-systems/kungfu/pull/673, https://github.com/kungfu-systems/kungfu/pull/682, https://github.com/kungfu-systems/kungfu/pull/687, https://github.com/kungfu-systems/kungfu/pull/691, https://github.com/kungfu-systems/kungfu/pull/693, https://github.com/kungfu-systems/kungfu/pull/697, https://github.com/kungfu-systems/kungfu/pull/701, https://github.com/kungfu-systems/kungfu/pull/705, https://github.com/kungfu-systems/kungfu/pull/754, https://github.com/kungfu-systems/kungfu/pull/770, https://github.com/kungfu-systems/kungfu/pull/783, https://github.com/kungfu-systems/kungfu/pull/784, https://github.com/kungfu-systems/kungfu/pull/788, https://github.com/kungfu-systems/kungfu/pull/794, https://github.com/kungfu-systems/kungfu/pull/795, https://github.com/kungfu-systems/kungfu/pull/809]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/668, https://github.com/kungfu-systems/kungfu/pull/673, https://github.com/kungfu-systems/kungfu/pull/682, https://github.com/kungfu-systems/kungfu/pull/687, https://github.com/kungfu-systems/kungfu/pull/691, https://github.com/kungfu-systems/kungfu/pull/693, https://github.com/kungfu-systems/kungfu/pull/697, https://github.com/kungfu-systems/kungfu/pull/701, https://github.com/kungfu-systems/kungfu/pull/705, https://github.com/kungfu-systems/kungfu/pull/754, https://github.com/kungfu-systems/kungfu/pull/770, https://github.com/kungfu-systems/kungfu/pull/783, https://github.com/kungfu-systems/kungfu/pull/784, https://github.com/kungfu-systems/kungfu/pull/788, https://github.com/kungfu-systems/kungfu/pull/794, https://github.com/kungfu-systems/kungfu/pull/795, https://github.com/kungfu-systems/kungfu/pull/809, https://github.com/kungfu-systems/kungfu/pull/813]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -307,6 +307,14 @@ absent data device passed hash comparison, read-only fsck, and fresh-boot chain
 verification at a quiesced RPO-zero cut. The retained report binds those facts,
 the current-head ownership/recovery/projection suites, and the Episode smoke
 qualification to raw evidence hashes.
+
+The next qualification slice has a default-dry-run v2 QEMU campaign contract.
+It freezes three full seeded cycles across raw/qcow2 virtual data devices and
+`none`, `writethrough`, and `writeback` QEMU cache modes. A runner records each
+trial to fsynced JSONL before continuing, emits an aggregate digest, and leaves
+failed or interrupted workspaces intact instead of enabling selective reruns.
+This is device-model evidence only; its schemas fix physical power-loss,
+physical device-cache, and production eligibility claims to false.
 
 The production mmap claim remains `demand + visibility`. The backup/restore
 round trip and projection cut equality are implementation evidence, not an

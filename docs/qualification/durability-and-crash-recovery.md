@@ -243,6 +243,16 @@ Public product language must name the exact evidence envelope and continue to
 refuse physical-host power-loss, off-host-backup, or production durability
 claims until separately retained evidence and release admission exist.
 
+A v2 production-candidate campaign harness now freezes the next local evidence
+ceiling without widening Stage G: 360 required trials cross two durability
+profiles, ten cut points, raw/qcow2 virtual data devices, three QEMU cache
+models, and three deterministic seeds. It fsyncs every pass or failure before
+continuing and refuses to reuse an incomplete workspace. Until its retained
+agent-120 report is present and admitted, it is an executable candidate rather
+than additional qualification. Even after a pass it can qualify only the named
+QEMU device-model envelopes, never physical NVMe cache or sudden host power
+loss.
+
 ## Qualification standard
 
 `kill -9` and ordinary restart tests are necessary but insufficient. A strong

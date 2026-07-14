@@ -99,6 +99,40 @@ completion marker it remains alive as PID 1, and the host runner terminates only
 that direct QEMU child. This avoids treating a missing guest init-system
 `poweroff` helper as durability evidence.
 
+The production-candidate v2 campaign is a separate, stricter local Shifu task:
+
+```sh
+./shifu durability:powercut:prepare -- \
+  --run-id SOURCE-linux-ext4-fault-v2 \
+  --repo /data/worktrees/kungfu/feature/agent120-fault-campaign \
+  --image kungfu-linux-build-probe:conanfix-20260630T101847Z \
+  --kernel-release 6.8.0-134-generic \
+  --kernel-version 6.8.0-134.134
+
+./shifu durability:fault-campaign:qemu -- \
+  --workspace /data/qualification/kungfu/durability/SOURCE-linux-ext4-fault-v2 \
+  --rootfs-base /data/qualification/kungfu/durability/SOURCE-linux-ext4-fault-v2/rootfs-base.ext4 \
+  --report /data/qualification/kungfu/durability/SOURCE-linux-ext4-fault-v2/evidence/fault-campaign-v2.json \
+  --raw-results /data/qualification/kungfu/durability/SOURCE-linux-ext4-fault-v2/evidence/fault-campaign-v2.results.jsonl \
+  --kernel-release 6.8.0-134-generic
+```
+
+Both commands are dry-run by default. Preparation refuses an existing
+workspace and executes only after the exact repository, run id, image, kernel,
+commands, impact, and leave-in-place rollback have been reviewed. The campaign
+freezes 360 required trials: two durability profiles, ten cut points, raw and
+qcow2 data devices, `none`/`writethrough`/`writeback` QEMU cache models, and
+three deterministic seeds. Every trial uses a fresh data image and a distinct
+verification boot. Each pass or failure is fsynced to append-only JSONL before
+the next trial; a failed or interrupted workspace is retained and is never
+reused to erase evidence.
+
+These cache values qualify QEMU device-model envelopes only. They do not prove
+the physical NVMe cache, controller firmware, sudden host power loss, or a
+production profile. A complete passing v2 report must keep
+`physical_power_loss_qualified`, `physical_device_cache_qualified`, and
+`production_profile_eligible` false.
+
 The separate `./shifu durability:institutional:qemu` harness extends that
 disposable Linux/ext4 envelope with a real filesystem-full ENOSPC trial, a
 cleanly unmounted write followed by three whole-guest reopen checks, and an
@@ -124,7 +158,13 @@ machine report records each of those as `false`.
   entering a compiler or build lifecycle.
 - `powercut_plan.mjs` freezes the disposable Linux ext4/QEMU write set and fault
   matrix without executing it.
+- `fault_campaign.mjs` freezes the v2 multi-seed device/cache matrix and its
+  digest without executing it.
 - `powercut_guest_init` is the guest-only init entrypoint copied into the
   disposable root image; it cannot create or terminate a host VM.
+- `scripts/prepare-durability-powercut-qemu.mjs` owns explicit, fail-closed
+  workspace preparation; it never cleans an existing run.
+- `scripts/run-durability-fault-campaign.mjs` records every required v2 trial
+  before continuing and preserves incomplete or failed workspaces.
 - `scripts/run-durability-institutional-qemu.mjs` owns the explicit real
   ENOSPC, whole-guest reopen, and offline backup/restore drill.

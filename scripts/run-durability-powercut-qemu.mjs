@@ -52,7 +52,25 @@ export function requireBelow(candidate, root, label) {
   return normalized;
 }
 
-export function qemuArgs({ workspace, rootfs, data, kernelArgs }) {
+export function dataDriveArgument({
+  data,
+  dataFormat = 'raw',
+  cacheMode = 'none',
+  aioMode = cacheMode === 'none' ? 'native' : 'threads',
+}) {
+  return `if=virtio,format=${dataFormat},cache=${cacheMode},aio=${aioMode},file=${data}`;
+}
+
+export function qemuArgs({
+  workspace,
+  rootfs,
+  data,
+  kernelArgs,
+  dataFormat = 'raw',
+  cacheMode = 'none',
+  aioMode,
+  kernelRelease = '6.8.0-134-generic',
+}) {
   return [
     '-enable-kvm',
     '-cpu',
@@ -66,7 +84,7 @@ export function qemuArgs({ workspace, rootfs, data, kernelArgs }) {
     '-nic',
     'none',
     '-kernel',
-    `${workspace}/kernel/boot/vmlinuz-6.8.0-134-generic`,
+    `${workspace}/kernel/boot/vmlinuz-${kernelRelease}`,
     '-initrd',
     `${workspace}/initrd.img`,
     '-append',
@@ -74,7 +92,12 @@ export function qemuArgs({ workspace, rootfs, data, kernelArgs }) {
     '-drive',
     `if=virtio,format=qcow2,file=${rootfs}`,
     '-drive',
-    `if=virtio,format=raw,cache=none,aio=native,file=${data}`,
+    dataDriveArgument({
+      data,
+      dataFormat,
+      cacheMode,
+      aioMode,
+    }),
   ];
 }
 
@@ -142,10 +165,31 @@ export async function sha256(pathname) {
   return hash.digest('hex');
 }
 
-async function executeTrial({ trial, workspace, rootfsBase }) {
+async function stopChild(child, signal = 'SIGKILL') {
+  if (
+    child &&
+    child.exitCode === null &&
+    child.signalCode === null &&
+    child.pid
+  ) {
+    child.kill(signal);
+    try {
+      await waitForExit(child);
+    } catch {
+      // The runner already preserves the original trial failure. A direct
+      // child that ignores the terminal signal is still not detached.
+    }
+  }
+}
+
+export async function executeTrial({ trial, workspace, rootfsBase }) {
+  const dataFormat = trial.data_format || 'raw';
+  const cacheMode = trial.cache_mode || 'none';
+  const aioMode =
+    trial.aio_mode || (cacheMode === 'none' ? 'native' : 'threads');
   const writeRootfs = `${workspace}/${trial.id}-write-rootfs.qcow2`;
   const verifyRootfs = `${workspace}/${trial.id}-verify-rootfs.qcow2`;
-  const data = `${workspace}/${trial.id}-data.ext4`;
+  const data = `${workspace}/${trial.id}-data.${dataFormat === 'raw' ? 'ext4' : 'qcow2'}`;
   const writeLog = `${workspace}/evidence/${trial.id}.write.serial.log`;
   const verifyLog = `${workspace}/evidence/${trial.id}.verify.serial.log`;
   const pidFile = `${workspace}/evidence/${trial.id}.qemu.pid`;
@@ -185,88 +229,124 @@ async function executeTrial({ trial, workspace, rootfsBase }) {
     rootfsBase,
     verifyRootfs,
   ]);
-  command(['cp', '--sparse=always', `${workspace}/data-base.ext4`, data]);
-
-  const write = startQemu(
-    qemuArgs({
-      workspace,
-      rootfs: writeRootfs,
+  if (dataFormat === 'raw') {
+    command(['cp', '--sparse=always', `${workspace}/data-base.ext4`, data]);
+  } else if (dataFormat === 'qcow2') {
+    command([
+      'qemu-img',
+      'create',
+      '-q',
+      '-f',
+      'qcow2',
+      '-F',
+      'raw',
+      '-b',
+      `${workspace}/data-base.ext4`,
       data,
-      kernelArgs: `root=/dev/vda rw rootwait console=ttyS0 panic=-1 init=/opt/kungfu/powercut_guest_init kf_mode=write kf_profile=${trial.profile} kf_fault=${trial.fault}`,
-    }),
-    writeLog,
-  );
-  fs.writeFileSync(pidFile, `${write.pid}\n`, { flag: 'wx' });
-  await waitForLog(write, writeLog, [trial.arm_marker], 180_000);
-  const writeChild = childFacts(write, data);
-  write.kill('SIGKILL');
-  const writeExit = await waitForExit(write);
-  if (writeExit.signal !== 'SIGKILL') {
-    throw new Error(
-      `write QEMU exit was not SIGKILL: ${JSON.stringify(writeExit)}`,
-    );
+    ]);
+  } else {
+    throw new Error(`unsupported data format: ${dataFormat}`);
   }
 
-  const verify = startQemu(
-    qemuArgs({
-      workspace,
-      rootfs: verifyRootfs,
-      data,
-      kernelArgs: `root=/dev/vda rw rootwait console=ttyS0 panic=-1 init=/opt/kungfu/powercut_guest_init kf_mode=verify kf_min=${trial.expected_durable_sequence.minimum} kf_max=${trial.expected_durable_sequence.maximum}`,
-    }),
-    verifyLog,
-  );
-  const verifyMarkers = [
-    '"schema":"kungfu.durability.powercut-verification/v1"',
-    '"passed":true',
-    'KF_GUEST_EXIT mode=verify status=0',
-  ];
-  const verifyOutput = await waitForLog(
-    verify,
-    verifyLog,
-    verifyMarkers,
-    180_000,
-  );
-  const verifyChild = childFacts(verify, data);
-  verify.kill('SIGTERM');
-  let verifyExit;
+  let write;
+  let verify;
   try {
-    verifyExit = await waitForExit(verify);
-  } catch {
-    verify.kill('SIGKILL');
-    verifyExit = await waitForExit(verify);
-  }
-
-  const verificationLine = verifyOutput
-    .split(/\r?\n/u)
-    .find((line) =>
-      line.includes('kungfu.durability.powercut-verification/v1'),
+    write = startQemu(
+      qemuArgs({
+        workspace,
+        rootfs: writeRootfs,
+        data,
+        dataFormat,
+        cacheMode,
+        aioMode,
+        kernelRelease: trial.kernel_release,
+        kernelArgs: `root=/dev/vda rw rootwait console=ttyS0 panic=-1 init=/opt/kungfu/powercut_guest_init kf_mode=write kf_profile=${trial.profile} kf_fault=${trial.fault}`,
+      }),
+      writeLog,
     );
-  if (!verificationLine) throw new Error('verification JSON line missing');
-  const start = verificationLine.indexOf('{');
-  const end = verificationLine.lastIndexOf('}');
-  const verification = JSON.parse(verificationLine.slice(start, end + 1));
+    fs.writeFileSync(pidFile, `${write.pid}\n`, { flag: 'wx' });
+    await waitForLog(write, writeLog, [trial.arm_marker], 180_000);
+    const writeChild = childFacts(write, data);
+    write.kill('SIGKILL');
+    const writeExit = await waitForExit(write);
+    if (writeExit.signal !== 'SIGKILL') {
+      throw new Error(
+        `write QEMU exit was not SIGKILL: ${JSON.stringify(writeExit)}`,
+      );
+    }
 
-  return {
-    id: trial.id,
-    profile: trial.profile,
-    fault: trial.fault,
-    status: 'passed',
-    expected_durable_sequence: trial.expected_durable_sequence,
-    verification,
-    write_child: writeChild,
-    write_exit: writeExit,
-    verify_child: verifyChild,
-    verify_exit: verifyExit,
-    evidence: {
-      write_log: path.relative(workspace, writeLog),
-      write_log_sha256: await sha256(writeLog),
-      verify_log: path.relative(workspace, verifyLog),
-      verify_log_sha256: await sha256(verifyLog),
-      data_image: path.relative(workspace, data),
-      data_image_sha256: await sha256(data),
-    },
-  };
+    verify = startQemu(
+      qemuArgs({
+        workspace,
+        rootfs: verifyRootfs,
+        data,
+        dataFormat,
+        cacheMode,
+        aioMode,
+        kernelRelease: trial.kernel_release,
+        kernelArgs: `root=/dev/vda rw rootwait console=ttyS0 panic=-1 init=/opt/kungfu/powercut_guest_init kf_mode=verify kf_min=${trial.expected_durable_sequence.minimum} kf_max=${trial.expected_durable_sequence.maximum}`,
+      }),
+      verifyLog,
+    );
+    const verifyMarkers = [
+      '"schema":"kungfu.durability.powercut-verification/v1"',
+      '"passed":true',
+      'KF_GUEST_EXIT mode=verify status=0',
+    ];
+    const verifyOutput = await waitForLog(
+      verify,
+      verifyLog,
+      verifyMarkers,
+      180_000,
+    );
+    const verifyChild = childFacts(verify, data);
+    verify.kill('SIGTERM');
+    let verifyExit;
+    try {
+      verifyExit = await waitForExit(verify);
+    } catch {
+      verify.kill('SIGKILL');
+      verifyExit = await waitForExit(verify);
+    }
+
+    const verificationLine = verifyOutput
+      .split(/\r?\n/u)
+      .find((line) =>
+        line.includes('kungfu.durability.powercut-verification/v1'),
+      );
+    if (!verificationLine) throw new Error('verification JSON line missing');
+    const start = verificationLine.indexOf('{');
+    const end = verificationLine.lastIndexOf('}');
+    const verification = JSON.parse(verificationLine.slice(start, end + 1));
+
+    return {
+      id: trial.id,
+      profile: trial.profile,
+      fault: trial.fault,
+      seed: trial.seed ?? null,
+      data_format: dataFormat,
+      cache_mode: cacheMode,
+      aio_mode: aioMode,
+      status: 'passed',
+      expected_durable_sequence: trial.expected_durable_sequence,
+      verification,
+      write_child: writeChild,
+      write_exit: writeExit,
+      verify_child: verifyChild,
+      verify_exit: verifyExit,
+      evidence: {
+        write_log: path.relative(workspace, writeLog),
+        write_log_sha256: await sha256(writeLog),
+        verify_log: path.relative(workspace, verifyLog),
+        verify_log_sha256: await sha256(verifyLog),
+        data_image: path.relative(workspace, data),
+        data_image_sha256: await sha256(data),
+      },
+    };
+  } finally {
+    await stopChild(write);
+    await stopChild(verify);
+  }
 }
 
 async function main() {
