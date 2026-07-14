@@ -11,7 +11,7 @@ test('the main Agent Console defaults to the workspace assistant', () => {
   assert.equal(consoleScopeId('atlas', {}), 'assistant:atlas');
 });
 
-test('a contextual Go drawer selects only its stable work console', () => {
+test('a contextual Go work surface selects only its stable work console', () => {
   const params = {
     workProfileId: 'kungfu.mission-control',
     workEntityType: 'go',

@@ -51,6 +51,7 @@ import {
 } from './dashboard-status';
 import { createLatestRefresh } from './latest-refresh';
 import {
+  GOAL_DETAIL_COMPANION_WIDTH,
   GoalCardField,
   GoalDetailDrawer,
   MissionSituationOverview,
@@ -1018,6 +1019,9 @@ function AtlasProjectionView({
           workSystemTimeCut: dashboardCut || new Date().toISOString(),
           contextTitle: goal.title || goal.goal_id,
           contextSubtitle: currentMission?.title || goal.mission_id || 'Go',
+          contextPlacement: 'left-of-companion',
+          contextCompanionWidth: GOAL_DETAIL_COMPANION_WIDTH,
+          autoStart: 'true',
         };
         if (shell.openContextualView) {
           shell.openContextualView('terminal', consoleParams);

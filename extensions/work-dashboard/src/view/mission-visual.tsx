@@ -36,6 +36,8 @@ const COLORS = {
   violet: '#b59cff',
 };
 
+export const GOAL_DETAIL_COMPANION_WIDTH = 'min(460px, 48%)';
+
 const TRUST_COLORS: Record<VisualTrustState, string> = {
   established: COLORS.green,
   partial: COLORS.amber,
@@ -1110,7 +1112,7 @@ export function GoalDetailDrawer({
         top: 0,
         right: 0,
         bottom: 0,
-        width: 'min(460px, 92vw)',
+        width: 'var(--kf-contextual-companion-width, min(460px, 92vw))',
         display: 'flex',
         flexDirection: 'column',
         background: '#151b23',

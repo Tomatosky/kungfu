@@ -1234,7 +1234,7 @@ export type Shell = {
   // cross-kfx navigation with parameters; params reach the target view
   open: (kfxId: string, params?: Record<string, string>) => void;
   // Present a KFX beside the current view without replacing its navigation
-  // context. The reference GUI renders this as a right-side contextual drawer;
+  // context. The reference GUI supports both overlay and companion layouts;
   // hosts that do not support contextual presentation leave these undefined.
   openContextualView?: (kfxId: string, params?: Record<string, string>) => void;
   closeContextualView?: () => void;

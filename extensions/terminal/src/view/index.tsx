@@ -51,6 +51,7 @@ import {
   availableAgentRuntimeProfiles,
   rememberDiscoveredAgentRuntimeProfile,
 } from './agent-runtime-catalog';
+import { workConsoleAutoLaunch } from './auto-launch';
 import {
   assistantConsoleId,
   consoleScopeId,
@@ -916,6 +917,8 @@ function SessionWorkspace({
   );
   const [catalogBusy, setCatalogBusy] = React.useState(true);
   const [catalogError, setCatalogError] = React.useState('');
+  const [workspaceHydrated, setWorkspaceHydrated] = React.useState(!domain);
+  const [autoLaunchBusy, setAutoLaunchBusy] = React.useState(false);
   const [consoleRegistry, setConsoleRegistry] =
     React.useState<WorkConsoleRegistry>(() =>
       domain
@@ -943,6 +946,7 @@ function SessionWorkspace({
   // ephemeral. `hydrated` blocks the save effect until the initial restore has
   // read the stored layout, so mounting never clobbers it with an empty set.
   const hydrated = React.useRef(false);
+  const autoLaunchAttempts = React.useRef(new Set<string>());
 
   React.useEffect(() => {
     setSelectedConsoleId(defaultConsoleId);
@@ -1039,6 +1043,7 @@ function SessionWorkspace({
   React.useEffect(() => {
     if (!domain) {
       hydrated.current = true;
+      setWorkspaceHydrated(true);
       return;
     }
     // Read synchronously before the save effect can run, so the stored layout
@@ -1123,6 +1128,7 @@ function SessionWorkspace({
         );
         if (liveWindows.length > 0) shell.restoreSessionWindows?.(liveWindows);
         hydrated.current = true;
+        setWorkspaceHydrated(true);
         // the pane-set change triggers the tray refresh effect below; no need
         // to call refresh() here (it is declared later)
       }
@@ -1382,6 +1388,40 @@ function SessionWorkspace({
     ],
   );
 
+  const runtimeProfiles = React.useMemo(
+    () => availableAgentRuntimeProfiles(catalog),
+    [catalog],
+  );
+  React.useEffect(() => {
+    const request = workConsoleAutoLaunch({
+      enabled: shell.params.autoStart === 'true',
+      requestedConsoleId: requestedWorkConsoleId,
+      workspaceHydrated,
+      catalogBusy,
+      profiles: runtimeProfiles,
+      hasBoundPane: panes.some(
+        (pane) => pane.consoleId === requestedWorkConsoleId,
+      ),
+      attemptedKeys: autoLaunchAttempts.current,
+    });
+    if (!request) return;
+    autoLaunchAttempts.current.add(request.key);
+    setAutoLaunchBusy(true);
+    void launch(request.profile)
+      .catch((error) =>
+        setNotice(`Agent launch failed: ${(error as Error).message}`),
+      )
+      .finally(() => setAutoLaunchBusy(false));
+  }, [
+    catalogBusy,
+    launch,
+    panes,
+    requestedWorkConsoleId,
+    runtimeProfiles,
+    shell.params.autoStart,
+    workspaceHydrated,
+  ]);
+
   const markAttempt = React.useCallback(
     (runId: string, status: 'running' | 'detached' | 'exited' | 'orphaned') => {
       setConsoleRegistry((current) => ({
@@ -1534,9 +1574,9 @@ function SessionWorkspace({
       }}
     >
       <LauncherStrip
-        profiles={availableAgentRuntimeProfiles(catalog)}
+        profiles={runtimeProfiles}
         bindingLabel={bindingLabel}
-        busy={catalogBusy}
+        busy={catalogBusy || autoLaunchBusy}
         loaded={catalog !== null}
         error={catalogError}
         onLaunch={(profile) => {
@@ -1692,7 +1732,9 @@ function SessionWorkspace({
             fontSize: 12,
           }}
         >
-          launch a session above — panes stack here, several visible at once
+          {autoLaunchBusy
+            ? 'starting the bound Agent session…'
+            : 'launch a session above — panes stack here, several visible at once'}
         </div>
       ) : (
         <ResizablePaneLayout

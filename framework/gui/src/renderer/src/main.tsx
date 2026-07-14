@@ -59,6 +59,7 @@ import {
 } from '../../sandbox/channels';
 import { publishRefresh } from '../../sandbox/refresh';
 import { createKfxSharedModules } from '../shared-modules';
+import { contextualViewLayout } from './contextual-view-layout';
 import {
   loadKungfuConfig,
   normalizedUiConfig,
@@ -1269,6 +1270,9 @@ function App() {
   const contextualShell: Shell = contextualView
     ? { ...shell, params: contextualView.params }
     : shell;
+  const contextualLayout = contextualView
+    ? contextualViewLayout(contextualView.params)
+    : null;
   const settingsKfx =
     enabled.find((k) => k.id === 'settings') ??
     loaded.entries.find((k) => k.id === 'settings') ??
@@ -1804,6 +1808,12 @@ function App() {
                 minHeight: 0,
                 overflow: 'hidden',
                 position: 'relative',
+                ...(contextualLayout?.companionWidth
+                  ? ({
+                      '--kf-contextual-companion-width':
+                        contextualLayout.companionWidth,
+                    } as React.CSSProperties)
+                  : {}),
               }}
             >
               {activeKfx && activeKfx.tier === 'sandboxed-ipc' ? (
@@ -1845,17 +1855,22 @@ function App() {
                   style={{
                     position: 'absolute',
                     top: 0,
-                    right: 0,
+                    right: contextualLayout?.right ?? 0,
                     bottom: 0,
+                    left: contextualLayout?.left ?? 'auto',
                     zIndex: 100,
-                    width: 'min(760px, 68vw)',
-                    minWidth: 480,
+                    width: contextualLayout?.width ?? 'min(760px, 68vw)',
+                    minWidth: contextualLayout?.minWidth ?? 480,
                     display: 'flex',
                     flexDirection: 'column',
                     overflow: 'hidden',
                     background: '#1e1e1e',
-                    borderLeft: '1px solid #3c3c3c',
-                    boxShadow: '-18px 0 46px rgba(0, 0, 0, 0.48)',
+                    borderLeft:
+                      contextualLayout?.borderLeft ?? '1px solid #3c3c3c',
+                    borderRight: contextualLayout?.borderRight ?? 'none',
+                    boxShadow:
+                      contextualLayout?.boxShadow ??
+                      '-18px 0 46px rgba(0, 0, 0, 0.48)',
                     animation: 'kf-contextual-view-in 140ms ease-out',
                   }}
                 >
