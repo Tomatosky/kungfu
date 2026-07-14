@@ -9,12 +9,21 @@ on:
         description: "Optional immutable Kungfu source ref; defaults to the dispatched ref"
         required: false
         default: ""
+      focused-gates:
+        description: "Optional comma-separated Gate ids for a focused diagnostic measurement"
+        required: false
+        default: ""
+      focused-platforms:
+        description: "Comma-separated platforms for focused measurement: linux,macos,windows"
+        required: false
+        default: "linux,macos,windows"
 
 permissions:
   contents: read
 
 jobs:
   measure:
+    if: ${{ inputs.focused-gates == '' }}
     uses: kungfu-systems/buildchain/.github/workflows/.gate-profile.yml@90e8e72ed5ecbfa30d719074f53e08a4cfb811fd
     with:
       source-ref: ${{ inputs.source-ref || github.sha }}
@@ -32,3 +41,66 @@ jobs:
         {"SHIFU_NATIVE":"1","KUNGFU_BUILDCHAIN_SOURCE_BUILD":"1"}
       shifu-cache-profile-ref: ${{ vars.SHIFU_CACHE_PROFILE_REF }}
       shifu-cache-profile-digest: ${{ vars.SHIFU_CACHE_PROFILE_DIGEST }}
+
+  focused:
+    if: ${{ inputs.focused-gates != '' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: linux-x64
+            platform: linux
+            runner: '["self-hosted","Linux","X64","kungfu-build-v4-linux-x64"]'
+            capabilities: '["native-toolchain","network","node","product-artifacts","publication-evidence","rust"]'
+          - id: macos-arm64
+            platform: macos
+            runner: '["self-hosted","macOS","ARM64","kungfu-build-v4-macos-arm64"]'
+            capabilities: '["native-toolchain","node","product-artifacts","rust"]'
+          - id: windows-x64
+            platform: windows
+            runner: '["self-hosted","Windows","X64","kungfu-build-v4-windows-x64"]'
+            capabilities: '["native-toolchain","node","product-artifacts","rust"]'
+    name: Focused Gate measurement / ${{ matrix.id }}
+    runs-on: ${{ fromJSON(matrix.runner) }}
+    steps:
+      - name: Checkout locked consumer source
+        if: ${{ contains(format(',{0},', inputs.focused-platforms), format(',{0},', matrix.platform)) }}
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ inputs.source-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Setup Node.js
+        if: ${{ contains(format(',{0},', inputs.focused-platforms), format(',{0},', matrix.platform)) }}
+        uses: actions/setup-node@v6.4.0
+        with:
+          node-version: 24
+
+      - name: Run focused Gate measurement
+        if: ${{ contains(format(',{0},', inputs.focused-platforms), format(',{0},', matrix.platform)) }}
+        id: measurement
+        continue-on-error: true
+        env:
+          KUNGFU_BUILDCHAIN_SOURCE_BUILD: "1"
+          KUNGFU_GATE_MEASUREMENT_CAPABILITIES: ${{ matrix.capabilities }}
+          KUNGFU_GATE_MEASUREMENT_FOCUS: ${{ inputs.focused-gates }}
+          KUNGFU_GATE_MEASUREMENT_RECEIPT: .buildchain/gates/focused/${{ matrix.id }}/receipt.json
+          SHIFU_CACHE_PROFILE_DIGEST: ${{ vars.SHIFU_CACHE_PROFILE_DIGEST }}
+          SHIFU_CACHE_PROFILE_REF: ${{ vars.SHIFU_CACHE_PROFILE_REF }}
+          SHIFU_NATIVE: "1"
+        # shifu-entry-contract: allow focused measurement bootstrap before the source Shifu lifecycle is prepared
+        run: node scripts/run-focused-gate-measurement.mjs
+
+      - name: Upload focused Gate receipt
+        if: ${{ always() && contains(format(',{0},', inputs.focused-platforms), format(',{0},', matrix.platform)) }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: kungfu-focused-gate-measurement-${{ matrix.id }}-${{ inputs.source-ref || github.sha }}
+          path: .buildchain/gates/focused/${{ matrix.id }}/receipt.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Propagate focused Gate result
+        if: ${{ contains(format(',{0},', inputs.focused-platforms), format(',{0},', matrix.platform)) && steps.measurement.outcome != 'success' }}
+        # shifu-entry-contract: allow workflow outcome propagation after the failed Gate receipt is retained
+        run: node -e "process.exit(1)"
