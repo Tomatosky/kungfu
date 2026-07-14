@@ -276,9 +276,13 @@ test(
     assert.deepEqual(
       report.evidence.map((evidence) => evidence.id),
       [
-        'three-platform-process-crash',
-        'single-host-disposable-qemu',
+        'live-durable-receipts',
+        'projection-authority-candidate',
+        'agent120-fault-campaign',
+        'agent120-durability-slo',
         'same-office-offhost-restore',
+        'agent120-clean-host-restart',
+        'production-candidate-admission',
       ],
     );
     assert.deepEqual(
