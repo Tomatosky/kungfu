@@ -67,21 +67,38 @@ test('Agent Console binds the current active exact Profile root without an asses
   );
 });
 
-test('Agent Console refuses a Profile whose exact root is not active', async () => {
+test('Agent Console keeps using the active lifecycle root while an upgrade waits for approval', async () => {
   const catalog = managedProfile().catalog;
   assert.ok(catalog);
-  await assert.rejects(
-    resolveMissionControlProfileRoot(
+  assert.equal(
+    await resolveMissionControlProfileRoot(
       profileWith(
         managedProfile({
+          health: 'inactive',
           catalog: {
             ...catalog,
+            profileSuiteRoot: `sha256:${'c'.repeat(64)}`,
             activeExactRoot: false,
           },
         }),
       ),
     ),
-    /update requires approval in Work Dashboard/,
+    ROOT,
+  );
+});
+
+test('Agent Console refuses a Profile without an active lifecycle root', async () => {
+  await assert.rejects(
+    resolveMissionControlProfileRoot(
+      profileWith(
+        managedProfile({
+          lifecycleState: 'qualified',
+          activated: false,
+          health: 'inactive',
+        }),
+      ),
+    ),
+    /setup is not complete/,
   );
 });
 

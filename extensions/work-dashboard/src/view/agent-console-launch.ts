@@ -16,14 +16,14 @@ export async function resolveMissionControlProfileRoot(
   if (!current) {
     throw new Error('Mission Control Profile is not installed');
   }
-  if (current.catalog && !current.catalog.activeExactRoot) {
-    throw new Error(
-      'Mission Control Profile update requires approval in Work Dashboard',
-    );
-  }
+  // The lifecycle root remains the active authority while a newer packaged
+  // source waits for explicit upgrade approval. catalog.activeExactRoot
+  // compares that available source with the lifecycle root; it must not make
+  // existing Go-bound Consoles unusable during the approval window.
   if (
-    current.health !== 'active' ||
-    !current.catalog ||
+    current.lifecycleState !== 'activated' ||
+    !current.activated ||
+    current.removed ||
     !current.profileSuiteRoot
   ) {
     throw new Error('Mission Control Profile setup is not complete');
