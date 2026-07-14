@@ -234,7 +234,7 @@ one Episode must not silently invalidate unrelated Episodes.
 | D. State-service separation and durable ingest | **partially implemented** | coordinator no longer owns the projection store directly; the in-process state-service boundary has independent lifecycle, shadow comparison, single-host owner/writer fencing, and an explicit live candidate append/barrier/reconcile seam. Moving business-journal ingestion out of coordinator and completing production admission remain pending |
 | E. Independent KFDL segment/checkpoint backend | **implemented (test-only shadow)** | append-only binary records, SHA-256 coverage, rollover, dual-slot atomic checkpoint, explicit data/checkpoint/directory barriers, persisted request deduplication, cooperative deadline/unknown handling, typed service-unavailable, fenced generations, fail-stop unknown append sessions, and retained tails; production profiles remain disabled |
 | F. Snapshot-through-T projection bootstrap | **implemented (candidate edge)** | versioned binary snapshot, integrity/schema/cut verification, strict replay-after-T, typed required/optional/none outcomes, deterministic rebuild, same-cut compatibility parity, complete hydration validation before required-peer registration, state emission before `RequestStart`, and state-service ownership; the explicit path is default-off and production-ineligible, while default cutover and bridge deletion remain pending |
-| G. Local strong-durability qualification | **implemented for a named test/disposable envelope** | retained three-platform process-crash reports and a disposable Linux/ext4 QEMU run cover 20/20 VM cuts, real ENOSPC, repeated reopen, fsck/hash, Episode load, and same-host external-path restore; the machine-readable product capability remains fail-closed for production, physical-host power loss, off-host backup, and independent failure domains |
+| G. Local strong-durability qualification | **implemented for named process/disposable envelopes** | retained three-platform process-crash reports plus the agent-120 Linux/ext4 candidate run cover 360/360 seeded VM/device-model cuts, real ENOSPC, repeated reopen, fsck/hash, Episode load, and same-host external-path restore; the machine reports remain fail-closed for production, physical-host power loss, off-host backup, and independent failure domains |
 | H. Single-host end-to-end performance release gate | **planned** | after correctness passes, qualify absolute latency, throughput, long-tail, resource, replay, recovery, and restore ceilings without weakening semantics |
 | I. Replication and HA | **future** | add a separate replicated watermark and policy only after local durability is trustworthy |
 
@@ -243,15 +243,18 @@ Public product language must name the exact evidence envelope and continue to
 refuse physical-host power-loss, off-host-backup, or production durability
 claims until separately retained evidence and release admission exist.
 
-A v2 production-candidate campaign harness now freezes the next local evidence
-ceiling without widening Stage G: 360 required trials cross two durability
-profiles, ten cut points, raw/qcow2 virtual data devices, three QEMU cache
-models, and three deterministic seeds. It fsyncs every pass or failure before
-continuing and refuses to reuse an incomplete workspace. Until its retained
-agent-120 report is present and admitted, it is an executable candidate rather
-than additional qualification. Even after a pass it can qualify only the named
-QEMU device-model envelopes, never physical NVMe cache or sudden host power
-loss.
+A retained v2 production-candidate campaign now reaches the current local
+evidence ceiling without widening Stage G: 360/360 required trials passed
+across two durability profiles, ten cut points, raw/qcow2 virtual data devices,
+three QEMU cache models, and three deterministic seeds. The harness fsynced
+every result before continuing and used fresh data and verification boots. The
+adjacent process and institutional reports also retain complete Episode load,
+real ENOSPC, three whole-guest reopens, fsck/hash, and same-host offline
+backup/restore evidence. See the
+[agent-120 evidence index](evidence/durability/791e09a70/README.md). These
+reports qualify only their named process and QEMU device-model envelopes,
+never physical NVMe cache, sudden host power loss, off-host backup, an
+independent failure domain, or a production profile.
 
 ## Qualification standard
 

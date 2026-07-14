@@ -57,24 +57,25 @@ reported as written will survive sudden power loss. The current production mmap
 policy rejects unqualified `asynchronous` and `durable` modes rather than
 silently treating OS writeback as a durability contract.
 
-The KFDL v2 append/checkpoint backend is implemented only as a test-qualified
-shadow component. Retained evidence covers six named macOS/APFS, Linux/ext4,
-and Windows/NTFS process-crash reports plus 20/20 abrupt cuts, real ENOSPC,
-repeated fresh reopen, fsck/hash, Episode load, and same-host external-path
-restore in a disposable Linux/ext4 QEMU envelope. The C++ capability authority,
-projected through Python, Node, and `kungfu agent capabilities --json`, binds
-those evidence digests while reporting `production_eligible: false`.
+The KFDL v2 append/checkpoint backend remains production-ineligible, with
+default-off live receipt and projection candidate seams. Retained evidence
+covers six named macOS/APFS, Linux/ext4, and Windows/NTFS process-crash reports
+plus an agent-120 Linux/ext4 campaign with 360/360 seeded abrupt VM cuts across
+six virtual device/cache envelopes, real ENOSPC, repeated fresh reopen,
+fsck/hash, Episode load, and same-host external-path restore. The reports keep
+physical-host, physical-device, off-host, independent-failure-domain, and
+production claims false.
 
 What is **not yet built or qualified for production**:
 
-- activation of KFDL ingestion as a dedicated service independent of
-  coordinator and projection lifecycle;
-- stable durable/projection watermarks and producer-visible durability receipts;
-- `durable_group` and `durable_sync` end-to-end profiles;
+- default-on activation of KFDL ingestion as a dedicated service independent
+  of coordinator and projection lifecycle;
+- production admission for the default-off `durable_group` and `durable_sync`
+  request/receipt/reconciliation candidate path;
 - deterministic recovery of an acknowledged frontier across journal, Episode,
   payload, and checkpoint boundaries;
-- physical-host restart and power-loss qualification on macOS, Linux, or
-  Windows;
+- physical-host restart and sudden-power-loss qualification on macOS, Linux,
+  or Windows;
 - off-host backup and restore on an independent failure domain;
 - exact production device/cache qualification and release admission.
 

@@ -110,6 +110,7 @@ export function sourceAcceptancePlan(files) {
         'framework/core/tests/qualification/durability/run.test.mjs',
         'framework/core/tests/qualification/durability/powercut_plan.test.mjs',
         'framework/core/tests/qualification/durability/fault_campaign.test.mjs',
+        'framework/core/tests/qualification/durability/candidate_evidence.test.mjs',
         'framework/core/tests/qualification/durability/retained_evidence.test.mjs',
         'framework/core/tests/qualification/durability/institutional_evidence.test.mjs',
         'framework/core/tests/qualification/durability/product_contract.test.mjs',
