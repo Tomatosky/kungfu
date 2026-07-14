@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+#include <ranges>
+
 #include <kungfu/yijinjing/journal/journal.h>
 #include <kungfu/yijinjing/journal/page.h>
 #include <kungfu/yijinjing/time.h>
@@ -114,16 +116,11 @@ void reader::next() {
 
 void reader::sort_without_buffer() {
   buffer_built_ = false;
-  // those could be refacted to std::ranges after cxx==20
-  std::vector<journal_ptr> has_data_journals;
-  for (auto &pair : journals_) {
-    auto &journal = pair.second;
-    if (journal->current_frame()->has_data()) {
-      has_data_journals.push_back(journal);
-    }
-  }
-  auto min_journal_it = std::max_element(has_data_journals.cbegin(), has_data_journals.cend(), later{});
-  if (min_journal_it != has_data_journals.end()) {
+  auto has_data_journals = journals_ | std::views::values | std::views::filter([](const journal_ptr &journal) {
+                             return journal->current_frame()->has_data();
+                           });
+  auto min_journal_it = std::ranges::max_element(has_data_journals, later{});
+  if (min_journal_it != std::ranges::end(has_data_journals)) {
     current_ = *min_journal_it;
   }
 }
