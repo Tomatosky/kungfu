@@ -4,8 +4,8 @@ doc_type: architecture-decision
 adr_id: ADR-0085
 decision_status: accepted
 implementation_status: staged
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/849, https://github.com/kungfu-systems/kungfu/pull/851]
-qualification_refs: [framework/agent-session/tests/codex-app-server-contract.test.mjs, framework/agent-session/tests/codex-app-server-schema.native.test.mjs, framework/agent-session/tests/codex-app-server-runtime.test.mjs, framework/agent-session/schemas/codex-app-server/codex-v0.144.3-stable-schema-manifest.json]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/849, https://github.com/kungfu-systems/kungfu/pull/851, https://github.com/kungfu-systems/kungfu/pull/855]
+qualification_refs: [framework/agent-session/tests/codex-app-server-contract.test.mjs, framework/agent-session/tests/codex-app-server-schema.native.test.mjs, framework/agent-session/tests/codex-app-server-runtime.test.mjs, framework/agent-session/tests/codex-app-server-interaction.test.mjs, framework/agent-session/schemas/codex-app-server/codex-v0.144.3-stable-schema-manifest.json]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -168,6 +168,14 @@ request and server-request ids are correlated exactly, every post-handshake
 write carries attempt/generation/process fencing, and the in-memory consumer
 queue freezes admission before its hard bound. Runtime or stdout loss leaves the
 old attempt outcome unknown and never triggers input replay.
+
+Stage 3 is delivered by PR #855: the provider-private interaction adapter
+consumes the fenced runtime event sequence and produces deterministic plans and
+typed receipts for lifecycle, item, tool, approval, usage, terminal, and error
+traffic. Exact request/thread/turn/item targeting, default-deny controls, one
+terminal boundary per turn, contiguous ordering, and immutable plan roots fail
+closed without upgrading delivery into semantic work outcome or Profile/KFD
+work state.
 
 ## Rejected alternatives
 
