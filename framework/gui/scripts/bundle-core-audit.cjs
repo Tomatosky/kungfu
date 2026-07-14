@@ -116,6 +116,11 @@ function auditPackagedApp(appDir, options = {}) {
   const resources = path.join(appDir, 'Contents', 'Resources');
   const runtimeDir = path.join(resources, 'kungfu');
   const appNodeModules = path.join(resources, 'app', 'node_modules');
+  const agentSessionPackage = path.join(
+    appNodeModules,
+    '@kungfu-tech',
+    'agent-session',
+  );
 
   if (!exists(runtimeDir)) {
     throw new Error(`missing bundled runtime directory: ${runtimeDir}`);
@@ -182,6 +187,18 @@ function auditPackagedApp(appDir, options = {}) {
   );
 
   const failures = [];
+  for (const required of [
+    'package.json',
+    path.join('src', 'product-client.mjs'),
+    path.join('src', 'product-worker.mjs'),
+  ]) {
+    const requiredPath = path.join(agentSessionPackage, required);
+    if (!exists(requiredPath)) {
+      failures.push(
+        `missing packaged Agent Session runtime file: ${requiredPath}`,
+      );
+    }
+  }
   const spawnHelpers = nodePtySpawnHelpers(appDir);
   if (spawnHelpers.length === 0) {
     failures.push('missing packaged node-pty Darwin spawn-helper');

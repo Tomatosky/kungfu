@@ -17,6 +17,18 @@ files:
   - "!node_modules/@kungfu-tech/**/build{,/**}"
   - "!node_modules/@kungfu-tech/**/dist/kungfu{,/**}"
 extraResources:
+  # pnpm workspace packages are symlinked outside framework/gui, so
+  # electron-builder does not follow @kungfu-tech/agent-session into the app.
+  # Ship the runtime package explicitly: product-client resolves its detached
+  # worker beside itself and node-pty from the enclosing app/node_modules.
+  - from: ../agent-session
+    to: app/node_modules/@kungfu-tech/agent-session
+    filter:
+      - package.json
+      - src/**/*
+      - kungfu-agent-session.contract.json
+      - kungfu-codex-app-server.contract.json
+      - schemas/**/*
   - from: ../core/dist/kungfu
     to: kungfu
   - from: resources/cli
