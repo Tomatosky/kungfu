@@ -125,6 +125,7 @@ function subsetCaps(runtime: Runtime, entry: KfxEntry): KfxCapabilities | null {
     atlas: runtime.atlas,
     profile: runtime.profile,
     agentRuntime: runtime.agentRuntime,
+    agentSession: runtime.agentSession,
     workspace: runtime.workspace,
   } as Record<string, unknown>;
   const subset: Record<string, unknown> = {};
@@ -156,6 +157,7 @@ function sandboxSubset(
     atlas: runtime.atlas,
     profile: runtime.profile,
     agentRuntime: runtime.agentRuntime,
+    agentSession: runtime.agentSession,
     workspace: runtime.workspace,
   };
   const subset: Record<string, Record<string, unknown>> = {};

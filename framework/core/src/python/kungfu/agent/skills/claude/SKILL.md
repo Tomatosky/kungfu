@@ -31,6 +31,8 @@ kungfu agent verify --json
 kungfu agent status --target claude --json
 kungfu agent console current --json
 kungfu agent runtime list --json
+kungfu agent session capabilities --json
+kungfu agent session list --json
 ```
 
 Use the smallest mode that preserves evidence:
@@ -38,6 +40,11 @@ Use the smallest mode that preserves evidence:
 - When `console current` reports `available: true`, preserve its Console,
   attempt, optional WorkRef, exact Profile roots, and envelope root. Query its
   declared entrypoints before claiming what Kungfu can do.
+
+- Use `kungfu agent session` for the shared Capsule action port. Review the
+  exact `plan-start` or `plan-control` root before executing the matching
+  action. A delivery receipt proves PTY delivery only; mutate and close work
+  through public Profile/KFD-3 actions and their receipts.
 
 - `report` for structured work facts.
 - `atlas-projection` when importing an Atlas-style mission/goal/worktree repo

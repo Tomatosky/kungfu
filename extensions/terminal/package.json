@@ -48,7 +48,8 @@
           "terminal",
           "domain",
           "rewind",
-          "agentRuntime"
+          "agentRuntime",
+          "agentSession"
         ]
       }
     }

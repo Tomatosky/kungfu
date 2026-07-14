@@ -4,6 +4,7 @@
 // the moat: the renderer reaches the runtime directly, no IPC copy.
 import {
   type AgentRuntime,
+  type AgentSession,
   type Atlas,
   type DomainState,
   type KfNativeBinding,
@@ -35,6 +36,7 @@ import {
   ATLAS_CLI_EXEC_CHANNEL,
   PROFILE_CLI_EXEC_CHANNEL,
 } from '../../sandbox/channels';
+import { createAgentSessionProxy } from './agent-session-proxy';
 import { type IpcRendererLike, createTerminalProxy } from './terminal-proxy';
 
 declare global {
@@ -138,6 +140,7 @@ export type Runtime = {
   atlas: Atlas | null;
   profile: Profile | null;
   agentRuntime: AgentRuntime | null;
+  agentSession: AgentSession | null;
   workspace: WorkspaceGuidance | null;
 };
 
@@ -186,6 +189,7 @@ function createRuntime(): Runtime {
     atlas: null,
     profile: null,
     agentRuntime: null,
+    agentSession: null,
     workspace: null,
   };
   if (env.KF_WORKSPACE_STATE === 'selected-uninitialized') {
@@ -318,6 +322,7 @@ function createRuntime(): Runtime {
         return result.stdout;
       },
     });
+    const agentSession = createAgentSessionProxy(atlasIpc);
     const workspace = openWorkspaceGuidance(cliOptions);
     const remoteWork = openRemoteWork({
       binding,
@@ -371,6 +376,7 @@ function createRuntime(): Runtime {
       atlas,
       profile,
       agentRuntime,
+      agentSession,
       workspace,
     };
   } catch (e) {

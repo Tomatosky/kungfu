@@ -350,6 +350,7 @@
               },
               "backend": {
                 "enum": [
+                  "capsule",
                   "tmux",
                   "direct"
                 ]

@@ -10,6 +10,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CPP = /\.(?:c|cc|cpp|cxx|h|hh|hpp|hxx)$/;
 const WEB = /\.(?:ts|tsx|js|jsx|mjs|cjs|json|jsonc|css)$/;
+const isWin = process.platform === 'win32';
 
 /** @typedef {{label: string, command: string, args: string[], cwd?: string, env?: NodeJS.ProcessEnv}} Command */
 
@@ -26,6 +27,46 @@ function git(args) {
 function gitMaybe(args) {
   const result = spawnSync('git', args, { cwd: ROOT, encoding: 'utf8' });
   return result.status === 0 ? result.stdout.trim() : '';
+}
+
+function commandAvailable(command) {
+  return (
+    spawnSync(isWin ? 'where' : 'which', [command], {
+      stdio: 'ignore',
+      shell: isWin,
+    }).status === 0
+  );
+}
+
+function commandProbe(command, args) {
+  return spawnSync(command, args, { encoding: 'utf8' });
+}
+
+export function sourcePythonCommand(args, available = commandAvailable) {
+  if (available('ruff')) return { command: 'ruff', args };
+  if (available('uvx')) return { command: 'uvx', args: ['ruff', ...args] };
+  throw new Error('source acceptance requires ruff or uvx');
+}
+
+export function sourceMypyCommand(
+  args,
+  available = commandAvailable,
+  probe = commandProbe,
+) {
+  if (available('mypy')) {
+    const result = probe('mypy', ['--version']);
+    const version = `${result.stdout || ''}${result.stderr || ''}`;
+    if (result.status === 0 && /(?:^|\n)mypy 1\.20\.2(?:\s|$)/.test(version)) {
+      return { command: 'mypy', args };
+    }
+  }
+  if (available('uvx')) {
+    return {
+      command: 'uvx',
+      args: ['--from', 'mypy==1.20.2', 'mypy', ...args],
+    };
+  }
+  throw new Error('source acceptance requires mypy 1.20.2 or uvx');
 }
 
 export function sourceMergeBase() {
@@ -121,6 +162,7 @@ export function sourceAcceptancePlan(files) {
         'framework/agent-session/tests/provider-adapters.test.mjs',
         'framework/agent-session/tests/interaction-port.test.mjs',
         'framework/agent-session/tests/codex-app-server-contract.test.mjs',
+        'framework/agent-session/tests/product-surface.test.mjs',
         'framework/core/tests/qualification/durability/run.test.mjs',
         'framework/core/tests/qualification/durability/powercut_plan.test.mjs',
         'framework/core/tests/qualification/durability/fault_campaign.test.mjs',
@@ -164,16 +206,21 @@ export function sourceAcceptancePlan(files) {
 
   const python = files.filter((file) => file.endsWith('.py'));
   if (python.length) {
+    const format = sourcePythonCommand([
+      'format',
+      '--check',
+      '--force-exclude',
+      ...python,
+    ]);
+    const lint = sourcePythonCommand(['check', '--force-exclude', ...python]);
     plan.push(
       {
         label: 'changed Python format',
-        command: 'ruff',
-        args: ['format', '--check', '--force-exclude', ...python],
+        ...format,
       },
       {
         label: 'changed Python lint',
-        command: 'ruff',
-        args: ['check', '--force-exclude', ...python],
+        ...lint,
       },
     );
   }
@@ -182,14 +229,15 @@ export function sourceAcceptancePlan(files) {
     file.startsWith('framework/core/src/python/'),
   );
   if (typedPython.length) {
+    const mypy = sourceMypyCommand([
+      '--config-file',
+      'pyproject.toml',
+      'src/python/kungfu',
+    ]);
     plan.push({
       label: 'Python type baseline',
-      command: 'mypy',
-      args: [
-        '--config-file',
-        'framework/core/pyproject.toml',
-        'framework/core/src/python/kungfu',
-      ],
+      ...mypy,
+      cwd: path.join(ROOT, 'framework/core'),
       env: {
         ...process.env,
         MYPY_CACHE_DIR: path.join(

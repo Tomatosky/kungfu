@@ -17,6 +17,7 @@ export * from './query.js';
 export * from './profile.js';
 export * from './agent-runtime.js';
 export * from './agent-console.js';
+export * from './agent-session.js';
 export * from './runtime.js';
 
 // The runtime-plane trust boundary (ADR-0013 / ADR-0014): the OS-sandbox

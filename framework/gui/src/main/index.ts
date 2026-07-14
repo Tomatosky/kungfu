@@ -46,6 +46,11 @@ import {
   WORKSPACE_SELECT_RECENT_CHANNEL,
 } from '../sandbox/channels';
 import { executeAgentRuntimeCli } from './agent-runtime-cli';
+import {
+  bindElectronAgentSessionHost,
+  bindLocalAgentSessionHost,
+  createMainAgentSessionHost,
+} from './agent-session-host';
 import { executeAtlasCli } from './atlas-cli';
 import {
   firstPartyManifestPath,
@@ -952,6 +957,25 @@ app.whenReady().then(() => {
     } catch (e) {
       console.log(`KF_TERMINAL_HOST_MAIN_FAIL ${(e as Error).message}`);
     }
+  }
+  try {
+    const agentSessionHost = createMainAgentSessionHost();
+    bindElectronAgentSessionHost(ipcMain, agentSessionHost);
+    if (process.platform !== 'win32') {
+      const endpointDir = path.join(
+        process.env.KF_RUNTIME_DIR || app.getPath('userData'),
+        'agent-session',
+      );
+      mkdirSync(endpointDir, { recursive: true, mode: 0o700 });
+      const endpoint = path.join(endpointDir, `surface-${process.pid}.sock`);
+      process.env.KUNGFU_AGENT_SESSION_ENDPOINT = endpoint;
+      const localHost = bindLocalAgentSessionHost(agentSessionHost, endpoint);
+      void localHost.ready.catch((error: Error) => {
+        console.log(`KF_AGENT_SESSION_RPC_FAIL ${error.message}`);
+      });
+    }
+  } catch (e) {
+    console.log(`KF_AGENT_SESSION_HOST_FAIL ${(e as Error).message}`);
   }
   // ADR-0016 stage 2 (flagged): let a session pop out of the in-shell grid into
   // its own restorable OS window. The handlers are global, so bind once; the

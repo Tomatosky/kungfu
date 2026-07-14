@@ -13,6 +13,8 @@ kungfu agent verify --json
 kungfu agent status --target codex --json
 kungfu agent console current --json
 kungfu agent runtime list --json
+kungfu agent session capabilities --json
+kungfu agent session list --json
 ```
 
 Kungfu is journal-first infrastructure for capturing local facts, replaying
@@ -32,6 +34,12 @@ the content-bound Console/attempt envelope. Preserve its WorkRef and exact
 Profile roots, then query its context/capability/Profile entrypoints. The
 Console is execution placement, not silent authority over an external source;
 its transcript is not completion proof.
+
+Agent Console presentation and KFD-3 use one Agent Session action surface.
+Discover it with `kungfu agent session capabilities --json`, then use
+`plan-start`/`start` or `plan-control`/the matching action against the returned
+exact root. These actions control Capsule delivery only. Work mutation and
+completion proof still belong to public Profile/KFD-3 actions and receipts.
 
 Use the modes this way:
 

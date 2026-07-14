@@ -48,6 +48,10 @@ export const ATLAS_CLI_EXEC_CHANNEL = 'kf-atlas-cli:exec';
 export const PROFILE_CLI_EXEC_CHANNEL = 'kf-profile-cli:exec';
 export const AGENT_RUNTIME_CLI_EXEC_CHANNEL = 'kf-agent-runtime-cli:exec';
 
+// GUI/CLI/KFD-3 parity surface for AgentSessionCapsule actions. This relay has
+// one self-describing invoke verb; it does not expose a private GUI spawn/write.
+export const AGENT_SESSION_CALL_CHANNEL = 'kf-agent-session:call';
+
 // main -> shell renderer: refresh product data without reloading the renderer.
 // The renderer owns native runtime handles, so Electron's page reload is not a
 // safe refresh mechanism.

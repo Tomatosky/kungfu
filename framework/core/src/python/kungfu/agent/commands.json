@@ -38,6 +38,12 @@
       "purpose": "Validate and return the content-bound envelope for this Console attempt, including its optional WorkRef and public KFD-3/Profile entrypoints."
     },
     {
+      "apiId": "kungfu.agent.session",
+      "name": "kungfu agent session <operation> --input - --json",
+      "maturity": "experimental",
+      "purpose": "Use the shared AgentSessionCapsule plan/action/status/receipt port from CLI or an embedded Agent."
+    },
+    {
       "apiId": "kungfu.agent.runtime.discover",
       "name": "kungfu agent runtime discover --json",
       "maturity": "experimental",

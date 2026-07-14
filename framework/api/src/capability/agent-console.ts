@@ -100,6 +100,7 @@ export async function buildAgentConsoleEnvelope(input: {
       capabilities: [
         'kungfu agent capabilities --json',
         'kungfu agent runtime list --json',
+        'kungfu agent session capabilities --json',
       ],
       profiles: ['kungfu profile manager --json'],
     },

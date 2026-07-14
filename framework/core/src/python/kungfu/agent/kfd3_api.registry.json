@@ -83,6 +83,16 @@
       "projections": ["commands.json", "capabilities-json", "provider-skill"]
     },
     {
+      "id": "kungfu.agent.session",
+      "surface": "cli-api-gui",
+      "name": "kungfu agent session <operation> --input - --json",
+      "purpose": "Invoke list/show/plan-start/start/attach/detach/status/snapshot/plan-control/acquire-control/release-control/instruct/send-key/interrupt/end through the same AgentSessionCapsule action port used by the GUI.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "runtime-click", "symbol": "session_action" },
+      "projections": ["commands.json", "capabilities-json", "provider-skill"]
+    },
+    {
       "id": "kungfu.agent.runtime",
       "surface": "cli",
       "name": "kungfu agent runtime",
