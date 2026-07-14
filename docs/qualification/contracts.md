@@ -170,10 +170,19 @@ ProcessRuntimeHost placement adapter, directly callable CoordinatorEngine
 no-fork seam, contract-owned operation registry, and RuntimeCapabilityBroker
 atomic invocation seam are implemented. Storage-only qualification proves that
 no activation client is constructed; live-required qualification proves that a
-callback is not accepted without an exact semantic ready receipt. Generation-
-fenced recovery/readiness, full language/product projection, and product
-qualification land in later stages. EmbeddedRuntimeHost is an explicit
-non-claim.
+callback is not accepted without an exact semantic ready receipt. Four-process
+first-call qualification proves one host activation and one accepted
+generation; replacement diagnostics advance the generation, while native
+durability/projection evidence behind the requested cut fails closed. Lease and
+restart lifecycle qualification now covers deterministic acquire/renew/release
+and expiry, capability non-broadening, atomic idle-drain fencing, exact-
+generation supervisor adoption, untracked-orphan termination, and a bounded
+crash restart window using
+[`runtime-lease-recovery`](../../tests/fixtures/runtime-lease-recovery). The
+route heartbeat TTL remains diagnostic and does not satisfy the semantic lease
+contract. Full language/product projection and product qualification land in
+later stages. Cross-machine leases, distributed election, high availability,
+and EmbeddedRuntimeHost remain explicit non-claims.
 
 ## The KFD-1 contract registry is the packaging source of truth
 

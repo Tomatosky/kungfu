@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0080
 decision_status: accepted
 implementation_status: partial
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/815, https://github.com/kungfu-systems/kungfu/pull/818, https://github.com/kungfu-systems/kungfu/pull/819]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/815, https://github.com/kungfu-systems/kungfu/pull/818, https://github.com/kungfu-systems/kungfu/pull/819, https://github.com/kungfu-systems/kungfu/pull/822, https://github.com/kungfu-systems/kungfu/pull/823]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-decision]
@@ -186,8 +186,9 @@ and OS service diagnostics stay in the adapter. RuntimeCapabilityBroker now
 plans and atomically admits operations from the contract-owned operation
 registry. Storage-only callbacks run without constructing a host; live-required
 callbacks run only after a matching semantic ready receipt. The current process
-bridge deliberately fails closed after requesting activation because
-generation-fenced readiness at a durable cut remains stage 4 work.
+bridge now serializes first activation per workspace, fences process generations,
+and admits an explicitly configured native readiness authority only at or beyond
+the required durable cut. It still fails closed when that authority is absent.
 EmbeddedRuntimeHost is a reserved non-claim: v1 deliberately contains no
 production implementation, thread model, or qualification claim for it. A
 future host must implement the same requirement, handle, readiness, generation,
@@ -282,9 +283,9 @@ products copy the exact contract through the existing KFD-1 contract registry.
 
 1. Land this ADR, the KFD-1 contract, fixtures, and source gate.
 2. Put the current supervisor/coordinator path behind ProcessRuntimeHost. **Complete:** CoordinatorEngine supplies the no-fork request seam; ProcessRuntimeHost owns process placement. The full semantic RuntimeHost adapter remains stages 3-4 work.
-3. Add the Core capability broker and generation-fenced handles. **Broker complete:** the operation registry and atomic daemonless/live admission seam are implemented; generation-fenced handles remain stage 4 work.
-4. Bind recovery and projection readiness to an exact durable cut.
-5. Add leases, idle draining, adoption, and restart recovery.
+3. Add the Core capability broker and generation-fenced handles. **Complete:** the operation registry, atomic daemonless/live admission seam, and generation-fenced process handles are implemented.
+4. Bind recovery and projection readiness to an exact durable cut. **Core seam complete:** one per-workspace activation owner serializes first calls, persists the accepted generation, fences replaced process diagnostics, and admits native durability/projection evidence only at or beyond the requested cut. The process adapter remains fail closed when no `DurableEngine` readiness authority is supplied; product evidence discovery is stage 6 work.
+5. Add leases, idle draining, adoption, and restart recovery. **Core lifecycle complete:** generation-fenced semantic leases persist under the activation owner, idle draining atomically fences new demand before stopping a route, a replacement supervisor may adopt only the exact recorded coordinator generation, untracked orphans fail closed, and coordinator crash restarts stop at a bounded attempt window. Route heartbeat TTL remains diagnostic rather than a semantic lease. Cross-machine leasing and product lease acquisition remain outside this stage.
 6. Project the same contract through CLI, GUI, Python, Node, libkungfu, and KFX.
 7. Qualify daemonless/no-fork behavior, process crash recovery, product
    artifacts, and supported claims.
