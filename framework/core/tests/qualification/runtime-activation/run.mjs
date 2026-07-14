@@ -42,7 +42,16 @@ export const SUITES = [
   {
     id: 'profile-action-admission',
     product: false,
-    command: [LAUNCHER, 'test:agent-profile-sdk'],
+    command: [
+      LAUNCHER,
+      'exec',
+      'uv',
+      'run',
+      '--project',
+      'framework/core',
+      'node',
+      'scripts/run-agent-profile-sdk-tests.mjs',
+    ],
   },
   {
     id: 'runtime-surface-parity',
@@ -145,6 +154,17 @@ export function qualificationPlan({ mode, withProduct }) {
       raw_sha256: null,
     };
   });
+}
+
+export function defaultOutputDir(runId) {
+  return path.join(
+    ROOT,
+    '.buildchain',
+    'runtime',
+    'qualification',
+    'runtime-activation',
+    runId,
+  );
 }
 
 function coverageStatus(ids, suites, mode) {
@@ -306,18 +326,7 @@ export function validateReport(report) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const runId = `runtime-activation-${Date.now()}-${process.pid}`;
-  const outputDir = path.resolve(
-    args.output ||
-      path.join(
-        ROOT,
-        'framework',
-        'core',
-        'build',
-        'qualification',
-        'runtime-activation',
-        runId,
-      ),
-  );
+  const outputDir = path.resolve(args.output || defaultOutputDir(runId));
   fs.mkdirSync(outputDir, { recursive: true });
   let suites = qualificationPlan(args);
   if (args.mode === 'execute') {

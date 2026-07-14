@@ -4,10 +4,20 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import {
+  defaultOutputDir,
   evaluateQualification,
   qualificationPlan,
   validateReport,
 } from './run.mjs';
+
+test('default evidence survives Core build-directory cleanup', () => {
+  const output = defaultOutputDir('runtime-activation-test');
+  assert.match(
+    output,
+    /\.buildchain[/\\]runtime[/\\]qualification[/\\]runtime-activation/,
+  );
+  assert.doesNotMatch(output, /framework[/\\]core[/\\]build/);
+});
 
 function source(dirty = false) {
   return {

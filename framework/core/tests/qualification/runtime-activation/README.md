@@ -16,7 +16,8 @@ and full product verification:
     ./shifu runtime:qualify -- --mode execute --with-product
 
 Reports and raw logs default to
-`framework/core/build/qualification/runtime-activation/<run-id>/`. An execute
+`.buildchain/runtime/qualification/runtime-activation/<run-id>/`. This ignored
+runtime area survives Core distribution cleanup. An execute
 run is `passed` only from a clean source tree when all Core and product suites
 pass. Omitting product suites is intentionally `unqualified`.
 
