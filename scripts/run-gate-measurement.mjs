@@ -9,7 +9,6 @@ import { fileURLToPath } from 'node:url';
 
 const node = process.execPath;
 const root = fileURLToPath(new URL('..', import.meta.url));
-const shifu = path.join(root, 'shifu.mjs');
 const shifuLauncher = path.join(
   root,
   process.platform === 'win32' ? 'shifu.cmd' : 'shifu',
@@ -49,7 +48,7 @@ function spawn(command, args, options = {}) {
 }
 
 function runNativeGate(args) {
-  return spawn(node, [shifu, ...args]);
+  return spawn(node, [lifecycle, 'cache-apply', ...args]);
 }
 
 function runPreparation(command, args, options = {}) {
@@ -90,13 +89,17 @@ function assertCleanSource() {
 }
 
 function prepareWorkspace() {
-  runPreparation(
-    shifuLauncher,
-    ['install', '--frozen-lockfile', '--no-optional'],
-    { shell: process.platform === 'win32' },
-  );
+  runPreparation(shifuLauncher, ['install', '--frozen-lockfile'], {
+    shell: process.platform === 'win32',
+  });
   if (process.exitCode) return;
   runPreparation('uv', ['sync', '--project', 'framework/core', '--frozen']);
+  if (process.exitCode) return;
+  runPreparation(
+    shifuLauncher,
+    ['--filter', '@kungfu-tech/core', 'run', 'configure'],
+    { shell: process.platform === 'win32' },
+  );
   if (process.exitCode) return;
   runPreparation(node, [lifecycle, 'direct', 'check:gate-catalog']);
   if (process.exitCode) return;

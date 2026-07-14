@@ -5,10 +5,37 @@ import { test } from 'node:test';
 
 import {
   cacheAppliedArgs,
+  cacheAwareArgs,
   cmdCommand,
   lifecycleEnvironment,
   runShifu,
 } from './run-shifu-lifecycle.mjs';
+
+test('an active cache projection is reused without acquiring a second partition', () => {
+  assert.deepEqual(
+    cacheAwareArgs(['pack:spec'], { env: { SHIFU_CACHE_ACTIVE: '1' } }),
+    ['pack:spec'],
+  );
+});
+
+test('an inactive lifecycle enters the cache projection exactly once', () => {
+  assert.deepEqual(
+    cacheAwareArgs(['pack:spec'], {
+      env: {},
+      node: '/node',
+      script: '/repo/scripts/run-shifu-lifecycle.mjs',
+    }),
+    [
+      'cache',
+      'apply',
+      '--',
+      '/node',
+      '/repo/scripts/run-shifu-lifecycle.mjs',
+      'direct',
+      'pack:spec',
+    ],
+  );
+});
 
 test('copies the lifecycle environment without mutating the caller', () => {
   const env = lifecycleEnvironment(process.env);
