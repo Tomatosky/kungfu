@@ -268,7 +268,7 @@ function execute(profile, plan) {
   if (fs.existsSync(plan.source.workspace))
     fail('run workspace already exists');
 
-  const sourceMount = run('findmnt', ['-no', 'FSTYPE,SOURCE', ROOT]);
+  const sourceMount = run('findmnt', ['-T', ROOT, '-no', 'FSTYPE,SOURCE']);
   if (
     !sourceMount.startsWith('ext4 ') ||
     !sourceMount.toLowerCase().includes('nvme')
@@ -283,7 +283,7 @@ function execute(profile, plan) {
     '-o',
     'ConnectTimeout=8',
     profile.target.ssh,
-    `set -eu; test "$(hostname)" = ${shellQuote(profile.target.hostname)}; test "$(findmnt -no FSTYPE ${shellQuote(profile.target.root)})" = ext4; test "$(cat ${shellQuote(`${profile.target.root}/${profile.target.sentinel}`)})" = ${shellQuote(profile.target.sentinel_contents.trim())}; test ! -e ${shellQuote(plan.target.run)}; printf verified`,
+    `set -eu; test "$(hostname)" = ${shellQuote(profile.target.hostname)}; test "$(findmnt -T ${shellQuote(profile.target.root)} -no FSTYPE)" = ext4; test "$(cat ${shellQuote(`${profile.target.root}/${profile.target.sentinel}`)})" = ${shellQuote(profile.target.sentinel_contents.trim())}; test ! -e ${shellQuote(plan.target.run)}; printf verified`,
   ]);
   if (targetFacts !== 'verified')
     fail('target preconditions were not verified');

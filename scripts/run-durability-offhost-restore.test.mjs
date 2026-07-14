@@ -60,4 +60,6 @@ test('runner contains no self-hosted CI, deletion, or host-service authority', a
     source,
     /self-hosted|workflow_dispatch|gh run|rsync[^\n]*--delete|systemctl|sudo|rm -rf/,
   );
+  assert.match(source, /run\('findmnt', \[\s*'-T',\s*ROOT,/);
+  assert.match(source, /findmnt -T \$\{shellQuote\(profile\.target\.root\)\}/);
 });
