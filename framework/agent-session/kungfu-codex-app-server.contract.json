@@ -218,6 +218,45 @@
     },
     {
       "direction": "server-notification",
+      "method": "account/rateLimits/updated",
+      "schemaFile": "v2/AccountRateLimitsUpdatedNotification.json",
+      "normalizedSemantic": "provider-rate-limit-telemetry",
+      "interactionOperation": "status",
+      "requiredPaths": [
+        "/params/rateLimits"
+      ],
+      "rawRetention": "typed-summary",
+      "authority": "quota-telemetry-not-work-fact"
+    },
+    {
+      "direction": "server-notification",
+      "method": "mcpServer/startupStatus/updated",
+      "schemaFile": "v2/McpServerStatusUpdatedNotification.json",
+      "normalizedSemantic": "provider-extension-startup-telemetry",
+      "interactionOperation": "status",
+      "requiredPaths": [
+        "/params/name",
+        "/params/status"
+      ],
+      "rawRetention": "metadata-only",
+      "authority": "provider-extension-telemetry-not-work-fact"
+    },
+    {
+      "direction": "server-notification",
+      "method": "remoteControl/status/changed",
+      "schemaFile": "v2/RemoteControlStatusChangedNotification.json",
+      "normalizedSemantic": "provider-connection-telemetry",
+      "interactionOperation": "status",
+      "requiredPaths": [
+        "/params/installationId",
+        "/params/serverName",
+        "/params/status"
+      ],
+      "rawRetention": "metadata-only",
+      "authority": "connection-telemetry-not-session-fact"
+    },
+    {
+      "direction": "server-notification",
       "method": "thread/started",
       "schemaFile": "v2/ThreadStartedNotification.json",
       "normalizedSemantic": "session-started",

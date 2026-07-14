@@ -189,12 +189,19 @@ existing Agent Session journal authority behind this append/read seam. The
 Stage 4 source test uses only a deterministic in-memory journal and synthetic
 runtime; it does not read provider credentials or private session state.
 
-The Stage 5 product adapter routes Codex `0.144.3` through direct stdio only
-when `KUNGFU_AGENT_SESSION_CODEX_APP_SERVER=1`. With the flag absent, Codex and
-Claude retain the existing PTY plan, capabilities, authority, and receipt
-shape. GUI, CLI, and KFD-3 use the same product `invoke` seam for structured
+The product adapter routes new Codex `0.144.3` attempts through direct stdio by
+default. Set `KUNGFU_AGENT_SESSION_CODEX_APP_SERVER=0` to route a newly created
+Codex attempt through the retained PTY fallback; the flag never hot-switches an
+existing attempt. Claude retains its PTY plan, authority, and receipt shape.
+GUI, CLI, and KFD-3 use the same product `invoke` seam for structured
 start, instruction, interrupt, exact provider control response, status, and
 receipts; no presentation owns a private provider mutation path.
+
+Structured starts default to an untrusted, user-reviewed, read-only sandbox in
+the reviewed workspace. The real-provider qualification command accepts
+`--transport structured` for Codex and emits metadata-only evidence. Stable
+remote-control, MCP startup, and rate-limit notifications are admitted only as
+typed provider telemetry; unknown methods still fail closed.
 
 The route is frozen for one `SessionAttempt`. Runtime loss or explicit end
 closes the structured attempt at an `unknown` or `interrupted` boundary. PTY

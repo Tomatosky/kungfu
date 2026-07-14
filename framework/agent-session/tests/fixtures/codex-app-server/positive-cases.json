@@ -35,6 +35,45 @@
     "expectedSemantic": "turn-started"
   },
   {
+    "id": "remote-control-status-is-connection-telemetry-only",
+    "direction": "server-notification",
+    "message": {
+      "method": "remoteControl/status/changed",
+      "params": {
+        "installationId": "redacted-installation",
+        "serverName": "redacted-server",
+        "status": "disabled"
+      }
+    },
+    "expectedSemantic": "provider-connection-telemetry"
+  },
+  {
+    "id": "account-rate-limits-are-provider-telemetry-only",
+    "direction": "server-notification",
+    "message": {
+      "method": "account/rateLimits/updated",
+      "params": {
+        "rateLimits": {
+          "primary": null,
+          "secondary": null
+        }
+      }
+    },
+    "expectedSemantic": "provider-rate-limit-telemetry"
+  },
+  {
+    "id": "mcp-startup-status-is-extension-telemetry-only",
+    "direction": "server-notification",
+    "message": {
+      "method": "mcpServer/startupStatus/updated",
+      "params": {
+        "name": "redacted-server",
+        "status": "ready"
+      }
+    },
+    "expectedSemantic": "provider-extension-startup-telemetry"
+  },
+  {
     "id": "command-approval-keeps-exact-control-target",
     "direction": "server-request",
     "message": {

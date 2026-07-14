@@ -346,13 +346,15 @@ What is **not yet guaranteed**:
 
 A skill can request, explain, and compose. It cannot bypass the kfx trust gate.
 
-## Detached Agent Session recovery is qualified with one provider hold
+## Detached Agent Session recovery is provider-qualified, not uniform
 
 The runtime-scoped detached worker now owns the real Capsule/PTY surface, and
 the Mac source qualification passes GUI-main reconnect, provider exit fencing,
 worker-loss fail-closed behavior, bounded overflow, receipt privacy, and local
-RPC latency. Authenticated Codex 0.144.3 also passes the complete retained
-interaction loop.
+RPC latency. Authenticated Codex 0.144.3 now passes the complete retained
+interaction loop through the pinned App Server structured route. The current
+Codex PTY screen does not match its older qualified signature, so PTY is a
+manual recovery/new-attempt fallback rather than structured authority.
 
 What is **not yet guaranteed**:
 
@@ -362,11 +364,13 @@ What is **not yet guaranteed**:
 - Capsule worker loss and machine reboot end the old attempt; recovery requires
   a new attempt or provider-native resume and never adopts a stale PTY;
 - equivalent packaged evidence on Linux and Windows; and
-- Mac product promotion while the Claude approval hold remains open.
+- Claude automatic approval/deny parity with the structured Codex route.
 
-The Claude result is deliberately `degraded`, not passed. Terminal frames stay
-volatile and bounded; retained evidence contains only state, counts, latency,
-versions, and path digests.
+The Claude result is deliberately `degraded`, not passed, and remains a block
+for claiming a complete Claude tool-approval loop. It does not turn typed Codex
+events into Claude facts or block provider-scoped Codex structured promotion.
+Terminal frames stay volatile and bounded; retained evidence contains only
+state, counts, latency, versions, and path digests.
 
 ## Reference extensions are mid-migration
 

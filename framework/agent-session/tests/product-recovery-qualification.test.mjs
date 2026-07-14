@@ -9,6 +9,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
+import { CODEX_APP_SERVER_FEATURE_FLAG } from '../src/codex-app-server-product.mjs';
 import { createDetachedAgentSessionHost } from '../src/product-client.mjs';
 
 const PROVIDER = fileURLToPath(
@@ -140,6 +141,7 @@ test('detached product worker passes the retained recovery, privacy, and latency
     executable: process.execPath,
     env: {
       ...process.env,
+      [CODEX_APP_SERVER_FEATURE_FLAG]: '0',
       KUNGFU_AGENT_SESSION_NODE_PTY_MODULE: preparedNodePty(root),
     },
     spawnProcess,

@@ -5,7 +5,11 @@ import { EventEmitter } from 'node:events';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { CodexAppServerProductRuntime } from '../src/codex-app-server-product.mjs';
+import {
+  CODEX_APP_SERVER_FEATURE_FLAG,
+  CodexAppServerProductRuntime,
+  codexAppServerProductEnabled,
+} from '../src/codex-app-server-product.mjs';
 import { InProcessAgentSessionProductRuntime } from '../src/product-runtime.mjs';
 import { AgentSessionProductSurface } from '../src/product-surface.mjs';
 
@@ -45,6 +49,7 @@ function input(overrides = {}) {
     profileRoot: PROFILE_ROOT,
     executable: process.execPath,
     argv: [provider, 'product-route'],
+    cwd: here,
     env: {},
     ...overrides,
   };
@@ -87,6 +92,27 @@ test('production route freezes the exact Codex app-server stdio launch', () => {
   assert.throws(
     () => structured.planRoute(input({ providerVersion: '0.144.4' })),
     (error) => error.code === 'provider_version_drift',
+  );
+  assert.equal(route.defaultPolicy, 'structured');
+  assert.equal(route.rollback, `${CODEX_APP_SERVER_FEATURE_FLAG}=0`);
+});
+
+test('product policy defaults Codex to structured with an explicit PTY rollback', () => {
+  assert.equal(codexAppServerProductEnabled({}), true);
+  assert.equal(
+    codexAppServerProductEnabled({ [CODEX_APP_SERVER_FEATURE_FLAG]: '1' }),
+    true,
+  );
+  assert.equal(
+    codexAppServerProductEnabled({ [CODEX_APP_SERVER_FEATURE_FLAG]: '0' }),
+    false,
+  );
+  assert.throws(
+    () =>
+      codexAppServerProductEnabled({
+        [CODEX_APP_SERVER_FEATURE_FLAG]: 'unexpected',
+      }),
+    (error) => error.code === 'invalid_route_policy',
   );
 });
 
@@ -158,6 +184,12 @@ test('GUI CLI and Agent share one frozen structured route and exact controls', a
   assert.equal(guiPlan.transportRoute.kind, 'structured');
   assert.equal(guiPlan.transportRoute.frozenPerAttempt, true);
   assert.deepEqual(guiPlan.argv, [provider, 'product-route']);
+  assert.deepEqual(guiPlan.structured.threadStartParams, {
+    cwd: here,
+    approvalPolicy: 'untrusted',
+    approvalsReviewer: 'user',
+    sandbox: 'read-only',
+  });
 
   const started = await product.invoke({
     operation: 'start',

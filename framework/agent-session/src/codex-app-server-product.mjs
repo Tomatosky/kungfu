@@ -9,6 +9,21 @@ import { InMemoryJournalNoticePort } from './peer-transport.mjs';
 export const CODEX_APP_SERVER_FEATURE_FLAG =
   'KUNGFU_AGENT_SESSION_CODEX_APP_SERVER';
 
+/**
+ * Codex app-server is the product default for the exact qualified CLI.
+ * Setting the retained feature flag to `0` is the bounded rollback to PTY for
+ * newly-created attempts; an existing attempt never changes transport.
+ */
+export function codexAppServerProductEnabled(env = {}) {
+  const value = env[CODEX_APP_SERVER_FEATURE_FLAG];
+  if (value === undefined || value === '' || value === '1') return true;
+  if (value === '0') return false;
+  throw Object.assign(
+    new Error(`${CODEX_APP_SERVER_FEATURE_FLAG} must be 0 or 1`),
+    { code: 'invalid_route_policy' },
+  );
+}
+
 function required(value, label) {
   if (typeof value !== 'string' || value.length === 0) {
     throw Object.assign(new Error(`${label} is required`), {
@@ -99,6 +114,8 @@ function routeStatus(argv) {
     transport: 'codex-app-server-direct-stdio',
     argv: [...argv],
     featureFlag: CODEX_APP_SERVER_FEATURE_FLAG,
+    defaultPolicy: 'structured',
+    rollback: `${CODEX_APP_SERVER_FEATURE_FLAG}=0`,
     frozenPerAttempt: true,
     hotSwitch: false,
   };
@@ -360,6 +377,19 @@ export class CodexAppServerProductRuntime {
           adapterVersion: 'codex-app-server-structured/v1',
           compatible: true,
           tested: plan.providerVersion === '0.144.3',
+          failureCode:
+            state.eventFailure?.code ?? current.failure?.code ?? null,
+          failureDetail:
+            state.eventFailure?.message ?? current.failure?.message ?? null,
+          exit: current.exit
+            ? {
+                code: current.exit.code,
+                signal: current.exit.signal,
+                expected: current.exit.expected,
+              }
+            : null,
+          stderrBytesObserved: current.stderr.observedBytes,
+          stderrRetained: false,
         },
         queuedInstructions: 0,
         transportRoute: plan.transportRoute,
