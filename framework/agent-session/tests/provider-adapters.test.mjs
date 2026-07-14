@@ -139,6 +139,14 @@ test('Claude current VT grid supersedes erased volatile states', () => {
   );
   assert.equal(modal.state, 'ready');
   assert.deepEqual(modal.signatureIds, ['claude.ready.prompt']);
+  const approvalWithReadyPrompt = inspect(
+    ['Bash', 'Allow', '❯ Try a task'],
+    'Thinking… (esc to interrupt)',
+  );
+  assert.equal(approvalWithReadyPrompt.state, 'approval-needed');
+  assert.deepEqual(approvalWithReadyPrompt.signatureIds, [
+    'claude.approval.bash-confirmation',
+  ]);
 });
 
 test('instruction encoding uses each provider bounded paste submit sequence', () => {

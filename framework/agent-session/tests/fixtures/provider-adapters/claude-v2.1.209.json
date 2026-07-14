@@ -48,6 +48,12 @@
     "signatureId": "claude.approval.allow-command"
   },
   {
+    "id": "claude-approval-bash-confirmation-with-ready-prompt-redacted",
+    "lines": ["Bash", "Allow", "❯"],
+    "expectedState": "approval-needed",
+    "signatureId": "claude.approval.bash-confirmation"
+  },
+  {
     "id": "claude-unknown-redacted",
     "lines": ["A provider screen with no supported state marker"],
     "expectedState": "unknown",

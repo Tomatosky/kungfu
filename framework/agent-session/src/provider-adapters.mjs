@@ -38,6 +38,10 @@ const PROVIDER_PROFILES = {
           'claude.approval.run-command',
           /do you want to run (?:this|the) command/iu,
         ],
+        [
+          'claude.approval.bash-confirmation',
+          /(?=[\s\S]*\bbash\b)(?=[\s\S]*\b(?:allow|approve|proceed)\b)/iu,
+        ],
       ],
       busy: [['claude.busy.interrupt-hint', /esc to interrupt/iu]],
       ready: [
