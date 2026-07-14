@@ -49,7 +49,7 @@ const SUITES = {
     args: ['test:projection-bootstrap'],
     requiredMarkers: [
       '[projection-bootstrap-test] cross-process restart passed',
-      '[projection-bootstrap-test] snapshot/replay contracts passed',
+      '[projection-bootstrap-test] candidate snapshot/replay contracts passed',
     ],
   },
   'crash-recovery': {

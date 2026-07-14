@@ -98,6 +98,13 @@ test('the dry run plans only local Shifu commands and makes no claim', () => {
       .find((step) => step.id === 'durable-ingest')
       .required_markers.some((marker) => marker.includes('sync I/O error')),
   );
+  assert.ok(
+    plan
+      .find((step) => step.id === 'projection-bootstrap')
+      .required_markers.includes(
+        '[projection-bootstrap-test] candidate snapshot/replay contracts passed',
+      ),
+  );
   const result = report({
     loaded,
     durabilityProfile: 'durable_sync',

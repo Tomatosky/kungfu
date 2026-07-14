@@ -23,6 +23,10 @@ After reviewing that plan, a retained local run uses an immutable report path:
   --execute
 ```
 
+When a dry run includes `--report`, that plan is itself written immutably to
+the named path. Use a different, new report path for the later `--execute`
+invocation; the harness deliberately refuses to overwrite the dry-run plan.
+
 Use `linux-ext4-process-v1` with `--filesystem ext4` on the Linux
 qualification host and `windows-ntfs-process-v1` with `--filesystem ntfs` on
 the Windows qualification host. Run `durable_group` and `durable_sync`
