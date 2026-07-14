@@ -15,6 +15,8 @@ namespace kungfu::runtime::recovery {
 
 inline constexpr const char *RECOVERY_REPORT_SCHEMA_V1 = "kungfu.recovery-report/v1";
 inline constexpr const char *RECOVERY_BACKUP_SCHEMA_V1 = "kungfu.recovery-backup/v1";
+inline constexpr const char *RECOVERY_BACKUP_PACKAGE_SCHEMA_V1 = "kungfu.recovery-backup-package/v1";
+inline constexpr const char *RECOVERY_BACKUP_COMPLETE_SCHEMA_V1 = "kungfu.recovery-backup-complete/v1";
 
 enum class recovery_phase : uint8_t { Discover, Verify, Select, Classify, Report };
 enum class recovery_outcome : uint8_t { Ready, Degraded, Blocked };
@@ -125,6 +127,35 @@ struct backup_export_result {
   std::string error = {};
 };
 
+struct backup_package_receipt {
+  maintenance_status status = maintenance_status::Rejected;
+  std::string bundle_id = {};
+  std::string package_path = {};
+  std::string manifest_sha256 = {};
+  uint64_t file_count = 0;
+  uint64_t total_bytes = 0;
+  bool mutation_performed = false;
+  std::string error = {};
+};
+
+struct backup_package_load_result {
+  bool ok = false;
+  std::optional<recovery_backup_bundle> bundle = std::nullopt;
+  std::string package_path = {};
+  std::string manifest_sha256 = {};
+  std::string error = {};
+};
+
+struct backup_package_selection {
+  bool ok = false;
+  std::optional<recovery_backup_bundle> bundle = std::nullopt;
+  std::string package_path = {};
+  std::string manifest_sha256 = {};
+  std::vector<std::string> rejected_candidates = {};
+  bool fallback_used = false;
+  std::string error = {};
+};
+
 struct restore_receipt {
   std::string schema = "kungfu.recovery-restore-receipt/v1";
   maintenance_status status = maintenance_status::Rejected;
@@ -183,6 +214,26 @@ public:
 private:
   durability::ingest_options options_;
 };
+
+// Materializes a transport-neutral immutable directory. Authoritative bytes
+// are written under data/, manifest.json binds their paths/sizes/digests, and
+// complete.json is published last before the pending directory is atomically
+// renamed. Interrupted pending packages remain inspectable and are never
+// accepted as completed backups.
+[[nodiscard]] backup_package_receipt publish_backup_package(const recovery_backup_bundle &bundle,
+                                                            const std::string &package_path);
+
+// Loads only a complete, exact-file-set package and reconstructs the typed
+// bundle after checking its marker, manifest digest, every authoritative byte,
+// Episode identity, and bundle identity.
+[[nodiscard]] backup_package_load_result load_backup_package(const std::string &package_path);
+
+// Selects the highest verified durable cut for one exact stream/profile
+// contract. Invalid or incomplete candidates are retained in the result; an
+// older verified package may be returned only with fallback_used=true.
+[[nodiscard]] backup_package_selection select_latest_backup_package(const std::string &store_root, uint64_t stream_id,
+                                                                    uint64_t container_epoch,
+                                                                    const std::string &qualification_profile);
 
 [[nodiscard]] const char *recovery_outcome_name(recovery_outcome outcome) noexcept;
 [[nodiscard]] const char *recovery_phase_name(recovery_phase phase) noexcept;

@@ -4,14 +4,29 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cerrno>
 #include <filesystem>
 #include <fstream>
 #include <set>
 #include <sstream>
 #include <stdexcept>
+#include <system_error>
+#include <tuple>
+
+#include <nlohmann/json.hpp>
 
 #include <kungfu/yijinjing/ownership.h>
 #include <kungfu/yijinjing/storage/content_hash.h>
+
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#else
+#include <fcntl.h>
+#include <unistd.h>
+#endif
 
 namespace kungfu::runtime::recovery {
 namespace {
@@ -257,6 +272,298 @@ void validate_backup_bundle(const recovery_backup_bundle &bundle) {
     first_episode = false;
     previous_episode = episode.episode_id;
   }
+}
+
+using json = nlohmann::json;
+
+bool has_exact_keys(const json &value, const std::set<std::string> &expected) {
+  if (!value.is_object() || value.size() != expected.size()) {
+    return false;
+  }
+  return std::ranges::all_of(value.items(), [&expected](const auto &item) { return expected.contains(item.key()); });
+}
+
+json position_json(const durability::stream_position &position) {
+  return {{"stream_id", position.stream_id},
+          {"container_epoch", position.container_epoch},
+          {"sequence", position.sequence},
+          {"frame_uid", position.frame_uid}};
+}
+
+json backup_package_manifest(const recovery_backup_bundle &bundle) {
+  json files = json::array();
+  for (const auto &file : bundle.files) {
+    files.push_back({{"relative_path", file.relative_path}, {"size", file.size}, {"sha256", file.sha256}});
+  }
+  json episodes = json::array();
+  for (const auto &episode : bundle.episodes) {
+    episodes.push_back({{"episode_id", episode.episode_id},
+                        {"closed", episode.closed},
+                        {"content_root_algorithm", episode.content_root_algorithm},
+                        {"content_root_value", episode.content_root_value},
+                        {"payload_hashes", episode.payload_hashes}});
+  }
+  return {{"schema", RECOVERY_BACKUP_PACKAGE_SCHEMA_V1},
+          {"backup_schema", bundle.schema},
+          {"bundle_id", bundle.bundle_id},
+          {"stream_id", bundle.stream_id},
+          {"container_epoch", bundle.container_epoch},
+          {"backup_cut", position_json(*bundle.backup_cut)},
+          {"durable_record_count", bundle.durable_record_count},
+          {"lost_visible_tail_bytes", bundle.lost_visible_tail_bytes},
+          {"rpo_boundary", bundle.rpo_boundary},
+          {"qualification_profile", bundle.qualification_profile},
+          {"projection_rebuild_required", bundle.projection_rebuild_required},
+          {"source_report",
+           {{"schema", bundle.source_report.schema},
+            {"outcome", recovery_outcome_name(bundle.source_report.outcome)},
+            {"qualification_passed", bundle.source_report.qualification_passed},
+            {"restart_order", bundle.source_report.restart_order}}},
+          {"files", std::move(files)},
+          {"episodes", std::move(episodes)}};
+}
+
+std::string canonical_document(const json &value) { return value.dump(2, ' ', false) + '\n'; }
+
+void write_new_file(const fs::path &path, const std::string &bytes) {
+  if (fs::exists(path)) {
+    throw std::runtime_error("recovery_backup_package_path_exists");
+  }
+  fs::create_directories(path.parent_path());
+  std::ofstream output(path, std::ios::binary | std::ios::trunc);
+  output.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+  output.flush();
+  if (!output) {
+    throw std::runtime_error("recovery_backup_package_write_failed");
+  }
+  output.close();
+#ifdef _WIN32
+  const auto handle =
+      CreateFileW(path.wstring().c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
+                  OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+  if (handle == INVALID_HANDLE_VALUE) {
+    throw std::system_error(static_cast<int>(GetLastError()), std::system_category(),
+                            "recovery_backup_package_file_open_failed");
+  }
+  const auto synced = FlushFileBuffers(handle);
+  const auto error = GetLastError();
+  CloseHandle(handle);
+  if (synced == 0) {
+    throw std::system_error(static_cast<int>(error), std::system_category(),
+                            "recovery_backup_package_file_sync_failed");
+  }
+#else
+  const auto fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
+  if (fd < 0) {
+    throw std::system_error(errno, std::generic_category(), "recovery_backup_package_file_open_failed");
+  }
+  const auto synced = ::fsync(fd);
+  const auto error = errno;
+  ::close(fd);
+  if (synced != 0) {
+    throw std::system_error(error, std::generic_category(), "recovery_backup_package_file_sync_failed");
+  }
+#endif
+}
+
+void sync_backup_directory(const fs::path &directory) {
+#ifdef _WIN32
+  const auto handle =
+      CreateFileW(directory.wstring().c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                  nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+  if (handle == INVALID_HANDLE_VALUE) {
+    throw std::system_error(static_cast<int>(GetLastError()), std::system_category(),
+                            "recovery_backup_package_directory_open_failed");
+  }
+  const auto synced = FlushFileBuffers(handle);
+  const auto error = GetLastError();
+  CloseHandle(handle);
+  if (synced == 0) {
+    throw std::system_error(static_cast<int>(error), std::system_category(),
+                            "recovery_backup_package_directory_sync_failed");
+  }
+#else
+  const auto fd = ::open(directory.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+  if (fd < 0) {
+    throw std::system_error(errno, std::generic_category(), "recovery_backup_package_directory_open_failed");
+  }
+  const auto synced = ::fsync(fd);
+  const auto error = errno;
+  ::close(fd);
+  if (synced != 0) {
+    throw std::system_error(error, std::generic_category(), "recovery_backup_package_directory_sync_failed");
+  }
+#endif
+}
+
+void sync_backup_directory_tree(const fs::path &root) {
+  std::vector<fs::path> directories = {root};
+  for (const auto &entry : fs::recursive_directory_iterator(root)) {
+    if (entry.is_directory() && !entry.is_symlink()) {
+      directories.push_back(entry.path());
+    }
+  }
+  std::sort(directories.begin(), directories.end(), [](const auto &left, const auto &right) {
+    return std::distance(left.begin(), left.end()) > std::distance(right.begin(), right.end());
+  });
+  for (const auto &directory : directories) {
+    sync_backup_directory(directory);
+  }
+}
+
+json parse_json_document(const std::string &bytes, const char *error) {
+  try {
+    return json::parse(bytes);
+  } catch (const json::exception &) {
+    throw std::runtime_error(error);
+  }
+}
+
+durability::stream_position parse_package_position(const json &value) {
+  if (!has_exact_keys(value, {"stream_id", "container_epoch", "sequence", "frame_uid"})) {
+    throw std::runtime_error("recovery_backup_package_manifest_invalid");
+  }
+  try {
+    return {value.at("stream_id").get<uint64_t>(), value.at("container_epoch").get<uint64_t>(),
+            value.at("sequence").get<uint64_t>(), value.at("frame_uid").get<uint64_t>()};
+  } catch (const json::exception &) {
+    throw std::runtime_error("recovery_backup_package_manifest_invalid");
+  }
+}
+
+recovery_backup_bundle parse_backup_package_manifest(const json &manifest, const fs::path &package) {
+  const std::set<std::string> manifest_keys = {"schema",
+                                               "backup_schema",
+                                               "bundle_id",
+                                               "stream_id",
+                                               "container_epoch",
+                                               "backup_cut",
+                                               "durable_record_count",
+                                               "lost_visible_tail_bytes",
+                                               "rpo_boundary",
+                                               "qualification_profile",
+                                               "projection_rebuild_required",
+                                               "source_report",
+                                               "files",
+                                               "episodes"};
+  if (!has_exact_keys(manifest, manifest_keys) ||
+      !has_exact_keys(manifest.at("source_report"), {"schema", "outcome", "qualification_passed", "restart_order"}) ||
+      !manifest.at("files").is_array() || !manifest.at("episodes").is_array()) {
+    throw std::runtime_error("recovery_backup_package_manifest_invalid");
+  }
+
+  recovery_backup_bundle bundle;
+  try {
+    if (manifest.at("schema").get<std::string>() != RECOVERY_BACKUP_PACKAGE_SCHEMA_V1) {
+      throw std::runtime_error("recovery_backup_package_schema_unsupported");
+    }
+    bundle.schema = manifest.at("backup_schema").get<std::string>();
+    bundle.bundle_id = manifest.at("bundle_id").get<std::string>();
+    bundle.stream_id = manifest.at("stream_id").get<uint64_t>();
+    bundle.container_epoch = manifest.at("container_epoch").get<uint64_t>();
+    bundle.backup_cut = parse_package_position(manifest.at("backup_cut"));
+    bundle.durable_record_count = manifest.at("durable_record_count").get<uint64_t>();
+    bundle.lost_visible_tail_bytes = manifest.at("lost_visible_tail_bytes").get<uint64_t>();
+    bundle.rpo_boundary = manifest.at("rpo_boundary").get<std::string>();
+    bundle.qualification_profile = manifest.at("qualification_profile").get<std::string>();
+    bundle.projection_rebuild_required = manifest.at("projection_rebuild_required").get<bool>();
+
+    const auto &source = manifest.at("source_report");
+    if (source.at("schema").get<std::string>() != RECOVERY_REPORT_SCHEMA_V1 ||
+        source.at("outcome").get<std::string>() != "ready" || !source.at("qualification_passed").get<bool>() ||
+        source.at("restart_order").get<std::vector<std::string>>() !=
+            std::vector<std::string>{"supervisor", "state_service", "projection", "peers"}) {
+      throw std::runtime_error("recovery_backup_package_source_report_invalid");
+    }
+    bundle.source_report.schema = RECOVERY_REPORT_SCHEMA_V1;
+    bundle.source_report.outcome = recovery_outcome::Ready;
+    bundle.source_report.completed_phases = {recovery_phase::Discover, recovery_phase::Verify, recovery_phase::Select,
+                                             recovery_phase::Classify, recovery_phase::Report};
+    bundle.source_report.stream_id = bundle.stream_id;
+    bundle.source_report.container_epoch = bundle.container_epoch;
+    bundle.source_report.durable_frontier = bundle.backup_cut;
+    bundle.source_report.durable_record_count = bundle.durable_record_count;
+    bundle.source_report.unacknowledged_tail_bytes = bundle.lost_visible_tail_bytes;
+    bundle.source_report.unacknowledged_tail_integrity = durability::tail_integrity::None;
+    bundle.source_report.evidence_error = durability::ingest_error::None;
+    bundle.source_report.qualification_profile = bundle.qualification_profile;
+    bundle.source_report.qualification_passed = true;
+
+    for (const auto &value : manifest.at("files")) {
+      if (!has_exact_keys(value, {"relative_path", "size", "sha256"})) {
+        throw std::runtime_error("recovery_backup_package_manifest_invalid");
+      }
+      backup_file_material file;
+      file.relative_path = value.at("relative_path").get<std::string>();
+      file.size = value.at("size").get<uint64_t>();
+      file.sha256 = value.at("sha256").get<std::string>();
+      const fs::path relative(file.relative_path);
+      if (!is_safe_relative_path(relative)) {
+        throw std::runtime_error("recovery_backup_package_file_invalid");
+      }
+      const auto material = package / "data" / relative;
+      if (!fs::is_regular_file(material) || fs::is_symlink(material)) {
+        throw std::runtime_error("recovery_backup_package_file_missing");
+      }
+      file.bytes = read_bytes(material);
+      if (file.bytes.size() != file.size || digest(file.bytes) != file.sha256) {
+        throw std::runtime_error("recovery_backup_package_file_invalid");
+      }
+      bundle.files.push_back(std::move(file));
+    }
+
+    for (const auto &value : manifest.at("episodes")) {
+      if (!has_exact_keys(value,
+                          {"episode_id", "closed", "content_root_algorithm", "content_root_value", "payload_hashes"})) {
+        throw std::runtime_error("recovery_backup_package_manifest_invalid");
+      }
+      bundle.episodes.push_back({value.at("episode_id").get<uint64_t>(), value.at("closed").get<bool>(),
+                                 value.at("content_root_algorithm").get<std::string>(),
+                                 value.at("content_root_value").get<std::string>(),
+                                 value.at("payload_hashes").get<std::vector<std::string>>()});
+    }
+  } catch (const json::exception &) {
+    throw std::runtime_error("recovery_backup_package_manifest_invalid");
+  }
+  validate_backup_bundle(bundle);
+  return bundle;
+}
+
+void validate_backup_package_file_set(const fs::path &package, const recovery_backup_bundle &bundle) {
+  std::set<std::string> expected_files = {"manifest.json", "complete.json"};
+  std::set<std::string> expected_directories = {"data"};
+  for (const auto &file : bundle.files) {
+    const auto packaged = (fs::path("data") / file.relative_path).lexically_normal();
+    expected_files.insert(packaged.generic_string());
+    auto parent = packaged.parent_path();
+    while (!parent.empty()) {
+      expected_directories.insert(parent.generic_string());
+      parent = parent.parent_path();
+    }
+  }
+  for (auto iterator = fs::recursive_directory_iterator(package); iterator != fs::recursive_directory_iterator();
+       ++iterator) {
+    const auto relative = fs::relative(iterator->path(), package).lexically_normal().generic_string();
+    if (iterator->is_symlink()) {
+      throw std::runtime_error("recovery_backup_package_symlink_entry");
+    }
+    if (iterator->is_directory()) {
+      if (!expected_directories.contains(relative)) {
+        throw std::runtime_error("recovery_backup_package_extra_entry");
+      }
+    } else if (!iterator->is_regular_file() || !expected_files.erase(relative)) {
+      throw std::runtime_error("recovery_backup_package_extra_entry");
+    }
+  }
+  if (!expected_files.empty()) {
+    throw std::runtime_error("recovery_backup_package_file_missing");
+  }
+}
+
+std::string complete_document(const recovery_backup_bundle &bundle, const std::string &manifest_sha256) {
+  return canonical_document({{"schema", RECOVERY_BACKUP_COMPLETE_SCHEMA_V1},
+                             {"bundle_id", bundle.bundle_id},
+                             {"manifest_sha256", manifest_sha256}});
 }
 
 std::string restore_receipt_bytes(const recovery_backup_bundle &bundle) {
@@ -825,6 +1132,171 @@ restore_receipt recovery_engine::restore_backup(const recovery_backup_bundle &bu
     receipt.mutation_performed = mutated;
     receipt.error = error.what();
     return receipt;
+  }
+}
+
+backup_package_load_result load_backup_package(const std::string &package_path) {
+  backup_package_load_result result;
+  result.package_path = fs::absolute(package_path).lexically_normal().string();
+  try {
+    const fs::path package(result.package_path);
+    if (!fs::is_directory(package) || fs::is_symlink(package)) {
+      throw std::runtime_error("recovery_backup_package_missing");
+    }
+    const auto manifest_path = package / "manifest.json";
+    const auto complete_path = package / "complete.json";
+    if (!fs::is_regular_file(manifest_path) || fs::is_symlink(manifest_path) || !fs::is_regular_file(complete_path) ||
+        fs::is_symlink(complete_path)) {
+      throw std::runtime_error("recovery_backup_package_incomplete");
+    }
+    const auto manifest_bytes = read_bytes(manifest_path);
+    result.manifest_sha256 = digest(manifest_bytes);
+    const auto complete = parse_json_document(read_bytes(complete_path), "recovery_backup_package_complete_invalid");
+    if (!has_exact_keys(complete, {"schema", "bundle_id", "manifest_sha256"})) {
+      throw std::runtime_error("recovery_backup_package_complete_invalid");
+    }
+    try {
+      if (complete.at("schema").get<std::string>() != RECOVERY_BACKUP_COMPLETE_SCHEMA_V1 ||
+          complete.at("manifest_sha256").get<std::string>() != result.manifest_sha256) {
+        throw std::runtime_error("recovery_backup_package_complete_invalid");
+      }
+    } catch (const json::exception &) {
+      throw std::runtime_error("recovery_backup_package_complete_invalid");
+    }
+    const auto manifest = parse_json_document(manifest_bytes, "recovery_backup_package_manifest_invalid");
+    auto bundle = parse_backup_package_manifest(manifest, package);
+    try {
+      if (complete.at("bundle_id").get<std::string>() != bundle.bundle_id) {
+        throw std::runtime_error("recovery_backup_package_complete_invalid");
+      }
+    } catch (const json::exception &) {
+      throw std::runtime_error("recovery_backup_package_complete_invalid");
+    }
+    validate_backup_package_file_set(package, bundle);
+    result.ok = true;
+    result.bundle = std::move(bundle);
+    return result;
+  } catch (const std::exception &error) {
+    result.error = error.what();
+    return result;
+  }
+}
+
+backup_package_receipt publish_backup_package(const recovery_backup_bundle &bundle, const std::string &package_path) {
+  backup_package_receipt receipt;
+  bool mutated = false;
+  receipt.bundle_id = bundle.bundle_id;
+  receipt.package_path = fs::absolute(package_path).lexically_normal().string();
+  receipt.file_count = bundle.files.size();
+  for (const auto &file : bundle.files) {
+    receipt.total_bytes += file.size;
+  }
+  try {
+    validate_backup_bundle(bundle);
+    const fs::path package(receipt.package_path);
+    if (package.filename() != bundle.bundle_id || package.parent_path().empty() ||
+        fs::is_symlink(package.parent_path())) {
+      throw std::runtime_error("recovery_backup_package_path_invalid");
+    }
+    if (fs::exists(package)) {
+      const auto loaded = load_backup_package(package.string());
+      if (!loaded.ok || !loaded.bundle.has_value() || *loaded.bundle != bundle) {
+        throw std::runtime_error("recovery_backup_package_existing_invalid");
+      }
+      receipt.status = maintenance_status::AlreadyCompleted;
+      receipt.manifest_sha256 = loaded.manifest_sha256;
+      return receipt;
+    }
+
+    const fs::path pending(package.string() + ".pending");
+    if (fs::exists(pending)) {
+      throw std::runtime_error("recovery_backup_package_pending_exists");
+    }
+    mutated = fs::create_directories(package.parent_path()) || mutated;
+    if (!fs::create_directory(pending)) {
+      throw std::runtime_error("recovery_backup_package_pending_create_failed");
+    }
+    mutated = true;
+    sync_backup_directory(package.parent_path());
+    for (const auto &file : bundle.files) {
+      const auto destination = pending / "data" / fs::path(file.relative_path);
+      write_new_file(destination, file.bytes);
+      if (fs::file_size(destination) != file.size || digest(read_bytes(destination)) != file.sha256) {
+        throw std::runtime_error("recovery_backup_package_file_verification_failed");
+      }
+    }
+    sync_backup_directory_tree(pending);
+    const auto manifest_bytes = canonical_document(backup_package_manifest(bundle));
+    receipt.manifest_sha256 = digest(manifest_bytes);
+    write_new_file(pending / "manifest.json", manifest_bytes);
+    sync_backup_directory(pending);
+    write_new_file(pending / "complete.json", complete_document(bundle, receipt.manifest_sha256));
+    sync_backup_directory(pending);
+    const auto staged = load_backup_package(pending.string());
+    if (!staged.ok || !staged.bundle.has_value() || *staged.bundle != bundle ||
+        staged.manifest_sha256 != receipt.manifest_sha256) {
+      throw std::runtime_error("recovery_backup_package_staged_verification_failed");
+    }
+    fs::rename(pending, package);
+    sync_backup_directory(package.parent_path());
+    const auto published = load_backup_package(package.string());
+    if (!published.ok || !published.bundle.has_value() || *published.bundle != bundle) {
+      throw std::runtime_error("recovery_backup_package_publication_verification_failed");
+    }
+    receipt.status = maintenance_status::Completed;
+    receipt.mutation_performed = mutated;
+    return receipt;
+  } catch (const std::exception &error) {
+    receipt.mutation_performed = mutated;
+    receipt.error = error.what();
+    return receipt;
+  }
+}
+
+backup_package_selection select_latest_backup_package(const std::string &store_root, uint64_t stream_id,
+                                                      uint64_t container_epoch,
+                                                      const std::string &qualification_profile) {
+  backup_package_selection selection;
+  try {
+    const auto root = fs::absolute(store_root).lexically_normal();
+    if (!fs::is_directory(root) || fs::is_symlink(root)) {
+      throw std::runtime_error("recovery_backup_store_missing");
+    }
+    for (const auto &entry : fs::directory_iterator(root)) {
+      const auto name = entry.path().filename().generic_string();
+      if (entry.is_symlink() || !entry.is_directory() || name.ends_with(".pending")) {
+        selection.rejected_candidates.push_back(name + ":recovery_backup_candidate_incomplete_or_invalid");
+        continue;
+      }
+      const auto loaded = load_backup_package(entry.path().string());
+      if (!loaded.ok || !loaded.bundle.has_value()) {
+        selection.rejected_candidates.push_back(name + ":" + loaded.error);
+        continue;
+      }
+      const auto &candidate = *loaded.bundle;
+      if (candidate.stream_id != stream_id || candidate.container_epoch != container_epoch ||
+          candidate.qualification_profile != qualification_profile) {
+        selection.rejected_candidates.push_back(name + ":recovery_backup_candidate_contract_mismatch");
+        continue;
+      }
+      if (!selection.bundle.has_value() ||
+          std::tie(candidate.backup_cut->sequence, candidate.backup_cut->frame_uid) >
+              std::tie(selection.bundle->backup_cut->sequence, selection.bundle->backup_cut->frame_uid)) {
+        selection.bundle = candidate;
+        selection.package_path = loaded.package_path;
+        selection.manifest_sha256 = loaded.manifest_sha256;
+      }
+    }
+    std::sort(selection.rejected_candidates.begin(), selection.rejected_candidates.end());
+    if (!selection.bundle.has_value()) {
+      throw std::runtime_error("recovery_backup_no_verified_candidate");
+    }
+    selection.ok = true;
+    selection.fallback_used = !selection.rejected_candidates.empty();
+    return selection;
+  } catch (const std::exception &error) {
+    selection.error = error.what();
+    return selection;
   }
 }
 

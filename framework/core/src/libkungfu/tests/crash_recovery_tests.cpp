@@ -632,6 +632,78 @@ void test_consistent_backup_empty_root_restore_and_projection_rebuild() {
           "completed restore receipt hid later authoritative file corruption");
 }
 
+recovery_backup_bundle create_package_fixture(const fs::path &root, uint64_t record_count, uint64_t episode_id) {
+  {
+    fixture_owners owners(root);
+    durable_ingest_log log(options(root));
+    for (uint64_t sequence = 1; sequence <= record_count; ++sequence) {
+      log.append(position(sequence), 1001, "key" + std::to_string(sequence) + "=value" + std::to_string(sequence),
+                 owners.service, owners.writer);
+    }
+    require(
+        log.barrier(20 + record_count, durability_profile::DurableSync, owners.service, owners.writer).receipt.status ==
+            receipt_status::Succeeded,
+        "package fixture durable barrier failed");
+  }
+  begin_episode(root, episode_id);
+  const auto payload_hash = store_payload(root, "package-payload-" + std::to_string(episode_id));
+  attach_payload_ref(root, episode_id, payload_hash);
+  end_episode(root, episode_id);
+  const auto exported = recovery_engine(options(root)).export_consistent_backup();
+  require(exported.ok && exported.bundle.has_value() && exported.error.empty(),
+          "package fixture did not export a READY bundle");
+  return *exported.bundle;
+}
+
+void test_transport_package_is_atomic_verifiable_and_selects_explicit_fallback() {
+  temp_tree old_source;
+  temp_tree new_source;
+  temp_tree package_store;
+  temp_tree transported_store;
+
+  const auto old_bundle = create_package_fixture(old_source.root(), 1, 71);
+  const auto new_bundle = create_package_fixture(new_source.root(), 2, 72);
+  const auto old_package = package_store.root() / old_bundle.bundle_id;
+  const auto new_package = package_store.root() / new_bundle.bundle_id;
+
+  const auto old_published = publish_backup_package(old_bundle, old_package.string());
+  const auto new_published = publish_backup_package(new_bundle, new_package.string());
+  require(old_published.status == maintenance_status::Completed && old_published.mutation_performed &&
+              new_published.status == maintenance_status::Completed && new_published.mutation_performed &&
+              !old_published.manifest_sha256.empty() && !new_published.manifest_sha256.empty(),
+          "transport package did not publish completed manifest-bound directories");
+  const auto repeated = publish_backup_package(new_bundle, new_package.string());
+  require(repeated.status == maintenance_status::AlreadyCompleted && !repeated.mutation_performed &&
+              repeated.manifest_sha256 == new_published.manifest_sha256,
+          "repeated package publication was not idempotent");
+
+  const auto transported_package = transported_store.root() / new_bundle.bundle_id;
+  fs::copy(new_package, transported_package, fs::copy_options::recursive);
+  const auto loaded = load_backup_package(transported_package.string());
+  require(loaded.ok && loaded.bundle == new_bundle && loaded.manifest_sha256 == new_published.manifest_sha256,
+          "transported package did not reconstruct the exact typed backup bundle");
+
+  const auto incomplete = package_store.root() / "incomplete-transfer";
+  fs::create_directories(incomplete);
+  fs::copy_file(old_package / "manifest.json", incomplete / "manifest.json");
+  const auto incomplete_load = load_backup_package(incomplete.string());
+  require(!incomplete_load.ok && incomplete_load.error == "recovery_backup_package_incomplete",
+          "partial transfer was accepted without its completed marker and authoritative bytes");
+
+  const auto corrupt_material = new_package / "data" / new_bundle.files.front().relative_path;
+  std::ofstream(corrupt_material, std::ios::binary | std::ios::app) << "corrupt";
+  const auto corrupt_load = load_backup_package(new_package.string());
+  require(!corrupt_load.ok && corrupt_load.error == "recovery_backup_package_file_invalid",
+          "corrupted package bytes passed manifest verification");
+
+  fs::create_directories(package_store.root() / "interrupted.pending");
+  const auto selected = select_latest_backup_package(package_store.root().string(), old_bundle.stream_id,
+                                                     old_bundle.container_epoch, old_bundle.qualification_profile);
+  require(selected.ok && selected.bundle == old_bundle && selected.package_path == old_package.string() &&
+              selected.fallback_used && selected.rejected_candidates.size() == 3,
+          "latest verified selection hid rejected candidates or failed to expose an explicit older fallback");
+}
+
 void create_whole_data_root_fixture(const fs::path &root) {
   fs::create_directories(root);
   fixture_owners owners(root);
@@ -731,6 +803,8 @@ int main(int argc, char **argv) {
       {"consistent backup rejects missing Episode payload", test_consistent_backup_rejects_missing_episode_payload},
       {"consistent backup restores empty root and rebuilds projection",
        test_consistent_backup_empty_root_restore_and_projection_rebuild},
+      {"transport package is atomic, verifiable, and selects explicit fallback",
+       test_transport_package_is_atomic_verifiable_and_selects_explicit_fallback},
   };
   int failures = 0;
   for (const auto &[name, test] : tests) {
