@@ -81,6 +81,32 @@ test('version drift and foreground mismatch fail visibly to raw human fallback',
   );
 });
 
+test('Claude volatile state uses the latest bounded signature and fails closed on a later modal', () => {
+  const adapter = createProviderAdapter({
+    provider: 'claude',
+    version: '2.1.209',
+  });
+  const inspect = (volatileTail) =>
+    adapter.inspect({
+      lines: [],
+      volatileTail,
+      lifecycleState: 'ready',
+      inputAdmission: 'open',
+      foreground: { provider: 'claude' },
+    });
+  assert.equal(
+    inspect('Enter to confirm\u001b[2J\u001b[HTry "edit manual mode').state,
+    'ready',
+  );
+  assert.equal(
+    inspect('Try "edit manual mode\nDo you want to proceed?').state,
+    'approval-needed',
+  );
+  const unknown = inspect('Try "edit manual mode\nPermission required');
+  assert.equal(unknown.state, 'unknown');
+  assert.equal(unknown.reason, 'unrecognized-modal-state');
+});
+
 test('instruction encoding is one bounded bracketed-paste frame with one Enter', () => {
   const adapter = createProviderAdapter({
     provider: 'codex',

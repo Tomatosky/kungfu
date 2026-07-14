@@ -186,8 +186,8 @@ export class AgentSessionProductSurface {
         'terminal-status-does-not-update-cost-state-or-proof',
         'presentation-close-does-not-end-provider',
         'unknown-or-approval-state-never-auto-delivers',
-        'stage-5-product-host-is-electron-main-in-process',
-        'detached-worker-recovery-and-restart-qualification-remain-stage-6',
+        'capsule-worker-loss-ends-the-old-attempt-and-cannot-fake-continuity',
+        'machine-reboot-requires-a-new-attempt-or-provider-resume',
       ],
     };
   }

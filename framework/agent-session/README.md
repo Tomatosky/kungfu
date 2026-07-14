@@ -69,10 +69,21 @@ The Stage 5 product surface adds:
 - presentation detach without provider termination, with no renderer-private
   spawn or PTY write path.
 
-Stage 5 deliberately hosts the runtime in Electron main. Moving ownership into
-the detached Capsule worker, restart/adoption recovery, real authenticated
-Codex/Claude interaction, privacy/performance campaigns, and promoted Mac
-product evidence remain Stage 6 obligations.
+The Stage 6 recovery adapter moves Capsule ownership into one runtime-scoped,
+detached product worker. Electron main, CLI, and KFD-3 reconnect through a
+stable local endpoint; a worker loss starts an empty runtime and never presents
+an old `SessionAttempt` as continuous. POSIX sockets use a short, per-UID 0700
+directory so long macOS runtime paths cannot exceed the Unix socket limit.
+
+The retained Mac source qualification proves main-process reconnect, provider
+exit fencing, worker-loss fail-closed behavior, bounded overflow gaps, receipt
+privacy, and sub-millisecond local RPC p95. Authenticated Codex 0.144.3 passes
+start, instruction/output, approval detection plus deny-key delivery,
+interrupt, reconnect, and end. Claude Code 2.1.209 passes start, temporary
+workspace trust, instruction/output, and reconnect, but its real tool-approval
+state did not converge to a supported signature; promotion remains blocked by
+that explicit degraded result. Raw terminal bytes and environment values are
+never written to the retained report.
 
 Run the focused qualification through Shifu:
 
@@ -84,6 +95,7 @@ Run the focused qualification through Shifu:
 ./shifu test:agent-session-interaction-adapters
 ./shifu test:agent-session-interaction-adapters:native
 ./shifu test:agent-session-product-surfaces
+./shifu test:agent-session-recovery-qualification
 ./shifu test:agent-console-contract
 ./shifu --filter @kungfu-tech/gui build
 ```
@@ -99,8 +111,10 @@ without native build scripts.
 The interaction adapter native command is build-free and local-only: it checks
 installed Codex and Claude Code version output under a temporary HOME without
 reading provider auth, private transcripts, or hidden session databases. Real
-authenticated instruction, approval/deny, and provider-outcome dogfood remains
-a Stage 6 product qualification obligation.
+authenticated instruction, approval/deny, and provider-outcome dogfood runs
+through the opt-in `qualify:agent-session-provider` command with explicit
+temporary runtime/workspace paths. The command emits metadata-only JSON and
+fails closed on unknown provider screens.
 
 The Codex App Server structured-hybrid contract is a separate provider adapter
 stage under ADR-0085. It pins direct stdio, Codex CLI `0.144.3`, the generated

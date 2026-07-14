@@ -6,7 +6,7 @@ decision_status: accepted
 implementation_status: partial
 implementation_commits: [80593936763261a38eb1fb696a254390c2decd67, 8b02979d68751924810d1dc25424dd7289f5d3e6, f3743218981bee7b1ffbe4fc14511845b8ac0b53]
 implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/834, https://github.com/kungfu-systems/kungfu/pull/837, https://github.com/kungfu-systems/kungfu/pull/840]
-qualification_refs: [scripts/check-agent-session-contract.test.mjs, tests/fixtures/agent-session-capsule-contract, framework/agent-session/tests/capsule-host.test.mjs, framework/agent-session/tests/capsule-worker.test.mjs, framework/agent-session/tests/peer-transport.test.mjs, framework/agent-session/tests/runtime-port.test.mjs, framework/agent-session/tests/runtime-port.native.test.mjs, framework/agent-session/tests/provider-adapters.test.mjs, framework/agent-session/tests/interaction-port.test.mjs, framework/agent-session/tests/provider-version.native.test.mjs, framework/agent-session/tests/product-surface.test.mjs, framework/core/tests/python/test_agent_console_contract.py]
+qualification_refs: [scripts/check-agent-session-contract.test.mjs, tests/fixtures/agent-session-capsule-contract, framework/agent-session/tests/capsule-host.test.mjs, framework/agent-session/tests/capsule-worker.test.mjs, framework/agent-session/tests/peer-transport.test.mjs, framework/agent-session/tests/runtime-port.test.mjs, framework/agent-session/tests/runtime-port.native.test.mjs, framework/agent-session/tests/provider-adapters.test.mjs, framework/agent-session/tests/interaction-port.test.mjs, framework/agent-session/tests/provider-version.native.test.mjs, framework/agent-session/tests/product-surface.test.mjs, framework/agent-session/tests/product-detached-host.test.mjs, framework/agent-session/tests/product-recovery-qualification.test.mjs, framework/core/tests/python/test_agent_console_contract.py, docs/qualification/evidence/agent-session/stage6-macos-source-v1.json]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-decision]
@@ -195,8 +195,9 @@ evidence input under Profile/KFD authority.
 
 ## Consequences
 
-- The current Electron `terminal-host.ts` ownership must eventually move behind
-  the Capsule boundary; this ADR does not perform that migration.
+- Electron main reaches Agent Session Capsules through a private detached worker
+  and stable runtime-scoped endpoint. Worker loss ends its provider children and
+  creates a new empty runtime rather than claiming PTY continuity.
 - Provider adapters must fail visibly on unknown/modal state and version drift.
 - Runtime and product implementations need bounded byte/VT retention, explicit
   gaps, controller lease receipts, and exact-generation process signaling.
@@ -220,9 +221,10 @@ evidence input under Profile/KFD authority.
 The contract slice, Stage 2 independent synthetic Capsule PTY host, Stage 3
 journal/notice transport authority, Stage 4 provider-neutral interaction port,
 and Stage 5 shared product action surface are implemented, so the
-implementation status remains partial. Deterministic transport fixtures prove multi-reader cursors,
-one-controller arbitration, input dedup, bounded gaps, Coordinator
-re-registration, Supervisor adoption fencing and writer-path fanout bounds.
+implementation status remains partial. Deterministic transport fixtures prove
+multi-reader cursors, one-controller arbitration, input dedup, bounded gaps,
+Coordinator re-registration, Supervisor adoption fencing and writer-path
+fanout bounds.
 The production adapter binds that seam to native Watcher Peers without a
 Coordinator byte proxy. Versioned, redacted Codex and Claude Code fixtures now
 prove ready/busy/approval/unknown admission policy, atomic paste, bounded queue,
@@ -230,7 +232,17 @@ manual-only keys, interrupt fencing, exit closure and visible adapter drift.
 Local `--version` probes match Codex `0.144.3` and Claude Code `2.1.209` without
 reading private state; they do not qualify authenticated TUI behavior. Stage 5
 binds GUI, CLI, KFX/Agent, WorkConsole and KFD-3 to one action/plan/status/receipt
-port and proves the product runtime plus local RPC with synthetic providers. It
-still runs in Electron main. Stage 6 remains required for detached ownership,
-real-provider semantic dogfood, machine restart, privacy/performance campaigns,
-and promoted product evidence.
+port and proves the product runtime plus local RPC with synthetic providers.
+The Stage 6 implementation slice moves Capsule ownership into a detached local
+worker, serializes first-worker startup across clients, reconnects a restarted
+Electron main through one stable private endpoint, bounds RPC and VT state, and
+terminates provider PTYs when worker authority ends. Synthetic Mac source
+qualification covers restart reattachment, worker loss, provider exit, bounded
+overflow, receipt privacy, and local RPC latency. Authenticated Codex `0.144.3`
+passes instruction/output, approval denial, interrupt, main restart, and exit
+closure. Authenticated Claude Code `2.1.209` passes start, temporary workspace
+trust, instruction/output, and main restart, but its approval-needed state did
+not converge within the bounded qualification window; no deny-key or approval
+outcome is claimed. Machine restart, Linux/Windows qualification, the complete
+Claude loop, and promoted Mac product evidence remain open, so
+`promotionEligible` is false and the implementation status remains partial.

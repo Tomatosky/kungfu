@@ -1,4 +1,4 @@
-const VT_ESCAPE_PATTERN = String.raw`\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\)|[()][0-2A-Z]|[=>])`;
+const VT_ESCAPE_PATTERN = String.raw`\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\)|[()][0-2A-Z]|[=>78])`;
 const CSI_PATTERN = String.raw`^\x1b\[([0-9;?]*)([A-Za-z])$`;
 const ESCAPE = new RegExp(VT_ESCAPE_PATTERN, 'g');
 
@@ -26,6 +26,7 @@ export class VtTextGrid {
     this.alternate = blankGrid(cols, rows);
     this.activeBuffer = 'primary';
     this.cursor = { col: 0, row: 0 };
+    this.savedCursor = { col: 0, row: 0 };
     this.pending = '';
   }
 
@@ -127,6 +128,17 @@ export class VtTextGrid {
   }
 
   #applyEscape(value) {
+    if (value === '\x1b7') {
+      this.savedCursor = { ...this.cursor };
+      return;
+    }
+    if (value === '\x1b8') {
+      this.cursor = {
+        col: clamp(this.savedCursor.col, 0, this.cols - 1),
+        row: clamp(this.savedCursor.row, 0, this.rows - 1),
+      };
+      return;
+    }
     if (value === '\x1b[?1049h' || value === '\x1b[?47h') {
       this.activeBuffer = 'alternate';
       this.alternate = blankGrid(this.cols, this.rows);
@@ -158,6 +170,17 @@ export class VtTextGrid {
       case 'D':
         this.cursor.col = Math.max(0, this.cursor.col - amount);
         break;
+      case 'E':
+        this.cursor.row = Math.min(this.rows - 1, this.cursor.row + amount);
+        this.cursor.col = 0;
+        break;
+      case 'F':
+        this.cursor.row = Math.max(0, this.cursor.row - amount);
+        this.cursor.col = 0;
+        break;
+      case 'G':
+        this.cursor.col = clamp(amount - 1, 0, this.cols - 1);
+        break;
       case 'H':
       case 'f':
         this.cursor.row = clamp((params[0] || 1) - 1, 0, this.rows - 1);
@@ -171,7 +194,16 @@ export class VtTextGrid {
         }
         break;
       case 'K':
-        this.grid[this.cursor.row].fill(' ', this.cursor.col);
+        if (params[0] === 2) {
+          this.grid[this.cursor.row].fill(' ');
+        } else if (params[0] === 1) {
+          this.grid[this.cursor.row].fill(' ', 0, this.cursor.col + 1);
+        } else {
+          this.grid[this.cursor.row].fill(' ', this.cursor.col);
+        }
+        break;
+      case 'd':
+        this.cursor.row = clamp(amount - 1, 0, this.rows - 1);
         break;
     }
   }

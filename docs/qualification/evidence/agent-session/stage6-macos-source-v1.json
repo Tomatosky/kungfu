@@ -1,0 +1,57 @@
+{
+  "schema": "kungfu.agent-session.recovery-evidence/v1",
+  "period": "2026-07-14",
+  "platform": "darwin-arm64",
+  "sourceBaseCommit": "5aed1d1547b3302dc9447547777867224f1a09b7",
+  "implementationTreeRoot": "sha256:f9d27270aadc1fe4ffa8b42f16bf4bb40552158871ba1bb7355bd9593e587ed9",
+  "syntheticProductQualification": {
+    "status": "passed",
+    "cases": {
+      "mainRestartReattach": "passed",
+      "providerExitClosesInput": "passed",
+      "workerLossStartsEmptyRuntime": "passed",
+      "boundedOverflowGap": "passed",
+      "portableReceiptPrivacy": "passed"
+    },
+    "localListRpc": {
+      "samples": 40,
+      "p95Milliseconds": 1.645,
+      "ceilingMilliseconds": 250
+    }
+  },
+  "authenticatedProviders": {
+    "codex": {
+      "version": "0.144.3",
+      "status": "passed",
+      "cases": {
+        "start": "passed",
+        "instructAndObserveOutput": "passed",
+        "approvalDetectedAndDenyKeyWritten": "passed",
+        "interruptDelivered": "passed",
+        "mainRestartReattach": "passed",
+        "providerEndClosesInput": "passed"
+      },
+      "rawTerminalRetained": false,
+      "privateEnvironmentValuesRetained": false
+    },
+    "claude": {
+      "version": "2.1.209",
+      "status": "degraded",
+      "passedCases": [
+        "start",
+        "temporaryWorkspaceTrust",
+        "instructAndObserveOutput",
+        "mainRestartReattach"
+      ],
+      "blockingCase": "approval-needed state did not converge within 90000ms",
+      "denyKeyWritten": false,
+      "approvalOutcome": null,
+      "rawTerminalRetained": false,
+      "privateEnvironmentValuesRetained": false
+    }
+  },
+  "linuxQualification": "not-run",
+  "windowsQualification": "not-run",
+  "promotionEligible": false,
+  "promotionBlock": "authenticated Claude approval and deny-key loop is incomplete"
+}

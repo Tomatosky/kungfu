@@ -1,6 +1,4 @@
-import { bindAgentSessionSurfaceRpc } from '@kungfu-tech/agent-session/product-rpc';
-import { InProcessAgentSessionProductRuntime } from '@kungfu-tech/agent-session/product-runtime';
-import { AgentSessionProductSurface } from '@kungfu-tech/agent-session/product-surface';
+import { createDetachedAgentSessionHost } from '@kungfu-tech/agent-session/product-client';
 import type { AgentSession } from '@kungfu-tech/api/capability';
 
 import { AGENT_SESSION_CALL_CHANNEL } from '../sandbox/channels';
@@ -13,14 +11,10 @@ type IpcMainLike = {
   removeHandler: (channel: string) => void;
 };
 
-export function createMainAgentSessionHost(): AgentSession {
-  const pty = require('node-pty');
-  const runtime = new InProcessAgentSessionProductRuntime({
-    pty,
-    baseEnv: process.env as Record<string, string | undefined>,
-  });
-  const surface = new AgentSessionProductSurface({ runtime });
-  return { invoke: (request) => surface.invoke(request) };
+export function createMainAgentSessionHost(runtimeDir: string): AgentSession {
+  const host = createDetachedAgentSessionHost({ runtimeDir });
+  process.env.KUNGFU_AGENT_SESSION_ENDPOINT = host.endpoint;
+  return { invoke: (request) => host.invoke(request) };
 }
 
 export function bindElectronAgentSessionHost(
@@ -35,15 +29,4 @@ export function bindElectronAgentSessionHost(
       ipcMain.removeHandler(AGENT_SESSION_CALL_CHANNEL);
     },
   };
-}
-
-export function bindLocalAgentSessionHost(
-  host: AgentSession,
-  endpoint: string,
-) {
-  return bindAgentSessionSurfaceRpc({
-    endpoint,
-    invoke: (request: Record<string, unknown>) =>
-      host.invoke(request as { operation: string }),
-  });
 }

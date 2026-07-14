@@ -12,10 +12,28 @@
     "signatureId": "claude.busy.interrupt-hint"
   },
   {
+    "id": "claude-ready-placeholder-redacted",
+    "lines": ["Try \"edit"],
+    "expectedState": "ready",
+    "signatureId": "claude.ready.placeholder"
+  },
+  {
+    "id": "claude-ready-manual-placeholder-redacted",
+    "lines": ["Try a task", "manual mode on"],
+    "expectedState": "ready",
+    "signatureId": "claude.ready.manual-placeholder"
+  },
+  {
     "id": "claude-approval-redacted",
     "lines": ["Do you want to proceed?", "1. Yes", "2. No"],
     "expectedState": "approval-needed",
     "signatureId": "claude.approval.proceed"
+  },
+  {
+    "id": "claude-approval-command-redacted",
+    "lines": ["Allow this command?", "Esc to cancel"],
+    "expectedState": "approval-needed",
+    "signatureId": "claude.approval.allow-command"
   },
   {
     "id": "claude-unknown-redacted",

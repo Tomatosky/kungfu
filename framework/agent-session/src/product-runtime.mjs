@@ -130,4 +130,19 @@ export class InProcessAgentSessionProductRuntime {
     this.sessions.set(plan.sessionAttemptId, session);
     return session;
   }
+
+  shutdown() {
+    for (const session of this.sessions.values()) {
+      const status = session.host.status();
+      if (status.inputAdmission !== 'open') continue;
+      session.host.signal({
+        actionId: `product-worker-shutdown:${status.sessionAttemptId}`,
+        sessionAttemptId: status.sessionAttemptId,
+        capsuleGeneration: status.capsuleGeneration,
+        sessionStreamEpoch: status.sessionStreamEpoch,
+        processStartIdentity: status.foreground.processStartIdentity,
+        signal: 'SIGTERM',
+      });
+    }
+  }
 }

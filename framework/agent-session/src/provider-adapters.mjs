@@ -25,15 +25,35 @@ const PROVIDER_PROFILES = {
       approval: [
         ['claude.approval.proceed', /do you want to proceed\?/iu],
         ['claude.approval.permission', /allow (?:this|the) action/iu],
+        [
+          'claude.approval.allow-command',
+          /(?:do you want to )?allow (?:this |the )?(?:command|tool|action)/iu,
+        ],
+        [
+          'claude.approval.run-command',
+          /do you want to run (?:this|the) command/iu,
+        ],
       ],
       busy: [['claude.busy.interrupt-hint', /esc to interrupt/iu]],
-      ready: [['claude.ready.prompt', /^\s*❯(?:\s|$)/mu]],
+      ready: [
+        ['claude.ready.prompt', /^\s*❯(?:\s|$)/mu],
+        ['claude.ready.placeholder', /Try\s+"edit(?:\s|$)/iu],
+        [
+          'claude.ready.manual-placeholder',
+          /(?=[\s\S]*\bTry\b)(?=[\s\S]*\bmanual\b)(?=[\s\S]*\bmode\b)/iu,
+        ],
+      ],
     },
   },
 };
 
 const GENERIC_MODAL =
   /(?:\[(?:y|yes)\/(?:n|no)\]|\((?:y|yes)\/(?:n|no)\)|permission required|press enter|approve|allow)/iu;
+const ESCAPE_CHARACTER = String.fromCharCode(27);
+const VOLATILE_ESCAPE = new RegExp(
+  String.raw`${ESCAPE_CHARACTER}(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|${ESCAPE_CHARACTER}\\)|[()][0-2A-Z]|[=>78])`,
+  'gu',
+);
 const VERSION = /([0-9]+\.[0-9]+\.[0-9]+)/u;
 const NUL = String.fromCharCode(0);
 const ESCAPE = String.fromCharCode(27);
@@ -67,14 +87,60 @@ function cleanScreen(lines) {
   ) {
     throw new Error('provider inspection requires redacted VT text-grid lines');
   }
-  return lines
-    .filter((line) => line.trim().length > 0)
-    .slice(-12)
-    .join('\n');
+  return lines.filter((line) => line.trim().length > 0).join('\n');
 }
 
 function matches(signatures, screen) {
   return signatures.find(([, pattern]) => pattern.test(screen))?.[0] ?? null;
+}
+
+function lastMatch(pattern, text) {
+  const flags = `${pattern.flags.replaceAll('g', '')}g`;
+  let latest = -1;
+  for (const match of text.matchAll(new RegExp(pattern.source, flags))) {
+    latest = match.index;
+  }
+  return latest;
+}
+
+function latestVolatileState(profile, volatileTail) {
+  if (typeof volatileTail !== 'string' || volatileTail.length === 0)
+    return null;
+  const resets = [
+    `${ESCAPE_CHARACTER}[2J`,
+    `${ESCAPE_CHARACTER}[?47h`,
+    `${ESCAPE_CHARACTER}[?1049h`,
+  ];
+  const latestReset = Math.max(
+    ...resets.map((marker) => volatileTail.lastIndexOf(marker)),
+  );
+  const currentTail =
+    latestReset >= 0 ? volatileTail.slice(latestReset) : volatileTail;
+  const text = currentTail.replace(VOLATILE_ESCAPE, ' ');
+  const candidates = [
+    ...profile.signatures.approval.map(([signatureId, pattern]) => ({
+      state: 'approval-needed',
+      signatureId,
+      index: lastMatch(pattern, text),
+    })),
+    ...profile.signatures.busy.map(([signatureId, pattern]) => ({
+      state: 'busy',
+      signatureId,
+      index: lastMatch(pattern, text),
+    })),
+    ...profile.signatures.ready.map(([signatureId, pattern]) => ({
+      state: 'ready',
+      signatureId,
+      index: lastMatch(pattern, text),
+    })),
+    {
+      state: 'unknown',
+      signatureId: null,
+      index: lastMatch(GENERIC_MODAL, text),
+    },
+  ].filter((candidate) => candidate.index >= 0);
+  candidates.sort((left, right) => right.index - left.index);
+  return candidates[0] ?? null;
 }
 
 function interactionResult({
@@ -164,7 +230,13 @@ export function createProviderAdapter({ provider, version }) {
       'approval-and-deny-require-stage-6-real-provider-dogfood',
       'interrupt-proves-signal-delivery-not-provider-outcome',
     ],
-    inspect({ lines, lifecycleState, inputAdmission, foreground }) {
+    inspect({
+      lines,
+      volatileTail,
+      lifecycleState,
+      inputAdmission,
+      foreground,
+    }) {
       if (lifecycleState === 'ended' || inputAdmission === 'closed') {
         return interactionResult({ state: 'ended', compatible });
       }
@@ -180,6 +252,16 @@ export function createProviderAdapter({ provider, version }) {
           state: 'unknown',
           reason: 'adapter-version-drift',
           compatible: false,
+        });
+      }
+      const latest = latestVolatileState(profile, volatileTail);
+      if (latest) {
+        return interactionResult({
+          state: latest.state,
+          signatureId: latest.signatureId,
+          reason:
+            latest.state === 'unknown' ? 'unrecognized-modal-state' : null,
+          compatible: true,
         });
       }
       const screen = cleanScreen(lines);

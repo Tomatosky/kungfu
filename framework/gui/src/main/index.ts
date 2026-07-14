@@ -47,7 +47,6 @@ import {
 import { executeAgentRuntimeCli } from './agent-runtime-cli';
 import {
   bindElectronAgentSessionHost,
-  bindLocalAgentSessionHost,
   createMainAgentSessionHost,
 } from './agent-session-host';
 import {
@@ -950,21 +949,10 @@ app.whenReady().then(() => {
     }
   }
   try {
-    const agentSessionHost = createMainAgentSessionHost();
+    const agentSessionHost = createMainAgentSessionHost(
+      process.env.KF_RUNTIME_DIR || app.getPath('userData'),
+    );
     bindElectronAgentSessionHost(ipcMain, agentSessionHost);
-    if (process.platform !== 'win32') {
-      const endpointDir = path.join(
-        process.env.KF_RUNTIME_DIR || app.getPath('userData'),
-        'agent-session',
-      );
-      mkdirSync(endpointDir, { recursive: true, mode: 0o700 });
-      const endpoint = path.join(endpointDir, `surface-${process.pid}.sock`);
-      process.env.KUNGFU_AGENT_SESSION_ENDPOINT = endpoint;
-      const localHost = bindLocalAgentSessionHost(agentSessionHost, endpoint);
-      void localHost.ready.catch((error: Error) => {
-        console.log(`KF_AGENT_SESSION_RPC_FAIL ${error.message}`);
-      });
-    }
   } catch (e) {
     console.log(`KF_AGENT_SESSION_HOST_FAIL ${(e as Error).message}`);
   }

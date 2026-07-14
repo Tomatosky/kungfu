@@ -224,6 +224,7 @@ export class AgentSessionInteractionPort {
     const terminal = this.host.snapshot(hostStatus.output.earliestSequence);
     const interaction = this.adapter.inspect({
       lines: terminal.vt.lines,
+      volatileTail: terminal.frames.map((frame) => frame.data).join(''),
       lifecycleState: hostStatus.lifecycleState,
       inputAdmission: hostStatus.inputAdmission,
       foreground: hostStatus.foreground,

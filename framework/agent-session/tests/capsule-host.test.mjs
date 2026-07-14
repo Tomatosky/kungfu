@@ -82,6 +82,16 @@ test('VT snapshot preserves the active text grid without presenting escape bytes
   assert.equal(snapshot.fidelity, 'printable-text-grid');
 });
 
+test('VT snapshot reconstructs absolute columns, whole-line erase, and saved cursor', () => {
+  const vt = new VtTextGrid(30, 4);
+  vt.write('\x1b[2J\x1b[Hstale-line');
+  vt.write('\x1b[2K\x1b[3GTry\x1b[8G"edit');
+  vt.write('\x1b7\x1b[4;20Hstatus\x1b8 placeholder');
+  const snapshot = vt.snapshot(29);
+  assert.equal(snapshot.lines[0], '  Try  "edit placeholder');
+  assert.equal(snapshot.lines[3], '                   status');
+});
+
 test('bounded output emits an explicit gap while the VT snapshot remains current', () => {
   const { child, host } = fixture(32);
   child.emit('data', `header\r\n${'x'.repeat(128)}tail`);

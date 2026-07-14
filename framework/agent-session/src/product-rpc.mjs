@@ -3,6 +3,48 @@ import net from 'node:net';
 
 const MAX_REQUEST_BYTES = 1024 * 1024;
 
+export function invokeAgentSessionSurfaceRpc({ endpoint, request }) {
+  if (typeof endpoint !== 'string' || endpoint.length === 0) {
+    throw new Error('surface RPC client requires an endpoint');
+  }
+  return new Promise((resolve, reject) => {
+    const socket = net.createConnection(endpoint);
+    socket.setEncoding('utf8');
+    let pending = '';
+    socket.on('connect', () => socket.write(`${JSON.stringify(request)}\n`));
+    socket.on('data', (chunk) => {
+      pending += chunk;
+      if (Buffer.byteLength(pending, 'utf8') > MAX_REQUEST_BYTES) {
+        socket.destroy();
+        reject(
+          Object.assign(new Error('surface RPC response exceeds 1 MiB'), {
+            code: 'response_too_large',
+          }),
+        );
+        return;
+      }
+      const newline = pending.indexOf('\n');
+      if (newline < 0) return;
+      socket.end();
+      try {
+        const response = JSON.parse(pending.slice(0, newline));
+        if (response.ok) resolve(response.value);
+        else {
+          reject(
+            Object.assign(
+              new Error(response.error?.message ?? 'Agent Session RPC failed'),
+              { code: response.error?.code ?? 'agent_session_error' },
+            ),
+          );
+        }
+      } catch (error) {
+        reject(error);
+      }
+    });
+    socket.on('error', reject);
+  });
+}
+
 /**
  * Bind the same Agent Session invoke surface for installed CLI/KFD-3 clients.
  * The socket is a runtime-scoped action channel, not a terminal byte proxy.
