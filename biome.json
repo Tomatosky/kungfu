@@ -8,6 +8,7 @@
   "files": {
     "ignore": [
       "**/node_modules/**",
+      "**/.venv/**",
       "**/out/**",
       "**/dist/**",
       "**/build/**",

@@ -386,6 +386,13 @@ test('task actions re-enter an existing lightweight Shifu task beside an active 
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const xdgCache = path.join(directory, 'cache');
   const profilePath = path.join(directory, 'profile.json');
+  const corepackHome =
+    process.env.COREPACK_HOME ||
+    path.join(
+      process.env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache'),
+      'node',
+      'corepack',
+    );
   // Share the cache root with the simulated qualification; only the runner
   // identity and scope may keep this contract-only task off its partition.
   const runnerName = `shifu-gate-executor-test-${process.pid}`;
@@ -419,6 +426,7 @@ test('task actions re-enter an existing lightweight Shifu task beside an active 
   await withEnvironment(
     {
       XDG_CACHE_HOME: xdgCache,
+      COREPACK_HOME: corepackHome,
       SHIFU_CACHE_PROFILE_REF: profilePath,
       SHIFU_CACHE_PROFILE_DIGEST: sha256(profileBytes),
       SHIFU_CACHE_SCOPE: 'self-hosted-runner',
@@ -428,7 +436,7 @@ test('task actions re-enter an existing lightweight Shifu task beside an active 
     },
     async () => {
       const receipt = await run({ profile: 'task-dogfood' });
-      assert.equal(receipt.status, 'pass');
+      assert.equal(receipt.status, 'pass', JSON.stringify(receipt.results[0]));
       assert.equal(receipt.results[0].gateId, 'fixture.task-dogfood');
       assert.equal(receipt.results[0].attempted, true);
     },
