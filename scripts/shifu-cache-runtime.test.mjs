@@ -642,6 +642,7 @@ test('cache apply overrides Cargo and isolates Conan without mutating persistent
     "conanGlobal: fs.readFileSync(path.join(process.env.CONAN_HOME, 'global.conf'), 'utf8'),",
     'rocksdbSource: process.env.KUNGFU_CONAN_ROCKSDB_SOURCE_URL,',
     'managedConan: process.env.SHIFU_CACHE_MANAGED_CONAN,',
+    'wrapperFiles: fs.readdirSync(process.env.PATH.split(path.delimiter)[0]).sort(),',
     `storageMarker: ${JSON.stringify(path.join(conanStorage, 'packages', 'marker'))},`,
     '}));',
     `fs.mkdirSync(${JSON.stringify(path.join(conanStorage, 'packages'))}, {recursive: true});`,
@@ -685,6 +686,12 @@ test('cache apply overrides Cargo and isolates Conan without mutating persistent
     ],
   });
   assert.equal(child.managedConan, '1');
+  assert.deepEqual(
+    child.wrapperFiles,
+    process.platform === 'win32'
+      ? ['cargo-wrapper.mjs', 'cargo.cmd']
+      : ['cargo', 'cargo-wrapper.mjs'],
+  );
   assert.equal(
     child.rocksdbSource,
     'http://cache.example.invalid/sources/rocksdb.tar.gz',

@@ -797,16 +797,19 @@ function prepareConfigOverlays(configBindings, baseEnv, scope) {
         fs.mkdirSync(wrapperDir, { mode: 0o700 });
         const wrapperModule = path.join(wrapperDir, 'cargo-wrapper.mjs');
         fs.writeFileSync(wrapperModule, cargoWrapperSource(), { mode: 0o600 });
-        fs.writeFileSync(
-          path.join(wrapperDir, 'cargo'),
-          "#!/usr/bin/env node\nimport './cargo-wrapper.mjs';\n",
-          { mode: 0o700 },
-        );
-        fs.writeFileSync(
-          path.join(wrapperDir, 'cargo.cmd'),
-          '@node "%~dp0cargo-wrapper.mjs" %*\r\n',
-          { mode: 0o600 },
-        );
+        if (process.platform === 'win32') {
+          fs.writeFileSync(
+            path.join(wrapperDir, 'cargo.cmd'),
+            '@node "%~dp0cargo-wrapper.mjs" %*\r\n',
+            { mode: 0o600 },
+          );
+        } else {
+          fs.writeFileSync(
+            path.join(wrapperDir, 'cargo'),
+            "#!/usr/bin/env node\nimport './cargo-wrapper.mjs';\n",
+            { mode: 0o700 },
+          );
+        }
         // A lifecycle can invoke Shifu again while already inside a cache
         // projection.  Reusing PATH here would make the inner Cargo wrapper
         // discover the outer wrapper as its "real" Cargo and recurse.  Carry
