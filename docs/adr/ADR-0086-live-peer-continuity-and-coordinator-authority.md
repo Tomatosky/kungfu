@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0086
 decision_status: accepted
 implementation_status: partial
-implementation_commits: [cabf0c34615fb80f7aca6ede43bc5b57abf5fcc1]
+implementation_commits: [69b0b82ebdf972a39f09e9a2737b0456314c2de8]
 qualification_refs: [framework/core/src/libkungfu/tests/peer_continuity_tests.cpp, framework/core/tests/python/test_runtime_service.py, framework/core/tests/python/test_runtime_broker.py, framework/agent-session/tests/peer-transport.test.mjs, framework/core/tests/qualification/live-peer-continuity/run.mjs, framework/core/tests/qualification/live-peer-continuity/native_campaign.py]
 review_state: self-reviewed
 sensitivity: public
