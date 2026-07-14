@@ -125,10 +125,12 @@ and reproduce the registered surfaces as canonical JSON evidence:
 kungfu sdk contract adopt config --source framework/config/kungfu-config.contract.json --json
 kungfu sdk contract adopt kfx --source framework/kfx/kungfu-kfx.contract.json --json
 kungfu sdk contract adopt skill --source framework/skill/kungfu-skill.contract.json --json
+kungfu sdk contract adopt runtime --source framework/runtime/kungfu-runtime.contract.json --json
 
 kungfu sdk contract render config --check --json
 kungfu sdk contract render kfx --check --json
 kungfu sdk contract render skill --check --json
+kungfu sdk contract render runtime --check --json
 
 kungfu sdk contract evidence --json
 ```

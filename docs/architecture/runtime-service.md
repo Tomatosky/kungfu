@@ -6,11 +6,13 @@ Kungfu can keep live runtime coordination alive independently from the GUI.
 Closing the GUI window should not imply that the runtime stops; stopping it is
 an explicit operator action.
 
-The canonical terminology is defined by
+The topology-neutral activation and readiness contract is defined by
+[ADR-0080](../adr/ADR-0080-topology-neutral-capability-driven-runtime-activation.md).
+The canonical process-adapter terminology is defined by
 [ADR-0057](../adr/ADR-0057-domain-neutral-live-runtime-terminology.md);
 [ADR-0036](../adr/ADR-0036-supervisor-and-workspace-master-topology.md)
-records the original topology decision.
-It defines two live process roles:
+records the original topology decision. The current process-control topology
+has two live process roles:
 
 - `supervisor` is one per OS user/session. It owns no workspace facts. It
   starts, discovers, health-checks, and stops workspace coordinators.
@@ -33,7 +35,7 @@ updates. It does not become fact authority or embed every domain assessor. See
 
 ## Current CLI Surface
 
-The current implementation slice exposes the process manager through
+The current implementation slice exposes the process-control topology through
 `kungfu runtime ...` commands:
 
 - `kungfu runtime supervise` is the foreground supervisor loop used by a user
@@ -61,7 +63,11 @@ kungfu runtime service uninstall --execute --json
 `install` and `uninstall` are dry-run by default. They write or remove the
 user-level service file only when `--execute` is supplied.
 
-## Target Topology
+The v2 status and route payloads are compatibility diagnostics. A reported
+`running` process lifecycle does not establish the ADR-0080 runtime `ready`
+state, capability set, generation, or durable cut.
+
+## Current Process-control Topology
 
 The target live command path is:
 
@@ -107,7 +113,9 @@ Files in these runtime-state directories include:
 
 The `status --json` command reads process-control state and verifies whether
 the recorded PIDs are still alive. Runtime-state files are not durable facts and
-must not be treated as the source of truth.
+must not be treated as the source of truth. PID, route, socket, service-install,
+and GUI facts may explain an unavailable runtime, but they cannot issue an
+ADR-0080 readiness handle or activation receipt.
 
 The route registry also carries a narrow v1 lifecycle lease for each workspace
 coordinator route:
@@ -120,7 +128,8 @@ coordinator route:
   `lifecycle.warnings`, `route.freshness`, `route.stale`, and
   `routes.staleCount`.
 
-The lifecycle state is deterministic from the route lease and pid probes:
+The diagnostic lifecycle state is deterministic from the route lease and pid
+probes:
 
 - `running`: supervisor and workspace coordinator are both live and the route is
   fresh.
@@ -201,3 +210,6 @@ runtime directory, and route registration without introducing a second process
 control path. Lifecycle health comes from the core status payload, not from GUI
 pid or route reimplementation, so stale and degraded states stay consistent
 between CLI, tray, status bar, and the System Status view.
+The optional foreground continuity projection is a staged UI bridge; final
+`Workspace ready` must project the shared ADR-0080 cut-bound readiness rather
+than infer it from process health.

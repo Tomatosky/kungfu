@@ -77,6 +77,21 @@
           "artifact": "config/skill/schema/skill-manager.schema.json"
         }
       ]
+    },
+    {
+      "surface": "runtime",
+      "id": "kungfu-runtime",
+      "schema": "kungfu.runtime.contract/v1",
+      "weldedSurface": "runtime-activation-contract",
+      "env": "KUNGFU_RUNTIME_CONTRACT",
+      "file": "kungfu-runtime.contract.json",
+      "source": "framework/runtime/kungfu-runtime.contract.json",
+      "artifact": "config/kungfu-runtime.contract.json",
+      "probeFixture": "tests/fixtures/runtime-contract-topology-neutral/valid-cases.json",
+      "cli": {
+        "contract": ["contract", "show", "runtime", "--json"],
+        "schema": ["contract", "show", "runtime", "--json"]
+      }
     }
   ]
 }

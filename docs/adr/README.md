@@ -149,6 +149,7 @@ implemented and qualified or explicitly waived for that release.
 | [0077](ADR-0077-agent-coordination-on-live-runtime.md) | accepted | agent coordination on the live runtime: same-host bounded-mission peers with coloop-backed named locks/signals/instruct and audited Episodes replace git-based coordination; the first post-trading consumer ADR-0070 anticipated, v1 cooperative-trust with capability confinement deferred |
 | [0078](ADR-0078-minimal-generic-core-closure-and-membrane-decode-checksum.md) | accepted | libkungfu owns the minimal closed set of generic `.kungfu` maintenance/self-describing primitives; domain interpretation of frames (rewind/work/atlas) stays in outer rings on the membrane; expose generic frame decode and frame checksum on pybind + the C-ABI membrane and de-dup the Python re-implementations |
 | [0079](ADR-0079-native-work-agent-console-loop.md) | accepted | work authority and execution placement stay independent while a generic WorkRef, stable WorkConsole, machine-global Agent Runtime Profile and content-bound KFD-3 envelope join Mission Control, Agent Console, Episodes and external report into one product loop |
+| [0080](ADR-0080-topology-neutral-capability-driven-runtime-activation.md) | accepted | live runtime activation is capability-driven and topology-neutral; readiness is cut-bound while process and GUI facts remain diagnostics |
 | [SHIFU-0001](SHIFU-ADR-0001-cache-profile-contract-and-ownership.md) | accepted | Cache profiles are Shifu-owned contracts; inventories project instances and Buildchain owns process |
 | [SHIFU-0002](SHIFU-ADR-0002-local-artifact-catalog-and-safe-promotion.md) | accepted | Shifu and Kungfu product artifacts share provenance-aware, Git-safe local promotion semantics |
 | [SHIFU-0003](SHIFU-ADR-0003-uv-effective-lock-cache-enforcement.md) | accepted | Strict uv cache execution uses a disposable effective lock while canonical locks stay public |
@@ -175,6 +176,10 @@ implemented and qualified or explicitly waived for that release.
   [0068](ADR-0068-tiered-durability-and-crash-recovery.md) keeps the hot mmap
   plane while adding explicit visible/durable/projected watermarks, typed
   receipts, an independent durable-ingest boundary, and crash qualification.
+  [0080](ADR-0080-topology-neutral-capability-driven-runtime-activation.md)
+  classifies storage-only, live-optional, and live-required operations; binds
+  readiness to a durable cut and one fenced generation; and keeps process
+  topology behind a capability-driven RuntimeHost adapter.
   [0002](ADR-0002-yijinjing-schema-runtime-layout.md) is retained as the
   superseded historical decision that preceded this split.
 - **Control / event axis** — [0003](ADR-0003-control-axis-python-coroutine-integration.md)

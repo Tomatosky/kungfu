@@ -80,6 +80,7 @@ export function sourceAcceptancePlan(files) {
       'scripts/check-journal-authority-boundary.mjs',
     ],
     ['live runtime terminology', 'scripts/check-live-runtime-terminology.mjs'],
+    ['runtime activation contract', 'scripts/check-runtime-contract.mjs'],
     ['Shifu version sync', 'scripts/sync-shifu-version.mjs', '--check'],
     ['documentation contracts', 'scripts/run-docs-source-check.mjs'],
   ];
@@ -107,6 +108,7 @@ export function sourceAcceptancePlan(files) {
         'scripts/shifu-gate-executor.test.mjs',
         'scripts/check-kungfu-gate-catalog.test.mjs',
         'scripts/check-schema-authority.test.mjs',
+        'scripts/check-runtime-contract.test.mjs',
         'framework/core/tests/qualification/durability/run.test.mjs',
         'framework/core/tests/qualification/durability/powercut_plan.test.mjs',
         'framework/core/tests/qualification/durability/retained_evidence.test.mjs',

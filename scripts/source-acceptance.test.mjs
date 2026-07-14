@@ -22,6 +22,7 @@ test('source plan covers representative source-only checks', () => {
   assert.ok(labels.includes('Python type baseline'));
   assert.ok(labels.includes('changed C/C++ format'));
   assert.ok(labels.includes('documentation contracts'));
+  assert.ok(labels.includes('runtime activation contract'));
 });
 
 test('Conan recipe Python is linted without widening into the product type baseline', () => {
