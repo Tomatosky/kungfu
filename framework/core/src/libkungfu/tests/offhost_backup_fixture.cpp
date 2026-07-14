@@ -28,7 +28,7 @@ namespace {
 constexpr uint64_t STREAM_ID = 7201;
 constexpr uint64_t CONTAINER_EPOCH = 1;
 constexpr uint64_t EPISODE_ID = 7201001;
-constexpr const char *PROFILE = "linux-ext4-agent120-ubuntu222-offhost-v1";
+constexpr const char *PROFILE = "candidate/linux-ext4-agent120-ubuntu222-offhost-v1";
 
 void require(bool condition, const std::string &message) {
   if (!condition) {
@@ -57,7 +57,10 @@ std::string required(const std::map<std::string, std::string> &args, const std::
 
 ingest_options fixture_options(const fs::path &root, uint64_t stream_id = STREAM_ID,
                                uint64_t container_epoch = CONTAINER_EPOCH, std::string profile = PROFILE) {
-  return {root.string(), stream_id, container_epoch, "offhost-backup-writer", std::move(profile), true, 64 * 1024};
+  ingest_options result{root.string(),      stream_id, container_epoch, "offhost-backup-writer",
+                        std::move(profile), true,      64 * 1024};
+  result.activation = ingest_activation::ProductionCandidate;
+  return result;
 }
 
 stream_position fixture_position(uint64_t sequence) {
