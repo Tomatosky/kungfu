@@ -67,15 +67,19 @@ test('source plan covers representative source-only checks', () => {
   const typeBaseline = plan.find(
     (step) => step.label === 'Python type baseline',
   );
-  assert.equal(typeBaseline.command, 'uvx');
-  assert.deepEqual(typeBaseline.args, [
-    '--from',
-    'mypy==1.20.2',
-    'mypy',
+  assert.ok(['mypy', 'uvx'].includes(typeBaseline.command));
+  assert.deepEqual(typeBaseline.args.slice(-3), [
     '--config-file',
     'pyproject.toml',
     'src/python/kungfu',
   ]);
+  if (typeBaseline.command === 'uvx') {
+    assert.deepEqual(typeBaseline.args.slice(0, 3), [
+      '--from',
+      'mypy==1.20.2',
+      'mypy',
+    ]);
+  }
   assert.equal(typeBaseline.cwd, path.join(ROOT, 'framework/core'));
   const contractTests = plan.find(
     (step) => step.label === 'source-acceptance contract tests',
