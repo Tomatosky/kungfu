@@ -3,7 +3,8 @@ metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
 adr_id: ADR-0080
 decision_status: accepted
-implementation_status: not-started
+implementation_status: partial
+implementation_commits: [9f167a3aae1e4233c737b4a4be5339c540c5c9c3]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-decision]
@@ -16,7 +17,7 @@ last_reviewed: 2026-07-14
 
 # ADR-0080: live runtime activation is capability-driven and topology-neutral
 
-- Status: accepted; implementation not started
+- Status: accepted; implementation partial
 - Date: 2026-07-14
 - Category: runtime architecture / activation / recovery / embedding boundary
 - Related: [ADR-0035](ADR-0035-workspace-local-kungfu-data-home.md),
