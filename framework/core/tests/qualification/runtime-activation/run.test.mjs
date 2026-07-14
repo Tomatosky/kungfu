@@ -15,6 +15,12 @@ import {
   validateReport,
 } from './run.mjs';
 
+test('failed suites expose a bounded diagnostic tail in the workflow log', () => {
+  const source = fs.readFileSync(new URL('./run.mjs', import.meta.url), 'utf8');
+  assert.match(source, /output\.slice\(-64 \* 1024\)/);
+  assert.match(source, /failure output \(last 64 KiB\)/);
+});
+
 test('default evidence survives Core build-directory cleanup', () => {
   const output = defaultOutputDir('runtime-activation-test');
   assert.match(

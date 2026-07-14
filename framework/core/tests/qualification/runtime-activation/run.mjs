@@ -318,6 +318,12 @@ function runSuite(suite, outputDir) {
   const rawName = `${suite.id}.log`;
   fs.writeFileSync(path.join(outputDir, rawName), output, { flag: 'wx' });
   const passed = !result.error && result.status === 0;
+  if (!passed) {
+    const failureTail = output.slice(-64 * 1024).trim();
+    console.error(
+      `[runtime-activation-qualify] ${suite.id} failure output (last 64 KiB):\n${failureTail || '(no child output)'}`,
+    );
+  }
   console.log(
     `[runtime-activation-qualify] suite=${suite.id} status=${passed ? 'passed' : 'failed'} duration_ms=${Date.now() - started}`,
   );
