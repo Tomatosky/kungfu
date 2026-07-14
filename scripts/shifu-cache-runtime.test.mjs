@@ -895,7 +895,8 @@ test('cache apply fails closed when managed Conan storage is already in use', as
   );
   fs.mkdirSync(storage, { recursive: true });
   const lock = path.join(storage, '.shifu-conan.lock');
-  fs.writeFileSync(lock, '{"sentinel":true}\n');
+  const liveOwner = `${JSON.stringify({ pid: process.pid, acquiredAt: new Date().toISOString() })}\n`;
+  fs.writeFileSync(lock, liveOwner);
   const raw = bytes(toolConfigProfile());
   const profilePath = path.join(directory, 'profile.json');
   fs.writeFileSync(profilePath, raw);
@@ -910,7 +911,43 @@ test('cache apply fails closed when managed Conan storage is already in use', as
     }),
     /managed Conan storage is already in use/,
   );
-  assert.equal(fs.readFileSync(lock, 'utf8'), '{"sentinel":true}\n');
+  assert.equal(fs.readFileSync(lock, 'utf8'), liveOwner);
+});
+
+test('cache apply reclaims a managed Conan lock whose owner exited', async (t) => {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'shifu-cache-stale-conan-lock-'),
+  );
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const xdgCache = path.join(directory, 'cache');
+  const storage = path.join(
+    xdgCache,
+    'kungfu',
+    'conan',
+    'workhub-v1',
+    'development',
+  );
+  fs.mkdirSync(storage, { recursive: true });
+  const lock = path.join(storage, '.shifu-conan.lock');
+  const child = spawnSync(process.execPath, ['-e', 'process.exit(0)']);
+  assert.equal(child.status, 0);
+  fs.writeFileSync(
+    lock,
+    `${JSON.stringify({ pid: child.pid, acquiredAt: new Date().toISOString() })}\n`,
+  );
+  const raw = bytes(toolConfigProfile());
+  const profilePath = path.join(directory, 'profile.json');
+  fs.writeFileSync(profilePath, raw);
+  const status = await applyCacheProfile({
+    reference: profilePath,
+    expectedDigest: sha256(raw),
+    scope: 'development',
+    command: process.execPath,
+    args: ['-e', 'process.exit(0)'],
+    env: { ...process.env, XDG_CACHE_HOME: xdgCache },
+  });
+  assert.equal(status, 0);
+  assert.equal(fs.existsSync(lock), false);
 });
 
 test('cache apply is a transparent pass-through when no profile is configured', async (t) => {

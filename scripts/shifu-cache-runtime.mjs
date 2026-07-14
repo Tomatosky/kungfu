@@ -654,28 +654,62 @@ function conanStoragePartition(scope, baseEnv) {
 
 function acquireConanStorageLock(storageRoot) {
   const lockPath = path.join(storageRoot, '.shifu-conan.lock');
+  const owner = {
+    pid: process.pid,
+    hostname: os.hostname(),
+    acquiredAt: new Date().toISOString(),
+    nonce: crypto.randomUUID(),
+  };
+  const serializedOwner = `${JSON.stringify(owner)}\n`;
   let descriptor;
-  try {
-    descriptor = fs.openSync(lockPath, 'wx', 0o600);
-    fs.writeFileSync(
-      descriptor,
-      `${JSON.stringify({ pid: process.pid, acquiredAt: new Date().toISOString() })}\n`,
-    );
-  } catch (error) {
-    if (error?.code === 'EEXIST') {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      descriptor = fs.openSync(lockPath, 'wx', 0o600);
+      try {
+        fs.writeFileSync(descriptor, serializedOwner);
+      } finally {
+        fs.closeSync(descriptor);
+      }
+      break;
+    } catch (error) {
+      if (error?.code !== 'EEXIST') throw error;
+      let existing;
+      try {
+        existing = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+      } catch {
+        existing = null;
+      }
+      const pid = existing?.pid;
+      let alive = true;
+      if (Number.isSafeInteger(pid) && pid > 0) {
+        try {
+          process.kill(pid, 0);
+        } catch (probeError) {
+          alive = probeError?.code !== 'ESRCH';
+        }
+      }
+      if (attempt === 0 && existing && alive === false) {
+        try {
+          fs.unlinkSync(lockPath);
+          continue;
+        } catch (unlinkError) {
+          if (unlinkError?.code === 'ENOENT') continue;
+          throw unlinkError;
+        }
+      }
       throw new CacheProfileError(
         'managed Conan storage is already in use; parallel Conan clients require separate runner partitions',
       );
     }
-    throw error;
-  } finally {
-    if (descriptor !== undefined) fs.closeSync(descriptor);
   }
+  if (descriptor === undefined)
+    throw new CacheProfileError('failed to acquire managed Conan storage lock');
   return {
     path: lockPath,
     release() {
       try {
-        fs.unlinkSync(lockPath);
+        if (fs.readFileSync(lockPath, 'utf8') === serializedOwner)
+          fs.unlinkSync(lockPath);
       } catch (error) {
         if (error?.code !== 'ENOENT') throw error;
       }

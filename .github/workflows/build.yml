@@ -29,7 +29,7 @@ permissions:
 
 jobs:
   build:
-    uses: kungfu-systems/buildchain/.github/workflows/.build.yml@v2-alpha
+    uses: kungfu-systems/buildchain/.github/workflows/.build.yml@e1a2b253889ef2d27c024439a67858728a75e63a
     secrets: inherit
     with:
       buildchain-ref: ${{ inputs.buildchain-ref || '' }}

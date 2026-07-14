@@ -73,9 +73,9 @@ export function validateWorkflowSources(root, contract, overrides = {}) {
 
   requirePattern(
     build,
-    /uses: kungfu-systems\/buildchain\/\.github\/workflows\/\.build\.yml@v2-alpha/,
+    /uses: kungfu-systems\/buildchain\/\.github\/workflows\/\.build\.yml@e1a2b253889ef2d27c024439a67858728a75e63a/,
     findings,
-    'release-candidate build must consume Buildchain v2-alpha',
+    'release-candidate build must consume the qualified Buildchain runtime',
   );
   requirePattern(
     build,

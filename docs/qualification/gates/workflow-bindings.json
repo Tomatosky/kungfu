@@ -289,7 +289,7 @@
       "adapter": {
         "type": "buildchain-heavy-build",
         "kind": "job-uses",
-        "uses": "kungfu-systems/buildchain/.github/workflows/.build.yml@v2-alpha",
+        "uses": "kungfu-systems/buildchain/.github/workflows/.build.yml@e1a2b253889ef2d27c024439a67858728a75e63a",
         "job": {
           "secrets": "inherit"
         },
