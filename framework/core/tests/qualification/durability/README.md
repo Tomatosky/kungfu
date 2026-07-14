@@ -117,6 +117,24 @@ The production-candidate v2 campaign is a separate, stricter local Shifu task:
   --kernel-release 6.8.0-134-generic
 ```
 
+Before the full matrix, run one explicitly non-qualifying canary against the
+same prepared workspace with separate evidence filenames:
+
+```sh
+./shifu durability:fault-campaign:qemu -- \
+  --workspace /data/qualification/kungfu/durability/SOURCE-linux-ext4-fault-v2 \
+  --rootfs-base /data/qualification/kungfu/durability/SOURCE-linux-ext4-fault-v2/rootfs-base.ext4 \
+  --report /data/qualification/kungfu/durability/SOURCE-linux-ext4-fault-v2/evidence/fault-campaign-v2.canary.json \
+  --raw-results /data/qualification/kungfu/durability/SOURCE-linux-ext4-fault-v2/evidence/fault-campaign-v2.canary.results.jsonl \
+  --kernel-release 6.8.0-134-generic \
+  --canary-trial c1-dg-qcow2-writeback-after_data_sync
+```
+
+The canary uses `canary-`-prefixed trial artifacts so the subsequent full
+matrix remains append-only and collision-free. Its report always has
+`complete_required_matrix=false`, `production_profile_eligible=false`, and is
+never qualification evidence, even when its verdict is `canary-passed`.
+
 Both commands are dry-run by default. Preparation refuses an existing
 workspace and executes only after the exact repository, run id, image, kernel,
 commands, impact, and leave-in-place rollback have been reviewed. The campaign

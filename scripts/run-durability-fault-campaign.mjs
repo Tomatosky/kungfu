@@ -29,6 +29,7 @@ function requireFileContent(pathname, expected, label) {
 function compactResult(result) {
   return {
     id: result.id,
+    matrix_trial_id: result.matrix_trial_id,
     status: result.status,
     profile: result.profile,
     fault: result.fault,
@@ -60,9 +61,16 @@ export function createFaultCampaignPlan({
   rawResults,
   sourceRevision,
   kernelRelease,
+  canaryTrial = null,
   execute = false,
 }) {
   const matrix = createFaultCampaignMatrix();
+  const selectedTrial = canaryTrial
+    ? matrix.trials.find((trial) => trial.id === canaryTrial)
+    : null;
+  if (canaryTrial && !selectedTrial) {
+    throw new Error(`unknown canary trial: ${canaryTrial}`);
+  }
   return {
     schema: 'kungfu.durability.fault-campaign-execution-plan/v2',
     mode: execute ? 'execute' : 'dry-run',
@@ -72,6 +80,7 @@ export function createFaultCampaignPlan({
     report,
     raw_results: rawResults,
     kernel_release: kernelRelease,
+    execution_kind: canaryTrial ? 'non-qualifying-canary' : 'full-campaign',
     matrix: {
       schema: matrix.schema,
       profile_id: matrix.profile.id,
@@ -82,6 +91,9 @@ export function createFaultCampaignPlan({
       device_envelopes: matrix.profile.device_envelopes,
       faults: matrix.profile.faults.map((fault) => fault.name),
       durability_profiles: matrix.profile.durability_profiles,
+      selected_trials: canaryTrial
+        ? [canaryTrial]
+        : matrix.trials.map((trial) => trial.id),
     },
     safety: {
       creates_only_below: workspace,
@@ -93,6 +105,7 @@ export function createFaultCampaignPlan({
       physical_device_write: false,
       physical_host_restart: false,
       cleanup: 'not performed; preserve the complete workspace for review',
+      canary_is_never_qualification_evidence: true,
     },
   };
 }
@@ -115,6 +128,7 @@ async function main() {
   );
   const sourceRevision = command(['git', 'rev-parse', 'HEAD']);
   const kernelRelease = parsed['kernel-release'];
+  const canaryTrial = parsed['canary-trial'] || null;
   if (
     !kernelRelease ||
     !/^[0-9][0-9A-Za-z.+~-]*-generic$/u.test(kernelRelease)
@@ -128,6 +142,7 @@ async function main() {
     rawResults,
     sourceRevision,
     kernelRelease,
+    canaryTrial,
     execute: parsed.execute,
   });
   if (!parsed.execute) {
@@ -161,15 +176,34 @@ async function main() {
       throw new Error(`refusing existing campaign evidence: ${pathname}`);
     }
   }
+  if (
+    canaryTrial &&
+    [report, rawResults].some(
+      (pathname) => !path.basename(pathname).includes('canary'),
+    )
+  ) {
+    throw new Error(
+      'canary report and raw-results filenames must include canary',
+    );
+  }
   if (command(['git', 'status', '--porcelain']) !== '') {
     throw new Error('source worktree must be clean');
   }
   const matrix = createFaultCampaignMatrix();
+  const selectedTrials = canaryTrial
+    ? matrix.trials
+        .filter((trial) => trial.id === canaryTrial)
+        .map((trial) => ({
+          ...trial,
+          matrix_trial_id: trial.id,
+          id: `canary-${trial.id}`,
+        }))
+    : matrix.trials;
   const rawFd = fs.openSync(rawResults, 'wx');
   const campaignStarted = new Date();
   const results = [];
   try {
-    for (const trial of matrix.trials) {
+    for (const trial of selectedTrials) {
       const started = new Date();
       let result;
       try {
@@ -180,6 +214,7 @@ async function main() {
         });
         result = {
           ...passed,
+          matrix_trial_id: trial.matrix_trial_id || trial.id,
           cycle: trial.cycle,
           envelope: trial.envelope,
           started_at: started.toISOString(),
@@ -190,6 +225,7 @@ async function main() {
       } catch (error) {
         result = {
           id: trial.id,
+          matrix_trial_id: trial.matrix_trial_id || trial.id,
           status: 'failed',
           profile: trial.profile,
           fault: trial.fault,
@@ -209,7 +245,7 @@ async function main() {
       appendRaw(rawFd, result);
       results.push(result);
       console.log(
-        `[durability-fault-campaign] ${result.status} ${result.id} (${results.length}/${matrix.trial_count})`,
+        `[durability-fault-campaign] ${result.status} ${result.id} (${results.length}/${selectedTrials.length})`,
       );
     }
   } finally {
@@ -218,11 +254,19 @@ async function main() {
   const campaignFinished = new Date();
   const passed = results.filter((result) => result.status === 'passed').length;
   const failed = results.length - passed;
-  const complete = results.length === matrix.trial_count;
+  const complete = !canaryTrial && results.length === matrix.trial_count;
   const qualified = complete && failed === 0;
+  const canaryPassed =
+    Boolean(canaryTrial) && results.length === 1 && failed === 0;
   const output = {
     schema: 'kungfu.durability.fault-campaign-report/v2',
-    verdict: qualified ? 'passed' : 'failed',
+    verdict: canaryTrial
+      ? canaryPassed
+        ? 'canary-passed'
+        : 'canary-failed'
+      : qualified
+        ? 'passed'
+        : 'failed',
     source: {
       revision: sourceRevision,
       tree: command(['git', 'rev-parse', 'HEAD^{tree}']),
@@ -262,6 +306,7 @@ async function main() {
       physical_power_loss_qualified: false,
       physical_device_cache_qualified: false,
       production_profile_eligible: false,
+      canary_only: Boolean(canaryTrial),
     },
     results: results.map(compactResult),
   };
@@ -269,7 +314,7 @@ async function main() {
     flag: 'wx',
   });
   console.log(`[durability-fault-campaign] report=${report}`);
-  if (!qualified) process.exitCode = 1;
+  if (canaryTrial ? !canaryPassed : !qualified) process.exitCode = 1;
 }
 
 if (

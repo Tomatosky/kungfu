@@ -31,6 +31,19 @@ test('campaign dry run names the full bounded mutation surface', () => {
   assert.match(plan.safety.cleanup, /not performed/u);
 });
 
+test('canary is one named trial and cannot claim qualification', () => {
+  const canaryTrial = 'c1-dg-qcow2-writeback-after_data_sync';
+  const plan = createFaultCampaignPlan({ ...input, canaryTrial });
+  assert.equal(plan.execution_kind, 'non-qualifying-canary');
+  assert.deepEqual(plan.matrix.selected_trials, [canaryTrial]);
+  assert.equal(plan.safety.canary_is_never_qualification_evidence, true);
+  assert.equal(plan.matrix.trial_count, 360);
+  assert.throws(
+    () => createFaultCampaignPlan({ ...input, canaryTrial: 'not-a-trial' }),
+    /unknown canary trial/u,
+  );
+});
+
 test('QEMU device envelopes are explicit and do not widen hardware claims', () => {
   assert.equal(
     dataDriveArgument({
