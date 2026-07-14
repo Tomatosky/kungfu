@@ -129,6 +129,9 @@ interface Pane {
   consoleId?: string;
   attemptId?: string;
   runtimeProfileId?: string;
+  capsule?: boolean;
+  attachmentId?: string;
+  actorId?: string;
 }
 
 const PANE_SEPARATOR_SIZE = 8;
@@ -715,6 +718,303 @@ function SessionPane({
   );
 }
 
+type CapsuleSurfaceStatus = {
+  workConsoleId: string;
+  sessionAttemptId: string;
+  lifecycleState: string;
+  interactionState: string;
+  inputAdmission: string;
+  queuedInstructions: number;
+  providerAdapter?: {
+    provider?: string;
+    compatible?: boolean;
+    reason?: string | null;
+  };
+  controller?: {
+    holderId: string;
+    leaseId: string;
+    expiresAt: number;
+  } | null;
+  binding?: {
+    kind: 'work' | 'workspace-assistant';
+    workRef: WorkRef | null;
+  };
+};
+
+type CapsuleSurfaceList = {
+  sessions: CapsuleSurfaceStatus[];
+};
+
+type CapsuleSurfaceSnapshot = {
+  status: CapsuleSurfaceStatus;
+  terminal: { vt: { lines: string[] } };
+};
+
+async function invokeAgentSession(
+  caps: KfxCapabilities,
+  request: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  if (!caps.agentSession)
+    throw new Error('Agent Session capability unavailable');
+  return await caps.agentSession.invoke({
+    operation: String(request.operation ?? ''),
+    ...request,
+  });
+}
+
+function CapsuleSessionPane({
+  caps,
+  pane,
+  onDetach,
+  onKill,
+  onExit,
+}: {
+  caps: KfxCapabilities;
+  pane: Pane;
+  onDetach: (pane: Pane) => void;
+  onKill: (pane: Pane) => void;
+  onExit?: (pane: Pane) => void;
+}) {
+  const [snapshot, setSnapshot] = React.useState<CapsuleSurfaceSnapshot | null>(
+    null,
+  );
+  const [instruction, setInstruction] = React.useState('');
+  const [notice, setNotice] = React.useState('');
+  const ref = React.useMemo(
+    () => ({
+      workConsoleId: pane.consoleId ?? '',
+      sessionAttemptId: pane.attemptId ?? '',
+    }),
+    [pane.attemptId, pane.consoleId],
+  );
+
+  React.useEffect(() => {
+    let active = true;
+    const pull = async () => {
+      try {
+        const value = (await invokeAgentSession(caps, {
+          operation: 'snapshot',
+          session: ref,
+          requestedSequence: 0,
+        })) as unknown as CapsuleSurfaceSnapshot;
+        if (!active) return;
+        setSnapshot(value);
+        if (value.status.lifecycleState === 'ended') onExit?.(pane);
+      } catch (error) {
+        if (active) setNotice((error as Error).message);
+      }
+    };
+    void pull();
+    const timer = setInterval(() => void pull(), 250);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [caps, onExit, pane, ref]);
+
+  const control = React.useCallback(
+    async (
+      operation:
+        | 'acquire-control'
+        | 'release-control'
+        | 'instruct'
+        | 'send-key'
+        | 'interrupt',
+      payload: Record<string, unknown>,
+      automatic: boolean,
+    ) => {
+      const plan = await invokeAgentSession(caps, {
+        operation: 'plan-control',
+        controlOperation: operation,
+        session: ref,
+        payload,
+      });
+      const result = await invokeAgentSession(caps, {
+        operation,
+        actorId: pane.actorId,
+        client: 'gui',
+        plan,
+        expectedPlanRoot: plan.root,
+        payload,
+        automatic,
+      });
+      setNotice(
+        `${operation}: ${String(result.status)}${result.reason ? ` · ${String(result.reason)}` : ''}`,
+      );
+      return result;
+    },
+    [caps, pane.actorId, ref],
+  );
+
+  const sendInstruction = () => {
+    const text = instruction.trim();
+    if (!text) return;
+    void control('instruct', { text, mode: 'when-ready' }, true)
+      .then((result) => {
+        if (result.status === 'written') setInstruction('');
+      })
+      .catch((error) => setNotice((error as Error).message));
+  };
+  const status = snapshot?.status;
+  const ended = status?.lifecycleState === 'ended';
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: 260,
+        border: '1px solid #333',
+        borderRadius: 8,
+        background: '#1e1e1e',
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '6px 8px',
+          borderBottom: '1px solid #2b2b2b',
+          background: '#232323',
+        }}
+      >
+        <span style={providerChipStyle(pane.provider)}>{pane.provider}</span>
+        <span style={{ flex: 1, fontSize: 12, color: '#e6e6e6' }}>
+          {pane.title} · Capsule
+        </span>
+        <span
+          style={{
+            ...mono,
+            fontSize: 10.5,
+            color: ended ? '#c46b6b' : '#5bbf6a',
+          }}
+        >
+          {status
+            ? `${status.lifecycleState} · ${status.interactionState}`
+            : 'attaching'}
+        </span>
+        {!ended && (
+          <button
+            type="button"
+            onClick={() =>
+              void control(
+                status?.controller?.holderId === pane.actorId
+                  ? 'release-control'
+                  : 'acquire-control',
+                {},
+                false,
+              ).catch((error) => setNotice((error as Error).message))
+            }
+            style={iconButtonStyle}
+          >
+            {status?.controller?.holderId === pane.actorId
+              ? 'Release control'
+              : 'Request control'}
+          </button>
+        )}
+        {!ended && (
+          <button
+            type="button"
+            onClick={() => onDetach(pane)}
+            style={iconButtonStyle}
+          >
+            Detach
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => onKill(pane)}
+          style={{ ...iconButtonStyle, color: ended ? '#cccccc' : '#d98a8a' }}
+        >
+          {ended ? 'Close' : 'End'}
+        </button>
+      </div>
+      <pre
+        style={{
+          flex: 1,
+          minHeight: 0,
+          margin: 0,
+          padding: 10,
+          overflow: 'auto',
+          whiteSpace: 'pre-wrap',
+          color: '#d4d4d4',
+          background: '#1a1a1a',
+          ...mono,
+          fontSize: 12,
+        }}
+      >
+        {snapshot?.terminal.vt.lines.join('\n') ??
+          'Waiting for Capsule output…'}
+      </pre>
+      {!ended && (
+        <div
+          style={{
+            display: 'flex',
+            gap: 6,
+            padding: 8,
+            borderTop: '1px solid #2b2b2b',
+          }}
+        >
+          <textarea
+            value={instruction}
+            onChange={(event) => setInstruction(event.target.value)}
+            placeholder="Send a semantic instruction through the Interaction Port"
+            rows={2}
+            style={{ flex: 1, resize: 'vertical', ...mono, fontSize: 11 }}
+          />
+          <button
+            type="button"
+            onClick={sendInstruction}
+            style={iconButtonStyle}
+          >
+            Send
+          </button>
+          {['y', 'n', 'Enter', 'Escape'].map((key) => (
+            <button
+              key={key}
+              type="button"
+              title={`Manual controller key: ${key}`}
+              onClick={() =>
+                void control('send-key', { key }, false).catch((error) =>
+                  setNotice((error as Error).message),
+                )
+              }
+              style={iconButtonStyle}
+            >
+              {key}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() =>
+              void control('interrupt', {}, false).catch((error) =>
+                setNotice((error as Error).message),
+              )
+            }
+            style={{ ...iconButtonStyle, color: '#d98a8a' }}
+          >
+            Interrupt
+          </button>
+        </div>
+      )}
+      {notice && (
+        <div
+          style={{
+            padding: '0 8px 6px',
+            ...mono,
+            fontSize: 10,
+            color: '#c9a227',
+          }}
+        >
+          {notice} · delivery is not work proof
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Compact launcher: clicking a profile ADDS a pane (concurrent), it does not
 // replace the canvas. The list is an overview, never the main interaction.
 function LauncherStrip({
@@ -883,6 +1183,82 @@ function RecoverableTray({
   );
 }
 
+function CapsuleHubTray({
+  sessions,
+  attachedAttemptIds,
+  onAttach,
+  onRefresh,
+}: {
+  sessions: CapsuleSurfaceStatus[];
+  attachedAttemptIds: Set<string>;
+  onAttach: (session: CapsuleSurfaceStatus) => void;
+  onRefresh: () => void;
+}) {
+  return (
+    <div style={{ ...panelStyle, padding: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ ...headingStyle, margin: 0 }}>
+          Capsule Console Hub · {sessions.length}
+        </span>
+        <button type="button" onClick={onRefresh} style={iconButtonStyle}>
+          Refresh
+        </button>
+      </div>
+      {sessions.length > 0 && (
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 8,
+            marginTop: 8,
+          }}
+        >
+          {sessions.map((session) => {
+            const attached = attachedAttemptIds.has(session.sessionAttemptId);
+            return (
+              <div
+                key={session.sessionAttemptId}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '4px 8px',
+                  borderRadius: 7,
+                  border: '1px solid #333',
+                  background: '#232323',
+                }}
+              >
+                <span
+                  style={providerChipStyle(
+                    session.providerAdapter?.provider ?? 'agent',
+                  )}
+                >
+                  {session.providerAdapter?.provider ?? 'agent'}
+                </span>
+                <span style={{ ...mono, fontSize: 10.5, color: '#9a9a9a' }}>
+                  {session.workConsoleId} · {session.lifecycleState} ·{' '}
+                  {session.interactionState}
+                </span>
+                <button
+                  type="button"
+                  disabled={attached}
+                  onClick={() => onAttach(session)}
+                  style={{
+                    ...iconButtonStyle,
+                    color: attached ? '#666' : '#7fb4d8',
+                  }}
+                >
+                  {attached ? 'Attached' : 'Attach'}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SessionWorkspace({
   caps,
   shell,
@@ -899,6 +1275,9 @@ function SessionWorkspace({
     React.useState<PaneLayoutMode>(DEFAULT_PANE_LAYOUT);
   const [paneSizes, setPaneSizes] = React.useState<number[]>([1]);
   const [recoverable, setRecoverable] = React.useState<TerminalSession[]>([]);
+  const [capsuleSessions, setCapsuleSessions] = React.useState<
+    CapsuleSurfaceStatus[]
+  >([]);
   const [notice, setNotice] = React.useState<string | null>(null);
   const [catalog, setCatalog] = React.useState<AgentRuntimeCatalog | null>(
     null,
@@ -1133,7 +1512,7 @@ function SessionWorkspace({
         runId: p.runId,
         provider: p.provider,
         title: p.title,
-        backend: p.durable ? 'tmux' : 'direct',
+        backend: p.capsule ? 'capsule' : p.durable ? 'tmux' : 'direct',
         command: p.command,
         args: p.args,
         cwd: p.cwd,
@@ -1201,7 +1580,19 @@ function SessionWorkspace({
     } catch {
       setRecoverable([]);
     }
-  }, [caps.terminal, panedIds]);
+    if (caps.agentSession) {
+      try {
+        const listed = (await invokeAgentSession(caps, {
+          operation: 'list',
+        })) as unknown as CapsuleSurfaceList;
+        setCapsuleSessions(listed.sessions);
+      } catch {
+        setCapsuleSessions([]);
+      }
+    } else {
+      setCapsuleSessions([]);
+    }
+  }, [caps, panedIds]);
 
   React.useEffect(() => {
     void refresh();
@@ -1249,6 +1640,154 @@ function SessionWorkspace({
         home: typeof process !== 'undefined' ? process.env.HOME : undefined,
       });
       const { command, args, cwd, env } = prepared;
+      if (caps.agentSession) {
+        const actorId = `gui:${workspaceId}`;
+        const inherited =
+          typeof process !== 'undefined'
+            ? Object.fromEntries(
+                [
+                  'PATH',
+                  'HOME',
+                  'TERM',
+                  'LANG',
+                  'LC_ALL',
+                  'KUNGFU_BIN',
+                  'KUNGFU_CLI_BIN',
+                  'KUNGFU_AGENT_SESSION_ENDPOINT',
+                ]
+                  .map((name) => [name, process.env[name]])
+                  .filter((entry): entry is [string, string] =>
+                    Boolean(entry[1]),
+                  ),
+              )
+            : {};
+        const capsuleEnv = {
+          ...inherited,
+          ...env,
+          KUNGFU_AGENT_SESSION_ACTOR: actorId,
+          KUNGFU_AGENT_SESSION_CLIENT: 'kfd3-agent',
+        };
+        const verification = caps.agentRuntime
+          ? await caps.agentRuntime.verify(profile.id)
+          : null;
+        if (!verification?.ok || !verification.version) {
+          throw new Error(
+            verification?.error ||
+              `${profile.label} must pass the bounded version probe before Capsule launch`,
+          );
+        }
+        const plan = await invokeAgentSession(caps, {
+          operation: 'plan-start',
+          client: 'gui',
+          actorId,
+          input: {
+            workConsoleId: consoleId,
+            sessionAttemptId: attemptId,
+            provider: profile.provider,
+            providerVersion: verification.version,
+            profileRoot: workRef?.profileRoot ?? envelope.envelopeRoot,
+            executable: command,
+            argv: args,
+            cwd,
+            env: capsuleEnv,
+            binding: workRef
+              ? { kind: 'work', workRef }
+              : { kind: 'workspace-assistant', workRef: null },
+          },
+        });
+        const effectiveAttemptId = String(plan.sessionAttemptId);
+        const attachmentId = `gui:${effectiveAttemptId}`;
+        await invokeAgentSession(caps, {
+          operation: 'start',
+          client: 'gui',
+          actorId,
+          plan,
+          expectedPlanRoot: plan.root,
+          attachment: {
+            attachmentId,
+            presentation: workRef
+              ? 'go-card-side-console'
+              : 'assistant-console',
+          },
+          execution: { env: capsuleEnv, cols: 80, rows: 24 },
+        });
+        const sessionStatus = (await invokeAgentSession(caps, {
+          operation: 'show',
+          session: {
+            workConsoleId: consoleId,
+            sessionAttemptId: effectiveAttemptId,
+          },
+        })) as unknown as CapsuleSurfaceStatus;
+        const effectiveProvider =
+          sessionStatus.providerAdapter?.provider ?? profile.provider;
+        const effectiveProfileId =
+          plan.operation === 'attach-existing'
+            ? `agent-session:${effectiveProvider}`
+            : profile.id;
+        const startedAt = Date.now();
+        setPanes((prev) => [
+          ...prev,
+          {
+            key: effectiveAttemptId,
+            runId: effectiveAttemptId,
+            title:
+              plan.operation === 'attach-existing'
+                ? `${effectiveProvider} · existing`
+                : profile.label,
+            provider: effectiveProvider,
+            pid: 0,
+            startedAt,
+            durable: true,
+            command,
+            args,
+            cwd,
+            consoleId,
+            attemptId: effectiveAttemptId,
+            runtimeProfileId: effectiveProfileId,
+            capsule: true,
+            attachmentId,
+            actorId,
+          },
+        ]);
+        setActiveRunId(effectiveAttemptId);
+        const now = Date.now();
+        setConsoleRegistry((current) => {
+          const previous = current.consoles.find(
+            (candidate) => candidate.consoleId === consoleId,
+          );
+          return {
+            ...current,
+            consoles: [
+              ...current.consoles.filter(
+                (candidate) => candidate.consoleId !== consoleId,
+              ),
+              {
+                consoleId,
+                bindingKind: workRef
+                  ? ('work' as const)
+                  : ('workspace-assistant' as const),
+                workRef,
+                runtimeProfileId:
+                  previous?.runtimeProfileId ?? effectiveProfileId,
+                backend: 'capsule' as const,
+                attempts: [
+                  ...(previous?.attempts ?? []),
+                  {
+                    attemptId: effectiveAttemptId,
+                    runId: effectiveAttemptId,
+                    status: 'running' as const,
+                    startedAt,
+                  },
+                ],
+                createdAt: previous?.createdAt ?? now,
+                updatedAt: now,
+              },
+            ],
+          };
+        });
+        void refresh();
+        return;
+      }
       let session: TerminalSession;
       let durable = prepared.backend === 'tmux';
       try {
@@ -1341,7 +1880,7 @@ function SessionWorkspace({
         };
       });
     },
-    [caps.agentRuntime, caps.terminal, shell, workspaceId],
+    [caps, refresh, shell, workspaceId],
   );
 
   const markAttempt = React.useCallback(
@@ -1374,6 +1913,24 @@ function SessionWorkspace({
 
   const detachPane = React.useCallback(
     (pane: Pane) => {
+      if (pane.capsule) {
+        void invokeAgentSession(caps, {
+          operation: 'detach',
+          actorId: pane.actorId,
+          session: {
+            workConsoleId: pane.consoleId,
+            sessionAttemptId: pane.attemptId,
+          },
+          attachmentId: pane.attachmentId,
+        })
+          .then(() => {
+            markAttempt(pane.runId, 'detached');
+            setPanes((prev) => prev.filter((p) => p.key !== pane.key));
+            void refresh();
+          })
+          .catch((error) => setNotice((error as Error).message));
+        return;
+      }
       try {
         caps.terminal.detach(pane.runId);
       } catch {
@@ -1383,11 +1940,45 @@ function SessionWorkspace({
       setPanes((prev) => prev.filter((p) => p.key !== pane.key));
       void refresh();
     },
-    [caps.terminal, markAttempt, refresh],
+    [caps, markAttempt, refresh],
   );
 
   const killPane = React.useCallback(
     (pane: Pane) => {
+      if (pane.capsule) {
+        if (!pane.consoleId || !pane.attemptId) {
+          setPanes((prev) => prev.filter((p) => p.key !== pane.key));
+          return;
+        }
+        const session = {
+          workConsoleId: pane.consoleId,
+          sessionAttemptId: pane.attemptId,
+        };
+        void invokeAgentSession(caps, {
+          operation: 'plan-control',
+          controlOperation: 'end',
+          session,
+          payload: {},
+        })
+          .then((plan) =>
+            invokeAgentSession(caps, {
+              operation: 'end',
+              actorId: pane.actorId,
+              client: 'gui',
+              plan,
+              expectedPlanRoot: plan.root,
+              payload: {},
+              automatic: false,
+            }),
+          )
+          .then(() => {
+            markAttempt(pane.runId, 'exited');
+            setPanes((prev) => prev.filter((p) => p.key !== pane.key));
+            void refresh();
+          })
+          .catch((error) => setNotice((error as Error).message));
+        return;
+      }
       try {
         caps.terminal.kill(pane.runId);
       } catch {
@@ -1397,7 +1988,89 @@ function SessionWorkspace({
       setPanes((prev) => prev.filter((p) => p.key !== pane.key));
       void refresh();
     },
-    [caps.terminal, markAttempt, refresh],
+    [caps, markAttempt, refresh],
+  );
+
+  const attachCapsule = React.useCallback(
+    async (session: CapsuleSurfaceStatus) => {
+      const actorId = `gui:${workspaceId}`;
+      const attachmentId = `gui:hub:${workspaceId}:${session.sessionAttemptId}`;
+      await invokeAgentSession(caps, {
+        operation: 'attach',
+        actorId,
+        client: 'gui',
+        session: {
+          workConsoleId: session.workConsoleId,
+          sessionAttemptId: session.sessionAttemptId,
+        },
+        attachment: { attachmentId, presentation: 'console-hub' },
+        acquireControl: false,
+      });
+      const provider = session.providerAdapter?.provider ?? 'agent';
+      const now = Date.now();
+      setPanes((current) =>
+        current.some(
+          (candidate) =>
+            candidate.attemptId === session.sessionAttemptId &&
+            candidate.capsule,
+        )
+          ? current
+          : [
+              ...current,
+              {
+                key: session.sessionAttemptId,
+                runId: session.sessionAttemptId,
+                title: `${provider} · ${session.workConsoleId}`,
+                provider,
+                pid: 0,
+                startedAt: now,
+                durable: true,
+                consoleId: session.workConsoleId,
+                attemptId: session.sessionAttemptId,
+                runtimeProfileId: `agent-session:${provider}`,
+                capsule: true,
+                attachmentId,
+                actorId,
+              },
+            ],
+      );
+      setActiveRunId(session.sessionAttemptId);
+      setConsoleRegistry((current) => {
+        const previous = current.consoles.find(
+          (candidate) => candidate.consoleId === session.workConsoleId,
+        );
+        return {
+          ...current,
+          consoles: [
+            ...current.consoles.filter(
+              (candidate) => candidate.consoleId !== session.workConsoleId,
+            ),
+            {
+              consoleId: session.workConsoleId,
+              bindingKind: session.binding?.kind ?? 'workspace-assistant',
+              workRef: session.binding?.workRef ?? null,
+              runtimeProfileId:
+                previous?.runtimeProfileId ?? `agent-session:${provider}`,
+              backend: 'capsule',
+              attempts: [
+                ...(previous?.attempts ?? []).filter(
+                  (attempt) => attempt.attemptId !== session.sessionAttemptId,
+                ),
+                {
+                  attemptId: session.sessionAttemptId,
+                  runId: session.sessionAttemptId,
+                  status: 'running',
+                  startedAt: now,
+                },
+              ],
+              createdAt: previous?.createdAt ?? now,
+              updatedAt: now,
+            },
+          ],
+        };
+      });
+    },
+    [caps, workspaceId],
   );
 
   const reattach = React.useCallback(
@@ -1546,6 +2219,22 @@ function SessionWorkspace({
       {notice && (
         <div style={{ ...mono, fontSize: 11, color: '#c9a227' }}>{notice}</div>
       )}
+      <CapsuleHubTray
+        sessions={capsuleSessions}
+        attachedAttemptIds={
+          new Set(
+            panes
+              .filter((pane) => pane.capsule && pane.attemptId)
+              .map((pane) => pane.attemptId as string),
+          )
+        }
+        onAttach={(session) => {
+          void attachCapsule(session).catch((error) =>
+            setNotice(`Capsule attach failed: ${(error as Error).message}`),
+          );
+        }}
+        onRefresh={() => void refresh()}
+      />
       <RecoverableTray
         sessions={recoverable}
         onReattach={reattach}
@@ -1573,31 +2262,42 @@ function SessionWorkspace({
           sizes={normalizePaneSizes(paneSizes, visiblePanes.length)}
           onSizesChange={setPaneSizes}
         >
-          {visiblePanes.map((pane) => (
-            <SessionPane
-              key={pane.key}
-              caps={caps}
-              pane={pane}
-              onDetach={detachPane}
-              onKill={killPane}
-              onExit={handlePaneExit}
-              onPopOut={
-                shell.popOutSession
-                  ? () => {
-                      // Freeze this tile before the window opens and resizes the
-                      // shared pty, so no deformed frame is ever rendered.
-                      setPoppingOut((prev) => {
-                        const next = new Set(prev);
-                        next.add(pane.runId);
-                        return next;
-                      });
-                      shell.popOutSession?.(pane.runId);
-                    }
-                  : undefined
-              }
-              poppedOut={poppedOutRunIds.has(pane.runId)}
-            />
-          ))}
+          {visiblePanes.map((pane) =>
+            pane.capsule ? (
+              <CapsuleSessionPane
+                key={pane.key}
+                caps={caps}
+                pane={pane}
+                onDetach={detachPane}
+                onKill={killPane}
+                onExit={handlePaneExit}
+              />
+            ) : (
+              <SessionPane
+                key={pane.key}
+                caps={caps}
+                pane={pane}
+                onDetach={detachPane}
+                onKill={killPane}
+                onExit={handlePaneExit}
+                onPopOut={
+                  shell.popOutSession
+                    ? () => {
+                        // Freeze this tile before the window opens and resizes the
+                        // shared pty, so no deformed frame is ever rendered.
+                        setPoppingOut((prev) => {
+                          const next = new Set(prev);
+                          next.add(pane.runId);
+                          return next;
+                        });
+                        shell.popOutSession?.(pane.runId);
+                      }
+                    : undefined
+                }
+                poppedOut={poppedOutRunIds.has(pane.runId)}
+              />
+            ),
+          )}
         </ResizablePaneLayout>
       )}
     </div>

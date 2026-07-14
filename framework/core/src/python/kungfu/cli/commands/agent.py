@@ -11,6 +11,7 @@ from kungfu import agent as agent_pack
 from kungfu import config as kungfu_config
 from kungfu import durability as durability_contract
 from kungfu.agent import runtime_profiles
+from kungfu.agent import session_surface
 from kungfu.agent.kfd3 import (
     api_help,
     kfd3_api,
@@ -471,6 +472,70 @@ def console_current(ctx, as_json):
         f"{envelope['consoleId']} attempt {envelope['attemptId']} "
         f"root {envelope['envelopeRoot']}"
     )
+
+
+@agent.command(name="session", help=api_help("kungfu.agent.session"))
+@click.argument(
+    "operation",
+    type=click.Choice(
+        [
+            "capabilities",
+            "list",
+            "show",
+            "status",
+            "snapshot",
+            "plan-start",
+            "start",
+            "attach",
+            "detach",
+            "plan-control",
+            "acquire-control",
+            "release-control",
+            "instruct",
+            "send-key",
+            "interrupt",
+            "end",
+        ]
+    ),
+)
+@click.option(
+    "--input",
+    "input_file",
+    type=click.File("r", encoding="utf-8"),
+    help="JSON request fields; use - for stdin",
+)
+@click.option("--endpoint", type=click.Path(), help="explicit local surface endpoint")
+@click.option("--json", "as_json", is_flag=True, help="machine-readable output")
+@kfd3_api("kungfu.agent.session")
+@agent_command_context
+def session_action(ctx, operation, input_file, endpoint, as_json):
+    """Use the same Agent Session action/plan/status/receipt port as the GUI."""
+    try:
+        request = json.load(input_file) if input_file is not None else {}
+    except json.JSONDecodeError as exc:
+        raise click.ClickException(f"invalid Agent Session JSON input: {exc}") from exc
+    if not isinstance(request, dict):
+        raise click.ClickException("Agent Session input must be a JSON object")
+    request = {
+        **request,
+        "operation": operation,
+        "client": request.get(
+            "client",
+            "kfd3-agent" if os.environ.get("KUNGFU_AGENT_CONSOLE_ID") else "cli",
+        ),
+        "actorId": request.get(
+            "actorId",
+            os.environ.get("KUNGFU_AGENT_SESSION_ACTOR", f"cli:{os.getpid()}"),
+        ),
+    }
+    try:
+        payload = session_surface.invoke(request, endpoint=endpoint)
+    except (OSError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    if as_json:
+        _json(payload)
+        return
+    click.echo(f"{operation}: {payload.get('status') or payload.get('schema') or 'ok'}")
 
 
 @agent.command(help=api_help("kungfu.agent.choose-mode"))

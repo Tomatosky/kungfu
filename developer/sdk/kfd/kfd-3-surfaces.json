@@ -65,7 +65,7 @@
       "libnode": "22.22.3-kf.3-alpha.16",
       "buildchain": "2.11.14-alpha.0"
     },
-    "digest": "sha256:985f2b69d6ba43ba6e749cf04cd7cd24e5ffb76678baf7d88548ffd15e1d1f19"
+    "digest": "sha256:53d5b0a1b5bdd23778fd1fd5101c5844a1a0a852866477cec5dc26c405eaf232"
   },
   "surfaces": [
     {
@@ -432,6 +432,26 @@
       "id": "kungfu.agent.runtime.verify",
       "name": "kungfu agent runtime verify <profile-id> --json",
       "kind": "cli",
+      "participantProfile": "agent-or-developer",
+      "state": "declared",
+      "availability": "shipped",
+      "visibility": "public",
+      "participantFacing": true,
+      "public": true,
+      "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
+      "evidencePath": "framework/core/src/python/kungfu/agent/commands.json",
+      "artifactPath": "framework/core/src/python/kungfu/agent/commands.json",
+      "maturity": "experimental",
+      "declaration": {
+        "owner": "kungfu",
+        "source": "scripts/buildchain-kfd-evidence.mjs",
+        "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json"
+      }
+    },
+    {
+      "id": "kungfu.agent.session",
+      "name": "kungfu agent session <operation> --input - --json",
+      "kind": "cli-api-gui",
       "participantProfile": "agent-or-developer",
       "state": "declared",
       "availability": "shipped",

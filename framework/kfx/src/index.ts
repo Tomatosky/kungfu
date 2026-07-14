@@ -12,6 +12,7 @@
 // code side exports exactly one thing — the View component.
 import type {
   AgentRuntime,
+  AgentSession,
   Atlas,
   DomainState,
   Ledger,
@@ -36,6 +37,7 @@ export type {
   AgentBackend,
   AgentProvider,
   AgentRuntime,
+  AgentSession,
   AgentRuntimeCatalog,
   AgentRuntimeProfile,
   AgentRuntimeProfileInput,
@@ -103,6 +105,7 @@ export type KfxCapabilities = {
   atlas?: Atlas;
   profile?: Profile;
   agentRuntime?: AgentRuntime;
+  agentSession?: AgentSession;
   workspace?: WorkspaceGuidance;
 };
 

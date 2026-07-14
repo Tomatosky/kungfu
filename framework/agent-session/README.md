@@ -56,7 +56,23 @@ An automatic instruction is never delivered or queued from
 `approval-needed` or `unknown`. `sendKey` is manual-only. Delivery receipts do
 not contain instruction text and never claim provider understanding, semantic
 outcome, work state, approval result, or interrupt result. Adapter fixtures are
-synthetic and redacted. Product surfaces still belong to Stage 5.
+synthetic and redacted.
+
+The Stage 5 product surface adds:
+
+- one self-describing `invoke` action shared by Electron IPC, the local
+  runtime-scoped Unix socket, Python CLI/KFD-3, KFX, and product views;
+- plan roots for start and control, exact foreground/epoch fencing, and
+  delivery receipts that still cannot claim work state or proof;
+- one-click WorkRef-bound Go launch with automatic side-console attachment,
+  plus Assistant Console and Console Hub projections of the same Capsule; and
+- presentation detach without provider termination, with no renderer-private
+  spawn or PTY write path.
+
+Stage 5 deliberately hosts the runtime in Electron main. Moving ownership into
+the detached Capsule worker, restart/adoption recovery, real authenticated
+Codex/Claude interaction, privacy/performance campaigns, and promoted Mac
+product evidence remain Stage 6 obligations.
 
 Run the focused qualification through Shifu:
 
@@ -67,6 +83,9 @@ Run the focused qualification through Shifu:
 ./shifu test:agent-session-peer-transport:native
 ./shifu test:agent-session-interaction-adapters
 ./shifu test:agent-session-interaction-adapters:native
+./shifu test:agent-session-product-surfaces
+./shifu test:agent-console-contract
+./shifu --filter @kungfu-tech/gui build
 ```
 
 The build-free source gate runs the pure host and transport tests only. Native

@@ -112,6 +112,7 @@
     "test:agent-session-peer-transport:native": "node scripts/require-shifu.mjs test:agent-session-peer-transport:native && node --test framework/agent-session/tests/runtime-port.native.test.mjs",
     "test:agent-session-interaction-adapters": "node scripts/require-shifu.mjs test:agent-session-interaction-adapters && node --test framework/agent-session/tests/provider-adapters.test.mjs framework/agent-session/tests/interaction-port.test.mjs",
     "test:agent-session-interaction-adapters:native": "node scripts/require-shifu.mjs test:agent-session-interaction-adapters:native && node --test framework/agent-session/tests/provider-version.native.test.mjs",
+    "test:agent-session-product-surfaces": "node scripts/require-shifu.mjs test:agent-session-product-surfaces && node --test framework/agent-session/tests/product-surface.test.mjs",
     "test:profile-kfd3-qualification": "node scripts/require-shifu.mjs test:profile-kfd3-qualification && node tests/qualification/profile-kfd3/run.ts",
     "schema:profile-lifecycle": "node scripts/require-shifu.mjs schema:profile-lifecycle && node scripts/generate-profile-lifecycle-schema.mjs",
     "test:durable-ingest": "node scripts/require-shifu.mjs test:durable-ingest && node scripts/run-durable-ingest-tests.mjs",

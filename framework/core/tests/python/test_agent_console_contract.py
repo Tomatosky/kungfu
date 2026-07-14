@@ -1,8 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from pathlib import Path
+import json
 import sys
 
+import click
+from click.testing import CliRunner
 import pytest
 
 from kungfu import config
@@ -224,3 +227,86 @@ def test_agent_runtime_commands_are_closed_in_the_kfd3_registry(monkeypatch):
     monkeypatch.setattr("kungfu.agent.kfd3.registry_digest", lambda: ROOT_HASH)
     result = verify_agent_interface(agent)
     assert result["ok"], result
+
+
+def test_agent_session_cli_forwards_the_same_self_describing_action(
+    tmp_path, monkeypatch
+):
+    import kungfu
+
+    kungfu.__dict__["__version__"] = "test"
+    from kungfu.cli.commands.agent import agent
+
+    captured = []
+
+    def fake_invoke(request, endpoint=None, timeout=5.0):
+        captured.append((request, endpoint, timeout))
+        return {
+            "schema": "kungfu.agent-session.surface-list/v1",
+            "sessions": [],
+            "listRoot": ROOT_HASH,
+        }
+
+    monkeypatch.setattr("kungfu.agent.session_surface.invoke", fake_invoke)
+
+    @click.group()
+    @click.option("--home", type=click.Path(), required=True)
+    @click.pass_context
+    def test_cli(ctx, home):
+        ctx.name = "agent-session-test"
+        ctx.config_home = str(Path(home) / "config")
+        ctx.home = str(home)
+        ctx.runtime_dir = str(Path(home) / "runtime")
+        ctx.extension_path = None
+        ctx.log_level = "warning"
+        ctx.dataset_dir = str(Path(home) / "dataset")
+        ctx.backtest_dir = str(Path(home) / "backtest")
+        ctx.inbox_dir = str(Path(home) / "inbox")
+        ctx.runtime_locator = None
+        ctx.backtest_locator = None
+        ctx.config_location = None
+        ctx.console_location = None
+        ctx.index_location = None
+        ctx.stage = "test"
+
+    test_cli.add_command(agent)
+    result = CliRunner().invoke(
+        test_cli,
+        ["--home", str(tmp_path), "agent", "session", "list", "--json"],
+        env={"KUNGFU_AGENT_SESSION_ACTOR": "controller:test"},
+    )
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["schema"] == "kungfu.agent-session.surface-list/v1"
+    assert captured[0][0] == {
+        "operation": "list",
+        "client": "cli",
+        "actorId": "controller:test",
+    }
+
+
+def test_work_console_registry_accepts_capsule_backend():
+    value = {
+        "schema": "kungfu.work-console-registry/v1",
+        "workspaceId": "workspace:test",
+        "consoles": [
+            {
+                "consoleId": "console:assistant",
+                "bindingKind": "workspace-assistant",
+                "workRef": None,
+                "runtimeProfileId": "codex-app",
+                "backend": "capsule",
+                "attempts": [
+                    {
+                        "attemptId": "attempt:1",
+                        "runId": "attempt:1",
+                        "status": "running",
+                        "startedAt": 1,
+                    }
+                ],
+                "createdAt": 1,
+                "updatedAt": 1,
+            }
+        ],
+        "presentation": {"tabs": [], "splits": [], "drawer": None, "windows": []},
+    }
+    config.validate_value("workConsoleRegistry", value, contract=_contract())

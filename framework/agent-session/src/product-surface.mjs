@@ -1,0 +1,675 @@
+import { createHash, randomUUID } from 'node:crypto';
+
+const CONTROL_OPERATIONS = new Set([
+  'acquire-control',
+  'release-control',
+  'instruct',
+  'send-key',
+  'interrupt',
+  'end',
+]);
+const READ_OPERATIONS = new Set([
+  'capabilities',
+  'list',
+  'show',
+  'status',
+  'snapshot',
+]);
+
+function required(value, label) {
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new AgentSessionSurfaceError(
+      'invalid_argument',
+      `${label} is required`,
+    );
+  }
+  return value;
+}
+
+function canonical(value) {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+  return `{${Object.entries(value)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, child]) => `${JSON.stringify(key)}:${canonical(child)}`)
+    .join(',')}}`;
+}
+
+export function agentSessionSurfaceRoot(value) {
+  return `sha256:${createHash('sha256').update(canonical(value)).digest('hex')}`;
+}
+
+function planRoot(plan) {
+  const { root: _root, ...body } = plan;
+  return agentSessionSurfaceRoot(body);
+}
+
+function sessionRef(value) {
+  if (!value || typeof value !== 'object') {
+    throw new AgentSessionSurfaceError(
+      'invalid_argument',
+      'session reference is required',
+    );
+  }
+  return {
+    workConsoleId: required(value.workConsoleId, 'workConsoleId'),
+    sessionAttemptId: required(value.sessionAttemptId, 'sessionAttemptId'),
+  };
+}
+
+function publicStatus(session) {
+  const status = session.port.status();
+  const controller = status.controllerLease;
+  return {
+    schema: 'kungfu.agent-session.surface-status/v1',
+    workConsoleId: status.workConsoleId,
+    sessionAttemptId: status.sessionAttemptId,
+    capsuleId: status.capsuleId,
+    capsuleGeneration: status.capsuleGeneration,
+    coordinatorEpoch: status.coordinatorEpoch,
+    sessionStreamEpoch: status.sessionStreamEpoch,
+    lifecycleState: status.lifecycleState,
+    interactionState: status.interactionState,
+    inputAdmission: status.inputAdmission,
+    foreground: status.foreground,
+    output: status.output,
+    providerAdapter: status.providerAdapter,
+    queuedInstructions: status.queuedInstructions,
+    binding: session.binding,
+    attachments: [...session.attachments.values()].map((attachment) => ({
+      attachmentId: attachment.attachmentId,
+      surface: attachment.surface,
+      presentation: attachment.presentation,
+      controller: controller?.holderId === attachment.actorId,
+      attachedAt: attachment.attachedAt,
+    })),
+    controller: controller
+      ? {
+          holderId: controller.holderId,
+          leaseId: controller.leaseId,
+          expiresAt: controller.expiresAt,
+        }
+      : null,
+    workOutcome: null,
+    proof: null,
+  };
+}
+
+function receipt(operation, actorId, details, now) {
+  const body = {
+    schema: 'kungfu.agent-session.surface-receipt/v1',
+    operation,
+    actorId,
+    recordedAt: now(),
+    ...details,
+    semanticOutcome: null,
+    workState: null,
+    proof: null,
+  };
+  return { ...body, receiptRoot: agentSessionSurfaceRoot(body) };
+}
+
+export class AgentSessionSurfaceError extends Error {
+  constructor(code, message) {
+    super(message);
+    this.name = 'AgentSessionSurfaceError';
+    this.code = code;
+  }
+}
+
+/**
+ * One self-describing action surface shared by GUI, CLI and KFD-3 clients.
+ *
+ * The injected runtime owns Capsule/InteractionPort instances. This class owns
+ * plans, optimistic root checks and product projections only; it never spawns a
+ * provider or writes a PTY through a private presentation path.
+ */
+export class AgentSessionProductSurface {
+  constructor({
+    runtime,
+    now = () => Date.now(),
+    makeId = () => randomUUID(),
+  }) {
+    if (
+      !runtime ||
+      typeof runtime.list !== 'function' ||
+      typeof runtime.get !== 'function' ||
+      typeof runtime.start !== 'function'
+    ) {
+      throw new AgentSessionSurfaceError(
+        'invalid_runtime',
+        'product surface requires list/get/start Capsule runtime methods',
+      );
+    }
+    this.runtime = runtime;
+    this.now = now;
+    this.makeId = makeId;
+  }
+
+  capabilities() {
+    return {
+      schema: 'kungfu.agent-session.surface-capabilities/v1',
+      actions: [
+        'capabilities',
+        'list',
+        'show',
+        'plan-start',
+        'start',
+        'attach',
+        'detach',
+        'status',
+        'snapshot',
+        'plan-control',
+        'acquire-control',
+        'release-control',
+        'instruct',
+        'send-key',
+        'interrupt',
+        'end',
+      ],
+      clients: ['gui', 'cli', 'kfd3-agent'],
+      projections: [
+        'go-card',
+        'assistant-console',
+        'console-hub',
+        'presentation',
+      ],
+      authority: 'agent-session-capsule-interaction-port',
+      workMutationAuthority: 'profile-kfd3-actions-only',
+      rawHumanFallback: 'current-controller-only',
+      receipts: {
+        delivery: 'validated-input-written-to-pty-only',
+        semanticOutcome: null,
+        workState: null,
+      },
+      knownLimits: [
+        'terminal-status-does-not-update-cost-state-or-proof',
+        'presentation-close-does-not-end-provider',
+        'unknown-or-approval-state-never-auto-delivers',
+        'stage-5-product-host-is-electron-main-in-process',
+        'detached-worker-recovery-and-restart-qualification-remain-stage-6',
+      ],
+    };
+  }
+
+  list() {
+    const sessions = this.runtime
+      .list()
+      .map((session) => publicStatus(session));
+    return {
+      schema: 'kungfu.agent-session.surface-list/v1',
+      sessions,
+      listRoot: agentSessionSurfaceRoot(sessions),
+    };
+  }
+
+  show(ref) {
+    return publicStatus(this.#session(ref));
+  }
+
+  planStart(input) {
+    const binding = input.binding ?? {
+      kind: 'workspace-assistant',
+      workRef: null,
+    };
+    if (!['work', 'workspace-assistant'].includes(binding.kind)) {
+      throw new AgentSessionSurfaceError(
+        'invalid_argument',
+        `unsupported binding kind '${String(binding.kind)}'`,
+      );
+    }
+    if (
+      binding.kind === 'work' &&
+      (!binding.workRef || typeof binding.workRef !== 'object')
+    ) {
+      throw new AgentSessionSurfaceError(
+        'invalid_argument',
+        'work binding requires a WorkRef',
+      );
+    }
+    const consoleId = required(input.workConsoleId, 'workConsoleId');
+    const existing = this.runtime
+      .list()
+      .find(
+        (session) =>
+          session.workConsoleId === consoleId &&
+          publicStatus(session).lifecycleState !== 'ended',
+      );
+    const existingStatus = existing ? publicStatus(existing) : null;
+    const body = {
+      schema: 'kungfu.agent-session.start-plan/v1',
+      operation: existing ? 'attach-existing' : 'start',
+      workConsoleId: consoleId,
+      sessionAttemptId: existing
+        ? existing.sessionAttemptId
+        : required(input.sessionAttemptId, 'sessionAttemptId'),
+      provider:
+        existingStatus?.foreground.provider ??
+        required(input.provider, 'provider'),
+      providerVersion:
+        existingStatus?.providerAdapter.providerVersion ??
+        required(input.providerVersion, 'providerVersion'),
+      profileRoot:
+        existingStatus?.foreground.profileRoot ??
+        required(input.profileRoot, 'profileRoot'),
+      executable:
+        existingStatus?.foreground.executable ??
+        required(input.executable, 'executable'),
+      argv:
+        existingStatus?.foreground.argv ??
+        (Array.isArray(input.argv) ? [...input.argv] : []),
+      cwd: existing ? null : (input.cwd ?? null),
+      environmentNames: existing ? [] : Object.keys(input.env ?? {}).sort(),
+      binding: existing?.binding ?? binding,
+      effects: existing
+        ? ['attach-presentation-to-existing-capsule']
+        : [
+            'spawn-provider-in-capsule',
+            'register-session',
+            'attach-presentation',
+          ],
+      workEffects: [],
+      rollback: existing ? 'detach-presentation' : 'end-new-session-attempt',
+    };
+    return { ...body, root: agentSessionSurfaceRoot(body) };
+  }
+
+  start({ actorId, client, plan, expectedPlanRoot, attachment, execution }) {
+    required(actorId, 'actorId');
+    required(client, 'client');
+    this.#verifyPlan(plan, expectedPlanRoot, 'start');
+    let session = this.runtime.get({
+      workConsoleId: plan.workConsoleId,
+      sessionAttemptId: plan.sessionAttemptId,
+    });
+    let reused = true;
+    if (!session) {
+      if (plan.operation !== 'start') {
+        throw new AgentSessionSurfaceError(
+          'stale_plan',
+          'planned existing session is no longer available',
+        );
+      }
+      session = this.runtime.start(plan, execution);
+      reused = false;
+    } else if (plan.operation !== 'attach-existing') {
+      throw new AgentSessionSurfaceError(
+        'stale_plan',
+        'start plan would duplicate an existing live WorkConsole',
+      );
+    }
+    const attachReceipt = this.#attach(session, {
+      actorId,
+      client,
+      attachment: attachment ?? {},
+      acquireControl: !session.controller,
+    });
+    return receipt(
+      'start',
+      actorId,
+      {
+        status: reused ? 'reused' : 'started',
+        planRoot: plan.root,
+        workConsoleId: session.workConsoleId,
+        sessionAttemptId: session.sessionAttemptId,
+        capsuleId: session.port.status().capsuleId,
+        autoAttached: true,
+        attachReceipt,
+      },
+      this.now,
+    );
+  }
+
+  attach({
+    actorId,
+    client,
+    session: ref,
+    attachment = {},
+    acquireControl = false,
+  }) {
+    return this.#attach(this.#session(ref), {
+      actorId,
+      client,
+      attachment,
+      acquireControl,
+    });
+  }
+
+  detach({ actorId, session: ref, attachmentId }) {
+    const session = this.#session(ref);
+    const current = session.attachments.get(
+      required(attachmentId, 'attachmentId'),
+    );
+    if (!current) {
+      throw new AgentSessionSurfaceError(
+        'attachment_not_found',
+        `attachment '${attachmentId}' is not active`,
+      );
+    }
+    if (current.actorId !== required(actorId, 'actorId')) {
+      throw new AgentSessionSurfaceError(
+        'attachment_owner_mismatch',
+        'only the attachment owner may detach it',
+      );
+    }
+    session.transport.detach({ attachmentId, actorId });
+    session.attachments.delete(attachmentId);
+    return receipt(
+      'detach',
+      actorId,
+      {
+        status: 'detached',
+        workConsoleId: session.workConsoleId,
+        sessionAttemptId: session.sessionAttemptId,
+        attachmentId,
+        providerEnded: false,
+      },
+      this.now,
+    );
+  }
+
+  planControl({ operation, session: ref, payload = {} }) {
+    if (!CONTROL_OPERATIONS.has(operation)) {
+      throw new AgentSessionSurfaceError(
+        'invalid_argument',
+        `unsupported control operation '${String(operation)}'`,
+      );
+    }
+    const session = this.#session(ref);
+    const status = publicStatus(session);
+    const body = {
+      schema: 'kungfu.agent-session.control-plan/v1',
+      operation,
+      workConsoleId: session.workConsoleId,
+      sessionAttemptId: session.sessionAttemptId,
+      capsuleGeneration: status.capsuleGeneration,
+      coordinatorEpoch: status.coordinatorEpoch,
+      sessionStreamEpoch: status.sessionStreamEpoch,
+      foregroundRoot: agentSessionSurfaceRoot(status.foreground),
+      controllerRoot: agentSessionSurfaceRoot(status.controller),
+      payloadRoot: agentSessionSurfaceRoot(payload),
+      effects:
+        operation === 'acquire-control'
+          ? ['request-controller-lease']
+          : operation === 'release-control'
+            ? ['release-exact-controller-lease']
+            : operation === 'end'
+              ? ['end-exact-provider-attempt']
+              : operation === 'interrupt'
+                ? ['signal-exact-provider-attempt']
+                : ['deliver-to-exact-provider-pty'],
+      workEffects: [],
+      proves:
+        operation === 'acquire-control' || operation === 'release-control'
+          ? 'controller-lease-decision-only'
+          : operation === 'end'
+            ? 'control-request-delivery-only'
+            : 'validated-input-written-to-pty-only',
+    };
+    return { ...body, root: agentSessionSurfaceRoot(body) };
+  }
+
+  control({ actorId, plan, expectedPlanRoot, payload = {}, automatic = true }) {
+    required(actorId, 'actorId');
+    this.#verifyPlan(plan, expectedPlanRoot, plan.operation);
+    if (agentSessionSurfaceRoot(payload) !== plan.payloadRoot) {
+      throw new AgentSessionSurfaceError(
+        'payload_root_mismatch',
+        'control payload changed after plan review',
+      );
+    }
+    const session = this.#session(plan);
+    const status = session.port.status();
+    const controllerRoot = agentSessionSurfaceRoot(
+      publicStatus(session).controller,
+    );
+    if (
+      String(status.capsuleGeneration) !== String(plan.capsuleGeneration) ||
+      String(status.coordinatorEpoch) !== String(plan.coordinatorEpoch) ||
+      String(status.sessionStreamEpoch) !== String(plan.sessionStreamEpoch) ||
+      agentSessionSurfaceRoot(status.foreground) !== plan.foregroundRoot ||
+      controllerRoot !== plan.controllerRoot
+    ) {
+      throw new AgentSessionSurfaceError(
+        'stale_plan',
+        'session authority changed after plan review',
+      );
+    }
+    let result;
+    if (plan.operation === 'acquire-control') {
+      result = session.transport.acquireControl({
+        leaseId: payload.leaseId ?? `lease:${this.makeId()}`,
+        holderId: actorId,
+        planRoot: plan.root,
+        ttlMs: payload.ttlMs,
+      });
+    } else if (plan.operation === 'release-control') {
+      const controller = session.transport.status().controllerLease;
+      result = session.transport.releaseControl({
+        leaseId: controller?.leaseId,
+        holderId: actorId,
+        planRoot: plan.root,
+      });
+    } else {
+      const request = {
+        ...session.authority(actorId),
+        actionId: `surface-action:${this.makeId()}`,
+        inputId: `surface-input:${this.makeId()}`,
+        automatic,
+        ...payload,
+      };
+      if (plan.operation === 'instruct')
+        result = session.port.instruct(request);
+      else if (plan.operation === 'send-key')
+        result = session.port.sendKey(request);
+      else if (plan.operation === 'interrupt')
+        result = session.port.interrupt(request);
+      else result = session.end(request);
+    }
+    return receipt(
+      plan.operation,
+      actorId,
+      {
+        status: result.status,
+        reason: result.reason ?? null,
+        planRoot: plan.root,
+        workConsoleId: session.workConsoleId,
+        sessionAttemptId: session.sessionAttemptId,
+        deliveryReceipt: result.deliveryReceipt ?? null,
+        controlReceipt: result.controlReceipt ?? result,
+      },
+      this.now,
+    );
+  }
+
+  invoke(request) {
+    const operation = required(request.operation, 'operation');
+    if (READ_OPERATIONS.has(operation)) {
+      if (operation === 'capabilities') return this.capabilities();
+      if (operation === 'list') return this.list();
+      if (operation === 'show' || operation === 'status')
+        return this.show(request.session);
+      return this.#session(request.session).port.snapshot({
+        requestedSequence: request.requestedSequence ?? 0,
+      });
+    }
+    if (operation === 'plan-start') return this.planStart(request.input ?? {});
+    if (operation === 'start') return this.start(request);
+    if (operation === 'attach') return this.attach(request);
+    if (operation === 'detach') return this.detach(request);
+    if (operation === 'plan-control') {
+      return this.planControl({
+        ...request,
+        operation: request.controlOperation,
+      });
+    }
+    if (CONTROL_OPERATIONS.has(operation)) return this.control(request);
+    throw new AgentSessionSurfaceError(
+      'unknown_operation',
+      `unknown Agent Session operation '${operation}'`,
+    );
+  }
+
+  #attach(session, { actorId, client, attachment, acquireControl }) {
+    required(actorId, 'actorId');
+    required(client, 'client');
+    const attachmentId =
+      attachment.attachmentId ?? `attachment:${this.makeId()}`;
+    const existing = session.attachments.get(attachmentId);
+    if (!existing) {
+      session.transport.attach({ attachmentId, actorId, fromSequence: 0 });
+    }
+    let controller = false;
+    const activeController = session.transport.status().controllerLease;
+    if (acquireControl && !activeController) {
+      const leaseId = `lease:${this.makeId()}`;
+      const lease = session.transport.acquireControl({
+        leaseId,
+        holderId: actorId,
+        planRoot: `surface-attach:${attachmentId}`,
+      });
+      controller = lease.status === 'granted' || lease.status === 'duplicate';
+    } else if (activeController?.holderId === actorId) {
+      controller = true;
+    }
+    session.attachments.set(attachmentId, {
+      attachmentId,
+      actorId,
+      surface: client,
+      presentation: attachment.presentation ?? 'headless',
+      attachedAt: this.now(),
+    });
+    return receipt(
+      'attach',
+      actorId,
+      {
+        status: existing ? 'already-attached' : 'attached',
+        workConsoleId: session.workConsoleId,
+        sessionAttemptId: session.sessionAttemptId,
+        attachmentId,
+        controller,
+        providerStarted: false,
+      },
+      this.now,
+    );
+  }
+
+  #session(ref) {
+    const normalized = sessionRef(ref);
+    const session = this.runtime.get(normalized);
+    if (!session) {
+      throw new AgentSessionSurfaceError(
+        'session_not_found',
+        `session '${normalized.sessionAttemptId}' is unavailable`,
+      );
+    }
+    return session;
+  }
+
+  #verifyPlan(plan, expectedPlanRoot, operation) {
+    if (!plan || typeof plan !== 'object') {
+      throw new AgentSessionSurfaceError('invalid_plan', 'plan is required');
+    }
+    required(expectedPlanRoot, 'expectedPlanRoot');
+    if (plan.root !== expectedPlanRoot || planRoot(plan) !== expectedPlanRoot) {
+      throw new AgentSessionSurfaceError(
+        'plan_root_mismatch',
+        `${operation} plan changed after review`,
+      );
+    }
+  }
+}
+
+export function createAgentSessionSurfaceClient({ invoke, client, actorId }) {
+  if (typeof invoke !== 'function') {
+    throw new AgentSessionSurfaceError(
+      'invalid_transport',
+      'surface client requires invoke()',
+    );
+  }
+  required(client, 'client');
+  required(actorId, 'actorId');
+  return Object.freeze({
+    capabilities: () => invoke({ operation: 'capabilities', client, actorId }),
+    list: () => invoke({ operation: 'list', client, actorId }),
+    show: (session) => invoke({ operation: 'show', client, actorId, session }),
+    planStart: (input) =>
+      invoke({ operation: 'plan-start', client, actorId, input }),
+    start: (plan, attachment, execution) =>
+      invoke({
+        operation: 'start',
+        client,
+        actorId,
+        plan,
+        expectedPlanRoot: plan.root,
+        attachment,
+        execution,
+      }),
+    attach: (session, attachment, acquireControl = false) =>
+      invoke({
+        operation: 'attach',
+        client,
+        actorId,
+        session,
+        attachment,
+        acquireControl,
+      }),
+    detach: (session, attachmentId) =>
+      invoke({ operation: 'detach', actorId, session, attachmentId }),
+    acquireControl: (session, payload = {}) => {
+      const plan = invoke({
+        operation: 'plan-control',
+        controlOperation: 'acquire-control',
+        client,
+        actorId,
+        session,
+        payload,
+      });
+      return invoke({
+        operation: 'acquire-control',
+        client,
+        actorId,
+        plan,
+        expectedPlanRoot: plan.root,
+        payload,
+      });
+    },
+    releaseControl: (session, payload = {}) => {
+      const plan = invoke({
+        operation: 'plan-control',
+        controlOperation: 'release-control',
+        client,
+        actorId,
+        session,
+        payload,
+      });
+      return invoke({
+        operation: 'release-control',
+        client,
+        actorId,
+        plan,
+        expectedPlanRoot: plan.root,
+        payload,
+      });
+    },
+    planControl: (operation, session, payload) =>
+      invoke({
+        operation: 'plan-control',
+        controlOperation: operation,
+        client,
+        actorId,
+        session,
+        payload,
+      }),
+    control: (plan, payload, automatic = true) =>
+      invoke({
+        operation: plan.operation,
+        client,
+        actorId,
+        plan,
+        expectedPlanRoot: plan.root,
+        payload,
+        automatic,
+      }),
+  });
+}

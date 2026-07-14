@@ -28,6 +28,7 @@
   },
   "dependencies": {
     "@kungfu-tech/api": "workspace:*",
+    "@kungfu-tech/agent-session": "workspace:*",
     "@kungfu-tech/kfx": "workspace:*",
     "@kungfu-tech/skill": "workspace:*",
     "node-pty": "^1.1.0",

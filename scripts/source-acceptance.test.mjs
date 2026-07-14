@@ -6,9 +6,23 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { sourceAcceptancePlan } from './source-acceptance.mjs';
+import {
+  sourceAcceptancePlan,
+  sourcePythonCommand,
+} from './source-acceptance.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+test('Python source checks use uvx when a bare ruff is unavailable', () => {
+  const command = sourcePythonCommand(
+    ['format', '--check'],
+    (candidate) => candidate === 'uvx',
+  );
+  assert.deepEqual(command, {
+    command: 'uvx',
+    args: ['ruff', 'format', '--check'],
+  });
+});
 
 test('source plan covers representative source-only checks', () => {
   const plan = sourceAcceptancePlan([
@@ -25,6 +39,19 @@ test('source plan covers representative source-only checks', () => {
   assert.ok(labels.includes('runtime activation contract'));
   assert.ok(labels.includes('agent session contract'));
   assert.ok(labels.includes('durability production-candidate admission'));
+  const typeBaseline = plan.find(
+    (step) => step.label === 'Python type baseline',
+  );
+  assert.equal(typeBaseline.command, 'uvx');
+  assert.deepEqual(typeBaseline.args, [
+    '--from',
+    'mypy==1.20.2',
+    'mypy',
+    '--config-file',
+    'pyproject.toml',
+    'src/python/kungfu',
+  ]);
+  assert.equal(typeBaseline.cwd, path.join(ROOT, 'framework/core'));
   const contractTests = plan.find(
     (step) => step.label === 'source-acceptance contract tests',
   );
@@ -51,6 +78,11 @@ test('source plan covers representative source-only checks', () => {
   assert.ok(
     contractTests.args.includes(
       'framework/agent-session/tests/interaction-port.test.mjs',
+    ),
+  );
+  assert.ok(
+    contractTests.args.includes(
+      'framework/agent-session/tests/product-surface.test.mjs',
     ),
   );
   assert.ok(

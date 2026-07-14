@@ -49,7 +49,7 @@ export type WorkConsole = {
   bindingKind: 'work' | 'workspace-assistant';
   workRef: WorkRef | null;
   runtimeProfileId: string;
-  backend: 'tmux' | 'direct';
+  backend: 'capsule' | 'tmux' | 'direct';
   attempts: SessionAttempt[];
   createdAt: number;
   updatedAt: number;
@@ -71,7 +71,7 @@ export type PersistedPane = {
   runId: string;
   provider: string;
   title: string;
-  backend: 'tmux' | 'direct';
+  backend: 'capsule' | 'tmux' | 'direct';
   command?: string;
   args?: string[];
   cwd?: string;
@@ -121,7 +121,12 @@ function parsePane(value: unknown, index: number): PersistedPane | null {
   const v = value as Record<string, unknown>;
   if (typeof v.runId !== 'string' || v.runId.length === 0) return null;
   if (typeof v.provider !== 'string') return null;
-  const backend = v.backend === 'direct' ? 'direct' : 'tmux';
+  const backend =
+    v.backend === 'capsule'
+      ? 'capsule'
+      : v.backend === 'direct'
+        ? 'direct'
+        : 'tmux';
   return {
     runId: v.runId,
     provider: v.provider,
@@ -278,7 +283,12 @@ function parseConsole(value: unknown): WorkConsole | null {
     bindingKind,
     workRef,
     runtimeProfileId: row.runtimeProfileId,
-    backend: row.backend === 'direct' ? 'direct' : 'tmux',
+    backend:
+      row.backend === 'capsule'
+        ? 'capsule'
+        : row.backend === 'direct'
+          ? 'direct'
+          : 'tmux',
     attempts: (Array.isArray(row.attempts) ? row.attempts : [])
       .map(parseAttempt)
       .filter((attempt): attempt is SessionAttempt => attempt !== null),
