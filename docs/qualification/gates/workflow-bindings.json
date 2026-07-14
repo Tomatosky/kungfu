@@ -171,7 +171,7 @@
       ],
       "activation": "daily or manual on dev",
       "invocation": {
-        "uses": "kungfu-systems/buildchain/.github/workflows/.gate-profile.yml@94b06408475bc651c536fcb33b2f19b40bb9fab0",
+        "uses": "kungfu-systems/buildchain/.github/workflows/.gate-profile.yml@e65e9d568a7fc59dc3440a47e75c55ff84b91b7a",
         "with": {
           "gate-profile": "dev-patrol",
           "runner-preset": "kungfu-v4-self-hosted",
@@ -255,7 +255,7 @@
       "activation": "manual source-bound measurement only; never a publication policy",
       "currentSource": false,
       "invocation": {
-        "uses": "kungfu-systems/buildchain/.github/workflows/.gate-profile.yml@94b06408475bc651c536fcb33b2f19b40bb9fab0",
+        "uses": "kungfu-systems/buildchain/.github/workflows/.gate-profile.yml@e65e9d568a7fc59dc3440a47e75c55ff84b91b7a",
         "with": {
           "gate-profile": "measurement",
           "runner-preset": "custom",

@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   measure:
-    uses: kungfu-systems/buildchain/.github/workflows/.gate-profile.yml@94b06408475bc651c536fcb33b2f19b40bb9fab0
+    uses: kungfu-systems/buildchain/.github/workflows/.gate-profile.yml@e65e9d568a7fc59dc3440a47e75c55ff84b91b7a
     with:
       source-ref: ${{ inputs.source-ref || github.sha }}
       gate-profile: measurement
