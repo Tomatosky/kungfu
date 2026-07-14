@@ -427,6 +427,14 @@ function checkDurabilityQualification() {
       'durability',
       'offhost_evidence.test.mjs',
     ),
+    path.join(
+      'framework',
+      'core',
+      'tests',
+      'qualification',
+      'durability',
+      'clean_restart_evidence.test.mjs',
+    ),
   ]);
 }
 

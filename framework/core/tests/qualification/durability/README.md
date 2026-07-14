@@ -203,6 +203,34 @@ with zero violations. Its repository evidence index is
 the complete 245,668 bytes of report/raw histogram evidence remain in the
 named agent-120 workspace under the exact digests recorded there.
 
+## Agent-120 clean host restart
+
+`./shifu durability:host-restart` is a default-dry-run, two-phase protocol for
+the frozen `linux-agent120-clean-restart-v1` envelope. `prepare` creates one new
+sentinel-protected run under `/data/qualification/kungfu/clean-host-restart`,
+exports a durable root, and writes `resume.json` last with file and directory
+fsync. The repository command then stops; it has no host-control authority.
+
+After a separately reviewed and authorized clean host restart, `verify`
+requires `/proc/sys/kernel/random/boot_id` to differ, binds the same clean
+source commit and resume token, and uses a fresh fixture process to verify the
+durable frontier, records, closed Episode, projection state/cut, and strictly
+newer clean owner generations:
+
+```sh
+KUNGFU_CLEAN_RESTART_CONFIRMATION=agent120-clean-restart-v1 \
+  ./shifu durability:host-restart -- \
+  --run-id SOURCE-agent120-clean-restart-v1 --phase prepare --execute
+
+KUNGFU_CLEAN_RESTART_CONFIRMATION=agent120-clean-restart-v1 \
+  ./shifu durability:host-restart -- \
+  --run-id SOURCE-agent120-clean-restart-v1 --phase verify --execute
+```
+
+The exact host maintenance command is deliberately outside this harness. This
+profile qualifies one clean agent-120 Linux/x86_64/ext4/NVMe reboot only. It
+keeps physical-power-loss and production eligibility false.
+
 ## Files
 
 - `profiles/*.json` freezes the platform/filesystem process profiles.
