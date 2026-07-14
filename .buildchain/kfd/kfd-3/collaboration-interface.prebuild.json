@@ -6,7 +6,7 @@
   "supportLevel": "release",
   "source": {
     "cwd": "/Users/dkr/Worktrees/kungfu/feature/runtime-surface-integration",
-    "sourceSha": "985b74b469e689bdf2288e514744f9c85ba89bac",
+    "sourceSha": "55d84330744d641a4e291440432c725bb0a13db7",
     "registryPath": ".buildchain/kfd/kfd-3/surfaces.json",
     "registryDigest": "sha256:6b8e5f64c722f6d97c5ff1f23bf5d8bd584a5358588e214424ea8cce461c5b82"
   },
