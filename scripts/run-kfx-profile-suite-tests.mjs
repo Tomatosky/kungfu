@@ -38,6 +38,15 @@ run('GUI Profile navigation projection', 'pnpm', [
   path.join(root, 'framework/gui/src/navigation.test.ts'),
 ]);
 
+run('GUI workspace runtime foreground projection', 'pnpm', [
+  '--filter',
+  '@kungfu-tech/tui',
+  'exec',
+  'tsx',
+  '--test',
+  path.join(root, 'framework/gui/src/runtime-status.test.ts'),
+]);
+
 const pythonPath = [
   path.join(root, 'framework/core/src/python'),
   process.env.PYTHONPATH,

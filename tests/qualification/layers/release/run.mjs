@@ -6,6 +6,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { writeShifuGateEvidence } from '../../../../scripts/shifu-gate-evidence.mjs';
+
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const POLICY = path.join(HERE, 'policy.json');
 
@@ -28,6 +30,7 @@ function parseArgs(argv) {
     formatReports: [],
     sdkReports: [],
     surfaceReports: [],
+    evidenceRoot: '',
     publicationReport: '',
     report: '',
   };
@@ -37,6 +40,7 @@ function parseArgs(argv) {
     '--surface-report': 'surfaceReports',
   };
   const singular = {
+    '--evidence-root': 'evidenceRoot',
     '--publication-report': 'publicationReport',
     '--report': 'report',
   };
@@ -45,7 +49,7 @@ function parseArgs(argv) {
     if (arg === '--') continue;
     if (arg === '--help' || arg === '-h') {
       console.log(
-        'Usage: ./shifu layers:qualify:release -- --format-report PATH --sdk-report PATH... --surface-report PATH... --publication-report PATH [--report PATH]',
+        'Usage: ./shifu layers:qualify:release -- [--evidence-root DIR | --format-report PATH --sdk-report PATH... --surface-report PATH...] --publication-report PATH [--report PATH]',
       );
       process.exit(0);
     }
@@ -59,7 +63,67 @@ function parseArgs(argv) {
   }
   if (!options.publicationReport)
     fail('--publication-report is required for a release verdict');
+  if (
+    options.evidenceRoot &&
+    (options.formatReports.length ||
+      options.sdkReports.length ||
+      options.surfaceReports.length)
+  )
+    fail('--evidence-root cannot be mixed with explicit qualification reports');
   return options;
+}
+
+function discoverEvidenceReports(root) {
+  const result = { formatReports: [], sdkReports: [], surfaceReports: [] };
+  const byName = {
+    'layer-format-report.json': 'formatReports',
+    'layer-sdk-report.json': 'sdkReports',
+    'layer-surface-report.json': 'surfaceReports',
+  };
+  const visit = (directory) => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const file = path.join(directory, entry.name);
+      if (entry.isDirectory()) visit(file);
+      else if (entry.isFile() && byName[entry.name])
+        result[byName[entry.name]].push(file);
+    }
+  };
+  if (!fs.statSync(root).isDirectory())
+    fail('--evidence-root must be a directory');
+  visit(root);
+  for (const files of Object.values(result)) files.sort();
+  if (
+    result.formatReports.length !== 3 ||
+    result.sdkReports.length !== 3 ||
+    result.surfaceReports.length !== 3
+  )
+    fail(
+      'evidence root requires one format, SDK, and surface report from each of three platforms',
+    );
+
+  const portable = result.formatReports.map((file) =>
+    readJson(file, 'format report'),
+  );
+  if (
+    portable.some(
+      (report) =>
+        report.schema !== 'kungfu.layer-qualification.format-report/v1' ||
+        report.status !== 'passing' ||
+        report.platform !== 'portable' ||
+        report.source?.tree_dirty !== false,
+    )
+  )
+    fail('portable format reports are not clean passing evidence');
+  const portableIdentities = new Set(
+    portable.map(
+      (report) =>
+        `${report.source?.commit}:${report.qualification?.exact_artifact_sha256}`,
+    ),
+  );
+  if (portableIdentities.size !== 1)
+    fail('portable format reports diverge across platform evidence');
+  result.formatReports = [result.formatReports[0]];
+  return result;
 }
 
 function platformKey(report) {
@@ -153,6 +217,8 @@ function requirePublishedPlatformArtifacts(row, platform, qualification, id) {
 
 function main() {
   const options = parseArgs(process.argv.slice(2));
+  if (options.evidenceRoot)
+    Object.assign(options, discoverEvidenceReports(options.evidenceRoot));
   const policy = readJson(POLICY, 'release policy');
   if (policy.schema !== 'kungfu.layer-qualification.release-policy/v1')
     fail('unexpected release policy schema');
@@ -250,6 +316,16 @@ function main() {
   if (options.report) {
     fs.mkdirSync(path.dirname(options.report), { recursive: true });
     fs.writeFileSync(options.report, `${JSON.stringify(report, null, 2)}\n`);
+    writeShifuGateEvidence({
+      schema: 'kungfu.layer-qualification.release-gate-evidence/v1',
+      pointers: [
+        { id: 'layer-release-report', file: options.report },
+        {
+          id: 'layer-publication-report',
+          file: options.publicationReport,
+        },
+      ],
+    });
   }
   console.log(
     `[layers:qualify:release] passing; artifacts=${artifacts.length}; source=${report.source.commit}; version=${report.release.version}`,

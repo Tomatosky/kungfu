@@ -148,12 +148,106 @@ function run(evidence) {
   return spawnSync(process.execPath, args, { encoding: 'utf8' });
 }
 
+function evidenceRootFixture(root) {
+  const evidence = fixture(root);
+  const evidenceRoot = path.join(root, 'evidence');
+  for (let index = 0; index < PLATFORMS.length; index += 1) {
+    const [platform, architecture] = PLATFORMS[index];
+    const host = path.join(evidenceRoot, `${platform}-${architecture}`);
+    fs.mkdirSync(host, { recursive: true });
+    fs.copyFileSync(
+      evidence.format,
+      path.join(host, 'layer-format-report.json'),
+    );
+    fs.copyFileSync(
+      evidence.sdk[index],
+      path.join(host, 'layer-sdk-report.json'),
+    );
+    fs.copyFileSync(
+      evidence.surface[index],
+      path.join(host, 'layer-surface-report.json'),
+    );
+  }
+  return { ...evidence, evidenceRoot };
+}
+
+function runEvidenceRoot(evidence, root) {
+  const report = path.join(root, 'layer-release-report.json');
+  const gateEvidence = path.join(root, 'gate-evidence.json');
+  return {
+    report,
+    gateEvidence,
+    result: spawnSync(
+      process.execPath,
+      [
+        RUNNER,
+        '--evidence-root',
+        evidence.evidenceRoot,
+        '--publication-report',
+        evidence.publication,
+        '--report',
+        report,
+      ],
+      {
+        encoding: 'utf8',
+        cwd: root,
+        env: { ...process.env, SHIFU_GATE_EVIDENCE_FILE: gateEvidence },
+      },
+    ),
+  };
+}
+
 test('promotes all seven staged artifacts only from complete release evidence', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'kungfu-release-test-'));
   try {
     const result = run(fixture(root));
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /passing; artifacts=7/);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('discovers three-host reports and emits digest-bound Gate evidence', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'kungfu-release-test-'));
+  try {
+    const outcome = runEvidenceRoot(evidenceRootFixture(root), root);
+    assert.equal(outcome.result.status, 0, outcome.result.stderr);
+    assert.equal(
+      JSON.parse(fs.readFileSync(outcome.report, 'utf8')).artifacts.length,
+      7,
+    );
+    const gateEvidence = JSON.parse(
+      fs.readFileSync(outcome.gateEvidence, 'utf8'),
+    );
+    assert.equal(
+      gateEvidence.schema,
+      'kungfu.layer-qualification.release-gate-evidence/v1',
+    );
+    assert.deepEqual(
+      gateEvidence.pointers.map(({ id }) => id),
+      ['layer-release-report', 'layer-publication-report'],
+    );
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('rejects divergent portable reports from the evidence root', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'kungfu-release-test-'));
+  try {
+    const evidence = evidenceRootFixture(root);
+    const divergent = path.join(
+      evidence.evidenceRoot,
+      'win32-x64',
+      'layer-format-report.json',
+    );
+    const report = JSON.parse(fs.readFileSync(divergent, 'utf8'));
+    report.qualification.exact_artifact_sha256 = 'f'.repeat(64);
+    fs.writeFileSync(divergent, `${JSON.stringify(report, null, 2)}\n`);
+    const outcome = runEvidenceRoot(evidence, root);
+    assert.equal(outcome.result.status, 1);
+    assert.match(outcome.result.stderr, /portable format reports diverge/);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

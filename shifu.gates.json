@@ -595,6 +595,174 @@
       }
     },
     {
+      "id": "layers.format",
+      "title": "Portable format artifact qualification",
+      "summary": "Packs and qualifies the exact portable format specification artifact.",
+      "category": "qualification",
+      "documentation": "docs/qualification/gates/native-qualification.md",
+      "dependencies": [
+        "layers.contract"
+      ],
+      "platforms": [
+        "linux",
+        "macos",
+        "windows"
+      ],
+      "runner": {
+        "capabilities": [
+          "node"
+        ]
+      },
+      "cost": {
+        "class": "heavy",
+        "timeoutSeconds": 900
+      },
+      "action": {
+        "kind": "task",
+        "task": "layers:gate:format",
+        "args": []
+      },
+      "artifacts": [
+        {
+          "id": "layer-format-report",
+          "path": "product/release/qualification/layer-format-report.json",
+          "required": true
+        }
+      ],
+      "receipt": {
+        "expectation": "required",
+        "schema": "kungfu.layer-qualification.gate-evidence/v1"
+      }
+    },
+    {
+      "id": "layers.sdk",
+      "title": "SDK artifact qualification",
+      "summary": "Packs and qualifies exact Python, npm, and Cargo SDK artifacts.",
+      "category": "qualification",
+      "documentation": "docs/qualification/gates/native-qualification.md",
+      "dependencies": [
+        "layers.contract"
+      ],
+      "platforms": [
+        "linux",
+        "macos",
+        "windows"
+      ],
+      "runner": {
+        "capabilities": [
+          "native-toolchain",
+          "product-artifacts",
+          "rust"
+        ]
+      },
+      "cost": {
+        "class": "heavy",
+        "timeoutSeconds": 1800
+      },
+      "action": {
+        "kind": "task",
+        "task": "layers:gate:sdk",
+        "args": []
+      },
+      "artifacts": [
+        {
+          "id": "layer-sdk-report",
+          "path": "product/release/qualification/layer-sdk-report.json",
+          "required": true
+        }
+      ],
+      "receipt": {
+        "expectation": "required",
+        "schema": "kungfu.layer-qualification.gate-evidence/v1"
+      }
+    },
+    {
+      "id": "layers.surfaces",
+      "title": "Product surface artifact qualification",
+      "summary": "Qualifies exact CLI, GUI, and assembled distribution artifacts.",
+      "category": "qualification",
+      "documentation": "docs/qualification/gates/native-qualification.md",
+      "dependencies": [
+        "layers.contract"
+      ],
+      "platforms": [
+        "linux",
+        "macos",
+        "windows"
+      ],
+      "runner": {
+        "capabilities": [
+          "product-artifacts"
+        ]
+      },
+      "cost": {
+        "class": "heavy",
+        "timeoutSeconds": 900
+      },
+      "action": {
+        "kind": "task",
+        "task": "layers:gate:surfaces",
+        "args": []
+      },
+      "artifacts": [
+        {
+          "id": "layer-surface-report",
+          "path": "product/release/qualification/layer-surface-report.json",
+          "required": true
+        }
+      ],
+      "receipt": {
+        "expectation": "required",
+        "schema": "kungfu.layer-qualification.gate-evidence/v1"
+      }
+    },
+    {
+      "id": "layers.release",
+      "title": "Seven-layer publication verdict",
+      "summary": "Aggregates exact three-platform qualification and public publication coordinates for all seven layers.",
+      "category": "release",
+      "documentation": "docs/qualification/gates/release-and-promotion.md",
+      "dependencies": [
+        "gate.catalog"
+      ],
+      "platforms": [
+        "linux"
+      ],
+      "runner": {
+        "capabilities": [
+          "publication-evidence"
+        ]
+      },
+      "cost": {
+        "class": "light",
+        "timeoutSeconds": 300
+      },
+      "action": {
+        "kind": "task",
+        "task": "layers:qualify:release",
+        "args": [
+          "--",
+          "--evidence-root",
+          "product/release/qualification/publication-set/evidence",
+          "--publication-report",
+          "product/release/qualification/layer-publication-report.json",
+          "--report",
+          "product/release/qualification/layer-release-report.json"
+        ]
+      },
+      "artifacts": [
+        {
+          "id": "layer-release-report",
+          "path": "product/release/qualification/layer-release-report.json",
+          "required": true
+        }
+      ],
+      "receipt": {
+        "expectation": "required",
+        "schema": "kungfu.layer-qualification.release-gate-evidence/v1"
+      }
+    },
+    {
       "id": "episode.smoke",
       "title": "Episode qualification smoke",
       "summary": "Runs mvp-smoke-v1 and verifies required semantic dimensions.",
@@ -1256,6 +1424,22 @@
           "mode": "off",
           "reason": "Not selected by the current dev-pr workflow policy."
         },
+        "layers.format": {
+          "mode": "off",
+          "reason": "Not selected by the current dev-pr workflow policy."
+        },
+        "layers.sdk": {
+          "mode": "off",
+          "reason": "Not selected by the current dev-pr workflow policy."
+        },
+        "layers.surfaces": {
+          "mode": "off",
+          "reason": "Not selected by the current dev-pr workflow policy."
+        },
+        "layers.release": {
+          "mode": "off",
+          "reason": "Not selected by the current dev-pr workflow policy."
+        },
         "episode.smoke": {
           "mode": "off",
           "reason": "Not selected by the current dev-pr workflow policy."
@@ -1398,6 +1582,22 @@
           "mode": "off",
           "reason": "Not selected by the current dev-patrol workflow policy."
         },
+        "layers.format": {
+          "mode": "off",
+          "reason": "Not selected by the current dev-patrol workflow policy."
+        },
+        "layers.sdk": {
+          "mode": "off",
+          "reason": "Not selected by the current dev-patrol workflow policy."
+        },
+        "layers.surfaces": {
+          "mode": "off",
+          "reason": "Not selected by the current dev-patrol workflow policy."
+        },
+        "layers.release": {
+          "mode": "off",
+          "reason": "Not selected by the current dev-patrol workflow policy."
+        },
         "episode.smoke": {
           "mode": "off",
           "reason": "The aggregate product.verify-full Gate includes mvp-smoke-v1; the standalone Episode Gate remains independently runnable."
@@ -1537,6 +1737,22 @@
           "reason": "Not selected by the current alpha-pr workflow policy."
         },
         "layers.contract": {
+          "mode": "required",
+          "reason": "Selected by the current alpha-pr workflow policy when its activation condition matches."
+        },
+        "layers.format": {
+          "mode": "required",
+          "reason": "Selected by the current alpha-pr workflow policy when its activation condition matches."
+        },
+        "layers.sdk": {
+          "mode": "required",
+          "reason": "Selected by the current alpha-pr workflow policy when its activation condition matches."
+        },
+        "layers.surfaces": {
+          "mode": "required",
+          "reason": "Selected by the current alpha-pr workflow policy when its activation condition matches."
+        },
+        "layers.release": {
           "mode": "off",
           "reason": "Not selected by the current alpha-pr workflow policy."
         },
@@ -1679,6 +1895,22 @@
           "reason": "Not selected by the current release-pr workflow policy."
         },
         "layers.contract": {
+          "mode": "required",
+          "reason": "Selected by the current release-pr workflow policy when its activation condition matches."
+        },
+        "layers.format": {
+          "mode": "required",
+          "reason": "Selected by the current release-pr workflow policy when its activation condition matches."
+        },
+        "layers.sdk": {
+          "mode": "required",
+          "reason": "Selected by the current release-pr workflow policy when its activation condition matches."
+        },
+        "layers.surfaces": {
+          "mode": "required",
+          "reason": "Selected by the current release-pr workflow policy when its activation condition matches."
+        },
+        "layers.release": {
           "mode": "off",
           "reason": "Not selected by the current release-pr workflow policy."
         },
@@ -1823,6 +2055,22 @@
         "layers.contract": {
           "mode": "off",
           "reason": "Not selected by the current release-promotion workflow policy."
+        },
+        "layers.format": {
+          "mode": "off",
+          "reason": "Not selected by the current release-promotion workflow policy."
+        },
+        "layers.sdk": {
+          "mode": "off",
+          "reason": "Not selected by the current release-promotion workflow policy."
+        },
+        "layers.surfaces": {
+          "mode": "off",
+          "reason": "Not selected by the current release-promotion workflow policy."
+        },
+        "layers.release": {
+          "mode": "required",
+          "reason": "Selected by the current release-promotion workflow policy when its activation condition matches."
         },
         "episode.smoke": {
           "mode": "off",

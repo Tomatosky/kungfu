@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0077
 decision_status: accepted
 implementation_status: partial
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/771]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/771, https://github.com/kungfu-systems/kungfu/pull/804]
 review_state: maintainer-reviewed
 sensitivity: public
 sources: [local-files, user-decision]
@@ -100,6 +100,12 @@ Build agent coordination as a live-runtime consumer on the existing substrate,
   page instead of failing the read-only open. Both are validated on a local core
   build (nine native journal / durability / crash-recovery tests plus a
   three-process live peer round-trip); they carry no in-tree consumer yet.
+- **Foreground product projection (this increment).** Desktop tray and status
+  bar present one workspace-level runtime state instead of exposing supervisor
+  and coordinator processes as separate user concerns. Process health proves
+  only `Workspace online`; the stronger `Workspace ready`, `reconnecting`, and
+  recovery states require explicit continuity evidence. Raw process diagnostics
+  remain available in the advanced System Status view.
 - **Deferred to a follow-up.** The arbiter peer itself — the in-memory lock
   table that consumes the react hook, replacing the waiter's short poll with a
   grant frame awaited over the live stream — and the instruct-injection path.

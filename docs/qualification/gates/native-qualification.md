@@ -18,9 +18,63 @@ Each section is bound to the registry id by the catalog meta gate.
 - **Evidence:** unified Gate receipt; no separate artifact is currently required.
 - **Diagnosis:** `./shifu gate explain layers.contract --profile <profile>`; reproduce with `./shifu gate run layers.contract` on a capable runner.
 - **Cost:** light; timeout 900 seconds.
-- **Current source:** independent Shifu task; not selected by a current remote profile.
+- **Current source:** .github/workflows/build.yml (build; alpha or release pull request)
 - **Retirement:** remove only after every selecting profile and workflow binding is migrated or explicitly replaced, with the registry and matrix changed in the same review.
 <!-- /gate-doc:layers.contract -->
+
+<a id="layers-format"></a>
+<!-- gate-doc:layers.format -->
+## Portable format artifact qualification (`layers.format`)
+
+- **Problem:** Packs and qualifies the exact portable format specification artifact.
+- **Protects:** a source-level format claim from passing while the archive actually shipped to users is stale, oversized, or incomplete.
+- **Action:** `./shifu layers:gate:format`
+- **Dependencies:** `layers.contract`.
+- **Platforms and runner:** linux, macos, windows; capabilities `node`.
+- **Pass:** the exact packed format artifact passes all six numeric budgets and writes both its qualification report and required task evidence.
+- **Failure or skip:** pack, qualification, dependency, capability, artifact, or task-evidence failure is non-qualifying; an explicit Gate run remains diagnostic rather than promotion authorization.
+- **Evidence:** unified source-bound Gate receipt, required `kungfu.layer-qualification.gate-evidence/v1` pointers, and `product/release/qualification/layer-format-report.json`.
+- **Diagnosis:** `./shifu gate explain layers.format --profile alpha-pr`; plan with `./shifu gate plan alpha-pr --platform <platform>` before reproducing on a capable host.
+- **Cost:** heavy; timeout 900 seconds.
+- **Current source:** .github/workflows/build.yml (build; alpha or release pull request)
+- **Retirement:** remove only after the portable artifact is retired or a replacement Gate preserves exact archive, budget, report, profile, and workflow-binding coverage.
+<!-- /gate-doc:layers.format -->
+
+<a id="layers-sdk"></a>
+<!-- gate-doc:layers.sdk -->
+## SDK artifact qualification (`layers.sdk`)
+
+- **Problem:** Packs and qualifies exact Python, npm, and Cargo SDK artifacts.
+- **Protects:** SDK source tests from masking broken wheels, npm archives, Cargo crates, dependency closure, or platform-specific installability.
+- **Action:** `./shifu layers:gate:sdk`
+- **Dependencies:** `layers.contract`.
+- **Platforms and runner:** linux, macos, windows; capabilities `native-toolchain`, `product-artifacts`, `rust`.
+- **Pass:** every exact SDK archive passes install, smoke, independence, and six-budget qualification and produces required task evidence.
+- **Failure or skip:** any missing platform artifact, unavailable required capability, stale archive, budget failure, or missing evidence is non-qualifying.
+- **Evidence:** unified source-bound Gate receipt, required `kungfu.layer-qualification.gate-evidence/v1` pointers, and `product/release/qualification/layer-sdk-report.json` per platform.
+- **Diagnosis:** `./shifu gate explain layers.sdk --profile alpha-pr`; plan with `./shifu gate plan alpha-pr --platform <platform>` before reproducing on a capable host.
+- **Cost:** heavy; timeout 1800 seconds.
+- **Current source:** .github/workflows/build.yml (build; alpha or release pull request)
+- **Retirement:** remove only after all SDK delivery surfaces are retired or a replacement Gate preserves exact archives, install smokes, budgets, platform coverage, and receipts.
+<!-- /gate-doc:layers.sdk -->
+
+<a id="layers-surfaces"></a>
+<!-- gate-doc:layers.surfaces -->
+## Product surface artifact qualification (`layers.surfaces`)
+
+- **Problem:** Qualifies exact CLI, GUI, and assembled distribution artifacts.
+- **Protects:** product entrypoints from being declared usable when their exact bundles, installers, or uninstall paths fail on a supported host.
+- **Action:** `./shifu layers:gate:surfaces`
+- **Dependencies:** `layers.contract`.
+- **Platforms and runner:** linux, macos, windows; capabilities `product-artifacts`.
+- **Pass:** the exact CLI, GUI, and assembled distribution pass independence, six-budget, installer, and uninstall qualification with required task evidence.
+- **Failure or skip:** any missing product surface, platform report, installer-uninstall proof, budget, or evidence pointer is non-qualifying.
+- **Evidence:** unified source-bound Gate receipt, required `kungfu.layer-qualification.gate-evidence/v1` pointers, and `product/release/qualification/layer-surface-report.json` per platform.
+- **Diagnosis:** `./shifu gate explain layers.surfaces --profile alpha-pr`; plan with `./shifu gate plan alpha-pr --platform <platform>` before reproducing on a capable host.
+- **Cost:** heavy; timeout 900 seconds.
+- **Current source:** .github/workflows/build.yml (build; alpha or release pull request)
+- **Retirement:** remove only after all three product surfaces are retired or a replacement Gate preserves exact bundles, installer-uninstall proof, budgets, platform coverage, and receipts.
+<!-- /gate-doc:layers.surfaces -->
 
 <a id="episode-smoke"></a>
 <!-- gate-doc:episode.smoke -->

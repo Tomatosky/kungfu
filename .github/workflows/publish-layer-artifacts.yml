@@ -149,31 +149,26 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: adr0049-publication-set
-          path: publication-set
+          path: product/release/qualification/publication-set
       - name: Verify immutable public coordinates and compute the seven-row verdict
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           # shifu-entry-contract: allow dependency-free public registry verification in a clean checkout
           node scripts/verify-layer-publication.mjs \
-            --evidence publication-set/evidence \
+            --evidence product/release/qualification/publication-set/evidence \
             --repo "$GITHUB_REPOSITORY" \
             --tag "${{ inputs.release-tag }}" \
             --version "${{ needs.prepare.outputs.version }}" \
-            --report publication-report.json
-          format="$(find publication-set/evidence -name layer-format-report.json -type f | sort | head -n 1)"
-          mapfile -t sdks < <(find publication-set/evidence -name layer-sdk-report.json -type f | sort)
-          mapfile -t surfaces < <(find publication-set/evidence -name layer-surface-report.json -type f | sort)
-          args=(--format-report "$format")
-          for file in "${sdks[@]}"; do args+=(--sdk-report "$file"); done
-          for file in "${surfaces[@]}"; do args+=(--surface-report "$file"); done
-          # shifu-entry-contract: allow dependency-free final verdict in a clean checkout
-          node tests/qualification/layers/release/run.mjs "${args[@]}" \
-            --publication-report publication-report.json \
-            --report layer-release-report.json
+            --report product/release/qualification/layer-publication-report.json
+          ./shifu gate run layers.release \
+            --capability publication-evidence \
+            --receipt product/release/qualification/layer-publication-gate-receipt.json \
+            --overwrite
       - uses: actions/upload-artifact@v4
         with:
           name: adr0049-publication-verdict
           path: |
-            publication-report.json
-            layer-release-report.json
+            product/release/qualification/layer-publication-report.json
+            product/release/qualification/layer-release-report.json
+            product/release/qualification/layer-publication-gate-receipt.json

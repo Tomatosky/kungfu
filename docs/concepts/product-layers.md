@@ -23,9 +23,9 @@ defines the architecture constraint. This page is the practical product map.
 | `libkungfu` | embedded `.kungfu` lifecycle, facts, Episodes, core query, verification and export | Python, Node, Rust host, Electron, cloud or database service |
 | `.kungfu` format/spec | portable facts, declared schemas, verification and preservation rules | GUI or a particular language runtime |
 
-Some rows describe target qualifications whose implementation is staged. The
-table is a contract map, not a claim that every ecosystem artifact already
-passes its final release gate.
+The implementation and source-built qualification harness now cover every row.
+The table remains a contract map, not a claim that the artifacts have been
+published or that a current public release has passed its final Gate.
 
 ## Current maturity
 
@@ -34,16 +34,19 @@ yijinjing, thin Python/Node bindings, delayed satellite runtimes, headless and
 GUI surfaces, workspace-local `.kungfu`, and an assembled distribution.
 
 ADR-0049 makes independent qualification the release obligation. The native
-closure and its versioned C ABI now pass their dedicated gate. Thin Python,
-Node, and Rust storage SDK sources plus a shared semantic fixture are staged;
-exact source-built artifacts have Darwin ARM64 evidence, while publication,
-other platforms, resident-memory sampling, and the full release matrix remain
-separate release claims. The headless and human surfaces now share a public
-storage capability: the GUI Storage panel expresses inspect, timeline, query,
-repair-plan, and export operations through the same native service used by the
-CLI. Product builds also emit one source-bound compatibility manifest for the
-CLI and desktop forms. Exact directory-form surface evidence remains distinct
-from publication and installer-uninstall claims.
+closure and versioned C ABI, thin Python/Node/Rust SDK artifacts, shared semantic
+fixture, headless and human surfaces, assembled compatibility manifest, six
+budgets, deletion checks, and installer-uninstall checks are implemented. The
+source-built implementation was merged through PR #797 after three-host
+qualification. The current Shifu Gate registry makes the layer contract and
+exact format, SDK, surface, and seven-row publication verdict first-class
+profile policy with digest-bound receipts.
+
+That does not collapse build qualification into release publication. Public
+npm, PyPI, crates.io, and GitHub Release coordinates, signing, and stable
+compatibility remain separate release claims. See the
+[layer-complete release qualification contract](../qualification/layer-product-release-qualification.md)
+for the exact evidence chain and current boundary.
 
 ## The rule behind the choices
 

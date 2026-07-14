@@ -20,6 +20,11 @@ import {
 import { DEVELOPER_NAVIGATION, TOOLS_NAVIGATION } from '../navigation';
 
 import {
+  type RuntimeStatusPayload,
+  type RuntimeStatusResult,
+  deriveWorkspaceRuntimePresentation,
+} from '../runtime-status';
+import {
   AGENT_RUNTIME_CLI_EXEC_CHANNEL,
   ATLAS_CLI_EXEC_CHANNEL,
   DESTROY_CHANNEL,
@@ -389,39 +394,6 @@ process.env.PATH = [kungfuBinDir, process.env.PATH || '']
   .filter(Boolean)
   .join(path.delimiter);
 
-type RuntimeStatusPayload = {
-  status?: string;
-  configHome?: string;
-  dataRoot?: string;
-  runtimeDir?: string;
-  lifecycle?: {
-    state?: string;
-    healthy?: boolean;
-    warnings?: string[];
-  };
-  supervisor?: { pid?: number | null; running?: boolean };
-  coordinator?: { pid?: number | null; running?: boolean };
-  route?: { routeId?: string; registered?: boolean; stale?: boolean };
-  routes?: { count?: number; staleCount?: number };
-  assessments?: {
-    assessment_count?: number;
-    counts?: Record<string, number>;
-    assessments?: Array<{
-      state?: string;
-      assessment_key?: string;
-      request?: { claim_id?: string; purpose?: string };
-      report?: { residual_risks?: string[]; query_proof_root?: string };
-    }>;
-  };
-};
-
-type RuntimeStatusResult = {
-  ok: boolean;
-  payload: RuntimeStatusPayload | null;
-  error: string;
-  updatedAt: number;
-};
-
 function readRuntimeStatus(): RuntimeStatusResult {
   if (!workspaceRuntimeReady) {
     return {
@@ -495,18 +467,7 @@ function ensureRuntimeForGuiStartup() {
 }
 
 function runtimeStatusLabel(result = lastRuntimeStatus ?? readRuntimeStatus()) {
-  if (!result.ok || !result.payload) return 'Runtime: unavailable';
-  const lifecycle = result.payload.lifecycle?.state || result.payload.status;
-  if (lifecycle === 'stale-route') return 'Runtime: stale route';
-  if (lifecycle === 'degraded') return 'Runtime: degraded';
-  if (lifecycle === 'dead') return 'Runtime: dead pid';
-  if (lifecycle === 'orphan-coordinator') return 'Runtime: orphan';
-  const supervisor = result.payload.supervisor?.running;
-  const runtime = result.payload.coordinator?.running;
-  if (supervisor && runtime) return 'Runtime: running';
-  if (supervisor) return 'Runtime: waiting';
-  if (runtime) return 'Runtime: orphan';
-  return 'Runtime: stopped';
+  return deriveWorkspaceRuntimePresentation(result).label;
 }
 
 function showShellWindow() {
@@ -602,13 +563,7 @@ function buildTrayMenu() {
   const visible =
     shellWindow && !shellWindow.isDestroyed() ? shellWindow.isVisible() : false;
   const status = readRuntimeStatus();
-  const payload = status.payload;
-  const statusDetail =
-    status.ok && payload
-      ? `Lifecycle: ${payload.lifecycle?.state || payload.status || '-'} · Data root: ${
-          payload.dataRoot || '-'
-        }`
-      : status.error || 'Status unavailable';
+  const workspaceStatus = deriveWorkspaceRuntimePresentation(status);
   tray.setContextMenu(
     Menu.buildFromTemplate([
       {
@@ -616,7 +571,7 @@ function buildTrayMenu() {
         enabled: false,
       },
       {
-        label: statusDetail,
+        label: workspaceStatus.detail,
         enabled: false,
       },
       { type: 'separator' },
