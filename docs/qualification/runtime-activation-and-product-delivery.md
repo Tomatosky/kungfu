@@ -41,11 +41,12 @@ The full command is:
 ```
 
 The current retained complete product report is the
-[Darwin arm64 `fea9ea4ae` evidence](evidence/runtime-activation/fea9ea4ae/README.md).
-Its machine report binds the rebased clean source tree, all eight passing
-suites, and the claim/non-claim boundary below. The earlier
-[`fb1574844` report](evidence/runtime-activation/fb1574844/README.md) remains as
-historical evidence from before the final `dev/v4/v4.0` synchronization.
+[Darwin arm64 `080f330db` evidence](evidence/runtime-activation/080f330db/README.md).
+Its machine report binds the latest rebased clean source tree, all eight
+passing suites, and the claim/non-claim boundary below. The earlier
+[`fea9ea4ae`](evidence/runtime-activation/fea9ea4ae/README.md) and
+[`fb1574844`](evidence/runtime-activation/fb1574844/README.md) reports remain as
+historical evidence from prior `dev/v4/v4.0` synchronization points.
 
 Plan-only inspection is:
 
