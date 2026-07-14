@@ -1474,11 +1474,15 @@ void bind(pybind11::module &&m) {
           "status", [](const durability_writer_lease &self) { return ownership_evidence_to_py(self.status()); });
 
   py::class_<coordinator, PyCoordinator>(m, "coordinator")
-      .def(py::init([](const location_ptr &home, bool low_latency, py::dict durability_config) {
+      .def(py::init([](const location_ptr &home, bool low_latency, py::dict durability_config,
+                       uint64_t runtime_generation, uint64_t coordinator_epoch) {
              return std::make_unique<PyCoordinator>(home, low_latency,
-                                                    durability_candidate_config_from_py(std::move(durability_config)));
+                                                    durability_candidate_config_from_py(std::move(durability_config)),
+                                                    state_service::projection_candidate_config{},
+                                                    coordinator_authority{runtime_generation, coordinator_epoch});
            }),
-           py::arg("home"), py::arg("low_latency") = false, py::arg("durability_config") = py::dict())
+           py::arg("home"), py::arg("low_latency") = false, py::arg("durability_config") = py::dict(),
+           py::arg("runtime_generation") = 1, py::arg("coordinator_epoch") = 1)
       .def_property_readonly("io_device", &coordinator::get_io_device)
       .def_property_readonly("home", &coordinator::get_home)
       .def_property_readonly("live", &coordinator::is_live)

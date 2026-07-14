@@ -10,6 +10,7 @@
 #include <kungfu/runtime/common.h>
 
 #include <kungfu/runtime/io.h>
+#include <kungfu/runtime/live/continuity.h>
 #include <kungfu/runtime/live/reactor.h>
 #include <kungfu/runtime/projection_bootstrap.h>
 #include <kungfu/runtime/state_cache/model.h>
@@ -55,6 +56,12 @@ public:
   const state_cache::bank &get_state_bank() const;
 
   [[nodiscard]] const state_service::projection_candidate_status_view &get_projection_candidate_status() const;
+
+  [[nodiscard]] peer_continuity_phase get_continuity_phase() const { return continuity_.phase(); }
+
+  [[nodiscard]] const std::optional<coordinator_authority> &get_coordinator_authority() const {
+    return continuity_.authority();
+  }
 
   // observe() now lives on the common base reactor (peer + coordinator share it).
 
@@ -202,7 +209,13 @@ protected:
 
   virtual void on_register(int64_t trigger_time, const yijinjing::types::Register &register_data);
 
+  void on_register_event(const event_ptr &event);
+
+  void on_coordinator_heartbeat(const event_ptr &event);
+
   virtual void on_deregister(const event_ptr &event);
+
+  void on_request_start(const event_ptr &event);
 
   void on_read_from(const event_ptr &event);
 
@@ -340,21 +353,26 @@ private:
   resource_manager manager_;
   bool started_ = false;
   bool registered_ = false;
+  bool register_timeout_reported_ = false;
   int64_t checkin_time_ = INT64_MIN;
   // Wall-clock deadline (ns) for the LIVE register handshake. The handshake runs
   // before the peer is live, so the coordinator's journal time service does not
   // serve it; on_active checks this against wall-clock on the observer
   // recv_timeout heartbeat instead of a background rx::timeout thread.
   int64_t register_deadline_ = INT64_MAX;
+  int64_t last_coordinator_heartbeat_ = INT64_MIN;
   int32_t timer_usage_count_{0};
   const std::string arguments_ = {};
   state_service::peer_projection_declaration projection_declaration_ = {};
   state_service::projection_candidate_status_view projection_candidate_status_ = {};
+  peer_continuity_tracker continuity_ = {};
   std::unordered_map<int, int64_t> timer_checkpoints_ = {};
   std::unordered_set<uint32_t> try_write_dest_ids_ = {};
   std::unordered_map<int32_t, bool> timers_ = {};
 
-  void checkin();
+  bool checkin();
+
+  void begin_reconnect(int64_t now);
 
   void expect_start();
 

@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
-
-const POSITIVE_INTEGER = /^[1-9][0-9]*$/u;
+import {
+  admitCoordinator,
+  coordinatorAuthority,
+  positiveIntegerString,
+} from './runtime-continuity.mjs';
 
 function required(value, label) {
   if (typeof value !== 'string' || value.length === 0) {
@@ -10,13 +13,14 @@ function required(value, label) {
 }
 
 function epoch(value, label) {
-  if (typeof value !== 'string' || !POSITIVE_INTEGER.test(value)) {
+  try {
+    return positiveIntegerString(value, label);
+  } catch {
     throw new PeerTransportError(
       'invalid_argument',
       `${label} must be a positive integer string`,
     );
   }
-  return value;
 }
 
 function requirePort(port) {
@@ -77,6 +81,7 @@ export class AgentSessionCapsulePeerTransport {
     this.now = now;
     this.leaseTtlMs = leaseTtlMs;
     this.registration = null;
+    this.runtimeContinuity = null;
     this.supervisorGeneration = null;
     this.attachments = new Map();
     this.controller = null;
@@ -85,8 +90,25 @@ export class AgentSessionCapsulePeerTransport {
     this.pendingResize = null;
   }
 
-  register({ coordinatorEpoch, supervisorGeneration }) {
+  register({
+    runtimeGeneration = '1',
+    coordinatorEpoch,
+    supervisorGeneration,
+  }) {
     const status = this.host.status();
+    let candidate;
+    try {
+      candidate = coordinatorAuthority({
+        runtimeGeneration,
+        coordinatorEpoch,
+      });
+    } catch (error) {
+      throw new PeerTransportError('invalid_argument', error.message);
+    }
+    const decision = admitCoordinator(this.runtimeContinuity, candidate);
+    if (!decision.accepted) {
+      throw new PeerTransportError(decision.admission, decision.reason);
+    }
     const next = {
       schema: 'kungfu.agent-session.peer-registration/v1',
       peerKind: 'agent-session-capsule',
@@ -97,7 +119,9 @@ export class AgentSessionCapsulePeerTransport {
       capsuleGeneration: status.capsuleGeneration,
       sessionStreamEpoch: status.sessionStreamEpoch,
       processStartIdentity: status.foreground.processStartIdentity,
-      coordinatorEpoch: epoch(coordinatorEpoch, 'coordinatorEpoch'),
+      runtimeGeneration: candidate.runtime_generation,
+      coordinatorEpoch: candidate.coordinator_epoch,
+      runtimeContinuity: candidate,
       supervisorGeneration: epoch(supervisorGeneration, 'supervisorGeneration'),
       registeredAt: this.now(),
       capabilities: [
@@ -110,21 +134,16 @@ export class AgentSessionCapsulePeerTransport {
       ],
     };
     this.registration = next;
+    this.runtimeContinuity = candidate;
     this.supervisorGeneration = next.supervisorGeneration;
     return this.#append('durable-lifecycle', 'peer-registration', next);
   }
 
-  reregister({ coordinatorEpoch }) {
+  reregister({ runtimeGeneration, coordinatorEpoch }) {
     const current = this.#requireRegistration();
-    const nextEpoch = epoch(coordinatorEpoch, 'coordinatorEpoch');
-    if (BigInt(nextEpoch) <= BigInt(current.coordinatorEpoch)) {
-      throw new PeerTransportError(
-        'stale_coordinator',
-        'Coordinator epoch must advance during re-registration',
-      );
-    }
     return this.register({
-      coordinatorEpoch: nextEpoch,
+      runtimeGeneration: runtimeGeneration ?? current.runtimeGeneration,
+      coordinatorEpoch,
       supervisorGeneration: current.supervisorGeneration,
     });
   }
@@ -516,7 +535,9 @@ export class AgentSessionCapsulePeerTransport {
     return {
       schema: 'kungfu.agent-session.peer-status/v1',
       ...host,
+      runtimeGeneration: registration.runtimeGeneration,
       coordinatorEpoch: registration.coordinatorEpoch,
+      runtimeContinuity: registration.runtimeContinuity,
       supervisorGeneration: this.supervisorGeneration,
       controllerLease: controller
         ? {

@@ -7,6 +7,11 @@ import {
   AgentSessionCapsulePeerTransport,
   InMemoryJournalNoticePort,
 } from '../src/peer-transport.mjs';
+import {
+  admitCoordinator,
+  coordinatorAuthority,
+  peerContinuityObservation,
+} from '../src/runtime-continuity.mjs';
 
 const PROFILE_ROOT = `sha256:${'b'.repeat(64)}`;
 
@@ -267,6 +272,50 @@ test('Coordinator re-registration preserves stream epoch and controller lease', 
   assert.throws(
     () => transport.reregister({ coordinatorEpoch: '4' }),
     (error) => error.code === 'stale_coordinator',
+  );
+  transport.reregister({ runtimeGeneration: '2', coordinatorEpoch: '1' });
+  assert.deepEqual(transport.status().runtimeContinuity, {
+    schema: 'kungfu.runtime.peer-continuity/v1',
+    runtime_generation: '2',
+    coordinator_epoch: '1',
+  });
+});
+
+test('Capsule continuity consumes the Core runtime authority schema and fences regressions', () => {
+  const current = coordinatorAuthority({
+    runtimeGeneration: '7',
+    coordinatorEpoch: '12',
+  });
+  assert.equal(
+    admitCoordinator(
+      current,
+      coordinatorAuthority({
+        runtimeGeneration: '8',
+        coordinatorEpoch: '1',
+      }),
+    ).accepted,
+    true,
+  );
+  assert.equal(
+    admitCoordinator(
+      current,
+      coordinatorAuthority({
+        runtimeGeneration: '7',
+        coordinatorEpoch: '11',
+      }),
+    ).admission,
+    'stale_coordinator',
+  );
+  assert.deepEqual(
+    peerContinuityObservation({
+      lastAuthority: current,
+      reconnectAttempt: '3',
+    }),
+    {
+      schema: 'kungfu.runtime.peer-continuity/v1',
+      reconnect_attempt: '3',
+      last_authority: current,
+    },
   );
 });
 

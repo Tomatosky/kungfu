@@ -12,6 +12,7 @@
 #include <kungfu/runtime/common.h>
 
 #include <kungfu/runtime/io.h>
+#include <kungfu/runtime/live/continuity.h>
 #include <kungfu/runtime/live/reactor.h>
 #include <kungfu/runtime/state_service.h>
 #include <kungfu/yijinjing/journal/common.h>
@@ -29,11 +30,14 @@ class coordinator : public reactor {
 public:
   explicit coordinator(const yijinjing::data::location_ptr &home, bool low_latency = false,
                        state_service::durability_candidate_config durability_candidate = {},
-                       state_service::projection_candidate_config projection_candidate = {});
+                       state_service::projection_candidate_config projection_candidate = {},
+                       coordinator_authority continuity_authority = {});
 
   explicit coordinator(const kungfu::runtime::io_device_ptr &io_device,
                        state_service::durability_candidate_config durability_candidate = {},
-                       state_service::projection_candidate_config projection_candidate = {});
+                       state_service::projection_candidate_config projection_candidate = {},
+                       coordinator_authority continuity_authority = {});
+  [[nodiscard]] const coordinator_authority &continuity_authority() const { return continuity_authority_; }
   [[nodiscard]] state_service::service_status state_service_status() const { return state_service_.status(); }
 
   // Configured durability execution remains owned by the state-service
@@ -93,6 +97,7 @@ public:
 protected:
   int64_t last_check_;
   state_service::service state_service_;
+  coordinator_authority continuity_authority_;
 
   std::unordered_map<uint32_t, uint32_t> peer_cmd_locations_ = {};
   std::unordered_map<uint32_t, std::unordered_map<int32_t, timer_task>> timer_tasks_ = {};
