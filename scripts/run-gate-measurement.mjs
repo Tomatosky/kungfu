@@ -8,6 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { prepareGateMeasurementHistory } from './prepare-gate-measurement-history.mjs';
+import { cacheAppliedCommandArgs, runShifu } from './run-shifu-lifecycle.mjs';
 
 const node = process.execPath;
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -18,6 +19,7 @@ const shifuLauncher = path.join(
 const lifecycle = fileURLToPath(
   new URL('./run-shifu-lifecycle.mjs', import.meta.url),
 );
+const measurementScript = fileURLToPath(import.meta.url);
 
 function exposeUserToolchain() {
   const pathKey =
@@ -117,7 +119,16 @@ function prepareHistory() {
 // profile run prevents a cold checkout from consuming a Gate's own timeout or
 // duration measurement.
 exposeUserToolchain();
-prepareHistory();
-prepareWorkspace();
-if (process.exitCode) process.exit(process.exitCode);
-runNativeGate(process.argv.slice(2));
+if (process.env.SHIFU_CACHE_ACTIVE !== '1') {
+  prepareHistory();
+  process.exitCode = runShifu(
+    cacheAppliedCommandArgs(node, [
+      measurementScript,
+      ...process.argv.slice(2),
+    ]),
+  );
+} else {
+  prepareWorkspace();
+  if (process.exitCode) process.exit(process.exitCode);
+  runNativeGate(process.argv.slice(2));
+}

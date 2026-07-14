@@ -5,11 +5,31 @@ import { test } from 'node:test';
 
 import {
   cacheAppliedArgs,
+  cacheAppliedCommandArgs,
   cacheAwareArgs,
   cmdCommand,
   lifecycleEnvironment,
   runShifu,
 } from './run-shifu-lifecycle.mjs';
+
+test('wraps an arbitrary child command in one cache projection', () => {
+  assert.deepEqual(
+    cacheAppliedCommandArgs('/node path/node', [
+      '/repo path/run-gate-measurement.mjs',
+      'gate',
+      'run',
+    ]),
+    [
+      'cache',
+      'apply',
+      '--',
+      '/node path/node',
+      '/repo path/run-gate-measurement.mjs',
+      'gate',
+      'run',
+    ],
+  );
+});
 
 test('an active cache projection is reused without acquiring a second partition', () => {
   assert.deepEqual(

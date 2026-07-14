@@ -60,6 +60,10 @@ export function cacheAppliedArgs(args, options = {}) {
   ];
 }
 
+export function cacheAppliedCommandArgs(command, args = []) {
+  return ['cache', 'apply', '--', command, ...args];
+}
+
 export function cacheAwareArgs(args, options = {}) {
   const env = options.env || process.env;
   return env.SHIFU_CACHE_ACTIVE === '1'
