@@ -3,7 +3,9 @@ metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
 adr_id: ADR-0084
 decision_status: accepted
-implementation_status: not-started
+implementation_status: staged
+implementation_commits: [6c10cf1e97f2d2cf1fec7f653a3e27782061ca90]
+qualification_refs: [framework/agent-session/tests/codex-app-server-contract.test.mjs, framework/agent-session/tests/codex-app-server-schema.native.test.mjs, framework/agent-session/schemas/codex-app-server/codex-v0.144.3-stable-schema-manifest.json]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -16,7 +18,7 @@ last_reviewed: 2026-07-14
 
 # ADR-0084: Codex App Server is a pinned structured-hybrid provider adapter
 
-- Status: accepted; implementation not started
+- Status: accepted; implementation staged
 - Date: 2026-07-14
 - Category: product runtime / provider adapter / structured interaction
 - Related: [ADR-0079](ADR-0079-native-work-agent-console-loop.md),
