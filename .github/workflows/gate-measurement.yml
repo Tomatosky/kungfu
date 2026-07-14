@@ -25,6 +25,8 @@ jobs:
       artifact-name: kungfu-gate-measurement
       artifact-retention-days: 30
       gate-command-json: >-
+        {"linux":["node","scripts/run-gate-measurement.mjs"],"macos":["node","scripts/run-gate-measurement.mjs"],"windows":["node","scripts/run-gate-measurement.mjs"]}
+      gate-plan-command-json: >-
         {"linux":["node","shifu.mjs"],"macos":["node","shifu.mjs"],"windows":["node","shifu.mjs"]}
       gate-environment-json: >-
         {"SHIFU_NATIVE":"1","KUNGFU_BUILDCHAIN_NO_OPTIONAL":"1",
