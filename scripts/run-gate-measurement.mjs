@@ -50,8 +50,10 @@ function prepareHistory() {
     encoding: 'utf8',
   });
   if (process.exitCode) process.exit(process.exitCode);
-  if (shallow.stdout.trim() !== 'true') return;
-  spawn('git', ['fetch', '--unshallow', '--no-tags', 'origin']);
+  const args = ['fetch'];
+  if (shallow.stdout.trim() === 'true') args.push('--unshallow');
+  args.push('--no-tags', 'origin', '+refs/heads/*:refs/remotes/origin/*');
+  spawn('git', args);
   if (process.exitCode) process.exit(process.exitCode);
 }
 
