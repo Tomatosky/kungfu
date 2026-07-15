@@ -16,6 +16,8 @@ run('cmake', [
   sliceDir,
   '-B',
   scratch,
+  '-G',
+  'Ninja',
   `-DCMAKE_TOOLCHAIN_FILE=${toolchain}`,
   '-DCMAKE_POLICY_DEFAULT_CMP0091=NEW',
   '-DCMAKE_BUILD_TYPE=Release',
