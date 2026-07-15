@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: SHIFU-ADR-0001
 decision_status: accepted
 implementation_status: implemented
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/644, https://github.com/kungfu-systems/kungfu/pull/655, https://github.com/kungfu-systems/kungfu/pull/696, https://github.com/kungfu-systems/kungfu/pull/727, https://github.com/kungfu-systems/kungfu/pull/739, https://github.com/kungfu-systems/kungfu/pull/755, https://github.com/kungfu-systems/kungfu/pull/774, https://github.com/kungfu-systems/kungfu/pull/779, https://github.com/kungfu-systems/kungfu/pull/786]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/644, https://github.com/kungfu-systems/kungfu/pull/655, https://github.com/kungfu-systems/kungfu/pull/696, https://github.com/kungfu-systems/kungfu/pull/727, https://github.com/kungfu-systems/kungfu/pull/739, https://github.com/kungfu-systems/kungfu/pull/755, https://github.com/kungfu-systems/kungfu/pull/774, https://github.com/kungfu-systems/kungfu/pull/779, https://github.com/kungfu-systems/kungfu/pull/786, https://github.com/kungfu-systems/kungfu/pull/918]
 closure_pr: https://github.com/kungfu-systems/kungfu/pull/786
 qualification_refs: [scripts/check-shifu-cache-contract.test.mjs, scripts/shifu-cache-runtime.test.mjs, scripts/shifu-uv-cache-adapter.test.mjs, scripts/shifu-conan-publish.test.mjs]
 review_state: self-reviewed
@@ -14,7 +14,7 @@ period: ongoing
 theme: shifu-cache-profile-contract
 confidence: high
 evidence_grade: B
-last_reviewed: 2026-07-13
+last_reviewed: 2026-07-15
 ---
 
 # SHIFU-ADR-0001: Cache profile contract and ownership
