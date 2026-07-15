@@ -21,8 +21,7 @@ on:
 
 permissions:
   actions: read
-  contents: write
-  id-token: write
+  contents: read
 
 jobs:
   prepare:
@@ -41,10 +40,10 @@ jobs:
           test "$conclusion" = success
           sha="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}" --jq .head_sha)"
           echo "source-sha=$sha" >> "$GITHUB_OUTPUT"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: ${{ steps.build.outputs.source-sha }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22.14.0
       - name: Read release version
@@ -52,7 +51,7 @@ jobs:
         run: |
           # shifu-entry-contract: allow release control-plane metadata lookup before launcher dispatch
           echo "version=$(node -p "require('./lerna.json').version")" >> "$GITHUB_OUTPUT"
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           github-token: ${{ github.token }}
           run-id: ${{ inputs.build-run-id }}
@@ -77,7 +76,7 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --tag "${{ inputs.release-tag }}" \
             --report publication/preflight-report.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: adr0049-publication-set
           path: |
@@ -90,15 +89,19 @@ jobs:
     if: ${{ inputs.execute }}
     runs-on: ubuntu-22.04
     environment: adr0049-production-publication
+    permissions:
+      actions: read
+      contents: write
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: ${{ needs.prepare.outputs.source-sha }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22.14.0
           registry-url: https://registry.npmjs.org
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: adr0049-publication-set
           path: publication-set
@@ -119,7 +122,7 @@ jobs:
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --target "${{ needs.prepare.outputs.source-sha }}" --title "Kungfu Episodes ${VERSION}" --notes "ADR-0049 qualified release ${VERSION}"
           gh release upload "$TAG" publication-set/publication/github/*
       - name: Preserve exact PyPI wheels for isolated publisher job
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: adr0049-pypi-wheels
           path: publication-set/publication/pypi/*.whl
@@ -130,23 +133,28 @@ jobs:
     runs-on: ubuntu-22.04
     environment: adr0049-production-publication
     permissions:
+      actions: read
+      contents: read
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: adr0049-pypi-wheels
           path: dist
-      - uses: pypa/gh-action-pypi-publish@release/v1
+      - uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # release/v1
 
   verify-publication:
     needs: [prepare, publish, publish-pypi]
     if: ${{ inputs.execute }}
     runs-on: ubuntu-22.04
+    permissions:
+      actions: read
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: ${{ needs.prepare.outputs.source-sha }}
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: adr0049-publication-set
           path: product/release/qualification/publication-set
@@ -165,7 +173,7 @@ jobs:
             --capability publication-evidence \
             --receipt product/release/qualification/layer-publication-gate-receipt.json \
             --overwrite
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: adr0049-publication-verdict
           path: |

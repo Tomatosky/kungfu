@@ -1,0 +1,29 @@
+{
+  "schema": "kungfu.release-admission-policy/v1",
+  "repository": "kungfu-systems/kungfu",
+  "profile": "release-promotion",
+  "requiredPlatforms": ["linux", "macos", "windows"],
+  "workflowAuthority": {
+    "manifest": "docs/qualification/gates/workflow-authority.json",
+    "workflow": ".github/workflows/release-new-version.yml",
+    "job": "promote"
+  },
+  "buildchain": {
+    "version": "2.12.7",
+    "runtimeSha": "52dba6d30051b53d6f6b723fa6e27b090ce4311f",
+    "contractDigest": "sha256:247a0f3dcfa7e066a3222f5fab5a46fa50a4870c97b1bc40001479044aed8619",
+    "registry": "node_modules/@kungfu-tech/buildchain/dist/site/publication-authority-registry.json"
+  },
+  "publication": {
+    "workflowPath": ".github/workflows/release-candidate-promote.yml",
+    "publisherWorkflowPath": ".github/workflows/release-new-version.yml",
+    "environment": "none",
+    "product": "Kungfu Episodes",
+    "target": "kungfu-product",
+    "channels": ["alpha", "release"]
+  },
+  "freshness": {
+    "maximumLifetimeSeconds": 900,
+    "nonceReplay": "deny"
+  }
+}
