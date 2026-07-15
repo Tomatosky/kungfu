@@ -7,6 +7,27 @@ import path from 'node:path';
 const UV_OVERLAY_SCHEMA = 'shifu.uv-cache-overlay/v1';
 
 /**
+ * Add user tool directories without shadowing the cache-managed uv wrapper.
+ * The wrapper is deliberately the first PATH entry projected by Shifu.
+ *
+ * @param {string} currentPath
+ * @param {string[]} candidates
+ * @param {{managedUv?: boolean}} [options]
+ */
+export function gateMeasurementToolPath(
+  currentPath,
+  candidates,
+  { managedUv = false } = {},
+) {
+  const current = currentPath.split(path.delimiter).filter(Boolean);
+  const ordered =
+    managedUv && current.length
+      ? [current[0], ...candidates, ...current.slice(1)]
+      : [...candidates, ...current];
+  return [...new Set(ordered.filter(Boolean))].join(path.delimiter);
+}
+
+/**
  * Project the cache-managed uv environment into the long-lived measurement
  * process after `uv sync` materializes it through the child-only wrapper.
  *

@@ -7,7 +7,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { exposeGateMeasurementPython } from './gate-measurement-environment.mjs';
+import {
+  exposeGateMeasurementPython,
+  gateMeasurementToolPath,
+} from './gate-measurement-environment.mjs';
 import { prepareGateMeasurementHistory } from './prepare-gate-measurement-history.mjs';
 import { cacheAppliedCommandArgs, runShifu } from './run-shifu-lifecycle.mjs';
 
@@ -31,9 +34,9 @@ function exposeUserToolchain() {
     path.join(os.homedir(), '.cargo', 'bin'),
     path.join(os.homedir(), '.local', 'bin'),
   ].filter((directory) => fs.existsSync(directory));
-  process.env[pathKey] = [...candidates, current]
-    .filter(Boolean)
-    .join(path.delimiter);
+  process.env[pathKey] = gateMeasurementToolPath(current, candidates, {
+    managedUv: process.env.SHIFU_CACHE_MANAGED_UV === '1',
+  });
 }
 
 function spawn(command, args, options = {}) {

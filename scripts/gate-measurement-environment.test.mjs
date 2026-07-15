@@ -6,7 +6,34 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { exposeGateMeasurementPython } from './gate-measurement-environment.mjs';
+import {
+  exposeGateMeasurementPython,
+  gateMeasurementToolPath,
+} from './gate-measurement-environment.mjs';
+
+test('keeps the managed uv wrapper ahead of user tool directories', () => {
+  const wrapper = path.join('cache', 'uv-wrapper');
+  const cargo = path.join('home', '.cargo', 'bin');
+  const local = path.join('home', '.local', 'bin');
+  const system = path.join('usr', 'bin');
+  assert.equal(
+    gateMeasurementToolPath(
+      [wrapper, system, cargo].join(path.delimiter),
+      [cargo, local],
+      { managedUv: true },
+    ),
+    [wrapper, cargo, local, system].join(path.delimiter),
+  );
+});
+
+test('continues to expose user tools first without a managed uv wrapper', () => {
+  const cargo = path.join('home', '.cargo', 'bin');
+  const system = path.join('usr', 'bin');
+  assert.equal(
+    gateMeasurementToolPath(system, [cargo]),
+    [cargo, system].join(path.delimiter),
+  );
+});
 
 test('projects the materialized core environment from the strict uv manifest', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gate-measurement-env-'));
