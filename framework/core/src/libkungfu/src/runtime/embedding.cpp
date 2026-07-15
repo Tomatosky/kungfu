@@ -133,9 +133,16 @@ int32_t KF_EMBEDDING_CALL reader_read_batch(kf_embedding_reader *reader, uint32_
     reader->frames.reserve(max_frames);
     reader->held_pages.reserve(max_frames);
     uint64_t payload_bytes = 0;
+    uint32_t held_page_id = 0;
+    bool has_held_page = false;
     while (reader->frames.size() < max_frames && reader->reader->data_available()) {
       const auto frame = reader->reader->current_frame();
-      reader->held_pages.emplace_back(reader->reader->current_page());
+      const auto page_id = reader->reader->current_page_id();
+      if (!has_held_page || page_id != held_page_id) {
+        reader->held_pages.emplace_back(reader->reader->current_page());
+        held_page_id = page_id;
+        has_held_page = true;
+      }
       kf_embedding_frame_v1 view{};
       view.gen_time = frame->gen_time();
       view.trigger_time = frame->trigger_time();
