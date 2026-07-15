@@ -27,8 +27,11 @@ The aggregate stage is:
 It fails closed unless both component directories contain `report.json` beside
 `raw-logs.jsonl.gz`, each report passes for the exact source revision and host
 platform, and each report binds the adjacent raw bundle by SHA-256. It then runs
-the complete Agent Session control-plane suite plus the terminal product
-presentation suite. Their raw output is stored in the aggregate gzip bundle.
+the complete deterministic Agent Session control-plane suite plus the terminal
+product presentation suite. Installed-provider version and Codex schema drift
+gates remain separate native checks: an unrelated CLI already present on a
+runner cannot change this credential-free aggregate result. Their raw output is
+stored in the aggregate gzip bundle.
 
 Buildchain uploads these three retained evidence pairs under
 `product/release/qualification/`:

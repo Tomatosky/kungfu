@@ -8,6 +8,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 
 import {
+  QUALIFICATION_SUITES,
   evaluateQualification,
   validateComponentEvidence,
 } from './run-zero-burden-product-qualification.mjs';
@@ -80,6 +81,27 @@ test('aggregate qualification preserves product and non-claim boundaries', () =>
   assert.equal(report.claims.product_artifacts_verified, true);
   assert.equal(report.claims.authenticated_provider_dogfood, false);
   assert.equal(report.claims.interactive_gui_lifecycle, false);
+});
+
+test('aggregate control-plane coverage is independent of installed provider CLIs', () => {
+  const suite = QUALIFICATION_SUITES.find(
+    ({ id }) => id === 'agent-session-control-plane',
+  );
+  assert.deepEqual(suite.command.slice(1), [
+    '--filter',
+    '@kungfu-tech/agent-session',
+    'test:control-plane',
+  ]);
+  const manifest = JSON.parse(
+    fs.readFileSync(
+      path.join(process.cwd(), 'framework/agent-session/package.json'),
+      'utf8',
+    ),
+  );
+  assert.match(
+    manifest.scripts['test:control-plane'],
+    /skip-pattern=installed/u,
+  );
 });
 
 test('provider approval dogfood delegates confirmation to the permission system', () => {
