@@ -13,8 +13,8 @@
 
 #include <kungfu/runtime/io.h>
 #include <kungfu/runtime/live/identity.h>
+#include <kungfu/runtime/live/key_value_store.h>
 #include <kungfu/runtime/rx.h>
-#include <kungfu/runtime/util/rocks.h>
 #include <kungfu/yijinjing/journal/journal.h>
 #include <kungfu/yijinjing/log.h>
 #include <kungfu/yijinjing/schema/registry.h>
@@ -137,9 +137,9 @@ public:
 
   [[nodiscard]] virtual bool is_reactable(const event_ptr &event);
 
-  [[nodiscard]] virtual rocksdb::DB *get_coordinator_rocksdb() const;
+  [[nodiscard]] virtual key_value_store_ptr get_coordinator_store() const;
 
-  [[nodiscard]] virtual rocksdb::DB *get_peer_rocksdb() const;
+  [[nodiscard]] virtual key_value_store_ptr get_peer_store() const;
 
   [[nodiscard]] virtual std::string get_coordinator_kv(const std::string &key) const;
 
@@ -157,11 +157,11 @@ public:
 
   virtual void put_peer_kvs(const std::map<std::string, std::string> &kvs) const;
 
-  virtual void read_location_from_rocksdb();
+  virtual void read_location_from_store();
 
-  virtual void ensure_coordinator_rocksdb();
+  virtual void ensure_coordinator_store();
 
-  void write_location_to_rocksdb(const yijinjing::data::location_ptr &location);
+  void write_location_to_store(const yijinjing::data::location_ptr &location);
 
   void request_deregister() {
     continual_ = false;
@@ -259,10 +259,10 @@ protected:
   kungfu::runtime::io_device_ptr io_device_;
   rx::composite_subscription cs_;
   int64_t now_;
-  mutable rocksdb::DB *coordinator_db_ = {};
-  mutable rocksdb::DB *peer_db_ = {};
-  mutable std::mutex coordinator_db_mtx_ = {};
-  mutable std::mutex peer_db_mtx_ = {};
+  mutable key_value_store_ptr coordinator_store_ = {};
+  mutable key_value_store_ptr peer_store_ = {};
+  mutable std::mutex coordinator_store_mtx_ = {};
+  mutable std::mutex peer_store_mtx_ = {};
   inline static const std::string LOCATION_KEYS = "location_uid64";
 
   std::unordered_map<uint64_t, yijinjing::types::Outlet> outlets_ = {};

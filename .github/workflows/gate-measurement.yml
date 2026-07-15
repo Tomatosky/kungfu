@@ -24,7 +24,7 @@ permissions:
 jobs:
   measure:
     if: ${{ inputs.focused-gates == '' }}
-    uses: kungfu-systems/buildchain/.github/workflows/.gate-profile.yml@90e8e72ed5ecbfa30d719074f53e08a4cfb811fd
+    uses: kungfu-systems/buildchain/.github/workflows/.gate-profile.yml@a6145efc210a961da0e5c63d7024d42061550f60
     with:
       source-ref: ${{ inputs.source-ref || github.sha }}
       gate-profile: measurement
@@ -72,7 +72,7 @@ jobs:
 
       - name: Setup Node.js
         if: ${{ contains(format(',{0},', inputs.focused-platforms), format(',{0},', matrix.platform)) }}
-        uses: actions/setup-node@v6.4.0
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 24
 
@@ -127,7 +127,7 @@ jobs:
 
       - name: Upload focused Gate receipt
         if: ${{ always() && contains(format(',{0},', inputs.focused-platforms), format(',{0},', matrix.platform)) }}
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: kungfu-focused-gate-measurement-${{ matrix.id }}-${{ inputs.source-ref || github.sha }}
           path: .buildchain/gates/focused/${{ matrix.id }}/receipt.json

@@ -10,6 +10,7 @@ import { test } from 'node:test';
 import {
   loadExecutionProfile,
   parseExecutionProfile,
+  parseReleaseQualificationOptions,
   releaseQualificationEnvironment,
   releaseQualificationStages,
 } from './run-release-qualification.mjs';
@@ -141,6 +142,19 @@ test('every platform runs the complete qualification stage sequence', () => {
     );
 });
 
+test('manual qualification can explicitly omit the credential-bearing native signing campaign', () => {
+  for (const platform of ['linux', 'darwin', 'win32']) {
+    const stages = releaseQualificationStages(
+      platform,
+      loadExecutionProfile('alpha'),
+      'skip',
+    ).map(([name]) => name);
+    assert.ok(stages.includes('zero-burden:qualify'));
+    assert.ok(stages.includes('gate'));
+    assert.ok(!stages.includes('upgrade:qualify:native'));
+  }
+});
+
 test('cryptographic upgrade qualification runs before artifact layer admission', () => {
   for (const platform of ['linux', 'darwin', 'win32']) {
     const stages = names(platform);
@@ -213,6 +227,25 @@ test('the Gate stage emits one source-bound receipt for all artifact layers', ()
 });
 
 test('execution profiles propagate bounded Episode and receipt parameters', () => {
+  const alpha = loadExecutionProfile('alpha');
+  assert.deepEqual(
+    {
+      budgetSeconds: alpha.parameters.budgetSeconds,
+      upstreamBudgetSeconds: alpha.parameters.upstreamBudgetSeconds,
+      reserveSeconds: alpha.parameters.reserveSeconds,
+    },
+    {
+      budgetSeconds: 5400,
+      upstreamBudgetSeconds: 2400,
+      reserveSeconds: 600,
+    },
+  );
+  assert.equal(
+    alpha.parameters.budgetSeconds -
+      alpha.parameters.upstreamBudgetSeconds -
+      alpha.parameters.reserveSeconds,
+    2400,
+  );
   const release = loadExecutionProfile('release-candidate');
   const stages = releaseQualificationStages('linux', release);
   const episode = stages.find(([name]) => name === 'episode:qualify:release');
@@ -255,6 +288,37 @@ test('execution profile parsing fails closed on missing, duplicate, and unknown 
     /specified once/,
   );
   assert.throws(() => loadExecutionProfile('missing'), /unknown/);
+  assert.deepEqual(
+    parseReleaseQualificationOptions([
+      '--execution-profile',
+      'alpha',
+      '--native-upgrade-policy',
+      'skip',
+    ]),
+    { executionProfile: 'alpha', nativeUpgradePolicy: 'skip' },
+  );
+  assert.throws(
+    () =>
+      parseReleaseQualificationOptions([
+        '--execution-profile',
+        'alpha',
+        '--native-upgrade-policy',
+        'invalid',
+      ]),
+    /must be required or skip/,
+  );
+  assert.throws(
+    () =>
+      parseReleaseQualificationOptions([
+        '--execution-profile',
+        'alpha',
+        '--native-upgrade-policy',
+        'required',
+        '--native-upgrade-policy',
+        'skip',
+      ]),
+    /may be specified once/,
+  );
 });
 
 test('execution profile numeric constraints reject zero and negative values', () => {
@@ -276,7 +340,7 @@ test('execution profile numeric constraints reject zero and negative values', ()
       () => loadExecutionProfile('alpha', file),
       /positive integer/,
     );
-    valid.profiles.alpha.budgetSeconds = 2700;
+    valid.profiles.alpha.budgetSeconds = 5400;
     valid.profiles.alpha.reserveSeconds = -1;
     fs.writeFileSync(file, JSON.stringify(valid));
     assert.throws(

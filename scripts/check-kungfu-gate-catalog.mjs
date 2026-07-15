@@ -12,10 +12,16 @@ import {
 } from './kungfu-gate-controller-adapters.mjs';
 import { scanWorkflowInvocations } from './kungfu-gate-workflow-facts.mjs';
 import {
+  WORKFLOW_AUTHORITY_DOC,
+  replaceWorkflowAuthorityMatrix,
+  validateWorkflowAuthority,
+} from './kungfu-workflow-authority.mjs';
+import {
   gateDefinitionDigest,
   gateDigest,
   validateGateRegistry,
 } from './shifu-gate-runtime.mjs';
+import { validateKungfuReleaseAdmissionPolicy } from './verify-kungfu-release-admission.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MATRIX = 'docs/qualification/gates/policy-matrix.md';
@@ -630,6 +636,23 @@ export function checkKungfuGateCatalog(root = ROOT) {
   }
   if (validation.length) return { issues, registry };
 
+  const authorityValidation = validateWorkflowAuthority(root);
+  issues.push(...authorityValidation.issues);
+  const authorityDocPath = path.join(root, WORKFLOW_AUTHORITY_DOC);
+  const authorityDoc = fs.readFileSync(authorityDocPath, 'utf8');
+  if (
+    authorityDoc !==
+    replaceWorkflowAuthorityMatrix(authorityDoc, authorityValidation.document)
+  )
+    issues.push(
+      `[workflow-authority] ${WORKFLOW_AUTHORITY_DOC} differs from the authority manifest`,
+    );
+  try {
+    validateKungfuReleaseAdmissionPolicy(root);
+  } catch (error) {
+    issues.push(`[release-admission] ${error.message}`);
+  }
+
   const measurementValidation = validateMeasurementCoverage(root, registry);
   issues.push(...measurementValidation.issues);
   if (!measurementValidation.issues.length) {
@@ -943,7 +966,12 @@ export function checkKungfuGateCatalog(root = ROOT) {
       }
     }
   }
-  return { issues, registry, workflowFacts: workflowScan.facts };
+  return {
+    issues,
+    registry,
+    workflowFacts: workflowScan.facts,
+    workflowAuthority: authorityValidation.document,
+  };
 }
 
 export function writePolicyMatrix(root = ROOT) {
@@ -979,7 +1007,7 @@ function main() {
     process.exit(1);
   }
   console.log(
-    `[kungfu-gates] ${result.registry.gates.length} gates, ${result.registry.profiles.length} profiles, ${result.workflowFacts.length} structured workflow invocations and measurement coverage aligned`,
+    `[kungfu-gates] ${result.registry.gates.length} gates, ${result.registry.profiles.length} profiles, ${result.workflowFacts.length} structured invocations and ${result.workflowAuthority.workflows.length} closed-world workflows aligned`,
   );
 }
 

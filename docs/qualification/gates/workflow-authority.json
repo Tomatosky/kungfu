@@ -1,0 +1,1165 @@
+{
+  "schema": "kungfu.workflow-authority/v1",
+  "workflowRoot": ".github/workflows",
+  "workflows": [
+    {
+      "path": ".github/workflows/adr-release-gate.yml",
+      "authority": "qualification",
+      "definitionDigest": "sha256:d013214baea0c069e28dc0a7caa1b63e8218ca606b9d9a9544f16d1f7126d726",
+      "jobs": [
+        {
+          "id": "adr-release",
+          "authority": "qualification",
+          "publication": "none",
+          "receipt": "diagnostic",
+          "definitionDigest": "sha256:2ad5c08ed02d496191f486d3eb35a6ec79143499756758771276d2897a1e8cce",
+          "credentials": {
+            "githubToken": "read",
+            "oidc": false,
+            "repositorySecrets": [],
+            "inheritedSecrets": false,
+            "environment": null
+          },
+          "externalActions": [
+            "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0"
+          ],
+          "steps": [
+            {
+              "index": 1,
+              "label": "name:Checkout immutable PR head",
+              "authority": "qualification",
+              "definitionDigest": "sha256:792d372d2c3084322a7a6a97f95d61ecadaaef1ed3c447aa7196ed80f0ee8ec0"
+            },
+            {
+              "index": 2,
+              "label": "name:Verify ADR delivery intent",
+              "authority": "qualification",
+              "definitionDigest": "sha256:48e72bd895c8aa22b8c612709f9293c257b8a12867d2ae22eab5eed5c4f2930a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": ".github/workflows/build.yml",
+      "authority": "qualification",
+      "definitionDigest": "sha256:b65b60b8963ae416588ea7d494e7f96a3a70d0c82d07fbbdd2a0ccabc2327839",
+      "jobs": [
+        {
+          "id": "build",
+          "authority": "qualification",
+          "publication": "none",
+          "receipt": "qualifying",
+          "definitionDigest": "sha256:652fa2c1f933f58fc7f9d17b3da45b47dfd06cb4455b16154fc44313e841e0d0",
+          "credentials": {
+            "githubToken": "write",
+            "oidc": true,
+            "repositorySecrets": [
+              "BUILDCHAIN_ARTIFACT_RELAY_S3_DOWNLOAD_ROLE_ARN",
+              "BUILDCHAIN_ARTIFACT_RELAY_S3_ROLE_ARN",
+              "BUILDCHAIN_ARTIFACT_RELAY_S3_UPLOAD_ROLE_ARN"
+            ],
+            "inheritedSecrets": false,
+            "environment": null
+          },
+          "externalActions": [
+            "kungfu-systems/buildchain/.github/workflows/.build.yml@52dba6d30051b53d6f6b723fa6e27b090ce4311f"
+          ],
+          "steps": []
+        }
+      ]
+    },
+    {
+      "path": ".github/workflows/buildchain-validate.yml",
+      "authority": "qualification",
+      "definitionDigest": "sha256:378ca5c8d9aa0c837b2b29a363753755a1650ad22ce724f21624cddad72ccbcc",
+      "jobs": [
+        {
+          "id": "promotion-rehearsal",
+          "authority": "qualification",
+          "publication": "none",
+          "receipt": "diagnostic",
+          "definitionDigest": "sha256:85df61a82b7a9d50d23ae343ea26638815809a8b8aaa66a170be75a7f509a369",
+          "credentials": {
+            "githubToken": "read",
+            "oidc": false,
+            "repositorySecrets": [],
+            "inheritedSecrets": false,
+            "environment": null
+          },
+          "externalActions": [
+            "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0"
+          ],
+          "steps": [
+            {
+              "index": 1,
+              "label": "uses:actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
+              "authority": "qualification",
+              "definitionDigest": "sha256:632ec7dde43669059eab6d285d75746bede178c3eb57b9a15f693b4ac96c355d"
+            },
+            {
+              "index": 2,
+              "label": "name:Rehearse alpha and stable promotion contracts",
+              "authority": "qualification",
+              "definitionDigest": "sha256:4d2045f4b3c7579ce197cfeda1d57ccb35a6a23fa10ccd537888359f9b657165"
+            }
+          ]
+        },
+        {
+          "id": "validate",
+          "authority": "qualification",
+          "publication": "none",
+          "receipt": "diagnostic",
+          "definitionDigest": "sha256:8c0eeabfd000ae242aed8732f85cedf0f888055851b130675a3676d927cf2e37",
+          "credentials": {
+            "githubToken": "read",
+            "oidc": false,
+            "repositorySecrets": [],
+            "inheritedSecrets": false,
+            "environment": null
+          },
+          "externalActions": [
+            "actions/checkout@v4",
+            "kungfu-systems/buildchain/actions/validate-config@v2"
+          ],
+          "steps": [
+            {
+              "index": 1,
+              "label": "uses:actions/checkout@v4",
+              "authority": "qualification",
+              "definitionDigest": "sha256:dd0465395fff2eaf34fe466af3f46904442331f18fbcb4d67ae136cd3ae05d18"
+            },
+            {
+              "index": 2,
+              "label": "name:Validate .buildchain/buildchain.toml",
+              "authority": "qualification",
+              "definitionDigest": "sha256:e4e1d777b76d54a4fb4a5f3b60157a1054e990d194b363266b66264b32f2edfc"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": ".github/workflows/core-build-profiles.yml",
+      "authority": "qualification",
+      "definitionDigest": "sha256:3e5e6b4699933fb3c1ca94726ef490d4106a171ae0dd1b51fc453d7d4180180b",
+      "jobs": [
+        {
+          "id": "qualify",
+          "authority": "qualification",
+          "publication": "none",
+          "receipt": "diagnostic",
+          "definitionDigest": "sha256:a3bfa7aff80b1c8d8e7b614f55a98a72026b7430fab0c3048b6ac468ee20dcfc",
+          "credentials": {
+            "githubToken": "read",
+            "oidc": false,
+            "repositorySecrets": [],
+            "inheritedSecrets": false,
+            "environment": null
+          },
+          "externalActions": [
+            "actions/checkout@v4",
+            "actions/setup-node@v6.4.0"
+          ],
+          "steps": [
+            {
+              "index": 1,
+              "label": "uses:actions/checkout@v4",
+              "authority": "qualification",
+              "definitionDigest": "sha256:dd0465395fff2eaf34fe466af3f46904442331f18fbcb4d67ae136cd3ae05d18"
+            },
+            {
+              "index": 2,
+              "label": "uses:actions/setup-node@v6.4.0",
+              "authority": "qualification",
+              "definitionDigest": "sha256:789e56d63991440fb89fffa3b2795c1cab043e6b7df6237a0c830c5c89759690"
+            },
+            {
+              "index": 3,
+              "label": "name:Select Linux qualification compiler",
+              "authority": "qualification",
+              "definitionDigest": "sha256:76bdffe2d6af4ba38f5d1b09ce40d8f1e70132362e65592a29b947e1360d0c16"
+            },
+            {
+              "index": 4,
+              "label": "name:Install frozen minimal workspace (POSIX)",
+              "authority": "qualification",
+              "definitionDigest": "sha256:4567708a4b1f2b41f4ba375e11c15aee2c2045c8966d8d3fd61e9d307631aaad"
+            },
+            {
+              "index": 5,
+              "label": "name:Install frozen full workspace (POSIX)",
+              "authority": "qualification",
+              "definitionDigest": "sha256:8d2aca2fdbe34f1bb124bd0d27401d1ab7478672dbdc4acde8d10c7e51647beb"
+            },
+            {
+              "index": 6,
+              "label": "name:Install frozen minimal workspace (Windows)",
+              "authority": "qualification",
+              "definitionDigest": "sha256:71e88597eaf3e2dd390909aa4719d7486ce5f6f2beaf7cc427f5fdd68cbbf4be"
+            },
+            {
+              "index": 7,
+              "label": "name:Install frozen full workspace (Windows)",
+              "authority": "qualification",
+              "definitionDigest": "sha256:d2202c5cbf6f6736deca6f5dea61103cdc1d57e6b8995d494ef1dfc7193f4ba1"
+            },
+            {
+              "index": 8,
+              "label": "name:Build selected Core profile (POSIX)",
+              "authority": "qualification",
+              "definitionDigest": "sha256:eed157056e74d7e9d86b796a422d279b7b89dddbba47426ef7ff4f76d97edd61"
+            },
+            {
+              "index": 9,
+              "label": "name:Build selected Core profile (Windows)",
+              "authority": "qualification",
+              "definitionDigest": "sha256:dfb21d44d7d2f83776df08c1fab766c6872775a6cba6391d662ac4a186750b0a"
+            },
+            {
+              "index": 10,
+              "label": "name:Verify build identity and custom provider contract (POSIX)",
+              "authority": "qualification",
+              "definitionDigest": "sha256:2b1684e02cb83f64b85eaabff5926dec3c086e61aee7378acb25d7201bc0527e"
+            },
+            {
+              "index": 11,
+              "label": "name:Verify build identity and custom provider contract (Windows)",
+              "authority": "qualification",
+              "definitionDigest": "sha256:7df17b699a10afac40362f7f249fd591a91774bd527355660db3e5e1c6f22fa1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": ".github/workflows/dco.yml",
+      "authority": "qualification",
+      "definitionDigest": "sha256:c34ea72079f35dab0224f1a39865171dbd762b83a2625b5ba2c73caa14de800e",
+      "jobs": [
+        {
+          "id": "signoff",
+          "authority": "qualification",
+          "publication": "none",
+          "receipt": "diagnostic",
+          "definitionDigest": "sha256:1b69a8f3a5a9c87bcfb393e626514db0a02223b9e5baa6ac6f0f304c0a44159e",
+          "credentials": {
+            "githubToken": "read",
+            "oidc": false,
+            "repositorySecrets": [],
+            "inheritedSecrets": false,
+            "environment": null
+          },
+          "externalActions": [
+            "actions/checkout@v4"
+          ],
+          "steps": [
+            {
+              "index": 1,
+              "label": "name:Checkout",
+              "authority": "qualification",
+              "definitionDigest": "sha256:4b6c4cdb034cac5905d93c1b9e371ae30d123452e15daf73b2e2665b5f4d531d"
+            },
+            {
+              "index": 2,
+              "label": "name:Check commit sign-offs",
+              "authority": "qualification",
+              "definitionDigest": "sha256:6083c50b5f66371374b00892addfb43a13c06b9da7e95c7ead15747b508fd831"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": ".github/workflows/dev-verify-patrol.yml",
+      "authority": "diagnostic",
+      "definitionDigest": "sha256:be738defd03951e68bc9185cf11823fc15b09de537dc15806ce7eb06ee920f9d",
+      "jobs": [
+        {
+          "id": "report",
+          "authority": "diagnostic",
+          "publication": "none",
+          "receipt": "none",
+          "definitionDigest": "sha256:6a45d39ebc824af0745f5feaba81d10dc72425963d8d52b5b71186504e1542f9",
+          "credentials": {
+            "githubToken": "write",
+            "oidc": false,
+            "repositorySecrets": [],
+            "inheritedSecrets": false,
+            "environment": null
+          },
+          "externalActions": [],
+          "steps": [
+            {
+              "index": 1,
+              "label": "name:Sync tracking issue with patrol result",
+              "authority": "diagnostic-write",
+              "definitionDigest": "sha256:6755647fb4c13a229144bf4f4c181ec9b806719868335e730a7feca50852d08d"
+            }
+          ]
+        },
+        {
+          "id": "verify",
+          "authority": "qualification",
+          "publication": "none",
+          "receipt": "qualifying",
+          "definitionDigest": "sha256:d6b16780206fe7b7d72d912b7c96cf6b7c76b0534f3b90f4b8f51cb03962cac4",
+          "credentials": {
+            "githubToken": "write",
+            "oidc": true,
+            "repositorySecrets": [],
+            "inheritedSecrets": false,
+            "environment": null
+          },
+          "externalActions": [
+            "kungfu-systems/buildchain/.github/workflows/.gate-profile.yml@a6145efc210a961da0e5c63d7024d42061550f60"
+          ],
+          "steps": []
+        }
+      ]
+    },
+    {
+      "path": ".github/workflows/docs-check.yml",
+      "authority": "qualification",
+      "definitionDigest": "sha256:ba50e098607d5051e67dcc25ee144118d29263719771f556a34f6d2f762f45d2",
+      "jobs": [
+        {
+          "id": "docs-check",
+          "authority": "qualification",
+          "publication": "none",
+          "receipt": "diagnostic",
+          "definitionDigest": "sha256:3905416fb89d1ed02a17d8b5bbb94f166af35cb72df1c892301144cf87be3e64",
+          "credentials": {
+            "githubToken": "read",
+            "oidc": false,
+            "repositorySecrets": [],
+            "inheritedSecrets": false,
+            "environment": null
+          },
+          "externalActions": [
+            "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0"
+          ],
+          "steps": [
+            {
+              "index": 1,
+              "label": "name:Checkout",
+              "authority": "qualification",
+              "definitionDigest": "sha256:4caee36f776cb8497a3bff586c96c8149921a3f72d8b324f491fe74d6008a320"
+            },
+            {
+              "index": 2,
+              "label": "name:Run blocking documentation Gate closure",
+              "authority": "qualification",
+              "definitionDigest": "sha256:dfc87aca1bc020f16c6f81a4c55869abd87933584857d229209ace9ea5a0e05b"
+            },
+            {
+              "index": 3,
+              "label": "name:Report advisory prose policy",
+              "authority": "qualification",
+              "definitionDigest": "sha256:6907d944238956636521c6c7ffa6244cf573d2405590bce11cc5b752f92b3a3a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": ".github/workflows/docs-external-links.yml",
+      "authority": "qualification",
+      "definitionDigest": "sha256:a3fb95a32b9c39ca66e1539e5c900ed597da67fe53ae94ff941d9088a4e293dd",
+      "jobs": [
+        {
+          "id": "external-links",
+          "authority": "qualification",
+          "publication": "none",
+          "receipt": "diagnostic",
+          "definitionDigest": "sha256:7db1f376cad52de3fcd0e62ad3f9f218560e49ac15c31924549fbaec087fe7d5",
+          "credentials": {
+            "githubToken": "read",
+            "oidc": false,
+            "repositorySecrets": [
+              "GITHUB_TOKEN"
+            ],
+            "inheritedSecrets": false,
+            "environment": null
+          },
+          "externalActions": [
+            "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
+            "lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8"
+          ],
+          "steps": [
+            {
+              "index": 1,
+              "label": "name:Checkout",
+              "authority": "qualification",
+              "definitionDigest": "sha256:10da89364e3f92df269335444dd1818466f7ead7c010d1908c370808c24e365d"
+            },
+            {
+              "index": 2,
+              "label": "name:Check external links",
+              "authority": "qualification",
+              "definitionDigest": "sha256:ddddb14806d721762e31ac228520b6e4d93e986e84a008d4912de95c58fd6672"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": ".github/workflows/embedding-membrane-spike.yml",
+      "authority": "qualification",
+      "definitionDigest": "sha256:b72ae3f9c61268df8b1b8adef3f7f3f3e94d289973a0ff0e55c3a727dee28a5a",
+      "jobs": [
+        {
+          "id": "native-membrane",
+          "authority": "qualification",
+          "publication": "none",
+          "receipt": "diagnostic",
+          "definitionDigest": "sha256:da5a1cfce13094945d788a2568e33d980ce45af9d1ae05b4444425d7d0dec055",
+          "credentials": {
+            "githubToken": "read",
+            "oidc": false,
+            "repositorySecrets": [],
+            "inheritedSecrets": false,
+            "environment": null
+          },
+          "externalActions": [
+            "actions/setup-node@v6.4.0",
+            "actions/download-artifact@v4"
+          ],
+          "steps": [
+            {
+              "index": 1,
+              "label": "name:Setup Node.js",
+              "authority": "qualification",
+              "definitionDigest": "sha256:9424aacf2347b34a9835c02db44a3809c43ddec5d7136b2ad824f34b18a2eeab"
+            },
+            {
+              "index": 2,
+              "label": "name:Select Linux qualification compiler",
+              "authority": "qualification",
+              "definitionDigest": "sha256:306425180b20e85f0a4e20beb148d1a347ff917c4589e3de45f2880a4028a287"
+            },
+            {
+              "index": 3,
+              "label": "name:Expose Git Bash on Windows",
+              "authority": "qualification",
+              "definitionDigest": "sha256:4364410e6f95a35b6ee2f31bf58a367d48430fe8fb1007e1006079f1477247cb"
+            },
+            {
+              "index": 4,
+              "label": "name:Download immutable source delta",
+              "authority": "evidence-publication",
+              "definitionDigest": "sha256:4d4fe701f8fb0628b0079f48246b42934722916c94212421e4082da85259daae"
+            },
+            {
+              "index": 5,
+              "label": "name:Reconstruct and verify immutable PR head",
+              "authority": "qualification",
+              "definitionDigest": "sha256:95a07c1c75e327642b256e1d750054d14cb5bba5194babb48f7013b5b042065b"
+            },
+            {
+              "index": 6,
+              "label": "name:Verify pinned spike Rust toolchain",
+              "authority": "qualification",
+              "definitionDigest": "sha256:32fd42c280abcb64c25877dd920f9e95637132dacce97fdd10528dcf4cf2aed2"
+            },
+            {
+              "index": 7,
+              "label": "name:Install frozen workspace (POSIX)",
+              "authority": "qualification",
+              "definitionDigest": "sha256:83ac971e6eb92b156a748aaa3cdb27cb2a5c96614ddc4d6d12654bc4c62569b9"
+            },
+            {
+              "index": 8,
+              "label": "name:Install frozen workspace (Windows)",
+              "authority": "qualification",
+              "definitionDigest": "sha256:35ca8c89e9bbef955eb2e84bfe29bb86b8d26fd7b774dd3e176520fa472c8e88"
+            },
+            {
+              "index": 9,
+              "label": "name:Rebind frozen Python registry metadata",
+              "authority": "qualification",
+              "definitionDigest": "sha256:eaca1af79930be947d706aa36e7630b415d1aa62fa0cc7c6564c0179a9e0a4e4"
+            },
+            {
+              "index": 10,
+              "label": "name:Generate core toolchain (POSIX)",
+              "authority": "qualification",
+              "definitionDigest": "sha256:0fc1eb442e26d5e22e0aec0b31461eb93ecbc0423a23533751b07ba7c281bc23"
+            },
+            {
+              "index": 11,
+              "label": "name:Generate core toolchain (Windows)",
+              "authority": "qualification",
+              "definitionDigest": "sha256:fc216bcc3a96c15f031a444e048dd1b234a837a71c56f91e580c15eb87b0ad93"
+            },
+            {
+              "index": 12,
+              "label": "name:Build and run membrane consumers (POSIX)",
+              "authority": "qualification",
+              "definitionDigest": "sha256:01fa4c367bff5bfc1cb6c36d26a9ba05296ba1e1ab9b2cb0781c0fa6b7e9a691"
+            },
+            {
+              "index": 13,
+              "label": "name:Build and run membrane consumers (Windows)",
+              "authority": "qualification",
+              "definitionDigest": "sha256:c46a1f25437849007a71c826c949d8e104b40a49186a277425eee3139d6219f1"
+            }
+          ]
+        },
+        {
+          "id": "source-delta",
+          "authority": "qualification",
+          "publication": "none",
+          "receipt": "diagnostic",
+          "definitionDigest": "sha256:65045e3c45f2f8b574fa637ae8105b510791efdc03322a93ab04a6c6471a96e4",
+          "credentials": {
+            "githubToken": "read",
+            "oidc": false,
+            "repositorySecrets": [],
+            "inheritedSecrets": false,
+            "environment": null
+          },
+          "externalActions": [
+            "actions/checkout@v4",
+            "actions/upload-artifact@v4"
+          ],
+          "steps": [
+            {
+              "index": 1,
+              "label": "name:Checkout immutable PR head",
+              "authority": "qualification",
+              "definitionDigest": "sha256:017a0bde27a4c9c4c9314405c89a229aa9db9e80af40187fb643c2c5d1383e8a"
+            },
+            {
+              "index": 2,
+              "label": "name:Pack tree-verified source delta",
+              "authority": "qualification",
+              "definitionDigest": "sha256:840a81ef18751a61a97456314323f281a0d2f7457f41716e60d6bd7e90b17b2b"
+            },
+            {
+              "index": 3,
+              "label": "name:Upload source delta",
+              "authority": "evidence-publication",
+              "definitionDigest": "sha256:2809a9d13b03259858d18fb2efeac45c788cd65bdd01edb8a5c5f4d9bbd4eae2"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": ".github/workflows/gate-measurement.yml",
+      "authority": "qualification",
+      "definitionDigest": "sha256:425a3daeeb6b055a73c5827d9af1b509e05b69dd2c3f282bac298b78b3f673b7",
+      "jobs": [
+        {
+          "id": "focused",
+          "authority": "qualification",
+          "publication": "none",
+          "receipt": "diagnostic",
+          "definitionDigest": "sha256:334ae1d3ded2575963a003e474415dd5381c635b2c44bee154587ac2c82af2b1",
+          "credentials": {
+            "githubToken": "read",
+            "oidc": false,
+            "repositorySecrets": [],
+            "inheritedSecrets": false,
+            "environment": null
+          },
+          "externalActions": [
+            "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
+            "actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e",
+            "dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30",
+            "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
+          ],
+          "steps": [
+            {
+              "index": 1,
+              "label": "name:Checkout locked consumer source",
+              "authority": "qualification",
+              "definitionDigest": "sha256:744bd7b35c74d1765a0285778c2a33f27dd3ac3186e8bdfb42a8b817cd3259da"
+            },
+            {
+              "index": 2,
+              "label": "name:Setup Node.js",
+              "authority": "qualification",
+              "definitionDigest": "sha256:384af37f92b38755198bae9d802d7493c42528f40cac9a18be364611b1c3992e"
+            },
+            {
+              "index": 3,
+              "label": "name:Setup Rust toolchain on Windows",
+              "authority": "qualification",
+              "definitionDigest": "sha256:00116a6a935fb846f97d7d0a572149c1b1f6d938f8da45b008d9888a9183a9b9"
+            },
+            {
+              "index": 4,
+              "label": "name:Setup Rust toolchain",
+              "authority": "qualification",
+              "definitionDigest": "sha256:ca32dec64c7877f38cd997a77411ca2b3de124108d07d9b08973375a321f3341"
+            },
+            {
+              "index": 5,
+              "label": "id:measurement",
+              "authority": "qualification",
+              "definitionDigest": "sha256:d9278eaa7640f0f5827d0db34826adb7c3e1f0071359e2ff9f55234a067481ab"
+            },
+            {
+              "index": 6,
+              "label": "name:Upload focused Gate receipt",
+              "authority": "evidence-publication",
+              "definitionDigest": "sha256:37f8c8a7535af4fccb1ba25ca32e829f328150b15bf1c2d45bf4575b5f13de9e"
+            },
+            {
+              "index": 7,
+              "label": "name:Propagate focused Gate result",
+              "authority": "qualification",
+              "definitionDigest": "sha256:3585abd7ef326026c485d643f0490c60313b3831fb318cee917a4f03b8ee693a"
+            }
+          ]
+        },
+        {
+          "id": "measure",
+          "authority": "qualification",
+          "publication": "none",
+          "receipt": "qualifying",
+          "definitionDigest": "sha256:61984c064850c349d33fe4130f0f3da5ad5e183c328c3581c5fed58d4869417e",
+          "credentials": {
+            "githubToken": "read",
+            "oidc": false,
+            "repositorySecrets": [],
+            "inheritedSecrets": false,
+            "environment": null
+          },
+          "externalActions": [
+            "kungfu-systems/buildchain/.github/workflows/.gate-profile.yml@a6145efc210a961da0e5c63d7024d42061550f60"
+          ],
+          "steps": []
+        }
+      ]
+    },
+    {
+      "path": ".github/workflows/publish-layer-artifacts.yml",
+      "authority": "product-publication",
+      "definitionDigest": "sha256:f4186ee831659f177fa148c2a9cacc7910f6aa72b4e7ce654d43617e9c542738",
+      "jobs": [
+        {
+          "id": "prepare",
+          "authority": "qualification",
+          "publication": "none",
+          "receipt": "diagnostic",
+          "definitionDigest": "sha256:117cd6b183e91a1faf4028c2684bdb41b725b731ae320b6dc482fc808a355109",
+          "credentials": {
+            "githubToken": "read",
+            "oidc": false,
+            "repositorySecrets": [],
+            "inheritedSecrets": false,
+            "environment": null
+          },
+          "externalActions": [
+            "actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+            "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+            "actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093",
+            "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02"
+          ],
+          "steps": [
+            {
+              "index": 1,
+              "label": "id:build",
+              "authority": "qualification",
+              "definitionDigest": "sha256:a42f331b3c4035f17ec569c39151aadd4ffa83eaa18b59b9ee1434201eac2774"
+            },
+            {
+              "index": 2,
+              "label": "uses:actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+              "authority": "qualification",
+              "definitionDigest": "sha256:603dec98c7c478ef6fc737162288f426a981111b9bf14c242fa5dcf4cbe48ee7"
+            },
+            {
+              "index": 3,
+              "label": "uses:actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "authority": "qualification",
+              "definitionDigest": "sha256:3f5d59b2fc99a4a6970f16f8e27636577ea327b037412d2794b841ba448f4dc4"
+            },
+            {
+              "index": 4,
+              "label": "id:version",
+              "authority": "qualification",
+              "definitionDigest": "sha256:829c3ca125080230199900458aa6b6346bba824a0a7f7948503851904642f3db"
+            },
+            {
+              "index": 5,
+              "label": "uses:actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093",
+              "authority": "evidence-publication",
+              "definitionDigest": "sha256:91c8ae062b6e9e59852d670c39782799079953a957230a332efe684f592e7dcc"
+            },
+            {
+              "index": 6,
+              "label": "name:Collect the exact cross-platform publication set",
+              "authority": "qualification",
+              "definitionDigest": "sha256:77114f57c992cf3f1a88f2e659766d24bb38a0b02e3c1a7e106b684e2c5d089c"
+            },
+            {
+              "index": 7,
+              "label": "name:Validate npm archives without publishing",
+              "authority": "qualification",
+              "definitionDigest": "sha256:b5f9fab59f0bf45b82937714441d58b3c9de5e54e7330db746b4da5efa1f897f"
+            },
+            {
+              "index": 8,
+              "label": "name:Prove target registry versions and release assets are absent",
+              "authority": "qualification",
+              "definitionDigest": "sha256:9a891b224cf7fe1503d723e5db0bf53ae35ce0ab1d961380d9e3bfcc608ab083"
+            },
+            {
+              "index": 9,
+              "label": "uses:actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+              "authority": "evidence-publication",
+              "definitionDigest": "sha256:3d7bfe61794513738598b74538638f884ecfb413a772bd35bdcbf4b5b97e3350"
+            }
+          ]
+        },
+        {
+          "id": "publish",
+          "authority": "product-publication",
+          "publication": "product",
+          "receipt": "none",
+          "definitionDigest": "sha256:40c1041af4280f47c7729244fce199ea2b0ce7bdb588cdc97e35b3dca02281f9",
+          "credentials": {
+            "githubToken": "write",
+            "oidc": true,
+            "repositorySecrets": [],
+            "inheritedSecrets": false,
+            "environment": "adr0049-production-publication"
+          },
+          "externalActions": [
+            "actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+            "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+            "actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093",
+            "rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18",
+            "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02"
+          ],
+          "steps": [
+            {
+              "index": 1,
+              "label": "uses:actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+              "authority": "product-publication",
+              "definitionDigest": "sha256:ddb9aff13ce48b26c658b6b4eec1547237c9b1b471a321e31e0702acae574dff"
+            },
+            {
+              "index": 2,
+              "label": "uses:actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+              "authority": "product-publication",
+              "definitionDigest": "sha256:d0b72d1fa3b4c9c5d5c79795d1615bafc43067222d53248635445235546db837"
+            },
+            {
+              "index": 3,
+              "label": "uses:actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093",
+              "authority": "product-publication",
+              "definitionDigest": "sha256:4f9e6c14ab0c591a4fa97a52328ffed068ac19bc2ec702cdd6da2a4dd80a84e8"
+            },
+            {
+              "index": 4,
+              "label": "name:Publish exact npm archives with trusted publishing",
+              "authority": "product-publication",
+              "definitionDigest": "sha256:79bec259ff9c97352ff634828bf834b43213624b4d89134f07438594ee042dca"
+            },
+            {
+              "index": 5,
+              "label": "id:cargo-state",
+              "authority": "product-publication",
+              "definitionDigest": "sha256:2746c34ca27ef9f23b99c4c0394c59e75c38d823278be4c25744a1e2c094cebb"
+            },
+            {
+              "index": 6,
+              "label": "id:crates-io-auth",
+              "authority": "product-publication",
+              "definitionDigest": "sha256:42f5e9457e0209a5731658466bbec32fc3e6762b2734082a3a2746587a9fbb18"
+            },
+            {
+              "index": 7,
+              "label": "name:Publish Cargo SDK",
+              "authority": "product-publication",
+              "definitionDigest": "sha256:e78886e83392888d5417d26aaf104ae51d98282aabc027f9fdfd87b59635329e"
+            },
+            {
+              "index": 8,
+              "label": "name:Publish exact GitHub product assets",
+              "authority": "product-publication",
+              "definitionDigest": "sha256:552a1b782555e0958ede95397fe3abeda254a18565eaead5005366554f33b9db"
+            },
+            {
+              "index": 9,
+              "label": "name:Preserve exact PyPI wheels for isolated publisher job",
+              "authority": "product-publication",
+              "definitionDigest": "sha256:bb6e8fce8ce381ffa655774509d6acb54c81d934d530240eed35b078aedc9d53"
+            }
+          ]
+        },
+        {
+          "id": "publish-pypi",
+          "authority": "product-publication",
+          "publication": "product",
+          "receipt": "none",
+          "definitionDigest": "sha256:6480df9451c1778516a69db9f9248025a1e7616555fc2db40bbd1a5f44842d46",
+          "credentials": {
+            "githubToken": "write",
+            "oidc": true,
+            "repositorySecrets": [],
+            "inheritedSecrets": false,
+            "environment": "adr0049-production-publication"
+          },
+          "externalActions": [
+            "actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093",
+            "pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b"
+          ],
+          "steps": [
+            {
+              "index": 1,
+              "label": "uses:actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093",
+              "authority": "product-publication",
+              "definitionDigest": "sha256:3b208db5746480de4b9e3c45a61c5a89bd3af28ad1bff21076ff5a140e14cffd"
+            },
+            {
+              "index": 2,
+              "label": "uses:pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b",
+              "authority": "product-publication",
+              "definitionDigest": "sha256:edc0be5d0928df1387318314c25d1fff6f2f1d9a1382e9964f08432f4232fb2c"
+            }
+          ]
+        },
+        {
+          "id": "verify-publication",
+          "authority": "qualification",
+          "publication": "none",
+          "receipt": "diagnostic",
+          "definitionDigest": "sha256:63d90c8bcfa0a2691c90e154a8b75cf7084a8c3447ad836e6577ff309528964c",
+          "credentials": {
+            "githubToken": "read",
+            "oidc": false,
+            "repositorySecrets": [],
+            "inheritedSecrets": false,
+            "environment": null
+          },
+          "externalActions": [
+            "actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+            "actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093",
+            "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02"
+          ],
+          "steps": [
+            {
+              "index": 1,
+              "label": "uses:actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+              "authority": "qualification",
+              "definitionDigest": "sha256:ddb9aff13ce48b26c658b6b4eec1547237c9b1b471a321e31e0702acae574dff"
+            },
+            {
+              "index": 2,
+              "label": "uses:actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093",
+              "authority": "evidence-publication",
+              "definitionDigest": "sha256:950ccd41ba0c9aead8c15160a45748c62592b247b5c38240f3a3249f14a9ae6e"
+            },
+            {
+              "index": 3,
+              "label": "name:Verify immutable public coordinates and compute the seven-row verdict",
+              "authority": "qualification",
+              "definitionDigest": "sha256:a5d43f9aacb1c96ae9ec35f315b7739070b4a5f0dacdca0810fdb6ce65f460bf"
+            },
+            {
+              "index": 4,
+              "label": "uses:actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+              "authority": "evidence-publication",
+              "definitionDigest": "sha256:a0c5bfd0f26c35c3f71c5b47f48db6322de501714f38f9709c543799841cad87"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": ".github/workflows/release-new-version.yml",
+      "authority": "release-control",
+      "definitionDigest": "sha256:252e98997e1697208d8f67840d78a7d3d9dc09e2bfcaf0c55d6ae1db0b7d702a",
+      "jobs": [
+        {
+          "id": "promote",
+          "authority": "release-control",
+          "publication": "channel",
+          "receipt": "qualifying",
+          "definitionDigest": "sha256:25349f403ce402b81cfa4f8585ea6d4196fa0963fc46bcc8c811cf767db34e09",
+          "credentials": {
+            "githubToken": "write",
+            "oidc": true,
+            "repositorySecrets": [
+              "BUILDCHAIN_ISSUE_APP_ID",
+              "BUILDCHAIN_ISSUE_APP_PRIVATE_KEY",
+              "KUNGFU_GITHUB_TOKEN"
+            ],
+            "inheritedSecrets": false,
+            "environment": null
+          },
+          "externalActions": [
+            "kungfu-systems/buildchain/.github/workflows/release-candidate-promote.yml@52dba6d30051b53d6f6b723fa6e27b090ce4311f"
+          ],
+          "steps": []
+        },
+        {
+          "id": "promotion-contract",
+          "authority": "qualification",
+          "publication": "none",
+          "receipt": "diagnostic",
+          "definitionDigest": "sha256:c93058a31bf565602b7608d491aab9f7fed662933485c35490d80921fe37e179",
+          "credentials": {
+            "githubToken": "read",
+            "oidc": false,
+            "repositorySecrets": [],
+            "inheritedSecrets": false,
+            "environment": null
+          },
+          "externalActions": [
+            "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0"
+          ],
+          "steps": [
+            {
+              "index": 1,
+              "label": "name:Checkout immutable promotion result",
+              "authority": "qualification",
+              "definitionDigest": "sha256:5884933589ce86f2851efa9dbeb4830062ac07a9f10365499526c1eb36720310"
+            },
+            {
+              "index": 2,
+              "label": "name:Rehearse the Kungfu promotion contract for a pull request",
+              "authority": "qualification",
+              "definitionDigest": "sha256:4d4885aa665463d66b68f8a5bff8a49edebb706ad1d3231dfca06b7b069537fb"
+            },
+            {
+              "index": 3,
+              "label": "name:Rehearse the Kungfu promotion contract for a manual dry-run",
+              "authority": "qualification",
+              "definitionDigest": "sha256:1ace488d45082bba37f5896c4e6f57fa25046403b54f1e295afdf692d21cfbf6"
+            }
+          ]
+        },
+        {
+          "id": "shifu-launcher-tag",
+          "authority": "release-control",
+          "publication": "channel",
+          "receipt": "none",
+          "definitionDigest": "sha256:c6947df7b5781e2261d0eb4975db12c2dc1c14dd34c69bf4b4168865e3a882d5",
+          "credentials": {
+            "githubToken": "read",
+            "oidc": false,
+            "repositorySecrets": [
+              "KUNGFU_GITHUB_TOKEN"
+            ],
+            "inheritedSecrets": false,
+            "environment": null
+          },
+          "externalActions": [
+            "actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5"
+          ],
+          "steps": [
+            {
+              "index": 1,
+              "label": "uses:actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+              "authority": "release-control",
+              "definitionDigest": "sha256:41beae5694a3e5dd3178a99f2f165e6e6fbee83563d062e991509dc52d462212"
+            },
+            {
+              "index": 2,
+              "label": "name:Tag the launcher release for the promoted version",
+              "authority": "release-control",
+              "definitionDigest": "sha256:7f4691d2621d2d418f01ad327a16dd05b969fad38ddae0af08aa8f9b41c5bef9"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": ".github/workflows/release-shifu.yml",
+      "authority": "product-publication",
+      "definitionDigest": "sha256:ea6621578c0ae053477b4bc2a4de5a2aeb489293acbd17ea341abd8c24230a1c",
+      "jobs": [
+        {
+          "id": "build",
+          "authority": "qualification",
+          "publication": "none",
+          "receipt": "diagnostic",
+          "definitionDigest": "sha256:4d75dbb1bcad2acb26625795be31df4af23956486a2c0f100d94d94043f29f43",
+          "credentials": {
+            "githubToken": "read",
+            "oidc": false,
+            "repositorySecrets": [],
+            "inheritedSecrets": false,
+            "environment": null
+          },
+          "externalActions": [
+            "actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+            "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02"
+          ],
+          "steps": [
+            {
+              "index": 1,
+              "label": "uses:actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5",
+              "authority": "qualification",
+              "definitionDigest": "sha256:0acab1e0b5ab1599539295552c0f98c224e233684d6f614e6aaf04f4a8e659cc"
+            },
+            {
+              "index": 2,
+              "label": "name:Verify tag matches Cargo.toml version",
+              "authority": "qualification",
+              "definitionDigest": "sha256:d85877b9229e76c210970d1f243ab431baa2e334bf2f9944073c57303d0095e9"
+            },
+            {
+              "index": 3,
+              "label": "name:Install musl target",
+              "authority": "qualification",
+              "definitionDigest": "sha256:77379dcf80a322b2c87c8ebc2d2d83ac0441bdeb9ab4df7659a106f8ba0c9a48"
+            },
+            {
+              "index": 4,
+              "label": "name:Add target",
+              "authority": "qualification",
+              "definitionDigest": "sha256:a4ab1497968f6812ee8bb7d3d89e6b6a39a3e70a3e3b1455b1c23ddc0f78f874"
+            },
+            {
+              "index": 5,
+              "label": "name:Build",
+              "authority": "qualification",
+              "definitionDigest": "sha256:71bea966d857d1f2c3d6ffa495e29bfad70db272e290c4971b58875b2cff766f"
+            },
+            {
+              "index": 6,
+              "label": "name:Stage asset",
+              "authority": "qualification",
+              "definitionDigest": "sha256:54a5dd3feef52f67fbebb70db18ada20d308c79db2bf8d3401ae3e5a78f70161"
+            },
+            {
+              "index": 7,
+              "label": "name:Checksum",
+              "authority": "qualification",
+              "definitionDigest": "sha256:69ea732fd8ff4e13a0358d054719a9042b5153d1523718db57f394a43e9ad48f"
+            },
+            {
+              "index": 8,
+              "label": "uses:actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+              "authority": "evidence-publication",
+              "definitionDigest": "sha256:c3bd89a945bbb595ba86aa09938668d2a0b55e05da4fcdafe635250003fcc24f"
+            }
+          ]
+        },
+        {
+          "id": "release",
+          "authority": "product-publication",
+          "publication": "product",
+          "receipt": "none",
+          "definitionDigest": "sha256:f3b16b343c6d1dad0be6a80a12ab0035981a224fc2267fe40c6b4f18b6a6ba1b",
+          "credentials": {
+            "githubToken": "write",
+            "oidc": false,
+            "repositorySecrets": [
+              "GITHUB_TOKEN"
+            ],
+            "inheritedSecrets": false,
+            "environment": null
+          },
+          "externalActions": [
+            "actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093"
+          ],
+          "steps": [
+            {
+              "index": 1,
+              "label": "uses:actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093",
+              "authority": "product-publication",
+              "definitionDigest": "sha256:002dc164de7ce67b0f53de40e6d7c12abdbddfbeb352561f2e1b90be1ca7309e"
+            },
+            {
+              "index": 2,
+              "label": "name:Combined checksums",
+              "authority": "product-publication",
+              "definitionDigest": "sha256:8af37947573149784267ecf3762511eb0bfd814047ef071eef3a8fae8f4c8bd6"
+            },
+            {
+              "index": 3,
+              "label": "name:Create release",
+              "authority": "product-publication",
+              "definitionDigest": "sha256:c3f9e83f952bfac691870d95e82276664f39c42e2b42d9306317b7adf996fac5"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": ".github/workflows/shifu-ci.yml",
+      "authority": "qualification",
+      "definitionDigest": "sha256:c13dbb54f1dadb08e8f42337bc65e69d06fd2ce6110d79f3a0174dbaedeb7f96",
+      "jobs": [
+        {
+          "id": "check",
+          "authority": "qualification",
+          "publication": "none",
+          "receipt": "diagnostic",
+          "definitionDigest": "sha256:496176007abb380d55340564a08028f2ecb075c1c7c8ba6b2c18a53646b5306e",
+          "credentials": {
+            "githubToken": "read",
+            "oidc": false,
+            "repositorySecrets": [],
+            "inheritedSecrets": false,
+            "environment": null
+          },
+          "externalActions": [
+            "actions/checkout@v4",
+            "actions/setup-node@v6.4.0"
+          ],
+          "steps": [
+            {
+              "index": 1,
+              "label": "uses:actions/checkout@v4",
+              "authority": "qualification",
+              "definitionDigest": "sha256:dd0465395fff2eaf34fe466af3f46904442331f18fbcb4d67ae136cd3ae05d18"
+            },
+            {
+              "index": 2,
+              "label": "uses:actions/setup-node@v6.4.0",
+              "authority": "qualification",
+              "definitionDigest": "sha256:c18c6bcd952b8a597d4a32bed3cc75aa1f3e9867ea94ff6bab439a3fd7e28974"
+            },
+            {
+              "index": 3,
+              "label": "name:Run Shifu workspace Gate (POSIX)",
+              "authority": "qualification",
+              "definitionDigest": "sha256:962a4107981fd4e81dc3cc3e95cd25e50621a70856c7d2f5fcfae1def3d30215"
+            },
+            {
+              "index": 4,
+              "label": "name:Run Shifu workspace Gate (Windows)",
+              "authority": "qualification",
+              "definitionDigest": "sha256:f82bc35e53cd3f3c048c0b5f687a7a087c841b3c541802530415c86ee8c7a7fd"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": ".github/workflows/source-acceptance.yml",
+      "authority": "qualification",
+      "definitionDigest": "sha256:192b9c96c6f56ef78dde4a9906ee89018383a6db34b1d9bad35dc9508f02fab7",
+      "jobs": [
+        {
+          "id": "source-acceptance",
+          "authority": "qualification",
+          "publication": "none",
+          "receipt": "qualifying",
+          "definitionDigest": "sha256:98af341c8abb1093d4235641e36ed1a2fd96a9755364726118432b2206ebdb31",
+          "credentials": {
+            "githubToken": "read",
+            "oidc": false,
+            "repositorySecrets": [],
+            "inheritedSecrets": false,
+            "environment": null
+          },
+          "externalActions": [
+            "kungfu-systems/buildchain/.github/workflows/check.yml@52dba6d30051b53d6f6b723fa6e27b090ce4311f"
+          ],
+          "steps": []
+        }
+      ]
+    }
+  ]
+}

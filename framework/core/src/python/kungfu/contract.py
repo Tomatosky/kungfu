@@ -35,7 +35,7 @@ def resolve_registry_path(
         if product_candidate.is_file():
             return str(product_candidate)
 
-    for start in [Path(__file__).resolve(), Path.cwd().resolve()]:
+    for start in [Path(__file__).resolve().parent, Path.cwd().resolve()]:
         for directory in [start, *start.parents]:
             for rel in [
                 Path("framework") / "contract" / REGISTRY_FILE,
@@ -100,7 +100,7 @@ def resolve_contract_path(
             return str(product_candidate)
 
     source = Path(str(entry["source"]))
-    for start in [Path(__file__).resolve(), Path.cwd().resolve()]:
+    for start in [Path(__file__).resolve().parent, Path.cwd().resolve()]:
         for directory in [start, *start.parents]:
             for rel in [source, artifact, Path("config") / str(entry["file"])]:
                 candidate = directory / rel

@@ -21,11 +21,11 @@ Default profile: `full`. Planned profiles fail closed until their qualification 
 
 | Profile | Status | Components | Providers | Projections | Bindings | Dependency roots |
 | --- | --- | --- | --- | --- | --- | --- |
-| `journal` | planned | `journal-core` | — | — | `cxx` | `fmt`<br>`nlohmann-json`<br>`spdlog`<br>`xxhash` |
-| `embedded-minimal` | planned | `journal-core`<br>`runtime-contracts`<br>`runtime-services`<br>`runtime-adapters`<br>`composition` | `file-storage` | — | `cxx`<br>`c` | `flatbuffers`<br>`fmt`<br>`nlohmann-json`<br>`nng`<br>`rxcpp`<br>`spdlog`<br>`tabulate`<br>`xxhash` |
-| `embedded-sqlite` | planned | `journal-core`<br>`runtime-contracts`<br>`runtime-services`<br>`runtime-adapters`<br>`composition` | `file-storage` | `sqlite` | `cxx`<br>`c` | `flatbuffers`<br>`fmt`<br>`nlohmann-json`<br>`nng`<br>`rxcpp`<br>`spdlog`<br>`sqlite`<br>`sqlite-orm`<br>`tabulate`<br>`xxhash` |
-| `server` | planned | `journal-core`<br>`runtime-contracts`<br>`runtime-services`<br>`runtime-adapters`<br>`composition` | `file-storage`<br>`rocksdb-storage`<br>`rocksdb-live-kv` | `sqlite` | `cxx`<br>`c`<br>`python`<br>`node` | `flatbuffers`<br>`fmt`<br>`libnode`<br>`nlohmann-json`<br>`nng`<br>`pybind11`<br>`rocksdb`<br>`rxcpp`<br>`spdlog`<br>`sqlite`<br>`sqlite-orm`<br>`tabulate`<br>`xxhash` |
-| `full` | supported | `journal-core`<br>`runtime-contracts`<br>`runtime-services`<br>`runtime-adapters`<br>`composition` | `file-storage`<br>`rocksdb-storage`<br>`rocksdb-live-kv` | `sqlite` | `cxx`<br>`c`<br>`python`<br>`node`<br>`electron`<br>`wasm` | `flatbuffers`<br>`fmt`<br>`libnode`<br>`nlohmann-json`<br>`nng`<br>`pybind11`<br>`rocksdb`<br>`rxcpp`<br>`spdlog`<br>`sqlite`<br>`sqlite-orm`<br>`tabulate`<br>`xxhash` |
+| `journal` | supported | `journal-core` | — | — | `cxx` | `fmt`<br>`nlohmann-json`<br>`spdlog`<br>`xxhash` |
+| `embedded-minimal` | supported | `journal-core`<br>`storage-provider-sdk` | `custom-content-store` | — | `cxx` | `fmt`<br>`nlohmann-json`<br>`spdlog`<br>`xxhash` |
+| `embedded-sqlite` | supported | `journal-core`<br>`runtime-contracts`<br>`runtime-services`<br>`runtime-adapters`<br>`composition` | `file-storage` | `sqlite-projection`<br>`sqlite-state-cache`<br>`sqlite-query-acceleration` | `cxx`<br>`c` | `flatbuffers`<br>`fmt`<br>`nlohmann-json`<br>`nng`<br>`rxcpp`<br>`spdlog`<br>`sqlite`<br>`sqlite-orm`<br>`tabulate`<br>`xxhash` |
+| `server` | planned | `journal-core`<br>`runtime-contracts`<br>`runtime-services`<br>`runtime-adapters`<br>`composition` | `file-storage`<br>`rocksdb-storage`<br>`rocksdb-live-kv` | `sqlite-projection`<br>`sqlite-state-cache`<br>`sqlite-query-acceleration` | `cxx`<br>`c`<br>`python`<br>`node` | `flatbuffers`<br>`fmt`<br>`libnode`<br>`nlohmann-json`<br>`nng`<br>`pybind11`<br>`rocksdb`<br>`rxcpp`<br>`spdlog`<br>`sqlite`<br>`sqlite-orm`<br>`tabulate`<br>`xxhash` |
+| `full` | supported | `journal-core`<br>`runtime-contracts`<br>`runtime-services`<br>`runtime-adapters`<br>`composition` | `file-storage`<br>`rocksdb-storage`<br>`rocksdb-live-kv` | `sqlite-projection`<br>`sqlite-state-cache`<br>`sqlite-query-acceleration` | `cxx`<br>`c`<br>`python`<br>`node`<br>`electron`<br>`wasm` | `flatbuffers`<br>`fmt`<br>`libnode`<br>`nlohmann-json`<br>`nng`<br>`pybind11`<br>`rocksdb`<br>`rxcpp`<br>`spdlog`<br>`sqlite`<br>`sqlite-orm`<br>`tabulate`<br>`xxhash` |
 
 ## Build identity
 
@@ -38,6 +38,8 @@ Schema: `kungfu.core-build-identity/v1`.
 - `projections`
 - `bindings`
 - `dependency_roots`
+- `live_capability`
+- `build_root`
 - `source_revision`
 - `compiler`
 - `compiler_version`

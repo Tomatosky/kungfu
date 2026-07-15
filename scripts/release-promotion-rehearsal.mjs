@@ -73,9 +73,11 @@ export function validateWorkflowSources(root, contract, overrides = {}) {
 
   requirePattern(
     build,
-    /uses: kungfu-systems\/buildchain\/\.github\/workflows\/\.build\.yml@e1a2b253889ef2d27c024439a67858728a75e63a/,
+    new RegExp(
+      `uses: kungfu-systems/buildchain/\\.github/workflows/\\.build\\.yml@${contract.buildchain.workflow_shell_sha}`,
+    ),
     findings,
-    'release-candidate build must consume the qualified Buildchain runtime',
+    'release-candidate build must consume the exact stable Buildchain workflow shell',
   );
   requirePattern(
     build,
@@ -122,7 +124,9 @@ export function validateWorkflowSources(root, contract, overrides = {}) {
   );
   requirePattern(
     promote,
-    /uses: kungfu-systems\/buildchain\/\.github\/workflows\/release-candidate-promote\.yml@[0-9a-f]{40}/,
+    new RegExp(
+      `uses: kungfu-systems/buildchain/\\.github/workflows/release-candidate-promote\\.yml@${contract.buildchain.workflow_shell_sha}`,
+    ),
     findings,
     'promotion must consume the stable Buildchain workflow shell',
   );

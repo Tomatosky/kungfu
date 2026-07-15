@@ -60,6 +60,8 @@ public:
   [[nodiscard]] virtual yijinjing::storage::content_store &content_store() const = 0;
 };
 
+[[nodiscard]] std::unique_ptr<storage_provider> make_file_storage_provider(std::string runtime_dir);
+
 class provider_cache {
 public:
   static provider_cache &instance();

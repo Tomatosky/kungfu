@@ -36,16 +36,22 @@ and services; the journal kernel may consume only schema/value contracts.
 
 Current targets describe the checked build graph. Internal component targets
 remain private implementation details behind the public `kungfu` facade.
+The production graph is budgeted to 6-12 bounded components.
 
-| Component | Layer | Owner | Files | Current targets | Entry points |
-| --- | --- | --- | ---: | --- | --- |
-| `yijinjing-schema` | `schema-values` | `core/schema` | 5 | `yijinjing` | `src/libyijinjing/include/kungfu/yijinjing/schema/core.h` |
-| `yijinjing-kernel` | `journal-kernel` | `core/yijinjing` | 42 | `yijinjing` | `src/libyijinjing/include/kungfu/yijinjing/journal/journal.h`<br>`src/libyijinjing/include/kungfu/yijinjing/storage.h` |
-| `libkungfu-contracts` | `ports-contracts` | `core/runtime-contracts` | 55 | `yijinjing`<br>`kungfu_contracts`<br>`kungfu` | `src/libkungfu/include/kungfu/runtime/common.h`<br>`src/libkungfu/include/kungfu/runtime/storage/service.h` |
-| `libkungfu-services` | `application-services` | `core/runtime-services` | 36 | `kungfu_services`<br>`kungfu_services_state_cache`<br>`kungfu` | `src/libkungfu/src/runtime/storage/service.cpp`<br>`src/libkungfu/src/runtime/state_service.cpp`<br>`src/libkungfu/src/runtime/query/fact_query.cpp` |
-| `libkungfu-adapters` | `adapters` | `core/runtime-adapters` | 14 | `kungfu_adapters`<br>`kungfu`<br>`kungfu_native_storage_shared` | `src/libkungfu/src/view/schema.cpp`<br>`src/libkungfu/src/runtime/native_storage.cpp`<br>`src/libkungfu/src/runtime/util/rocks.cpp` |
-| `core-composition-bindings` | `composition-bindings` | `core/bindings` | 43 | `kungfu_composition`<br>`kungfu`<br>`kungfu_embedding`<br>`kungfu_wasm_host`<br>`kungfu_node`<br>`kungfu_electron`<br>`drone`<br>`kungfu_kfc`<br>`kungfu_node_host`<br>`pykungfu` | `src/bindings/node/binding/kungfu_node.cpp`<br>`src/bindings/python/binding/pykungfu.cpp`<br>`src/libkungfu/src/runtime/embedding.cpp` |
-| `core-native-qualification` | `qualification` | `core/qualification` | 16 | `yijinjing_mmap_tests`<br>`yijinjing_content_hash_tests`<br>`yijinjing_mmap_qualification`<br>`kungfu_durability_contract_tests`<br>`kungfu_runtime_error_tests`<br>`kungfu_embedding_generic_codec_tests`<br>`kungfu_peer_continuity_tests`<br>`kungfu_state_service_contract_tests`<br>`kungfu_durable_ingest_tests`<br>`kungfu_durability_powercut_fixture`<br>`kungfu_durability_slo_fixture`<br>`kungfu_offhost_backup_fixture`<br>`kungfu_projection_bootstrap_tests`<br>`kungfu_crash_recovery_tests`<br>`kungfu_profile_lifecycle_tests` | `src/libkungfu/tests/durability_contract_tests.cpp`<br>`src/libyijinjing/tests/mmap_tests.cpp` |
+| Component | Layer | Owner | Files | Current targets | Contract tests | Entry points |
+| --- | --- | --- | ---: | --- | --- | --- |
+| `yijinjing-schema` | `schema-values` | `core/schema` | 5 | `yijinjing` | `yijinjing_content_hash_tests` | `src/libyijinjing/include/kungfu/yijinjing/schema/core.h` |
+| `yijinjing-kernel` | `journal-kernel` | `core/yijinjing` | 43 | `yijinjing` | `yijinjing_mmap_tests`<br>`yijinjing_custom_provider_qualification` | `src/libyijinjing/include/kungfu/yijinjing/journal/journal.h`<br>`src/libyijinjing/include/kungfu/yijinjing/storage.h` |
+| `libkungfu-contracts` | `ports-contracts` | `core/runtime-contracts` | 55 | `yijinjing`<br>`kungfu_contracts`<br>`kungfu` | `kungfu_runtime_error_tests`<br>`kungfu_durability_contract_tests` | `src/libkungfu/include/kungfu/runtime/common.h`<br>`src/libkungfu/include/kungfu/runtime/storage/service.h` |
+| `runtime-ledger-services` | `application-services` | `core/runtime-ledger` | 10 | `kungfu_ledger_services`<br>`kungfu` | `kungfu_durable_ingest_tests`<br>`kungfu_crash_recovery_tests` | `src/libkungfu/src/runtime/durable_ingest.cpp`<br>`src/libkungfu/src/runtime/facts/fact_admission.cpp` |
+| `runtime-state-query-services` | `application-services` | `core/runtime-state-query` | 7 | `kungfu_state_query_services`<br>`kungfu_state_cache_services`<br>`kungfu` | `kungfu_state_service_contract_tests` | `src/libkungfu/src/runtime/state_service.cpp`<br>`src/libkungfu/src/runtime/query/fact_query.cpp` |
+| `runtime-live-services` | `application-services` | `core/runtime-live` | 5 | `kungfu_live_services`<br>`kungfu` | `kungfu_peer_continuity_tests` | `src/libkungfu/src/runtime/live/reactor.cpp`<br>`src/libkungfu/src/runtime/live/coordinator.cpp` |
+| `runtime-storage-services` | `application-services` | `core/runtime-storage` | 10 | `kungfu_storage_services`<br>`kungfu` | `kungfu_durability_contract_tests`<br>`kungfu_offhost_backup_fixture` | `src/libkungfu/src/runtime/storage/service.cpp`<br>`src/libkungfu/src/runtime/storage/maintenance_service.cpp` |
+| `runtime-extension-services` | `application-services` | `core/runtime-extension` | 4 | `kungfu_extension_services`<br>`kungfu` | `kungfu_native_kfx_contract_tests`<br>`kungfu_profile_lifecycle_tests` | `src/libkungfu/src/runtime/kfx/native_registry.cpp`<br>`src/libkungfu/src/runtime/trust/assessment_runtime.cpp` |
+| `runtime-storage-adapters` | `adapters` | `core/runtime-storage-adapters` | 8 | `kungfu_storage_adapters`<br>`kungfu`<br>`kungfu_native_storage_shared` | `kungfu_durability_contract_tests` | `src/libkungfu/src/runtime/storage/provider.cpp`<br>`src/libkungfu/src/runtime/native_storage.cpp` |
+| `runtime-platform-adapters` | `adapters` | `core/runtime-platform-adapters` | 10 | `kungfu_view_adapters`<br>`kungfu_platform_adapters`<br>`kungfu` | `kungfu_view_component_link_tests`<br>`kungfu_embedding_generic_codec_tests` | `src/libkungfu/src/view/schema.cpp`<br>`src/libkungfu/src/runtime/io/io.cpp` |
+| `core-composition-bindings` | `composition-bindings` | `core/bindings` | 43 | `kungfu_composition`<br>`kungfu`<br>`kungfu_embedding`<br>`kungfu_wasm_host`<br>`kungfu_node`<br>`kungfu_electron`<br>`drone`<br>`kungfu_kfc`<br>`kungfu_node_host`<br>`pykungfu` | `kungfu_projection_bootstrap_tests`<br>`kungfu_embedding_generic_codec_tests` | `src/bindings/node/binding/kungfu_node.cpp`<br>`src/bindings/python/binding/pykungfu.cpp`<br>`src/libkungfu/src/runtime/embedding.cpp` |
+| `core-native-qualification` | `qualification` | `core/qualification` | 18 | `yijinjing_mmap_tests`<br>`yijinjing_content_hash_tests`<br>`yijinjing_custom_provider_qualification`<br>`yijinjing_mmap_qualification`<br>`kungfu_view_component_link_tests`<br>`kungfu_durability_contract_tests`<br>`kungfu_runtime_error_tests`<br>`kungfu_embedding_generic_codec_tests`<br>`kungfu_peer_continuity_tests`<br>`kungfu_state_service_contract_tests`<br>`kungfu_durable_ingest_tests`<br>`kungfu_durability_powercut_fixture`<br>`kungfu_durability_slo_fixture`<br>`kungfu_offhost_backup_fixture`<br>`kungfu_projection_bootstrap_tests`<br>`kungfu_crash_recovery_tests`<br>`kungfu_profile_lifecycle_tests`<br>`kungfu_native_kfx_contract_tests` | `kungfu_view_component_link_tests`<br>`kungfu_durability_contract_tests`<br>`yijinjing_mmap_tests` | `src/libkungfu/tests/domain_component_link_tests.cpp`<br>`src/libkungfu/tests/durability_contract_tests.cpp`<br>`src/libyijinjing/tests/mmap_tests.cpp` |
 
 ## Internal target graph
 
@@ -56,10 +62,16 @@ from the same authority as this map.
 | Target | Kind | Component | Depends on | Sources |
 | --- | --- | --- | --- | ---: |
 | `kungfu_contracts` | `INTERFACE` | `libkungfu-contracts` | — | 0 |
-| `kungfu_services` | `OBJECT` | `libkungfu-services` | `kungfu_contracts` | 32 |
-| `kungfu_services_state_cache` | `OBJECT` | `libkungfu-services` | `kungfu_contracts` | 3 |
-| `kungfu_adapters` | `OBJECT` | `libkungfu-adapters` | `kungfu_services`<br>`kungfu_services_state_cache` | 13 |
-| `kungfu_composition` | `OBJECT` | `core-composition-bindings` | `kungfu_adapters` | 3 |
+| `kungfu_ledger_services` | `OBJECT` | `runtime-ledger-services` | `kungfu_contracts` | 10 |
+| `kungfu_state_query_services` | `OBJECT` | `runtime-state-query-services` | `kungfu_contracts` | 4 |
+| `kungfu_state_cache_services` | `OBJECT` | `runtime-state-query-services` | `kungfu_contracts` | 3 |
+| `kungfu_live_services` | `OBJECT` | `runtime-live-services` | `kungfu_contracts` | 5 |
+| `kungfu_storage_services` | `OBJECT` | `runtime-storage-services` | `kungfu_contracts` | 9 |
+| `kungfu_extension_services` | `OBJECT` | `runtime-extension-services` | `kungfu_contracts` | 4 |
+| `kungfu_storage_adapters` | `OBJECT` | `runtime-storage-adapters` | `kungfu_storage_services`<br>`kungfu_contracts` | 7 |
+| `kungfu_view_adapters` | `OBJECT` | `runtime-platform-adapters` | `kungfu_contracts` | 2 |
+| `kungfu_platform_adapters` | `OBJECT` | `runtime-platform-adapters` | `kungfu_contracts` | 7 |
+| `kungfu_composition` | `OBJECT` | `core-composition-bindings` | `kungfu_ledger_services`<br>`kungfu_state_query_services`<br>`kungfu_state_cache_services`<br>`kungfu_live_services`<br>`kungfu_storage_services`<br>`kungfu_extension_services`<br>`kungfu_storage_adapters`<br>`kungfu_view_adapters`<br>`kungfu_platform_adapters` | 3 |
 
 ## Responsibility seams
 
@@ -72,7 +84,8 @@ back into the compatibility facade.
 | Episode repair planning, evidence fetch, bundle validation and non-destructive apply | `src/libkungfu/src/runtime/storage/episode_repair.cpp` | 1500 |
 | Typed journal queries and stable storage query result rendering | `src/libkungfu/src/runtime/storage/query_render.cpp` | 500 |
 | JSON compatibility decoding, validation and typed option parsing | `src/libkungfu/src/runtime/storage/json_compat.cpp` | 500 |
-| File and RocksDB content providers behind the storage port | `src/libkungfu/src/runtime/storage/provider.cpp` | 800 |
+| Provider registry and RocksDB content adapter behind the storage port | `src/libkungfu/src/runtime/storage/provider.cpp` | 800 |
+| Filesystem content adapter behind the storage port | `src/libkungfu/src/runtime/storage/provider_file.cpp` | 160 |
 | Status, fsck, projection rebuild, GC and compaction planning | `src/libkungfu/src/runtime/storage/maintenance_service.cpp` | 500 |
 | Manifest bundle import, export and sync verification | `src/libkungfu/src/runtime/storage/transfer_service.cpp` | 520 |
 | JSON edge and domain operation dispatch composition | `src/libkungfu/src/runtime/storage/domain_dispatch.cpp` | 1000 |
@@ -82,18 +95,19 @@ back into the compatibility facade.
 | Question | Start here |
 | --- | --- |
 | Journal write, mmap publication or replay kernel | `yijinjing-kernel` → `src/libyijinjing/include/kungfu/yijinjing/journal/journal.h` |
-| Durability and crash-recovery policy | `libkungfu-services` → `src/libkungfu/src/runtime/durability.cpp` |
-| State service and projections | `libkungfu-services` → `src/libkungfu/src/runtime/state_service.cpp` |
-| Runtime fact and saved-query behavior | `libkungfu-services` → `src/libkungfu/src/runtime/query/fact_query.cpp` |
-| Trust assessment or live coordination | `libkungfu-services` → `src/libkungfu/src/runtime/trust/assessment_runtime.cpp` |
-| Storage facade or shared application helpers | `libkungfu-services` → `src/libkungfu/src/runtime/storage/service.cpp` |
-| Storage status, fsck, rebuild, GC or compact planning | `libkungfu-services` → `src/libkungfu/src/runtime/storage/maintenance_service.cpp` |
-| Storage bundle import, export or sync verification | `libkungfu-services` → `src/libkungfu/src/runtime/storage/transfer_service.cpp` |
-| File or RocksDB storage provider integration | `libkungfu-adapters` → `src/libkungfu/src/runtime/storage/provider.cpp` |
+| Durability, ingest or crash-recovery policy | `runtime-ledger-services` → `src/libkungfu/src/runtime/durability.cpp` |
+| State service, cache or query behavior | `runtime-state-query-services` → `src/libkungfu/src/runtime/state_service.cpp` |
+| Live peer coordination and continuity | `runtime-live-services` → `src/libkungfu/src/runtime/live/coordinator.cpp` |
+| KFX, profile lifecycle or trust assessment | `runtime-extension-services` → `src/libkungfu/src/runtime/kfx/native_registry.cpp` |
+| Storage facade or shared application helpers | `runtime-storage-services` → `src/libkungfu/src/runtime/storage/service.cpp` |
+| Storage status, fsck, rebuild, GC or compact planning | `runtime-storage-services` → `src/libkungfu/src/runtime/storage/maintenance_service.cpp` |
+| Storage bundle import, export or sync verification | `runtime-storage-services` → `src/libkungfu/src/runtime/storage/transfer_service.cpp` |
+| Storage provider registry or RocksDB adapter integration | `runtime-storage-adapters` → `src/libkungfu/src/runtime/storage/provider.cpp` |
+| Filesystem storage provider integration | `runtime-storage-adapters` → `src/libkungfu/src/runtime/storage/provider_file.cpp` |
 | Storage JSON edge or domain operation dispatch | `core-composition-bindings` → `src/libkungfu/src/runtime/storage/domain_dispatch.cpp` |
-| General RocksDB or SQLite integration | `libkungfu-adapters` → `src/libkungfu/src/runtime/util/rocks.cpp` |
-| FlatBuffers projection boundary | `libkungfu-adapters` → `src/libkungfu/src/view/schema.cpp` |
-| Transport, process or OS integration | `libkungfu-adapters` → `src/libkungfu/src/runtime/io/io.cpp` |
+| General RocksDB or SQLite integration | `runtime-storage-adapters` → `src/libkungfu/src/runtime/util/rocks.cpp` |
+| FlatBuffers projection boundary | `runtime-platform-adapters` → `src/libkungfu/src/view/schema.cpp` |
+| Transport, process or OS integration | `runtime-platform-adapters` → `src/libkungfu/src/runtime/io/io.cpp` |
 | Python, Node, C embedding or WASM entry | `core-composition-bindings` → `src/libkungfu/src/runtime/embedding.cpp` |
 | Native regression or qualification fixture | `core-native-qualification` → `src/libkungfu/tests/durability_contract_tests.cpp` |
 

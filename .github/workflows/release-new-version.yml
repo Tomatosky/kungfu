@@ -20,11 +20,7 @@ on:
       - release/v*/v*
 
 permissions:
-  contents: write
-  actions: read
-  checks: write
-  issues: write
-  id-token: write
+  contents: read
 
 jobs:
   promotion-contract:
@@ -51,10 +47,15 @@ jobs:
   promote:
     needs: promotion-contract
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true }}
-    uses: kungfu-systems/buildchain/.github/workflows/release-candidate-promote.yml@e1a2b253889ef2d27c024439a67858728a75e63a
+    permissions:
+      actions: read
+      contents: write
+      issues: write
+      id-token: write
+    uses: kungfu-systems/buildchain/.github/workflows/release-candidate-promote.yml@52dba6d30051b53d6f6b723fa6e27b090ce4311f # v2.12.7
     with:
       channel: ${{ startsWith(inputs.target-ref || github.event.pull_request.base.ref, 'alpha/') && 'alpha' || 'release' }}
-      buildchain-ref: ${{ github.event_name == 'workflow_dispatch' && 'e1a2b253889ef2d27c024439a67858728a75e63a' || startsWith(github.event.pull_request.base.ref, 'alpha/') && 'v2-alpha' || 'v2' }}
+      buildchain-ref: ${{ github.event_name == 'workflow_dispatch' && '52dba6d30051b53d6f6b723fa6e27b090ce4311f' || startsWith(github.event.pull_request.base.ref, 'alpha/') && 'v2-alpha' || 'v2' }}
       target-ref: ${{ inputs.target-ref || github.event.pull_request.base.ref }}
       target-sha: ${{ inputs.target-sha || github.event.pull_request.merge_commit_sha || github.sha }}
       buildchain-contract-lock-path: ${{ startsWith(inputs.target-ref || github.event.pull_request.base.ref, 'alpha/') && '.buildchain/alpha-contract-lock.json' || '.buildchain/contract-lock.json' }}
@@ -102,8 +103,10 @@ jobs:
     needs: promote
     if: ${{ github.event_name == 'pull_request' && github.event.pull_request.merged == true }}
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: ${{ github.event.pull_request.base.ref }}
           token: ${{ secrets.KUNGFU_GITHUB_TOKEN }}

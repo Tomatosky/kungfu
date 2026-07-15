@@ -5,6 +5,7 @@ use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
 mod atlas;
+mod episode;
 mod pack;
 mod projection;
 
@@ -12,6 +13,11 @@ pub use atlas::{
     compile_repository_atlas_bytes, diff_atlases, impact_from_atlas, import_context_pack,
     inspect_atlas, verify_atlas, wrap_context_pack, write_atlas_directory, AtlasArtifacts,
     AtlasCompileOutcome, ATLAS_VERSION,
+};
+
+pub use episode::{
+    compile_episode_successor_bytes, EpisodeCompileArtifacts, EPISODE_PROVIDER_SUBMISSION_VERSION,
+    REVIEW_CHART_VERSION,
 };
 
 pub use pack::{

@@ -82,6 +82,7 @@ cargo build --locked --manifest-path Cargo.toml
 ./target/debug/xinfa atlas diff --before atlas --after atlas --json
 ./target/debug/xinfa atlas impact --since atlas --project fixtures/repository-small-next/project.json --json
 ./target/debug/xinfa atlas compile --pack atlas/compatibility/context-pack-v1 --output imported-atlas --json
+./target/debug/xinfa episode compile --before atlas --project fixtures/repository-small/project.json --submission evidence/episode-submission.json --output successor-atlas --json
 ./target/debug/xinfa read --atlas atlas --route small.human --intent "understand runtime" --surface human --max-hops 2 --json
 ./target/debug/xinfa read --atlas atlas --route small.human --intent "understand runtime" --surface gui --max-hops 2 --json
 ./target/debug/xinfa chart create --atlas atlas --route small.agent --task "change runtime greeting" --role implementer --budget 2048 --json
@@ -99,6 +100,24 @@ Context Pack trio under `compatibility/context-pack-v1/`. `atlas_root` is the
 identity of the new immutable object; it is deliberately distinct from the
 embedded Pack root. Both derived views bind the same Atlas root, cut, status,
 evidence, omissions, and expansion handles.
+
+`xinfa episode compile` is the additive Episode evidence boundary. It accepts
+only a repository-relative `xinfa.episode-provider-submission/v1`, a verified
+predecessor Atlas, and public `git-workspace-jsonl/v1` segment files accompanied
+by matching `cpp-typed-fold-fsck` qualification bytes. Xinfa verifies the
+public provider, qualification, JSONL, and root contracts but never recomputes
+the journal-native Episode root. Explicit Mission/Go declarations,
+proof/receipt references, and review findings become sourced typed units in a
+new declared cut before the ordinary Repository Pack → Atlas compiler runs.
+
+The command performs a deterministic full rebuild on every invocation, so
+cache deletion and an incremental request have the same root-producing path.
+Its `xinfa.episode-compile-receipt/v1` embeds a `xinfa.review-chart/v1` binding
+the predecessor/result Atlas roots, admitted Episode roots, impact, omissions,
+and stale or conflicted evidence. Reordered Episode declarations do not change
+the result. Open, unknown, unqualified, private, missing, generated, runtime,
+and raw-transcript inputs fail before source closure; unlisted JSONL records do
+not become facts merely because they were present in an Episode.
 
 The basic `xinfa.atlas-view/v1` files remain byte-stable Atlas-directory
 artifacts. Bounded readers are additive, disposable projections compiled on

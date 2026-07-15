@@ -123,7 +123,7 @@ struct location : public std::enable_shared_from_this<location>, public yijinjin
 
   // uid-seed verification reads the coordinator's kv map, whose storage backend
   // belongs to the runtime. The runtime installs a provider here (see
-  // install_coordinator_kv_provider in util/rocks.h); without one, get_coordinator_kv
+  // installed by the runtime adapter); without one, get_coordinator_kv
   // returns empty and verification degrades to the pure hash path.
   using coordinator_kv_provider = std::string (*)(const location &self, const std::string &key);
 

@@ -19,9 +19,9 @@
       "adapter": {
         "type": "buildchain-source",
         "kind": "job-uses",
-        "uses": "kungfu-systems/buildchain/.github/workflows/check.yml@v2-alpha",
+        "uses": "kungfu-systems/buildchain/.github/workflows/check.yml@52dba6d30051b53d6f6b723fa6e27b090ce4311f",
         "with": {
-          "buildchain-ref": "v2-alpha",
+          "buildchain-ref": "v2",
           "mode": "source",
           "upload-artifacts": true
         }
@@ -174,7 +174,7 @@
       ],
       "activation": "daily or manual on dev",
       "invocation": {
-        "uses": "kungfu-systems/buildchain/.github/workflows/.gate-profile.yml@90e8e72ed5ecbfa30d719074f53e08a4cfb811fd",
+        "uses": "kungfu-systems/buildchain/.github/workflows/.gate-profile.yml@a6145efc210a961da0e5c63d7024d42061550f60",
         "with": {
           "gate-profile": "dev-patrol",
           "runner-preset": "kungfu-v4-self-hosted",
@@ -258,7 +258,7 @@
       "activation": "manual source-bound measurement only; never a publication policy",
       "currentSource": false,
       "invocation": {
-        "uses": "kungfu-systems/buildchain/.github/workflows/.gate-profile.yml@90e8e72ed5ecbfa30d719074f53e08a4cfb811fd",
+        "uses": "kungfu-systems/buildchain/.github/workflows/.gate-profile.yml@a6145efc210a961da0e5c63d7024d42061550f60",
         "with": {
           "gate-profile": "measurement",
           "runner-preset": "custom",
@@ -292,16 +292,20 @@
       "adapter": {
         "type": "buildchain-heavy-build",
         "kind": "job-uses",
-        "uses": "kungfu-systems/buildchain/.github/workflows/.build.yml@e1a2b253889ef2d27c024439a67858728a75e63a",
+        "uses": "kungfu-systems/buildchain/.github/workflows/.build.yml@52dba6d30051b53d6f6b723fa6e27b090ce4311f",
         "job": {
-          "secrets": "inherit"
+          "secrets": {
+            "BUILDCHAIN_ARTIFACT_RELAY_S3_ROLE_ARN": "${{ secrets.BUILDCHAIN_ARTIFACT_RELAY_S3_ROLE_ARN }}",
+            "BUILDCHAIN_ARTIFACT_RELAY_S3_UPLOAD_ROLE_ARN": "${{ secrets.BUILDCHAIN_ARTIFACT_RELAY_S3_UPLOAD_ROLE_ARN }}",
+            "BUILDCHAIN_ARTIFACT_RELAY_S3_DOWNLOAD_ROLE_ARN": "${{ secrets.BUILDCHAIN_ARTIFACT_RELAY_S3_DOWNLOAD_ROLE_ARN }}"
+          }
         },
         "with": {
           "runner-preset": "${{ inputs.platforms-json && 'custom' || 'kungfu-v4-self-hosted' }}",
           "require-install": true,
           "require-build": true,
           "require-verify": true,
-        "verify-command": "node scripts/run-release-qualification.mjs --execution-profile ${{ startsWith(github.base_ref, 'release/') && 'release-candidate' || 'alpha' }}",
+          "verify-command": "node scripts/run-release-qualification.mjs --execution-profile ${{ startsWith(github.base_ref, 'release/') && 'release-candidate' || 'alpha' }} --native-upgrade-policy ${{ github.event_name == 'pull_request' && 'required' || 'skip' }}",
           "release-candidate": true,
           "publish-channel": "${{ github.event_name == 'pull_request' && (startsWith(github.base_ref, 'release/') && 'release' || 'alpha') || 'none' }}",
           "artifact-transfer-mode": "s3-to-github-artifacts",
@@ -366,13 +370,13 @@
       "adapter": {
         "type": "buildchain-release-admission",
         "kind": "job-uses",
-        "uses": "kungfu-systems/buildchain/.github/workflows/release-candidate-promote.yml@e1a2b253889ef2d27c024439a67858728a75e63a",
-      "job": {
-        "needs": "promotion-contract",
-        "if": "${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true }}"
-      },
-      "with": {
-        "channel": "${{ startsWith(inputs.target-ref || github.event.pull_request.base.ref, 'alpha/') && 'alpha' || 'release' }}",
+        "uses": "kungfu-systems/buildchain/.github/workflows/release-candidate-promote.yml@52dba6d30051b53d6f6b723fa6e27b090ce4311f",
+        "job": {
+          "needs": "promotion-contract",
+          "if": "${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true }}"
+        },
+        "with": {
+          "channel": "${{ startsWith(inputs.target-ref || github.event.pull_request.base.ref, 'alpha/') && 'alpha' || 'release' }}",
           "target-sha": "${{ inputs.target-sha || github.event.pull_request.merge_commit_sha || github.sha }}",
           "required-status-check": "build",
           "publish-command": "node scripts/buildchain-custom-publish-evidence.mjs",

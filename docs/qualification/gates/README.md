@@ -13,13 +13,25 @@ explains Kungfu's current policy and does not redefine Shifu semantics.
 - [Workflow bindings](workflow-bindings.json) record how current GitHub
   workflows activate profiles and gates. Schema v2 makes direct Gate,
   Buildchain Gate-profile, and controller entries structure-checked.
+- [Closed-world workflow authority](workflow-authority.md) classifies every
+  workflow, job, and step, including activation digests, permissions,
+  Environment, secret/OIDC surfaces, immutable external refs, publication
+  class, and qualifying-receipt authority.
+- [Release admission](release-admission.md) binds the current Gate policy to
+  Buildchain's sealed capability, runner provenance, control-plane audit,
+  exact artifact bytes, freshness, channel, and consumer decision.
 - [Measurement coverage](measurement-coverage.md) records the observed
   per-platform `durationMs`, clean source SHA, Gate definition digest, registry
   digest, and retained Shifu receipt for measured Gates.
 - Buildchain owns runner allocation and aggregate checks; the standing patrol
   is pinned to the immutable reviewed runtime commit
-  `90e8e72ed5ecbfa30d719074f53e08a4cfb811fd`. Buildchain cannot weaken a
+  `a6145efc210a961da0e5c63d7024d42061550f60`. Buildchain cannot weaken a
   Kungfu profile or mint missing Gate receipts.
+- The alpha/release build, source acceptance, and release promotion controllers
+  are pinned separately to stable Buildchain `v2.12.7` at
+  `52dba6d30051b53d6f6b723fa6e27b090ce4311f`. Its sealed publication verifier
+  is consumed through the Kungfu release-admission policy; missing inputs deny
+  publication rather than selecting a legacy path.
 - `required` means blocking when the workflow activation condition matches.
   Path filters, same-repository restrictions, schedules, and post-merge events
   remain explicit in workflow bindings rather than being hidden in the matrix.
@@ -139,6 +151,12 @@ reusable workflow or the runtime behavior of a shell body. Immutable
 references, contract locks, source-bound receipts, and runtime receipts remain
 responsible for that cross-repository evidence.
 
+This structured Gate closure is nested inside the broader closed-world
+authority manifest. Gate bindings answer which registered Gate/profile/controller
+is invoked. Workflow authority separately answers whether every other job and
+step is diagnostic, qualifying, product-publication, or channel-control code,
+and what credential surface it receives. Both checks must pass.
+
 ## Operator commands
 
 ```sh
@@ -164,18 +182,23 @@ the Buildchain orchestration stage registers their handlers.
 3. Declare the workflow/job execution in `workflow-bindings.json`; direct Gate
    and profile ids must be statically recoverable from YAML, while every
    controller must declare one bounded adapter.
-4. For every new Gate, run the diagnostic Gate on every platform declared by
+4. Classify every changed workflow/job/step in `workflow-authority.json`, then
+   review the generated [authority matrix](workflow-authority.md). A refresh
+   records exact YAML but cannot authorize a mutable external ref or elevate a
+   publication class.
+5. For every new Gate, run the diagnostic Gate on every platform declared by
    `platforms` from one clean source revision and retain each
    `shifu.gate-receipt/v1` JSON under `docs/qualification/evidence/`. The
    matching result must be attempted, passing, exit `0`, and contain the
    current Gate definition digest and measured `durationMs`.
-5. Add the receipts and their exact source, registry, duration, and platform
+6. Add the receipts and their exact source, registry, duration, and platform
    fields to `measurement-coverage.json`. The frozen adoption baseline cannot
    be expanded; even a new `off` Gate requires measurement coverage.
-6. Regenerate the policy and measurement tables with
+7. Regenerate the policy and measurement tables with
    `node scripts/check-kungfu-gate-catalog.mjs --write`.
-7. Run `./shifu check:gate-catalog` and `./shifu check:source`.
-8. Treat policy-strength changes as rollout decisions, not documentation edits.
+8. Run `./shifu check:gate-catalog` and `./shifu check:source`.
+9. Treat policy-strength, credential, and publication-authority changes as
+   rollout decisions, not documentation edits.
 
 Measurements are retained observations, not live benchmarks. They do not
 change automatically after a later code commit. A Gate definition change makes
@@ -187,7 +210,9 @@ runtime or expected cost.
 The catalog meta gate checks schema and semantic validity, task existence,
 documentation anchors and required fields, the generated matrix bytes,
 structured direct/profile/controller workflow facts, adapter uniqueness and
-input contracts, profile coverage, and source-bound measurement coverage. It
+input contracts, closed-world workflow authority, sealed release policy,
+generated authority documentation, profile coverage, and source-bound
+measurement coverage. It
 rejects missing platforms, dirty source, failed/skipped results, stale Gate
 definitions, mismatched durations, and missing receipts. It proves structural
 consistency, not that a prose explanation is semantically wise.

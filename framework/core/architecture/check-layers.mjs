@@ -12,6 +12,32 @@ const contractPath = path.join(architectureRoot, 'layers.json');
 const mapPath = path.join(architectureRoot, 'LAYERS.md');
 const targetsCmakePath = path.join(architectureRoot, 'TARGETS.cmake');
 
+function findCycles(items) {
+  const byId = new Map(items.map((item) => [item.id, item]));
+  const visited = new Set();
+  const active = new Set();
+  const stack = [];
+  const cycles = [];
+  const visit = (id) => {
+    if (active.has(id)) {
+      const start = stack.indexOf(id);
+      cycles.push([...stack.slice(start), id].join(' -> '));
+      return;
+    }
+    if (visited.has(id)) return;
+    visited.add(id);
+    active.add(id);
+    stack.push(id);
+    for (const dependency of byId.get(id)?.dependencies || []) {
+      if (byId.has(dependency)) visit(dependency);
+    }
+    stack.pop();
+    active.delete(id);
+  };
+  for (const id of [...byId.keys()].sort()) visit(id);
+  return cycles;
+}
+
 function posix(value) {
   return value.split(path.sep).join('/');
 }
@@ -97,6 +123,12 @@ function validate(root, contract) {
     if (!layerById.has(component.layer)) {
       problems.push(`${component.id}: unknown layer ${component.layer}`);
     }
+    for (const field of ['owner', 'entry_points', 'contract_tests']) {
+      const value = component[field];
+      if (!value || (Array.isArray(value) && value.length === 0)) {
+        problems.push(`${component.id}: ${field} must not be empty`);
+      }
+    }
     if (
       !Array.isArray(component.current_targets) ||
       component.current_targets.length === 0
@@ -105,6 +137,23 @@ function validate(root, contract) {
     }
     for (const target of component.current_targets || [])
       usedTargets.add(target);
+  }
+  const productionComponentCount = (contract.components || []).filter(
+    (component) => component.layer !== 'qualification',
+  ).length;
+  const componentBudget = contract.component_budget || {};
+  if (
+    !Number.isInteger(componentBudget.min) ||
+    !Number.isInteger(componentBudget.max) ||
+    productionComponentCount < componentBudget.min ||
+    productionComponentCount > componentBudget.max
+  ) {
+    problems.push(
+      `production component count ${productionComponentCount} is outside budget ${componentBudget.min ?? '<missing>'}-${componentBudget.max ?? '<missing>'}`,
+    );
+  }
+  for (const cycle of findCycles(contract.components || [])) {
+    problems.push(`component dependency cycle: ${cycle}`);
   }
 
   const internalTargetById = new Map();
@@ -135,7 +184,9 @@ function validate(root, contract) {
       }
       evidencedTargets.add(target);
       const token = entry.tokens?.[target] || target;
-      if (!cmake.includes(token)) {
+      const generatedProjection =
+        path.resolve(evidencePath) === path.resolve(targetsCmakePath);
+      if (!generatedProjection && !cmake.includes(token)) {
         problems.push(`${target}: token ${token} is absent from ${entry.file}`);
       }
     }
@@ -147,6 +198,15 @@ function validate(root, contract) {
   for (const target of evidencedTargets) {
     if (!usedTargets.has(target))
       problems.push(`stale unused target evidence: ${target}`);
+  }
+  for (const component of contract.components || []) {
+    for (const target of component.contract_tests || []) {
+      if (!evidencedTargets.has(target)) {
+        problems.push(
+          `${component.id}: contract test lacks CMake evidence: ${target}`,
+        );
+      }
+    }
   }
 
   if (contract.target_projection) {
@@ -268,6 +328,15 @@ function validate(root, contract) {
       const dependencyComponent = componentById.get(dependency.component);
       if (
         dependencyComponent &&
+        dependencyComponent.id !== sourceComponent.id &&
+        !(sourceComponent.dependencies || []).includes(dependencyComponent.id)
+      ) {
+        problems.push(
+          `${target.id}: target dependency ${dependencyId} is not declared by component ${sourceComponent.id}`,
+        );
+      }
+      if (
+        dependencyComponent &&
         !sourceLayer.may_depend_on.includes(dependencyComponent.layer)
       ) {
         problems.push(
@@ -275,6 +344,9 @@ function validate(root, contract) {
         );
       }
     }
+  }
+  for (const cycle of findCycles(contract.internal_targets || [])) {
+    problems.push(`internal target dependency cycle: ${cycle}`);
   }
 
   const internalTargetRoots = contract.internal_target_roots || [];
@@ -434,9 +506,10 @@ function renderMap(contract, ownership) {
     '',
     'Current targets describe the checked build graph. Internal component targets',
     'remain private implementation details behind the public `kungfu` facade.',
+    `The production graph is budgeted to ${contract.component_budget.min}-${contract.component_budget.max} bounded components.`,
     '',
-    '| Component | Layer | Owner | Files | Current targets | Entry points |',
-    '| --- | --- | --- | ---: | --- | --- |',
+    '| Component | Layer | Owner | Files | Current targets | Contract tests | Entry points |',
+    '| --- | --- | --- | ---: | --- | --- | --- |',
   );
   const counts = new Map();
   for (const componentId of ownership.values()) {
@@ -444,7 +517,7 @@ function renderMap(contract, ownership) {
   }
   for (const component of contract.components) {
     lines.push(
-      `| \`${component.id}\` | \`${component.layer}\` | \`${component.owner}\` | ${counts.get(component.id) || 0} | ${component.current_targets.map((item) => `\`${item}\``).join('<br>')} | ${component.entry_points.map((item) => `\`${item}\``).join('<br>')} |`,
+      `| \`${component.id}\` | \`${component.layer}\` | \`${component.owner}\` | ${counts.get(component.id) || 0} | ${component.current_targets.map((item) => `\`${item}\``).join('<br>')} | ${component.contract_tests.map((item) => `\`${item}\``).join('<br>')} | ${component.entry_points.map((item) => `\`${item}\``).join('<br>')} |`,
     );
   }
   lines.push(
@@ -553,8 +626,20 @@ function renderTargetsCmake(contract, ownership) {
     for (const source of sources) {
       lines.push(`  "\${PROJECT_SOURCE_DIR}/${source}"`);
     }
+    lines.push(')');
+    for (const conditional of target.conditional_sources || []) {
+      lines.push(
+        `if(NOT "${conditional.dependency}" IN_LIST KUNGFU_BUILD_DEPENDENCY_ROOTS)`,
+        `  list(REMOVE_ITEM ${variable}`,
+      );
+      for (const file of conditional.files || []) {
+        lines.push(
+          `    "\${PROJECT_SOURCE_DIR}/${file.replace(/^src\/libkungfu\//, '')}"`,
+        );
+      }
+      lines.push('  )', 'endif()');
+    }
     lines.push(
-      ')',
       `add_library_object(${target.id} "\${${variable}}" "\${${options}}" "\${KUNGFU_BUILD_DIR}")`,
     );
     if ((target.dependencies || []).length) {
@@ -587,6 +672,7 @@ function selfTest() {
     tracked_roots: ['src/'],
     extensions: ['.h', '.cpp'],
     excluded_files: [],
+    component_budget: { min: 2, max: 2 },
     target_evidence: [{ file: 'CMakeLists.txt', targets: ['low', 'high'] }],
     internal_target_roots: ['src/'],
     layers: [
@@ -617,6 +703,7 @@ function selfTest() {
         dependencies: [],
         current_targets: ['low'],
         entry_points: ['src/low/include/low/value.h'],
+        contract_tests: ['low'],
       },
       {
         id: 'high-app',
@@ -629,6 +716,7 @@ function selfTest() {
         dependencies: ['low-core'],
         current_targets: ['high'],
         entry_points: ['src/high/app.cpp'],
+        contract_tests: ['high'],
       },
     ],
     internal_targets: [
@@ -694,6 +782,15 @@ function selfTest() {
       ),
     );
 
+    const overBudget = structuredClone(base);
+    overBudget.component_budget.max = 1;
+    expect(
+      'component budget overflow fails',
+      validate(tmp, overBudget).problems.some((item) =>
+        item.includes('outside budget'),
+      ),
+    );
+
     write('src/low/include/low/value.h', '#include <high/service.h>\n');
     expect(
       'forbidden reverse include fails',
@@ -736,6 +833,42 @@ function selfTest() {
       'reverse target dependency fails',
       validate(tmp, reversedTarget).problems.some((item) =>
         item.includes('may not depend on target'),
+      ),
+    );
+
+    const componentCycle = structuredClone(base);
+    componentCycle.components[0].dependencies = ['high-app'];
+    expect(
+      'component dependency cycle fails',
+      validate(tmp, componentCycle).problems.some((item) =>
+        item.includes('component dependency cycle'),
+      ),
+    );
+
+    const targetCycle = structuredClone(base);
+    targetCycle.internal_targets[0].dependencies = ['high'];
+    expect(
+      'internal target dependency cycle fails',
+      validate(tmp, targetCycle).problems.some((item) =>
+        item.includes('internal target dependency cycle'),
+      ),
+    );
+
+    const undeclaredTargetComponent = structuredClone(base);
+    undeclaredTargetComponent.components[1].dependencies = [];
+    expect(
+      'target edge outside component graph fails',
+      validate(tmp, undeclaredTargetComponent).problems.some((item) =>
+        item.includes('is not declared by component'),
+      ),
+    );
+
+    const missingContractTest = structuredClone(base);
+    missingContractTest.components[1].contract_tests = ['missing-test'];
+    expect(
+      'contract test without CMake evidence fails',
+      validate(tmp, missingContractTest).problems.some((item) =>
+        item.includes('contract test lacks CMake evidence'),
       ),
     );
 

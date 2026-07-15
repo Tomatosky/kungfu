@@ -122,6 +122,7 @@ test('source plan covers representative source-only checks', () => {
   assert.ok(labels.includes('runtime upgrade contract'));
   assert.ok(labels.includes('product upgrade qualification'));
   assert.ok(labels.includes('agent session contract'));
+  assert.ok(labels.includes('Project Cut contract'));
   assert.ok(labels.includes('durability production-candidate admission'));
   const typeBaseline = plan.find(
     (step) => step.label === 'Python type baseline',
@@ -156,6 +157,12 @@ test('source plan covers representative source-only checks', () => {
   );
   assert.ok(
     contractTests.args.includes('scripts/check-typescript-files.test.mjs'),
+  );
+  assert.ok(
+    contractTests.args.includes('scripts/check-project-cut-contract.test.mjs'),
+  );
+  assert.ok(
+    contractTests.args.includes('scripts/check-git-episode-provider.test.mjs'),
   );
   const upgradeTests = plan.find(
     (step) => step.label === 'runtime upgrade control-plane tests',
@@ -301,14 +308,14 @@ test('source plan cannot enter build, compiler, artifact, or release lifecycles'
   );
 });
 
-test('reusable workflow is bound to source mode and the protected alpha channel', () => {
+test('reusable workflow is bound to source mode and the pinned stable runtime', () => {
   const workflow = fs.readFileSync(
     path.join(ROOT, '.github/workflows/source-acceptance.yml'),
     'utf8',
   );
   assert.match(workflow, /mode: source/);
-  assert.match(workflow, /check\.yml@v2-alpha/);
-  assert.match(workflow, /buildchain-ref: v2-alpha/);
+  assert.match(workflow, /check\.yml@52dba6d30051b53d6f6b723fa6e27b090ce4311f/);
+  assert.match(workflow, /buildchain-ref: v2/);
   assert.doesNotMatch(workflow, /self-hosted/);
 });
 

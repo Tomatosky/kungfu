@@ -13,7 +13,6 @@
 #include <kungfu/runtime/live/reactor.h>
 #include <kungfu/runtime/nanomsg/socket.h>
 #include <kungfu/runtime/os.h>
-#include <kungfu/runtime/util/rocks.h>
 #include <kungfu/runtime/util/stacktrace.h>
 #include <kungfu/runtime/util/terminal.h>
 #include <kungfu/yijinjing/log.h>
@@ -23,7 +22,6 @@ using namespace kungfu::rx;
 using namespace kungfu::yijinjing::enums;
 using namespace kungfu::yijinjing::types;
 using namespace kungfu::runtime;
-using namespace kungfu::runtime::util;
 using namespace kungfu::yijinjing::data;
 using namespace kungfu::runtime::journal;
 using namespace kungfu::runtime::nanomsg;
@@ -126,8 +124,8 @@ reactor::~reactor() {
   io_device_.reset();
   ensure_sqlite_shutdown();
   os::reset_reactor_instance();
-  rocks::clear_rocksdb(&coordinator_db_);
-  rocks::clear_rocksdb(&peer_db_);
+  coordinator_store_.reset();
+  peer_store_.reset();
 }
 
 bool reactor::is_usable() { return io_device_->is_usable(); }
@@ -145,13 +143,13 @@ bool reactor::setup() {
 }
 
 void reactor::pre_setup() {
-  ensure_coordinator_rocksdb();
-  read_location_from_rocksdb();
+  ensure_coordinator_store();
+  read_location_from_store();
   add_location(0, get_io_device()->get_live_home());
   add_location(0, coordinator_home_location_);
   add_location(0, coordinator_cmd_location_);
   add_location(0, ledger_home_location_);
-  // could get in rocksdb in live
+  // Offline layouts may contribute locations in addition to the live KV view.
   if (get_home()->mode != mode::LIVE) {
     for (const auto &l : get_home()->locator->list_locations("*", "*", "*", "*")) {
       add_location(0, l);
@@ -411,7 +409,7 @@ void reactor::add_location(int64_t, const location_ptr &location) {
   bool inserted_uid64 = location64s_.try_emplace(location->uid64, location).second;
   bool write_rocks = inserted_uid || inserted_uid64;
   if (write_rocks) {
-    write_location_to_rocksdb(location);
+    write_location_to_store(location);
   }
 }
 
@@ -649,109 +647,57 @@ void reactor::cleanup_reader_disjoin() {
   disjoin_channels_.clear();
 }
 
-rocksdb::DB *reactor::get_coordinator_rocksdb() const {
-  static const std::string coordinator_db_dir = get_locator()->layout_dir(get_coordinator_home_location(), layout::MAP);
-  SPDLOG_DEBUG("get_coordinator_rocksdb from dir: {}", coordinator_db_dir);
-  if (io_device_->is_lazy()) {
-    std::lock_guard<std::mutex> lk(coordinator_db_mtx_);
-    rocks::clear_rocksdb(&coordinator_db_);
-    rocksdb::Status status = rocks::open_db(coordinator_db_dir, &coordinator_db_, false);
-    if (not status.ok()) {
-      const std::string msg = fmt::format("OpenForReadOnly for {} failed, {}", coordinator_db_dir, status.ToString());
-      SPDLOG_INFO(msg);
-      throw yijinjing_error(msg);
-    }
-  } else {
-    if (nullptr == coordinator_db_) {
-      std::lock_guard<std::mutex> lk(coordinator_db_mtx_);
-      if (nullptr != coordinator_db_) {
-        return coordinator_db_;
-      }
-      rocksdb::Status status = rocks::open_db(coordinator_db_dir, &coordinator_db_, true);
-      if (not status.ok()) {
-        const std::string msg = fmt::format("Open for {} failed, {}", coordinator_db_dir, status.ToString());
-        SPDLOG_ERROR(msg);
-        throw yijinjing_error(msg);
-      }
-    }
+key_value_store_ptr reactor::get_coordinator_store() const {
+  const std::string path = get_locator()->layout_dir(get_coordinator_home_location(), layout::MAP);
+  std::lock_guard<std::mutex> lock(coordinator_store_mtx_);
+  if (!coordinator_store_) {
+    coordinator_store_ = make_live_key_value_store(path, !io_device_->is_lazy(), io_device_->is_lazy());
   }
-  return coordinator_db_;
+  return coordinator_store_;
 }
 
-rocksdb::DB *reactor::get_peer_rocksdb() const {
+key_value_store_ptr reactor::get_peer_store() const {
   if (not io_device_->is_lazy()) {
-    return get_coordinator_rocksdb();
+    return get_coordinator_store();
   }
-  if (nullptr == peer_db_) {
-    std::lock_guard<std::mutex> lk(peer_db_mtx_);
-    if (nullptr != peer_db_) {
-      return peer_db_;
-    }
-    rocksdb::Status status = rocks::open_db(get_locator()->layout_dir(get_home(), layout::MAP), &peer_db_, true);
-    if (not status.ok()) {
-      const std::string msg =
-          fmt::format("Open for {} failed, {}", get_locator()->layout_dir(get_home(), layout::MAP), status.ToString());
-      SPDLOG_ERROR(msg);
-      throw yijinjing_error(msg);
-    }
+  std::lock_guard<std::mutex> lock(peer_store_mtx_);
+  if (!peer_store_) {
+    peer_store_ = make_live_key_value_store(get_locator()->layout_dir(get_home(), layout::MAP), true);
   }
-  return peer_db_;
+  return peer_store_;
 }
 
-std::string reactor::get_coordinator_kv(const std::string &key) const {
-  std::string value{};
-  rocksdb::Status status = rocks::get_kv(key, value, get_coordinator_rocksdb());
-  if (not status.ok()) {
-    SPDLOG_DEBUG("get key:{} failed, {}", key, status.ToString());
-  }
-  return value;
-}
+std::string reactor::get_coordinator_kv(const std::string &key) const { return get_coordinator_store()->get(key); }
 
 void reactor::put_coordinator_kv(const std::string &key, const std::string &value) const {
   if (io_device_->is_lazy()) {
     return;
   }
-  rocksdb::Status status = rocks::put_kv(key, value, get_coordinator_rocksdb());
-  if (not status.ok()) {
-    SPDLOG_ERROR("put key:{} value: {}, failed, {}", key, value, status.ToString());
-  }
+  get_coordinator_store()->put(key, value);
 }
 
-std::string reactor::get_peer_kv(const std::string &key) const {
-  std::string value{};
-  rocksdb::Status status = rocks::get_kv(key, value, get_peer_rocksdb());
-  if (not status.ok()) {
-    SPDLOG_ERROR("get key:{} failed, {}", key, status.ToString());
-  }
-  return value;
-}
+std::string reactor::get_peer_kv(const std::string &key) const { return get_peer_store()->get(key); }
 
-void reactor::put_peer_kv(const std::string &key, const std::string &value) const {
-  rocksdb::Status status = rocks::put_kv(key, value, get_peer_rocksdb());
-  if (not status.ok()) {
-    SPDLOG_ERROR("put key:{} value: {}, failed, {}", key, value, status.ToString());
-  }
-}
+void reactor::put_peer_kv(const std::string &key, const std::string &value) const { get_peer_store()->put(key, value); }
 
-void reactor::ensure_coordinator_rocksdb() {
+void reactor::ensure_coordinator_store() {
   try {
-    // Probe only: force-open the coordinator rocksdb and discard the handle.
-    // If it is not yet open this throws, and the catch block opens/clears it.
-    (void)get_coordinator_rocksdb();
+    (void)get_coordinator_store()->get(LOCATION_KEYS);
   } catch (const std::exception &e) {
     SPDLOG_DEBUG("catch exception: {}", e.what());
-    std::lock_guard<std::mutex> lk(coordinator_db_mtx_);
-    rocks::open_db(get_locator()->layout_dir(get_coordinator_home_location(), layout::MAP), &coordinator_db_, true);
-    rocks::clear_rocksdb(&coordinator_db_);
+    std::lock_guard<std::mutex> lock(coordinator_store_mtx_);
+    coordinator_store_ =
+        make_live_key_value_store(get_locator()->layout_dir(get_coordinator_home_location(), layout::MAP),
+                                  !io_device_->is_lazy(), io_device_->is_lazy());
   }
 }
 
 std::map<std::string, std::string> reactor::get_coordinator_kvs(const std::set<std::string> &keys) const {
-  return rocks::get_kvs(keys, get_coordinator_rocksdb());
+  return get_coordinator_store()->get_many(keys);
 }
 
 std::map<std::string, std::string> reactor::get_peer_kvs(const std::set<std::string> &keys) const {
-  return rocks::get_kvs(keys, get_peer_rocksdb());
+  return get_peer_store()->get_many(keys);
 }
 
 void reactor::put_coordinator_kvs(const std::map<std::string, std::string> &kvs) const {
@@ -759,20 +705,12 @@ void reactor::put_coordinator_kvs(const std::map<std::string, std::string> &kvs)
     return;
   }
 
-  rocksdb::Status status = rocks::put_kvs(kvs, get_coordinator_rocksdb());
-  if (not status.ok()) {
-    SPDLOG_ERROR("Write failed, {}", status.ToString());
-  }
+  get_coordinator_store()->put_many(kvs);
 }
 
-void reactor::put_peer_kvs(const std::map<std::string, std::string> &kvs) const {
-  rocksdb::Status status = rocks::put_kvs(kvs, get_peer_rocksdb());
-  if (not status.ok()) {
-    SPDLOG_ERROR("Write failed, {}", status.ToString());
-  }
-}
+void reactor::put_peer_kvs(const std::map<std::string, std::string> &kvs) const { get_peer_store()->put_many(kvs); }
 
-void reactor::write_location_to_rocksdb(const location_ptr &location) {
+void reactor::write_location_to_store(const location_ptr &location) {
   if (io_device_->is_lazy()) {
     return;
   }
@@ -788,15 +726,13 @@ void reactor::write_location_to_rocksdb(const location_ptr &location) {
   nlohmann::json json_obj;
   json_obj[LOCATION_KEYS] = json_array;
 
-  rocksdb::WriteBatch batch;
-  batch.Put(str_uid32, location->uname);
-  batch.Put(location->uname, std::to_string(location->seed));
-  batch.Put(str_uid64, location->to_string());
-  batch.Put(LOCATION_KEYS, json_obj.dump());
-  rocks::put_kvs(batch, get_coordinator_rocksdb());
+  put_coordinator_kvs({{str_uid32, location->uname},
+                       {location->uname, std::to_string(location->seed)},
+                       {str_uid64, location->to_string()},
+                       {LOCATION_KEYS, json_obj.dump()}});
 }
 
-void reactor::read_location_from_rocksdb() {
+void reactor::read_location_from_store() {
   std::string str_location_uid64s_json = get_coordinator_kv(LOCATION_KEYS);
   SPDLOG_DEBUG("str_location_uid64s_json: {}", str_location_uid64s_json);
   if (str_location_uid64s_json.empty()) {

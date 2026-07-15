@@ -162,6 +162,15 @@ function main() {
         env,
       }),
     );
+    const episodeProviderSubmissionSchema = JSON.parse(
+      run(binary, ['schema', 'episode-provider-submission'], {
+        cwd: targetRoot,
+        env,
+      }),
+    );
+    const reviewChartSchema = JSON.parse(
+      run(binary, ['schema', 'review-chart'], { cwd: targetRoot, env }),
+    );
     if (
       projectSchema.$id !== 'https://xinfa.dev/schema/project-v1.schema.json' ||
       contextIrSchema.$id !==
@@ -176,7 +185,11 @@ function main() {
       guiViewSchema.$id !==
         'https://xinfa.dev/schema/gui-view-v1.schema.json' ||
       projectionRecipeSchema.$id !==
-        'https://xinfa.dev/schema/projection-recipe-v1.schema.json'
+        'https://xinfa.dev/schema/projection-recipe-v1.schema.json' ||
+      episodeProviderSubmissionSchema.$id !==
+        'https://xinfa.dev/schema/episode-provider-submission-v1.schema.json' ||
+      reviewChartSchema.$id !==
+        'https://xinfa.dev/schema/review-chart-v1.schema.json'
     ) {
       throw new Error('public schema discovery returned unexpected identities');
     }
@@ -428,6 +441,45 @@ function main() {
       throw new Error(
         'Xinfa Atlas compile/verify/diff/impact/import contract failed',
       );
+    }
+
+    const episodeAtlas = path.join(targetRoot, 'episode-atlas');
+    const episodeReceipt = JSON.parse(
+      run(
+        binary,
+        [
+          'episode',
+          'compile',
+          '--before',
+          atlasOutput,
+          '--project',
+          path.join(repositoryFixture, 'project.json'),
+          '--submission',
+          'evidence/episode-submission.json',
+          '--output',
+          episodeAtlas,
+          '--json',
+        ],
+        { cwd: repositoryFixture, env },
+      ),
+    );
+    const episodeVerification = JSON.parse(
+      run(binary, ['atlas', 'verify', '--atlas', episodeAtlas, '--json'], {
+        cwd: targetRoot,
+        env,
+      }),
+    );
+    if (
+      episodeReceipt.verdict !== 'pass' ||
+      episodeReceipt.beforeAtlasRoot !== atlasReceipt.atlas_root ||
+      episodeReceipt.resultAtlasRoot === atlasReceipt.atlas_root ||
+      episodeReceipt.reviewChart?.schema !== 'xinfa.review-chart/v1' ||
+      episodeReceipt.reviewChart?.episodeRoots?.length !== 1 ||
+      episodeReceipt.fullIncrementalEquivalent !== true ||
+      episodeReceipt.cacheUsed !== false ||
+      episodeVerification.valid !== true
+    ) {
+      throw new Error('Episode evidence successor Atlas contract failed');
     }
 
     const humanProjection = JSON.parse(
@@ -771,6 +823,10 @@ function main() {
       taskChartSchema: taskChartSchema.$id,
       guiViewSchema: guiViewSchema.$id,
       projectionRecipeSchema: projectionRecipeSchema.$id,
+      episodeProviderSubmissionSchema: episodeProviderSubmissionSchema.$id,
+      reviewChartSchema: reviewChartSchema.$id,
+      episodeProviderContractTests: true,
+      episodeProviderCliSuccessorAtlas: true,
       boundedHumanView: true,
       boundedTaskChart: true,
       guiView: true,

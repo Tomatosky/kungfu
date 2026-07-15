@@ -72,6 +72,21 @@ function validate(authority, layers) {
         problems.push(`${component.id}: unknown dependency ${id}`);
     }
   }
+  const mappedArchitectureComponents = new Set(
+    (authority.components || []).flatMap(
+      (component) => component.architecture_components || [],
+    ),
+  );
+  for (const component of layers.components || []) {
+    if (
+      component.layer !== 'qualification' &&
+      !mappedArchitectureComponents.has(component.id)
+    ) {
+      problems.push(
+        `architecture component is absent from build profile authority: ${component.id}`,
+      );
+    }
+  }
   for (const group of ['providers', 'projections', 'bindings']) {
     for (const item of authority[group] || []) {
       for (const id of item.requires_components || []) {
@@ -82,6 +97,20 @@ function validate(authority, layers) {
         if (!known.dependencies.has(id))
           problems.push(`${item.id}: unknown dependency ${id}`);
       }
+    }
+  }
+  const projectionResponsibilities = new Set(
+    (authority.projections || []).map((item) => item.responsibility),
+  );
+  for (const responsibility of [
+    'projection',
+    'state-cache',
+    'query-acceleration',
+  ]) {
+    if (!projectionResponsibilities.has(responsibility)) {
+      problems.push(
+        `projections miss required responsibility ${responsibility}`,
+      );
     }
   }
 
@@ -172,6 +201,8 @@ function validate(authority, layers) {
     'projections',
     'bindings',
     'dependency_roots',
+    'live_capability',
+    'build_root',
     'source_revision',
   ]) {
     if (!fields.includes(required))
@@ -247,19 +278,19 @@ function renderCmake(authority) {
     lines.push(
       `  set(KUNGFU_BUILD_LINK_DEPENDENCIES "${linkTargets.join(';')}")`,
     );
+    for (const [target, dependencies] of Object.entries(
+      authority.target_dependencies,
+    )) {
+      const targets = dependencies
+        .filter((id) => roots.includes(id))
+        .map((id) => dependencyById.get(id)?.cmake_target)
+        .filter(Boolean);
+      lines.push(
+        `  set(KUNGFU_TARGET_${variable(target)}_DEPENDENCIES "${targets.join(';')}")`,
+      );
+    }
   }
   lines.push('endif()', '');
-  for (const [target, dependencies] of Object.entries(
-    authority.target_dependencies,
-  )) {
-    const targets = dependencies
-      .map((id) => dependencyById.get(id)?.cmake_target)
-      .filter(Boolean);
-    lines.push(
-      `set(KUNGFU_TARGET_${variable(target)}_DEPENDENCIES "${targets.join(';')}")`,
-    );
-  }
-  lines.push('');
   return `${lines.join('\n')}\n`;
 }
 
@@ -363,6 +394,8 @@ function selfTest() {
     'planned default fails closed',
     (value) => {
       value.default_profile = 'journal';
+      value.profiles.find((profile) => profile.id === 'journal').status =
+        'planned';
     },
     'default_profile must be supported',
   );
@@ -370,6 +403,17 @@ function selfTest() {
     'unknown target dependency fails',
     (value) => value.target_dependencies.kungfu_contracts.push('missing'),
     'unknown dependency',
+  );
+  expect(
+    'unmapped architecture component fails',
+    (value) => {
+      for (const component of value.components) {
+        component.architecture_components = (
+          component.architecture_components || []
+        ).filter((id) => id !== 'runtime-storage-services');
+      }
+    },
+    'architecture component is absent from build profile authority',
   );
   console.log('[core-build-capabilities] negative fixtures passed');
 }

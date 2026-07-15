@@ -11,6 +11,10 @@ import {
   renderPolicyMatrix,
   validateMeasurementCoverage,
 } from './check-kungfu-gate-catalog.mjs';
+import {
+  projectWorkflowAuthority,
+  validateWorkflowAuthority,
+} from './kungfu-workflow-authority.mjs';
 import { gateDefinitionDigest, gateDigest } from './shifu-gate-runtime.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -20,6 +24,10 @@ function fixture() {
   for (const relative of [
     'shifu.gates.json',
     'package.json',
+    '.github/workflows',
+    'node_modules/@kungfu-tech/buildchain/package.json',
+    'node_modules/@kungfu-tech/buildchain/dist/site/buildchain-contract.json',
+    'node_modules/@kungfu-tech/buildchain/dist/site/publication-authority-registry.json',
     'docs/qualification/gates',
     'docs/qualification/evidence/layer-gates/c4ba70d95/linux-x64.raw/layer-artifact-gate-receipt.json',
     'docs/qualification/evidence/layer-gates/c4ba70d95/macos-arm64.raw/layer-artifact-gate-receipt.json',
@@ -112,6 +120,128 @@ test('current Kungfu catalog, docs, matrix, actions, and workflows align', () =>
   );
   assert.equal(controllers.length, 6);
   assert.ok(controllers.every((fact) => fact.gates.length > 0));
+  assert.equal(result.workflowAuthority.workflows.length, 15);
+});
+
+test('workflow authority rejects unknown workflows, jobs, steps, and activation drift', () => {
+  const root = fixture();
+  fs.writeFileSync(
+    path.join(root, '.github/workflows/unknown.yml'),
+    'name: Unknown\non: workflow_dispatch\njobs: {}\n',
+  );
+  assert.ok(
+    validateWorkflowAuthority(root).issues.some((issue) =>
+      issue.includes('workflow inventory drift'),
+    ),
+  );
+  fs.rmSync(path.join(root, '.github/workflows/unknown.yml'));
+
+  const workflow = path.join(root, '.github/workflows/dco.yml');
+  const original = fs.readFileSync(workflow, 'utf8');
+  fs.writeFileSync(
+    workflow,
+    original.replace(
+      'jobs:\n',
+      'jobs:\n  unknown-job:\n    runs-on: ubuntu-latest\n    steps: []\n',
+    ),
+  );
+  assert.ok(
+    validateWorkflowAuthority(root).issues.some((issue) =>
+      issue.includes('dco.yml job inventory drift'),
+    ),
+  );
+  fs.writeFileSync(
+    workflow,
+    original.replace(
+      '    steps:\n',
+      '    steps:\n      - name: Unknown step\n        run: echo unexpected\n',
+    ),
+  );
+  assert.ok(
+    validateWorkflowAuthority(root).issues.some((issue) =>
+      issue.includes('dco.yml#signoff step inventory drift'),
+    ),
+  );
+  fs.writeFileSync(
+    workflow,
+    original.replace('contents: read', 'contents: write'),
+  );
+  const activationOrPermissionIssues = validateWorkflowAuthority(root).issues;
+  assert.ok(
+    activationOrPermissionIssues.some((issue) =>
+      issue.includes('dco.yml definition drift'),
+    ),
+  );
+  assert.ok(
+    activationOrPermissionIssues.some((issue) =>
+      issue.includes('dco.yml#signoff credentials drift'),
+    ),
+  );
+});
+
+test('refreshing digests cannot authorize a mutable action in an authority-bearing workflow', () => {
+  const root = fixture();
+  const workflow = path.join(root, '.github/workflows/source-acceptance.yml');
+  fs.writeFileSync(
+    workflow,
+    fs
+      .readFileSync(workflow, 'utf8')
+      .replace(/check\.yml@[0-9a-f]{40}/, 'check.yml@v2'),
+  );
+  const currentManifest = JSON.parse(
+    fs.readFileSync(
+      path.join(root, 'docs/qualification/gates/workflow-authority.json'),
+      'utf8',
+    ),
+  );
+  const refreshed = projectWorkflowAuthority(root, currentManifest).document;
+  assert.ok(
+    validateWorkflowAuthority(root, refreshed).issues.some((issue) =>
+      issue.includes(
+        'authority-bearing workflows require immutable external action refs',
+      ),
+    ),
+  );
+});
+
+test('refreshing digests cannot give qualification jobs inherited secrets or an Environment', () => {
+  const root = fixture();
+  const workflow = path.join(root, '.github/workflows/build.yml');
+  const original = fs.readFileSync(workflow, 'utf8');
+  const currentManifest = JSON.parse(
+    fs.readFileSync(
+      path.join(root, 'docs/qualification/gates/workflow-authority.json'),
+      'utf8',
+    ),
+  );
+
+  fs.writeFileSync(
+    workflow,
+    original.replace(
+      / {4}secrets:\n(?: {6}BUILDCHAIN_ARTIFACT_RELAY_S3_[A-Z_]+:.*\n){3}/,
+      '    secrets: inherit\n',
+    ),
+  );
+  let refreshed = projectWorkflowAuthority(root, currentManifest).document;
+  assert.ok(
+    validateWorkflowAuthority(root, refreshed).issues.some((issue) =>
+      issue.includes('inherited secrets require'),
+    ),
+  );
+
+  fs.writeFileSync(
+    workflow,
+    original.replace(
+      '    uses: kungfu-systems/buildchain/',
+      '    environment: production\n    uses: kungfu-systems/buildchain/',
+    ),
+  );
+  refreshed = projectWorkflowAuthority(root, currentManifest).document;
+  assert.ok(
+    validateWorkflowAuthority(root, refreshed).issues.some((issue) =>
+      issue.includes('Environment access requires'),
+    ),
+  );
 });
 
 test('matrix rendering is deterministic and includes every profile', () => {
@@ -559,12 +689,12 @@ test('rogue, duplicate, missing, and invalid controller adapters fail closed', (
   const rogueRoot = fixture();
   fs.writeFileSync(
     path.join(rogueRoot, '.github/workflows/rogue-controller.yml'),
-    'name: Rogue controller\njobs:\n  source-copy:\n    uses: kungfu-systems/buildchain/.github/workflows/check.yml@v2-alpha\n    with:\n      buildchain-ref: v2-alpha\n      mode: source\n      upload-artifacts: true\n',
+    'name: Rogue controller\njobs:\n  source-copy:\n    uses: kungfu-systems/buildchain/.github/workflows/check.yml@52dba6d30051b53d6f6b723fa6e27b090ce4311f\n    with:\n      buildchain-ref: v2\n      mode: source\n      upload-artifacts: true\n',
   );
   assert.ok(
     checkKungfuGateCatalog(rogueRoot).issues.some((issue) =>
       issue.includes(
-        '.github/workflows/rogue-controller.yml#source-copy:job-uses:kungfu-systems/buildchain/.github/workflows/check.yml@v2-alpha: invocation has no matching binding',
+        '.github/workflows/rogue-controller.yml#source-copy:job-uses:kungfu-systems/buildchain/.github/workflows/check.yml@52dba6d30051b53d6f6b723fa6e27b090ce4311f: invocation has no matching binding',
       ),
     ),
   );
@@ -704,7 +834,7 @@ test('direct Gate arguments and profile inputs fail closed on drift', () => {
     fs
       .readFileSync(profileRefWorkflow, 'utf8')
       .replace(
-        '.gate-profile.yml@90e8e72ed5ecbfa30d719074f53e08a4cfb811fd',
+        '.gate-profile.yml@a6145efc210a961da0e5c63d7024d42061550f60',
         '.gate-profile.yml@v2-alpha',
       ),
   );
