@@ -199,12 +199,16 @@ in the outer ring.
   non-root `object_name` path, fail-closed on an unknown table, and the argument
   guard. The test asserts the two enum forms actually differ before comparing, so
   it cannot pass vacuously against a fixture that does not discriminate. It is
-  wired into the embedding-membrane qualification gate, which runs on Linux,
-  macOS, and Windows.
-- **Evidence boundary**: the symmetry itself is verified on macOS (arm64) — full
-  core build, the contract test green, and red when the integer-enum argument is
-  reverted. Linux and Windows evidence comes from the qualification gate rather
-  than a local run, so `implementation_status` is `staged`, not `implemented`:
-  every decision has landed, but the cross-platform evidence for this last item
-  is not yet consolidated. It moves to `implemented` once the gate has run green
-  on all three platforms.
+  wired into the embedding-membrane qualification gate, which covers Linux,
+  macOS, and Windows but by design runs only on `alpha/*` and `release/*` pull
+  requests — heavy native membrane builds are deliberately kept out of `dev/*`
+  PRs — so it has not yet executed for this change.
+- **Evidence boundary**: the symmetry itself is verified on macOS (arm64) only —
+  full core build, the contract test green, and red when the integer-enum
+  argument is reverted. There is no Linux or Windows evidence yet, and none is
+  expected before the next `dev` → `alpha` promotion, because the qualification
+  gate that runs this test does not fire on `dev/*` PRs. So
+  `implementation_status` is `staged`, not `implemented`: every decision has
+  landed and the contract is pinned, but the cross-platform evidence for this
+  last item does not exist yet. It moves to `implemented` once the gate has run
+  green on all three platforms at that promotion.
