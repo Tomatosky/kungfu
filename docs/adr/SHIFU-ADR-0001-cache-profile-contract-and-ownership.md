@@ -99,11 +99,13 @@ registered KFD-1 version decision process.
 - Conan configuration and Conan storage have separate lifecycles. The temporary
   `CONAN_HOME` contains only execution policy, while `conan.cache.storage`
   selects a profile-owned, host-local persistent package/download root. Shifu
-  partitions runner storage, holds an exclusive execution lock, and emits only
-  path digests. This preserves warm binaries without turning a user's
+  partitions storage by development worktree or named runner, wraps Conan with
+  an on-demand exclusive process lock, reclaims locks whose recorded process is
+  dead, and emits only path digests. Non-Conan tasks never take that lock. This
+  preserves warm binaries without turning a user's
   persistent Conan home into a controller surface.
 - Cache-managed task re-entry inherits the outer execution context instead of
-  resolving the profile or acquiring the Conan lock again. `gate run` owns one
+  resolving the profile again. `gate run` owns one
   outer apply boundary for all task-backed gates. The build-free source
   acceptance gate uses a distinct internal bypass marker, so it cannot be
   mistaken for evidence that cache was applied. Unknown bypass values do not

@@ -208,7 +208,7 @@
         "namespace": {"$ref": "#/$defs/id"},
         "pathDigest": {"$ref": "#/$defs/sha256"},
         "partitionDigest": {"$ref": "#/$defs/sha256"},
-        "lock": {"enum": ["acquired", "released"]}
+        "lock": {"enum": ["acquired", "released", "on-demand"]}
       }
     },
     "uvToolEvidence": {
