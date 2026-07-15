@@ -63,6 +63,9 @@ rem Cache profiles are checkout-owned L2 contracts. Resolve/apply them before
 rem native dispatch; an inner `shifu <task>` can still select the native path.
 if /i "%~1"=="cache" goto delegate
 if /i "%~1"=="check:source" goto sourceacceptance
+if /i "%~1"=="xinfa:build" goto xinfa
+if /i "%~1"=="xinfa:check" goto xinfa
+if /i "%~1"=="xinfa:standalone" goto xinfa
 if /i "%~1"=="docs:check:readonly" goto docsreadonly
 if /i "%~1"=="adr:release:gate" goto adrrelease
 
@@ -81,6 +84,25 @@ where node >nul 2>nul && (
   exit /b !errorlevel!
 )
 echo shifu: check:source needs node -- install fnm or any system node 1>&2
+exit /b 127
+
+:xinfa
+rem shifu-xinfa-entry: cache-independent
+set "_XINFA_TASK=%~1"
+if /i "%_XINFA_TASK%"=="xinfa:build" set "_XINFA_TASK=build"
+if /i "%_XINFA_TASK%"=="xinfa:check" set "_XINFA_TASK=check"
+if /i "%_XINFA_TASK%"=="xinfa:standalone" set "_XINFA_TASK=standalone"
+shift
+where fnm >nul 2>nul && (
+  fnm install >nul 2>nul
+  fnm exec --using-file -- node "%~dp0xinfa\tooling\task.mjs" "%_XINFA_TASK%" %*
+  exit /b !errorlevel!
+)
+where node >nul 2>nul && (
+  node "%~dp0xinfa\tooling\task.mjs" "%_XINFA_TASK%" %*
+  exit /b !errorlevel!
+)
+echo shifu: xinfa tasks need node -- install fnm or any system node 1>&2
 exit /b 127
 
 :docsreadonly

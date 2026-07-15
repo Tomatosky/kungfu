@@ -216,6 +216,25 @@ if [ "${1:-}" = "check:source" ]; then
   fi
 fi
 
+# Xinfa is an independently extractable product. Its build/check/smoke tasks use
+# only Node plus Cargo and must not contend for Kungfu's managed Conan storage.
+case "${1:-}" in
+  xinfa:build | xinfa:check | xinfa:standalone)
+    # shifu-xinfa-entry: cache-independent
+    _xinfa_task="${1#xinfa:}"
+    shift
+    if command -v fnm >/dev/null 2>&1; then
+      fnm install >/dev/null 2>&1 || true
+      exec fnm exec --using-file -- node ./xinfa/tooling/task.mjs "$_xinfa_task" "$@"
+    elif command -v node >/dev/null 2>&1; then
+      exec node ./xinfa/tooling/task.mjs "$_xinfa_task" "$@"
+    else
+      echo "shifu: xinfa tasks need node" >&2
+      exit 127
+    fi
+    ;;
+esac
+
 # Cache profiles are a checkout-owned L2 contract. Dispatch them before the
 # native launcher even when SHIFU_NATIVE=1: the outer cache apply must resolve
 # and inject bindings first, while the child `./shifu <task>` remains free to

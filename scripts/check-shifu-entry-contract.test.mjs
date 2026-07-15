@@ -65,6 +65,18 @@ test('cache execution boundaries distinguish gate run and source acceptance', ()
   assert.match(native, /cache_bypass/);
 });
 
+test('Xinfa product tasks bypass unrelated Kungfu dependency caches', () => {
+  const posix = fs.readFileSync(path.join(ROOT, 'shifu'), 'utf8');
+  const windows = fs.readFileSync(path.join(ROOT, 'shifu.cmd'), 'utf8');
+  for (const entrypoint of [posix, windows]) {
+    assert.match(entrypoint, /shifu-xinfa-entry: cache-independent/);
+    assert.match(entrypoint, /xinfa[\\/]tooling[\\/]task\.mjs/);
+    for (const task of ['build', 'check', 'standalone']) {
+      assert.match(entrypoint, new RegExp(`xinfa:${task}`));
+    }
+  }
+});
+
 test('runtime guard rejects a direct task and accepts Shifu provenance', () => {
   const guard = path.join(ROOT, 'scripts', 'require-shifu.mjs');
   const rejected = spawnSync(process.execPath, [guard, 'build:core'], {

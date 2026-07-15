@@ -161,6 +161,7 @@ implemented and qualified or explicitly waived for that release.
 | [0089](ADR-0089-transactional-kfx-package-and-lifecycle-authority.md) | accepted | KFX packages are immutable content-addressed artifacts and Core owns transactional install, activation, rollback, removal, and retained lifecycle facts |
 | [0090](ADR-0090-kfd-aware-kfx-trust-and-buildchain-admission.md) | accepted | KFX admission consumes KFD facts and exact Buildchain attestations to reduce friction without confusing provenance, capability fitness, or Product System authority |
 | [0091](ADR-0091-surface-neutral-kfx-contributions-and-thin-bindings.md) | accepted | KFX contributes semantics once while GUI, TUI, CLI, and agents use thin bindings and host-specific projections over the same plans and receipts |
+| [0092](ADR-0092-xinfa-product-and-incubation-boundary.md) | accepted | Xinfa is an independently versioned and extractable context compiler product; Shifu and Kungfu may integrate only through thin public-contract adapters |
 | [SHIFU-0001](SHIFU-ADR-0001-cache-profile-contract-and-ownership.md) | accepted | Cache profiles are Shifu-owned contracts; inventories project instances and Buildchain owns process |
 | [SHIFU-0002](SHIFU-ADR-0002-local-artifact-catalog-and-safe-promotion.md) | accepted | Shifu and Kungfu product artifacts share provenance-aware, Git-safe local promotion semantics |
 | [SHIFU-0003](SHIFU-ADR-0003-uv-effective-lock-cache-enforcement.md) | accepted | Strict uv cache execution uses a disposable effective lock while canonical locks stay public |

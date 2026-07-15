@@ -1,0 +1,45 @@
+{
+  "schema": "xinfa.product-contract/v1",
+  "product": {
+    "id": "xinfa",
+    "name": "Xinfa",
+    "description": "The Context Compiler for Agents"
+  },
+  "authority": {
+    "owns": [
+      "xinfa.context-ir/v1",
+      "xinfa.context-pack/v1",
+      "xinfa.context-capsule/v1",
+      "context graph and impact semantics",
+      "context selection and provenance"
+    ],
+    "doesNotOwn": [
+      "project source truth",
+      "project submission protocol conformance",
+      "product runtime facts",
+      "build and release attestation"
+    ]
+  },
+  "namespace": {
+    "cli": "xinfa",
+    "protocolPrefix": "xinfa.",
+    "rustPackage": "xinfa"
+  },
+  "artifacts": {
+    "binary": "xinfa-{target}",
+    "releaseTag": "xinfa-v{version}",
+    "versionSource": "Cargo.toml"
+  },
+  "state": {
+    "workspaceDefault": ".xinfa",
+    "stateOverride": "XINFA_STATE_HOME",
+    "cacheDefault": ".xinfa/cache",
+    "cacheOverride": "XINFA_CACHE_HOME"
+  },
+  "incubation": {
+    "sourceLocationIsAuthority": false,
+    "extractionManifest": "extraction-manifest.json",
+    "boundaryContract": "boundary.contract.json"
+  }
+}
+

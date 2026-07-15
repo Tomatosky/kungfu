@@ -1,0 +1,26 @@
+{
+  "schema": "xinfa.standalone-smoke-receipt/v1",
+  "verdict": "pass",
+  "product": "xinfa",
+  "version": "xinfa 0.1.0",
+  "extractedFiles": [
+    "Cargo.lock",
+    "Cargo.toml",
+    "LICENSE",
+    "README.md",
+    "boundary.contract.json",
+    "contract/xinfa-product-v1.json",
+    "extraction-manifest.json",
+    "src/main.rs"
+  ],
+  "contractSha256": "cd7940028d51d3f645004f71e66ab2dd6c0ca40e95e3a26ff9ff0168418564c8",
+  "contractDeterministic": true,
+  "cargoBuild": "pass",
+  "cargoTest": "pass",
+  "stateDefault": ".xinfa",
+  "stateOverride": "XINFA_STATE_HOME",
+  "cacheOverride": "XINFA_CACHE_HOME",
+  "diagnosticsWriteState": false,
+  "scrubbedEnvironmentPrefixes": ["KUNGFU_", "SHIFU_"],
+  "scrubbedEnvironmentVariables": 15
+}

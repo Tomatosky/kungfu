@@ -359,6 +359,19 @@ function testShifuDocumentationContract() {
   ]);
 }
 
+function checkXinfaBoundary() {
+  run('Xinfa standalone boundary gate', 'node', [
+    path.join('xinfa', 'tooling', 'check-boundary.mjs'),
+  ]);
+}
+
+function testXinfaBoundary() {
+  run('Xinfa standalone boundary tests', 'node', [
+    '--test',
+    path.join('xinfa', 'tooling', 'check-boundary.test.mjs'),
+  ]);
+}
+
 function checkShifuGateContract() {
   run('Shifu Gate contract gate', 'node', [
     path.join('scripts', 'check-shifu-gate-contract.mjs'),
@@ -614,6 +627,14 @@ function checkLibwasmCargoCache(files = [], { force = false } = {}) {
   ]);
 }
 
+function checkXinfaCrate(files = [], { force = false } = {}) {
+  if (!force && !files.some((file) => file.startsWith('xinfa/'))) return;
+  run('Xinfa standalone crate', 'node', [
+    path.join('xinfa', 'tooling', 'task.mjs'),
+    'check',
+  ]);
+}
+
 function checkStaged() {
   checkNoBashStaged();
   checkPlatformMacros();
@@ -621,6 +642,7 @@ function checkStaged() {
   checkShifuEntryContract();
   checkShifuCacheContract();
   checkShifuDocumentationContract();
+  checkXinfaBoundary();
   checkShifuGateContract();
   checkKungfuGateCatalog();
   checkCarrierActionEnvelope(['--staged']);
@@ -670,6 +692,7 @@ function checkStaged() {
   checkRustFiles('staged', files);
   checkBuildchainKfdEvidence(files);
   checkLibwasmCargoCache(files);
+  checkXinfaCrate(files);
 
   log('\n[check] staged gate passed');
 }
@@ -678,6 +701,7 @@ function checkShared() {
   testShifuEntryContract();
   testShifuCacheContract();
   testShifuDocumentationContract();
+  testXinfaBoundary();
   testShifuGateContract();
   checkKungfuGateCatalog();
   testSchemaAuthority();
@@ -718,6 +742,7 @@ function checkChanged() {
   checkPlatformMacros();
   checkShifuVersionSync();
   checkShifuEntryContract();
+  checkXinfaBoundary();
   checkCarrierActionEnvelope();
   checkRuntimeGreenfield();
   checkSchemaAuthority();
@@ -731,6 +756,7 @@ function checkChanged() {
   checkRustFiles('changed', files);
   checkBuildchainKfdEvidence(files);
   checkLibwasmCargoCache(files);
+  checkXinfaCrate(files);
   checkShared();
   log('\n[check] changed-scope gate passed');
 }
@@ -740,6 +766,7 @@ function checkAll() {
   checkPlatformMacros();
   checkShifuVersionSync();
   checkShifuEntryContract();
+  checkXinfaBoundary();
   checkCarrierActionEnvelope(['--all']);
   checkRuntimeGreenfield(['--all']);
   checkSchemaAuthority();
@@ -751,6 +778,7 @@ function checkAll() {
   checkRustFiles('all', [], { force: true });
   checkBuildchainKfdEvidence([], { force: true });
   checkLibwasmCargoCache([], { force: true });
+  checkXinfaCrate([], { force: true });
   checkShared();
   log('\n[check] whole-tree gate passed');
 }

@@ -112,6 +112,15 @@ Higher layers add convenience; they do not become a second authority over the
 Facts. [Product Layers](docs/concepts/product-layers.md) defines the independent
 qualification contract behind these choices.
 
+## Incubated standalone products
+
+[Xinfa](xinfa/README.md), **The Context Compiler for Agents**, is incubated in
+this repository with its own CLI, protocol namespace, version, artifacts,
+state/cache roots, release identity, and extraction manifest. Its core has no
+Kungfu or Shifu runtime dependency; those products may integrate only through
+thin public-contract adapters. See
+[ADR-0092](docs/adr/ADR-0092-xinfa-product-and-incubation-boundary.md).
+
 ## Architecture at a glance
 
 The data plane is `yijinjing`, a low-latency append-only mmap journal shared by
