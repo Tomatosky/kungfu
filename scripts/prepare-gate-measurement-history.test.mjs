@@ -73,3 +73,35 @@ test('falls back to an unshallow fetch when objects are genuinely absent', () =>
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('restores the source-acceptance base ref after local history recovery', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gate-history-base-'));
+  try {
+    const origin = makeRepository(root);
+    git(origin, 'branch', 'dev/v4/v4.0', 'HEAD~1');
+    const checkout = path.join(root, 'checkout');
+    execFileSync('git', ['clone', `file://${origin}`, checkout], {
+      stdio: 'ignore',
+    });
+    git(checkout, 'update-ref', '-d', 'refs/remotes/origin/dev/v4/v4.0');
+    const head = git(checkout, 'rev-parse', 'HEAD');
+    const shallowPath = path.resolve(
+      checkout,
+      git(checkout, 'rev-parse', '--git-path', 'shallow'),
+    );
+    fs.writeFileSync(shallowPath, `${head}\n`);
+
+    assert.equal(
+      prepareGateMeasurementHistory(checkout, {
+        baseRef: 'dev/v4/v4.0',
+      }),
+      'recovered-local',
+    );
+    assert.equal(
+      git(checkout, 'rev-parse', 'refs/remotes/origin/dev/v4/v4.0'),
+      git(origin, 'rev-parse', 'dev/v4/v4.0'),
+    );
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});

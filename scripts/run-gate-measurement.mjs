@@ -7,6 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { exposeGateMeasurementPython } from './gate-measurement-environment.mjs';
 import { prepareGateMeasurementHistory } from './prepare-gate-measurement-history.mjs';
 import { cacheAppliedCommandArgs, runShifu } from './run-shifu-lifecycle.mjs';
 
@@ -99,6 +100,7 @@ function prepareWorkspace() {
   if (process.exitCode) return;
   runPreparation('uv', ['sync', '--project', 'framework/core', '--frozen']);
   if (process.exitCode) return;
+  exposeGateMeasurementPython(path.join(root, 'framework', 'core'));
   runPreparation(
     shifuLauncher,
     ['--filter', '@kungfu-tech/core', 'run', 'configure'],
@@ -111,7 +113,7 @@ function prepareWorkspace() {
 }
 
 function prepareHistory() {
-  prepareGateMeasurementHistory(process.cwd());
+  prepareGateMeasurementHistory(process.cwd(), { baseRef: 'dev/v4/v4.0' });
 }
 
 // Dependency installation, catalog bootstrap, and managed Python materialization
