@@ -74,10 +74,53 @@ def _canonical_digest(value: Mapping[str, Any]) -> str:
 def _process_identity(pid: int | None) -> str | None:
     if not isinstance(pid, int) or pid <= 0:
         return None
+    if platform.system() == "Windows":
+        return _windows_process_identity(pid)
     try:
         return format(psutil.Process(pid).create_time(), ".6f")
     except (psutil.Error, OSError, ValueError):
         return None
+
+
+def _windows_process_identity(pid: int) -> str | None:
+    """Read the exact kernel creation FILETIME instead of a derived timestamp."""
+
+    import ctypes
+    from ctypes import wintypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+    kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel32.OpenProcess.restype = wintypes.HANDLE
+    kernel32.GetProcessTimes.argtypes = [
+        wintypes.HANDLE,
+        ctypes.POINTER(wintypes.FILETIME),
+        ctypes.POINTER(wintypes.FILETIME),
+        ctypes.POINTER(wintypes.FILETIME),
+        ctypes.POINTER(wintypes.FILETIME),
+    ]
+    kernel32.GetProcessTimes.restype = wintypes.BOOL
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel32.CloseHandle.restype = wintypes.BOOL
+    handle = kernel32.OpenProcess(0x1000, False, pid)
+    if not handle:
+        return None
+    try:
+        creation = wintypes.FILETIME()
+        exit_time = wintypes.FILETIME()
+        kernel_time = wintypes.FILETIME()
+        user_time = wintypes.FILETIME()
+        if not kernel32.GetProcessTimes(
+            handle,
+            ctypes.byref(creation),
+            ctypes.byref(exit_time),
+            ctypes.byref(kernel_time),
+            ctypes.byref(user_time),
+        ):
+            return None
+        value = (creation.dwHighDateTime << 32) | creation.dwLowDateTime
+        return f"filetime:{value}"
+    finally:
+        kernel32.CloseHandle(handle)
 
 
 def _process_matches(pid: int | None, identity: Any) -> bool:

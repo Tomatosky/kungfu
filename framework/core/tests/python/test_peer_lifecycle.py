@@ -81,6 +81,15 @@ def test_process_continuity_only_peer_declares_lost_control():
     assert spec["recovery"]["durableState"] == "none"
 
 
+def test_windows_process_identity_uses_the_kernel_filetime(monkeypatch):
+    monkeypatch.setattr(peer_lifecycle.platform, "system", lambda: "Windows")
+    monkeypatch.setattr(
+        peer_lifecycle, "_windows_process_identity", lambda pid: f"filetime:{pid}"
+    )
+
+    assert peer_lifecycle._process_identity(42) == "filetime:42"
+
+
 def test_status_distinguishes_ready_orphan_from_unowned_pid(tmp_path, monkeypatch):
     runtime_dir = str(tmp_path / "runtime")
     state = {
