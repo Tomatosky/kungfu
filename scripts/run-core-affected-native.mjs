@@ -7,6 +7,8 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 
+import { writeShifuGateEvidence } from './shifu-gate-evidence.mjs';
+
 const root = process.cwd();
 const coreRoot = path.join(root, 'framework', 'core');
 const architecturePath = path.join(coreRoot, 'architecture', 'layers.json');
@@ -552,6 +554,11 @@ function execute(plan, receiptPath) {
   };
   fs.mkdirSync(path.dirname(absoluteReceipt), { recursive: true });
   fs.writeFileSync(absoluteReceipt, `${JSON.stringify(receipt, null, 2)}\n`);
+  writeShifuGateEvidence({
+    schema: 'kungfu.core-affected-native-receipt/v1',
+    pointers: [{ id: 'core-affected-native-receipt', file: absoluteReceipt }],
+    root,
+  });
   console.log(
     `[core-affected] receipt=${path.relative(root, absoluteReceipt)}`,
   );
