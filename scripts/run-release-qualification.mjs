@@ -134,17 +134,20 @@ export function releaseQualificationEnvironment(
 ) {
   const temporary = path.join(root, '.buildchain', 'tmp');
   fs.mkdirSync(temporary, { recursive: true });
-  return lifecycleEnvironment({
-    ...inherited,
-    TMPDIR: temporary,
-    TEMP: temporary,
-    TMP: temporary,
-    KUNGFU_BUILDCHAIN_NO_OPTIONAL: '1',
-    KUNGFU_BUILDCHAIN_SOURCE_BUILD: '1',
-    SHIFU_NATIVE: '1',
-    SHIFU_REQUIRE_MSVC: '1',
-    KUNGFU_FUZZ_SECONDS: String(fuzzSecondsPerTarget),
-  });
+  return lifecycleEnvironment(
+    {
+      ...inherited,
+      TMPDIR: temporary,
+      TEMP: temporary,
+      TMP: temporary,
+      KUNGFU_BUILDCHAIN_NO_OPTIONAL: '1',
+      KUNGFU_BUILDCHAIN_SOURCE_BUILD: '1',
+      SHIFU_NATIVE: '1',
+      SHIFU_REQUIRE_MSVC: '1',
+      KUNGFU_FUZZ_SECONDS: String(fuzzSecondsPerTarget),
+    },
+    'dist',
+  );
 }
 
 export function releaseQualificationStages(

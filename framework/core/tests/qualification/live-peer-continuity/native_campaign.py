@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import os
+import platform
 import signal
 import subprocess
 import sys
@@ -232,13 +233,13 @@ def _spawn_capsule(
     return process, stream
 
 
-def _run_campaign(output_dir: Path) -> int:
+def _run_campaign(output_dir: Path, temp_parent: Path | None = None) -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
     report_path = output_dir / "report.json"
     # NNG's ipc transport inherits the platform Unix-domain socket path limit.
     # Keep this test-owned workspace short so macOS does not reject valid
     # runtime endpoints solely because $TMPDIR is deeply nested.
-    with tempfile.TemporaryDirectory(prefix="kfp-", dir="/tmp") as root:
+    with tempfile.TemporaryDirectory(prefix="kfp-", dir=temp_parent) as root:
         runtime_dir = Path(root) / "workspace" / "runtime"
         marker_path = Path(root) / "peer-ready.jsonl"
         capsule_command_path = Path(root) / "capsule-authority.jsonl"
@@ -386,7 +387,7 @@ def _run_campaign(output_dir: Path) -> int:
             "verdict": verdict,
             "startedAtNs": str(started_at),
             "completedAtNs": str(time.time_ns()),
-            "platform": {"os": sys.platform, "machine": os.uname().machine},
+            "platform": {"os": sys.platform, "machine": platform.machine()},
             "coverage": {
                 "hardCoordinatorCrash": verdict == "passed",
                 "sameGenerationEpochAdvance": verdict == "passed",
@@ -424,6 +425,7 @@ def _parser() -> argparse.ArgumentParser:
     peer.add_argument("--marker-path", type=Path, required=True)
     campaign = subparsers.add_parser("campaign")
     campaign.add_argument("--output-dir", type=Path, required=True)
+    campaign.add_argument("--temp-parent", type=Path)
     return parser
 
 
@@ -435,7 +437,7 @@ def main() -> int:
         )
     if args.role == "peer":
         return _run_peer(args.runtime_dir, args.marker_path)
-    return _run_campaign(args.output_dir)
+    return _run_campaign(args.output_dir, args.temp_parent)
 
 
 if __name__ == "__main__":
