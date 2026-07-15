@@ -56,7 +56,7 @@ from the same authority as this map.
 | Target | Kind | Component | Depends on | Sources |
 | --- | --- | --- | --- | ---: |
 | `kungfu_contracts` | `INTERFACE` | `libkungfu-contracts` | — | 0 |
-| `kungfu_services` | `OBJECT` | `libkungfu-services` | `kungfu_contracts` | 26 |
+| `kungfu_services` | `OBJECT` | `libkungfu-services` | `kungfu_contracts` | 27 |
 | `kungfu_services_state_cache` | `OBJECT` | `libkungfu-services` | `kungfu_contracts` | 3 |
 | `kungfu_adapters` | `OBJECT` | `libkungfu-adapters` | `kungfu_services`<br>`kungfu_services_state_cache` | 12 |
 | `kungfu_composition` | `OBJECT` | `core-composition-bindings` | `kungfu_adapters` | 2 |

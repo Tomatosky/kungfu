@@ -15,6 +15,7 @@ set(KUNGFU_SERVICES_SOURCE_FILES
   "${PROJECT_SOURCE_DIR}/src/runtime/journal/replay_writer.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/journal/tracer.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/kfx/native_contract.cpp"
+  "${PROJECT_SOURCE_DIR}/src/runtime/kfx/native_registry.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/live/continuity.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/live/coordinator.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/live/peer.cpp"
