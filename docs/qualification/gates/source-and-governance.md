@@ -101,7 +101,7 @@ Each section is bound to the registry id by the catalog meta gate.
   <base> --head <head> --json`; run mutation fixtures with `./shifu
   core:affected -- --self-test`.
 - **Cost:** heavy; timeout 1500 seconds.
-- **Current source:** .github/workflows/affected-native-pr.yml (affected-native; development pull request touching Core architecture, source, build, gate, or resolver paths)
+- **Current source:** .github/workflows/affected-native-pr.yml (affected-native; every development pull request; outside-Core changes produce a passed tier-none receipt so the required check never deadlocks)
 - **Retirement:** remove only with a replacement that consumes the same
   architecture authority and preserves changed-path completeness, raw native
   evidence and the alpha/release responsibility split.

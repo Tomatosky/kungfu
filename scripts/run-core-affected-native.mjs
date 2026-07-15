@@ -612,6 +612,26 @@ function selfTest(authority, buildAuthority) {
       throw new Error('owner missing');
   });
   expect(
+    'outside-Core change emits a required-check-safe tier-none plan',
+    () => {
+      const plan = planFromChanged(
+        ['docs/MAP.md'],
+        authority,
+        buildAuthority,
+        'base',
+        'head',
+      );
+      if (
+        plan.platformTier !== 'none' ||
+        plan.profile !== null ||
+        plan.targets.length ||
+        plan.tests.length
+      ) {
+        throw new Error('outside-Core plan scheduled native work');
+      }
+    },
+  );
+  expect(
     'unclassified source fails closed',
     () =>
       planFromChanged(

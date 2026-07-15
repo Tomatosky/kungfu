@@ -38,7 +38,7 @@
       "gates": [
         "source.changed-scope"
       ],
-      "activation": "development pull request touching Core architecture, source, build, gate, or resolver paths",
+      "activation": "every development pull request; outside-Core changes produce a passed tier-none receipt so the required check never deadlocks",
       "invocation": {
         "args": [
           "--capability",

@@ -6,13 +6,6 @@ on:
   pull_request:
     branches:
       - dev/v*/v*
-    paths:
-      - "framework/core/**"
-      - "scripts/run-core-affected-native.mjs"
-      - "package.json"
-      - "shifu.gates.json"
-      - "docs/qualification/gates/**"
-      - ".github/workflows/affected-native-pr.yml"
 
 permissions:
   contents: read
