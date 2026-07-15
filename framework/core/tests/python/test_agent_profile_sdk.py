@@ -5,6 +5,7 @@ import hashlib
 import json
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
 from kungfu import profile_composition, profile_sdk, runtime_broker
@@ -86,6 +87,15 @@ def _write_json(path, value):
         "path": path.relative_to(path.parents[1]).as_posix(),
         "sha256": hashlib.sha256(data).hexdigest(),
     }
+
+
+def _symlink_or_skip(link, target, *, target_is_directory=False):
+    try:
+        link.symlink_to(target, target_is_directory=target_is_directory)
+    except OSError as error:
+        if getattr(error, "winerror", None) == 1314:
+            pytest.skip("Windows runner account cannot create symbolic links")
+        raise
 
 
 def add_collaboration(source):
@@ -751,8 +761,9 @@ def test_member_package_symlink_fails_closed(tmp_path):
     source, _ = create_source(tmp_path)
     outside = tmp_path / "outside.txt"
     outside.write_text("outside")
-    (source / "members" / "example-week-day-contract" / "outside-link").symlink_to(
-        outside
+    _symlink_or_skip(
+        source / "members" / "example-week-day-contract" / "outside-link",
+        outside,
     )
 
     try:
@@ -768,7 +779,11 @@ def test_member_package_ignores_dependency_directory_symlinks(tmp_path):
     member = source / "members" / "example-week-day-contract"
     dependencies = member / "node_modules"
     dependencies.mkdir()
-    (dependencies / "dependency").symlink_to(tmp_path)
+    _symlink_or_skip(
+        dependencies / "dependency",
+        tmp_path,
+        target_is_directory=True,
+    )
 
     result = profile_sdk.validate_source(source, tmp_path / "runtime")
 
