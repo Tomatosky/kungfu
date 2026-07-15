@@ -718,8 +718,8 @@
       "maximum_component_fanout": {"direction": "lower", "budget": 11, "blocking": true},
       "maximum_public_header_propagation": {"direction": "lower", "budget": 12, "blocking": true},
       "maximum_responsibility_utilization_percent": {"direction": "lower", "budget": 100, "blocking": true},
-      "maximum_component_churn": {"direction": "lower", "budget": 318, "blocking": false, "reason": "Historical coupling is diagnostic; ordinary development must not be blocked by commit volume alone."},
-      "affected_native_duration_ms": {"direction": "lower", "budget": 1200000, "blocking": false, "reason": "The first GitHub-hosted Linux affected-native receipt will promote this retained observation into a blocking ratchet."},
+      "maximum_component_churn": {"direction": "lower", "budget": 319, "blocking": false, "reason": "Historical coupling is diagnostic; ordinary development must not be blocked by commit volume alone."},
+      "affected_native_duration_ms": {"direction": "lower", "budget": 1200000, "blocking": true},
       "binary_size_bytes": {"direction": "lower", "budget": null, "blocking": false, "reason": "PR source authority has no stable packaged artifact; release qualification retains binary-size evidence."},
       "external_dependency_closure": {"direction": "lower", "budget": 12, "blocking": true}
     },
