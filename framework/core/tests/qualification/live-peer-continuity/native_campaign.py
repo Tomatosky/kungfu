@@ -465,6 +465,12 @@ def _run_campaign(output_dir: Path, temp_parent: Path | None = None) -> int:
             restarted = peer_lifecycle.status(
                 runtime_dir, "qualification.continuity-probe"
             )
+            restart_deadline = time.monotonic() + 5
+            while time.monotonic() < restart_deadline and not restarted["healthy"]:
+                time.sleep(0.1)
+                restarted = peer_lifecycle.status(
+                    runtime_dir, "qualification.continuity-probe"
+                )
             restarted_pid = int(restarted_markers[-1]["pid"])
             if (
                 not restarted["healthy"]
