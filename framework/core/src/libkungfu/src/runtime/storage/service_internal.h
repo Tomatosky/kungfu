@@ -60,6 +60,7 @@ class provider_cache {
 public:
   static provider_cache &instance();
   [[nodiscard]] std::shared_ptr<storage_provider> acquire(const std::string &runtime, const std::string &provider);
+  [[nodiscard]] bool release_temporary(const std::string &runtime, const std::string &provider);
   [[nodiscard]] storage_provider_cache_view stats() const;
 
 private:

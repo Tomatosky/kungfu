@@ -658,6 +658,25 @@ std::shared_ptr<storage_provider> provider_cache::acquire(const std::string &run
   return providers_.emplace(key, make_provider(selection.name, runtime_dir)).first->second;
 }
 
+bool provider_cache::release_temporary(const std::string &runtime, const std::string &provider) {
+  const auto selection = select_provider(provider);
+  const auto runtime_dir = absolute_normalized(runtime).string();
+  const auto key = selection.name + "|" + runtime_dir;
+  std::lock_guard<std::mutex> lock(mutex_);
+  const auto it = providers_.find(key);
+  if (it == providers_.end()) {
+    return true;
+  }
+  // Normal runtime handles remain process-cached. One-shot verification
+  // runtimes may be released only after every operation-local owner is gone,
+  // which lets Windows close RocksDB's LOCK before deleting the temp tree.
+  if (it->second.use_count() != 1) {
+    return false;
+  }
+  providers_.erase(it);
+  return true;
+}
+
 storage_provider_cache_view provider_cache::stats() const {
   std::lock_guard<std::mutex> lock(mutex_);
   return {"process", providers_.size(), hits_.load(std::memory_order_relaxed), misses_.load(std::memory_order_relaxed)};
