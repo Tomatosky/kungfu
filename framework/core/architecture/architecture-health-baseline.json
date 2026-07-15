@@ -1,0 +1,15 @@
+{
+  "$schema": "kungfu.core-architecture-health-baseline/v1",
+  "baselineId": "level5-2026-07-15",
+  "source": "feature/architecture-query-health-ownership before query and health projections",
+  "values": {
+    "component_cycles": 0,
+    "maximum_component_fanout": 11,
+    "maximum_public_header_propagation": 12,
+    "maximum_responsibility_utilization_percent": 93,
+    "maximum_component_churn": 318,
+    "affected_native_duration_ms": null,
+    "binary_size_bytes": null,
+    "external_dependency_closure": 8
+  }
+}
