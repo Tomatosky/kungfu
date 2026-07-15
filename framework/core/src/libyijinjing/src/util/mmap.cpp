@@ -114,8 +114,13 @@ native_mapping map_file(const std::string &path, size_t size, mapping_policy pol
     }
     LARGE_INTEGER target{};
     target.QuadPart = static_cast<LONGLONG>(size);
-    if (!SetFilePointerEx(file.get(), target, nullptr, FILE_BEGIN) || !SetEndOfFile(file.get())) {
-      throw_mapping_error("failed to stretch file", path, static_cast<int>(GetLastError()));
+    if (!SetFilePointerEx(file.get(), target, nullptr, FILE_BEGIN)) {
+      throw_mapping_error("failed to seek before stretching file to " + std::to_string(size) + " bytes", path,
+                          static_cast<int>(GetLastError()));
+    }
+    if (!SetEndOfFile(file.get())) {
+      throw_mapping_error("failed to stretch file to " + std::to_string(size) + " bytes", path,
+                          static_cast<int>(GetLastError()));
     }
   }
 

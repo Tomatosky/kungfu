@@ -196,6 +196,24 @@ function withStorageProvider(provider, fn) {
   }
 }
 
+function removeRuntimeDir(runtimeDir, provider) {
+  try {
+    fs.rmSync(runtimeDir, { recursive: true, force: true });
+  } catch (error) {
+    const expectedLockedDatabase =
+      process.platform === 'win32' &&
+      provider === 'rocksdb' &&
+      error?.code === 'EBUSY' &&
+      path.basename(error.path || '') === 'LOCK';
+    if (!expectedLockedDatabase) {
+      throw error;
+    }
+    // The RocksDB provider is deliberately process-cached. Windows refuses
+    // to unlink its live LOCK file, unlike POSIX, so the process temp area
+    // owns cleanup after this test process exits.
+  }
+}
+
 test(
   'Node KFX registry projection returns the Core canonical plan root',
   {
@@ -556,14 +574,15 @@ def node_safe(value):
 
 print(json.dumps(node_safe(out), sort_keys=True, separators=(",", ":")))
 `;
+  const scriptPath = path.join(runtimeDir, 'storage-node-shim.py');
+  fs.writeFileSync(scriptPath, script, 'utf8');
   const result = spawnSync(
     'uv',
-    ['run', '--frozen', 'python', '-c', script, coreDir, runtimeDir],
+    ['run', '--frozen', 'python', scriptPath, coreDir, runtimeDir],
     {
       cwd: coreDir,
       encoding: 'utf8',
       env: runtimeEnv(),
-      shell: process.platform === 'win32',
     },
   );
   assert.equal(
@@ -729,7 +748,7 @@ for (const providerCase of providerCases) {
             true,
           );
         } finally {
-          fs.rmSync(runtimeDir, { recursive: true, force: true });
+          removeRuntimeDir(runtimeDir, providerCase.env);
         }
       }),
   );
@@ -1113,7 +1132,7 @@ for (const provider of ['content-addressed-file', 'rocksdb']) {
           assert.equal(rejected.ok, false);
           assert.equal(rejected.error, 'hash_mismatch');
         } finally {
-          fs.rmSync(runtimeDir, { recursive: true, force: true });
+          removeRuntimeDir(runtimeDir, provider);
         }
       }),
   );

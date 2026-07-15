@@ -26,7 +26,7 @@ using kungfu::yijinjing::journal::writer;
 
 namespace {
 
-constexpr size_t TEST_PAGE_SIZE = 2 * kungfu::yijinjing::MB;
+constexpr uint64_t TEST_PAGE_SIZE_MB = 2;
 volatile std::sig_atomic_t sigint_count = 0;
 
 void count_sigint(int) { sigint_count = sigint_count + 1; }
@@ -137,7 +137,7 @@ void test_replay_exhaustion_is_typed_and_signal_free() {
   constexpr int32_t missing_carrier = 2002;
 
   {
-    writer fixture(source, location::PUBLIC, publisher, false, journal_bus, TEST_PAGE_SIZE);
+    writer fixture(source, location::PUBLIC, publisher, false, journal_bus, TEST_PAGE_SIZE_MB);
     auto transaction = fixture.reserve_frame(1, available_carrier, 8);
     transaction.commit(8, 2);
   }
@@ -146,7 +146,7 @@ void test_replay_exhaustion_is_typed_and_signal_free() {
   sigint_guard signal_observer;
   bool typed_error_observed = false;
   try {
-    replay_writer replay(source, location::PUBLIC, publisher, journal_bus, TEST_PAGE_SIZE, 0);
+    replay_writer replay(source, location::PUBLIC, publisher, journal_bus, TEST_PAGE_SIZE_MB, 0);
     (void)replay.reserve_frame(3, missing_carrier, 8);
   } catch (const replay_exhausted &error) {
     typed_error_observed = true;

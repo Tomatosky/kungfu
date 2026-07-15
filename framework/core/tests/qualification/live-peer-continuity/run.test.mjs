@@ -67,14 +67,41 @@ test('native campaign enters Python through the Shifu-managed uv project', () =>
   assert.equal(windows.shell, true);
 });
 
-test('native campaign uses a short Unix temp root without assuming /tmp on Windows', () => {
+test('native campaign uses a short platform-owned temp root', () => {
   assert.equal(campaignTempParent('linux'), '/tmp');
   assert.equal(campaignTempParent('darwin'), '/tmp');
-  assert.equal(campaignTempParent('win32'), null);
+  assert.equal(
+    campaignTempParent('win32', {
+      env: { RUNNER_TEMP: 'D:\\a\\_temp', TEMP: 'D:\\repo\\.buildchain\\tmp' },
+      temporaryDirectory: 'C:\\Users\\runneradmin\\AppData\\Local\\Temp',
+    }),
+    'D:\\a\\_temp',
+  );
+  assert.equal(
+    campaignTempParent('win32', {
+      env: {},
+      temporaryDirectory: 'C:\\Users\\local\\AppData\\Local\\Temp',
+    }),
+    'C:\\Users\\local\\AppData\\Local\\Temp',
+  );
+  assert.equal(
+    campaignTempParent('win32', {
+      env: {
+        KUNGFU_QUALIFICATION_HOST_TEMP:
+          'C:\\Users\\local\\AppData\\Local\\Temp',
+      },
+      temporaryDirectory: 'D:\\repo\\.buildchain\\tmp',
+    }),
+    'C:\\Users\\local\\AppData\\Local\\Temp',
+  );
   const linux = qualificationPlan('/qualification', { platform: 'linux' })[2];
   const windows = qualificationPlan('/qualification', { platform: 'win32' })[2];
   assert.deepEqual(linux.command.slice(-2), ['--temp-parent', '/tmp']);
-  assert.ok(!windows.command.includes('--temp-parent'));
+  assert.ok(windows.command.includes('--temp-parent'));
+  assert.notEqual(
+    windows.command[windows.command.indexOf('--temp-parent') + 1],
+    null,
+  );
 });
 
 test('clean complete evidence qualifies only the bounded single-host claim', () => {

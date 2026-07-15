@@ -384,15 +384,21 @@ storage_verify_sync_result verify_sync_typed_impl(const storage_verify_sync_requ
     result.imported_fsck =
         default_storage_service().fsck({temp_root.string(), request.provider, request.provider_config_source,
                                         storage_fsck_scope::Source, request.source_id, 0, false});
-    const auto imported_provider = provider_cache::instance().acquire(temp_root.string(), request.provider);
+    auto imported_provider = provider_cache::instance().acquire(temp_root.string(), request.provider);
     const auto imported =
         catalog_store(temp_root.string()).latest_manifest_typed(request.source_id, imported_provider->content_store());
     if (imported.has_value()) {
       result.imported_sync_root = {imported->sync_root.algorithm, imported->sync_root.value};
     }
+    imported_provider.reset();
+    if (!provider_cache::instance().release_temporary(temp_root.string(), request.provider)) {
+      throw std::runtime_error("temporary sync provider still has active operations");
+    }
     fs::remove_all(temp_root);
   } catch (...) {
-    fs::remove_all(temp_root);
+    (void)provider_cache::instance().release_temporary(temp_root.string(), request.provider);
+    std::error_code cleanup_error;
+    fs::remove_all(temp_root, cleanup_error);
     throw;
   }
   result.sync_roots_match = result.local_sync_root.algorithm == result.imported_sync_root.algorithm &&

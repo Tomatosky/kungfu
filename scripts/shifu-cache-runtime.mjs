@@ -887,6 +887,15 @@ process.exit(result.status ?? 1);
 `;
 }
 
+function originalToolPath(baseEnv, originalPathKey) {
+  const candidate = baseEnv.PATH || '';
+  const inherited = baseEnv[originalPathKey] || '';
+  const unchangedFromCaller =
+    candidate === (process.env.PATH || '') &&
+    inherited === (process.env[originalPathKey] || '');
+  return unchangedFromCaller && inherited ? inherited : candidate;
+}
+
 function prepareConfigOverlays(configBindings, baseEnv, scope, cwd) {
   if (configBindings.length === 0) return { env: {}, root: '', cleanup() {} };
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'shifu-cache-overlay-'));
@@ -926,8 +935,10 @@ function prepareConfigOverlays(configBindings, baseEnv, scope, cwd) {
           '@node "%~dp0cargo-wrapper.mjs" %*\r\n',
           { mode: 0o600 },
         );
-        const originalPath =
-          baseEnv.SHIFU_CARGO_ORIGINAL_PATH || baseEnv.PATH || '';
+        const originalPath = originalToolPath(
+          baseEnv,
+          'SHIFU_CARGO_ORIGINAL_PATH',
+        );
         overlayEnv.SHIFU_CARGO_ORIGINAL_PATH = originalPath;
         overlayEnv.SHIFU_CARGO_SOURCE_NAME = binding.name;
         overlayEnv.SHIFU_CARGO_REGISTRY = binding.value;
@@ -980,8 +991,10 @@ function prepareConfigOverlays(configBindings, baseEnv, scope, cwd) {
           '@node "%~dp0conan-wrapper.mjs" %*\r\n',
           { mode: 0o600 },
         );
-        overlayEnv.SHIFU_CONAN_ORIGINAL_PATH =
-          baseEnv.SHIFU_CONAN_ORIGINAL_PATH || baseEnv.PATH || '';
+        overlayEnv.SHIFU_CONAN_ORIGINAL_PATH = originalToolPath(
+          baseEnv,
+          'SHIFU_CONAN_ORIGINAL_PATH',
+        );
         overlayEnv.SHIFU_CONAN_STORAGE_ROOT = storageRoot;
         fs.writeFileSync(
           path.join(conanHome, 'global.conf'),
