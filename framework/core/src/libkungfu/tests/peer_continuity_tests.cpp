@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <kungfu/runtime/live/continuity.h>
+#include <kungfu/runtime/live/key_value_store.h>
 
+#include <chrono>
+#include <filesystem>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -14,6 +17,8 @@ using kungfu::runtime::live::peer_continuity_phase;
 using kungfu::runtime::live::peer_continuity_tracker;
 
 namespace {
+
+namespace fs = std::filesystem;
 
 void require(bool condition, const std::string &message) {
   if (!condition) {
@@ -88,6 +93,29 @@ void test_tracker_uses_bounded_retry_and_requires_bootstrap() {
   require(tracker.phase() == peer_continuity_phase::Registering, "rejected coordinator changed peer recovery phase");
 }
 
+void test_empty_live_kv_directory_is_an_uninitialized_store() {
+#if KUNGFU_HAS_ROCKSDB
+  const auto nonce = std::chrono::steady_clock::now().time_since_epoch().count();
+  const auto root = fs::temp_directory_path() / ("kungfu-live-kv-cold-start-" + std::to_string(nonce));
+  const auto store_path = root / "map" / "system" / "master" / "master" / "live";
+  fs::create_directories(store_path);
+
+  try {
+    const auto store = kungfu::runtime::live::make_live_key_value_store(store_path.string(), true);
+    require(store->get("location_uid64").empty(), "empty live-KV directory did not read as uninitialized");
+    store->put("cold-start", "ready");
+    require(store->get("cold-start") == "ready", "uninitialized live-KV store did not bootstrap on first write");
+  } catch (...) {
+    std::error_code ignored;
+    fs::remove_all(root, ignored);
+    throw;
+  }
+
+  std::error_code ignored;
+  fs::remove_all(root, ignored);
+#endif
+}
+
 } // namespace
 
 int main() {
@@ -96,6 +124,7 @@ int main() {
       {"coordinator rejects peer from the future", test_coordinator_rejects_peer_from_the_future},
       {"registration payload round trip is exact", test_registration_payload_round_trip_is_exact},
       {"tracker uses bounded retry and requires bootstrap", test_tracker_uses_bounded_retry_and_requires_bootstrap},
+      {"empty live KV directory is an uninitialized store", test_empty_live_kv_directory_is_an_uninitialized_store},
   };
   for (const auto &[name, test] : tests) {
     try {

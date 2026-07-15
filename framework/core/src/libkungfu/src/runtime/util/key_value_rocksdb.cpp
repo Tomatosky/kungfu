@@ -92,6 +92,14 @@ private:
       if (!std::filesystem::exists(path_)) {
         return {};
       }
+      // locator::layout_directory may create the mapping directory before the
+      // Coordinator performs its first write.  An empty directory is still an
+      // uninitialized store, not a corrupt RocksDB database.  Preserve hard
+      // failures for non-empty directories with a missing/invalid CURRENT so
+      // genuine storage damage cannot be mistaken for an empty runtime.
+      if (std::filesystem::is_directory(path_) && std::filesystem::is_empty(path_)) {
+        return {};
+      }
       status = rocksdb::DB::OpenForReadOnly(options, path_, &raw);
     }
     require_ok(status, write ? "open read-write" : "open read-only", path_);
