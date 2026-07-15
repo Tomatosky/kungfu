@@ -94,7 +94,6 @@ export async function checkShifuCacheContract(root = ROOT) {
   const dispatchMarkers = [
     ['shifu', 'if [ "${1:-}" = "cache" ]; then'],
     ['shifu.cmd', 'if /i "%~1"=="cache" goto delegate'],
-    ['crates/shifu/src/main.rs', '"cache", "proxy", "config"'],
   ];
   for (const [source, marker] of dispatchMarkers) {
     assert.match(
@@ -103,6 +102,17 @@ export async function checkShifuCacheContract(root = ROOT) {
       `${source} does not route the cache command`,
     );
   }
+  const nativeLauncher = fs.readFileSync(
+    path.join(root, 'crates/shifu/src/main.rs'),
+    'utf8',
+  );
+  const nativeSubcommands = nativeLauncher.match(
+    /const L2_SUBCOMMANDS:[^=]+=\s*&\[(?<commands>[\s\S]*?)\];/,
+  );
+  assert.ok(
+    nativeSubcommands?.groups?.commands.includes('"cache"'),
+    'crates/shifu/src/main.rs does not route the cache command',
+  );
 
   const exampleDir = path.join(root, 'docs', 'shifu', 'examples');
   const Ajv2020 = await loadAjv2020();

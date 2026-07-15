@@ -346,6 +346,19 @@ function testShifuCacheContract() {
   ]);
 }
 
+function checkShifuDocumentationContract() {
+  run('Shifu Documentation Protocol gate', 'node', [
+    path.join('scripts', 'check-shifu-documentation-contract.mjs'),
+  ]);
+}
+
+function testShifuDocumentationContract() {
+  run('Shifu Documentation Protocol tests', 'node', [
+    '--test',
+    path.join('scripts', 'shifu-documentation-runtime.test.mjs'),
+  ]);
+}
+
 function checkShifuGateContract() {
   run('Shifu Gate contract gate', 'node', [
     path.join('scripts', 'check-shifu-gate-contract.mjs'),
@@ -607,6 +620,7 @@ function checkStaged() {
   checkShifuVersionSync();
   checkShifuEntryContract();
   checkShifuCacheContract();
+  checkShifuDocumentationContract();
   checkShifuGateContract();
   checkKungfuGateCatalog();
   checkCarrierActionEnvelope(['--staged']);
@@ -663,6 +677,7 @@ function checkStaged() {
 function checkShared() {
   testShifuEntryContract();
   testShifuCacheContract();
+  testShifuDocumentationContract();
   testShifuGateContract();
   checkKungfuGateCatalog();
   testSchemaAuthority();

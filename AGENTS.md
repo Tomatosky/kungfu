@@ -66,6 +66,7 @@ layout, and code style.
 ./shifu verify          # assert existing build artifacts (quick)
 ./shifu verify --full   # rebuild + freeze, then assert (slow; needs the full toolchain)
 ./shifu docs:check      # deterministic Markdown, local-link, anchor, and docs-contract gate
+./shifu docs validate --json # inspect the project-independent Documentation Protocol submission
 ./shifu docs:prose      # advisory vocabulary and load-bearing prose policy
 ./shifu adr:audit       # inspect all ADR lifecycle, evidence, and release debt
 ```

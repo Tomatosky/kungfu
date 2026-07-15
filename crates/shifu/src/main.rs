@@ -7,7 +7,7 @@
 //
 //   shifu <any pnpm task/args>    run the task under the pinned toolchain
 //   shifu build | rebuild         rich subcommands -> delegated to L2 node
-//   shifu cache | gate | proxy | config  (shifu.mjs), not passed to pnpm
+//   shifu cache | docs | gate | proxy | config  (shifu.mjs), not passed to pnpm
 //   shifu --version | -v | -V     launcher version + build identity
 //   shifu self-version            this binary's crate version (machine readable)
 //   shifu / -h / --help           launcher usage (pnpm's own help: `shifu help`)
@@ -50,12 +50,17 @@ use shifu_core::style;
 
 /// Rich subcommands handled by the L2 node implementation (shifu.mjs),
 /// mirroring the sh / cmd entrypoints. Everything else goes to corepack pnpm.
-const L2_SUBCOMMANDS: &[&str] = &["build", "rebuild", "cache", "proxy", "config", "gate"];
+const L2_SUBCOMMANDS: &[&str] = &[
+    "build", "rebuild", "cache", "docs", "gate", "proxy", "config",
+];
 const SOURCE_ACCEPTANCE_CACHE_BYPASS: &str = "source-acceptance";
 
 #[cfg(any(windows, test))]
 fn command_requires_msvc(command: Option<&str>) -> bool {
-    !matches!(command, Some("cache" | "gate" | "proxy" | "config"))
+    !matches!(
+        command,
+        Some("cache" | "docs" | "gate" | "proxy" | "config")
+    )
 }
 
 fn should_auto_apply_cache(
@@ -79,6 +84,7 @@ fn should_auto_apply_cache(
         command,
         None | Some(
             "cache"
+                | "docs"
                 | "proxy"
                 | "config"
                 | "clone"
@@ -130,6 +136,7 @@ fn print_usage() {
     );
     println!("  shifu build | rebuild      bootstrap build (rebuild clears generated outputs)");
     println!("  shifu cache ...            inspect the versioned cache contract and schemas");
+    println!("  shifu docs ...             validate documentation submissions and canonical roots");
     println!("  shifu gate ...             inspect and plan registered project gates");
     println!("  shifu proxy | config ...   manage local mirror/cache config (build-local.env)");
     println!("  shifu clone [path]         clone the kungfu repository (default: current dir;");

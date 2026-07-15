@@ -32,6 +32,7 @@
     "check:all": "node scripts/require-shifu.mjs check:all && node scripts/check.mjs --all",
     "check:entry-contract": "node scripts/require-shifu.mjs check:entry-contract && node scripts/check-shifu-entry-contract.mjs",
     "check:shifu-cache-contract": "node scripts/require-shifu.mjs check:shifu-cache-contract && node scripts/check-shifu-cache-contract.mjs",
+    "check:shifu-documentation-contract": "node scripts/require-shifu.mjs check:shifu-documentation-contract && node scripts/check-shifu-documentation-contract.mjs",
     "check:shifu-gate-contract": "node scripts/require-shifu.mjs check:shifu-gate-contract && node scripts/check-shifu-gate-contract.mjs",
     "check:gate-catalog": "node scripts/require-shifu.mjs check:gate-catalog && node scripts/check-kungfu-gate-catalog.mjs",
     "check:shifu-workspace": "node scripts/require-shifu.mjs check:shifu-workspace && node scripts/check-shifu-workspace.mjs",

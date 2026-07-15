@@ -33,6 +33,7 @@ import {
   validateProfileBytes,
   writeReceipt,
 } from './scripts/shifu-cache-runtime.mjs';
+import { runDocumentationCommand } from './scripts/shifu-documentation-cli.mjs';
 import { runGateCommand } from './scripts/shifu-gate-cli.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -469,13 +470,19 @@ async function main() {
     await runCacheCommand(argv.slice(1));
     return;
   }
+  if (cmd === 'docs') {
+    process.exitCode = await runDocumentationCommand(argv.slice(1), {
+      root: __dirname,
+    });
+    return;
+  }
   if (cmd === 'gate') {
     process.exitCode = await runGateCommand(argv.slice(1), { root: __dirname });
     return;
   }
   if (cmd !== 'proxy' && cmd !== 'config') {
     console.error(
-      `shifu.mjs: unknown command ${cmd || '(empty)'} (supported: build/rebuild/cache/gate/proxy/config)`,
+      `shifu.mjs: unknown command ${cmd || '(empty)'} (supported: build/rebuild/cache/docs/gate/proxy/config)`,
     );
     process.exit(2);
   }

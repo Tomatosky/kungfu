@@ -17,6 +17,7 @@
 #   ./shifu <any pnpm task/args>
 #   ./shifu rebuild      # rich subcommand: clear generated outputs, then bootstrap build
 #   ./shifu cache ...    # rich subcommand: inspect the cache contract and schemas
+#   ./shifu docs ...     # rich subcommand: validate Documentation Protocol submissions
 #   ./shifu gate ...     # rich subcommand: inspect and plan project gates
 #   ./shifu proxy ...    # rich subcommand: manage local cache/mirror proxy config (delegated to L2 node, not passed to pnpm)
 #
@@ -320,6 +321,7 @@ case "${1:-}" in
     echo "  ./shifu <task> [args...]     run any pnpm task under the pinned toolchain"
     echo "  ./shifu build | rebuild      bootstrap build (rebuild clears generated outputs)"
     echo "  ./shifu cache ...            inspect the versioned cache contract and schemas"
+    echo "  ./shifu docs ...             validate documentation submissions and canonical roots"
     echo "  ./shifu gate ...             inspect and plan registered project gates"
     echo "  ./shifu proxy | config ...   manage local mirror/cache config"
     echo "  ./shifu --version            launcher version; ./shifu help for pnpm's own help"
@@ -348,17 +350,17 @@ if [ "${SHIFU_CACHE_ACTIVE:-}" != "1" ] \
         exec ./shifu cache apply -- ./shifu "$@"
       fi
       ;;
-    cache | proxy | config | clone | self-update | self-version | promote | builds | -h | --help | -v | -V | --version) ;;
+    cache | docs | proxy | config | clone | self-update | self-version | promote | builds | -h | --help | -v | -V | --version) ;;
     *) exec ./shifu cache apply -- ./shifu "$@" ;;
   esac
 fi
 
 # ── In-script bootstrap (requires fnm + uv installed once) ───────────────────
-# Rich subcommands delegate to L2 node (not passed to pnpm). L2 is pure node builtins and version-agnostic:
+# Rich subcommands (build | rebuild | cache | docs | gate | proxy | config) delegate to L2 node (not passed to pnpm). L2 is pure node builtins and version-agnostic:
 # prefer fnm-managed node when available (the normal path once bootstrap is ready); fall back to system node when fnm is
 # not ready, so a developer can still use L2 config first (e.g. set a mirror to in turn help fnm); error only if neither exists.
 case "${1:-}" in
-  build | rebuild | gate | proxy | config)
+  build | rebuild | cache | docs | gate | proxy | config)
     if command -v fnm >/dev/null 2>&1; then
       fnm install >/dev/null 2>&1 || true
       exec fnm exec --using-file -- node ./shifu.mjs "$@"

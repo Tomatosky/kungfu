@@ -130,6 +130,10 @@ export function sourceAcceptancePlan(files) {
     ['no Bash scripts', 'scripts/no-bash-guard.mjs'],
     ['Shifu entry contract', 'scripts/check-shifu-entry-contract.mjs'],
     ['Shifu cache contract', 'scripts/check-shifu-cache-contract.mjs'],
+    [
+      'Shifu Documentation Protocol',
+      'scripts/check-shifu-documentation-contract.mjs',
+    ],
     ['Shifu Gate contract', 'scripts/check-shifu-gate-contract.mjs'],
     ['Kungfu Gate catalog', 'scripts/check-kungfu-gate-catalog.mjs'],
     ['carrier/action envelope', 'scripts/check-carrier-action-envelope.mjs'],
@@ -178,6 +182,7 @@ export function sourceAcceptancePlan(files) {
         'scripts/shifu-uv-cache-adapter.test.mjs',
         'scripts/shifu-gate-runtime.test.mjs',
         'scripts/shifu-gate-executor.test.mjs',
+        'scripts/shifu-documentation-runtime.test.mjs',
         'scripts/check-kungfu-gate-catalog.test.mjs',
         'scripts/check-schema-authority.test.mjs',
         'scripts/check-runtime-contract.test.mjs',
