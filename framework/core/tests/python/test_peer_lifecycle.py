@@ -242,6 +242,52 @@ def test_ready_handshake_rejects_an_unbound_managed_process(tmp_path, monkeypatc
     assert not (tmp_path / "ready.json").exists()
 
 
+def test_peer_identity_binding_uses_the_declared_readiness_window(monkeypatch):
+    monkeypatch.setenv("KF_PEER_READY_TIMEOUT_SECONDS", "10")
+
+    assert peer_lifecycle._peer_identity_binding_timeout() == 10
+
+    for invalid in ("not-a-number", "nan", "inf", "0", "-1"):
+        monkeypatch.setenv("KF_PEER_READY_TIMEOUT_SECONDS", invalid)
+        assert (
+            peer_lifecycle._peer_identity_binding_timeout()
+            == peer_lifecycle.PROCESS_IDENTITY_TIMEOUT_SECONDS
+        )
+
+
+def test_peer_identity_binding_waits_past_the_kernel_lookup_window(
+    tmp_path, monkeypatch
+):
+    pid = os.getpid()
+    monkeypatch.setenv("KF_PEER_STATE_DIR", str(tmp_path))
+    monkeypatch.setenv("KF_PEER_ID", "test.probe")
+    monkeypatch.setenv("KF_PEER_HOST_GENERATION", "11")
+    monkeypatch.setenv("KF_PEER_GENERATION", "12")
+    monkeypatch.setenv("KF_PEER_READY_TOKEN", "token-12")
+    monkeypatch.setenv("KF_PEER_READY_TIMEOUT_SECONDS", "10")
+    states = iter(
+        [
+            {},
+            {
+                "peerId": "test.probe",
+                "peerOwnerHostGeneration": 11,
+                "peerGeneration": 12,
+                "readyToken": "token-12",
+                "peerPid": pid,
+                "peerStartIdentity": "host-bound-start",
+            },
+        ]
+    )
+    clock = iter([0.0, 3.0])
+    monkeypatch.setattr(peer_lifecycle, "_read_json", lambda _path: next(states))
+    monkeypatch.setattr(peer_lifecycle.time, "monotonic", lambda: next(clock))
+    monkeypatch.setattr(peer_lifecycle.time, "sleep", lambda _seconds: None)
+
+    assert (
+        peer_lifecycle._bound_peer_identity_from_environment(pid) == "host-bound-start"
+    )
+
+
 def test_host_self_binding_is_atomic_and_rejects_an_existing_owner(
     tmp_path, monkeypatch
 ):

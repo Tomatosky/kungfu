@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import platform
 import re
@@ -672,7 +673,7 @@ def _bound_peer_identity_from_environment(pid: int) -> str | None:
         "readyToken": os.environ.get("KF_PEER_READY_TOKEN"),
         "peerPid": pid,
     }
-    deadline = time.monotonic() + PROCESS_IDENTITY_TIMEOUT_SECONDS
+    deadline = time.monotonic() + _peer_identity_binding_timeout()
     managed_state = Path(state_dir) / "state.json"
     while True:
         state = _read_json(managed_state)
@@ -686,6 +687,19 @@ def _bound_peer_identity_from_environment(pid: int) -> str | None:
                 "Peer host process identity binding was unavailable",
             )
         time.sleep(0.02)
+
+
+def _peer_identity_binding_timeout() -> float:
+    """Keep the host/Peer rendezvous inside the declared readiness window."""
+
+    value = os.environ.get("KF_PEER_READY_TIMEOUT_SECONDS")
+    try:
+        timeout = float(value) if value is not None else 0.0
+    except ValueError:
+        timeout = 0.0
+    if not math.isfinite(timeout) or timeout <= 0:
+        timeout = PROCESS_IDENTITY_TIMEOUT_SECONDS
+    return max(PROCESS_IDENTITY_TIMEOUT_SECONDS, timeout)
 
 
 def _ready_mismatch_fields(
@@ -786,6 +800,7 @@ def _spawn_peer(
         "KF_PEER_READY_FILE": str(ready_path(runtime, peer_id)),
         "KF_PEER_READY_TOKEN": token,
         "KF_PEER_STATE_DIR": str(peer_dir(runtime, peer_id)),
+        "KF_PEER_READY_TIMEOUT_SECONDS": str(spec["readiness"]["timeoutSeconds"]),
     }
     try:
         ready_path(runtime, peer_id).unlink()
