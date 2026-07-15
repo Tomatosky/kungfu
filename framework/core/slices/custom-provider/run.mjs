@@ -2,7 +2,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { fail, locate, run, tmpDir } from '../_harness.mjs';
+import { fail, findBin, locate, run, tmpDir } from '../_harness.mjs';
 
 const { sliceDir, buildDir } = locate(import.meta.url);
 const toolchain = path.join(buildDir, 'conan_toolchain.cmake');
@@ -23,10 +23,8 @@ run('cmake', [
   '-DCMAKE_BUILD_TYPE=Release',
 ]);
 run('cmake', ['--build', scratch, '--target', 'custom_provider_consumer']);
-const executable = path.join(
-  scratch,
-  process.platform === 'win32'
-    ? 'Release/custom_provider_consumer.exe'
-    : 'custom_provider_consumer',
-);
+const executable = findBin(scratch, 'custom_provider_consumer');
+if (!executable) {
+  fail(`custom_provider_consumer not found under ${scratch}`);
+}
 run(executable, [], { inherit: true });
