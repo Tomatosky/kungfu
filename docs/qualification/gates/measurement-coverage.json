@@ -5,7 +5,6 @@
     "adoptedAt": "2026-07-14",
     "unmeasuredGateIds": [
       "durability.contracts",
-      "embedding.membranes",
       "episode.release",
       "episode.smoke",
       "layers.release",
@@ -28,7 +27,7 @@
       "toolchain.cpp-modules",
       "toolchain.libwasm-cache"
     ],
-    "digest": "sha256:e45fb95710ed22a0443870ec6fe5cca087084517582a2a074e8939965bdde01f"
+    "digest": "sha256:4346633fc77c38cd23fc3db44c84775f93db68a4824a24a626b930233b569276"
   },
   "measurements": [
     {
@@ -37,24 +36,24 @@
       "observations": [
         {
           "platform": "linux",
-          "sourceSha": "77c65cc63a04f98db3eaff27a4652dea2db488b4",
-          "registryDigest": "sha256:fb3394781eb3899ca9cc14f074effe365707f4ef3b40643bc84c4bbb882d227e",
-          "durationMs": 483,
-          "receipt": "docs/qualification/evidence/gate-measurements/77c65cc63/linux/mmap-performance-receipt.json"
+          "sourceSha": "1cb3069c0eda900a4823ab3f5f83bec1fdc7d5d8",
+          "registryDigest": "sha256:81e5a88f86949350cf6e9b08624bc0dce000766b2ef9335dc523e20a8b929c6d",
+          "durationMs": 478,
+          "receipt": "docs/qualification/evidence/gate-measurements/1cb3069c0/linux/embedding-receipt.json"
         },
         {
           "platform": "macos",
-          "sourceSha": "77c65cc63a04f98db3eaff27a4652dea2db488b4",
-          "registryDigest": "sha256:fb3394781eb3899ca9cc14f074effe365707f4ef3b40643bc84c4bbb882d227e",
-          "durationMs": 723,
-          "receipt": "docs/qualification/evidence/gate-measurements/77c65cc63/macos/mmap-performance-receipt.json"
+          "sourceSha": "1cb3069c0eda900a4823ab3f5f83bec1fdc7d5d8",
+          "registryDigest": "sha256:81e5a88f86949350cf6e9b08624bc0dce000766b2ef9335dc523e20a8b929c6d",
+          "durationMs": 871,
+          "receipt": "docs/qualification/evidence/gate-measurements/1cb3069c0/macos/embedding-receipt.json"
         },
         {
           "platform": "windows",
-          "sourceSha": "77c65cc63a04f98db3eaff27a4652dea2db488b4",
-          "registryDigest": "sha256:fb3394781eb3899ca9cc14f074effe365707f4ef3b40643bc84c4bbb882d227e",
-          "durationMs": 1963,
-          "receipt": "docs/qualification/evidence/gate-measurements/77c65cc63/windows/docs-contracts-smoke-receipt.json"
+          "sourceSha": "1cb3069c0eda900a4823ab3f5f83bec1fdc7d5d8",
+          "registryDigest": "sha256:81e5a88f86949350cf6e9b08624bc0dce000766b2ef9335dc523e20a8b929c6d",
+          "durationMs": 1958,
+          "receipt": "docs/qualification/evidence/gate-measurements/1cb3069c0/windows/embedding-receipt.json"
         }
       ]
     },
@@ -309,6 +308,33 @@
           "registryDigest": "sha256:26716c1b1979fa3789f35caf5db97dae103462a7e02aebd4f4026b0ea2923526",
           "durationMs": 32821,
           "receipt": "docs/qualification/evidence/layer-gates/c4ba70d95/windows-x64.raw/layer-artifact-gate-receipt.json"
+        }
+      ]
+    },
+    {
+      "gateId": "embedding.membranes",
+      "definitionDigest": "sha256:a955d9195cfa217877f39a457142251e1466b5c58a2d025564d5e793a6e13aa5",
+      "observations": [
+        {
+          "platform": "linux",
+          "sourceSha": "1cb3069c0eda900a4823ab3f5f83bec1fdc7d5d8",
+          "registryDigest": "sha256:81e5a88f86949350cf6e9b08624bc0dce000766b2ef9335dc523e20a8b929c6d",
+          "durationMs": 415922,
+          "receipt": "docs/qualification/evidence/gate-measurements/1cb3069c0/linux/embedding-receipt.json"
+        },
+        {
+          "platform": "macos",
+          "sourceSha": "1cb3069c0eda900a4823ab3f5f83bec1fdc7d5d8",
+          "registryDigest": "sha256:81e5a88f86949350cf6e9b08624bc0dce000766b2ef9335dc523e20a8b929c6d",
+          "durationMs": 643891,
+          "receipt": "docs/qualification/evidence/gate-measurements/1cb3069c0/macos/embedding-receipt.json"
+        },
+        {
+          "platform": "windows",
+          "sourceSha": "1cb3069c0eda900a4823ab3f5f83bec1fdc7d5d8",
+          "registryDigest": "sha256:81e5a88f86949350cf6e9b08624bc0dce000766b2ef9335dc523e20a8b929c6d",
+          "durationMs": 791614,
+          "receipt": "docs/qualification/evidence/gate-measurements/1cb3069c0/windows/embedding-receipt.json"
         }
       ]
     },

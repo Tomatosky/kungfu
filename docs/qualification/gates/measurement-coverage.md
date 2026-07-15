@@ -20,7 +20,7 @@ Gate's complete platform set.
 <!-- BEGIN GENERATED GATE MEASUREMENTS -->
 | Gate | Coverage | Source-bound observations |
 | --- | --- | --- |
-| `gate.catalog` | measured | [linux: 483 ms @ 77c65cc63](../evidence/gate-measurements/77c65cc63/linux/mmap-performance-receipt.json)<br>[macos: 723 ms @ 77c65cc63](../evidence/gate-measurements/77c65cc63/macos/mmap-performance-receipt.json)<br>[windows: 1963 ms @ 77c65cc63](../evidence/gate-measurements/77c65cc63/windows/docs-contracts-smoke-receipt.json) |
+| `gate.catalog` | measured | [linux: 478 ms @ 1cb3069c0](../evidence/gate-measurements/1cb3069c0/linux/embedding-receipt.json)<br>[macos: 871 ms @ 1cb3069c0](../evidence/gate-measurements/1cb3069c0/macos/embedding-receipt.json)<br>[windows: 1958 ms @ 1cb3069c0](../evidence/gate-measurements/1cb3069c0/windows/embedding-receipt.json) |
 | `governance.dco` | measured | [linux: 12000 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/linux/governance.dco.controller-receipt.json) |
 | `governance.adr-delivery` | measured | [linux: 38 ms @ 6b451a4e5](../evidence/gate-measurements/6b451a4e/linux/receipt.json)<br>[macos: 111 ms @ 6b451a4e5](../evidence/gate-measurements/6b451a4e/macos/receipt.json)<br>[windows: 101 ms @ 6b451a4e5](../evidence/gate-measurements/6b451a4e/windows/receipt.json) |
 | `governance.buildchain-config` | measured | [linux: 9000 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/linux/governance.buildchain-config.controller-receipt.json) |
@@ -43,7 +43,7 @@ Gate's complete platform set.
 | `layers.release` | adoption baseline | — |
 | `episode.smoke` | adoption baseline | — |
 | `episode.release` | adoption baseline | — |
-| `embedding.membranes` | adoption baseline | — |
+| `embedding.membranes` | measured | [linux: 415922 ms @ 1cb3069c0](../evidence/gate-measurements/1cb3069c0/linux/embedding-receipt.json)<br>[macos: 643891 ms @ 1cb3069c0](../evidence/gate-measurements/1cb3069c0/macos/embedding-receipt.json)<br>[windows: 791614 ms @ 1cb3069c0](../evidence/gate-measurements/1cb3069c0/windows/embedding-receipt.json) |
 | `mmap.contracts` | adoption baseline | — |
 | `mmap.performance` | measured | [linux: 2555 ms @ 77c65cc63](../evidence/gate-measurements/77c65cc63/linux/mmap-performance-receipt.json)<br>[macos: 1404 ms @ 77c65cc63](../evidence/gate-measurements/77c65cc63/macos/mmap-performance-receipt.json) |
 | `durability.contracts` | adoption baseline | — |
