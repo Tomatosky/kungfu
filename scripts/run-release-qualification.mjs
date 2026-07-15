@@ -367,6 +367,13 @@ function writeSummary(
 
 export function main(argv = process.argv.slice(2)) {
   if (process.platform === 'win32') {
+    const env = releaseQualificationEnvironment(ROOT, process.env);
+    env.PYTHONPATH = [
+      path.join(ROOT, 'framework', 'core', 'src', 'python'),
+      env.PYTHONPATH,
+    ]
+      .filter(Boolean)
+      .join(path.delimiter);
     const command = [
       'call',
       'shifu.cmd',
@@ -390,7 +397,7 @@ export function main(argv = process.argv.slice(2)) {
         ['/d', '/s', '/c', command],
         {
           cwd: ROOT,
-          env: releaseQualificationEnvironment(ROOT, process.env),
+          env,
           stdio: 'inherit',
         },
       ).status ?? 1
