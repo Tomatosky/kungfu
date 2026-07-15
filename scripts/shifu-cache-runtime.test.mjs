@@ -23,6 +23,17 @@ import {
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
+function freshCacheApplyEnv(overrides = {}) {
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(
+      ([key]) =>
+        key !== 'SHIFU_CARGO_ORIGINAL_PATH' &&
+        key !== 'SHIFU_CONAN_ORIGINAL_PATH',
+    ),
+  );
+  return { ...env, ...overrides };
+}
+
 const platform =
   process.platform === 'darwin'
     ? `darwin-${process.arch}`
@@ -713,8 +724,7 @@ test('cache apply overrides Cargo and isolates Conan without mutating persistent
     receiptPath,
     command: process.execPath,
     args: ['-e', script],
-    env: {
-      ...process.env,
+    env: freshCacheApplyEnv({
       CARGO_HOME: persistentCargo,
       CONAN_HOME: persistentConan,
       XDG_CACHE_HOME: xdgCache,
@@ -722,7 +732,7 @@ test('cache apply overrides Cargo and isolates Conan without mutating persistent
       FAKE_CONAN_ARGS: fakeConanArgsPath,
       PATH: `${inheritedWrapperBin}${path.delimiter}${fakeBin}${path.delimiter}${process.env.PATH || ''}`,
       SHIFU_CARGO_ORIGINAL_PATH: `${fakeBin}${path.delimiter}${process.env.PATH || ''}`,
-    },
+    }),
   });
   assert.equal(status, 0);
   const child = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
@@ -904,11 +914,10 @@ process.exit(status);
     scope: 'development',
     command: process.execPath,
     args: [childPath],
-    env: {
-      ...process.env,
+    env: freshCacheApplyEnv({
       PATH: originalPath,
       XDG_CACHE_HOME: path.join(directory, 'cache'),
-    },
+    }),
   });
   assert.equal(status, 0);
   const nested = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
@@ -1100,13 +1109,12 @@ test('a Conan child waits boundedly and preserves a live same-partition lock', a
       '-e',
       "const r=require('node:child_process').spawnSync('conan',['--version'],{stdio:'inherit',shell:process.platform==='win32'});process.exit(r.status??1)",
     ],
-    env: {
-      ...process.env,
+    env: freshCacheApplyEnv({
       PATH: `${fakeBin}${path.delimiter}${process.env.PATH || ''}`,
       XDG_CACHE_HOME: xdgCache,
       SHIFU_CACHE_PRINCIPAL: principal,
       SHIFU_CONAN_LOCK_TIMEOUT_MS: '20',
-    },
+    }),
   });
   assert.equal(status, 1);
   assert.equal(fs.readFileSync(lock, 'utf8'), owner);
@@ -1149,12 +1157,11 @@ test('a Conan child reclaims a lock whose recorded process is dead', async (t) =
       '-e',
       "const r=require('node:child_process').spawnSync('conan',['--version'],{stdio:'inherit',shell:process.platform==='win32'});process.exit(r.status??1)",
     ],
-    env: {
-      ...process.env,
+    env: freshCacheApplyEnv({
       PATH: `${fakeBin}${path.delimiter}${process.env.PATH || ''}`,
       XDG_CACHE_HOME: xdgCache,
       SHIFU_CACHE_PRINCIPAL: principal,
-    },
+    }),
   });
   assert.equal(status, 0);
   assert.equal(fs.existsSync(lock), false);
