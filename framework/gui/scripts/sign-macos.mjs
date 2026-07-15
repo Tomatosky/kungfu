@@ -13,8 +13,14 @@ export function resolveMacSigningIdentity(options, env = process.env) {
 }
 
 export function resolveMacSigningIgnore(ignore) {
-  const configured = ignore === undefined ? [] : [ignore].flat();
-  return [...configured, (filePath) => PYTHON_BYTECODE.test(filePath)];
+  const configured =
+    ignore === undefined ? [] : Array.isArray(ignore) ? ignore : [ignore];
+  // osx-sign 1.3.3 drops array ignores during option normalization.
+  return (filePath) =>
+    PYTHON_BYTECODE.test(filePath) ||
+    configured.some((rule) =>
+      typeof rule === 'function' ? rule(filePath) : filePath.match(rule),
+    );
 }
 
 export async function sign(options) {
