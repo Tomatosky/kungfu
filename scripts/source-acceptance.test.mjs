@@ -214,6 +214,25 @@ test('source plan covers representative source-only checks', () => {
   );
 });
 
+test('clang-format falls back to pinned uv tool run without a uvx shim', () => {
+  const command = sourceClangFormatCommand(
+    ['--dry-run', 'example.cpp'],
+    (candidate) => candidate === 'uv',
+  );
+  assert.deepEqual(command, {
+    command: 'uv',
+    args: [
+      'tool',
+      'run',
+      '--from',
+      'clang-format==20.1.8',
+      'clang-format',
+      '--dry-run',
+      'example.cpp',
+    ],
+  });
+});
+
 test('Conan recipe Python is linted without widening into the product type baseline', () => {
   const plan = sourceAcceptancePlan([
     'framework/core/.conan/recipes/rocksdb/conanfile.py',

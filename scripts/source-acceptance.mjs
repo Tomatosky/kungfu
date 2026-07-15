@@ -94,7 +94,20 @@ export function sourceClangFormatCommand(
   }
   if (available('uvx'))
     return { command: 'uvx', args: ['clang-format@20.1.8', ...args] };
-  throw new Error('source acceptance requires clang-format 20.1.8 or uvx');
+  if (available('uv')) {
+    return {
+      command: 'uv',
+      args: [
+        'tool',
+        'run',
+        '--from',
+        'clang-format==20.1.8',
+        'clang-format',
+        ...args,
+      ],
+    };
+  }
+  throw new Error('source acceptance requires clang-format 20.1.8, uvx, or uv');
 }
 
 export function sourceMergeBase() {
