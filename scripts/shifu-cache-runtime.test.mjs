@@ -834,6 +834,56 @@ test('cache apply cleans config overlays after a failing child', async (t) => {
   assert.equal(fs.existsSync(path.join(storage, '.shifu-conan.lock')), false);
 });
 
+test('nested cache apply preserves the original tool PATH instead of wrapping a wrapper', async (t) => {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'shifu-cache-nested-tools-'),
+  );
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const raw = bytes(toolConfigProfile());
+  const profilePath = path.join(directory, 'profile.json');
+  const childPath = path.join(directory, 'nested-apply.mjs');
+  const outputPath = path.join(directory, 'nested.json');
+  const fakeBin = path.join(directory, 'fake-bin');
+  const originalPath = `${fakeBin}${path.delimiter}${process.env.PATH || ''}`;
+  fs.mkdirSync(fakeBin);
+  fs.writeFileSync(profilePath, raw);
+  fs.writeFileSync(
+    childPath,
+    `import fs from 'node:fs';
+import path from 'node:path';
+import { applyCacheProfile } from ${JSON.stringify(pathToFileURL(path.join(ROOT, 'scripts/shifu-cache-runtime.mjs')).href)};
+const status = await applyCacheProfile({
+  reference: ${JSON.stringify(profilePath)},
+  expectedDigest: ${JSON.stringify(sha256(raw))},
+  scope: 'development',
+  command: process.execPath,
+  args: ['-e', ${JSON.stringify(`const fs = require('node:fs'); const path = require('node:path'); fs.writeFileSync(${JSON.stringify(outputPath)}, JSON.stringify({ path: process.env.PATH.split(path.delimiter), cargoOriginalPath: process.env.SHIFU_CARGO_ORIGINAL_PATH, conanOriginalPath: process.env.SHIFU_CONAN_ORIGINAL_PATH }));`)}],
+  env: process.env,
+});
+process.exit(status);
+`,
+  );
+  const status = await applyCacheProfile({
+    reference: profilePath,
+    expectedDigest: sha256(raw),
+    scope: 'development',
+    command: process.execPath,
+    args: [childPath],
+    env: {
+      ...process.env,
+      PATH: originalPath,
+      XDG_CACHE_HOME: path.join(directory, 'cache'),
+    },
+  });
+  assert.equal(status, 0);
+  const nested = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
+  assert.equal(nested.cargoOriginalPath, originalPath);
+  assert.equal(nested.conanOriginalPath, originalPath);
+  assert.match(nested.path[0], /shifu-cache-overlay-/);
+  assert.match(nested.path[1], /shifu-cache-overlay-/);
+  assert.notEqual(nested.path[0], nested.path[1]);
+});
+
 test('nested Gate task re-entry does not acquire Conan storage when Conan is unused', async (t) => {
   const directory = fs.mkdtempSync(
     path.join(os.tmpdir(), 'shifu-cache-gate-reentry-'),

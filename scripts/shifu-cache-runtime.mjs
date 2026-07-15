@@ -926,7 +926,8 @@ function prepareConfigOverlays(configBindings, baseEnv, scope, cwd) {
           '@node "%~dp0cargo-wrapper.mjs" %*\r\n',
           { mode: 0o600 },
         );
-        const originalPath = baseEnv.PATH || '';
+        const originalPath =
+          baseEnv.SHIFU_CARGO_ORIGINAL_PATH || baseEnv.PATH || '';
         overlayEnv.SHIFU_CARGO_ORIGINAL_PATH = originalPath;
         overlayEnv.SHIFU_CARGO_SOURCE_NAME = binding.name;
         overlayEnv.SHIFU_CARGO_REGISTRY = binding.value;
@@ -979,7 +980,8 @@ function prepareConfigOverlays(configBindings, baseEnv, scope, cwd) {
           '@node "%~dp0conan-wrapper.mjs" %*\r\n',
           { mode: 0o600 },
         );
-        overlayEnv.SHIFU_CONAN_ORIGINAL_PATH = baseEnv.PATH || '';
+        overlayEnv.SHIFU_CONAN_ORIGINAL_PATH =
+          baseEnv.SHIFU_CONAN_ORIGINAL_PATH || baseEnv.PATH || '';
         overlayEnv.SHIFU_CONAN_STORAGE_ROOT = storageRoot;
         fs.writeFileSync(
           path.join(conanHome, 'global.conf'),
