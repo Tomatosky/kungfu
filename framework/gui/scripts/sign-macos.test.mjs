@@ -6,6 +6,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 import {
+  isMachOHeader,
   resolveMacSigningIdentity,
   resolveMacSigningIgnore,
 } from './sign-macos.mjs';
@@ -32,32 +33,70 @@ test('falls back to the identity resolved by electron-builder', () => {
   );
 });
 
-test('skips Python bytecode without skipping native runtime code', () => {
-  const shouldIgnore = resolveMacSigningIgnore();
+test('recognizes thin and universal Mach-O headers', () => {
+  for (const magic of [
+    0xfeedface, 0xcefaedfe, 0xfeedfacf, 0xcffaedfe, 0xcafebabe, 0xbebafeca,
+    0xcafebabf, 0xbfbafeca,
+  ]) {
+    const header = Buffer.alloc(4);
+    header.writeUInt32BE(magic);
+    assert.equal(isMachOHeader(header), true);
+  }
+  assert.equal(isMachOHeader(Buffer.from('data')), false);
+  assert.equal(isMachOHeader(Buffer.alloc(3)), false);
+});
+
+test('skips ordinary resources without skipping native runtime code', () => {
+  const code = new Set([
+    '/app/runtime/pkg/native.so',
+    '/app/runtime/pkg/native.dylib',
+    '/app/runtime/pkg/native.node',
+    '/app/runtime/kungfu',
+    '/app/Frameworks/Electron Framework.framework',
+  ]);
+  const shouldIgnore = resolveMacSigningIgnore(undefined, (filePath) =>
+    code.has(filePath),
+  );
 
   assert.equal(shouldIgnore('/app/runtime/pkg/module.pyc'), true);
   assert.equal(shouldIgnore('C:\\app\\runtime\\pkg\\module.pyo'), true);
   assert.equal(shouldIgnore('/app/runtime/pkg/__pycache__/module.data'), true);
+  assert.equal(shouldIgnore('/app/Resources/en.lproj/locale.pak'), true);
+  assert.equal(shouldIgnore('/app/Resources/app/config.json'), true);
   assert.equal(shouldIgnore('/app/runtime/pkg/native.so'), false);
   assert.equal(shouldIgnore('/app/runtime/pkg/native.dylib'), false);
+  assert.equal(shouldIgnore('/app/runtime/pkg/native.node'), false);
   assert.equal(shouldIgnore('/app/runtime/kungfu'), false);
+  assert.equal(
+    shouldIgnore('/app/Frameworks/Electron Framework.framework'),
+    false,
+  );
+});
+
+test('fails closed when a candidate cannot be inspected', () => {
+  const shouldIgnore = resolveMacSigningIgnore(undefined, () => {
+    throw new Error('unreadable');
+  });
+  assert.equal(shouldIgnore('/app/unreadable'), false);
 });
 
 test('preserves existing string, array, and function ignore rules', () => {
   const existingFunction = (filePath) => filePath.endsWith('.map');
+  const code = () => true;
 
   assert.equal(
-    resolveMacSigningIgnore('existing-pattern')('/app/existing-pattern'),
+    resolveMacSigningIgnore('existing-pattern', code)('/app/existing-pattern'),
     true,
   );
   assert.equal(
-    resolveMacSigningIgnore(['first-pattern', 'second-pattern'])(
-      '/app/second-pattern',
-    ),
+    resolveMacSigningIgnore(
+      ['first-pattern', 'second-pattern'],
+      code,
+    )('/app/second-pattern'),
     true,
   );
   assert.equal(
-    resolveMacSigningIgnore(existingFunction)('/app/source.map'),
+    resolveMacSigningIgnore(existingFunction, code)('/app/source.map'),
     true,
   );
 });
