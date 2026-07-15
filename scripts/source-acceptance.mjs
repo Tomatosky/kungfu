@@ -150,6 +150,15 @@ export function sourceAcceptancePlan(files) {
       '--self-test',
     ],
     [
+      'core build capability contract',
+      'framework/core/architecture/check-build-capabilities.mjs',
+    ],
+    [
+      'core build capability negative fixtures',
+      'framework/core/architecture/check-build-capabilities.mjs',
+      '--self-test',
+    ],
+    [
       'journal authority boundary',
       'scripts/check-journal-authority-boundary.mjs',
     ],

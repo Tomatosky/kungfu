@@ -26,6 +26,7 @@
   ],
   "config": {
     "build_type": "Release",
+    "build_profile": "full",
     "log_level": "trace",
     "python_version": "3.13",
     "node_version": "22.22.3"

@@ -16,6 +16,10 @@ function posix(value) {
   return value.split(path.sep).join('/');
 }
 
+function cmakeVariable(value) {
+  return value.toUpperCase().replace(/[^A-Z0-9]+/g, '_');
+}
+
 function walk(root) {
   if (!fs.existsSync(root)) return [];
   const files = [];
@@ -526,7 +530,7 @@ function renderTargetsCmake(contract, ownership) {
         `add_library(${target.id} INTERFACE)`,
         `target_include_directories(${target.id} INTERFACE \${PROJECT_SOURCE_DIR}/include \${KUNGFU_GENERATED_INCLUDE_DIR})`,
         `target_include_directories(${target.id} SYSTEM INTERFACE \${LIBKUNGFU_SQLITE_ORM_INCLUDE})`,
-        `target_link_libraries(${target.id} INTERFACE yijinjing kungfu_compile_contract \${CONAN_LIBS})`,
+        `target_link_libraries(${target.id} INTERFACE yijinjing kungfu_compile_contract \${KUNGFU_TARGET_${cmakeVariable(target.id)}_DEPENDENCIES})`,
         '',
       );
       continue;
@@ -558,6 +562,9 @@ function renderTargetsCmake(contract, ownership) {
         `target_link_libraries(${target.id} PUBLIC ${(target.dependencies || []).join(' ')})`,
       );
     }
+    lines.push(
+      `target_link_libraries(${target.id} PUBLIC \${KUNGFU_TARGET_${cmakeVariable(target.id)}_DEPENDENCIES})`,
+    );
     lines.push('');
   }
   lines.push('set(KUNGFU_INTERNAL_OBJECTS');

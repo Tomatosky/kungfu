@@ -4,7 +4,7 @@
 add_library(kungfu_contracts INTERFACE)
 target_include_directories(kungfu_contracts INTERFACE ${PROJECT_SOURCE_DIR}/include ${KUNGFU_GENERATED_INCLUDE_DIR})
 target_include_directories(kungfu_contracts SYSTEM INTERFACE ${LIBKUNGFU_SQLITE_ORM_INCLUDE})
-target_link_libraries(kungfu_contracts INTERFACE yijinjing kungfu_compile_contract ${CONAN_LIBS})
+target_link_libraries(kungfu_contracts INTERFACE yijinjing kungfu_compile_contract ${KUNGFU_TARGET_KUNGFU_CONTRACTS_DEPENDENCIES})
 
 set(KUNGFU_SERVICES_SOURCE_FILES
   "${PROJECT_SOURCE_DIR}/src/runtime/action_recorder.cpp"
@@ -42,6 +42,7 @@ set(KUNGFU_SERVICES_SOURCE_FILES
 )
 add_library_object(kungfu_services "${KUNGFU_SERVICES_SOURCE_FILES}" "${COMPILER_OPTIMIZE_ON_OPTIONS}" "${KUNGFU_BUILD_DIR}")
 target_link_libraries(kungfu_services PUBLIC kungfu_contracts)
+target_link_libraries(kungfu_services PUBLIC ${KUNGFU_TARGET_KUNGFU_SERVICES_DEPENDENCIES})
 
 set(KUNGFU_SERVICES_STATE_CACHE_SOURCE_FILES
   "${PROJECT_SOURCE_DIR}/src/runtime/state_cache/manager.cpp"
@@ -50,6 +51,7 @@ set(KUNGFU_SERVICES_STATE_CACHE_SOURCE_FILES
 )
 add_library_object(kungfu_services_state_cache "${KUNGFU_SERVICES_STATE_CACHE_SOURCE_FILES}" "${COMPILER_OPTIMIZE_OFF_OPTIONS}" "${KUNGFU_BUILD_DIR}")
 target_link_libraries(kungfu_services_state_cache PUBLIC kungfu_contracts)
+target_link_libraries(kungfu_services_state_cache PUBLIC ${KUNGFU_TARGET_KUNGFU_SERVICES_STATE_CACHE_DEPENDENCIES})
 
 set(KUNGFU_ADAPTERS_SOURCE_FILES
   "${PROJECT_SOURCE_DIR}/src/runtime/io/io.cpp"
@@ -68,6 +70,7 @@ set(KUNGFU_ADAPTERS_SOURCE_FILES
 )
 add_library_object(kungfu_adapters "${KUNGFU_ADAPTERS_SOURCE_FILES}" "${COMPILER_OPTIMIZE_ON_OPTIONS}" "${KUNGFU_BUILD_DIR}")
 target_link_libraries(kungfu_adapters PUBLIC kungfu_services kungfu_services_state_cache)
+target_link_libraries(kungfu_adapters PUBLIC ${KUNGFU_TARGET_KUNGFU_ADAPTERS_DEPENDENCIES})
 
 set(KUNGFU_COMPOSITION_SOURCE_FILES
   "${PROJECT_SOURCE_DIR}/src/runtime/embedding.cpp"
@@ -76,6 +79,7 @@ set(KUNGFU_COMPOSITION_SOURCE_FILES
 )
 add_library_object(kungfu_composition "${KUNGFU_COMPOSITION_SOURCE_FILES}" "${COMPILER_OPTIMIZE_ON_OPTIONS}" "${KUNGFU_BUILD_DIR}")
 target_link_libraries(kungfu_composition PUBLIC kungfu_adapters)
+target_link_libraries(kungfu_composition PUBLIC ${KUNGFU_TARGET_KUNGFU_COMPOSITION_DEPENDENCIES})
 
 set(KUNGFU_INTERNAL_OBJECTS
   $<TARGET_OBJECTS:kungfu_services>

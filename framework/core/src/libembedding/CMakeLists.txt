@@ -36,11 +36,12 @@ target_include_directories(kungfu_embedding PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/../libkungfu/include)
 
 # Whole-core static closure: ${LIBKUNGFU_NAME} (STATIC on Windows) PUBLIC-
-# propagates yijinjing + ${CONAN_LIBS} + userenv/advapi32/user32/ole32. This is
+# propagates yijinjing + the selected profile dependencies +
+# userenv/advapi32/user32/ole32. This is
 # pykungfu's link line minus ${LIBNODE} (embedding never touches node). The
 # linker pulls the referenced objects from kungfu.lib/yijinjing.lib on demand.
 target_link_libraries(kungfu_embedding PRIVATE
-  ${LIBKUNGFU_NAME} kungfu_compile_contract ${CONAN_LIBS})
+  ${LIBKUNGFU_NAME} kungfu_compile_contract)
 
 set_target_properties(kungfu_embedding PROPERTIES
   # Belt-and-suspenders against LNK1189: never auto-export the closure.

@@ -162,7 +162,11 @@ function platformConanSettings() {
 
 /** @param {string} name */
 function makeConanOption(name) {
-  return ['-o', `${name}=${shell.getConfigValue(name)}`];
+  const value =
+    name === 'build_profile'
+      ? process.env.KUNGFU_BUILD_PROFILE || shell.getConfigValue(name)
+      : shell.getConfigValue(name);
+  return ['-o', `${name}=${value}`];
 }
 
 /** @param {string[]} names */
@@ -181,7 +185,7 @@ function conanInstall() {
     ...makeConanSettings(['build_type']),
     ...platformConanSettings(),
   ];
-  const options = makeConanOptions(['log_level']);
+  const options = makeConanOptions(['log_level', 'build_profile']);
   conan([
     'install',
     '.',
@@ -198,7 +202,7 @@ function conanBuild() {
     ...makeConanSettings(['build_type']),
     ...platformConanSettings(),
   ];
-  const options = makeConanOptions(['log_level']);
+  const options = makeConanOptions(['log_level', 'build_profile']);
   conan(['build', '.', '--output-folder', 'build', ...settings, ...options]);
 }
 
@@ -211,7 +215,7 @@ function conanPackage() {
     ...makeConanSettings(['build_type']),
     ...platformConanSettings(),
   ];
-  const options = makeConanOptions(['log_level']);
+  const options = makeConanOptions(['log_level', 'build_profile']);
   conan(['build', '.', '--output-folder', 'build', ...settings, ...options]);
 }
 

@@ -14,8 +14,7 @@ include(${PROJECT_SOURCE_DIR}/.cmake/libwasm-cargo-cache.cmake)
 ##########################################################################
 # conan 2：依赖经 CMakeToolchain(工具链) + CMakeDeps(find_package 目标) 提供，
 # 取代 conan 1.x 的 conanbuildinfo.cmake + conan_basic_setup。
-# 用 CONAN_LIBS 列出 conan2 目标，使 src/libkungfu/CMakeLists.txt 的
-# target_link_libraries(... ${CONAN_LIBS}) 与下方 link_libraries 零改动复用。
+# Concrete dependency targets are projected from architecture/build-capabilities.json.
 find_package(fmt REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(nlohmann_json REQUIRED)
@@ -43,17 +42,7 @@ endif()
 target_include_directories(rxcpp::rxcpp BEFORE INTERFACE
   "${KUNGFU_RXCPP_COMPAT_INCLUDE_DIR}")
 
-set(CONAN_LIBS
-    fmt::fmt-header-only
-    spdlog::spdlog_header_only
-    nlohmann_json::nlohmann_json
-    nng::nng
-    flatbuffers::flatbuffers
-    rxcpp::rxcpp
-    SQLite::SQLite3
-    RocksDB::rocksdb
-    xxHash::xxhash
-    tabulate::tabulate)
+include(${PROJECT_SOURCE_DIR}/architecture/BUILD_PROFILES.cmake)
 
 ##########################################################################
 

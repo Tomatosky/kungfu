@@ -56,7 +56,7 @@ macro(build_node_binding BINDING_NAME BINDING_SOURCE_FILES)
   target_link_directories(${BINDING_NAME} PRIVATE ${LIBNODE_LIB_DIR})
   # optional link libs passed as ${ARGN}
   target_link_libraries(${BINDING_NAME} PRIVATE
-    ${LIBKUNGFU_NAME} kungfu_compile_contract ${CONAN_LIBS} ${CMAKE_JS_LIB} ${ARGN})
+    ${LIBKUNGFU_NAME} kungfu_compile_contract ${CMAKE_JS_LIB} ${ARGN})
   kungfu_strip_release_local_symbols(${BINDING_NAME})
   if (WIN32)
     # /DELAYLOAD:NODE.EXE needs the delay-load helper (__delayLoadHelper2) from delayimp.lib;
