@@ -780,7 +780,7 @@
       },
       "cost": {
         "class": "heavy",
-        "timeoutSeconds": 900
+        "timeoutSeconds": 1800
       },
       "action": {
         "kind": "task",
@@ -817,7 +817,7 @@
       },
       "cost": {
         "class": "heavy",
-        "timeoutSeconds": 1800
+        "timeoutSeconds": 7200
       },
       "action": {
         "kind": "task",
