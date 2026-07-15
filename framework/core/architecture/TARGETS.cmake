@@ -28,9 +28,11 @@ set(KUNGFU_SERVICES_SOURCE_FILES
   "${PROJECT_SOURCE_DIR}/src/runtime/state_service.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/state_shadow.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/storage/episode_manifest_projection.cpp"
+  "${PROJECT_SOURCE_DIR}/src/runtime/storage/maintenance_service.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/storage/manifest_catalog_projection.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/storage/service.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/storage/source_registry_projection.cpp"
+  "${PROJECT_SOURCE_DIR}/src/runtime/storage/transfer_service.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/trust/assessment_runtime.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/typed_frame_dump.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/typed_state_projection.cpp"
@@ -51,6 +53,7 @@ set(KUNGFU_ADAPTERS_SOURCE_FILES
   "${PROJECT_SOURCE_DIR}/src/runtime/io/sqlite.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/native_storage.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/sandbox/app_container.cpp"
+  "${PROJECT_SOURCE_DIR}/src/runtime/storage/provider.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/util/StackWalker.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/util/nanomsg.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/util/rocks.cpp"
@@ -66,6 +69,7 @@ target_link_libraries(kungfu_adapters PUBLIC kungfu_services kungfu_services_sta
 set(KUNGFU_COMPOSITION_SOURCE_FILES
   "${PROJECT_SOURCE_DIR}/src/runtime/embedding.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/projection_bootstrap.cpp"
+  "${PROJECT_SOURCE_DIR}/src/runtime/storage/domain_dispatch.cpp"
 )
 add_library_object(kungfu_composition "${KUNGFU_COMPOSITION_SOURCE_FILES}" "${COMPILER_OPTIMIZE_ON_OPTIONS}" "${KUNGFU_BUILD_DIR}")
 target_link_libraries(kungfu_composition PUBLIC kungfu_adapters)

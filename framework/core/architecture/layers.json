@@ -93,9 +93,47 @@
       "compile_options": "optimize-on",
       "include_files": [
         "src/libkungfu/src/runtime/embedding.cpp",
-        "src/libkungfu/src/runtime/projection_bootstrap.cpp"
+        "src/libkungfu/src/runtime/projection_bootstrap.cpp",
+        "src/libkungfu/src/runtime/storage/domain_dispatch.cpp"
       ],
       "dependencies": ["kungfu_adapters"]
+    }
+  ],
+  "source_constraints": [
+    {
+      "file": "src/libkungfu/src/runtime/storage/service.cpp",
+      "responsibility": "Public storage facade, shared application helpers and compatibility surface",
+      "max_lines": 5000,
+      "required_text": ["class file_storage_service : public storage_service"],
+      "forbidden_text": ["#include <rocksdb/", "rocksdb::", "class file_storage_json_edge_service", "storage_status_result status_typed_impl", "storage_export_bundle_result export_bundle_typed_impl"]
+    },
+    {
+      "file": "src/libkungfu/src/runtime/storage/provider.cpp",
+      "responsibility": "File and RocksDB content providers behind the storage port",
+      "max_lines": 800,
+      "required_text": ["class file_storage_provider", "class rocksdb_storage_provider"],
+      "forbidden_text": ["class file_storage_service", "dispatch_json_edge_operation"]
+    },
+    {
+      "file": "src/libkungfu/src/runtime/storage/maintenance_service.cpp",
+      "responsibility": "Status, fsck, projection rebuild, GC and compaction planning",
+      "max_lines": 500,
+      "required_text": ["storage_status_result status_typed_impl", "storage_fsck_result fsck_typed_impl", "storage_compact_plan_result compact_plan_typed_impl"],
+      "forbidden_text": ["#include <rocksdb/", "class file_storage_json_edge_service"]
+    },
+    {
+      "file": "src/libkungfu/src/runtime/storage/transfer_service.cpp",
+      "responsibility": "Manifest bundle import, export and sync verification",
+      "max_lines": 520,
+      "required_text": ["storage_export_bundle_result export_bundle_typed_impl", "storage_import_bundle_result import_bundle_typed_impl", "storage_verify_sync_result verify_sync_typed_impl"],
+      "forbidden_text": ["#include <rocksdb/", "class file_storage_json_edge_service"]
+    },
+    {
+      "file": "src/libkungfu/src/runtime/storage/domain_dispatch.cpp",
+      "responsibility": "JSON edge and domain operation dispatch composition",
+      "max_lines": 1000,
+      "required_text": ["class file_storage_json_edge_service", "dispatch_json_edge_operation"],
+      "forbidden_text": ["#include <rocksdb/", "class rocksdb_storage_provider"]
     }
   ],
   "layers": [
@@ -203,6 +241,8 @@
       "exclude_files": [
         "src/libkungfu/src/runtime/embedding.cpp",
         "src/libkungfu/src/runtime/native_storage.cpp",
+        "src/libkungfu/src/runtime/storage/domain_dispatch.cpp",
+        "src/libkungfu/src/runtime/storage/provider.cpp",
         "src/libkungfu/src/runtime/projection_bootstrap.cpp"
       ],
       "dependencies": ["libkungfu-contracts", "yijinjing-kernel", "yijinjing-schema"],
@@ -220,7 +260,8 @@
         "src/libkungfu/src/view/"
       ],
       "include_files": [
-        "src/libkungfu/src/runtime/native_storage.cpp"
+        "src/libkungfu/src/runtime/native_storage.cpp",
+        "src/libkungfu/src/runtime/storage/provider.cpp"
       ],
       "exclude_prefixes": [],
       "exclude_files": [],
@@ -233,7 +274,11 @@
       "layer": "composition-bindings",
       "owner": "core/bindings",
       "include_prefixes": ["src/bindings/", "src/capability/", "src/libwasm/"],
-      "include_files": ["src/libkungfu/src/runtime/embedding.cpp", "src/libkungfu/src/runtime/projection_bootstrap.cpp"],
+      "include_files": [
+        "src/libkungfu/src/runtime/embedding.cpp",
+        "src/libkungfu/src/runtime/projection_bootstrap.cpp",
+        "src/libkungfu/src/runtime/storage/domain_dispatch.cpp"
+      ],
       "exclude_prefixes": [],
       "exclude_files": [],
       "dependencies": ["libkungfu-adapters", "libkungfu-services", "libkungfu-contracts", "yijinjing-kernel", "yijinjing-schema"],
@@ -258,8 +303,12 @@
     {"question": "State service and projections", "component": "libkungfu-services", "entry_point": "src/libkungfu/src/runtime/state_service.cpp"},
     {"question": "Runtime fact and saved-query behavior", "component": "libkungfu-services", "entry_point": "src/libkungfu/src/runtime/query/fact_query.cpp"},
     {"question": "Trust assessment or live coordination", "component": "libkungfu-services", "entry_point": "src/libkungfu/src/runtime/trust/assessment_runtime.cpp"},
-    {"question": "Storage service composition", "component": "libkungfu-services", "entry_point": "src/libkungfu/src/runtime/storage/service.cpp"},
-    {"question": "RocksDB or SQLite integration", "component": "libkungfu-adapters", "entry_point": "src/libkungfu/src/runtime/util/rocks.cpp"},
+    {"question": "Storage facade or shared application helpers", "component": "libkungfu-services", "entry_point": "src/libkungfu/src/runtime/storage/service.cpp"},
+    {"question": "Storage status, fsck, rebuild, GC or compact planning", "component": "libkungfu-services", "entry_point": "src/libkungfu/src/runtime/storage/maintenance_service.cpp"},
+    {"question": "Storage bundle import, export or sync verification", "component": "libkungfu-services", "entry_point": "src/libkungfu/src/runtime/storage/transfer_service.cpp"},
+    {"question": "File or RocksDB storage provider integration", "component": "libkungfu-adapters", "entry_point": "src/libkungfu/src/runtime/storage/provider.cpp"},
+    {"question": "Storage JSON edge or domain operation dispatch", "component": "core-composition-bindings", "entry_point": "src/libkungfu/src/runtime/storage/domain_dispatch.cpp"},
+    {"question": "General RocksDB or SQLite integration", "component": "libkungfu-adapters", "entry_point": "src/libkungfu/src/runtime/util/rocks.cpp"},
     {"question": "FlatBuffers projection boundary", "component": "libkungfu-adapters", "entry_point": "src/libkungfu/src/view/schema.cpp"},
     {"question": "Transport, process or OS integration", "component": "libkungfu-adapters", "entry_point": "src/libkungfu/src/runtime/io/io.cpp"},
     {"question": "Python, Node, C embedding or WASM entry", "component": "core-composition-bindings", "entry_point": "src/libkungfu/src/runtime/embedding.cpp"},

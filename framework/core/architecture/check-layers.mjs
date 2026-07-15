@@ -190,6 +190,42 @@ function validate(root, contract) {
       problems.push(`excluded file lacks reason: ${entry.path}`);
   }
 
+  for (const constraint of contract.source_constraints || []) {
+    const sourcePath = path.join(root, constraint.file);
+    if (!fs.existsSync(sourcePath)) {
+      problems.push(
+        `source constraint points to missing file: ${constraint.file}`,
+      );
+      continue;
+    }
+    if (!ownership.has(constraint.file)) {
+      problems.push(
+        `source constraint points to unowned file: ${constraint.file}`,
+      );
+    }
+    const source = fs.readFileSync(sourcePath, 'utf8');
+    const lineCount = source.split('\n').length;
+    if (constraint.max_lines && lineCount > constraint.max_lines) {
+      problems.push(
+        `${constraint.file}: ${lineCount} lines exceeds architecture budget ${constraint.max_lines}`,
+      );
+    }
+    for (const token of constraint.required_text || []) {
+      if (!source.includes(token)) {
+        problems.push(
+          `${constraint.file}: missing required responsibility token ${token}`,
+        );
+      }
+    }
+    for (const token of constraint.forbidden_text || []) {
+      if (source.includes(token)) {
+        problems.push(
+          `${constraint.file}: forbidden responsibility token ${token}`,
+        );
+      }
+    }
+  }
+
   for (const component of contract.components || []) {
     const sourceLayer = layerById.get(component.layer);
     for (const dependencyId of component.dependencies || []) {
@@ -428,6 +464,23 @@ function renderMap(contract, ownership) {
       `| \`${target.id}\` | \`${target.kind}\` | \`${target.component}\` | ${(target.dependencies || []).map((item) => `\`${item}\``).join('<br>') || '—'} | ${sourceCount} |`,
     );
   }
+  if ((contract.source_constraints || []).length) {
+    lines.push(
+      '',
+      '## Responsibility seams',
+      '',
+      'These checked source budgets keep storage responsibilities from collapsing',
+      'back into the compatibility facade.',
+      '',
+      '| Responsibility | Source | Line budget |',
+      '| --- | --- | ---: |',
+    );
+    for (const constraint of contract.source_constraints) {
+      lines.push(
+        `| ${constraint.responsibility || 'Checked source boundary'} | \`${constraint.file}\` | ${constraint.max_lines || '—'} |`,
+      );
+    }
+  }
   lines.push(
     '',
     '## Navigation',
@@ -453,7 +506,8 @@ function renderMap(contract, ownership) {
     'include is undeclared, when a declared dependency or resolved include reverses',
     'the layer contract, when an internal source has zero or multiple build targets,',
     'when a target edge reverses the layer contract, when a forbidden include enters',
-    'a protected layer, or when the map or generated CMake projection drifts.',
+    'a protected layer, when a checked responsibility token or source-size budget',
+    'drifts, or when the map or generated CMake projection drifts.',
     '',
   );
   return lines.join('\n');
@@ -584,6 +638,15 @@ function selfTest() {
         dependencies: ['low'],
       },
     ],
+    source_constraints: [
+      {
+        file: 'src/high/app.cpp',
+        responsibility: 'high application seam',
+        max_lines: 2,
+        required_text: ['#include <low/value.h>'],
+        forbidden_text: ['low::forbidden'],
+      },
+    ],
     navigation: [],
   };
   const expect = (label, condition) => {
@@ -691,6 +754,37 @@ function selfTest() {
       'source with multiple internal targets fails',
       validate(tmp, duplicateSourceTarget).problems.some((item) =>
         item.includes('source has multiple internal targets'),
+      ),
+    );
+
+    const missingResponsibility = structuredClone(base);
+    missingResponsibility.source_constraints[0].required_text = [
+      'missing-responsibility-token',
+    ];
+    expect(
+      'missing responsibility token fails',
+      validate(tmp, missingResponsibility).problems.some((item) =>
+        item.includes('missing required responsibility token'),
+      ),
+    );
+
+    const collapsedResponsibility = structuredClone(base);
+    collapsedResponsibility.source_constraints[0].forbidden_text = [
+      '#include <low/value.h>',
+    ];
+    expect(
+      'forbidden responsibility token fails',
+      validate(tmp, collapsedResponsibility).problems.some((item) =>
+        item.includes('forbidden responsibility token'),
+      ),
+    );
+
+    const oversizedResponsibility = structuredClone(base);
+    oversizedResponsibility.source_constraints[0].max_lines = 1;
+    expect(
+      'source responsibility budget fails',
+      validate(tmp, oversizedResponsibility).problems.some((item) =>
+        item.includes('exceeds architecture budget'),
       ),
     );
   } finally {
