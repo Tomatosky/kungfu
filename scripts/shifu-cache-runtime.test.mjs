@@ -634,7 +634,7 @@ test('cache apply overrides Cargo and isolates Conan without mutating persistent
     "const cp = require('node:child_process');",
     "const fs = require('node:fs');",
     "const path = require('node:path');",
-    "const result = cp.spawnSync('cargo', ['metadata'], {stdio: 'inherit'});",
+    "const result = cp.spawnSync('cargo', ['metadata'], {stdio: 'inherit', shell: process.platform === 'win32'});",
     'if (result.status !== 0) process.exit(result.status || 1);',
     `fs.writeFileSync(${JSON.stringify(outputPath)}, JSON.stringify({`,
     'cargoHome: process.env.CARGO_HOME,',

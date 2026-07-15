@@ -70,14 +70,15 @@ if /i "%~1"=="adr:release:gate" goto adrrelease
 rem shifu-cache-entry: source-acceptance-bypass
 if /i not "%~1"=="check:source" goto native
 set "SHIFU_CACHE_BYPASS=source-acceptance"
-shift
+set "_KFC_FORWARD_ARGS=%*"
+set "_KFC_FORWARD_ARGS=%_KFC_FORWARD_ARGS:* =%"
 where fnm >nul 2>nul && (
   fnm install >nul 2>nul
-  fnm exec --using-file -- node "%~dp0scripts\source-acceptance.mjs" %*
+  fnm exec --using-file -- node "%~dp0scripts\source-acceptance.mjs" %_KFC_FORWARD_ARGS%
   exit /b !errorlevel!
 )
 where node >nul 2>nul && (
-  node "%~dp0scripts\source-acceptance.mjs" %*
+  node "%~dp0scripts\source-acceptance.mjs" %_KFC_FORWARD_ARGS%
   exit /b !errorlevel!
 )
 echo shifu: check:source needs node -- install fnm or any system node 1>&2
@@ -99,14 +100,15 @@ exit /b 127
 
 :adrrelease
 if /i not "%~1"=="adr:release:gate" goto native
-shift
+set "_KFC_FORWARD_ARGS=%*"
+set "_KFC_FORWARD_ARGS=%_KFC_FORWARD_ARGS:* =%"
 where fnm >nul 2>nul && (
   fnm install >nul 2>nul
-  fnm exec --using-file -- node "%~dp0scripts\adr-release-gate.mjs" %*
+  fnm exec --using-file -- node "%~dp0scripts\adr-release-gate.mjs" %_KFC_FORWARD_ARGS%
   exit /b !errorlevel!
 )
 where node >nul 2>nul && (
-  node "%~dp0scripts\adr-release-gate.mjs" %*
+  node "%~dp0scripts\adr-release-gate.mjs" %_KFC_FORWARD_ARGS%
   exit /b !errorlevel!
 )
 echo shifu: adr:release:gate needs node -- install fnm or any system node 1>&2

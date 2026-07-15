@@ -76,6 +76,37 @@ jobs:
         with:
           node-version: 24
 
+      - name: Setup Rust toolchain on Windows
+        if: ${{ matrix.platform == 'windows' && contains(format(',{0},', inputs.focused-platforms), format(',{0},', matrix.platform)) }}
+        shell: cmd
+        env:
+          RUSTUP_DIST_SERVER: https://rsproxy.cn
+          RUSTUP_UPDATE_ROOT: https://rsproxy.cn/rustup
+        run: |
+          @echo off
+          set "CARGO_HOME=%RUNNER_TEMP%\kungfu-gate-cargo-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%"
+          set "RUSTUP_HOME=%RUNNER_TEMP%\kungfu-gate-rustup-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%"
+          set "RUSTUP_INIT_ROOT=%RUNNER_TEMP%\kungfu-gate-rustup-init-%GITHUB_RUN_ID%-%GITHUB_RUN_ATTEMPT%"
+          set "RUSTUP_INIT=%RUSTUP_INIT_ROOT%\rustup-init.exe"
+          if not exist "%RUSTUP_INIT_ROOT%" mkdir "%RUSTUP_INIT_ROOT%"
+          if errorlevel 1 exit /b %errorlevel%
+          curl.exe --proto "=https" --tlsv1.2 --retry 10 --retry-connrefused --fail --silent --show-error --location "https://win.rustup.rs/x86_64" --output "%RUSTUP_INIT%"
+          if errorlevel 1 exit /b %errorlevel%
+          "%RUSTUP_INIT%" --default-toolchain "1.96.0" --profile minimal -y --no-modify-path
+          if errorlevel 1 exit /b %errorlevel%
+          echo %CARGO_HOME%\bin>>"%GITHUB_PATH%"
+          echo CARGO_HOME=%CARGO_HOME%>>"%GITHUB_ENV%"
+          echo RUSTUP_HOME=%RUSTUP_HOME%>>"%GITHUB_ENV%"
+
+      - name: Setup Rust toolchain
+        if: ${{ matrix.platform != 'windows' && contains(format(',{0},', inputs.focused-platforms), format(',{0},', matrix.platform)) }}
+        uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30
+        env:
+          RUSTUP_DIST_SERVER: https://rsproxy.cn
+          RUSTUP_UPDATE_ROOT: https://rsproxy.cn/rustup
+        with:
+          toolchain: "1.96.0"
+
       - name: Run focused Gate measurement
         if: ${{ contains(format(',{0},', inputs.focused-platforms), format(',{0},', matrix.platform)) }}
         id: measurement

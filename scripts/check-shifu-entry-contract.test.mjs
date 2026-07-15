@@ -61,6 +61,8 @@ test('cache execution boundaries distinguish gate run and source acceptance', ()
     assert.match(entrypoint, /shifu-cache-entry: source-acceptance-bypass/);
     assert.match(entrypoint, /shifu-cache-entry: gate-run-outer-apply/);
   }
+  assert.match(windows, /_KFC_FORWARD_ARGS=%\*/);
+  assert.match(windows, /_KFC_FORWARD_ARGS:\* =%/);
   assert.match(native, /gate_subcommand/);
   assert.match(native, /cache_bypass/);
 });
