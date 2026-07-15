@@ -25,12 +25,12 @@ Gate's complete platform set.
 | `governance.adr-delivery` | measured | [linux: 38 ms @ 6b451a4e5](../evidence/gate-measurements/6b451a4e/linux/receipt.json)<br>[macos: 111 ms @ 6b451a4e5](../evidence/gate-measurements/6b451a4e/macos/receipt.json)<br>[windows: 101 ms @ 6b451a4e5](../evidence/gate-measurements/6b451a4e/windows/receipt.json) |
 | `governance.buildchain-config` | measured | [linux: 9000 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/linux/governance.buildchain-config.controller-receipt.json) |
 | `governance.promotion-rehearsal` | measured | [linux: 425 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/linux/receipt.json)<br>[macos: 1100 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/macos/receipt.json)<br>[windows: 2483 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/windows/receipt.json) |
-| `source.acceptance` | adoption baseline | — |
+| `source.acceptance` | measured | [linux: 29120 ms @ eb32cfac3](../evidence/gate-measurements/eb32cfac3/linux/source-acceptance-receipt.json) |
 | `source.changed-scope` | adoption baseline | — |
 | `source.whole-tree` | adoption baseline | — |
 | `docs.contracts` | adoption baseline | — |
 | `docs.prose` | adoption baseline | — |
-| `docs.external-links` | adoption baseline | — |
+| `docs.external-links` | measured | [linux: 51272 ms @ da9dce514](../evidence/gate-measurements/da9dce514/linux/linux-only-receipt.json) |
 | `shifu.workspace` | adoption baseline | — |
 | `product.distribution` | adoption baseline | — |
 | `product.verify-full` | adoption baseline | — |

@@ -5,7 +5,6 @@
     "adoptedAt": "2026-07-14",
     "unmeasuredGateIds": [
       "docs.contracts",
-      "docs.external-links",
       "docs.prose",
       "durability.contracts",
       "embedding.membranes",
@@ -26,14 +25,13 @@
       "runtime.errors",
       "runtime.projection-bootstrap",
       "shifu.workspace",
-      "source.acceptance",
       "source.changed-scope",
       "source.whole-tree",
       "state-service.contracts",
       "toolchain.cpp-modules",
       "toolchain.libwasm-cache"
     ],
-    "digest": "sha256:03a4c9d022aaffc486906f353a857093e8fb4518639630a1f3d7e77e67ab994d"
+    "digest": "sha256:d6ea0ad941e329c2ad9abbcd3d00e7a1658376f82332adfaa1976503b3716343"
   },
   "measurements": [
     {
@@ -140,6 +138,32 @@
           "registryDigest": "sha256:fb3394781eb3899ca9cc14f074effe365707f4ef3b40643bc84c4bbb882d227e",
           "durationMs": 2483,
           "receipt": "docs/qualification/evidence/gate-measurements/e90b0fb2b/windows/receipt.json"
+        }
+      ]
+    },
+    {
+      "gateId": "source.acceptance",
+      "definitionDigest": "sha256:198beb4fd80ea00d49bb07c2e0931ba219b42ecac71b26fd82893ed42976052a",
+      "observations": [
+        {
+          "platform": "linux",
+          "sourceSha": "eb32cfac354f396dab86aeb00359a51abbeaadbd",
+          "registryDigest": "sha256:fb3394781eb3899ca9cc14f074effe365707f4ef3b40643bc84c4bbb882d227e",
+          "durationMs": 29120,
+          "receipt": "docs/qualification/evidence/gate-measurements/eb32cfac3/linux/source-acceptance-receipt.json"
+        }
+      ]
+    },
+    {
+      "gateId": "docs.external-links",
+      "definitionDigest": "sha256:4272681f7f7f0d08181dab2468161a12dc1cfae83c5db224aded764cf8215148",
+      "observations": [
+        {
+          "platform": "linux",
+          "sourceSha": "da9dce5144268d4f7c6efe3215ae27224ed83ea6",
+          "registryDigest": "sha256:fb3394781eb3899ca9cc14f074effe365707f4ef3b40643bc84c4bbb882d227e",
+          "durationMs": 51272,
+          "receipt": "docs/qualification/evidence/gate-measurements/da9dce514/linux/linux-only-receipt.json"
         }
       ]
     },
