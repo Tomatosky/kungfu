@@ -52,6 +52,7 @@ endif()
 # ceiling. Its public yijinjing dependency therefore remains a separate
 # archive for standalone consumers, unlike the shared libkungfu on POSIX.
 if(WIN32)
+  find_package(xxHash REQUIRED)
   find_library(KF_LIBYIJINJING
     NAMES yijinjing libyijinjing
     PATHS "${KF_CORE_DIR}/build/Release" "${KF_CORE_DIR}/build"
@@ -92,6 +93,6 @@ macro(kungfu_cpp_extension _target)
     $<IF:$<TARGET_EXISTS:spdlog::spdlog_header_only>,spdlog::spdlog_header_only,spdlog::spdlog>
     nlohmann_json::nlohmann_json)
   if(WIN32)
-    target_link_libraries(${_target} PRIVATE ${KF_LIBYIJINJING})
+    target_link_libraries(${_target} PRIVATE ${KF_LIBYIJINJING} xxHash::xxhash)
   endif()
 endmacro()

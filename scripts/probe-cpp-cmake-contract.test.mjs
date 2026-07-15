@@ -38,7 +38,20 @@ test('the C++ probe links the separate Windows yijinjing archive', () => {
   assert.match(cmake, /find_library\(KF_LIBYIJINJING/);
   assert.match(
     cmake,
-    /if\(WIN32\)\s+target_link_libraries\(\$\{_target\} PRIVATE \$\{KF_LIBYIJINJING\}\)/,
+    /if\(WIN32\)\s+target_link_libraries\(\$\{_target\} PRIVATE \$\{KF_LIBYIJINJING\}/,
+  );
+});
+
+test('the C++ probe links the Windows yijinjing xxHash dependency', () => {
+  const cmake = fs.readFileSync(
+    path.join(ROOT, 'examples/probe-cpp/cmake/kungfu.cmake'),
+    'utf8',
+  );
+
+  assert.match(cmake, /if\(WIN32\)\s+find_package\(xxHash REQUIRED\)/);
+  assert.match(
+    cmake,
+    /target_link_libraries\(\$\{_target\} PRIVATE \$\{KF_LIBYIJINJING\} xxHash::xxhash\)/,
   );
 });
 
