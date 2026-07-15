@@ -14,6 +14,47 @@ function git(cwd, args, options = {}) {
   return result;
 }
 
+export function bundleFetchUrl(value, platform = process.platform) {
+  if (
+    platform === 'win32' &&
+    /^[A-Za-z]:[\\/]/u.test(value) &&
+    value.endsWith('.bundle')
+  ) {
+    return `file:///${value.replaceAll('\\', '/')}`;
+  }
+  return value;
+}
+
+function rewrittenBundleOrigin(cwd) {
+  const remote = git(cwd, ['remote', 'get-url', 'origin'], {
+    encoding: 'utf8',
+  });
+  if (remote.status !== 0) return '';
+  const remoteUrl = remote.stdout.trim();
+  const mappings = git(
+    cwd,
+    ['config', '--global', '--get-regexp', '^url\\..*\\.insteadof$'],
+    { encoding: 'utf8' },
+  );
+  if (mappings.status !== 0) return '';
+  let match = null;
+  for (const line of mappings.stdout.split(/\r?\n/u)) {
+    const separator = line.search(/\s/u);
+    if (separator === -1) continue;
+    const key = line.slice(0, separator);
+    const insteadOf = line.slice(separator).trim();
+    if (!remoteUrl.startsWith(insteadOf)) continue;
+    if (!key.startsWith('url.') || !key.endsWith('.insteadof')) continue;
+    const replacement = key.slice('url.'.length, -'.insteadof'.length);
+    const rewritten = `${replacement}${remoteUrl.slice(insteadOf.length)}`;
+    if (!rewritten.endsWith('.bundle')) continue;
+    if (!match || insteadOf.length > match.insteadOf.length) {
+      match = { insteadOf, rewritten };
+    }
+  }
+  return match ? bundleFetchUrl(match.rewritten) : '';
+}
+
 function recoverCompleteLocalHistory(cwd) {
   const shallowPathResult = git(cwd, ['rev-parse', '--git-path', 'shallow'], {
     encoding: 'utf8',
@@ -51,8 +92,17 @@ function ensureRemoteBaseRef(cwd, baseRef) {
     ['fetch', '--no-tags', 'origin', `+refs/heads/${baseRef}:${remoteRef}`],
     { stdio: 'inherit' },
   );
-  if (fetched.status !== 0)
-    throw new Error(`cannot fetch measurement base ref: ${baseRef}`);
+  if (fetched.status === 0) return;
+  const bundle = rewrittenBundleOrigin(cwd);
+  if (bundle) {
+    const recovered = git(
+      cwd,
+      ['fetch', '--no-tags', bundle, `+refs/heads/${baseRef}:${remoteRef}`],
+      { stdio: 'inherit' },
+    );
+    if (recovered.status === 0) return;
+  }
+  throw new Error(`cannot fetch measurement base ref: ${baseRef}`);
 }
 
 export function prepareGateMeasurementHistory(

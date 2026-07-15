@@ -7,7 +7,10 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { prepareGateMeasurementHistory } from './prepare-gate-measurement-history.mjs';
+import {
+  bundleFetchUrl,
+  prepareGateMeasurementHistory,
+} from './prepare-gate-measurement-history.mjs';
 
 function git(cwd, ...args) {
   return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
@@ -26,6 +29,17 @@ function makeRepository(root) {
   git(repository, 'commit', '-am', 'second');
   return repository;
 }
+
+test('normalizes a Windows bundle path to an unambiguous file URL', () => {
+  assert.equal(
+    bundleFetchUrl('C:\\runner\\cache\\kungfu.bundle', 'win32'),
+    'file:///C:/runner/cache/kungfu.bundle',
+  );
+  assert.equal(
+    bundleFetchUrl('/runner/cache/kungfu.bundle', 'linux'),
+    '/runner/cache/kungfu.bundle',
+  );
+});
 
 test('recovers a complete local object graph without fetching origin', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gate-history-local-'));
