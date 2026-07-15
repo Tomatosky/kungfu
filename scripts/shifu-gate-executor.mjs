@@ -233,7 +233,11 @@ export function buildGateActionInvocation(action, root, platform) {
   const line = [path.join(root, 'shifu.cmd'), ...taskArgs]
     .map((item) => cmdQuote(String(item)))
     .join(' ');
-  return { command, args: ['/d', '/s', '/c', `call ${line}`] };
+  return {
+    command,
+    args: ['/d', '/s', '/c', `call ${line}`],
+    windowsVerbatimArguments: true,
+  };
 }
 
 /** @param {unknown} value */
@@ -387,6 +391,7 @@ async function executeAction(gate, context) {
         timeout: gate.cost.timeoutSeconds * 1000,
         maxBuffer: 16 * 1024 * 1024,
         windowsHide: true,
+        windowsVerbatimArguments: invocation.windowsVerbatimArguments === true,
       });
       if (result.stdout)
         context.writer.write(`[gate ${gate.id}] stdout\n${result.stdout}`);

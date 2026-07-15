@@ -50,6 +50,17 @@ test('native state-machine leg fails when CTest discovers no matching test', () 
   assert.ok(command.includes('framework/core/build/src/libkungfu'));
 });
 
+test('native restart campaign resolves Python through the governed uv project', () => {
+  const command = qualificationPlan('/tmp/qualification-test')[2].command;
+  assert.deepEqual(command.slice(0, 2), ['uv', 'run']);
+  assert.ok(command.includes('--frozen'));
+  assert.equal(
+    command[command.indexOf('--project') + 1],
+    path.resolve('framework/core'),
+  );
+  assert.equal(command[command.indexOf('--frozen') + 1], 'python');
+});
+
 test('clean complete evidence qualifies only the bounded single-host claim', () => {
   const report = evaluateQualification({
     source: source(),

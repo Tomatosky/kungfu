@@ -20,11 +20,11 @@ Gate's complete platform set.
 <!-- BEGIN GENERATED GATE MEASUREMENTS -->
 | Gate | Coverage | Source-bound observations |
 | --- | --- | --- |
-| `gate.catalog` | measured | [linux: 433 ms @ c4ba70d95](../evidence/layer-gates/c4ba70d95/linux-x64.raw/layer-artifact-gate-receipt.json)<br>[macos: 694 ms @ c4ba70d95](../evidence/layer-gates/c4ba70d95/macos-arm64.raw/layer-artifact-gate-receipt.json)<br>[windows: 2008 ms @ c4ba70d95](../evidence/layer-gates/c4ba70d95/windows-x64.raw/layer-artifact-gate-receipt.json) |
-| `governance.dco` | adoption baseline | — |
-| `governance.adr-delivery` | adoption baseline | — |
-| `governance.buildchain-config` | adoption baseline | — |
-| `governance.promotion-rehearsal` | adoption baseline | — |
+| `gate.catalog` | measured | [linux: 455 ms @ 6b451a4e5](../evidence/gate-measurements/6b451a4e/linux/receipt.json)<br>[macos: 1041 ms @ 6b451a4e5](../evidence/gate-measurements/6b451a4e/macos/receipt.json)<br>[windows: 1941 ms @ 6b451a4e5](../evidence/gate-measurements/6b451a4e/windows/receipt.json) |
+| `governance.dco` | measured | [linux: 12000 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/linux/governance.dco.controller-receipt.json) |
+| `governance.adr-delivery` | measured | [linux: 38 ms @ 6b451a4e5](../evidence/gate-measurements/6b451a4e/linux/receipt.json)<br>[macos: 111 ms @ 6b451a4e5](../evidence/gate-measurements/6b451a4e/macos/receipt.json)<br>[windows: 101 ms @ 6b451a4e5](../evidence/gate-measurements/6b451a4e/windows/receipt.json) |
+| `governance.buildchain-config` | measured | [linux: 9000 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/linux/governance.buildchain-config.controller-receipt.json) |
+| `governance.promotion-rehearsal` | measured | [linux: 425 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/linux/receipt.json)<br>[macos: 1100 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/macos/receipt.json)<br>[windows: 2483 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/windows/receipt.json) |
 | `source.acceptance` | adoption baseline | — |
 | `source.changed-scope` | adoption baseline | — |
 | `source.whole-tree` | adoption baseline | — |
@@ -36,8 +36,8 @@ Gate's complete platform set.
 | `product.verify-full` | adoption baseline | — |
 | `product.verify-fuzz` | adoption baseline | — |
 | `release.artifact-admission` | adoption baseline | — |
-| `layers.contract` | measured | [linux: 387 ms @ c4ba70d95](../evidence/layer-gates/c4ba70d95/linux-x64.raw/layer-artifact-gate-receipt.json)<br>[macos: 705 ms @ c4ba70d95](../evidence/layer-gates/c4ba70d95/macos-arm64.raw/layer-artifact-gate-receipt.json)<br>[windows: 2011 ms @ c4ba70d95](../evidence/layer-gates/c4ba70d95/windows-x64.raw/layer-artifact-gate-receipt.json) |
-| `layers.format` | measured | [linux: 2660 ms @ c4ba70d95](../evidence/layer-gates/c4ba70d95/linux-x64.raw/layer-artifact-gate-receipt.json)<br>[macos: 4787 ms @ c4ba70d95](../evidence/layer-gates/c4ba70d95/macos-arm64.raw/layer-artifact-gate-receipt.json)<br>[windows: 8263 ms @ c4ba70d95](../evidence/layer-gates/c4ba70d95/windows-x64.raw/layer-artifact-gate-receipt.json) |
+| `layers.contract` | measured | [linux: 436 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/linux/receipt.json)<br>[macos: 613 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/macos/receipt.json)<br>[windows: 1954 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/windows/receipt.json) |
+| `layers.format` | measured | [linux: 16349 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/linux/receipt.json)<br>[macos: 5827 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/macos/receipt.json)<br>[windows: 8437 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/windows/receipt.json) |
 | `layers.sdk` | measured | [linux: 10505 ms @ c4ba70d95](../evidence/layer-gates/c4ba70d95/linux-x64.raw/layer-artifact-gate-receipt.json)<br>[macos: 14200 ms @ c4ba70d95](../evidence/layer-gates/c4ba70d95/macos-arm64.raw/layer-artifact-gate-receipt.json)<br>[windows: 18834 ms @ c4ba70d95](../evidence/layer-gates/c4ba70d95/windows-x64.raw/layer-artifact-gate-receipt.json) |
 | `layers.surfaces` | measured | [linux: 9979 ms @ c4ba70d95](../evidence/layer-gates/c4ba70d95/linux-x64.raw/layer-artifact-gate-receipt.json)<br>[macos: 23536 ms @ c4ba70d95](../evidence/layer-gates/c4ba70d95/macos-arm64.raw/layer-artifact-gate-receipt.json)<br>[windows: 32821 ms @ c4ba70d95](../evidence/layer-gates/c4ba70d95/windows-x64.raw/layer-artifact-gate-receipt.json) |
 | `layers.release` | adoption baseline | — |
@@ -48,7 +48,7 @@ Gate's complete platform set.
 | `mmap.performance` | adoption baseline | — |
 | `durability.contracts` | adoption baseline | — |
 | `state-service.contracts` | adoption baseline | — |
-| `profile.suite` | adoption baseline | — |
+| `profile.suite` | measured | [linux: 5390 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/linux/receipt.json)<br>[macos: 13262 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/macos/receipt.json)<br>[windows: 8306 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/windows/receipt.json) |
 | `profile.lifecycle` | adoption baseline | — |
 | `profile.agent-sdk` | adoption baseline | — |
 | `profile.kfd3` | adoption baseline | — |

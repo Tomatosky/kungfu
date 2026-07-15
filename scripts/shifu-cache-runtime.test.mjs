@@ -420,7 +420,7 @@ test('strict Python cache uses a disposable effective lock and redacted receipt'
     cwd: repo,
     encoding: 'utf8',
   }).stdout;
-  const script = `const result = require('node:child_process').spawnSync('uv', ['sync'], {stdio:'inherit'}); process.exit(result.status ?? 1)`;
+  const script = `const result = require('node:child_process').spawnSync('uv', ['sync'], {stdio:'inherit', shell: process.platform === 'win32'}); process.exit(result.status ?? 1)`;
   const status = await applyCacheProfile({
     reference: profilePath,
     expectedDigest: sha256(raw),
@@ -506,7 +506,7 @@ test('strict Python cache fails before starting the child when effective lock re
         FAKE_UV_FAIL_LOCK: '1',
       },
     }),
-    /uv lock.*failed/,
+    /uv(?:\.cmd)? lock.*failed/,
   );
   assert.equal(fs.existsSync(childPath), false);
   const receipt = JSON.parse(fs.readFileSync(receiptPath, 'utf8'));
@@ -671,13 +671,24 @@ test('cache apply overrides Cargo and isolates Conan without mutating persistent
   const child = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
   assert.equal(child.cargoHome, persistentCargo);
   assert.notEqual(child.conanHome, persistentConan);
-  assert.deepEqual(JSON.parse(fs.readFileSync(fakeCargoArgsPath, 'utf8')), [
-    '--config',
-    'source.crates-io.replace-with="workhub"',
-    '--config',
-    'source.workhub.registry="sparse+http://cache.example.invalid/cargo-index/"',
-    'metadata',
-  ]);
+  assert.deepEqual(
+    JSON.parse(fs.readFileSync(fakeCargoArgsPath, 'utf8')),
+    process.platform === 'win32'
+      ? [
+          '--config',
+          'source.crates-io.replace-with=workhub',
+          '--config',
+          'source.workhub.registry=sparse+http://cache.example.invalid/cargo-index/',
+          'metadata',
+        ]
+      : [
+          '--config',
+          'source.crates-io.replace-with="workhub"',
+          '--config',
+          'source.workhub.registry="sparse+http://cache.example.invalid/cargo-index/"',
+          'metadata',
+        ],
+  );
   assert.deepEqual(child.conanRemotes, {
     remotes: [
       {

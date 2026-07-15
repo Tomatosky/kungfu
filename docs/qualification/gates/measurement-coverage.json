@@ -11,10 +11,6 @@
       "embedding.membranes",
       "episode.release",
       "episode.smoke",
-      "governance.adr-delivery",
-      "governance.buildchain-config",
-      "governance.dco",
-      "governance.promotion-rehearsal",
       "layers.release",
       "mmap.contracts",
       "mmap.performance",
@@ -24,7 +20,6 @@
       "profile.agent-sdk",
       "profile.kfd3",
       "profile.lifecycle",
-      "profile.suite",
       "release.artifact-admission",
       "runtime.crash-recovery",
       "runtime.durable-ingest",
@@ -38,7 +33,7 @@
       "toolchain.cpp-modules",
       "toolchain.libwasm-cache"
     ],
-    "digest": "sha256:2fc06a1263119544e4130724390f737016797de7c5df0a17cbf10ab23c024fb9"
+    "digest": "sha256:03a4c9d022aaffc486906f353a857093e8fb4518639630a1f3d7e77e67ab994d"
   },
   "measurements": [
     {
@@ -47,24 +42,104 @@
       "observations": [
         {
           "platform": "linux",
-          "sourceSha": "c4ba70d9542d42bbd75ddd9dd4c7ff079f4570fa",
-          "registryDigest": "sha256:26716c1b1979fa3789f35caf5db97dae103462a7e02aebd4f4026b0ea2923526",
-          "durationMs": 433,
-          "receipt": "docs/qualification/evidence/layer-gates/c4ba70d95/linux-x64.raw/layer-artifact-gate-receipt.json"
+          "sourceSha": "6b451a4e550f6896f8fa9f0f1426e2ec63e41297",
+          "registryDigest": "sha256:fb3394781eb3899ca9cc14f074effe365707f4ef3b40643bc84c4bbb882d227e",
+          "durationMs": 455,
+          "receipt": "docs/qualification/evidence/gate-measurements/6b451a4e/linux/receipt.json"
         },
         {
           "platform": "macos",
-          "sourceSha": "c4ba70d9542d42bbd75ddd9dd4c7ff079f4570fa",
-          "registryDigest": "sha256:26716c1b1979fa3789f35caf5db97dae103462a7e02aebd4f4026b0ea2923526",
-          "durationMs": 694,
-          "receipt": "docs/qualification/evidence/layer-gates/c4ba70d95/macos-arm64.raw/layer-artifact-gate-receipt.json"
+          "sourceSha": "6b451a4e550f6896f8fa9f0f1426e2ec63e41297",
+          "registryDigest": "sha256:fb3394781eb3899ca9cc14f074effe365707f4ef3b40643bc84c4bbb882d227e",
+          "durationMs": 1041,
+          "receipt": "docs/qualification/evidence/gate-measurements/6b451a4e/macos/receipt.json"
         },
         {
           "platform": "windows",
-          "sourceSha": "c4ba70d9542d42bbd75ddd9dd4c7ff079f4570fa",
-          "registryDigest": "sha256:26716c1b1979fa3789f35caf5db97dae103462a7e02aebd4f4026b0ea2923526",
-          "durationMs": 2008,
-          "receipt": "docs/qualification/evidence/layer-gates/c4ba70d95/windows-x64.raw/layer-artifact-gate-receipt.json"
+          "sourceSha": "6b451a4e550f6896f8fa9f0f1426e2ec63e41297",
+          "registryDigest": "sha256:fb3394781eb3899ca9cc14f074effe365707f4ef3b40643bc84c4bbb882d227e",
+          "durationMs": 1941,
+          "receipt": "docs/qualification/evidence/gate-measurements/6b451a4e/windows/receipt.json"
+        }
+      ]
+    },
+    {
+      "gateId": "governance.dco",
+      "definitionDigest": "sha256:2a034a3a6be2c010ca9f8f4f6a372e9fd4c66bca8fc1f9736e7cda767bc875c1",
+      "observations": [
+        {
+          "platform": "linux",
+          "sourceSha": "e90b0fb2badac3836e63aa4d0b3301b087c31ef2",
+          "registryDigest": "sha256:b254723f076b4dc4bdeefb900ccdbaf786703f0422a980330d326d76fb1b492a",
+          "durationMs": 12000,
+          "receipt": "docs/qualification/evidence/gate-measurements/e90b0fb2b/linux/governance.dco.controller-receipt.json"
+        }
+      ]
+    },
+    {
+      "gateId": "governance.adr-delivery",
+      "definitionDigest": "sha256:47a78b33b087732f2e8244ddaf3e14056d423d84004a4915bfddb76f161e3ba3",
+      "observations": [
+        {
+          "platform": "linux",
+          "sourceSha": "6b451a4e550f6896f8fa9f0f1426e2ec63e41297",
+          "registryDigest": "sha256:fb3394781eb3899ca9cc14f074effe365707f4ef3b40643bc84c4bbb882d227e",
+          "durationMs": 38,
+          "receipt": "docs/qualification/evidence/gate-measurements/6b451a4e/linux/receipt.json"
+        },
+        {
+          "platform": "macos",
+          "sourceSha": "6b451a4e550f6896f8fa9f0f1426e2ec63e41297",
+          "registryDigest": "sha256:fb3394781eb3899ca9cc14f074effe365707f4ef3b40643bc84c4bbb882d227e",
+          "durationMs": 111,
+          "receipt": "docs/qualification/evidence/gate-measurements/6b451a4e/macos/receipt.json"
+        },
+        {
+          "platform": "windows",
+          "sourceSha": "6b451a4e550f6896f8fa9f0f1426e2ec63e41297",
+          "registryDigest": "sha256:fb3394781eb3899ca9cc14f074effe365707f4ef3b40643bc84c4bbb882d227e",
+          "durationMs": 101,
+          "receipt": "docs/qualification/evidence/gate-measurements/6b451a4e/windows/receipt.json"
+        }
+      ]
+    },
+    {
+      "gateId": "governance.buildchain-config",
+      "definitionDigest": "sha256:cff3a42c0a27d8bc188d2eb8b8057ea46f04f426110f68f0a9a0e558eef89df9",
+      "observations": [
+        {
+          "platform": "linux",
+          "sourceSha": "e90b0fb2badac3836e63aa4d0b3301b087c31ef2",
+          "registryDigest": "sha256:b254723f076b4dc4bdeefb900ccdbaf786703f0422a980330d326d76fb1b492a",
+          "durationMs": 9000,
+          "receipt": "docs/qualification/evidence/gate-measurements/e90b0fb2b/linux/governance.buildchain-config.controller-receipt.json"
+        }
+      ]
+    },
+    {
+      "gateId": "governance.promotion-rehearsal",
+      "definitionDigest": "sha256:c6cc47c54ab2d79692a22b898697ab6297e07a49121cd232f5873218036c266e",
+      "observations": [
+        {
+          "platform": "linux",
+          "sourceSha": "e90b0fb2badac3836e63aa4d0b3301b087c31ef2",
+          "registryDigest": "sha256:fb3394781eb3899ca9cc14f074effe365707f4ef3b40643bc84c4bbb882d227e",
+          "durationMs": 425,
+          "receipt": "docs/qualification/evidence/gate-measurements/e90b0fb2b/linux/receipt.json"
+        },
+        {
+          "platform": "macos",
+          "sourceSha": "e90b0fb2badac3836e63aa4d0b3301b087c31ef2",
+          "registryDigest": "sha256:fb3394781eb3899ca9cc14f074effe365707f4ef3b40643bc84c4bbb882d227e",
+          "durationMs": 1100,
+          "receipt": "docs/qualification/evidence/gate-measurements/e90b0fb2b/macos/receipt.json"
+        },
+        {
+          "platform": "windows",
+          "sourceSha": "e90b0fb2badac3836e63aa4d0b3301b087c31ef2",
+          "registryDigest": "sha256:fb3394781eb3899ca9cc14f074effe365707f4ef3b40643bc84c4bbb882d227e",
+          "durationMs": 2483,
+          "receipt": "docs/qualification/evidence/gate-measurements/e90b0fb2b/windows/receipt.json"
         }
       ]
     },
@@ -74,24 +149,24 @@
       "observations": [
         {
           "platform": "linux",
-          "sourceSha": "c4ba70d9542d42bbd75ddd9dd4c7ff079f4570fa",
-          "registryDigest": "sha256:26716c1b1979fa3789f35caf5db97dae103462a7e02aebd4f4026b0ea2923526",
-          "durationMs": 387,
-          "receipt": "docs/qualification/evidence/layer-gates/c4ba70d95/linux-x64.raw/layer-artifact-gate-receipt.json"
+          "sourceSha": "e90b0fb2badac3836e63aa4d0b3301b087c31ef2",
+          "registryDigest": "sha256:fb3394781eb3899ca9cc14f074effe365707f4ef3b40643bc84c4bbb882d227e",
+          "durationMs": 436,
+          "receipt": "docs/qualification/evidence/gate-measurements/e90b0fb2b/linux/receipt.json"
         },
         {
           "platform": "macos",
-          "sourceSha": "c4ba70d9542d42bbd75ddd9dd4c7ff079f4570fa",
-          "registryDigest": "sha256:26716c1b1979fa3789f35caf5db97dae103462a7e02aebd4f4026b0ea2923526",
-          "durationMs": 705,
-          "receipt": "docs/qualification/evidence/layer-gates/c4ba70d95/macos-arm64.raw/layer-artifact-gate-receipt.json"
+          "sourceSha": "e90b0fb2badac3836e63aa4d0b3301b087c31ef2",
+          "registryDigest": "sha256:fb3394781eb3899ca9cc14f074effe365707f4ef3b40643bc84c4bbb882d227e",
+          "durationMs": 613,
+          "receipt": "docs/qualification/evidence/gate-measurements/e90b0fb2b/macos/receipt.json"
         },
         {
           "platform": "windows",
-          "sourceSha": "c4ba70d9542d42bbd75ddd9dd4c7ff079f4570fa",
-          "registryDigest": "sha256:26716c1b1979fa3789f35caf5db97dae103462a7e02aebd4f4026b0ea2923526",
-          "durationMs": 2011,
-          "receipt": "docs/qualification/evidence/layer-gates/c4ba70d95/windows-x64.raw/layer-artifact-gate-receipt.json"
+          "sourceSha": "e90b0fb2badac3836e63aa4d0b3301b087c31ef2",
+          "registryDigest": "sha256:fb3394781eb3899ca9cc14f074effe365707f4ef3b40643bc84c4bbb882d227e",
+          "durationMs": 1954,
+          "receipt": "docs/qualification/evidence/gate-measurements/e90b0fb2b/windows/receipt.json"
         }
       ]
     },
@@ -101,24 +176,24 @@
       "observations": [
         {
           "platform": "linux",
-          "sourceSha": "c4ba70d9542d42bbd75ddd9dd4c7ff079f4570fa",
-          "registryDigest": "sha256:26716c1b1979fa3789f35caf5db97dae103462a7e02aebd4f4026b0ea2923526",
-          "durationMs": 2660,
-          "receipt": "docs/qualification/evidence/layer-gates/c4ba70d95/linux-x64.raw/layer-artifact-gate-receipt.json"
+          "sourceSha": "e90b0fb2badac3836e63aa4d0b3301b087c31ef2",
+          "registryDigest": "sha256:fb3394781eb3899ca9cc14f074effe365707f4ef3b40643bc84c4bbb882d227e",
+          "durationMs": 16349,
+          "receipt": "docs/qualification/evidence/gate-measurements/e90b0fb2b/linux/receipt.json"
         },
         {
           "platform": "macos",
-          "sourceSha": "c4ba70d9542d42bbd75ddd9dd4c7ff079f4570fa",
-          "registryDigest": "sha256:26716c1b1979fa3789f35caf5db97dae103462a7e02aebd4f4026b0ea2923526",
-          "durationMs": 4787,
-          "receipt": "docs/qualification/evidence/layer-gates/c4ba70d95/macos-arm64.raw/layer-artifact-gate-receipt.json"
+          "sourceSha": "e90b0fb2badac3836e63aa4d0b3301b087c31ef2",
+          "registryDigest": "sha256:fb3394781eb3899ca9cc14f074effe365707f4ef3b40643bc84c4bbb882d227e",
+          "durationMs": 5827,
+          "receipt": "docs/qualification/evidence/gate-measurements/e90b0fb2b/macos/receipt.json"
         },
         {
           "platform": "windows",
-          "sourceSha": "c4ba70d9542d42bbd75ddd9dd4c7ff079f4570fa",
-          "registryDigest": "sha256:26716c1b1979fa3789f35caf5db97dae103462a7e02aebd4f4026b0ea2923526",
-          "durationMs": 8263,
-          "receipt": "docs/qualification/evidence/layer-gates/c4ba70d95/windows-x64.raw/layer-artifact-gate-receipt.json"
+          "sourceSha": "e90b0fb2badac3836e63aa4d0b3301b087c31ef2",
+          "registryDigest": "sha256:fb3394781eb3899ca9cc14f074effe365707f4ef3b40643bc84c4bbb882d227e",
+          "durationMs": 8437,
+          "receipt": "docs/qualification/evidence/gate-measurements/e90b0fb2b/windows/receipt.json"
         }
       ]
     },
@@ -173,6 +248,33 @@
           "registryDigest": "sha256:26716c1b1979fa3789f35caf5db97dae103462a7e02aebd4f4026b0ea2923526",
           "durationMs": 32821,
           "receipt": "docs/qualification/evidence/layer-gates/c4ba70d95/windows-x64.raw/layer-artifact-gate-receipt.json"
+        }
+      ]
+    },
+    {
+      "gateId": "profile.suite",
+      "definitionDigest": "sha256:b17634b3ba40edbfd7c4ffac6677845debc671566e016855222d3168d9a1cb77",
+      "observations": [
+        {
+          "platform": "linux",
+          "sourceSha": "e90b0fb2badac3836e63aa4d0b3301b087c31ef2",
+          "registryDigest": "sha256:fb3394781eb3899ca9cc14f074effe365707f4ef3b40643bc84c4bbb882d227e",
+          "durationMs": 5390,
+          "receipt": "docs/qualification/evidence/gate-measurements/e90b0fb2b/linux/receipt.json"
+        },
+        {
+          "platform": "macos",
+          "sourceSha": "e90b0fb2badac3836e63aa4d0b3301b087c31ef2",
+          "registryDigest": "sha256:fb3394781eb3899ca9cc14f074effe365707f4ef3b40643bc84c4bbb882d227e",
+          "durationMs": 13262,
+          "receipt": "docs/qualification/evidence/gate-measurements/e90b0fb2b/macos/receipt.json"
+        },
+        {
+          "platform": "windows",
+          "sourceSha": "e90b0fb2badac3836e63aa4d0b3301b087c31ef2",
+          "registryDigest": "sha256:fb3394781eb3899ca9cc14f074effe365707f4ef3b40643bc84c4bbb882d227e",
+          "durationMs": 8306,
+          "receipt": "docs/qualification/evidence/gate-measurements/e90b0fb2b/windows/receipt.json"
         }
       ]
     }

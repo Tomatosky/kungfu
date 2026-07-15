@@ -32,17 +32,6 @@ export function sourceFacts() {
   };
 }
 
-function pythonExecutable() {
-  return path.join(
-    ROOT,
-    'framework',
-    'core',
-    '.venv',
-    process.platform === 'win32' ? 'Scripts' : 'bin',
-    process.platform === 'win32' ? 'python.exe' : 'python',
-  );
-}
-
 function nativeEnvironment() {
   const build = path.join(ROOT, 'framework', 'core', 'build', 'Release');
   const env = {
@@ -106,7 +95,12 @@ export function qualificationPlan(outputDir) {
     {
       id: 'native-cross-process-restart',
       command: [
-        pythonExecutable(),
+        'uv',
+        'run',
+        '--project',
+        path.join(ROOT, 'framework', 'core'),
+        '--frozen',
+        'python',
         path.join(HARNESS_DIR, 'native_campaign.py'),
         'campaign',
         '--output-dir',
@@ -125,7 +119,9 @@ function runSuite(suite, outputDir) {
     encoding: 'utf8',
     maxBuffer: 128 * 1024 * 1024,
   });
-  const output = `${result.stdout || ''}${result.stderr || ''}`;
+  const output = `${result.stdout || ''}${result.stderr || ''}${
+    result.error ? `${result.error.name}: ${result.error.message}\n` : ''
+  }`;
   const rawLog = `${suite.id}.log`;
   fs.writeFileSync(path.join(outputDir, rawLog), output, { flag: 'wx' });
   const passed = !result.error && result.status === 0;

@@ -508,4 +508,5 @@ test('task invocation uses the native Shifu entrypoint on POSIX and cmd.exe on W
   assert.match(windows.command.toLowerCase(), /cmd(?:\.exe)?$/);
   assert.deepEqual(windows.args.slice(0, 3), ['/d', '/s', '/c']);
   assert.match(windows.args[3], /shifu\.cmd/);
+  assert.equal(windows.windowsVerbatimArguments, true);
 });
