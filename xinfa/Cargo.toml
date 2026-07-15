@@ -11,4 +11,3 @@ name = "xinfa"
 path = "src/main.rs"
 
 [workspace]
-
