@@ -73,6 +73,23 @@ function parseXinfaOptions(args) {
   return options;
 }
 
+/**
+ * @param {string} binary
+ * @param {string[]} args
+ * @param {import('node:child_process').SpawnSyncOptionsWithStringEncoding} options
+ */
+function spawnXinfa(binary, args, options) {
+  const isWindowsCommandWrapper =
+    process.platform === 'win32' && /\.(?:cmd|bat)$/i.test(binary);
+  return spawnSync(
+    isWindowsCommandWrapper ? process.env.ComSpec || 'cmd.exe' : binary,
+    isWindowsCommandWrapper
+      ? ['/d', '/s', '/c', 'call', binary, ...args]
+      : args,
+    options,
+  );
+}
+
 /** @param {string} root @param {ReturnType<typeof parseXinfaOptions>} options */
 function runXinfaCompile(root, options) {
   const binary = path.resolve(
@@ -98,7 +115,7 @@ function runXinfaCompile(root, options) {
     options.visibility,
     '--json',
   ];
-  const compile = spawnSync(binary, compileArgs, {
+  const compile = spawnXinfa(binary, compileArgs, {
     cwd: root,
     encoding: 'utf8',
   });
@@ -113,7 +130,7 @@ function runXinfaCompile(root, options) {
   let verificationReceipt = null;
   let verifyStatus = null;
   if (compile.status === 0) {
-    const verify = spawnSync(
+    const verify = spawnXinfa(
       binary,
       ['atlas', 'verify', '--atlas', options.output, '--json'],
       { cwd: root, encoding: 'utf8' },

@@ -55,6 +55,11 @@ function sha256(file) {
 const work = fs.mkdtempSync(path.join(os.tmpdir(), 'kungfu-libwasm-qualify-'));
 try {
   const cargo = commandPath('cargo');
+  let cmakeCargo = cargo;
+  if (process.platform === 'win32') {
+    cmakeCargo = path.join(work, 'cargo.cmd');
+    fs.writeFileSync(cmakeCargo, `@echo off\r\n"${cargo}" %*\r\n`);
+  }
   const script = path.join(work, 'resolve.cmake');
   const cacheRoot = process.env.KF_LIBWASM_CARGO_TARGET_ROOT || '';
   const lines = [`include("${cmakePath(modulePath)}")`];
@@ -66,7 +71,7 @@ try {
   LOCKFILE "${cmakePath(path.join(manifestDir, 'Cargo.lock'))}"
   SOURCE_ROOT "${cmakePath(root)}"
   PROFILE release
-  CARGO "${cmakePath(cargo)}"
+  CARGO "${cmakePath(cmakeCargo)}"
   CACHE_ROOT "${cmakePath(cacheRoot)}")`);
     lines.push(
       `message("CACHE|${engine}|\${${engine.toUpperCase()}_KEY}|\${${engine.toUpperCase()}_DIR}")`,
