@@ -4,7 +4,6 @@ doc_type: architecture-decision
 adr_id: SHIFU-ADR-0006
 decision_status: accepted
 implementation_status: implemented
-implementation_commits: [07d0240808dbd8c037fa038a88b9a563456b5914]
 implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/910]
 closure_pr: https://github.com/kungfu-systems/kungfu/pull/910
 qualification_refs: [scripts/check-shifu-documentation-contract.mjs, scripts/shifu-documentation-runtime.test.mjs]
