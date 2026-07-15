@@ -491,6 +491,7 @@ test('strict Python cache uses a disposable effective lock and redacted receipt'
     env: {
       ...process.env,
       PATH: `${bin}${path.delimiter}${process.env.PATH || ''}`,
+      SHIFU_UV_ORIGINAL_PATH: `${bin}${path.delimiter}${process.env.PATH || ''}`,
       FAKE_UV_OUTPUT: outputPath,
     },
   });
@@ -563,6 +564,7 @@ test('strict Python cache fails before starting the child when effective lock re
       env: {
         ...process.env,
         PATH: `${bin}${path.delimiter}${process.env.PATH || ''}`,
+        SHIFU_UV_ORIGINAL_PATH: `${bin}${path.delimiter}${process.env.PATH || ''}`,
         FAKE_UV_FAIL_LOCK: '1',
       },
     }),
@@ -619,6 +621,7 @@ test('development Python cache records declared fallback when effective lock is 
     env: {
       ...process.env,
       PATH: `${bin}${path.delimiter}${process.env.PATH || ''}`,
+      SHIFU_UV_ORIGINAL_PATH: `${bin}${path.delimiter}${process.env.PATH || ''}`,
       FAKE_UV_FAIL_LOCK: '1',
     },
   });
