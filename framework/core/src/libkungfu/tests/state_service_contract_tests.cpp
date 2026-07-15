@@ -33,7 +33,7 @@ using kungfu::yijinjing::ownership::lease;
 
 namespace {
 
-constexpr size_t TEST_PAGE_SIZE = 2 * kungfu::yijinjing::MB;
+constexpr uint64_t TEST_PAGE_SIZE_MB = 2;
 
 std::vector<fs::path> &retained_test_roots() {
   static std::vector<fs::path> roots;
@@ -112,10 +112,10 @@ void test_writer_is_fenced_before_a_second_business_write() {
   constexpr uint32_t dest = location::PUBLIC;
 
   {
-    writer first(source, dest, publisher, false, journal_bus, TEST_PAGE_SIZE);
+    writer first(source, dest, publisher, false, journal_bus, TEST_PAGE_SIZE_MB);
     bool refused = false;
     try {
-      writer second(source, dest, publisher, false, journal_bus, TEST_PAGE_SIZE);
+      writer second(source, dest, publisher, false, journal_bus, TEST_PAGE_SIZE_MB);
       auto transaction = second.reserve_frame(1, 1001, 8);
       transaction.commit(8, 2);
     } catch (const busy_error &) {
@@ -124,7 +124,7 @@ void test_writer_is_fenced_before_a_second_business_write() {
     require(refused, "a second writer reached a business write");
   }
 
-  writer reopened(source, dest, publisher, false, journal_bus, TEST_PAGE_SIZE);
+  writer reopened(source, dest, publisher, false, journal_bus, TEST_PAGE_SIZE_MB);
   auto transaction = reopened.reserve_frame(3, 1002, 8);
   transaction.commit(8, 4);
 }

@@ -60,7 +60,8 @@ using kungfu::yijinjing::types::page_header;
 
 namespace {
 
-constexpr size_t TEST_PAGE_SIZE = 2 * kungfu::yijinjing::MB;
+constexpr uint64_t TEST_PAGE_SIZE_MB = 2;
+constexpr size_t TEST_PAGE_SIZE = TEST_PAGE_SIZE_MB * kungfu::yijinjing::MB;
 
 class temp_tree {
 public:
@@ -497,7 +498,9 @@ void test_writer_transaction_recovers_from_reservation_and_commit_failures() {
   temp_tree tree;
   auto loc = make_location(tree.root());
   auto bus = make_bus();
-  injectable_writer target(loc, location::PUBLIC, std::make_shared<noop_publisher>(), false, bus, TEST_PAGE_SIZE);
+  injectable_writer target(loc, location::PUBLIC, std::make_shared<noop_publisher>(), false, bus, TEST_PAGE_SIZE_MB);
+  require(target.get_current_page()->get_page_size() == TEST_PAGE_SIZE,
+          "writer fixture interpreted a byte count as mebibytes");
 
   target.throw_on_reserve = true;
   require_throws([&] { (void)target.reserve_frame(1, 1001, 8); }, "injected reservation failure did not escape");
@@ -520,7 +523,7 @@ void test_writer_transaction_aborts_abandonment_and_payload_failure() {
   temp_tree tree;
   auto loc = make_location(tree.root());
   auto bus = make_bus();
-  writer target(loc, location::PUBLIC, std::make_shared<noop_publisher>(), false, bus, TEST_PAGE_SIZE);
+  writer target(loc, location::PUBLIC, std::make_shared<noop_publisher>(), false, bus, TEST_PAGE_SIZE_MB);
 
   uintptr_t abandoned_address = 0;
   {
@@ -549,7 +552,8 @@ void test_writer_transaction_recovers_from_hook_failures() {
   auto loc = make_location(tree.root());
   auto bus = make_bus();
   auto hook = std::make_shared<one_shot_hook>();
-  hookable_writer target(loc, location::PUBLIC, std::make_shared<noop_publisher>(), false, bus, TEST_PAGE_SIZE, hook);
+  hookable_writer target(loc, location::PUBLIC, std::make_shared<noop_publisher>(), false, bus, TEST_PAGE_SIZE_MB,
+                         hook);
 
   hook->throw_on_open = true;
   require_throws([&] { (void)target.reserve_frame(1, 1201, 8); }, "open hook failure did not escape");
@@ -573,7 +577,7 @@ void test_writer_transaction_unlocks_before_publisher_notification() {
   auto loc = make_location(tree.root());
   auto bus = make_bus();
   auto publisher = std::make_shared<one_shot_publisher>();
-  writer target(loc, location::PUBLIC, publisher, false, bus, TEST_PAGE_SIZE);
+  writer target(loc, location::PUBLIC, publisher, false, bus, TEST_PAGE_SIZE_MB);
 
   uintptr_t published_address = 0;
   require_throws(
@@ -644,12 +648,12 @@ void test_reader_management_uses_membership_snapshots() {
   temp_tree tree;
   auto loc = make_location(tree.root());
   auto writer_bus = make_bus();
-  writer seed(loc, location::PUBLIC, std::make_shared<noop_publisher>(), false, writer_bus, TEST_PAGE_SIZE);
+  writer seed(loc, location::PUBLIC, std::make_shared<noop_publisher>(), false, writer_bus, TEST_PAGE_SIZE_MB);
   seed.mark(1, 1601);
 
   auto management_bus = std::make_shared<kungfu::yijinjing::journal::bus>(true);
   reader target(reader_policy::peer(), true, management_bus);
-  target.join(loc, location::PUBLIC, 0, TEST_PAGE_SIZE);
+  target.join(loc, location::PUBLIC, 0, TEST_PAGE_SIZE_MB);
   const auto retained_snapshot = target.get_journals();
   require(retained_snapshot.size() == 1, "reader snapshot omitted joined journal");
 
@@ -668,7 +672,7 @@ void test_reader_management_uses_membership_snapshots() {
 
   for (int i = 0; i < 50; ++i) {
     target.disjoin_channel(loc, location::PUBLIC);
-    target.join(loc, location::PUBLIC, 0, TEST_PAGE_SIZE);
+    target.join(loc, location::PUBLIC, 0, TEST_PAGE_SIZE_MB);
   }
   manager.join();
   if (management_error) {
