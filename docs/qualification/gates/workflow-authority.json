@@ -149,7 +149,7 @@
           "authority": "qualification",
           "publication": "none",
           "receipt": "diagnostic",
-          "definitionDigest": "sha256:a3bfa7aff80b1c8d8e7b614f55a98a72026b7430fab0c3048b6ac468ee20dcfc",
+          "definitionDigest": "sha256:0c43f7a58b3140252ea6b216a526d93616aeb8df2860492321da59cb50975cb0",
           "credentials": {
             "githubToken": "read",
             "oidc": false,
@@ -220,13 +220,13 @@
               "index": 10,
               "label": "name:Verify build identity and custom provider contract (POSIX)",
               "authority": "qualification",
-              "definitionDigest": "sha256:2b1684e02cb83f64b85eaabff5926dec3c086e61aee7378acb25d7201bc0527e"
+              "definitionDigest": "sha256:886c7649b86212da28f36ba06e6c81babd5e0ba9043bad001ee300cc9a4ea275"
             },
             {
               "index": 11,
               "label": "name:Verify build identity and custom provider contract (Windows)",
               "authority": "qualification",
-              "definitionDigest": "sha256:7df17b699a10afac40362f7f249fd591a91774bd527355660db3e5e1c6f22fa1"
+              "definitionDigest": "sha256:e8cf71f703b70f6373b3cc577f50b74e2cffc6998a38ee5e9879623f3a56fbad"
             }
           ]
         }
