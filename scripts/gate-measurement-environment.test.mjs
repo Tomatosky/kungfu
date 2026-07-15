@@ -9,6 +9,7 @@ import test from 'node:test';
 import {
   exposeGateMeasurementPython,
   gateMeasurementToolPath,
+  gateMeasurementUvCommand,
 } from './gate-measurement-environment.mjs';
 
 test('keeps the managed uv wrapper ahead of user tool directories', () => {
@@ -33,6 +34,37 @@ test('continues to expose user tools first without a managed uv wrapper', () => 
     gateMeasurementToolPath(system, [cargo]),
     [cargo, system].join(path.delimiter),
   );
+});
+
+test('resolves the managed uv wrapper without relying on Windows PATH casing', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gate-measurement-uv-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const bin = path.join(root, 'bin');
+  const manifestPath = path.join(root, 'manifest.json');
+  fs.mkdirSync(bin);
+  fs.writeFileSync(path.join(bin, 'uv'), '');
+  fs.writeFileSync(path.join(bin, 'uv.cmd'), '');
+  const env = {
+    SHIFU_CACHE_MANAGED_UV: '1',
+    SHIFU_UV_ADAPTER_MANIFEST: manifestPath,
+    Path: path.join(root, 'unmanaged'),
+    PATH: bin,
+  };
+  assert.deepEqual(gateMeasurementUvCommand({ env, platform: 'linux' }), {
+    command: path.join(bin, 'uv'),
+    shell: false,
+  });
+  assert.deepEqual(gateMeasurementUvCommand({ env, platform: 'win32' }), {
+    command: path.join(bin, 'uv.cmd'),
+    shell: true,
+  });
+});
+
+test('uses ordinary uv lookup without a managed cache projection', () => {
+  assert.deepEqual(gateMeasurementUvCommand({ env: {}, platform: 'win32' }), {
+    command: 'uv',
+    shell: false,
+  });
 });
 
 test('projects the materialized core environment from the strict uv manifest', (t) => {

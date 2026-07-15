@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import {
   exposeGateMeasurementPython,
   gateMeasurementToolPath,
+  gateMeasurementUvCommand,
 } from './gate-measurement-environment.mjs';
 import { prepareGateMeasurementHistory } from './prepare-gate-measurement-history.mjs';
 import { cacheAppliedCommandArgs, runShifu } from './run-shifu-lifecycle.mjs';
@@ -101,7 +102,12 @@ function prepareWorkspace() {
     shell: process.platform === 'win32',
   });
   if (process.exitCode) return;
-  runPreparation('uv', ['sync', '--project', 'framework/core', '--frozen']);
+  const uv = gateMeasurementUvCommand();
+  runPreparation(
+    uv.command,
+    ['sync', '--project', 'framework/core', '--frozen'],
+    { shell: uv.shell },
+  );
   if (process.exitCode) return;
   exposeGateMeasurementPython(path.join(root, 'framework', 'core'));
   runPreparation(

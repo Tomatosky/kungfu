@@ -28,6 +28,32 @@ export function gateMeasurementToolPath(
 }
 
 /**
+ * Resolve the cache-managed uv wrapper directly. Windows may expose both
+ * `Path` and `PATH`; relying on command lookup can therefore bypass the
+ * wrapper even when Shifu projected it first.
+ *
+ * @param {{env?: NodeJS.ProcessEnv, platform?: NodeJS.Platform}} [options]
+ */
+export function gateMeasurementUvCommand({
+  env = process.env,
+  platform = process.platform,
+} = {}) {
+  if (env.SHIFU_CACHE_MANAGED_UV !== '1')
+    return { command: 'uv', shell: false };
+  const manifestPath = env.SHIFU_UV_ADAPTER_MANIFEST || '';
+  if (!manifestPath)
+    throw new Error('measurement uv overlay manifest is missing');
+  const command = path.join(
+    path.dirname(manifestPath),
+    'bin',
+    platform === 'win32' ? 'uv.cmd' : 'uv',
+  );
+  if (!fs.existsSync(command))
+    throw new Error(`measurement uv wrapper is missing: ${command}`);
+  return { command, shell: platform === 'win32' };
+}
+
+/**
  * Project the cache-managed uv environment into the long-lived measurement
  * process after `uv sync` materializes it through the child-only wrapper.
  *
