@@ -5,7 +5,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
-import { resolveMacSigningIdentity } from './sign-macos.mjs';
+import {
+  resolveMacSigningIdentity,
+  resolveMacSigningIgnore,
+} from './sign-macos.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '../../..');
 
@@ -27,6 +30,34 @@ test('falls back to the identity resolved by electron-builder', () => {
     ),
     'Developer ID Application: Example (TEAMID)',
   );
+});
+
+test('skips Python bytecode without skipping native runtime code', () => {
+  const ignore = resolveMacSigningIgnore();
+  const shouldIgnore = (filePath) =>
+    ignore.some((rule) =>
+      typeof rule === 'function' ? rule(filePath) : filePath.match(rule),
+    );
+
+  assert.equal(shouldIgnore('/app/runtime/pkg/module.pyc'), true);
+  assert.equal(shouldIgnore('C:\\app\\runtime\\pkg\\module.pyo'), true);
+  assert.equal(shouldIgnore('/app/runtime/pkg/__pycache__/module.data'), true);
+  assert.equal(shouldIgnore('/app/runtime/pkg/native.so'), false);
+  assert.equal(shouldIgnore('/app/runtime/pkg/native.dylib'), false);
+  assert.equal(shouldIgnore('/app/runtime/kungfu'), false);
+});
+
+test('preserves existing string, array, and function ignore rules', () => {
+  const existingFunction = (filePath) => filePath.endsWith('.map');
+
+  assert.deepEqual(resolveMacSigningIgnore('existing-pattern').slice(0, -1), [
+    'existing-pattern',
+  ]);
+  assert.deepEqual(
+    resolveMacSigningIgnore(['first-pattern', 'second-pattern']).slice(0, -1),
+    ['first-pattern', 'second-pattern'],
+  );
+  assert.equal(resolveMacSigningIgnore(existingFunction)[0], existingFunction);
 });
 
 test('both desktop builders resolve the signing hook from the GUI project', () => {
