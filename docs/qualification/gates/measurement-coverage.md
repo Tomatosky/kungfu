@@ -20,7 +20,7 @@ Gate's complete platform set.
 <!-- BEGIN GENERATED GATE MEASUREMENTS -->
 | Gate | Coverage | Source-bound observations |
 | --- | --- | --- |
-| `gate.catalog` | measured | [linux: 478 ms @ 1cb3069c0](../evidence/gate-measurements/1cb3069c0/linux/embedding-receipt.json)<br>[macos: 871 ms @ 1cb3069c0](../evidence/gate-measurements/1cb3069c0/macos/embedding-receipt.json)<br>[windows: 1958 ms @ 1cb3069c0](../evidence/gate-measurements/1cb3069c0/windows/embedding-receipt.json) |
+| `gate.catalog` | measured | [linux: 483 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/linux/runtime-toolchain-receipt.json)<br>[macos: 729 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/macos/runtime-toolchain-receipt.json)<br>[windows: 1940 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/windows/runtime-toolchain-receipt.json) |
 | `governance.dco` | measured | [linux: 12000 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/linux/governance.dco.controller-receipt.json) |
 | `governance.adr-delivery` | measured | [linux: 38 ms @ 6b451a4e5](../evidence/gate-measurements/6b451a4e/linux/receipt.json)<br>[macos: 111 ms @ 6b451a4e5](../evidence/gate-measurements/6b451a4e/macos/receipt.json)<br>[windows: 101 ms @ 6b451a4e5](../evidence/gate-measurements/6b451a4e/windows/receipt.json) |
 | `governance.buildchain-config` | measured | [linux: 9000 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/linux/governance.buildchain-config.controller-receipt.json) |
@@ -32,7 +32,7 @@ Gate's complete platform set.
 | `docs.prose` | measured | [linux: 28123 ms @ 44d498750](../evidence/gate-measurements/44d498750/linux/docs-prose-receipt.json) |
 | `docs.external-links` | measured | [linux: 51272 ms @ da9dce514](../evidence/gate-measurements/da9dce514/linux/linux-only-receipt.json) |
 | `shifu.workspace` | adoption baseline | — |
-| `product.distribution` | adoption baseline | — |
+| `product.distribution` | measured | [linux: 214835 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/linux/runtime-toolchain-receipt.json)<br>[macos: 302172 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/macos/runtime-toolchain-receipt.json)<br>[windows: 556869 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/windows/runtime-toolchain-receipt.json) |
 | `product.verify-full` | adoption baseline | — |
 | `product.verify-fuzz` | adoption baseline | — |
 | `release.artifact-admission` | adoption baseline | — |
@@ -52,10 +52,10 @@ Gate's complete platform set.
 | `profile.lifecycle` | adoption baseline | — |
 | `profile.agent-sdk` | adoption baseline | — |
 | `profile.kfd3` | adoption baseline | — |
-| `runtime.durable-ingest` | adoption baseline | — |
-| `runtime.projection-bootstrap` | adoption baseline | — |
-| `runtime.crash-recovery` | adoption baseline | — |
-| `runtime.errors` | adoption baseline | — |
-| `toolchain.cpp-modules` | adoption baseline | — |
+| `runtime.durable-ingest` | measured | [linux: 14583 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/linux/runtime-toolchain-receipt.json)<br>[macos: 2492 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/macos/runtime-toolchain-receipt.json)<br>[windows: 3433 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/windows/runtime-toolchain-receipt.json) |
+| `runtime.projection-bootstrap` | measured | [linux: 2611 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/linux/runtime-toolchain-receipt.json)<br>[macos: 4938 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/macos/runtime-toolchain-receipt.json)<br>[windows: 3340 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/windows/runtime-toolchain-receipt.json) |
+| `runtime.crash-recovery` | measured | [linux: 17759 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/linux/runtime-toolchain-receipt.json)<br>[macos: 15014 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/macos/runtime-toolchain-receipt.json)<br>[windows: 6810 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/windows/runtime-toolchain-receipt.json) |
+| `runtime.errors` | measured | [linux: 699 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/linux/runtime-toolchain-receipt.json)<br>[macos: 1703 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/macos/runtime-toolchain-receipt.json)<br>[windows: 1988 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/windows/runtime-toolchain-receipt.json) |
+| `toolchain.cpp-modules` | measured | [linux: 1380 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/linux/runtime-toolchain-receipt.json)<br>[macos: 2103 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/macos/runtime-toolchain-receipt.json)<br>[windows: 4501 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/windows/runtime-toolchain-receipt.json) |
 | `toolchain.libwasm-cache` | adoption baseline | — |
 <!-- END GENERATED GATE MEASUREMENTS -->
