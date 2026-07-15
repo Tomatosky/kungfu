@@ -449,11 +449,15 @@ function renderIndex(layers, build) {
 }
 
 function renderHealth(report, layers, baseline, findings) {
+  const evidenceNote =
+    report.values.affected_native_duration_ms === null
+      ? 'Binary size and successful affected-native timing remain unknown until retained qualification artifacts exist.'
+      : 'Affected-native timing comes from retained qualification evidence; binary size remains release-owned because PR source authority has no stable packaged artifact.';
   const rows = Object.entries(layers.health_policy.metrics).map(
     ([id, policy]) =>
       `| \`${id}\` | ${report.values[id] ?? 'unknown'} | ${baseline?.values?.[id] ?? 'unknown'} | ${policy.budget ?? 'advisory'} | ${policy.blocking ? 'blocking' : `advisory: ${policy.reason}`} |`,
   );
-  return `---\nmetadata_schema: kungfu.document-metadata/v1\ndocument_status: active\nperiod: 2026-06-01/2026-07-15\ntheme: kungfu-core-architecture-health\ndoc_type: generated-health-report\nsources: [local-files]\nconfidence: high\nsensitivity: public\nevidence_grade: A\nreview_state: self-reviewed\nlast_reviewed: 2026-07-15\n---\n\n# Core Architecture Health\n\nGenerated from the architecture authority and repository facts. Metrics are structural signals, not individual performance measures. Binary size and successful affected-native timing remain unknown until retained qualification artifacts exist.\n\nAuthority root: \`${report.authorityRoot}\`\n\n| Metric | Current | Baseline | Budget | Policy |\n| --- | ---: | ---: | ---: | --- |\n${rows.join('\n')}\n\nFindings: ${findings.length ? findings.map((finding) => `\n- ${finding}`).join('') : 'none.'}\n`;
+  return `---\nmetadata_schema: kungfu.document-metadata/v1\ndocument_status: active\nperiod: 2026-06-01/2026-07-15\ntheme: kungfu-core-architecture-health\ndoc_type: generated-health-report\nsources: [local-files]\nconfidence: high\nsensitivity: public\nevidence_grade: A\nreview_state: self-reviewed\nlast_reviewed: 2026-07-15\n---\n\n# Core Architecture Health\n\nGenerated from the architecture authority and repository facts. Metrics are structural signals, not individual performance measures. ${evidenceNote}\n\nAuthority root: \`${report.authorityRoot}\`\n\n| Metric | Current | Baseline | Budget | Policy |\n| --- | ---: | ---: | ---: | --- |\n${rows.join('\n')}\n\nFindings: ${findings.length ? findings.map((finding) => `\n- ${finding}`).join('') : 'none.'}\n`;
 }
 
 function validateAuthority(layers, build) {
