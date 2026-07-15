@@ -33,11 +33,7 @@ test('falls back to the identity resolved by electron-builder', () => {
 });
 
 test('skips Python bytecode without skipping native runtime code', () => {
-  const ignore = resolveMacSigningIgnore();
-  const shouldIgnore = (filePath) =>
-    ignore.some((rule) =>
-      typeof rule === 'function' ? rule(filePath) : filePath.match(rule),
-    );
+  const shouldIgnore = resolveMacSigningIgnore();
 
   assert.equal(shouldIgnore('/app/runtime/pkg/module.pyc'), true);
   assert.equal(shouldIgnore('C:\\app\\runtime\\pkg\\module.pyo'), true);
@@ -50,14 +46,27 @@ test('skips Python bytecode without skipping native runtime code', () => {
 test('preserves existing string, array, and function ignore rules', () => {
   const existingFunction = (filePath) => filePath.endsWith('.map');
 
-  assert.deepEqual(resolveMacSigningIgnore('existing-pattern').slice(0, -1), [
-    'existing-pattern',
-  ]);
-  assert.deepEqual(
-    resolveMacSigningIgnore(['first-pattern', 'second-pattern']).slice(0, -1),
-    ['first-pattern', 'second-pattern'],
+  assert.equal(
+    resolveMacSigningIgnore('existing-pattern')('/app/existing-pattern'),
+    true,
   );
-  assert.equal(resolveMacSigningIgnore(existingFunction)[0], existingFunction);
+  assert.equal(
+    resolveMacSigningIgnore(['first-pattern', 'second-pattern'])(
+      '/app/second-pattern',
+    ),
+    true,
+  );
+  assert.equal(
+    resolveMacSigningIgnore(existingFunction)('/app/source.map'),
+    true,
+  );
+});
+
+test('returns one function so osx-sign does not discard the ignore option', () => {
+  assert.equal(
+    typeof resolveMacSigningIgnore(['existing-pattern']),
+    'function',
+  );
 });
 
 test('both desktop builders resolve the signing hook from the GUI project', () => {
