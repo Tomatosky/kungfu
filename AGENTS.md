@@ -66,6 +66,7 @@ layout, and code style.
 ./shifu core:architecture --path <repo-relative-path> # locate owner, targets, tests, docs and review route
 ./shifu core:architecture --capability <name> --json # stable machine-readable architecture query
 ./shifu core:architecture:health # inspect structural health budgets and ratchets
+KUNGFU_BUILD_PROFILE=embedded-sqlite ./shifu rebuild:core # select one supported trimmed Core closure
 ./shifu core:affected -- --base <base> --head <head> --json # explain the native PR closure
 ./shifu verify          # assert existing build artifacts (quick)
 ./shifu verify --full   # rebuild + freeze, then assert (slow; needs the full toolchain)
