@@ -122,8 +122,10 @@ test('effective lock and environment stay outside the canonical checkout', (t) =
   const repo = path.join(root, 'repo');
   const project = path.join(repo, 'framework', 'core');
   const bin = path.join(root, 'bin');
+  const inheritedWrapperBin = path.join(root, 'inherited-wrapper-bin');
   fs.mkdirSync(project, { recursive: true });
   fs.mkdirSync(bin);
+  fs.mkdirSync(inheritedWrapperBin);
   fs.writeFileSync(
     path.join(project, 'pyproject.toml'),
     '[project]\nname="demo"\nversion="1.0.0"\n',
@@ -136,6 +138,18 @@ test('effective lock and environment stay outside the canonical checkout', (t) =
     { cwd: repo },
   );
   fakeUv(bin);
+  if (process.platform === 'win32') {
+    fs.writeFileSync(
+      path.join(inheritedWrapperBin, 'uv.cmd'),
+      '@exit /b 99\r\n',
+    );
+  } else {
+    fs.writeFileSync(
+      path.join(inheritedWrapperBin, 'uv'),
+      '#!/bin/sh\nexit 99\n',
+      { mode: 0o700 },
+    );
+  }
 
   const output = path.join(root, 'uv-run.json');
   const original = fs.readFileSync(path.join(project, 'uv.lock'), 'utf8');
@@ -147,7 +161,8 @@ test('effective lock and environment stay outside the canonical checkout', (t) =
     endpoint: 'http://cache.example.invalid/simple/',
     env: {
       ...process.env,
-      PATH: `${bin}${path.delimiter}${process.env.PATH || ''}`,
+      PATH: `${inheritedWrapperBin}${path.delimiter}${bin}${path.delimiter}${process.env.PATH || ''}`,
+      SHIFU_UV_ORIGINAL_PATH: `${bin}${path.delimiter}${process.env.PATH || ''}`,
       FAKE_UV_OUTPUT: output,
     },
   });
@@ -155,6 +170,10 @@ test('effective lock and environment stay outside the canonical checkout', (t) =
 
   assert.equal(overlay.evidence.enforcement, 'project-overlay');
   assert.equal(overlay.evidence.projectCount, 1);
+  assert.equal(
+    overlay.env.SHIFU_UV_ORIGINAL_PATH,
+    `${bin}${path.delimiter}${process.env.PATH || ''}`,
+  );
   assert.equal(
     fs.readFileSync(path.join(project, 'uv.lock'), 'utf8'),
     original,

@@ -376,7 +376,11 @@ export function prepareUvCacheOverlay({
   timeoutMs = 120_000,
 } = {}) {
   if (!endpoint) fail('uv cache adapter requires a selected index endpoint');
-  const originalPath = env.PATH || '';
+  // A lifecycle can invoke Shifu again while already inside a cache
+  // projection. Reusing PATH here would make the inner UV overlay discover
+  // the outer wrapper as its "real" UV; carry forward the first unwrapped
+  // PATH instead.
+  const originalPath = env.SHIFU_UV_ORIGINAL_PATH || env.PATH || '';
   const realUv = findExecutable('uv', originalPath);
   if (!realUv) fail('strict Python cache profile requires uv on PATH');
   const projects = trackedUvProjects(cwd);
@@ -475,6 +479,7 @@ export function prepareUvCacheOverlay({
       root,
       env: {
         PATH: `${bin}${path.delimiter}${originalPath}`,
+        SHIFU_UV_ORIGINAL_PATH: originalPath,
         SHIFU_UV_ADAPTER_MANIFEST: manifestPath,
         SHIFU_CACHE_MANAGED_UV: '1',
       },
