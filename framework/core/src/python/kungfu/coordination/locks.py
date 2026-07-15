@@ -65,7 +65,10 @@ def _windows_pid_alive(pid: int) -> bool:
     """Query a Windows process without signal 0, which is CTRL_C_EVENT."""
     process_query_limited_information = 0x1000
     still_active = 259
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    win_dll = getattr(ctypes, "WinDLL", None)
+    if win_dll is None:
+        return False
+    kernel32 = win_dll("kernel32", use_last_error=True)
     kernel32.OpenProcess.argtypes = [ctypes.c_ulong, ctypes.c_int, ctypes.c_ulong]
     kernel32.OpenProcess.restype = ctypes.c_void_p
     kernel32.GetExitCodeProcess.argtypes = [
