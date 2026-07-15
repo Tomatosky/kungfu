@@ -2621,8 +2621,14 @@ function pythonAotBuild(manifest) {
       .filter(Boolean)
       .join(path.delimiter),
   };
-  // Install the extension's declared dependencies through the bundled pdm.
-  runOrFail(py, ['-m', 'kungfu', 'engage', 'pdm', 'install'], { env });
+  // The bundled core environment already contains the source-locked build
+  // backend. Reuse it instead of asking the configured index to resolve the
+  // legacy pdm-pep517 backend again for every extension build.
+  runOrFail(
+    py,
+    ['-m', 'kungfu', 'engage', 'pdm', 'install', '--no-isolation'],
+    { env },
+  );
   // AOT-compile just this module: declared deps stay runtime imports, so we do
   // not --follow-imports (we compile the extension, not its dependency tree).
   runOrFail(
