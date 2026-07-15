@@ -271,6 +271,32 @@ test('required failures keep a copyable single-gate reproduction argv', async ()
   ]);
 });
 
+test('task failure reasons retain a bounded diagnostic output tail', async () => {
+  const registry = structuredClone(loaded.registry);
+  const gate = registry.gates.find((item) => item.id === 'fixture.fail');
+  gate.action = {
+    kind: 'argv',
+    command: process.execPath,
+    args: [
+      '-e',
+      "console.error('fixture diagnostic output tail'); process.exit(7)",
+    ],
+  };
+  const receipt = await executeGateRun(registry, {
+    root: ROOT,
+    registryRef: REGISTRY_REF,
+    registryDigest: loaded.digest,
+    source: SOURCE,
+    profile: 'required-failure',
+    writer: WRITER,
+  });
+  const reason = receipt.results.find(
+    (result) => result.gateId === 'fixture.fail',
+  ).reason;
+  assert.match(reason, /fixture diagnostic output tail/);
+  assert.ok(reason.length <= 1000);
+});
+
 test('required gate-specific evidence is enforced without embedding its content', async () => {
   const passed = await run({ profile: 'evidence-success' });
   assert.equal(passed.status, 'pass');

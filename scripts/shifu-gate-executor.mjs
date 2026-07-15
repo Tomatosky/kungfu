@@ -331,6 +331,18 @@ function redactReceiptText(value, root) {
     .slice(0, 1000);
 }
 
+/** @param {{stdout?:string|null, stderr?:string|null}} result */
+function actionFailureOutputTail(result) {
+  const ansiEscape = new RegExp(
+    `${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`,
+    'gu',
+  );
+  const output = String(result.stderr || result.stdout || '')
+    .replace(ansiEscape, '')
+    .trim();
+  return output.slice(-700).trim();
+}
+
 /**
  * @param {any} gate
  * @param {{root:string, platform:string, source:any, tempRoot:string, writer:Writer, handlers:Record<string,Function>}} context
@@ -410,7 +422,8 @@ async function executeAction(gate, context) {
         reason = `action terminated by signal ${result.signal}`;
       } else if (result.status !== 0) {
         rawStatus = 'fail';
-        reason = `action exited with code ${result.status}`;
+        const outputTail = actionFailureOutputTail(result);
+        reason = `action exited with code ${result.status}${outputTail ? `; output tail: ${outputTail}` : ''}`;
       }
     } catch (error) {
       rawStatus = 'error';
