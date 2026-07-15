@@ -5,8 +5,8 @@
   "witnessKind": "prebuild",
   "supportLevel": "release",
   "source": {
-    "cwd": "/Users/dkr/Worktrees/kungfu/fix/gate-measurement-receipts",
-    "sourceSha": "edf01c9508305005bbdaf64b5d56a625ba6ac7cc",
+    "cwd": "/Users/dkr/Worktrees/kungfu/fix/refresh-kfd-release-evidence-eb05604c9",
+    "sourceSha": "eb05604c9db6811c7fbe48f881a9387862ea831c",
     "registryPath": ".buildchain/kfd/kfd-3/surfaces.json",
     "registryDigest": "sha256:46fa6e6d8e6cabe4e89ed1f13dfb20382fdde55185db35a2d479c471ac077831"
   },

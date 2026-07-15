@@ -926,12 +926,8 @@ function prepareConfigOverlays(configBindings, baseEnv, scope, cwd) {
           '@node "%~dp0cargo-wrapper.mjs" %*\r\n',
           { mode: 0o600 },
         );
-        // A lifecycle can invoke Shifu again while already inside a cache
-        // projection. Reusing PATH here would make the inner Cargo wrapper
-        // discover the outer wrapper as its real Cargo and recurse.
         const originalPath =
           baseEnv.SHIFU_CARGO_ORIGINAL_PATH || baseEnv.PATH || '';
-        overlayEnv.PATH = `${wrapperDir}${path.delimiter}${originalPath}`;
         overlayEnv.SHIFU_CARGO_ORIGINAL_PATH = originalPath;
         overlayEnv.SHIFU_CARGO_SOURCE_NAME = binding.name;
         overlayEnv.SHIFU_CARGO_REGISTRY = binding.value;
@@ -984,7 +980,8 @@ function prepareConfigOverlays(configBindings, baseEnv, scope, cwd) {
           '@node "%~dp0conan-wrapper.mjs" %*\r\n',
           { mode: 0o600 },
         );
-        overlayEnv.SHIFU_CONAN_ORIGINAL_PATH = baseEnv.PATH || '';
+        overlayEnv.SHIFU_CONAN_ORIGINAL_PATH =
+          baseEnv.SHIFU_CONAN_ORIGINAL_PATH || baseEnv.PATH || '';
         overlayEnv.SHIFU_CONAN_STORAGE_ROOT = storageRoot;
         fs.writeFileSync(
           path.join(conanHome, 'global.conf'),

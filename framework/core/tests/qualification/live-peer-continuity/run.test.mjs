@@ -8,6 +8,7 @@ import { test } from 'node:test';
 import { gunzipSync } from 'node:zlib';
 
 import {
+  campaignTempParent,
   createLogBundle,
   defaultOutputDir,
   evaluateQualification,
@@ -64,6 +65,16 @@ test('native campaign enters Python through the Shifu-managed uv project', () =>
   assert.equal(linux.command[5], 'python');
   assert.equal(linux.shell, false);
   assert.equal(windows.shell, true);
+});
+
+test('native campaign uses a short Unix temp root without assuming /tmp on Windows', () => {
+  assert.equal(campaignTempParent('linux'), '/tmp');
+  assert.equal(campaignTempParent('darwin'), '/tmp');
+  assert.equal(campaignTempParent('win32'), null);
+  const linux = qualificationPlan('/qualification', { platform: 'linux' })[2];
+  const windows = qualificationPlan('/qualification', { platform: 'win32' })[2];
+  assert.deepEqual(linux.command.slice(-2), ['--temp-parent', '/tmp']);
+  assert.ok(!windows.command.includes('--temp-parent'));
 });
 
 test('clean complete evidence qualifies only the bounded single-host claim', () => {

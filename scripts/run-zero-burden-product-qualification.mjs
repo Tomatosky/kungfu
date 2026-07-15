@@ -25,10 +25,15 @@ const COMPONENTS = [
   },
 ];
 
-const SUITES = [
+export const QUALIFICATION_SUITES = [
   {
     id: 'agent-session-control-plane',
-    command: [LAUNCHER, 'test:agent-session-capsule-host'],
+    command: [
+      LAUNCHER,
+      '--filter',
+      '@kungfu-tech/agent-session',
+      'test:control-plane',
+    ],
   },
   {
     id: 'frontend-product-presentation',
@@ -260,7 +265,9 @@ async function main() {
   const components = COMPONENTS.map((component) =>
     validateComponentEvidence(ROOT, component, expected),
   );
-  const suites = SUITES.map((suite) => runSuite(suite, outputDir));
+  const suites = QUALIFICATION_SUITES.map((suite) =>
+    runSuite(suite, outputDir),
+  );
   const bundle = createLogBundle(outputDir, suites);
   const report = evaluateQualification({
     source,

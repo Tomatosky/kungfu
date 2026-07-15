@@ -45,6 +45,10 @@ export function pythonInvocation({ platform = process.platform } = {}) {
     shell: platform === 'win32',
   };
 }
+export function campaignTempParent(platform = process.platform) {
+  return platform === 'win32' ? null : '/tmp';
+}
+
 function nativeEnvironment() {
   const build = path.join(ROOT, 'framework', 'core', 'build', 'Release');
   const env = {
@@ -59,6 +63,7 @@ function nativeEnvironment() {
   };
   if (process.platform !== 'darwin') return env;
   const store = path.join(ROOT, 'node_modules', '.pnpm');
+  if (!fs.existsSync(store)) return env;
   const architecture = process.arch === 'arm64' ? 'arm64' : 'x64';
   const packageName = fs
     .readdirSync(store)
@@ -81,8 +86,12 @@ function nativeEnvironment() {
   return env;
 }
 
-export function qualificationPlan(outputDir) {
-  const python = pythonInvocation();
+export function qualificationPlan(
+  outputDir,
+  { platform = process.platform } = {},
+) {
+  const python = pythonInvocation({ platform });
+  const tempParent = campaignTempParent(platform);
   return [
     {
       id: 'core-continuity-state-machine',
@@ -114,6 +123,7 @@ export function qualificationPlan(outputDir) {
         'campaign',
         '--output-dir',
         path.join(outputDir, 'native-campaign'),
+        ...(tempParent ? ['--temp-parent', tempParent] : []),
       ],
       env: nativeEnvironment(),
       shell: python.shell,

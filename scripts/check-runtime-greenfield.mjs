@@ -406,7 +406,7 @@ function directLegacyRegistryNameHits(rel, text) {
 
 function storageBindingOwnershipHits(rel, text) {
   const hits = [];
-  if (rel === 'framework/core/src/libkungfu/src/runtime/storage/service.cpp') {
+  if (rel === 'framework/core/src/libkungfu/src/runtime/storage/provider.cpp') {
     const required = [
       '#include <rocksdb/db.h>',
       'class rocksdb_storage_provider',
@@ -420,7 +420,7 @@ function storageBindingOwnershipHits(rel, text) {
           line: 1,
           rule: 'storage provider ownership',
           message:
-            'RocksDB storage provider ownership must stay in the libkungfu C++ runtime storage service.',
+            'RocksDB storage provider ownership must stay in the libkungfu C++ runtime storage adapter.',
           text: needle,
         });
       }

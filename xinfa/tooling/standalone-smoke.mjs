@@ -135,6 +135,195 @@ function main() {
     if (contractA !== contractB)
       throw new Error('contract output is not stable');
 
+    const projectSchema = JSON.parse(
+      run(binary, ['schema', 'project'], { cwd: targetRoot, env }),
+    );
+    const contextIrSchema = JSON.parse(
+      run(binary, ['schema', 'context-ir'], { cwd: targetRoot, env }),
+    );
+    if (
+      projectSchema.$id !== 'https://xinfa.dev/schema/project-v1.schema.json' ||
+      contextIrSchema.$id !==
+        'https://xinfa.dev/schema/context-ir-v1.schema.json'
+    ) {
+      throw new Error('public schema discovery returned unexpected identities');
+    }
+
+    const project = path.join(targetRoot, 'fixtures', 'project-alpha.json');
+    const validation = JSON.parse(
+      run(binary, ['validate', '--project', project, '--json'], {
+        cwd: targetRoot,
+        env,
+      }),
+    );
+    if (
+      validation.valid !== true ||
+      validation.qualifying !== false ||
+      validation.selfCertified !== false
+    ) {
+      throw new Error('project validation receipt crossed its proof boundary');
+    }
+    const invalidProject = path.join(targetRoot, 'invalid-project.json');
+    const invalidValue = JSON.parse(fs.readFileSync(project, 'utf8'));
+    invalidValue.schema = 'xinfa.project/v2';
+    fs.writeFileSync(invalidProject, `${JSON.stringify(invalidValue)}\n`);
+    const invalidValidation = spawnSync(
+      binary,
+      ['validate', '--project', invalidProject, '--json'],
+      { cwd: targetRoot, env, encoding: 'utf8' },
+    );
+    const invalidReceipt = JSON.parse(invalidValidation.stdout || '{}');
+    if (
+      invalidValidation.status !== 1 ||
+      invalidReceipt.valid !== false ||
+      !invalidReceipt.diagnostics?.some(
+        (diagnostic) => diagnostic.code === 'unsupported-version',
+      )
+    ) {
+      throw new Error('invalid project did not fail with its stable receipt');
+    }
+    const canonicalA = run(
+      binary,
+      ['canonicalize', '--project', project, '--json'],
+      { cwd: targetRoot, env },
+    );
+    const canonicalB = run(
+      binary,
+      ['canonicalize', '--project', project, '--json'],
+      { cwd: targetRoot, env },
+    );
+    if (canonicalA !== canonicalB)
+      throw new Error('project canonicalization is not byte stable');
+    const compiled = JSON.parse(
+      run(binary, ['compile', '--project', project, '--json'], {
+        cwd: targetRoot,
+        env,
+      }),
+    );
+    if (
+      compiled.schema !== 'xinfa.context-ir/v1' ||
+      compiled.routes.length !== 2 ||
+      compiled.routes[0].authorityRoot !== compiled.routes[1].authorityRoot ||
+      compiled.routes[0].status !== compiled.routes[1].status
+    ) {
+      throw new Error('compiled dual-reader route parity failed');
+    }
+
+    const repositoryFixture = path.join(
+      targetRoot,
+      'fixtures',
+      'repository-small',
+    );
+    const packOutput = path.join(targetRoot, 'pack-output');
+    const packReceipt = JSON.parse(
+      run(
+        binary,
+        [
+          'compile',
+          '--project',
+          path.join(repositoryFixture, 'project.json'),
+          '--output',
+          packOutput,
+          '--json',
+        ],
+        { cwd: targetRoot, env },
+      ),
+    );
+    const packVerification = JSON.parse(
+      run(binary, ['verify', '--pack', packOutput, '--json'], {
+        cwd: targetRoot,
+        env,
+      }),
+    );
+    const packInspection = JSON.parse(
+      run(binary, ['inspect', '--pack', packOutput, '--json'], {
+        cwd: targetRoot,
+        env,
+      }),
+    );
+    const unchangedImpact = JSON.parse(
+      run(
+        binary,
+        [
+          'impact',
+          '--since',
+          packOutput,
+          '--project',
+          path.join(repositoryFixture, 'project.json'),
+          '--json',
+        ],
+        { cwd: targetRoot, env },
+      ),
+    );
+    if (
+      packReceipt.verdict !== 'pass' ||
+      packVerification.valid !== true ||
+      packInspection.counts.routes !== 2 ||
+      unchangedImpact.affectedNodes.length !== 0
+    ) {
+      throw new Error('repository pack compile/verify/impact contract failed');
+    }
+    const changedProject = path.join(
+      targetRoot,
+      'fixtures',
+      'repository-small-next',
+      'project.json',
+    );
+    const changedImpact = JSON.parse(
+      run(
+        binary,
+        [
+          'impact',
+          '--since',
+          packOutput,
+          '--project',
+          changedProject,
+          '--json',
+        ],
+        { cwd: targetRoot, env },
+      ),
+    );
+    if (
+      JSON.stringify(changedImpact.changedSources) !==
+        JSON.stringify(['src/runtime.rs']) ||
+      !changedImpact.affectedClaims.includes('small.claim.greeting') ||
+      !changedImpact.affectedDocuments.includes('small.doc.guide') ||
+      changedImpact.affectedRoutes.length !== 2
+    ) {
+      throw new Error('changed repository impact closure is incomplete');
+    }
+    const maliciousOutput = path.join(targetRoot, 'malicious-output');
+    const maliciousProject = path.join(
+      targetRoot,
+      'fixtures',
+      'repository-malicious',
+      'project.json',
+    );
+    const maliciousCompile = spawnSync(
+      binary,
+      [
+        'compile',
+        '--project',
+        maliciousProject,
+        '--output',
+        maliciousOutput,
+        '--json',
+      ],
+      { cwd: targetRoot, env, encoding: 'utf8' },
+    );
+    const maliciousReceipt = JSON.parse(maliciousCompile.stdout || '{}');
+    if (
+      maliciousCompile.status !== 1 ||
+      !maliciousReceipt.diagnostics?.some(
+        (item) => item.code === 'sensitive-path',
+      ) ||
+      fs.existsSync(maliciousOutput)
+    ) {
+      throw new Error(
+        'malicious repository did not fail closed without output',
+      );
+    }
+
     const diagnostic = JSON.parse(
       run(binary, ['diagnose', '--json'], { cwd: targetRoot, env }),
     );
@@ -188,6 +377,19 @@ function main() {
         .update(contractA)
         .digest('hex'),
       contractDeterministic: true,
+      projectSchema: projectSchema.$id,
+      contextIrSchema: contextIrSchema.$id,
+      projectRoot: validation.projectRoot,
+      authorityRoot: compiled.roots.authority,
+      canonicalizationDeterministic: true,
+      dualReaderParity: true,
+      repositoryPackRoot: packReceipt.packRoot,
+      repositoryPackDeterministic: true,
+      repositoryPackOfflineVerify: true,
+      repositoryPackImpact: true,
+      maliciousRepositoryRejected: true,
+      validationQualifying: false,
+      invalidProjectExitCode: 1,
       cargoBuild: 'pass',
       cargoTest: 'pass',
       stateDefault: '.xinfa',

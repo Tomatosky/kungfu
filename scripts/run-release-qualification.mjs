@@ -161,24 +161,27 @@ export function releaseQualificationEnvironment(
     ),
   ];
   fs.mkdirSync(temporary, { recursive: true });
-  return lifecycleEnvironment({
-    ...inherited,
-    TMPDIR: temporary,
-    TEMP: temporary,
-    TMP: temporary,
-    KUNGFU_BUILDCHAIN_NO_OPTIONAL: '1',
-    KUNGFU_BUILDCHAIN_SOURCE_BUILD: '1',
-    SHIFU_NATIVE: '1',
-    SHIFU_REQUIRE_MSVC: '1',
-    KUNGFU_FUZZ_SECONDS: String(fuzzSecondsPerTarget),
-    // Product distribution seeds exact native optional packages in these
-    // repository-scoped roots. Later qualification suites are separate Node
-    // processes, so carry the roots explicitly instead of assuming pnpm's
-    // --no-optional install can resolve them from the workspace.
-    NODE_PATH: [...platformNodePaths, inherited.NODE_PATH]
-      .filter(Boolean)
-      .join(path.delimiter),
-  });
+  return lifecycleEnvironment(
+    {
+      ...inherited,
+      TMPDIR: temporary,
+      TEMP: temporary,
+      TMP: temporary,
+      KUNGFU_BUILDCHAIN_NO_OPTIONAL: '1',
+      KUNGFU_BUILDCHAIN_SOURCE_BUILD: '1',
+      SHIFU_NATIVE: '1',
+      SHIFU_REQUIRE_MSVC: '1',
+      KUNGFU_FUZZ_SECONDS: String(fuzzSecondsPerTarget),
+      // Product distribution seeds exact native optional packages in these
+      // repository-scoped roots. Later qualification suites are separate Node
+      // processes, so carry the roots explicitly instead of assuming pnpm's
+      // --no-optional install can resolve them from the workspace.
+      NODE_PATH: [...platformNodePaths, inherited.NODE_PATH]
+        .filter(Boolean)
+        .join(path.delimiter),
+    },
+    'dist',
+  );
 }
 
 export function releaseQualificationStages(

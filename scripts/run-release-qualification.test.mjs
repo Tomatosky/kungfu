@@ -26,6 +26,10 @@ test('qualification temp state is repository scoped on every platform', () => {
     assert.equal(env.TMPDIR, expected);
     assert.equal(env.TEMP, expected);
     assert.equal(env.TMP, expected);
+    assert.match(env.KF_UPGRADE_QUALIFICATION_REF, /^buildchain-retained:/);
+    assert.match(env.KF_RUNTIME_ARTIFACT_SIGNATURE, /#runtime$/);
+    assert.match(env.KF_DESKTOP_ARTIFACT_SIGNATURE, /#desktop$/);
+    assert.match(env.KF_CLI_ARTIFACT_SIGNATURE, /#cli$/);
     assert.equal(fs.statSync(expected).isDirectory(), true);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
