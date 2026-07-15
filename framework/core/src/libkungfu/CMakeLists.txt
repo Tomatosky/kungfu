@@ -100,6 +100,14 @@ kungfu_strip_release_local_symbols(${LIBKUNGFU_NAME})
 
 if(KUNGFU_WITH_CORE_TESTS)
   find_package(Threads REQUIRED)
+  # Link a representative domain object target without the libkungfu facade.
+  # An empty executable still forces every object file into the link, proving
+  # the bounded domain can close against its declared external contracts.
+  add_executable(kungfu_view_component_link_tests tests/domain_component_link_tests.cpp)
+  target_link_libraries(kungfu_view_component_link_tests PRIVATE kungfu_view_adapters Threads::Threads)
+  target_compile_features(kungfu_view_component_link_tests PRIVATE cxx_std_20)
+  add_test(NAME kungfu_view_component_link_tests COMMAND kungfu_view_component_link_tests)
+
   add_executable(kungfu_durability_contract_tests tests/durability_contract_tests.cpp)
   target_link_libraries(kungfu_durability_contract_tests PRIVATE ${LIBKUNGFU_NAME} kungfu_compile_contract)
   target_compile_features(kungfu_durability_contract_tests PRIVATE cxx_std_20)

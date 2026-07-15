@@ -72,6 +72,21 @@ function validate(authority, layers) {
         problems.push(`${component.id}: unknown dependency ${id}`);
     }
   }
+  const mappedArchitectureComponents = new Set(
+    (authority.components || []).flatMap(
+      (component) => component.architecture_components || [],
+    ),
+  );
+  for (const component of layers.components || []) {
+    if (
+      component.layer !== 'qualification' &&
+      !mappedArchitectureComponents.has(component.id)
+    ) {
+      problems.push(
+        `architecture component is absent from build profile authority: ${component.id}`,
+      );
+    }
+  }
   for (const group of ['providers', 'projections', 'bindings']) {
     for (const item of authority[group] || []) {
       for (const id of item.requires_components || []) {
@@ -388,6 +403,17 @@ function selfTest() {
     'unknown target dependency fails',
     (value) => value.target_dependencies.kungfu_contracts.push('missing'),
     'unknown dependency',
+  );
+  expect(
+    'unmapped architecture component fails',
+    (value) => {
+      for (const component of value.components) {
+        component.architecture_components = (
+          component.architecture_components || []
+        ).filter((id) => id !== 'runtime-storage-services');
+      }
+    },
+    'architecture component is absent from build profile authority',
   );
   console.log('[core-build-capabilities] negative fixtures passed');
 }
