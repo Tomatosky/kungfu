@@ -7,6 +7,24 @@ import path from 'node:path';
 const UV_OVERLAY_SCHEMA = 'shifu.uv-cache-overlay/v1';
 
 /**
+ * Keep measurement scratch data on the runner-owned temporary volume. Some
+ * self-hosted runners keep the checkout on a fast build disk while the host
+ * default `/tmp` lives on a slower system volume; native durability workloads
+ * would otherwise measure the wrong disk and can exhaust their honest Gate
+ * budget before reaching the declared sample count.
+ *
+ * @param {{env?: NodeJS.ProcessEnv}} [options]
+ */
+export function exposeGateMeasurementRunnerTemp({ env = process.env } = {}) {
+  const runnerTemp = env.RUNNER_TEMP || '';
+  if (!runnerTemp) return '';
+  env.TEMP = runnerTemp;
+  env.TMP = runnerTemp;
+  env.TMPDIR = runnerTemp;
+  return runnerTemp;
+}
+
+/**
  * Add user tool directories without shadowing the cache-managed uv wrapper.
  * The wrapper is deliberately the first PATH entry projected by Shifu.
  *

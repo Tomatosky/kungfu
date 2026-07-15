@@ -119,6 +119,9 @@ jobs:
           SHIFU_CACHE_PROFILE_DIGEST: ${{ vars.SHIFU_CACHE_PROFILE_DIGEST }}
           SHIFU_CACHE_PROFILE_REF: ${{ vars.SHIFU_CACHE_PROFILE_REF }}
           SHIFU_NATIVE: "1"
+          TEMP: ${{ runner.temp }}
+          TMP: ${{ runner.temp }}
+          TMPDIR: ${{ runner.temp }}
         # shifu-entry-contract: allow focused measurement bootstrap before the source Shifu lifecycle is prepared
         run: node scripts/run-focused-gate-measurement.mjs
 

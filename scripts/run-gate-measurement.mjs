@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   exposeGateMeasurementPython,
+  exposeGateMeasurementRunnerTemp,
   gateMeasurementToolPath,
   gateMeasurementUvCommand,
 } from './gate-measurement-environment.mjs';
@@ -129,6 +130,7 @@ function prepareHistory() {
 // are runner preparation, not Gate observations. Keeping them outside the
 // profile run prevents a cold checkout from consuming a Gate's own timeout or
 // duration measurement.
+exposeGateMeasurementRunnerTemp();
 exposeUserToolchain();
 if (process.env.SHIFU_CACHE_ACTIVE !== '1') {
   prepareHistory();

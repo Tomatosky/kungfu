@@ -8,9 +8,29 @@ import test from 'node:test';
 
 import {
   exposeGateMeasurementPython,
+  exposeGateMeasurementRunnerTemp,
   gateMeasurementToolPath,
   gateMeasurementUvCommand,
 } from './gate-measurement-environment.mjs';
+
+test('projects runner temp into every platform temporary-directory variable', () => {
+  const env = {
+    RUNNER_TEMP: '/fast/runner/temp',
+    TEMP: '/slow/system/temp',
+    TMP: '/slow/system/tmp',
+    TMPDIR: '/slow/system/tmpdir',
+  };
+  assert.equal(exposeGateMeasurementRunnerTemp({ env }), '/fast/runner/temp');
+  assert.equal(env.TEMP, '/fast/runner/temp');
+  assert.equal(env.TMP, '/fast/runner/temp');
+  assert.equal(env.TMPDIR, '/fast/runner/temp');
+});
+
+test('preserves host temp selection outside a runner', () => {
+  const env = { TMPDIR: '/host/temp' };
+  assert.equal(exposeGateMeasurementRunnerTemp({ env }), '');
+  assert.deepEqual(env, { TMPDIR: '/host/temp' });
+});
 
 test('keeps the managed uv wrapper ahead of user tool directories', () => {
   const wrapper = path.join('cache', 'uv-wrapper');
