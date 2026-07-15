@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import sys
@@ -37,6 +38,20 @@ ROOT = Path(__file__).parents[4]
 CASES = json.loads(
     (ROOT / "tests/fixtures/runtime-upgrade-control-plane/cases.json").read_text()
 )["cases"]
+
+
+def _load_live_peer_campaign():
+    path = (
+        ROOT
+        / "framework/core/tests/qualification/live-peer-continuity/native_campaign.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "kungfu_live_peer_continuity_campaign", path
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 @click.group()
@@ -574,3 +589,20 @@ def test_qualification_churns_128_generations_without_mixed_authority_or_data_lo
         '{"owner":"workspace","retained":true}\n'
     )
     assert not (config_home / "runtime" / "quarantine").exists()
+
+
+def test_live_peer_marker_identity_uses_the_real_peer_process():
+    campaign = _load_live_peer_campaign()
+    markers = [{"pid": 7648}, {"pid": 7648}, {"pid": 7648}]
+
+    assert campaign._single_process_identity(markers, "Peer") == 7648
+
+
+def test_live_peer_marker_identity_rejects_a_real_restart():
+    campaign = _load_live_peer_campaign()
+
+    with pytest.raises(
+        RuntimeError,
+        match=r"observed_pids=\[6644, 7648\]",
+    ):
+        campaign._single_process_identity([{"pid": 6644}, {"pid": 7648}], "Peer")

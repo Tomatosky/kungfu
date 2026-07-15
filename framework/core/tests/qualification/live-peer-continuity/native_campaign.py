@@ -41,6 +41,16 @@ def _read_markers(path: Path) -> list[dict[str, Any]]:
     return [json.loads(line) for line in path.read_text("utf-8").splitlines()]
 
 
+def _single_process_identity(markers: list[dict[str, Any]], label: str) -> int:
+    identities = sorted({int(marker["pid"]) for marker in markers})
+    if len(identities) != 1:
+        raise RuntimeError(
+            f"{label} markers did not preserve one process identity: "
+            f"observed_pids={identities}"
+        )
+    return identities[0]
+
+
 def _write_authority(
     path: Path, runtime_generation: str, coordinator_epoch: str
 ) -> None:
@@ -274,7 +284,8 @@ def _run_campaign(output_dir: Path, temp_parent: Path | None = None) -> int:
             )
             streams.append(stream)
             first = _wait_for_markers(marker_path, 1)
-            peer_pid = peer.pid
+            peer_process_identity = _single_process_identity(first, "initial Peer")
+            peer_launcher_pid = peer.pid
             capsule, stream = _spawn_capsule(
                 capsule_command_path,
                 capsule_marker_path,
@@ -301,9 +312,14 @@ def _run_campaign(output_dir: Path, temp_parent: Path | None = None) -> int:
             second = _wait_for_markers(marker_path, 2)
             _write_authority(capsule_command_path, "7", "2")
             capsule_second = _wait_for_markers(capsule_marker_path, 2)
-            if peer.poll() is not None or peer.pid != peer_pid:
+            second_identity = _single_process_identity(second, "same-generation Peer")
+            if peer.poll() is not None or second_identity != peer_process_identity:
                 raise RuntimeError(
-                    "peer process did not survive Coordinator replacement"
+                    "peer process did not survive Coordinator replacement: "
+                    f"peer_launcher_pid={peer_launcher_pid} "
+                    f"peer_process_identity={peer_process_identity} "
+                    f"observed_pid={second_identity} "
+                    f"peer_return_code={peer.poll()}"
                 )
 
             _stop_test_process(coordinator, hard=True)
@@ -346,11 +362,13 @@ def _run_campaign(output_dir: Path, temp_parent: Path | None = None) -> int:
             _write_authority(capsule_command_path, "8", "1")
             capsule_final = _wait_for_markers(capsule_marker_path, 3)
             peer_return_code = peer.poll()
-            ready_pids = sorted({item["pid"] for item in final})
-            if peer_return_code is not None or ready_pids != [peer_pid]:
+            final_identity = _single_process_identity(final, "runtime-generation Peer")
+            if peer_return_code is not None or final_identity != peer_process_identity:
                 raise RuntimeError(
                     "runtime generation replacement did not preserve the Peer workload: "
-                    f"peer_pid={peer_pid} ready_pids={ready_pids} "
+                    f"peer_launcher_pid={peer_launcher_pid} "
+                    f"peer_process_identity={peer_process_identity} "
+                    f"observed_pid={final_identity} "
                     f"peer_return_code={peer_return_code}"
                 )
             if [len(first), len(second), len(final)] != [1, 2, 3]:
