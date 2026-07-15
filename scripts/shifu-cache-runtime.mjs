@@ -1245,6 +1245,11 @@ export async function applyCacheProfile({
       // manager inside the same governed index projection when a lifecycle
       // reaches `kungfu engage pdm ...` beneath Shifu.
       boundEnv.PDM_PYPI_URL = pythonCache.endpoint;
+      // PDM rejects plain-HTTP indexes unless pypi.verify_ssl is explicitly
+      // disabled.  Scope that decision to the same governed PDM index instead
+      // of relying on runner-global trusted-host configuration.
+      boundEnv.PDM_PYPI_VERIFY_SSL =
+        new URL(pythonCache.endpoint).protocol === 'https:' ? 'true' : 'false';
       try {
         uvOverlay = prepareUvCacheOverlay({
           cwd,
