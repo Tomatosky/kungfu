@@ -563,7 +563,6 @@ print(json.dumps(node_safe(out), sort_keys=True, separators=(",", ":")))
       cwd: coreDir,
       encoding: 'utf8',
       env: runtimeEnv(),
-      shell: process.platform === 'win32',
     },
   );
   assert.equal(

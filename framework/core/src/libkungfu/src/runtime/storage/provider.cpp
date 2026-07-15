@@ -6,11 +6,18 @@
 #include <cstdlib>
 #include <fstream>
 #include <functional>
+#include <optional>
 #include <stdexcept>
 #include <utility>
 
 #include <rocksdb/db.h>
 #include <rocksdb/iterator.h>
+
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#endif
 
 namespace kungfu::runtime::storage_service_api::detail {
 
@@ -94,10 +101,31 @@ std::string normalized_provider_name(const std::string &provider) {
   throw std::invalid_argument("unsupported storage provider: " + provider);
 }
 
+std::optional<std::string> environment_value(const char *name) {
+#ifdef _WIN32
+  const auto required = GetEnvironmentVariableA(name, nullptr, 0);
+  if (required == 0) {
+    return std::nullopt;
+  }
+  std::string value(required, '\0');
+  const auto written = GetEnvironmentVariableA(name, value.data(), required);
+  if (written == 0 || written >= required) {
+    return std::nullopt;
+  }
+  value.resize(written);
+  return value;
+#else
+  if (const char *value = std::getenv(name); value != nullptr) {
+    return std::string(value);
+  }
+  return std::nullopt;
+#endif
+}
+
 provider_selection select_provider(std::string provider) {
   if (provider.empty()) {
-    if (const char *env_provider = std::getenv(ENV_STORAGE_PROVIDER); env_provider != nullptr) {
-      provider = env_provider;
+    if (const auto env_provider = environment_value(ENV_STORAGE_PROVIDER); env_provider.has_value()) {
+      provider = *env_provider;
       return {normalized_provider_name(provider), "env:" + std::string(ENV_STORAGE_PROVIDER)};
     }
     return {PROVIDER_FILE, "default"};
