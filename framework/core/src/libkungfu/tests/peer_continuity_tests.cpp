@@ -2,6 +2,7 @@
 
 #include <kungfu/runtime/live/continuity.h>
 #include <kungfu/runtime/live/key_value_store.h>
+#include <kungfu/runtime/os.h>
 
 #include <chrono>
 #include <filesystem>
@@ -116,6 +117,11 @@ void test_empty_live_kv_directory_is_an_uninitialized_store() {
 #endif
 }
 
+void test_process_liveness_fails_closed_around_the_current_process() {
+  require(kungfu::runtime::os::is_process_alive(GETPID()), "current process was reported dead");
+  require(not kungfu::runtime::os::is_process_alive(-1), "invalid process identity was reported alive");
+}
+
 } // namespace
 
 int main() {
@@ -125,6 +131,8 @@ int main() {
       {"registration payload round trip is exact", test_registration_payload_round_trip_is_exact},
       {"tracker uses bounded retry and requires bootstrap", test_tracker_uses_bounded_retry_and_requires_bootstrap},
       {"empty live KV directory is an uninitialized store", test_empty_live_kv_directory_is_an_uninitialized_store},
+      {"process liveness fails closed around current process",
+       test_process_liveness_fails_closed_around_the_current_process},
   };
   for (const auto &[name, test] : tests) {
     try {

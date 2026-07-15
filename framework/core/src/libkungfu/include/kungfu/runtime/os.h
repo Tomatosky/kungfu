@@ -3,6 +3,8 @@
 #ifndef KUNGFU_RUNTIME_OS_H
 #define KUNGFU_RUNTIME_OS_H
 
+#include <cstdint>
+
 #ifdef _WIN32
 #include <process.h>
 #define GETPID _getpid
@@ -12,6 +14,8 @@
 #endif
 
 namespace kungfu::runtime::os {
+[[nodiscard]] bool is_process_alive(int32_t pid);
+
 void disable_os_signals_handler();
 
 void handle_os_signals(void *reactor);
