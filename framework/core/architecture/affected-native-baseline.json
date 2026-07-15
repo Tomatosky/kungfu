@@ -3,6 +3,7 @@
   "platformTier": "github-hosted-linux-native-pr",
   "requiredBudgetSeconds": 1200,
   "hardTimeoutSeconds": 1500,
+  "maxParallelism": 12,
   "cachePolicy": {
     "identityFields": ["source", "profile", "toolchain", "architecture-authority"],
     "unknownHitPolicy": "record-null-do-not-claim",

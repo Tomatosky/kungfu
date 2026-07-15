@@ -492,7 +492,9 @@ function execute(plan, receiptPath) {
             '--target',
             ...plan.targets,
             '--parallel',
-            String(os.availableParallelism()),
+            String(
+              Math.min(os.availableParallelism(), baseline.maxParallelism),
+            ),
           ],
           root,
           env,
