@@ -637,14 +637,15 @@ def declare_ready_from_environment(
         raise PeerLifecycleError(
             "handshake-unavailable", "KF_PEER_READY_FILE is not set"
         )
+    pid = os.getpid()
     payload = {
         "schema": READY_SCHEMA,
         "peerId": os.environ.get("KF_PEER_ID"),
         "hostGeneration": int(os.environ["KF_PEER_HOST_GENERATION"]),
         "peerGeneration": int(os.environ["KF_PEER_GENERATION"]),
         "readyToken": os.environ.get("KF_PEER_READY_TOKEN"),
-        "pid": os.getpid(),
-        "processStartIdentity": _process_identity(os.getpid()),
+        "pid": pid,
+        "processStartIdentity": _bound_peer_identity_from_environment(pid),
         "declaredAt": _now(),
         **dict(extra or {}),
     }
@@ -652,16 +653,58 @@ def declare_ready_from_environment(
     return payload
 
 
+def _bound_peer_identity_from_environment(pid: int) -> str | None:
+    """Use the host-issued kernel identity when a managed state is available."""
+
+    state_dir = os.environ.get("KF_PEER_STATE_DIR")
+    if not state_dir:
+        return _process_identity(pid)
+    expected = {
+        "peerId": os.environ.get("KF_PEER_ID"),
+        "peerOwnerHostGeneration": int(os.environ["KF_PEER_HOST_GENERATION"]),
+        "peerGeneration": int(os.environ["KF_PEER_GENERATION"]),
+        "readyToken": os.environ.get("KF_PEER_READY_TOKEN"),
+        "peerPid": pid,
+    }
+    deadline = time.monotonic() + PROCESS_IDENTITY_TIMEOUT_SECONDS
+    managed_state = Path(state_dir) / "state.json"
+    while True:
+        state = _read_json(managed_state)
+        if all(state.get(key) == value for key, value in expected.items()):
+            identity = state.get("peerStartIdentity")
+            if isinstance(identity, str) and identity:
+                return identity
+        if time.monotonic() >= deadline:
+            raise PeerLifecycleError(
+                "handshake-unavailable",
+                "Peer host process identity binding was unavailable",
+            )
+        time.sleep(0.02)
+
+
+def _ready_mismatch_fields(
+    state: Mapping[str, Any], ready: Mapping[str, Any]
+) -> list[str]:
+    bindings = {
+        "schema": (READY_SCHEMA, ready.get("schema")),
+        "peerId": (state.get("peerId"), ready.get("peerId")),
+        "hostGeneration": (
+            state.get("peerOwnerHostGeneration"),
+            ready.get("hostGeneration"),
+        ),
+        "peerGeneration": (state.get("peerGeneration"), ready.get("peerGeneration")),
+        "readyToken": (state.get("readyToken"), ready.get("readyToken")),
+        "pid": (state.get("peerPid"), ready.get("pid")),
+        "processStartIdentity": (
+            state.get("peerStartIdentity"),
+            ready.get("processStartIdentity"),
+        ),
+    }
+    return [name for name, (expected, actual) in bindings.items() if expected != actual]
+
+
 def _ready_matches(state: Mapping[str, Any], ready: Mapping[str, Any]) -> bool:
-    return (
-        ready.get("schema") == READY_SCHEMA
-        and ready.get("peerId") == state.get("peerId")
-        and ready.get("hostGeneration") == state.get("peerOwnerHostGeneration")
-        and ready.get("peerGeneration") == state.get("peerGeneration")
-        and ready.get("readyToken") == state.get("readyToken")
-        and ready.get("pid") == state.get("peerPid")
-        and ready.get("processStartIdentity") == state.get("peerStartIdentity")
-    )
+    return not _ready_mismatch_fields(state, ready)
 
 
 def _host_write_state(
@@ -938,7 +981,10 @@ def run_host(
                     _terminate_matching(
                         state.get("peerPid"), state.get("peerStartIdentity")
                     )
+                    mismatches = ", ".join(_ready_mismatch_fields(state, ready))
                     state["error"] = "Peer readiness handshake timed out"
+                    if mismatches:
+                        state["error"] += f"; mismatched bindings: {mismatches}"
             if not _host_write_state(runtime, peer_id, host_generation, state):
                 stopping = True
                 break

@@ -182,12 +182,27 @@ def test_stale_host_generation_cannot_stop_new_owner(tmp_path, monkeypatch):
 
 def test_ready_handshake_binds_peer_generation_process_and_token(tmp_path, monkeypatch):
     ready_file = tmp_path / "ready.json"
+    state_dir = tmp_path / "peer-state"
     monkeypatch.setenv("KF_PEER_READY_FILE", str(ready_file))
+    monkeypatch.setenv("KF_PEER_STATE_DIR", str(state_dir))
     monkeypatch.setenv("KF_PEER_ID", "test.probe")
     monkeypatch.setenv("KF_PEER_HOST_GENERATION", "11")
     monkeypatch.setenv("KF_PEER_GENERATION", "12")
     monkeypatch.setenv("KF_PEER_READY_TOKEN", "token-12")
-    monkeypatch.setattr(peer_lifecycle, "_process_identity", lambda pid: "start")
+    peer_lifecycle._write_json(
+        state_dir / "state.json",
+        {
+            "peerId": "test.probe",
+            "peerOwnerHostGeneration": 11,
+            "peerGeneration": 12,
+            "readyToken": "token-12",
+            "peerPid": os.getpid(),
+            "peerStartIdentity": "host-bound-start",
+        },
+    )
+    monkeypatch.setattr(
+        peer_lifecycle, "_process_identity", lambda pid: "self-observed-start"
+    )
 
     payload = peer_lifecycle.declare_ready_from_environment({"registered": True})
 
@@ -196,6 +211,35 @@ def test_ready_handshake_binds_peer_generation_process_and_token(tmp_path, monke
     assert payload["hostGeneration"] == 11
     assert payload["peerGeneration"] == 12
     assert payload["readyToken"] == "token-12"
+    assert payload["processStartIdentity"] == "host-bound-start"
+
+
+def test_ready_handshake_rejects_an_unbound_managed_process(tmp_path, monkeypatch):
+    state_dir = tmp_path / "peer-state"
+    monkeypatch.setenv("KF_PEER_READY_FILE", str(tmp_path / "ready.json"))
+    monkeypatch.setenv("KF_PEER_STATE_DIR", str(state_dir))
+    monkeypatch.setenv("KF_PEER_ID", "test.probe")
+    monkeypatch.setenv("KF_PEER_HOST_GENERATION", "11")
+    monkeypatch.setenv("KF_PEER_GENERATION", "12")
+    monkeypatch.setenv("KF_PEER_READY_TOKEN", "token-12")
+    monkeypatch.setattr(peer_lifecycle, "PROCESS_IDENTITY_TIMEOUT_SECONDS", 0)
+    peer_lifecycle._write_json(
+        state_dir / "state.json",
+        {
+            "peerId": "test.probe",
+            "peerOwnerHostGeneration": 10,
+            "peerGeneration": 12,
+            "readyToken": "token-12",
+            "peerPid": os.getpid(),
+            "peerStartIdentity": "stale-host-binding",
+        },
+    )
+
+    with pytest.raises(peer_lifecycle.PeerLifecycleError) as failure:
+        peer_lifecycle.declare_ready_from_environment()
+
+    assert failure.value.code == "handshake-unavailable"
+    assert not (tmp_path / "ready.json").exists()
 
 
 def test_host_self_binding_is_atomic_and_rejects_an_existing_owner(
