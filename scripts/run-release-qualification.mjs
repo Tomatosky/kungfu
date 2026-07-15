@@ -133,6 +133,12 @@ export function releaseQualificationEnvironment(
   fuzzSecondsPerTarget = 90,
 ) {
   const temporary = path.join(root, '.buildchain', 'tmp');
+  const hostTemporary =
+    inherited.RUNNER_TEMP ||
+    inherited.TEMP ||
+    inherited.TMP ||
+    inherited.TMPDIR ||
+    temporary;
   fs.mkdirSync(temporary, { recursive: true });
   return lifecycleEnvironment(
     {
@@ -140,6 +146,7 @@ export function releaseQualificationEnvironment(
       TMPDIR: temporary,
       TEMP: temporary,
       TMP: temporary,
+      KUNGFU_QUALIFICATION_HOST_TEMP: hostTemporary,
       KUNGFU_BUILDCHAIN_NO_OPTIONAL: '1',
       KUNGFU_BUILDCHAIN_SOURCE_BUILD: '1',
       SHIFU_NATIVE: '1',

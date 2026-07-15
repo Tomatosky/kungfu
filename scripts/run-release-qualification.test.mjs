@@ -25,11 +25,26 @@ test('qualification temp state is repository scoped on every platform', () => {
     assert.equal(env.TMPDIR, expected);
     assert.equal(env.TEMP, expected);
     assert.equal(env.TMP, expected);
+    assert.equal(env.KUNGFU_QUALIFICATION_HOST_TEMP, '/host/temp');
     assert.match(env.KF_UPGRADE_QUALIFICATION_REF, /^buildchain-retained:/);
     assert.match(env.KF_RUNTIME_ARTIFACT_SIGNATURE, /#runtime$/);
     assert.match(env.KF_DESKTOP_ARTIFACT_SIGNATURE, /#desktop$/);
     assert.match(env.KF_CLI_ARTIFACT_SIGNATURE, /#cli$/);
     assert.equal(fs.statSync(expected).isDirectory(), true);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('hosted qualification preserves the short runner temp before redirecting build temp', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'kungfu-runner-env-'));
+  try {
+    const env = releaseQualificationEnvironment(root, {
+      RUNNER_TEMP: 'D:\\a\\_temp',
+      TEMP: 'D:\\a\\kungfu\\kungfu\\.buildchain\\tmp',
+    });
+    assert.equal(env.KUNGFU_QUALIFICATION_HOST_TEMP, 'D:\\a\\_temp');
+    assert.equal(env.TEMP, path.join(root, '.buildchain', 'tmp'));
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
@@ -209,7 +224,7 @@ test('execution profile numeric constraints reject zero and negative values', ()
       () => loadExecutionProfile('alpha', file),
       /positive integer/,
     );
-    valid.profiles.alpha.budgetSeconds = 1800;
+    valid.profiles.alpha.budgetSeconds = 2700;
     valid.profiles.alpha.reserveSeconds = -1;
     fs.writeFileSync(file, JSON.stringify(valid));
     assert.throws(

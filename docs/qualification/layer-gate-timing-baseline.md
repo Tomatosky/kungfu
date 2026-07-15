@@ -9,8 +9,8 @@ confidence: high
 sensitivity: internal
 evidence_grade: B
 review_state: self-reviewed
-last_reviewed: 2026-07-14
-ai_provenance: GPT-5 via Codex on 2026-07-14; visible local source, three-host lifecycle logs, Gate receipts, qualification reports, and host identity; no hosted CI or publication state inspected
+last_reviewed: 2026-07-15
+ai_provenance: GPT-5 via Codex on 2026-07-15; visible local source, three-host lifecycle logs, hosted CI logs, Gate receipts, qualification reports, and host identity; no private publication state inspected
 ---
 
 # Layer Gate timing baseline
@@ -247,12 +247,19 @@ bounding only the Episode seeds and accumulation/contention counts:
 
 | Execution profile | End-to-end budget | Upstream allowance | Reserve | Episode workload |
 | --- | ---: | ---: | ---: | --- |
-| `alpha` | 1800s | 750s | 240s | `mvp-smoke-v1` |
+| `alpha` | 2700s | 750s | 240s | `mvp-smoke-v1` |
 | `release-candidate` | 3600s | 900s | 600s | `mvp-candidate-v1` |
 | `full-patrol` | 14400s | 900s | 900s | unchanged `mvp-baseline-v1` |
 
 The alpha figures are anchored to the slowest measured upstream host
 (`673.13s` Linux install plus distribution) with additional setup allowance.
+The first exact-source hosted acceptance run then measured `1467s` inside the
+qualification process because runtime activation intentionally rebuilds and
+verifies the complete product distribution. The original `810s` execution
+allowance therefore rejected an otherwise passing Linux campaign. The revised
+alpha total preserves the upstream and reserve allocations while raising the
+qualification execution allowance to `1710s`; it does not skip or shorten any
+gate.
 The release profile adds the measured 10,000 accumulation checkpoint while the
 100,000 checkpoint and three-seed soak remain available in full-patrol. The
 workflow summary fails when qualification exceeds the budget after subtracting

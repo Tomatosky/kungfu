@@ -46,8 +46,18 @@ export function pythonInvocation({ platform = process.platform } = {}) {
   };
 }
 
-export function campaignTempParent(platform = process.platform) {
-  return platform === 'win32' ? null : '/tmp';
+export function campaignTempParent(
+  platform = process.platform,
+  { env = process.env, temporaryDirectory = os.tmpdir() } = {},
+) {
+  if (platform !== 'win32') return '/tmp';
+  // Release qualification deliberately redirects TEMP/TMP into the repository
+  // for native build performance. That path can exceed Windows AF_UNIX limits
+  // once the campaign appends its runtime endpoint hierarchy. GitHub exposes a
+  // shorter runner-owned root that remains isolated to the current job.
+  return (
+    env.RUNNER_TEMP || env.KUNGFU_QUALIFICATION_HOST_TEMP || temporaryDirectory
+  );
 }
 
 function nativeEnvironment() {
@@ -145,6 +155,12 @@ function runSuite(suite, outputDir) {
   const rawLog = `${suite.id}.log`;
   fs.writeFileSync(path.join(outputDir, rawLog), output, { flag: 'wx' });
   const passed = !result.error && result.status === 0;
+  if (!passed && suite.id === 'native-cross-process-restart') {
+    const campaign = nativeCampaignReport(outputDir);
+    const detail =
+      campaign?.error || result.error?.message || 'campaign report unavailable';
+    console.error(`[live-peer-continuity] native-campaign-error=${detail}`);
+  }
   console.log(
     `[live-peer-continuity] suite=${suite.id} status=${passed ? 'passed' : 'failed'} duration_ms=${Date.now() - started}`,
   );
