@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: SHIFU-ADR-0007
 decision_status: accepted
 implementation_status: staged
-implementation_prs: []
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/965]
 qualification_refs: [scripts/check-kungfu-gate-catalog.test.mjs, scripts/verify-kungfu-release-admission.test.mjs, docs/qualification/gates/workflow-authority.json, docs/qualification/gates/release-admission-policy.json]
 review_state: self-reviewed
 sensitivity: public
