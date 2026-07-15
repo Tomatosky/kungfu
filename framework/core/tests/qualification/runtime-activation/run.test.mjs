@@ -97,9 +97,20 @@ test('product verification checks the distribution outputs without rebuilding th
   assert.equal(verification.command.includes('--full'), false);
 });
 
-test('Windows suites invoke the repository Shifu shim through ComSpec', () => {
+test('Windows exec suites call the Shifu-projected tool without nesting cmd', () => {
   const invocation = suiteInvocation(
-    { command: ['shifu.cmd', 'exec', 'argument with spaces'] },
+    { command: ['shifu.cmd', 'exec', 'uv', 'run', 'argument with spaces'] },
+    { platform: 'win32', env: {} },
+  );
+  assert.deepEqual(invocation, {
+    command: 'uv',
+    args: ['run', 'argument with spaces'],
+  });
+});
+
+test('Windows repository task suites invoke Shifu through ComSpec', () => {
+  const invocation = suiteInvocation(
+    { command: ['shifu.cmd', 'verify', 'argument with spaces'] },
     {
       platform: 'win32',
       comspec: 'C:\\Windows\\System32\\cmd.exe',
@@ -110,7 +121,7 @@ test('Windows suites invoke the repository Shifu shim through ComSpec', () => {
   assert.deepEqual(invocation.args.slice(0, 3), ['/d', '/s', '/c']);
   assert.equal(
     invocation.args[3],
-    'call shifu.cmd exec "argument with spaces"',
+    'call shifu.cmd verify "argument with spaces"',
   );
 });
 
@@ -118,7 +129,7 @@ test('Windows suite invocation rejects cmd expansion syntax', () => {
   assert.throws(
     () =>
       suiteInvocation(
-        { command: ['shifu.cmd', 'exec', 'task%PATH%'] },
+        { command: ['shifu.cmd', 'verify', 'task%PATH%'] },
         { platform: 'win32', env: {} },
       ),
     /unsafe cmd syntax/,
