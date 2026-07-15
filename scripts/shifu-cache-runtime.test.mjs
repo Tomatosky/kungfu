@@ -881,6 +881,8 @@ process.exit(status);
     env: {
       ...process.env,
       PATH: originalPath,
+      SHIFU_CARGO_ORIGINAL_PATH: 'stale-outer-cargo-path',
+      SHIFU_CONAN_ORIGINAL_PATH: 'stale-outer-conan-path',
       XDG_CACHE_HOME: path.join(directory, 'cache'),
     },
   });
