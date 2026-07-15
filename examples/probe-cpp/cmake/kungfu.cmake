@@ -48,11 +48,29 @@ if(NOT KF_LIBKUNGFU)
   message(FATAL_ERROR "libkungfu shared library not found under ${KF_CORE_DIR}. Build the core first: ./shifu rebuild:core")
 endif()
 
+# Windows builds libkungfu as a static archive to stay below the COFF export
+# ceiling. Its public yijinjing dependency therefore remains a separate
+# archive for standalone consumers, unlike the shared libkungfu on POSIX.
+if(WIN32)
+  find_library(KF_LIBYIJINJING
+    NAMES yijinjing libyijinjing
+    PATHS "${KF_CORE_DIR}/build/Release" "${KF_CORE_DIR}/build"
+    NO_DEFAULT_PATH)
+  if(NOT KF_LIBYIJINJING)
+    message(FATAL_ERROR "libyijinjing static library not found under ${KF_CORE_DIR}. Build the core first: ./shifu rebuild:core")
+  endif()
+endif()
+
 # Compile src/cpp/*.cpp of the current extension into a native pybind11 module
 # named ${_target}, linked against libkungfu + FlatBuffers.
 macro(kungfu_cpp_extension _target)
   file(GLOB _kf_srcs CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/*.cpp")
   pybind11_add_module(${_target} SHARED ${_kf_srcs})
+  # Public Core headers are UTF-8. Keep standalone Windows consumers aligned
+  # with kungfu_compile_contract so MSVC does not parse them through the host
+  # legacy code page and turn multibyte comments into C++ tokens.
+  target_compile_options(${_target} PRIVATE
+    "$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
   # Keep external C++ consumers on the same narrow fmt compatibility contract
   # as Core. AppleClang 21 rejects fmt 10.2.1's consteval parser in C++23 mode.
   if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" AND
@@ -73,4 +91,7 @@ macro(kungfu_cpp_extension _target)
     $<IF:$<TARGET_EXISTS:fmt::fmt-header-only>,fmt::fmt-header-only,fmt::fmt>
     $<IF:$<TARGET_EXISTS:spdlog::spdlog_header_only>,spdlog::spdlog_header_only,spdlog::spdlog>
     nlohmann_json::nlohmann_json)
+  if(WIN32)
+    target_link_libraries(${_target} PRIVATE ${KF_LIBYIJINJING})
+  endif()
 endmacro()

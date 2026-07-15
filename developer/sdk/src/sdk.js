@@ -2537,6 +2537,31 @@ function resolveCorePython(coreDir) {
 }
 
 /**
+ * Resolve the real base interpreter for CMake's Python development lookup.
+ * Windows uv environments can report headers through a versionless junction
+ * that MSVC cannot traverse from a service-runner build. The base executable's
+ * real path makes FindPythonLibs select the versioned include and import-lib
+ * directories while preserving the same Python ABI as the Core environment.
+ * @param {string} python
+ * @returns {string}
+ */
+function resolveCmakePython(python) {
+  if (!isWin) return python;
+  const result = spawnSync(
+    python,
+    [
+      '-c',
+      'import os, sys; print(os.path.realpath(getattr(sys, "_base_executable", sys.executable)))',
+    ],
+    { encoding: 'utf8' },
+  );
+  const resolved = result.status === 0 ? result.stdout.trim() : '';
+  return resolved && path.isAbsolute(resolved) && fs.existsSync(resolved)
+    ? resolved
+    : python;
+}
+
+/**
  * Configure and build a C++ kfx into a native pybind11 module.
  * @param {Manifest} manifest
  * @returns {void}
@@ -2569,7 +2594,7 @@ function cppBuild(manifest) {
   // compatible with the runtime and loads alongside pykungfu. Pass both the
   // classic (FindPythonInterp) and modern (FindPython) hint variables so the
   // pin holds regardless of which pybind11 lookup mode is active.
-  const corePython = resolveCorePython(coreDir);
+  const corePython = resolveCmakePython(resolveCorePython(coreDir));
   configureArgs.push(
     `-DPYTHON_EXECUTABLE=${corePython}`,
     `-DPython_EXECUTABLE=${corePython}`,
