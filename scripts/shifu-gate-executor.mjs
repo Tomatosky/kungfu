@@ -228,7 +228,7 @@ export function buildGateActionInvocation(action, root, platform) {
   if (action.kind !== 'task') return null;
   const taskArgs = [action.task, ...(action.args || [])];
   if (platform !== 'windows')
-    return { command: path.join(root, 'shifu'), args: taskArgs };
+    return { command: path.posix.join(root, 'shifu'), args: taskArgs };
   const command = process.env.ComSpec || 'cmd.exe';
   const line = [path.join(root, 'shifu.cmd'), ...taskArgs]
     .map((item) => cmdQuote(String(item)))

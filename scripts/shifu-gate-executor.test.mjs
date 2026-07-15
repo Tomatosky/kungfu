@@ -265,7 +265,7 @@ test('required failures keep a copyable single-gate reproduction argv', async ()
     (result) => result.gateId === 'fixture.fail',
   );
   assert.deepEqual(failed.reproduce.argv.slice(0, 3), [
-    './shifu',
+    process.platform === 'win32' ? 'shifu.cmd' : './shifu',
     'gate',
     'run',
   ]);
@@ -435,8 +435,16 @@ test('task actions re-enter an existing lightweight Shifu task beside an active 
       SHIFU_CACHE_BYPASS: undefined,
     },
     async () => {
-      const receipt = await run({ profile: 'task-dogfood' });
-      assert.equal(receipt.status, 'pass', JSON.stringify(receipt.results[0]));
+      const output = [];
+      const receipt = await run({
+        profile: 'task-dogfood',
+        writer: { write: (chunk) => output.push(String(chunk)) },
+      });
+      assert.equal(
+        receipt.status,
+        'pass',
+        `${JSON.stringify(receipt.results[0])}\n${output.join('')}`,
+      );
       assert.equal(receipt.results[0].gateId, 'fixture.task-dogfood');
       assert.equal(receipt.results[0].attempted, true);
     },

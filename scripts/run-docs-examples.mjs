@@ -39,7 +39,9 @@ try {
       example.stdoutPattern &&
       !new RegExp(example.stdoutPattern).test(result.stdout || '')
     )
-      throw new Error(`${example.id} stdout did not match its contract`);
+      throw new Error(
+        `${example.id} stdout did not match its contract: ${JSON.stringify((result.stdout || '').slice(0, 200))}`,
+      );
     console.log(`[docs:examples] passed ${example.id}`);
   }
   console.log('[docs:examples] all declared examples passed');

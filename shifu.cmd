@@ -124,8 +124,8 @@ if defined SHIFU_BIN if exist "%SHIFU_BIN%" (
 )
 
 set "_KFC_VER="
-for /f "tokens=2 delims== " %%v in ('findstr /b /c:"version = " crates\shifu\Cargo.toml') do (
-  if not defined _KFC_VER set "_KFC_VER=%%~v"
+for /f "tokens=1,2 delims== " %%a in (crates\shifu\Cargo.toml) do (
+  if "%%a"=="version" if not defined _KFC_VER set "_KFC_VER=%%~b"
 )
 set "_KFC_CACHE=%USERPROFILE%\.cache"
 if defined XDG_CACHE_HOME set "_KFC_CACHE=%XDG_CACHE_HOME%"
