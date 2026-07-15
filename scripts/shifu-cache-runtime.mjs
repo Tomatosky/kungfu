@@ -1104,6 +1104,10 @@ export async function applyCacheProfile({
       ...overlays.env,
     };
     if (pythonCache) {
+      // PDM does not consume UV_DEFAULT_INDEX.  Keep every Python package
+      // manager inside the same governed index projection when a lifecycle
+      // reaches `kungfu engage pdm ...` beneath Shifu.
+      boundEnv.PDM_PYPI_URL = pythonCache.endpoint;
       try {
         uvOverlay = prepareUvCacheOverlay({
           cwd,

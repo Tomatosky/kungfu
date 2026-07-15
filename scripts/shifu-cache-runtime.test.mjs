@@ -229,6 +229,7 @@ if (args.includes('lock')) {
     args,
     environment: process.env.UV_PROJECT_ENVIRONMENT,
     frozen: process.env.UV_FROZEN,
+    pdmIndex: process.env.PDM_PYPI_URL,
   }));
 }
 `,
@@ -447,6 +448,7 @@ test('strict Python cache uses a disposable effective lock and redacted receipt'
   const invocation = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
   assert.match(invocation.environment, /shifu-uv-overlay-/);
   assert.equal(invocation.frozen, '1');
+  assert.equal(invocation.pdmIndex, endpoint);
   const receipt = JSON.parse(fs.readFileSync(receiptPath, 'utf8'));
   const service = receipt.services['python-index'];
   assert.equal(service.verification, 'passed');
