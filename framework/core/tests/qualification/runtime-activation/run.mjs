@@ -91,10 +91,11 @@ export const SUITES = [
   {
     id: 'product-verification',
     product: true,
-    // product-distribution has just built the complete product. Verify those
-    // exact outputs instead of starting a second native rebuild inside the
-    // qualification run (which also obscures which build was qualified).
-    command: [LAUNCHER, 'verify', '--with-app'],
+    // product-distribution has just built the complete product, and the outer
+    // release qualification has already run the Episode campaign. Verify these
+    // exact outputs without starting a second native rebuild or duplicating an
+    // unrelated Episode campaign inside the artifact-verification suite.
+    command: [LAUNCHER, 'verify', '--with-app', '--skip-episode-qualification'],
   },
   {
     id: 'product-catalog',

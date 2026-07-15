@@ -88,7 +88,11 @@ test('product verification checks the distribution outputs without rebuilding th
     mode: 'execute',
     withProduct: true,
   }).find((suite) => suite.id === 'product-verification');
-  assert.deepEqual(verification.command.slice(1), ['verify', '--with-app']);
+  assert.deepEqual(verification.command.slice(1), [
+    'verify',
+    '--with-app',
+    '--skip-episode-qualification',
+  ]);
   assert.equal(verification.command.includes('--full'), false);
 });
 
