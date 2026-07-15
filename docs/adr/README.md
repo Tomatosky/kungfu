@@ -175,6 +175,7 @@ implemented and qualified or explicitly waived for that release.
 | [SHIFU-0004](SHIFU-ADR-0004-gate-control-plane-contract.md) | accepted | Shifu owns the project-independent Gate contract; projects own catalogs and explicit policy profiles |
 | [SHIFU-0005](SHIFU-ADR-0005-repo-root-discovery-and-jurisdiction.md) | accepted | Two-level repo discovery; a buildchain-managed repo joins by declaring `registrar: shifu`, and shifu asks buildchain for the KFD-3 layout instead of copying it |
 | [SHIFU-0006](SHIFU-ADR-0006-documentation-protocol-and-provider-boundary.md) | accepted | Shifu owns a project-independent documentation submission, canonical-root, diagnostics, and receipt contract while projects retain semantic providers and routes |
+| [SHIFU-0007](SHIFU-ADR-0007-closed-world-workflow-release-admission.md) | accepted | Kungfu classifies the complete workflow execution surface and grants product or channel authority only through an independently reverified sealed capability |
 
 ## Reading by theme
 

@@ -73,9 +73,11 @@ export function validateWorkflowSources(root, contract, overrides = {}) {
 
   requirePattern(
     build,
-    /uses: kungfu-systems\/buildchain\/\.github\/workflows\/\.build\.yml@v2-alpha/,
+    new RegExp(
+      `uses: kungfu-systems/buildchain/\\.github/workflows/\\.build\\.yml@${contract.buildchain.workflow_shell_sha}`,
+    ),
     findings,
-    'release-candidate build must consume Buildchain v2-alpha',
+    'release-candidate build must consume the exact stable Buildchain workflow shell',
   );
   requirePattern(
     build,
@@ -122,7 +124,9 @@ export function validateWorkflowSources(root, contract, overrides = {}) {
   );
   requirePattern(
     promote,
-    /uses: kungfu-systems\/buildchain\/\.github\/workflows\/release-candidate-promote\.yml@v2/,
+    new RegExp(
+      `uses: kungfu-systems/buildchain/\\.github/workflows/release-candidate-promote\\.yml@${contract.buildchain.workflow_shell_sha}`,
+    ),
     findings,
     'promotion must consume the stable Buildchain workflow shell',
   );

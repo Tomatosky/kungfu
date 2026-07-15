@@ -758,12 +758,46 @@
       "review_state": "self-reviewed",
       "sensitivity": "public"
     },
+    "docs/qualification/gates/release-admission.md": {
+      "metadata_schema": "kungfu.document-metadata/v1",
+      "document_status": "active",
+      "doc_type": "design-reference",
+      "review_state": "self-reviewed",
+      "sensitivity": "public",
+      "sources": [
+        "architecture-decisions",
+        "local-files",
+        "user-consensus"
+      ],
+      "period": "ongoing",
+      "theme": "sealed-release-admission",
+      "confidence": "high",
+      "evidence_grade": "B",
+      "last_reviewed": "2026-07-15"
+    },
     "docs/qualification/gates/source-and-governance.md": {
       "metadata_schema": "kungfu.document-metadata/v1",
       "document_status": "active",
       "doc_type": "public-document",
       "review_state": "self-reviewed",
       "sensitivity": "public"
+    },
+    "docs/qualification/gates/workflow-authority.md": {
+      "metadata_schema": "kungfu.document-metadata/v1",
+      "document_status": "active",
+      "doc_type": "design-reference",
+      "review_state": "self-reviewed",
+      "sensitivity": "public",
+      "sources": [
+        "architecture-decisions",
+        "local-files",
+        "user-consensus"
+      ],
+      "period": "ongoing",
+      "theme": "closed-world-workflow-authority",
+      "confidence": "high",
+      "evidence_grade": "B",
+      "last_reviewed": "2026-07-15"
     },
     "docs/qualification/kfd-native-sdk-release-gates.md": {
       "metadata_schema": "kungfu.document-metadata/v1",
