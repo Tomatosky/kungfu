@@ -90,6 +90,18 @@ def test_adopted_coordinator_kill_uses_portable_hard_signal(monkeypatch):
     assert delivered == [(42, "start-42", True)]
 
 
+def test_pid_liveness_probe_never_sends_a_signal(monkeypatch):
+    monkeypatch.setattr(runtime_service.psutil, "pid_exists", lambda pid: pid == 42)
+
+    def fail_on_signal(*_args):
+        raise AssertionError("PID liveness must not use os.kill(pid, 0)")
+
+    monkeypatch.setattr(runtime_service.os, "kill", fail_on_signal)
+
+    assert runtime_service._is_pid_running(42) is True
+    assert runtime_service._is_pid_running(43) is False
+
+
 def _activation_snapshot(workspace, supervisor_pid, coordinator_pid):
     runtime_id = "runtime-test"
     generation = LEASE_FIXTURES["adoption"]["generation"]

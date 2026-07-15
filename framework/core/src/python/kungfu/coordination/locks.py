@@ -28,6 +28,7 @@
 from __future__ import annotations
 
 import contextlib
+import ctypes
 import errno
 import importlib
 import json
@@ -51,11 +52,39 @@ def _now() -> float:
 def _pid_alive(pid: int | None) -> bool:
     if not pid or pid <= 0:
         return False
+    if os.name == "nt":
+        return _windows_pid_alive(pid)
     try:
         os.kill(pid, 0)
         return True
     except OSError:
         return False
+
+
+def _windows_pid_alive(pid: int) -> bool:
+    """Query a Windows process without signal 0, which is CTRL_C_EVENT."""
+    process_query_limited_information = 0x1000
+    still_active = 259
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.OpenProcess.argtypes = [ctypes.c_ulong, ctypes.c_int, ctypes.c_ulong]
+    kernel32.OpenProcess.restype = ctypes.c_void_p
+    kernel32.GetExitCodeProcess.argtypes = [
+        ctypes.c_void_p,
+        ctypes.POINTER(ctypes.c_ulong),
+    ]
+    kernel32.GetExitCodeProcess.restype = ctypes.c_int
+    kernel32.CloseHandle.argtypes = [ctypes.c_void_p]
+    kernel32.CloseHandle.restype = ctypes.c_int
+    handle = kernel32.OpenProcess(process_query_limited_information, False, pid)
+    if not handle:
+        return False
+    try:
+        exit_code = ctypes.c_ulong()
+        return bool(kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code))) and (
+            exit_code.value == still_active
+        )
+    finally:
+        kernel32.CloseHandle(handle)
 
 
 def table_path(root: str | os.PathLike[str]) -> Path:
@@ -68,6 +97,7 @@ def _table_guard(path: Path):
     path.parent.mkdir(parents=True, exist_ok=True)
     guard = path.with_suffix(".guard")
     fd = os.open(str(guard), os.O_CREAT | os.O_RDWR, 0o644)
+    acquired = False
     try:
         if os.name == "nt":
             # ``msvcrt.locking`` locks bytes from the current file position.
@@ -79,6 +109,7 @@ def _table_guard(path: Path):
                 os.lseek(fd, 0, os.SEEK_SET)
                 try:
                     _LOCK_BACKEND.locking(fd, _LOCK_BACKEND.LK_NBLCK, 1)
+                    acquired = True
                     break
                 except OSError as exc:
                     if exc.errno not in {errno.EACCES, errno.EAGAIN, errno.EDEADLK}:
@@ -86,14 +117,17 @@ def _table_guard(path: Path):
                     time.sleep(DEFAULT_POLL_SECONDS)
         else:
             _LOCK_BACKEND.flock(fd, _LOCK_BACKEND.LOCK_EX)
+            acquired = True
         yield
     finally:
-        if os.name == "nt":
-            os.lseek(fd, 0, os.SEEK_SET)
-            _LOCK_BACKEND.locking(fd, _LOCK_BACKEND.LK_UNLCK, 1)
-        else:
-            _LOCK_BACKEND.flock(fd, _LOCK_BACKEND.LOCK_UN)
-        os.close(fd)
+        try:
+            if acquired and os.name == "nt":
+                os.lseek(fd, 0, os.SEEK_SET)
+                _LOCK_BACKEND.locking(fd, _LOCK_BACKEND.LK_UNLCK, 1)
+            elif acquired:
+                _LOCK_BACKEND.flock(fd, _LOCK_BACKEND.LOCK_UN)
+        finally:
+            os.close(fd)
 
 
 def _read(path: Path) -> dict[str, Any]:

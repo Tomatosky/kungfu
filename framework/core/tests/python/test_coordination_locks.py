@@ -34,6 +34,19 @@ def _load_locks():
 locks = _load_locks()
 
 
+def test_windows_pid_probe_does_not_send_ctrl_c(monkeypatch):
+    monkeypatch.setattr(locks.os, "name", "nt")
+    monkeypatch.setattr(locks, "_windows_pid_alive", lambda pid: pid == 4242)
+
+    def fail_on_signal(*_args):
+        raise AssertionError("Windows PID liveness must not use os.kill(pid, 0)")
+
+    monkeypatch.setattr(locks.os, "kill", fail_on_signal)
+
+    assert locks._pid_alive(4242) is True
+    assert locks._pid_alive(4243) is False
+
+
 def _run_worker(root, name, log, hold):
     """Acquire, bracket a critical section in the shared log, release."""
     with open(log, "a", encoding="utf-8") as fh:

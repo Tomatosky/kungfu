@@ -144,9 +144,8 @@ def _is_pid_running(pid: int | None) -> bool:
     if not pid or pid <= 0:
         return False
     try:
-        os.kill(pid, 0)
-        return True
-    except OSError:
+        return psutil.pid_exists(pid)
+    except (psutil.Error, OSError, ValueError):
         return False
 
 
