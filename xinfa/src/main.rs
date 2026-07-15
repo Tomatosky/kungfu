@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use xinfa::{
-    canonicalize_project_bytes_with_validity, compile_gui_view, compile_human_view,
-    compile_project_bytes_with_validity, compile_repository_atlas_bytes,
+    canonicalize_project_bytes_with_validity, compile_episode_successor_bytes, compile_gui_view,
+    compile_human_view, compile_project_bytes_with_validity, compile_repository_atlas_bytes,
     compile_repository_pack_bytes, compile_task_chart, diff_atlases, expand_projection,
     impact_between, impact_from_atlas, import_context_pack, inspect_atlas, inspect_pack,
     inspect_projection, pack_value, validate_project_bytes_with_validity, verify_atlas,
@@ -28,6 +28,9 @@ const HUMAN_VIEW_SCHEMA: &str = include_str!("../schema/human-view-v1.schema.jso
 const TASK_CHART_SCHEMA: &str = include_str!("../schema/task-chart-v1.schema.json");
 const GUI_VIEW_SCHEMA: &str = include_str!("../schema/gui-view-v1.schema.json");
 const PROJECTION_RECIPE_SCHEMA: &str = include_str!("../schema/projection-recipe-v1.schema.json");
+const EPISODE_PROVIDER_SUBMISSION_SCHEMA: &str =
+    include_str!("../schema/episode-provider-submission-v1.schema.json");
+const REVIEW_CHART_SCHEMA: &str = include_str!("../schema/review-chart-v1.schema.json");
 
 fn json_string(value: &str) -> String {
     let mut output = String::with_capacity(value.len() + 2);
@@ -75,7 +78,7 @@ fn diagnose() -> Result<String, String> {
     ))
 }
 fn usage() -> &'static str {
-    "Usage:\n  xinfa --version\n  xinfa contract --json\n  xinfa schema project|context-ir|context-pack|pack-manifest|pack-receipt|atlas|atlas-view|atlas-manifest|atlas-receipt|human-view|task-chart|gui-view|projection-recipe\n  xinfa validate --project FILE|- --json\n  xinfa canonicalize --project FILE|- --json\n  xinfa compile --project FILE|- --json\n  xinfa compile --project FILE --output DIR [--root DIR] [--visibility public|internal|private] --json\n  xinfa inspect --pack FILE|DIR --json\n  xinfa verify --pack FILE|DIR --json\n  xinfa impact --since FILE|DIR --project FILE [--root DIR] [--visibility public|internal|private] --json\n  xinfa atlas compile --project FILE --output DIR [--root DIR] [--visibility public|internal|private] --json\n  xinfa atlas compile --pack DIR --output DIR --json\n  xinfa atlas inspect --atlas FILE|DIR --json\n  xinfa atlas verify --atlas FILE|DIR --json\n  xinfa atlas diff --before DIR --after DIR --json\n  xinfa atlas impact --since DIR --project FILE [--root DIR] [--visibility public|internal|private] --json\n  xinfa read --atlas DIR --route ID --intent TEXT --surface human|gui --max-hops N --json\n  xinfa chart create --atlas DIR --route ID --task TEXT --role ROLE --budget TOKENS --json\n  xinfa chart inspect --chart FILE --json\n  xinfa chart verify --chart FILE --atlas DIR --json\n  xinfa context --atlas DIR --route ID --task TEXT --role ROLE --budget TOKENS --json\n  xinfa expand --atlas DIR --view FILE --handle ID --budget TOKENS --json\n  xinfa diagnose --json"
+    "Usage:\n  xinfa --version\n  xinfa contract --json\n  xinfa schema project|context-ir|context-pack|pack-manifest|pack-receipt|atlas|atlas-view|atlas-manifest|atlas-receipt|human-view|task-chart|gui-view|projection-recipe|episode-provider-submission|review-chart\n  xinfa validate --project FILE|- --json\n  xinfa canonicalize --project FILE|- --json\n  xinfa compile --project FILE|- --json\n  xinfa compile --project FILE --output DIR [--root DIR] [--visibility public|internal|private] --json\n  xinfa inspect --pack FILE|DIR --json\n  xinfa verify --pack FILE|DIR --json\n  xinfa impact --since FILE|DIR --project FILE [--root DIR] [--visibility public|internal|private] --json\n  xinfa atlas compile --project FILE --output DIR [--root DIR] [--visibility public|internal|private] --json\n  xinfa atlas compile --pack DIR --output DIR --json\n  xinfa atlas inspect --atlas FILE|DIR --json\n  xinfa atlas verify --atlas FILE|DIR --json\n  xinfa atlas diff --before DIR --after DIR --json\n  xinfa atlas impact --since DIR --project FILE [--root DIR] [--visibility public|internal|private] --json\n  xinfa episode compile --before DIR --project FILE --submission RELATIVE_FILE --output DIR [--root DIR] --json\n  xinfa read --atlas DIR --route ID --intent TEXT --surface human|gui --max-hops N --json\n  xinfa chart create --atlas DIR --route ID --task TEXT --role ROLE --budget TOKENS --json\n  xinfa chart inspect --chart FILE --json\n  xinfa chart verify --chart FILE --atlas DIR --json\n  xinfa context --atlas DIR --route ID --task TEXT --role ROLE --budget TOKENS --json\n  xinfa expand --atlas DIR --view FILE --handle ID --budget TOKENS --json\n  xinfa diagnose --json"
 }
 
 fn project_argument(arguments: &[String]) -> Result<&str, String> {
@@ -218,6 +221,50 @@ fn run() -> Result<ExitCode, String> {
         }
         [command, name] if command == "schema" && name == "projection-recipe" => {
             print!("{PROJECTION_RECIPE_SCHEMA}");
+            Ok(ExitCode::SUCCESS)
+        }
+        [command, name] if command == "schema" && name == "episode-provider-submission" => {
+            print!("{EPISODE_PROVIDER_SUBMISSION_SCHEMA}");
+            Ok(ExitCode::SUCCESS)
+        }
+        [command, name] if command == "schema" && name == "review-chart" => {
+            print!("{REVIEW_CHART_SCHEMA}");
+            Ok(ExitCode::SUCCESS)
+        }
+        [namespace, operation, rest @ ..] if namespace == "episode" && operation == "compile" => {
+            let arguments = keyed_arguments(
+                rest,
+                &[
+                    "--before",
+                    "--project",
+                    "--submission",
+                    "--output",
+                    "--root",
+                ],
+            )?;
+            let project = required(&arguments, "--project")?;
+            if project == "-" {
+                return Err("Episode compilation requires a repository project file".to_owned());
+            }
+            let root = repository_root(project, arguments.get("--root"))?;
+            let submission = required(&arguments, "--submission")?;
+            let project_bytes = read_project(project)?;
+            let submission_bytes = fs::read(root.join(submission))
+                .map_err(|error| format!("cannot read Episode submission {submission}: {error}"))?;
+            let artifacts = compile_episode_successor_bytes(
+                &project_bytes,
+                project,
+                &submission_bytes,
+                submission,
+                &root,
+                "public",
+                Path::new(required(&arguments, "--before")?),
+            )?;
+            write_atlas_directory(
+                Path::new(required(&arguments, "--output")?),
+                &artifacts.atlas,
+            )?;
+            print!("{}", artifacts.receipt);
             Ok(ExitCode::SUCCESS)
         }
         [namespace, operation, rest @ ..] if namespace == "atlas" && operation == "compile" => {

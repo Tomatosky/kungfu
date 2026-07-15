@@ -28,11 +28,12 @@ on:
 
 permissions:
   contents: read
-  issues: write
-  id-token: write
 
 jobs:
   verify:
+    permissions:
+      contents: read
+      id-token: write
     uses: kungfu-systems/buildchain/.github/workflows/.gate-profile.yml@a6145efc210a961da0e5c63d7024d42061550f60
     with:
       buildchain-ref: ${{ inputs.buildchain-ref || '' }}
