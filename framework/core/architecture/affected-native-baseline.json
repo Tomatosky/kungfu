@@ -1,0 +1,12 @@
+{
+  "$schema": "kungfu.core-affected-native-baseline/v1",
+  "platformTier": "github-hosted-linux-native-pr",
+  "requiredBudgetSeconds": 1200,
+  "hardTimeoutSeconds": 1500,
+  "cachePolicy": {
+    "identityFields": ["source", "profile", "toolchain", "architecture-authority"],
+    "unknownHitPolicy": "record-null-do-not-claim",
+    "overBudgetPolicy": "optimize-graph-or-cache-never-delete-required-tests"
+  },
+  "measurements": []
+}

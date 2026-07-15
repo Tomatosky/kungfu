@@ -41,6 +41,64 @@
       ]
     },
     {
+      "path": ".github/workflows/affected-native-pr.yml",
+      "authority": "qualification",
+      "definitionDigest": "sha256:8e62eff482e0fca0696f6bd993d710f0ae8b79e21c2d3fc8573e9dddec2c8ea4",
+      "jobs": [
+        {
+          "id": "affected-native",
+          "authority": "qualification",
+          "publication": "none",
+          "receipt": "diagnostic",
+          "definitionDigest": "sha256:ff4c92f7baa3e4c15c6a19056e5e3a64a2dcae5b7210ec85a23de505ff5f4cb5",
+          "credentials": {
+            "githubToken": "read",
+            "oidc": false,
+            "repositorySecrets": [],
+            "inheritedSecrets": false,
+            "environment": null
+          },
+          "externalActions": [
+            "actions/checkout@v4",
+            "actions/setup-node@v6.4.0",
+            "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02"
+          ],
+          "steps": [
+            {
+              "index": 1,
+              "label": "uses:actions/checkout@v4",
+              "authority": "qualification",
+              "definitionDigest": "sha256:013f3e07e00504e33bda746183e505021d945acc2dfb178cf1d094ef09ea5c8f"
+            },
+            {
+              "index": 2,
+              "label": "uses:actions/setup-node@v6.4.0",
+              "authority": "qualification",
+              "definitionDigest": "sha256:789e56d63991440fb89fffa3b2795c1cab043e6b7df6237a0c830c5c89759690"
+            },
+            {
+              "index": 3,
+              "label": "name:Install frozen workspace",
+              "authority": "qualification",
+              "definitionDigest": "sha256:69ea68940dc616ba6987005e02e4a7b177faea26e2b88a9099bd7fdee99532a4"
+            },
+            {
+              "index": 4,
+              "label": "name:Resolve and run affected native closure",
+              "authority": "qualification",
+              "definitionDigest": "sha256:0739d9270b170c10be5fe15be1aa8b877cf7eea4f6bcffdfa655fdfef2ee3790"
+            },
+            {
+              "index": 5,
+              "label": "name:Upload raw plan, receipt, and logs",
+              "authority": "evidence-publication",
+              "definitionDigest": "sha256:514fa92b2e415e583b2468677de7089278684ba772400a690c90f004008eeb7d"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "path": ".github/workflows/build.yml",
       "authority": "qualification",
       "definitionDigest": "sha256:b65b60b8963ae416588ea7d494e7f96a3a70d0c82d07fbbdd2a0ccabc2327839",
