@@ -26,7 +26,6 @@ jobs:
         profile: [embedded-minimal, full]
     runs-on: ${{ matrix.os }}
     env:
-      KUNGFU_BUILDCHAIN_NO_OPTIONAL: "1"
       KUNGFU_BUILDCHAIN_SOURCE_BUILD: "1"
       SHIFU_NATIVE: "1"
       SHIFU_REQUIRE_MSVC: "1"
@@ -46,15 +45,25 @@ jobs:
           echo "CC=gcc-14" >> "$GITHUB_ENV"
           echo "CXX=g++-14" >> "$GITHUB_ENV"
 
-      - name: Install frozen workspace (POSIX)
-        if: runner.os != 'Windows'
+      - name: Install frozen minimal workspace (POSIX)
+        if: runner.os != 'Windows' && matrix.profile == 'embedded-minimal'
         shell: bash
         run: ./shifu install --frozen-lockfile --no-optional
 
-      - name: Install frozen workspace (Windows)
-        if: runner.os == 'Windows'
+      - name: Install frozen full workspace (POSIX)
+        if: runner.os != 'Windows' && matrix.profile == 'full'
+        shell: bash
+        run: ./shifu install --frozen-lockfile
+
+      - name: Install frozen minimal workspace (Windows)
+        if: runner.os == 'Windows' && matrix.profile == 'embedded-minimal'
         shell: pwsh
         run: .\shifu.cmd install --frozen-lockfile --no-optional
+
+      - name: Install frozen full workspace (Windows)
+        if: runner.os == 'Windows' && matrix.profile == 'full'
+        shell: pwsh
+        run: .\shifu.cmd install --frozen-lockfile
 
       - name: Build selected Core profile (POSIX)
         if: runner.os != 'Windows'
