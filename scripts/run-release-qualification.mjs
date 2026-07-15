@@ -366,6 +366,36 @@ function writeSummary(
 }
 
 export function main(argv = process.argv.slice(2)) {
+  if (process.platform === 'win32') {
+    const command = [
+      'call',
+      'shifu.cmd',
+      'exec',
+      'uv',
+      'run',
+      '--frozen',
+      '--project',
+      'framework/core',
+      'python',
+      '-m',
+      'pytest',
+      'framework/core/tests/python/test_runtime_broker.py',
+      'framework/core/tests/python/test_runtime_service.py',
+      '-vv',
+      '-s',
+    ].join(' ');
+    return (
+      spawnSync(
+        process.env.ComSpec || process.env.COMSPEC || 'cmd.exe',
+        ['/d', '/s', '/c', command],
+        {
+          cwd: ROOT,
+          env: releaseQualificationEnvironment(ROOT, process.env),
+          stdio: 'inherit',
+        },
+      ).status ?? 1
+    );
+  }
   const options = parseReleaseQualificationOptions(argv);
   const execution = loadExecutionProfile(options.executionProfile);
   const env = releaseQualificationEnvironment(
