@@ -148,6 +148,9 @@ test('source plan covers representative source-only checks', () => {
     contractTests.args.includes('scripts/check-upgrade-contract.test.mjs'),
   );
   assert.ok(
+    contractTests.args.includes('scripts/probe-cpp-cmake-contract.test.mjs'),
+  );
+  assert.ok(
     contractTests.args.includes('scripts/check-upgrade-qualification.test.mjs'),
   );
   assert.ok(

@@ -37,10 +37,12 @@ find_package(fmt REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(spdlog REQUIRED)
 
-# The built libkungfu shared library.
+# The built libkungfu library. Single-config generators place it under
+# build/Release on POSIX, while the Windows core target writes kungfu.lib to
+# the build root through KUNGFU_BUILD_DIR.
 find_library(KF_LIBKUNGFU
   NAMES kungfu libkungfu
-  PATHS "${KF_CORE_DIR}/build/Release" "${KF_CORE_DIR}/dist/kfc"
+  PATHS "${KF_CORE_DIR}/build/Release" "${KF_CORE_DIR}/build" "${KF_CORE_DIR}/dist/kfc"
   NO_DEFAULT_PATH)
 if(NOT KF_LIBKUNGFU)
   message(FATAL_ERROR "libkungfu shared library not found under ${KF_CORE_DIR}. Build the core first: ./shifu rebuild:core")
