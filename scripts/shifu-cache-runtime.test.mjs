@@ -306,6 +306,21 @@ test('validates exact bytes and applies only environment bindings', () => {
   });
 });
 
+test('origin-only registry endpoints do not gain a trailing slash', () => {
+  const value = profile();
+  value.services['npm-registry'].endpoint.url = 'http://cache.example.invalid';
+  value.services['npm-registry'].bindings.push({
+    kind: 'environment',
+    key: 'NPM_CONFIG_REGISTRY',
+    valueFrom: 'endpoint.url',
+  });
+  const resolved = validateProfileBytes(bytes(value));
+  assert.deepEqual(resolved.bindings, {
+    COREPACK_NPM_REGISTRY: 'http://cache.example.invalid',
+    NPM_CONFIG_REGISTRY: 'http://cache.example.invalid',
+  });
+});
+
 test('fails closed on digest mismatch and secret-like environment keys', () => {
   assert.throws(
     () =>

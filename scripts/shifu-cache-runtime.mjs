@@ -114,7 +114,14 @@ function checkedHttpUrl(value, label) {
     !parsed.search && !parsed.hash,
     `${label} must not contain query or fragment`,
   );
-  return parsed.toString();
+  const canonical = parsed.toString();
+  // URL serialisation adds `/` to an origin-only URL. Preserve the profile's
+  // no-trailing-slash form because base-URL consumers such as Corepack append
+  // their own absolute path and otherwise request `//<package>/<version>`.
+  if (parsed.pathname === '/' && !value.trimEnd().endsWith('/')) {
+    return parsed.origin;
+  }
+  return canonical;
 }
 
 function platformId() {
