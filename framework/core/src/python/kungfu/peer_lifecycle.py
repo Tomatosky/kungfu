@@ -396,6 +396,7 @@ def _status_from_state(
         "restartAttempts": len(state.get("restartAttempts") or []),
         "lastExit": state.get("lastExit"),
         "error": state.get("error"),
+        "readinessMismatches": state.get("readinessMismatches") or [],
         "statePath": str(state_path(runtime_dir, peer_id)),
         "logPath": str(log_path(runtime_dir, peer_id)),
     }
@@ -457,10 +458,15 @@ def ensure(
     runtime_dir: str | os.PathLike[str],
     *,
     expected_plan_id: str | None = None,
-    wait_seconds: float = DEFAULT_READY_TIMEOUT_SECONDS,
+    wait_seconds: float | None = None,
 ) -> dict[str, Any]:
     runtime = str(Path(runtime_dir).expanduser().resolve())
     normalized = validate_spec(dict(spec))
+    readiness_wait = (
+        float(normalized["readiness"]["timeoutSeconds"])
+        if wait_seconds is None
+        else max(0.0, wait_seconds)
+    )
     peer_id = normalized["peerId"]
     peer_plan = plan(normalized, runtime)
     if expected_plan_id is not None and expected_plan_id != peer_plan["planId"]:
@@ -544,7 +550,7 @@ def ensure(
                 "process-identity-unavailable",
                 "Peer host process start identity was unavailable",
             )
-    deadline = time.monotonic() + max(0.0, wait_seconds)
+    deadline = time.monotonic() + readiness_wait
     while time.monotonic() < deadline:
         current_status = status(runtime, peer_id)
         if current_status["healthy"] or current_status["lifecycleState"] in {
@@ -813,6 +819,7 @@ def _spawn_peer(
             "readyToken": token,
             "readinessState": "registering",
             "lifecycleState": "registering",
+            "readinessMismatches": [],
             "updatedAt": _now(),
         }
     )
@@ -972,6 +979,7 @@ def run_host(
                             "readinessState": "ready",
                             "readyAt": _now(),
                             "error": None,
+                            "readinessMismatches": [],
                         }
                     )
                     break
@@ -981,7 +989,9 @@ def run_host(
                     _terminate_matching(
                         state.get("peerPid"), state.get("peerStartIdentity")
                     )
-                    mismatches = ", ".join(_ready_mismatch_fields(state, ready))
+                    mismatch_fields = _ready_mismatch_fields(state, ready)
+                    mismatches = ", ".join(mismatch_fields)
+                    state["readinessMismatches"] = mismatch_fields
                     state["error"] = "Peer readiness handshake timed out"
                     if mismatches:
                         state["error"] += f"; mismatched bindings: {mismatches}"

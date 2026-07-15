@@ -18,7 +18,7 @@ def _spec(*, process_exit="restart", durable_state="declared", max_restarts=3):
         "schema": peer_lifecycle.SPEC_SCHEMA,
         "peerId": "test.probe",
         "command": {"argv": ["probe", "--serve"]},
-        "readiness": {"kind": "file-handshake", "timeoutSeconds": 1},
+        "readiness": {"kind": "file-handshake", "timeoutSeconds": 10},
         "recovery": {
             "schema": peer_lifecycle.RECOVERY_SCHEMA,
             "processExit": process_exit,

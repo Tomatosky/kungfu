@@ -291,7 +291,7 @@ def _run_campaign(output_dir: Path, temp_parent: Path | None = None) -> int:
                         str(marker_path),
                     ]
                 },
-                "readiness": {"kind": "file-handshake", "timeoutSeconds": 20},
+                "readiness": {"kind": "file-handshake", "timeoutSeconds": 60},
                 "recovery": {
                     "schema": peer_lifecycle.RECOVERY_SCHEMA,
                     "processExit": "restart",
