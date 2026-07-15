@@ -43,7 +43,7 @@ command = "./shifu check:source"
 
 [lifecycle.build]
 # shifu-entry-contract: allow the cross-platform dispatcher to enter the canonical shifu shim
-command = "node -e \"console.log('diagnostic build bypass')\""
+command = "node --version"
 
 [lifecycle.verify]
 # shifu-entry-contract: allow the cross-platform dispatcher to enter the canonical shifu shim
