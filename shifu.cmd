@@ -124,7 +124,7 @@ if defined SHIFU_BIN if exist "%SHIFU_BIN%" (
 )
 
 set "_KFC_VER="
-for /f "usebackq tokens=2 delims== " %%v in (`findstr /b /c:"version = " crates\shifu\Cargo.toml`) do (
+for /f "tokens=2 delims== " %%v in ('findstr /b /c:"version = " crates\shifu\Cargo.toml') do (
   if not defined _KFC_VER set "_KFC_VER=%%~v"
 )
 set "_KFC_CACHE=%USERPROFILE%\.cache"

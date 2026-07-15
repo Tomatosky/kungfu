@@ -709,11 +709,12 @@ test('cache apply overrides Cargo and isolates Conan without mutating persistent
     child.rocksdbSource,
     'http://cache.example.invalid/sources/rocksdb.tar.gz',
   );
-  assert.match(
-    child.conanGlobal,
-    new RegExp(
-      `core\\.cache:storage_path = ${path.join(conanStorage, 'packages').replaceAll('\\\\', '\\\\')}`,
-    ),
+  assert.ok(
+    child.conanGlobal
+      .replaceAll('\\', '/')
+      .includes(
+        `core.cache:storage_path = ${path.join(conanStorage, 'packages').replaceAll('\\', '/')}`,
+      ),
   );
   assert.equal(fs.readFileSync(child.storageMarker, 'utf8'), 'warm');
   assert.equal(
