@@ -93,7 +93,7 @@ jobs:
 
       - name: Upload focused Gate receipt
         if: ${{ always() && contains(format(',{0},', inputs.focused-platforms), format(',{0},', matrix.platform)) }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: kungfu-focused-gate-measurement-${{ matrix.id }}-${{ inputs.source-ref || github.sha }}
           path: .buildchain/gates/focused/${{ matrix.id }}/receipt.json
