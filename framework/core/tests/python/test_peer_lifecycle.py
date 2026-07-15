@@ -189,6 +189,39 @@ def test_ready_handshake_binds_peer_generation_process_and_token(tmp_path, monke
     assert payload["readyToken"] == "token-12"
 
 
+def test_host_self_binding_is_atomic_and_rejects_an_existing_owner(
+    tmp_path, monkeypatch
+):
+    runtime_dir = str(tmp_path / "runtime")
+    state_file = peer_lifecycle.state_path(runtime_dir, "test.probe")
+    state = {
+        "schema": peer_lifecycle.STATE_SCHEMA,
+        "peerId": "test.probe",
+        "hostGeneration": 7,
+        "hostPid": None,
+        "hostStartIdentity": None,
+        "planId": "sha256:plan",
+        "desiredState": "running",
+    }
+    peer_lifecycle._write_json(state_file, state)
+    monkeypatch.setattr(peer_lifecycle, "_process_identity", lambda pid: "self-start")
+
+    bound = peer_lifecycle._host_bind_state(runtime_dir, "test.probe", 7, "sha256:plan")
+
+    assert bound["hostPid"] == os.getpid()
+    assert bound["hostStartIdentity"] == "self-start"
+
+    state.update({"hostPid": os.getpid() + 1, "hostStartIdentity": "other-start"})
+    peer_lifecycle._write_json(state_file, state)
+
+    rejected = peer_lifecycle._host_bind_state(
+        runtime_dir, "test.probe", 7, "sha256:plan"
+    )
+
+    assert rejected == {}
+    assert peer_lifecycle._read_json(state_file)["hostStartIdentity"] == "other-start"
+
+
 def _wait_status(runtime_dir, predicate, timeout=10):
     deadline = time.monotonic() + timeout
     current = peer_lifecycle.status(runtime_dir, "test.probe")

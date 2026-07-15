@@ -501,14 +501,6 @@ def ensure(
                 "process-identity-unavailable",
                 "Peer host process start identity was unavailable",
             )
-        state.update(
-            {
-                "hostPid": child.pid,
-                "hostStartIdentity": host_identity,
-                "updatedAt": _now(),
-            }
-        )
-        _write_json(state_path(runtime, peer_id), state)
     deadline = time.monotonic() + max(0.0, wait_seconds)
     while time.monotonic() < deadline:
         current_status = status(runtime, peer_id)
@@ -651,6 +643,41 @@ def _host_write_state(
         return desired == "running"
 
 
+def _host_bind_state(
+    runtime: str, peer_id: str, host_generation: int, expected_plan_id: str
+) -> dict[str, Any]:
+    """Atomically bind an unclaimed host generation to the current process."""
+
+    identity = _process_identity(os.getpid())
+    if identity is None:
+        return {}
+    with coordination_locks.held(
+        _lock_root(runtime, peer_id), "mutation", label="peer-host-bind"
+    ):
+        state = _read_json(state_path(runtime, peer_id))
+        if (
+            state.get("hostGeneration") != host_generation
+            or state.get("planId") != expected_plan_id
+            or state.get("desiredState") != "running"
+        ):
+            return {}
+        recorded_pid = state.get("hostPid")
+        recorded_identity = state.get("hostStartIdentity")
+        if recorded_pid is not None or recorded_identity is not None:
+            if recorded_pid != os.getpid() or recorded_identity != identity:
+                return {}
+        state.update(
+            {
+                "hostPid": os.getpid(),
+                "hostStartIdentity": identity,
+                "heartbeatAt": _now(),
+                "updatedAt": _now(),
+            }
+        )
+        _write_json(state_path(runtime, peer_id), state)
+        return state
+
+
 def _spawn_peer(
     spec: Mapping[str, Any], state: dict[str, Any]
 ) -> subprocess.Popen[Any]:
@@ -742,21 +769,8 @@ def run_host(
 
     if plan(spec, runtime)["planId"] != expected_plan_id:
         return 2
-    bind_deadline = time.monotonic() + 5.0
-    state: dict[str, Any] = {}
-    while time.monotonic() < bind_deadline:
-        state = _read_json(state_file)
-        if (
-            state.get("hostGeneration") != host_generation
-            or state.get("planId") != expected_plan_id
-        ):
-            return 2
-        if state.get("hostPid") == os.getpid() and _process_matches(
-            os.getpid(), state.get("hostStartIdentity")
-        ):
-            break
-        time.sleep(0.02)
-    else:
+    state = _host_bind_state(runtime, peer_id, host_generation, expected_plan_id)
+    if not state:
         return 2
 
     peer: psutil.Process | subprocess.Popen[Any] | None = None
