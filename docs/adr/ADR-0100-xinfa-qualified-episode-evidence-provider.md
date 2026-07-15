@@ -4,7 +4,6 @@ doc_type: architecture-decision
 adr_id: ADR-0100
 decision_status: accepted
 implementation_status: implemented
-implementation_commits: [ab315d671ac89d890d85ef91e336e160f1ba87f6]
 implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/968]
 closure_pr: https://github.com/kungfu-systems/kungfu/pull/968
 qualification_refs: [xinfa/qualification/episode-provider-v1.json, xinfa/fixtures/negative/episode-provider-cases-v1.json]
