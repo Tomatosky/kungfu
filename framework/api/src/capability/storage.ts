@@ -69,6 +69,11 @@ export type Storage = {
     action: string,
     options?: Record<string, unknown>,
   ) => StorageValue;
+  kfxRuntimeContract: () => StorageValue;
+  validateKfxRuntimeDocument: (
+    kind: 'request' | 'inspection' | 'plan' | 'receipt',
+    document: StorageValue,
+  ) => StorageValue;
   factLibraryContract: () => StorageValue;
   factTypes: () => StorageValue;
   createFactType: (
@@ -151,6 +156,9 @@ export function openStorage(options: OpenStorageOptions): Storage {
       }) as SavedQueryEntry,
     profileLifecycle: (action, values = {}) =>
       run('profile_lifecycle', { action, ...values }),
+    kfxRuntimeContract: () => run('kfx_runtime', { action: 'contract' }),
+    validateKfxRuntimeDocument: (kind, document) =>
+      run('kfx_runtime', { action: 'validate', kind, document }),
     factLibraryContract: () => run('fact_library_contract'),
     factTypes: () => run('fact_type_list'),
     createFactType: (definition, systemTime = 0) =>

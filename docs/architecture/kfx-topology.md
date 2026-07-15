@@ -57,6 +57,26 @@ import the *same* load rule from `@kungfu-tech/kfx`. There is no second copy of
 "is this trusted, which tier" to keep in sync. Only the *loaded* kfx may be
 Python or C++ — as a guest process, never as the thing making the trust decision.
 
+## Native authority seam (migration stage)
+
+The versioned seam for moving that decision into Core is now frozen in
+`kungfu-kfx.contract.json#nativeRuntime`. This stage exposes only the contract
+and pure document validation; it does **not** switch discovery or mutation away
+from the existing loaders yet.
+
+| concern | authority | Node / Python role during this stage |
+|---|---|---|
+| contract version, canonical root names, stable error codes | libkungfu | read through `kfx_runtime:contract` |
+| request / inspection / plan / receipt validation | libkungfu | forward documents through `kfx_runtime:validate` |
+| Profile Suite lifecycle and suite root | existing native Profile lifecycle | call the existing lifecycle; never create a parallel KFX Profile state |
+| registry discovery and load-plan parity | existing TypeScript loader until the parity stage lands | retained compatibility adapter |
+| install / activate / remove mutation | existing paths until native parity and cutover are proved | no new authority in this stage |
+
+The C++ `native_kfx_service` interface reserves `inspect`, `plan`, `apply`,
+`status`, and `history` behind one runtime-scoped writer. Future registry and
+mutation implementations plug into that interface; language bindings remain
+validation-and-transport edges.
+
 ## The lifecycle: discover → plan → land
 
 ```
