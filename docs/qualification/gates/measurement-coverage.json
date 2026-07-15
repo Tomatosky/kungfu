@@ -12,7 +12,6 @@
       "episode.smoke",
       "layers.release",
       "mmap.contracts",
-      "mmap.performance",
       "product.distribution",
       "product.verify-full",
       "product.verify-fuzz",
@@ -31,7 +30,7 @@
       "toolchain.cpp-modules",
       "toolchain.libwasm-cache"
     ],
-    "digest": "sha256:d6ea0ad941e329c2ad9abbcd3d00e7a1658376f82332adfaa1976503b3716343"
+    "digest": "sha256:b68eca1e4ab5f7aeb84b35f781dde8bc4ddad2a62e93cbe29de9c175663fa61a"
   },
   "measurements": [
     {
@@ -272,6 +271,26 @@
           "registryDigest": "sha256:26716c1b1979fa3789f35caf5db97dae103462a7e02aebd4f4026b0ea2923526",
           "durationMs": 32821,
           "receipt": "docs/qualification/evidence/layer-gates/c4ba70d95/windows-x64.raw/layer-artifact-gate-receipt.json"
+        }
+      ]
+    },
+    {
+      "gateId": "mmap.performance",
+      "definitionDigest": "sha256:78f05fe0f0b700a9aacf090fe974539453d6937cad30d325ee2432286f0159eb",
+      "observations": [
+        {
+          "platform": "linux",
+          "sourceSha": "77c65cc63a04f98db3eaff27a4652dea2db488b4",
+          "registryDigest": "sha256:fb3394781eb3899ca9cc14f074effe365707f4ef3b40643bc84c4bbb882d227e",
+          "durationMs": 2555,
+          "receipt": "docs/qualification/evidence/gate-measurements/77c65cc63/linux/mmap-performance-receipt.json"
+        },
+        {
+          "platform": "macos",
+          "sourceSha": "77c65cc63a04f98db3eaff27a4652dea2db488b4",
+          "registryDigest": "sha256:fb3394781eb3899ca9cc14f074effe365707f4ef3b40643bc84c4bbb882d227e",
+          "durationMs": 1404,
+          "receipt": "docs/qualification/evidence/gate-measurements/77c65cc63/macos/mmap-performance-receipt.json"
         }
       ]
     },

@@ -45,7 +45,7 @@ Gate's complete platform set.
 | `episode.release` | adoption baseline | — |
 | `embedding.membranes` | adoption baseline | — |
 | `mmap.contracts` | adoption baseline | — |
-| `mmap.performance` | adoption baseline | — |
+| `mmap.performance` | measured | [linux: 2555 ms @ 77c65cc63](../evidence/gate-measurements/77c65cc63/linux/mmap-performance-receipt.json)<br>[macos: 1404 ms @ 77c65cc63](../evidence/gate-measurements/77c65cc63/macos/mmap-performance-receipt.json) |
 | `durability.contracts` | adoption baseline | — |
 | `state-service.contracts` | adoption baseline | — |
 | `profile.suite` | measured | [linux: 5390 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/linux/receipt.json)<br>[macos: 13262 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/macos/receipt.json)<br>[windows: 8306 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/windows/receipt.json) |
