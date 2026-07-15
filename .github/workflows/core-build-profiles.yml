@@ -93,4 +93,8 @@ jobs:
           if ($identity.profile -ne $env:KUNGFU_BUILD_PROFILE) { throw "build identity profile mismatch" }
           ctest --test-dir framework/core/build -R "yijinjing_(custom_provider|fact_authority)" --output-on-failure
           # shifu-entry-contract: allow standalone external-consumer qualification outside the parent build
-          node framework/core/slices/custom-provider/run.mjs
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsInstall = & $vswhere -latest -property installationPath
+          $vsDevCmd = Join-Path $vsInstall "Common7\Tools\VsDevCmd.bat"
+          cmd.exe /d /s /c "`"$vsDevCmd`" -arch=x64 -host_arch=x64 >nul && node framework/core/slices/custom-provider/run.mjs"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
