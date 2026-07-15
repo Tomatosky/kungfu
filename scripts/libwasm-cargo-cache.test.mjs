@@ -7,6 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { selectCommandPath, spawnSpecification } from './libwasm-command.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const modulePath = path.join(
@@ -16,6 +17,33 @@ const modulePath = path.join(
   '.cmake',
   'libwasm-cargo-cache.cmake',
 );
+
+test('Windows qualification prefers an executable Cargo wrapper', () => {
+  assert.equal(
+    selectCommandPath(
+      [
+        'C:\\cache-overlay\\bin\\cargo',
+        'C:\\cache-overlay\\bin\\cargo.cmd',
+        'C:\\rust\\bin\\cargo.exe',
+      ].join('\r\n'),
+      'win32',
+    ),
+    'C:\\cache-overlay\\bin\\cargo.cmd',
+  );
+});
+
+test('Windows qualification runs Cargo command wrappers through cmd.exe', () => {
+  assert.deepEqual(
+    spawnSpecification('C:\\cache overlay\\bin\\cargo.cmd', ['-Vv'], 'win32', {
+      ComSpec: 'C:\\Windows\\System32\\cmd.exe',
+    }),
+    {
+      command: '"C:\\cache overlay\\bin\\cargo.cmd" "-Vv"',
+      args: [],
+      shell: 'C:\\Windows\\System32\\cmd.exe',
+    },
+  );
+});
 
 test('Windows Cargo command wrappers are identified through cmd.exe', () => {
   const source = fs.readFileSync(modulePath, 'utf8');
