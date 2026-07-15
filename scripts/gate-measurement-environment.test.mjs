@@ -84,12 +84,44 @@ test('projects the materialized core environment from the strict uv manifest', (
       ],
     })}\n`,
   );
-  const env = {};
+  const wrapper = path.join(root, 'uv-wrapper');
+  const system = path.join(root, 'system-bin');
+  const env = {
+    PATH: [wrapper, system].join(path.delimiter),
+    SHIFU_CACHE_MANAGED_UV: '1',
+  };
   assert.equal(
     exposeGateMeasurementPython(core, { env, manifestPath }),
     environment,
   );
   assert.equal(env.UV_PROJECT_ENVIRONMENT, environment);
+  assert.equal(
+    env.PATH,
+    [wrapper, path.join(environment, 'bin'), system].join(path.delimiter),
+  );
+});
+
+test('projects Windows environment tools using the existing PATH casing', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gate-measurement-env-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const core = path.join(root, 'repo', 'framework', 'core');
+  const environment = path.join(root, 'overlay', 'environment');
+  fs.mkdirSync(core, { recursive: true });
+  fs.mkdirSync(environment, { recursive: true });
+  const env = {
+    Path: path.join(root, 'system-bin'),
+    UV_PROJECT_ENVIRONMENT: environment,
+  };
+  assert.equal(
+    exposeGateMeasurementPython(core, { env, platform: 'win32' }),
+    environment,
+  );
+  assert.equal(
+    env.Path,
+    [path.join(environment, 'Scripts'), path.join(root, 'system-bin')].join(
+      path.delimiter,
+    ),
+  );
 });
 
 test('fails closed when the selected environment was not materialized', (t) => {
