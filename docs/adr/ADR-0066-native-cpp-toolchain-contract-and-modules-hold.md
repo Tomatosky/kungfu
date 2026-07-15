@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0066
 decision_status: accepted
 implementation_status: staged
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/951]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/951, https://github.com/kungfu-systems/kungfu/pull/955]
 qualification_refs: [framework/core/architecture/build-capabilities.json, framework/core/architecture/check-build-capabilities.mjs, framework/core/src/libyijinjing/tests/custom_provider_qualification.cpp, .github/workflows/core-build-profiles.yml, scripts/source-acceptance.mjs]
 review_state: self-reviewed
 sensitivity: public
