@@ -12,8 +12,6 @@ import { gzipSync } from 'node:zlib';
 
 import Ajv2020 from 'ajv/dist/2020.js';
 
-import { cmdCommand } from '../../../../../scripts/run-shifu-lifecycle.mjs';
-
 const HARNESS_DIR = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HARNESS_DIR, '..', '..', '..', '..', '..');
 const REPORT_SCHEMA_PATH = path.join(
@@ -301,21 +299,25 @@ export function evaluateQualification({
 
 export function suiteInvocation(suite, options = {}) {
   const platform = options.platform || process.platform;
-  const root = options.root || ROOT;
   const env = options.env || process.env;
   const [command, ...args] = suite.command;
   if (platform !== 'win32' || command !== 'shifu.cmd') {
     return { command, args };
   }
   const comspec = options.comspec || env.ComSpec || env.COMSPEC || 'cmd.exe';
+  if (args.some((value) => /[\r\n%!]/.test(String(value)))) {
+    throw new Error(
+      'Windows runtime activation arguments contain unsafe cmd syntax',
+    );
+  }
+  const quote = (value) => {
+    const text = String(value);
+    if (/^[A-Za-z0-9_./:@=+\\-]+$/.test(text)) return text;
+    return `"${text.replaceAll('"', '""')}"`;
+  };
   return {
     command: comspec,
-    args: [
-      '/d',
-      '/s',
-      '/c',
-      `call ${cmdCommand(path.join(root, 'shifu.cmd'), args)}`,
-    ],
+    args: ['/d', '/s', '/c', ['shifu.cmd', ...args.map(quote)].join(' ')],
   };
 }
 
