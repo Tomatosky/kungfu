@@ -250,6 +250,17 @@ def test_scaffold_is_plan_first_deterministic_and_does_not_self_certify(tmp_path
     assert "profile_suite_root" not in first["files"]["profile.json"]
 
 
+def test_scaffold_materializes_exact_planned_utf8_bytes(tmp_path):
+    source = tmp_path / "profile"
+    plan = profile_sdk.scaffold_plan(brief(), source)
+
+    receipt = profile_sdk.apply_scaffold(plan)
+
+    assert receipt["verified"] is True
+    for relative, text in plan["files"].items():
+        assert (source / relative).read_bytes() == text.encode("utf-8")
+
+
 def test_scaffold_can_declare_generic_dual_first_collaboration(tmp_path):
     source = tmp_path / "profile"
     plan = profile_sdk.scaffold_plan(brief(collaboration=collaboration_brief()), source)
