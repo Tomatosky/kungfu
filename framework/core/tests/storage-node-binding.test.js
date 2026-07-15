@@ -574,9 +574,11 @@ def node_safe(value):
 
 print(json.dumps(node_safe(out), sort_keys=True, separators=(",", ":")))
 `;
+  const scriptPath = path.join(runtimeDir, 'storage-node-shim.py');
+  fs.writeFileSync(scriptPath, script, 'utf8');
   const result = spawnSync(
     'uv',
-    ['run', '--frozen', 'python', '-c', script, coreDir, runtimeDir],
+    ['run', '--frozen', 'python', scriptPath, coreDir, runtimeDir],
     {
       cwd: coreDir,
       encoding: 'utf8',
