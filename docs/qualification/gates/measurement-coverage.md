@@ -20,7 +20,7 @@ Gate's complete platform set.
 <!-- BEGIN GENERATED GATE MEASUREMENTS -->
 | Gate | Coverage | Source-bound observations |
 | --- | --- | --- |
-| `gate.catalog` | measured | [linux: 483 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/linux/runtime-toolchain-receipt.json)<br>[macos: 729 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/macos/runtime-toolchain-receipt.json)<br>[windows: 1940 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/windows/runtime-toolchain-receipt.json) |
+| `gate.catalog` | measured | [linux: 427 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/linux/native-contracts-receipt.json)<br>[macos: 669 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/macos/native-contracts-receipt.json)<br>[windows: 1934 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/windows/native-contracts-receipt.json) |
 | `governance.dco` | measured | [linux: 12000 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/linux/governance.dco.controller-receipt.json) |
 | `governance.adr-delivery` | measured | [linux: 38 ms @ 6b451a4e5](../evidence/gate-measurements/6b451a4e/linux/receipt.json)<br>[macos: 111 ms @ 6b451a4e5](../evidence/gate-measurements/6b451a4e/macos/receipt.json)<br>[windows: 101 ms @ 6b451a4e5](../evidence/gate-measurements/6b451a4e/windows/receipt.json) |
 | `governance.buildchain-config` | measured | [linux: 9000 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/linux/governance.buildchain-config.controller-receipt.json) |
@@ -32,7 +32,7 @@ Gate's complete platform set.
 | `docs.prose` | measured | [linux: 28123 ms @ 44d498750](../evidence/gate-measurements/44d498750/linux/docs-prose-receipt.json) |
 | `docs.external-links` | measured | [linux: 51272 ms @ da9dce514](../evidence/gate-measurements/da9dce514/linux/linux-only-receipt.json) |
 | `shifu.workspace` | adoption baseline | — |
-| `product.distribution` | measured | [linux: 214835 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/linux/runtime-toolchain-receipt.json)<br>[macos: 302172 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/macos/runtime-toolchain-receipt.json)<br>[windows: 556869 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/windows/runtime-toolchain-receipt.json) |
+| `product.distribution` | measured | [linux: 201317 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/linux/native-contracts-receipt.json)<br>[macos: 198714 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/macos/native-contracts-receipt.json)<br>[windows: 516945 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/windows/native-contracts-receipt.json) |
 | `product.verify-full` | adoption baseline | — |
 | `product.verify-fuzz` | adoption baseline | — |
 | `release.artifact-admission` | adoption baseline | — |
@@ -44,10 +44,10 @@ Gate's complete platform set.
 | `episode.smoke` | adoption baseline | — |
 | `episode.release` | adoption baseline | — |
 | `embedding.membranes` | measured | [linux: 415922 ms @ 1cb3069c0](../evidence/gate-measurements/1cb3069c0/linux/embedding-receipt.json)<br>[macos: 643891 ms @ 1cb3069c0](../evidence/gate-measurements/1cb3069c0/macos/embedding-receipt.json)<br>[windows: 791614 ms @ 1cb3069c0](../evidence/gate-measurements/1cb3069c0/windows/embedding-receipt.json) |
-| `mmap.contracts` | adoption baseline | — |
+| `mmap.contracts` | measured | [linux: 472 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/linux/native-contracts-receipt.json)<br>[macos: 1684 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/macos/native-contracts-receipt.json)<br>[windows: 2064 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/windows/native-contracts-receipt.json) |
 | `mmap.performance` | measured | [linux: 2555 ms @ 77c65cc63](../evidence/gate-measurements/77c65cc63/linux/mmap-performance-receipt.json)<br>[macos: 1404 ms @ 77c65cc63](../evidence/gate-measurements/77c65cc63/macos/mmap-performance-receipt.json) |
-| `durability.contracts` | adoption baseline | — |
-| `state-service.contracts` | adoption baseline | — |
+| `durability.contracts` | measured | [linux: 803 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/linux/native-contracts-receipt.json)<br>[macos: 5628 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/macos/native-contracts-receipt.json)<br>[windows: 3136 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/windows/native-contracts-receipt.json) |
+| `state-service.contracts` | measured | [linux: 757 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/linux/native-contracts-receipt.json)<br>[macos: 2012 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/macos/native-contracts-receipt.json)<br>[windows: 2271 ms @ dafa97ee1](../evidence/gate-measurements/dafa97ee1/windows/native-contracts-receipt.json) |
 | `profile.suite` | measured | [linux: 5390 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/linux/receipt.json)<br>[macos: 13262 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/macos/receipt.json)<br>[windows: 8306 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/windows/receipt.json) |
 | `profile.lifecycle` | adoption baseline | — |
 | `profile.agent-sdk` | adoption baseline | — |

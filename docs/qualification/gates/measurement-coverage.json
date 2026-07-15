@@ -4,11 +4,9 @@
   "baseline": {
     "adoptedAt": "2026-07-14",
     "unmeasuredGateIds": [
-      "durability.contracts",
       "episode.release",
       "episode.smoke",
       "layers.release",
-      "mmap.contracts",
       "product.verify-full",
       "product.verify-fuzz",
       "profile.agent-sdk",
@@ -18,10 +16,9 @@
       "shifu.workspace",
       "source.changed-scope",
       "source.whole-tree",
-      "state-service.contracts",
       "toolchain.libwasm-cache"
     ],
-    "digest": "sha256:643ad7a499bbef718e73c2b02d88c6604e736da456db3883af61f5d54e934b6c"
+    "digest": "sha256:2b762e7e160825bccd00fd03cf29fe372a07b17202c4d2819dadd54a5d333b6f"
   },
   "measurements": [
     {
@@ -32,22 +29,22 @@
           "platform": "linux",
           "sourceSha": "dafa97ee1cac8a31f2c1c3a06068b7dfe436bae7",
           "registryDigest": "sha256:45fa938e775f858e953d887d146fb7416aa76e7bb20fe4a5dea841c05b22a756",
-          "durationMs": 483,
-          "receipt": "docs/qualification/evidence/gate-measurements/dafa97ee1/linux/runtime-toolchain-receipt.json"
+          "durationMs": 427,
+          "receipt": "docs/qualification/evidence/gate-measurements/dafa97ee1/linux/native-contracts-receipt.json"
         },
         {
           "platform": "macos",
           "sourceSha": "dafa97ee1cac8a31f2c1c3a06068b7dfe436bae7",
           "registryDigest": "sha256:45fa938e775f858e953d887d146fb7416aa76e7bb20fe4a5dea841c05b22a756",
-          "durationMs": 729,
-          "receipt": "docs/qualification/evidence/gate-measurements/dafa97ee1/macos/runtime-toolchain-receipt.json"
+          "durationMs": 669,
+          "receipt": "docs/qualification/evidence/gate-measurements/dafa97ee1/macos/native-contracts-receipt.json"
         },
         {
           "platform": "windows",
           "sourceSha": "dafa97ee1cac8a31f2c1c3a06068b7dfe436bae7",
           "registryDigest": "sha256:45fa938e775f858e953d887d146fb7416aa76e7bb20fe4a5dea841c05b22a756",
-          "durationMs": 1940,
-          "receipt": "docs/qualification/evidence/gate-measurements/dafa97ee1/windows/runtime-toolchain-receipt.json"
+          "durationMs": 1934,
+          "receipt": "docs/qualification/evidence/gate-measurements/dafa97ee1/windows/native-contracts-receipt.json"
         }
       ]
     },
@@ -205,22 +202,22 @@
           "platform": "linux",
           "sourceSha": "dafa97ee1cac8a31f2c1c3a06068b7dfe436bae7",
           "registryDigest": "sha256:45fa938e775f858e953d887d146fb7416aa76e7bb20fe4a5dea841c05b22a756",
-          "durationMs": 214835,
-          "receipt": "docs/qualification/evidence/gate-measurements/dafa97ee1/linux/runtime-toolchain-receipt.json"
+          "durationMs": 201317,
+          "receipt": "docs/qualification/evidence/gate-measurements/dafa97ee1/linux/native-contracts-receipt.json"
         },
         {
           "platform": "macos",
           "sourceSha": "dafa97ee1cac8a31f2c1c3a06068b7dfe436bae7",
           "registryDigest": "sha256:45fa938e775f858e953d887d146fb7416aa76e7bb20fe4a5dea841c05b22a756",
-          "durationMs": 302172,
-          "receipt": "docs/qualification/evidence/gate-measurements/dafa97ee1/macos/runtime-toolchain-receipt.json"
+          "durationMs": 198714,
+          "receipt": "docs/qualification/evidence/gate-measurements/dafa97ee1/macos/native-contracts-receipt.json"
         },
         {
           "platform": "windows",
           "sourceSha": "dafa97ee1cac8a31f2c1c3a06068b7dfe436bae7",
           "registryDigest": "sha256:45fa938e775f858e953d887d146fb7416aa76e7bb20fe4a5dea841c05b22a756",
-          "durationMs": 556869,
-          "receipt": "docs/qualification/evidence/gate-measurements/dafa97ee1/windows/runtime-toolchain-receipt.json"
+          "durationMs": 516945,
+          "receipt": "docs/qualification/evidence/gate-measurements/dafa97ee1/windows/native-contracts-receipt.json"
         }
       ]
     },
@@ -360,6 +357,33 @@
       ]
     },
     {
+      "gateId": "mmap.contracts",
+      "definitionDigest": "sha256:ceb1bcf096f4ef3b60b9a4718660a0009a76d6a85b57e972b8f3d5c9e5c727ef",
+      "observations": [
+        {
+          "platform": "linux",
+          "sourceSha": "dafa97ee1cac8a31f2c1c3a06068b7dfe436bae7",
+          "registryDigest": "sha256:45fa938e775f858e953d887d146fb7416aa76e7bb20fe4a5dea841c05b22a756",
+          "durationMs": 472,
+          "receipt": "docs/qualification/evidence/gate-measurements/dafa97ee1/linux/native-contracts-receipt.json"
+        },
+        {
+          "platform": "macos",
+          "sourceSha": "dafa97ee1cac8a31f2c1c3a06068b7dfe436bae7",
+          "registryDigest": "sha256:45fa938e775f858e953d887d146fb7416aa76e7bb20fe4a5dea841c05b22a756",
+          "durationMs": 1684,
+          "receipt": "docs/qualification/evidence/gate-measurements/dafa97ee1/macos/native-contracts-receipt.json"
+        },
+        {
+          "platform": "windows",
+          "sourceSha": "dafa97ee1cac8a31f2c1c3a06068b7dfe436bae7",
+          "registryDigest": "sha256:45fa938e775f858e953d887d146fb7416aa76e7bb20fe4a5dea841c05b22a756",
+          "durationMs": 2064,
+          "receipt": "docs/qualification/evidence/gate-measurements/dafa97ee1/windows/native-contracts-receipt.json"
+        }
+      ]
+    },
+    {
       "gateId": "mmap.performance",
       "definitionDigest": "sha256:78f05fe0f0b700a9aacf090fe974539453d6937cad30d325ee2432286f0159eb",
       "observations": [
@@ -376,6 +400,60 @@
           "registryDigest": "sha256:fb3394781eb3899ca9cc14f074effe365707f4ef3b40643bc84c4bbb882d227e",
           "durationMs": 1404,
           "receipt": "docs/qualification/evidence/gate-measurements/77c65cc63/macos/mmap-performance-receipt.json"
+        }
+      ]
+    },
+    {
+      "gateId": "durability.contracts",
+      "definitionDigest": "sha256:eb1a2a950bcf90682639e990f68bd28f8a032277098059840f2c3a4faa329d4f",
+      "observations": [
+        {
+          "platform": "linux",
+          "sourceSha": "dafa97ee1cac8a31f2c1c3a06068b7dfe436bae7",
+          "registryDigest": "sha256:45fa938e775f858e953d887d146fb7416aa76e7bb20fe4a5dea841c05b22a756",
+          "durationMs": 803,
+          "receipt": "docs/qualification/evidence/gate-measurements/dafa97ee1/linux/native-contracts-receipt.json"
+        },
+        {
+          "platform": "macos",
+          "sourceSha": "dafa97ee1cac8a31f2c1c3a06068b7dfe436bae7",
+          "registryDigest": "sha256:45fa938e775f858e953d887d146fb7416aa76e7bb20fe4a5dea841c05b22a756",
+          "durationMs": 5628,
+          "receipt": "docs/qualification/evidence/gate-measurements/dafa97ee1/macos/native-contracts-receipt.json"
+        },
+        {
+          "platform": "windows",
+          "sourceSha": "dafa97ee1cac8a31f2c1c3a06068b7dfe436bae7",
+          "registryDigest": "sha256:45fa938e775f858e953d887d146fb7416aa76e7bb20fe4a5dea841c05b22a756",
+          "durationMs": 3136,
+          "receipt": "docs/qualification/evidence/gate-measurements/dafa97ee1/windows/native-contracts-receipt.json"
+        }
+      ]
+    },
+    {
+      "gateId": "state-service.contracts",
+      "definitionDigest": "sha256:eac6a46e8d2d6ffafbff9b9c482a67d5d0393c028b13c9b568c21acd01a34c5c",
+      "observations": [
+        {
+          "platform": "linux",
+          "sourceSha": "dafa97ee1cac8a31f2c1c3a06068b7dfe436bae7",
+          "registryDigest": "sha256:45fa938e775f858e953d887d146fb7416aa76e7bb20fe4a5dea841c05b22a756",
+          "durationMs": 757,
+          "receipt": "docs/qualification/evidence/gate-measurements/dafa97ee1/linux/native-contracts-receipt.json"
+        },
+        {
+          "platform": "macos",
+          "sourceSha": "dafa97ee1cac8a31f2c1c3a06068b7dfe436bae7",
+          "registryDigest": "sha256:45fa938e775f858e953d887d146fb7416aa76e7bb20fe4a5dea841c05b22a756",
+          "durationMs": 2012,
+          "receipt": "docs/qualification/evidence/gate-measurements/dafa97ee1/macos/native-contracts-receipt.json"
+        },
+        {
+          "platform": "windows",
+          "sourceSha": "dafa97ee1cac8a31f2c1c3a06068b7dfe436bae7",
+          "registryDigest": "sha256:45fa938e775f858e953d887d146fb7416aa76e7bb20fe4a5dea841c05b22a756",
+          "durationMs": 2271,
+          "receipt": "docs/qualification/evidence/gate-measurements/dafa97ee1/windows/native-contracts-receipt.json"
         }
       ]
     },
