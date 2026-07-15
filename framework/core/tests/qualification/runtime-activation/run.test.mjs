@@ -12,6 +12,7 @@ import {
   evaluateQualification,
   qualificationPlan,
   retainQualificationArtifacts,
+  suiteInvocation,
   validateReport,
 } from './run.mjs';
 
@@ -100,6 +101,31 @@ test('product verification checks the distribution outputs without rebuilding th
     '--skip-episode-qualification',
   ]);
   assert.equal(verification.command.includes('--full'), false);
+});
+
+test('Windows suites invoke the repository Shifu shim through ComSpec', () => {
+  const invocation = suiteInvocation(
+    { command: ['shifu.cmd', 'exec', 'argument with spaces'] },
+    {
+      platform: 'win32',
+      comspec: 'C:\\Windows\\System32\\cmd.exe',
+      env: {},
+    },
+  );
+  assert.equal(invocation.command, 'C:\\Windows\\System32\\cmd.exe');
+  assert.deepEqual(invocation.args.slice(0, 3), ['/d', '/s', '/c']);
+  assert.equal(invocation.args[3], 'shifu.cmd exec "argument with spaces"');
+});
+
+test('Windows suite invocation rejects cmd expansion syntax', () => {
+  assert.throws(
+    () =>
+      suiteInvocation(
+        { command: ['shifu.cmd', 'exec', 'task%PATH%'] },
+        { platform: 'win32', env: {} },
+      ),
+    /unsafe cmd syntax/,
+  );
 });
 
 test('clean passing source qualifies exact product artifacts with bounded claims', () => {

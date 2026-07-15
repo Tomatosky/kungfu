@@ -3,7 +3,9 @@ metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
 adr_id: ADR-0066
 decision_status: accepted
-implementation_status: unknown
+implementation_status: staged
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/951]
+qualification_refs: [framework/core/architecture/build-capabilities.json, framework/core/architecture/check-build-capabilities.mjs, scripts/source-acceptance.mjs]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files]
@@ -101,6 +103,24 @@ node-addon-api and public embedding surface are poor first module boundaries.
    and can be removed when an upstream release compiles unchanged on GCC 14.
 
 ## Baseline and qualification evidence
+
+### Build-profile composition stage (2026-07-15)
+
+The native toolchain contract now has a bounded, machine-readable build
+capability authority at `framework/core/architecture/build-capabilities.json`.
+It defines the supported profile vocabulary, component/provider/projection and
+binding closure, dependency roots, defaults, conflicts and build identity.
+Generated CMake, Markdown and manifest projections are drift-checked by the
+source gate. Shifu, Conan and CMake consume the same selected profile, while
+invalid or not-yet-qualified profiles fail closed before dependency resolution.
+
+The first stage keeps `full` as the only supported and default profile. It also
+removes the global `CONAN_LIBS` umbrella from Core and binding targets in favor
+of generated target-local dependency sets. macOS arm64 passes a clean Core and
+all-binding build, Linux x86_64 passes the same full-profile build, and the
+repository-hosted `shifu CI` matrix exercises the source contract on macOS,
+Ubuntu and Windows. RocksDB, SQLite and embedded/custom-provider profiles stay
+planned until their dedicated implementation and qualification stages land.
 
 The 2026-07-12 baseline used source `175e5b7694aa`:
 

@@ -95,7 +95,7 @@ target_compile_options(${LIBKUNGFU_NAME} PRIVATE "$<$<CONFIG:Release>:${COMPILER
 # sources include the state-cache/live headers directly.
 target_include_directories(${LIBKUNGFU_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/include ${KUNGFU_GENERATED_INCLUDE_DIR})
 target_include_directories(${LIBKUNGFU_NAME} SYSTEM PUBLIC ${LIBKUNGFU_SQLITE_ORM_INCLUDE})
-target_link_libraries(${LIBKUNGFU_NAME} PUBLIC yijinjing ${CONAN_LIBS} kungfu_compile_contract)
+target_link_libraries(${LIBKUNGFU_NAME} PUBLIC yijinjing ${KUNGFU_BUILD_LINK_DEPENDENCIES} kungfu_compile_contract)
 kungfu_strip_release_local_symbols(${LIBKUNGFU_NAME})
 
 if(KUNGFU_WITH_CORE_TESTS)

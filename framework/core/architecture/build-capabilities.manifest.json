@@ -1,0 +1,199 @@
+{
+  "schema": "kungfu.core-build-capability-manifest/v1",
+  "authority_version": 1,
+  "authority_sha256": "sha256:8ee58ba59f994066001016ed32e7c841167288ebe3fe2f8ff78ebc3f822b7f1f",
+  "default_profile": "full",
+  "profiles": [
+    {
+      "id": "journal",
+      "status": "planned",
+      "components": [
+        "journal-core"
+      ],
+      "providers": [],
+      "projections": [],
+      "bindings": [
+        "cxx"
+      ],
+      "requires": [],
+      "conflicts": [],
+      "dependency_roots": [
+        "fmt",
+        "nlohmann-json",
+        "spdlog",
+        "xxhash"
+      ]
+    },
+    {
+      "id": "embedded-minimal",
+      "status": "planned",
+      "components": [
+        "journal-core",
+        "runtime-contracts",
+        "runtime-services",
+        "runtime-adapters",
+        "composition"
+      ],
+      "providers": [
+        "file-storage"
+      ],
+      "projections": [],
+      "bindings": [
+        "cxx",
+        "c"
+      ],
+      "requires": [],
+      "conflicts": [],
+      "dependency_roots": [
+        "flatbuffers",
+        "fmt",
+        "nlohmann-json",
+        "nng",
+        "rxcpp",
+        "spdlog",
+        "tabulate",
+        "xxhash"
+      ]
+    },
+    {
+      "id": "embedded-sqlite",
+      "status": "planned",
+      "components": [
+        "journal-core",
+        "runtime-contracts",
+        "runtime-services",
+        "runtime-adapters",
+        "composition"
+      ],
+      "providers": [
+        "file-storage"
+      ],
+      "projections": [
+        "sqlite"
+      ],
+      "bindings": [
+        "cxx",
+        "c"
+      ],
+      "requires": [
+        "embedded-minimal"
+      ],
+      "conflicts": [],
+      "dependency_roots": [
+        "flatbuffers",
+        "fmt",
+        "nlohmann-json",
+        "nng",
+        "rxcpp",
+        "spdlog",
+        "sqlite",
+        "sqlite-orm",
+        "tabulate",
+        "xxhash"
+      ]
+    },
+    {
+      "id": "server",
+      "status": "planned",
+      "components": [
+        "journal-core",
+        "runtime-contracts",
+        "runtime-services",
+        "runtime-adapters",
+        "composition"
+      ],
+      "providers": [
+        "file-storage",
+        "rocksdb-storage",
+        "rocksdb-live-kv"
+      ],
+      "projections": [
+        "sqlite"
+      ],
+      "bindings": [
+        "cxx",
+        "c",
+        "python",
+        "node"
+      ],
+      "requires": [],
+      "conflicts": [],
+      "dependency_roots": [
+        "flatbuffers",
+        "fmt",
+        "libnode",
+        "nlohmann-json",
+        "nng",
+        "pybind11",
+        "rocksdb",
+        "rxcpp",
+        "spdlog",
+        "sqlite",
+        "sqlite-orm",
+        "tabulate",
+        "xxhash"
+      ]
+    },
+    {
+      "id": "full",
+      "status": "supported",
+      "components": [
+        "journal-core",
+        "runtime-contracts",
+        "runtime-services",
+        "runtime-adapters",
+        "composition"
+      ],
+      "providers": [
+        "file-storage",
+        "rocksdb-storage",
+        "rocksdb-live-kv"
+      ],
+      "projections": [
+        "sqlite"
+      ],
+      "bindings": [
+        "cxx",
+        "c",
+        "python",
+        "node",
+        "electron",
+        "wasm"
+      ],
+      "requires": [],
+      "conflicts": [],
+      "dependency_roots": [
+        "flatbuffers",
+        "fmt",
+        "libnode",
+        "nlohmann-json",
+        "nng",
+        "pybind11",
+        "rocksdb",
+        "rxcpp",
+        "spdlog",
+        "sqlite",
+        "sqlite-orm",
+        "tabulate",
+        "xxhash"
+      ]
+    }
+  ],
+  "build_identity": {
+    "schema": "kungfu.core-build-identity/v1",
+    "fields": [
+      "authority_version",
+      "profile",
+      "components",
+      "providers",
+      "projections",
+      "bindings",
+      "dependency_roots",
+      "source_revision",
+      "compiler",
+      "compiler_version",
+      "platform",
+      "architecture"
+    ]
+  }
+}

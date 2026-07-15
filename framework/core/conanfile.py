@@ -19,11 +19,35 @@ from glob import glob
 from os import environ, path
 
 from conan import ConanFile
+from conan.errors import ConanInvalidConfiguration
 from conan.tools.build import build_jobs
 from conan.tools.cmake import CMakeToolchain, CMakeDeps
 from conan.tools.files import copy
 
 _CONANFILE_DIR = path.dirname(path.realpath(__file__))
+
+
+with open(
+    path.join(_CONANFILE_DIR, "architecture", "build-capabilities.json"),
+    "r",
+    encoding="utf-8",
+) as build_capabilities_file:
+    BUILD_CAPABILITIES = json.load(build_capabilities_file)
+
+BUILD_PROFILES = {profile["id"]: profile for profile in BUILD_CAPABILITIES["profiles"]}
+BUILD_DEPENDENCIES = {
+    dependency["id"]: dependency for dependency in BUILD_CAPABILITIES["dependencies"]
+}
+
+
+def _profile_dependency_roots(profile):
+    roots = set()
+    for group in ("components", "providers", "projections", "bindings"):
+        entries = {entry["id"]: entry for entry in BUILD_CAPABILITIES[group]}
+        for entry_id in profile[group]:
+            roots.update(entries[entry_id].get("dependencies", []))
+    return sorted(roots)
+
 
 with open(path.join(_CONANFILE_DIR, "package.json"), "r") as package_json_file:
     package_json = json.load(package_json_file)
@@ -83,22 +107,8 @@ class KungfuCoreConan(ConanFile):
     name = "kungfu-core"
     version = package_json["version"]
     settings = "os", "compiler", "build_type", "arch"
-    # conan2：依赖经 requirements()/requires 声明，generate() 产 CMakeDeps+CMakeToolchain。
-    requires = [
-        "fmt/10.2.1",
-        "nlohmann_json/3.11.2",
-        "nng/1.11.0",
-        "flatbuffers/25.9.23",
-        "rxcpp/4.1.1",
-        "sqlite3/3.39.2",
-        "spdlog/1.14.1",
-        "tabulate/1.4",
-        "rocksdb/6.29.5",
-        "xxhash/0.8.3",
-        "pybind11/2.13.6",
-        "gtest/1.14.0",
-    ]
     options = {
+        "build_profile": list(BUILD_PROFILES),
         "log_level": ["trace", "debug", "info", "warning", "error", "critical"],
         "node_version": ["ANY"],
         "electron_version": ["ANY"],
@@ -106,6 +116,7 @@ class KungfuCoreConan(ConanFile):
         "with_yarn": [True, False],
     }
     default_options = {
+        "build_profile": BUILD_CAPABILITIES["default_profile"],
         "fmt/*:header_only": True,
         "spdlog/*:header_only": True,
         "spdlog/*:shared": False,
@@ -150,6 +161,7 @@ class KungfuCoreConan(ConanFile):
         "CMakeLists.txt",
         ".cmake/*",
         ".deps/*",
+        "architecture/*",
         "dist/*",
     )
     conanfile_dir = _CONANFILE_DIR
@@ -161,6 +173,28 @@ class KungfuCoreConan(ConanFile):
     def config_options(self):
         if _detected_os() != "Windows":
             self.options.rm_safe("vs_toolset")
+
+    def requirements(self):
+        profile = BUILD_PROFILES[str(self.options.build_profile)]
+        dependency_roots = set(_profile_dependency_roots(profile))
+        dependency_roots.add("gtest")
+        for dependency_id in sorted(dependency_roots):
+            dependency = BUILD_DEPENDENCIES[dependency_id]
+            if dependency["kind"] == "conan":
+                self.requires(dependency["reference"])
+
+    def validate(self):
+        profile = BUILD_PROFILES[str(self.options.build_profile)]
+        if profile["status"] != "supported":
+            supported = ", ".join(
+                item["id"]
+                for item in BUILD_CAPABILITIES["profiles"]
+                if item["status"] == "supported"
+            )
+            raise ConanInvalidConfiguration(
+                f"build profile {profile['id']} is planned but not yet qualified; "
+                f"supported profiles: {supported}"
+            )
 
     def configure(self):
         # The Conan package-id and CMake language mode must describe the same
@@ -183,8 +217,9 @@ class KungfuCoreConan(ConanFile):
         deps = CMakeDeps(self)
         deps.generate()
         tc = CMakeToolchain(self, generator="Ninja")
-        # 把自身 options 透传给 CMake（主 CMakeLists 用 ${CONAN_LIBS} 桥接 + SPDLOG 等级）。
+        # Pass the selected profile and log level into the generated CMake toolchain.
         tc.variables["SPDLOG_LOG_LEVEL_COMPILE"] = self.__spdlog_level()
+        tc.variables["KUNGFU_BUILD_PROFILE"] = str(self.options.build_profile)
         tc.variables["KUNGFU_RXCPP_COMPAT_INCLUDE_DIR"] = _cmake_path(
             rxcpp_compat_include_dir
         )
