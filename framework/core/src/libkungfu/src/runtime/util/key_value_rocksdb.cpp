@@ -67,6 +67,7 @@ public:
   void reset() override {
     std::lock_guard<std::mutex> lock(mutex_);
     db_.reset();
+    db_writable_ = false;
   }
 
 private:
@@ -74,9 +75,16 @@ private:
     std::lock_guard<std::mutex> lock(mutex_);
     if (reopen_on_read_ && !write) {
       db_.reset();
+      db_writable_ = false;
     }
     if (db_) {
-      return db_;
+      if (!write || db_writable_) {
+        return db_;
+      }
+      // A writable store may first be observed through OpenForReadOnly when
+      // the database already exists.  Close that handle before the first
+      // mutation instead of sending a write to a read-only RocksDB instance.
+      db_.reset();
     }
     if (write && !writable_) {
       throw std::runtime_error("provider_unavailable: live-kv store is read-only: " + path_);
@@ -104,6 +112,7 @@ private:
     }
     require_ok(status, write ? "open read-write" : "open read-only", path_);
     db_.reset(raw);
+    db_writable_ = write;
     return db_;
   }
 
@@ -124,6 +133,7 @@ private:
   bool reopen_on_read_ = false;
   mutable std::mutex mutex_;
   mutable std::shared_ptr<rocksdb::DB> db_ = {};
+  mutable bool db_writable_ = false;
   rocksdb::ReadOptions read_options_ = {};
   rocksdb::WriteOptions write_options_ = {};
 };
