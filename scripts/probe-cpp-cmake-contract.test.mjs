@@ -68,3 +68,13 @@ test('the SDK resolves the real uv base interpreter for Windows CMake builds', (
     /const corePython = resolveCmakePython\(resolveCorePython\(coreDir\)\)/,
   );
 });
+
+test('the SDK pins multi-config C++ probe artifacts to the declared dist directory', () => {
+  const sdk = fs.readFileSync(
+    path.join(ROOT, 'developer/sdk/src/sdk.js'),
+    'utf8',
+  );
+
+  assert.match(sdk, /-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE=\$\{distDir\}/);
+  assert.match(sdk, /-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE=\$\{distDir\}/);
+});

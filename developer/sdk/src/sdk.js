@@ -2589,6 +2589,12 @@ function cppBuild(manifest) {
     `-DCMAKE_TOOLCHAIN_FILE=${toolchain}`,
     '-DCMAKE_BUILD_TYPE=Release',
     `-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=${distDir}`,
+    // Multi-config generators (notably Visual Studio) append the selected
+    // configuration unless the per-config output directory is also pinned.
+    // Keep the kfx artifact contract platform-invariant: the native module
+    // must land directly under dist/<key>, never dist/<key>/Release.
+    `-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE=${distDir}`,
+    `-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE=${distDir}`,
   ];
   // Pin the module to the core's Python (the uv-managed venv) so it is ABI-
   // compatible with the runtime and loads alongside pykungfu. Pass both the
