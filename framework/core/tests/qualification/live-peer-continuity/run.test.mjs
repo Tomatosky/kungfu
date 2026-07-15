@@ -8,6 +8,7 @@ import { test } from 'node:test';
 import { gunzipSync } from 'node:zlib';
 
 import {
+  boundedDiagnosticTail,
   campaignTempParent,
   createLogBundle,
   defaultOutputDir,
@@ -102,6 +103,21 @@ test('native campaign uses a short platform-owned temp root', () => {
     windows.command[windows.command.indexOf('--temp-parent') + 1],
     null,
   );
+});
+
+test('native campaign failure diagnostics retain only a bounded log tail', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'peer-log-tail-'));
+  const log = path.join(root, 'peer.log');
+  try {
+    fs.writeFileSync(log, 'first\r\nsecond\r\nthird\r\nfourth\r\n');
+    assert.equal(
+      boundedDiagnosticTail(log, { maxBytes: 1024, maxLines: 2 }),
+      'third\nfourth',
+    );
+    assert.equal(boundedDiagnosticTail(path.join(root, 'missing.log')), null);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('clean complete evidence qualifies only the bounded single-host claim', () => {
