@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0089
 decision_status: accepted
 implementation_status: partial
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/568, https://github.com/kungfu-systems/kungfu/pull/734, https://github.com/kungfu-systems/kungfu/pull/815]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/568, https://github.com/kungfu-systems/kungfu/pull/734, https://github.com/kungfu-systems/kungfu/pull/815, https://github.com/kungfu-systems/kungfu/pull/906]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-decision]
@@ -45,6 +45,13 @@ plan/apply/receipt/history semantics and current KFX tooling can discover and
 install packages. Package content is not yet an immutable Core-owned store, and
 the current language-specific mutation paths are not yet one transactional
 lifecycle authority. This documentation change adds no lifecycle code.
+
+PR #906 adds the native operation vocabulary, request/plan/receipt shapes,
+generation and expected-plan preconditions, one-writer invariant, typed error
+set, and positive/negative contract fixtures. The service implementation is
+still an interface seam: immutable package publication, durable lifecycle
+state, fenced mutation ownership, rollback, and garbage collection are not yet
+implemented by this change.
 
 ## Decision
 

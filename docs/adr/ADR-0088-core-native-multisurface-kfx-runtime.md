@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0088
 decision_status: accepted
 implementation_status: partial
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/842, https://github.com/kungfu-systems/kungfu/pull/873, https://github.com/kungfu-systems/kungfu/pull/885]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/842, https://github.com/kungfu-systems/kungfu/pull/873, https://github.com/kungfu-systems/kungfu/pull/885, https://github.com/kungfu-systems/kungfu/pull/906]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-decision]
@@ -57,6 +57,13 @@ KFX load planning, and Core/System/Profile boundary. Those parts establish
 useful seams but do not yet form the single fenced native authority required by
 this decision. This documentation change records the target; it adds no runtime
 implementation.
+
+PR #906 advances that partial baseline by freezing native contract version 1,
+adding a C++ service interface and dispatcher for inspect/plan/apply/status/
+history, and exposing contract negotiation through the existing Core storage
+edge. It does not move package discovery or lifecycle mutation authority out of
+the existing TypeScript and Python implementations, so the single-writer
+runtime and migration acceptance gates remain open.
 
 ## Decision
 

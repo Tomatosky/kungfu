@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0091
 decision_status: accepted
 implementation_status: partial
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/734, https://github.com/kungfu-systems/kungfu/pull/842, https://github.com/kungfu-systems/kungfu/pull/873]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/734, https://github.com/kungfu-systems/kungfu/pull/842, https://github.com/kungfu-systems/kungfu/pull/873, https://github.com/kungfu-systems/kungfu/pull/906]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-decision]
@@ -45,6 +45,13 @@ Profile action interfaces, machine-readable CLI/agent entrypoints, and GUI/TUI
 host surfaces. They do not yet consume one Core-owned contribution registry,
 and binding parity is not yet enforced. This documentation change defines that
 remaining contract without implementing it.
+
+PR #906 defines the surface-neutral contribution kinds and native service
+operations, then exposes the same contract and validation entrypoints through
+Node and Python storage bindings. Binding tests compare both projections with
+the native contract. The bindings intentionally retain existing loaders and do
+not yet expose a Core-owned contribution registry or enforce cross-surface
+plan/receipt parity.
 
 ## Decision
 

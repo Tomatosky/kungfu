@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0090
 decision_status: accepted
 implementation_status: partial
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/571, https://github.com/kungfu-systems/kungfu/pull/568, https://github.com/kungfu-systems/kungfu/pull/731, https://github.com/kungfu-systems/kungfu/pull/734]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/571, https://github.com/kungfu-systems/kungfu/pull/568, https://github.com/kungfu-systems/kungfu/pull/731, https://github.com/kungfu-systems/kungfu/pull/734, https://github.com/kungfu-systems/kungfu/pull/906]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-decision]
@@ -49,6 +49,13 @@ Profile KFD-3 qualification, Product assembly authority, and Buildchain release
 evidence. They are not yet joined into an exact-artifact KFX admission report or
 policy matrix. This documentation change makes that missing join explicit; it
 does not confer a new trust grade on any package.
+
+PR #906 freezes the native trust-grade vocabulary and requires package,
+policy, capability, source, build-plan, artifact, and qualification roots in
+the contract seam. Its validators reject malformed or unsupported contract
+inputs, but they do not verify Buildchain attestations, produce a KFD-2
+TrustReport, or authorize capabilities. Exact-artifact admission therefore
+remains a subsequent implementation stage.
 
 ## Decision
 
