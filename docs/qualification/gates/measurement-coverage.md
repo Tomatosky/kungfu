@@ -29,7 +29,7 @@ Gate's complete platform set.
 | `source.changed-scope` | adoption baseline | — |
 | `source.whole-tree` | adoption baseline | — |
 | `docs.contracts` | measured | [linux: 5735 ms @ 77c65cc63](../evidence/gate-measurements/77c65cc63/linux/light-receipt.json)<br>[macos: 17360 ms @ 77c65cc63](../evidence/gate-measurements/77c65cc63/macos/light-receipt.json)<br>[windows: 14897 ms @ 77c65cc63](../evidence/gate-measurements/77c65cc63/windows/docs-contracts-smoke-receipt.json) |
-| `docs.prose` | adoption baseline | — |
+| `docs.prose` | measured | [linux: 28123 ms @ 44d498750](../evidence/gate-measurements/44d498750/linux/docs-prose-receipt.json) |
 | `docs.external-links` | measured | [linux: 51272 ms @ da9dce514](../evidence/gate-measurements/da9dce514/linux/linux-only-receipt.json) |
 | `shifu.workspace` | adoption baseline | — |
 | `product.distribution` | adoption baseline | — |

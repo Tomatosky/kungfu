@@ -4,7 +4,6 @@
   "baseline": {
     "adoptedAt": "2026-07-14",
     "unmeasuredGateIds": [
-      "docs.prose",
       "durability.contracts",
       "embedding.membranes",
       "episode.release",
@@ -29,7 +28,7 @@
       "toolchain.cpp-modules",
       "toolchain.libwasm-cache"
     ],
-    "digest": "sha256:fd2daeee6e39f95ddf4d82b6133eb749143be4453c9080a0f5d9c484f8018c64"
+    "digest": "sha256:e45fb95710ed22a0443870ec6fe5cca087084517582a2a074e8939965bdde01f"
   },
   "measurements": [
     {
@@ -176,6 +175,19 @@
           "registryDigest": "sha256:fb3394781eb3899ca9cc14f074effe365707f4ef3b40643bc84c4bbb882d227e",
           "durationMs": 14897,
           "receipt": "docs/qualification/evidence/gate-measurements/77c65cc63/windows/docs-contracts-smoke-receipt.json"
+        }
+      ]
+    },
+    {
+      "gateId": "docs.prose",
+      "definitionDigest": "sha256:5706ff0abae0284c6de57f1913dadcd1368eea698905c0acd0940c27b2eb257f",
+      "observations": [
+        {
+          "platform": "linux",
+          "sourceSha": "44d4987508b56db14703cb60f22e6ed6a8148c80",
+          "registryDigest": "sha256:81e5a88f86949350cf6e9b08624bc0dce000766b2ef9335dc523e20a8b929c6d",
+          "durationMs": 28123,
+          "receipt": "docs/qualification/evidence/gate-measurements/44d498750/linux/docs-prose-receipt.json"
         }
       ]
     },
