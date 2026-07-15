@@ -38,6 +38,7 @@ HEARTBEAT_TTL_SECONDS = 5.0
 DEFAULT_READY_TIMEOUT_SECONDS = 20.0
 DEFAULT_RESTART_WINDOW_SECONDS = 60.0
 DEFAULT_RESTART_MAX_ATTEMPTS = 5
+PROCESS_IDENTITY_TIMEOUT_SECONDS = 2.0
 
 
 class PeerLifecycleError(RuntimeError):
@@ -85,6 +86,21 @@ def _process_matches(pid: int | None, identity: Any) -> bool:
         and bool(identity)
         and _process_identity(pid) == identity
     )
+
+
+def _await_process_identity(
+    pid: int, timeout: float = PROCESS_IDENTITY_TIMEOUT_SECONDS
+) -> str | None:
+    """Wait for the OS process table to expose a newly spawned identity."""
+
+    deadline = time.monotonic() + max(0.0, timeout)
+    while True:
+        identity = _process_identity(pid)
+        if identity is not None:
+            return identity
+        if time.monotonic() >= deadline:
+            return None
+        time.sleep(0.02)
 
 
 def _terminate_matching(pid: int | None, identity: Any, *, force: bool = False) -> bool:
@@ -468,10 +484,27 @@ def ensure(
             else:
                 kwargs["start_new_session"] = True
             child = subprocess.Popen(command, **kwargs)
+        host_identity = _await_process_identity(child.pid)
+        if host_identity is None:
+            if child.poll() is None:
+                child.kill()
+            child.wait(timeout=5)
+            state.update(
+                {
+                    "lifecycleState": "ended",
+                    "error": "Peer host process start identity was unavailable",
+                    "updatedAt": _now(),
+                }
+            )
+            _write_json(state_path(runtime, peer_id), state)
+            raise PeerLifecycleError(
+                "process-identity-unavailable",
+                "Peer host process start identity was unavailable",
+            )
         state.update(
             {
                 "hostPid": child.pid,
-                "hostStartIdentity": _process_identity(child.pid),
+                "hostStartIdentity": host_identity,
                 "updatedAt": _now(),
             }
         )
@@ -649,12 +682,21 @@ def _spawn_peer(
             stderr=log,
             shell=False,
         )
+    peer_identity = _await_process_identity(child.pid)
+    if peer_identity is None:
+        if child.poll() is None:
+            child.kill()
+        child.wait(timeout=5)
+        raise PeerLifecycleError(
+            "process-identity-unavailable",
+            "Peer process start identity was unavailable",
+        )
     state.update(
         {
             "peerGeneration": generation,
             "peerOwnerHostGeneration": state["hostGeneration"],
             "peerPid": child.pid,
-            "peerStartIdentity": _process_identity(child.pid),
+            "peerStartIdentity": peer_identity,
             "readyToken": token,
             "readinessState": "registering",
             "lifecycleState": "registering",

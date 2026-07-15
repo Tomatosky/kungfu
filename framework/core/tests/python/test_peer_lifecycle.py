@@ -198,13 +198,26 @@ def _wait_status(runtime_dir, predicate, timeout=10):
     return current
 
 
+def _assert_healthy(started):
+    if started["healthy"]:
+        return
+    log = Path(started["logPath"])
+    details = log.read_text("utf-8", errors="replace") if log.is_file() else ""
+    pytest.fail(
+        "Peer host did not become healthy:\n"
+        + json.dumps(started, indent=2, sort_keys=True)
+        + "\nPeer log:\n"
+        + details[-8000:]
+    )
+
+
 def test_real_host_crash_adoption_and_peer_restart_are_fenced(tmp_path):
     runtime_dir = str(tmp_path / "runtime")
     probe = Path(__file__).parents[1] / "fixtures" / "peer_lifecycle_probe.py"
     spec = _spec()
     spec["command"] = {"argv": [sys.executable, str(probe)]}
     started = peer_lifecycle.ensure(spec, runtime_dir, wait_seconds=10)
-    assert started["healthy"]
+    _assert_healthy(started)
     first_host_generation = started["host"]["generation"]
     first_peer_generation = started["peer"]["generation"]
     first_peer_pid = started["peer"]["pid"]
@@ -265,7 +278,7 @@ def test_real_peer_exit_honors_bounded_or_nonrecoverable_declaration(
     )
     spec["command"] = {"argv": [sys.executable, str(probe)]}
     started = peer_lifecycle.ensure(spec, runtime_dir, wait_seconds=10)
-    assert started["healthy"]
+    _assert_healthy(started)
     try:
         peer_process = psutil.Process(started["peer"]["pid"])
         peer_process.kill()
