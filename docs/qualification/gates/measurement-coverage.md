@@ -20,7 +20,7 @@ Gate's complete platform set.
 <!-- BEGIN GENERATED GATE MEASUREMENTS -->
 | Gate | Coverage | Source-bound observations |
 | --- | --- | --- |
-| `gate.catalog` | measured | [linux: 455 ms @ 6b451a4e5](../evidence/gate-measurements/6b451a4e/linux/receipt.json)<br>[macos: 1041 ms @ 6b451a4e5](../evidence/gate-measurements/6b451a4e/macos/receipt.json)<br>[windows: 1941 ms @ 6b451a4e5](../evidence/gate-measurements/6b451a4e/windows/receipt.json) |
+| `gate.catalog` | measured | [linux: 483 ms @ 77c65cc63](../evidence/gate-measurements/77c65cc63/linux/mmap-performance-receipt.json)<br>[macos: 723 ms @ 77c65cc63](../evidence/gate-measurements/77c65cc63/macos/mmap-performance-receipt.json)<br>[windows: 1963 ms @ 77c65cc63](../evidence/gate-measurements/77c65cc63/windows/docs-contracts-smoke-receipt.json) |
 | `governance.dco` | measured | [linux: 12000 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/linux/governance.dco.controller-receipt.json) |
 | `governance.adr-delivery` | measured | [linux: 38 ms @ 6b451a4e5](../evidence/gate-measurements/6b451a4e/linux/receipt.json)<br>[macos: 111 ms @ 6b451a4e5](../evidence/gate-measurements/6b451a4e/macos/receipt.json)<br>[windows: 101 ms @ 6b451a4e5](../evidence/gate-measurements/6b451a4e/windows/receipt.json) |
 | `governance.buildchain-config` | measured | [linux: 9000 ms @ e90b0fb2b](../evidence/gate-measurements/e90b0fb2b/linux/governance.buildchain-config.controller-receipt.json) |
@@ -28,7 +28,7 @@ Gate's complete platform set.
 | `source.acceptance` | measured | [linux: 29120 ms @ eb32cfac3](../evidence/gate-measurements/eb32cfac3/linux/source-acceptance-receipt.json) |
 | `source.changed-scope` | adoption baseline | — |
 | `source.whole-tree` | adoption baseline | — |
-| `docs.contracts` | adoption baseline | — |
+| `docs.contracts` | measured | [linux: 5735 ms @ 77c65cc63](../evidence/gate-measurements/77c65cc63/linux/light-receipt.json)<br>[macos: 17360 ms @ 77c65cc63](../evidence/gate-measurements/77c65cc63/macos/light-receipt.json)<br>[windows: 14897 ms @ 77c65cc63](../evidence/gate-measurements/77c65cc63/windows/docs-contracts-smoke-receipt.json) |
 | `docs.prose` | adoption baseline | — |
 | `docs.external-links` | measured | [linux: 51272 ms @ da9dce514](../evidence/gate-measurements/da9dce514/linux/linux-only-receipt.json) |
 | `shifu.workspace` | adoption baseline | — |

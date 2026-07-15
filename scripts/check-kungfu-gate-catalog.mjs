@@ -25,7 +25,7 @@ const MEASUREMENT_COVERAGE =
   'docs/qualification/gates/measurement-coverage.json';
 const MEASUREMENT_REPORT = 'docs/qualification/gates/measurement-coverage.md';
 const MEASUREMENT_BASELINE_DIGEST =
-  'sha256:b68eca1e4ab5f7aeb84b35f781dde8bc4ddad2a62e93cbe29de9c175663fa61a';
+  'sha256:fd2daeee6e39f95ddf4d82b6133eb749143be4453c9080a0f5d9c484f8018c64';
 const BEGIN = '<!-- BEGIN GENERATED GATE MATRIX -->';
 const END = '<!-- END GENERATED GATE MATRIX -->';
 const MEASUREMENT_BEGIN = '<!-- BEGIN GENERATED GATE MEASUREMENTS -->';

@@ -327,12 +327,11 @@
         "docs.contracts"
       ],
       "platforms": [
-        "linux",
-        "macos",
-        "windows"
+        "linux"
       ],
       "runner": {
         "capabilities": [
+          "docker",
           "node"
         ]
       },

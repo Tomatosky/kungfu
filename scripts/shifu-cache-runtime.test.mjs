@@ -690,7 +690,7 @@ test('cache apply overrides Cargo and isolates Conan without mutating persistent
     "const path = require('node:path');",
     "const result = cp.spawnSync('cargo', ['metadata'], {stdio: 'inherit', shell: process.platform === 'win32'});",
     'if (result.status !== 0) process.exit(result.status || 1);',
-    "const conan = cp.spawnSync('conan', ['--version'], {stdio: 'inherit'});",
+    "const conan = cp.spawnSync('conan', ['--version'], {stdio: 'inherit', shell: process.platform === 'win32'});",
     'if (conan.status !== 0) process.exit(conan.status || 1);',
     `fs.writeFileSync(${JSON.stringify(outputPath)}, JSON.stringify({`,
     'cargoHome: process.env.CARGO_HOME,',
@@ -1098,7 +1098,7 @@ test('a Conan child waits boundedly and preserves a live same-partition lock', a
     command: process.execPath,
     args: [
       '-e',
-      "const r=require('node:child_process').spawnSync('conan',['--version'],{stdio:'inherit'});process.exit(r.status??1)",
+      "const r=require('node:child_process').spawnSync('conan',['--version'],{stdio:'inherit',shell:process.platform==='win32'});process.exit(r.status??1)",
     ],
     env: {
       ...process.env,
@@ -1147,7 +1147,7 @@ test('a Conan child reclaims a lock whose recorded process is dead', async (t) =
     command: process.execPath,
     args: [
       '-e',
-      "const r=require('node:child_process').spawnSync('conan',['--version'],{stdio:'inherit'});process.exit(r.status??1)",
+      "const r=require('node:child_process').spawnSync('conan',['--version'],{stdio:'inherit',shell:process.platform==='win32'});process.exit(r.status??1)",
     ],
     env: {
       ...process.env,

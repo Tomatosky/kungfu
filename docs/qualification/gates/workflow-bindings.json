@@ -57,7 +57,10 @@
       ],
       "activation": "dev pull request touching declared documentation paths",
       "invocation": {
-        "args": []
+        "args": [
+          "--capability",
+          "docker"
+        ]
       }
     },
     {

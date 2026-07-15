@@ -138,7 +138,7 @@ Each section is bound to the registry id by the catalog meta gate.
 - **Protects:** documentation regressions from becoming an unexplained green profile or release claim.
 - **Action:** `./shifu docs:prose:required`
 - **Dependencies:** `docs.contracts`.
-- **Platforms and runner:** linux, macos, windows; capabilities `node`.
+- **Platforms and runner:** linux; capabilities `docker`, `node`.
 - **Pass:** the structured action exits successfully, required artifacts exist, and the Gate receipt remains current for the source and definition.
 - **Failure or skip:** action failure, timeout, unsupported required capability, dependency failure, or missing required artifact is non-qualifying; advisory mode remains visible.
 - **Evidence:** unified Gate receipt; no separate artifact is currently required.
