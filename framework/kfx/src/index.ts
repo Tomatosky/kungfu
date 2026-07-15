@@ -129,6 +129,24 @@ export type KfxSettingDecl = {
   fallback: string;
 };
 
+// Product composition is declared by the KFX package, then projected by each
+// host. Roles describe where a replaceable product surface participates; they
+// never grant capabilities, trust, or runtime authority. `boot-critical` is an
+// availability/recovery hint only.
+export type KfxProductRole =
+  | 'profile-view'
+  | 'agent-console'
+  | 'system-management'
+  | 'tool'
+  | 'devtool'
+  | 'boot-critical';
+
+export type KfxProductDecl = {
+  roles: KfxProductRole[];
+  icon?: string;
+  order?: number;
+};
+
 // `kungfuConfig.config.view` — the static half of a view extension.
 // ADR-0011 trust tier. `node-integrated` (trusted) shares the shell's renderer,
 // React and capability instances; `sandboxed-ipc` runs the view in an isolated
@@ -400,6 +418,7 @@ export type KfxPlanEntry = {
   capabilities: KfxCapabilityKey[];
   system: boolean;
   settings: KfxSettingDecl[];
+  product: KfxProductDecl;
   suite?: string;
   packageName?: string;
   version?: string;
@@ -421,6 +440,7 @@ export type KfxServicePlanEntry = {
   id: string;
   facet: 'service';
   capabilities: KfxCapabilityKey[];
+  product: KfxProductDecl;
   // the source-authority verdict (authorizeFirstParty). A service is not tiered
   // like a view: trusted runs co-resident, untrusted is OS-sandbox confined.
   trusted: boolean;
@@ -452,6 +472,135 @@ export type KfxLoadPlan = {
   profiles: ProfileManifest[];
   failures: KfxPlanFailure[];
 };
+
+export type NativeKfxPlanProjection = {
+  registryRoot: string;
+  planRoot: string;
+  packages: Array<{
+    key: string;
+    facets: string[];
+    runtimeTier: 'first-party-pinned' | 'verified-third-party' | 'untrusted';
+    admissionGrade:
+      | 'unverified'
+      | 'identity-verified'
+      | 'kfd-attested'
+      | 'product-system';
+  }>;
+};
+
+export type KfxShadowParityFinding = {
+  packageKey: string;
+  classification:
+    | 'intended-match'
+    | 'legacy-defect'
+    | 'adr-required-divergence';
+  reason: string;
+};
+
+export type KfxShadowParityReport = {
+  schema: 'kungfu.kfx.shadow-parity/v1';
+  nativeRegistryRoot: string;
+  nativePlanRoot: string;
+  findings: KfxShadowParityFinding[];
+  counts: Record<KfxShadowParityFinding['classification'], number>;
+};
+
+// Compare the retained TS projection with a Core-native plan without making
+// legacy behavior the oracle. Missing legacy discovery is a legacy defect;
+// the new admission axis is an ADR-required divergence, not a mismatch to hide.
+export function compareKfxShadowPlans(
+  legacy: KfxLoadPlan,
+  native: NativeKfxPlanProjection,
+): KfxShadowParityReport {
+  const legacyViews = new Map(legacy.entries.map((entry) => [entry.id, entry]));
+  const legacyServices = new Map(
+    legacy.services.map((service) => [service.id, service]),
+  );
+  const findings: KfxShadowParityFinding[] = [];
+  const nativeKeys = new Set(native.packages.map((pkg) => pkg.key));
+
+  for (const pkg of [...native.packages].sort((a, b) =>
+    a.key.localeCompare(b.key),
+  )) {
+    const view = legacyViews.get(pkg.key);
+    const service = legacyServices.get(pkg.key);
+    const projectsLegacyFacet = pkg.facets.some((facet) =>
+      ['view', 'service'].includes(facet),
+    );
+    if (projectsLegacyFacet && !view && !service) {
+      findings.push({
+        packageKey: pkg.key,
+        classification: 'legacy-defect',
+        reason:
+          'native closure contains a loadable facet the legacy scan missed',
+      });
+      continue;
+    }
+    if (pkg.admissionGrade !== 'unverified') {
+      findings.push({
+        packageKey: pkg.key,
+        classification: 'adr-required-divergence',
+        reason: 'legacy loader has no KFD admission-grade axis',
+      });
+      continue;
+    }
+    if (view) {
+      const expectedTier =
+        pkg.runtimeTier === 'first-party-pinned'
+          ? 'node-integrated'
+          : 'sandboxed-ipc';
+      findings.push({
+        packageKey: pkg.key,
+        classification:
+          view.tier === expectedTier
+            ? 'intended-match'
+            : 'adr-required-divergence',
+        reason:
+          view.tier === expectedTier
+            ? 'view placement matches the native runtime tier'
+            : 'legacy view placement conflicts with the native runtime tier',
+      });
+      continue;
+    }
+    if (service) {
+      const expectedTrusted = pkg.runtimeTier === 'first-party-pinned';
+      findings.push({
+        packageKey: pkg.key,
+        classification:
+          service.trusted === expectedTrusted
+            ? 'intended-match'
+            : 'adr-required-divergence',
+        reason:
+          service.trusted === expectedTrusted
+            ? 'service placement matches the native runtime tier'
+            : 'legacy service trust conflicts with the native runtime tier',
+      });
+    }
+  }
+  for (const key of [...legacyViews.keys(), ...legacyServices.keys()].sort()) {
+    if (!nativeKeys.has(key)) {
+      findings.push({
+        packageKey: key,
+        classification: 'legacy-defect',
+        reason:
+          'legacy plan contains a package absent from the canonical native roots',
+      });
+    }
+  }
+  const counts = {
+    'intended-match': 0,
+    'legacy-defect': 0,
+    'adr-required-divergence': 0,
+  };
+  for (const finding of findings) counts[finding.classification] += 1;
+  return {
+    schema: 'kungfu.kfx.shadow-parity/v1',
+    nativeRegistryRoot: native.registryRoot,
+    nativePlanRoot: native.planRoot,
+    findings,
+    counts,
+  };
+}
 
 const KFX_CONTRACT_FILE = 'kungfu-kfx.contract.json';
 const KFX_CONTRACT_ENV = 'KUNGFU_KFX_CONTRACT';
@@ -980,6 +1129,7 @@ export function planKfx(
           version?: string;
           kungfuConfig?: {
             key?: string;
+            product?: KfxProductDecl;
             suite?: KfxSuiteDecl;
             config?: {
               view?: {
@@ -1045,6 +1195,7 @@ export function planKfx(
         }
         const view = config.config?.view;
         const service = config.config?.service;
+        const product = config.product ?? { roles: [] };
         if (!view && !service) continue; // suite-only or non-facet package
         if (seen.has(config.key)) continue; // earlier root wins (one facet/key)
         seen.add(config.key);
@@ -1070,6 +1221,7 @@ export function planKfx(
             capabilities: view.capabilities ?? [],
             system: Boolean(view.system),
             settings: view.settings ?? [],
+            product,
             packageName: manifest.name,
             version: manifest.version,
             dir,
@@ -1089,6 +1241,7 @@ export function planKfx(
             id: config.key,
             facet: 'service',
             capabilities: service.capabilities ?? [],
+            product,
             trusted,
             packageName: manifest.name,
             version: manifest.version,

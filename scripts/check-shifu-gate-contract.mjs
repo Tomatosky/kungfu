@@ -53,9 +53,7 @@ export async function checkShifuGateContract(root = ROOT) {
   assert.equal(receiptSchema.$id, contract.schemaIds.receipt);
 
   const dispatchMarkers = [
-    ['shifu', 'build | rebuild | gate | proxy | config)'],
     ['shifu.cmd', 'if /i "%~1"=="gate"   goto delegate'],
-    ['crates/shifu/src/main.rs', '"config", "gate"'],
     ['shifu.mjs', "if (cmd === 'gate')"],
   ];
   for (const [source, marker] of dispatchMarkers)
@@ -63,6 +61,28 @@ export async function checkShifuGateContract(root = ROOT) {
       fs.readFileSync(path.join(root, source), 'utf8').includes(marker),
       `${source} does not route the gate command`,
     );
+  const shellLauncher = fs.readFileSync(path.join(root, 'shifu'), 'utf8');
+  const richCase = shellLauncher.match(
+    /case "\$\{1:-\}" in\s+(?<commands>[^)]+)\)\s+if command -v fnm/,
+  );
+  assert.ok(
+    richCase?.groups?.commands
+      .split('|')
+      .map((command) => command.trim())
+      .includes('gate'),
+    'shifu does not route the gate command',
+  );
+  const nativeLauncher = fs.readFileSync(
+    path.join(root, 'crates/shifu/src/main.rs'),
+    'utf8',
+  );
+  const nativeSubcommands = nativeLauncher.match(
+    /const L2_SUBCOMMANDS:[^=]+=\s*&\[(?<commands>[\s\S]*?)\];/,
+  );
+  assert.ok(
+    nativeSubcommands?.groups?.commands.includes('"gate"'),
+    'crates/shifu/src/main.rs does not route the gate command',
+  );
 
   const exampleRoot = path.join(root, 'docs', 'shifu', 'examples', 'gates');
   const validPath = path.join(exampleRoot, 'minimal.gate-registry.json');

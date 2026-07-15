@@ -67,6 +67,9 @@ for how the layers fit together; the main areas:
   prebuilt binaries, currently the native `shifu` launcher. See
   [`docs/development/rust-adoption.md`](docs/development/rust-adoption.md) for when (and when not) a
   component belongs here.
+- `xinfa` — an independently versioned, extraction-first context compiler
+  product incubated in this repository. It is deliberately outside the Kungfu
+  and Shifu workspaces and has no runtime dependency on either product.
 
 Two command-line entry points, kept forward-compatible:
 
@@ -93,6 +96,8 @@ cd kungfu
 ./shifu rebuild       # remove generated build outputs, then build
 ./shifu check         # changed-scope read-only quality gate
 ./shifu check:source  # build-free source acceptance used by dev PRs
+./shifu xinfa:check   # standalone boundary, format, lint, and unit checks
+./shifu xinfa:standalone # clean extraction build/run smoke
 ./shifu fix           # explicit formatting / safe auto-fixes for changed files
 ./shifu product gui dev # run the reference GUI dev loop
 ./shifu product tui dev # run the reference TUI dev loop

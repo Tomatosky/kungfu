@@ -21,6 +21,12 @@ execution; Shifu owns how the task is executed after source checkout.
   [`gate-contract.json`](gate-contract.json) is its discovery root.
   Kungfu's concrete [Gate catalog and policy matrix](../qualification/gates/README.md)
   consume that contract without moving project policy into Shifu.
+- [`documentation-contract.json`](documentation-contract.json) is the
+  project-independent Documentation Protocol discovery root. It keeps document
+  roles separate from verification profiles, accepts exact project-owned
+  subject/claim/probe/artifact providers, and computes deterministic contract,
+  content, and submission roots. Kungfu's compatibility submission is
+  [`../../shifu.documentation.json`](../../shifu.documentation.json).
 - [`schema/cache-profile-v1.schema.json`](schema/cache-profile-v1.schema.json)
   is the single source of truth for cache profile fields.
 - [`schema/cache-resolution-v1.schema.json`](schema/cache-resolution-v1.schema.json)
@@ -51,6 +57,11 @@ package:
 ./shifu artifacts contract
 ./shifu artifacts schema
 ./shifu artifacts receipt-schema
+./shifu docs contract
+./shifu docs schema submission
+./shifu docs schema receipt
+./shifu docs validate --json
+./shifu docs show --json
 ./shifu gate contract
 ./shifu gate schema registry
 ./shifu gate schema plan
@@ -65,7 +76,9 @@ package:
 The contract and schema discovery commands print the exact checked-in JSON.
 Consumers should pin the checkout or binary source revision when they use the
 result as a generation input. Runtime commands consume profile instances and
-never modify the checked-in contract. `status` is local-only, `doctor` probes
+never modify the checked-in contract. Documentation validation is diagnostic
+and non-qualifying; it never executes document commands or provider probes.
+`status` is local-only, `doctor` probes
 endpoints only when explicitly requested, and local configuration changes are
 dry-run unless `--execute` is present.
 

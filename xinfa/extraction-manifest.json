@@ -1,0 +1,14 @@
+{
+  "schema": "xinfa.extraction-manifest/v1",
+  "product": "xinfa",
+  "files": [
+    "Cargo.lock",
+    "Cargo.toml",
+    "LICENSE",
+    "README.md",
+    "boundary.contract.json",
+    "contract/xinfa-product-v1.json",
+    "extraction-manifest.json",
+    "src/main.rs"
+  ]
+}

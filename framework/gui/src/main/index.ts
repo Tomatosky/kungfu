@@ -1,6 +1,14 @@
 import { execFile, execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import nodeCrypto from 'node:crypto';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+} from 'node:fs';
 import path from 'node:path';
+import { type KfxPlanDeps, planKfx } from '@kungfu-tech/kfx';
 import {
   BrowserWindow,
   Menu,
@@ -10,6 +18,7 @@ import {
   dialog,
   ipcMain,
   nativeImage,
+  shell,
 } from 'electron';
 // Minimal Electron main process for the kungfu reference app.
 //
@@ -17,7 +26,7 @@ import {
 // environment variables present when the process starts. The renderer process
 // is spawned by this main process, so the runtime directory must be exported
 // here, before any window (and therefore the renderer process) is created.
-import { DEVELOPER_NAVIGATION, TOOLS_NAVIGATION } from '../navigation';
+import { navigationForRole, primaryProductNavigation } from '../navigation';
 import { isResettableRuntimeFailure } from '../runtime-recovery-contract';
 import {
   type RuntimeStatusPayload,
@@ -50,6 +59,10 @@ import {
   bindElectronAgentSessionHost,
   createMainAgentSessionHost,
 } from './agent-session-host';
+import {
+  type ProductionDesktopUpdateProvider,
+  createProductionDesktopUpdateProvider,
+} from './desktop-update-provider';
 import {
   firstPartyManifestPath,
   generateFirstPartyManifest,
@@ -378,6 +391,7 @@ let manager: SandboxManager | null = null;
 let shellWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let lastRuntimeStatus: RuntimeStatusResult | null = null;
+let desktopUpdateProvider: ProductionDesktopUpdateProvider | null = null;
 
 // Set once the app is quitting; the session-window host reads it so window
 // closes during shutdown do not overwrite the persisted layout restore needs.
@@ -443,6 +457,109 @@ function readRuntimeStatus(): RuntimeStatusResult {
 
 function runtimeStatusLabel(result = lastRuntimeStatus ?? readRuntimeStatus()) {
   return deriveWorkspaceRuntimePresentation(result).label;
+}
+
+function initializeDesktopUpdateProvider() {
+  if (!app.isPackaged || desktopUpdateProvider) return;
+  try {
+    desktopUpdateProvider = createProductionDesktopUpdateProvider({
+      resourcesPath: process.resourcesPath,
+      userDataPath: app.getPath('userData'),
+      runtimeBin: kungfuBinPath(),
+      runtimeEnv: process.env,
+      productVersion: app.getVersion(),
+      platform: process.platform,
+      architecture: process.arch,
+    });
+    desktopUpdateProvider.start();
+  } catch (e) {
+    console.log(`KF_DESKTOP_UPDATE_PROVIDER_FAIL ${(e as Error).message}`);
+  }
+}
+
+function desktopUpdateDetail(
+  state: ReturnType<ProductionDesktopUpdateProvider['snapshot']>,
+): string {
+  if (!state.message) {
+    return state.error || state.nextAction || `Update phase: ${state.phase}`;
+  }
+  return [
+    state.message.whatHappened,
+    state.message.activeWork,
+    state.message.activation,
+    state.message.userAction,
+    state.message.dataAndSessions,
+  ].join('\n\n');
+}
+
+async function runDesktopSoftwareUpdate() {
+  const provider = desktopUpdateProvider;
+  if (!provider) {
+    await dialog.showMessageBox({
+      type: 'info',
+      message: 'Software updates are available in packaged Kungfu builds',
+      detail:
+        'This development build will not contact the release service or run an installer.',
+    });
+    return;
+  }
+
+  try {
+    let state = provider.snapshot();
+    if (state.phase === 'idle' || state.phase === 'error') {
+      await provider.checkForUpdates();
+      state = provider.snapshot();
+    }
+    if (state.phase === 'idle') {
+      await dialog.showMessageBox({
+        type: 'info',
+        message: 'Kungfu is up to date',
+        detail: 'No qualified update is available for this installation.',
+      });
+      return;
+    }
+
+    const canDownload =
+      state.phase === 'available' &&
+      (state.plan?.state === 'download-allowed' ||
+        state.plan?.state === 'apply-now');
+    const canInstall = state.phase === 'downloaded';
+    const primaryAction = canDownload
+      ? 'Download Update'
+      : canInstall
+        ? 'Restart and Install'
+        : null;
+    const buttons = primaryAction
+      ? [primaryAction, 'Later', 'Open Upgrade Guide']
+      : ['OK', 'Open Upgrade Guide'];
+    const result = await dialog.showMessageBox({
+      type: state.phase === 'error' ? 'error' : 'info',
+      message: state.message?.title || 'Kungfu Software Update',
+      detail: desktopUpdateDetail(state),
+      buttons,
+      defaultId: 0,
+      cancelId: primaryAction ? 1 : 0,
+    });
+    if (result.response === buttons.indexOf('Open Upgrade Guide')) {
+      const documentationUrl = state.message?.documentationUrl;
+      if (documentationUrl) await shell.openExternal(documentationUrl);
+      return;
+    }
+    if (result.response !== 0 || !primaryAction) return;
+    if (canDownload) {
+      await provider.downloadUpdate();
+      await runDesktopSoftwareUpdate();
+      return;
+    }
+    if (canInstall) await provider.applyDownloadedUpdate();
+  } catch (e) {
+    const state = provider.snapshot();
+    await dialog.showMessageBox({
+      type: 'error',
+      message: state.message?.title || 'Kungfu update could not continue',
+      detail: desktopUpdateDetail(state) || (e as Error).message,
+    });
+  }
 }
 
 function showShellWindow() {
@@ -781,6 +898,10 @@ function buildMenu() {
       accelerator: 'CmdOrCtrl+,',
       click: () => navigateShell({ target: 'settings' }),
     },
+    {
+      label: 'Software Update…',
+      click: () => void runDesktopSoftwareUpdate(),
+    },
     { type: 'separator' },
     {
       label: "Install 'kungfu' Command in PATH",
@@ -834,6 +955,20 @@ function buildMenu() {
       },
     },
   ];
+  const planDeps: KfxPlanDeps = {
+    fs: {
+      existsSync,
+      readFileSync: (file, encoding) =>
+        readFileSync(file, encoding as BufferEncoding),
+      readdirSync: (directory, options) => readdirSync(directory, options),
+    },
+    path,
+    crypto: nodeCrypto as unknown as KfxPlanDeps['crypto'],
+  };
+  const entries = planKfx(process.env, planDeps).entries;
+  const primaryNavigation = primaryProductNavigation(entries);
+  const toolsNavigation = navigationForRole(entries, 'tool');
+  const developerNavigation = navigationForRole(entries, 'devtool');
 
   const template: Electron.MenuItemConstructorOptions[] = [
     ...(process.platform === 'darwin' ? [{ role: 'appMenu' as const }] : []),
@@ -846,19 +981,10 @@ function buildMenu() {
           label: '🧭 Profile Home',
           click: () => navigateShell({ target: 'profile-home' }),
         },
-        {
-          label: '💬 Agent Console',
-          click: () => navigateShell({ target: 'view', kfxId: 'terminal' }),
-        },
-        {
-          label: '🧩 Profiles',
-          click: () => navigateShell({ target: 'view', kfxId: 'kfx-manager' }),
-        },
-        {
-          label: '🧠 Skills',
-          click: () =>
-            navigateShell({ target: 'view', kfxId: 'skill-manager' }),
-        },
+        ...primaryNavigation.map((item) => ({
+          label: `${item.icon} ${item.title}`,
+          click: () => navigateShell({ target: 'view', kfxId: item.id }),
+        })),
         { type: 'separator' },
         {
           label: 'Refresh Product Data',
@@ -879,7 +1005,7 @@ function buildMenu() {
     },
     {
       label: 'Tools',
-      submenu: TOOLS_NAVIGATION.map((item) => ({
+      submenu: toolsNavigation.map((item) => ({
         label: `${item.icon} ${item.title}`,
         click: () => navigateShell({ target: 'view', kfxId: item.id }),
       })),
@@ -887,7 +1013,7 @@ function buildMenu() {
     {
       label: 'Developer',
       submenu: [
-        ...DEVELOPER_NAVIGATION.map((item) => ({
+        ...developerNavigation.map((item) => ({
           label: `${item.icon} ${item.title}`,
           click: () => navigateShell({ target: 'view', kfxId: item.id }),
         })),
@@ -977,6 +1103,7 @@ function createWindow() {
 
 app.whenReady().then(() => {
   app.setName(PRODUCT_NAME);
+  initializeDesktopUpdateProvider();
   // Menus require a real display backend on Linux. The bounded qualification
   // path keeps them disabled together with the already-disabled Tray.
   if (!qualificationMode) buildMenu();
@@ -1016,6 +1143,13 @@ app.whenReady().then(() => {
     }
   }
   createWindow();
+  if (desktopUpdateProvider) {
+    void desktopUpdateProvider
+      .reconcileBundledRuntime(async () => readRuntimeStatus().ok)
+      .catch((e: unknown) => {
+        console.log(`KF_DESKTOP_UPDATE_RECONCILE_FAIL ${(e as Error).message}`);
+      });
+  }
 });
 
 app.on('activate', () => {
@@ -1027,6 +1161,7 @@ app.on('before-quit', () => {
   // Freeze the persisted session-window layout: the window closes that follow
   // are shutdown, not the user dropping windows, so they must not overwrite it.
   appQuitting = true;
+  desktopUpdateProvider?.stop();
 });
 
 app.on('window-all-closed', () => {

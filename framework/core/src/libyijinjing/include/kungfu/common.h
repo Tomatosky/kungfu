@@ -305,6 +305,21 @@ static constexpr bool is_unsigned_bigint_v = //
 template <typename ValueType>
 static constexpr bool is_numeric_v = std::is_arithmetic_v<ValueType> or std::is_enum_v<ValueType>;
 
+// These concepts preserve data<T>'s existing member-initialization and JSON
+// decoding partitions while making the selected overload visible in compiler
+// diagnostics. The three JSON concepts are mutually exclusive by construction.
+template <typename V>
+concept data_numeric_member = is_numeric_v<V>;
+
+template <typename V>
+concept data_json_direct_member = std::is_arithmetic_v<V> or is_array_of_others_v<V, char>;
+
+template <typename V>
+concept data_json_string_member = is_array_of_v<V, char>;
+
+template <typename V>
+concept data_json_deserialized_member = not std::is_arithmetic_v<V> and not is_array_v<V>;
+
 template <typename ValueType>
 static constexpr bool is_enum_class_v = std::is_enum_v<ValueType> and not std::is_convertible_v<ValueType, int>;
 
@@ -420,22 +435,32 @@ template <typename DataType> struct data {
   }
 
 private:
-  template <typename V> static std::enable_if_t<is_numeric_v<V>> init_member(V &v) { v = static_cast<V>(0); }
+  template <typename V>
+    requires data_numeric_member<V>
+  static void init_member(V &v) {
+    v = static_cast<V>(0);
+  }
 
-  template <typename V> static std::enable_if_t<not is_numeric_v<V>> init_member(V &) {}
+  template <typename V>
+    requires(not data_numeric_member<V>)
+  static void init_member(V &) {}
 
   template <typename J, typename V>
-  static std::enable_if_t<std::is_arithmetic_v<V> or is_array_of_others_v<V, char>> restore_from_json(J &j, V &v) {
+    requires data_json_direct_member<V>
+  static void restore_from_json(J &j, V &v) {
     v = j;
   }
 
-  template <typename J, typename V> static std::enable_if_t<is_array_of_v<V, char>> restore_from_json(J &j, V &v) {
+  template <typename J, typename V>
+    requires data_json_string_member<V>
+  static void restore_from_json(J &j, V &v) {
     std::string value = j;
     v = value.c_str(); // kungfu_array overload operator=, it actually use memcpy rather than assign pointer
   }
 
   template <typename J, typename V>
-  static std::enable_if_t<not std::is_arithmetic_v<V> and not is_array_v<V>> restore_from_json(J &j, V &v) {
+    requires data_json_deserialized_member<V>
+  static void restore_from_json(J &j, V &v) {
     j.get_to(v);
   }
 };

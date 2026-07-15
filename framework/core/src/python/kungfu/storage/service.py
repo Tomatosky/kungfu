@@ -765,6 +765,48 @@ def profile_lifecycle(
     )
 
 
+def kfx_runtime_contract(runtime_dir: str | Path = "") -> dict[str, Any]:
+    """Return the versioned Core-owned native KFX contract."""
+
+    return dict(
+        _runtime().run_storage_service_operation(
+            "kfx_runtime", str(runtime_dir), {"action": "contract"}
+        )
+    )
+
+
+def validate_kfx_runtime_document(
+    kind: str, document: dict[str, Any], runtime_dir: str | Path = ""
+) -> dict[str, Any]:
+    """Validate a KFX edge document without reproducing Core policy."""
+
+    return dict(
+        _runtime().run_storage_service_operation(
+            "kfx_runtime",
+            str(runtime_dir),
+            {"action": "validate", "kind": kind, "document": document},
+        )
+    )
+
+
+def kfx_registry(
+    action: str,
+    request: dict[str, Any],
+    runtime_dir: str | Path = "",
+) -> dict[str, Any]:
+    """Project one read-only Core-native KFX registry operation."""
+
+    if action not in {"list", "inspect", "resolve", "plan", "status"}:
+        raise ValueError(f"unsupported read-only KFX registry action: {action}")
+    return dict(
+        _runtime().run_storage_service_operation(
+            "kfx_runtime",
+            str(runtime_dir),
+            {"action": action, "request": request},
+        )
+    )
+
+
 def fact_contract(runtime_dir: str | Path = "") -> dict[str, Any]:
     """Return the C++-owned ADR-0051 declaration/admission contract."""
 

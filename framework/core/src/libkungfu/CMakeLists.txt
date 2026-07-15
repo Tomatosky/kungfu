@@ -124,6 +124,11 @@ if(KUNGFU_WITH_CORE_TESTS)
   target_compile_features(kungfu_runtime_error_tests PRIVATE cxx_std_20)
   add_test(NAME kungfu_runtime_error_tests COMMAND kungfu_runtime_error_tests)
 
+  add_executable(kungfu_embedding_generic_codec_tests tests/embedding_generic_codec_tests.cpp)
+  target_link_libraries(kungfu_embedding_generic_codec_tests PRIVATE ${LIBKUNGFU_NAME} kungfu_compile_contract)
+  target_compile_features(kungfu_embedding_generic_codec_tests PRIVATE cxx_std_20)
+  add_test(NAME kungfu_embedding_generic_codec_tests COMMAND kungfu_embedding_generic_codec_tests)
+
   add_executable(kungfu_peer_continuity_tests tests/peer_continuity_tests.cpp)
   target_link_libraries(kungfu_peer_continuity_tests PRIVATE ${LIBKUNGFU_NAME} kungfu_compile_contract Threads::Threads)
   target_compile_features(kungfu_peer_continuity_tests PRIVATE cxx_std_20)
@@ -165,6 +170,11 @@ if(KUNGFU_WITH_CORE_TESTS)
   target_link_libraries(kungfu_profile_lifecycle_tests PRIVATE ${LIBKUNGFU_NAME} kungfu_compile_contract Threads::Threads)
   target_compile_features(kungfu_profile_lifecycle_tests PRIVATE cxx_std_20)
   add_test(NAME kungfu_profile_lifecycle_tests COMMAND kungfu_profile_lifecycle_tests)
+
+  add_executable(kungfu_native_kfx_contract_tests tests/native_kfx_contract_tests.cpp)
+  target_link_libraries(kungfu_native_kfx_contract_tests PRIVATE ${LIBKUNGFU_NAME} kungfu_compile_contract Threads::Threads)
+  target_compile_features(kungfu_native_kfx_contract_tests PRIVATE cxx_std_20)
+  add_test(NAME kungfu_native_kfx_contract_tests COMMAND kungfu_native_kfx_contract_tests)
 endif()
 
 # The production Windows core stays static to avoid the COFF export-table

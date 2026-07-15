@@ -1,0 +1,49 @@
+{
+  "schema": "shifu.documentation-contract/v1",
+  "owner": "shifu",
+  "decision": "docs/adr/SHIFU-ADR-0006-documentation-protocol-and-provider-boundary.md",
+  "authority": {
+    "submissionSchema": "docs/shifu/schema/documentation-project-v1.schema.json",
+    "receiptSchema": "docs/shifu/schema/documentation-validation-receipt-v1.schema.json",
+    "runtime": "scripts/shifu-documentation-runtime.mjs",
+    "defaultSubmission": "shifu.documentation.json"
+  },
+  "schemaIds": {
+    "submission": "https://libkungfu.dev/schemas/shifu/documentation-project-v1.schema.json",
+    "receipt": "https://libkungfu.dev/schemas/shifu/documentation-validation-receipt-v1.schema.json"
+  },
+  "commands": {
+    "contract": "shifu docs contract",
+    "submissionSchema": "shifu docs schema submission",
+    "receiptSchema": "shifu docs schema receipt",
+    "validate": "shifu docs validate [--submission FILE|-] [--json]",
+    "show": "shifu docs show [--submission FILE] [--json]"
+  },
+  "canonicalization": {
+    "algorithm": "sha256",
+    "objectKeys": "unicode-codepoint-order",
+    "collections": "stable-id-order",
+    "paths": "exact-repository-relative-posix",
+    "roots": ["contract", "content", "submission"]
+  },
+  "versionNegotiation": {
+    "supported": ["shifu.documentation-project/v1"],
+    "selection": "submission schema field",
+    "unsupported": "fail with schema-version; never downgrade silently"
+  },
+  "authorityBoundaries": {
+    "project": "domain documents, profiles, provider instances, routes, and policy selection",
+    "shifu": "protocol, canonicalization, diagnostics, root computation, and validation receipt",
+    "productRuntime": "read-only consumption of future documentation packs and projections",
+    "buildchain": "exact build and release attestation without redefining documentation semantics",
+    "humanReview": "clarity, purpose, and contested semantic review without rewriting machine results"
+  },
+  "compatibility": {
+    "unknownFields": "reject",
+    "legacyDocsCheck": "unchanged compatibility input; not a second protocol authority",
+    "probeExecution": "never during docs validate; only through a referenced Shifu Gate registry",
+    "validationQualification": "diagnostic-only",
+    "receiptAuthority": "shifu-only",
+    "majorVersion": "required for removals, new required fields, or changed meanings"
+  }
+}

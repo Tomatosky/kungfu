@@ -152,11 +152,25 @@ export function sourceAcceptancePlan(files) {
     ['no Bash scripts', 'scripts/no-bash-guard.mjs'],
     ['Shifu entry contract', 'scripts/check-shifu-entry-contract.mjs'],
     ['Shifu cache contract', 'scripts/check-shifu-cache-contract.mjs'],
+    [
+      'Shifu Documentation Protocol',
+      'scripts/check-shifu-documentation-contract.mjs',
+    ],
     ['Shifu Gate contract', 'scripts/check-shifu-gate-contract.mjs'],
     ['Kungfu Gate catalog', 'scripts/check-kungfu-gate-catalog.mjs'],
+    ['Xinfa standalone boundary', 'xinfa/tooling/check-boundary.mjs'],
     ['carrier/action envelope', 'scripts/check-carrier-action-envelope.mjs'],
     ['runtime greenfield', 'scripts/check-runtime-greenfield.mjs'],
     ['schema authority', 'scripts/check-schema-authority.mjs'],
+    [
+      'core architecture contract',
+      'framework/core/architecture/check-layers.mjs',
+    ],
+    [
+      'core architecture negative fixtures',
+      'framework/core/architecture/check-layers.mjs',
+      '--self-test',
+    ],
     [
       'journal authority boundary',
       'scripts/check-journal-authority-boundary.mjs',
@@ -164,6 +178,10 @@ export function sourceAcceptancePlan(files) {
     ['live runtime terminology', 'scripts/check-live-runtime-terminology.mjs'],
     ['runtime activation contract', 'scripts/check-runtime-contract.mjs'],
     ['runtime upgrade contract', 'scripts/check-upgrade-contract.mjs'],
+    [
+      'product upgrade qualification',
+      'scripts/check-upgrade-qualification.mjs',
+    ],
     ['agent session contract', 'scripts/check-agent-session-contract.mjs'],
     [
       'durability production-candidate admission',
@@ -186,6 +204,7 @@ export function sourceAcceptancePlan(files) {
       args: [
         '--test',
         'scripts/buildchain-install.test.mjs',
+        'scripts/run-shifu-lifecycle.test.mjs',
         'scripts/check-typescript-files.test.mjs',
         'scripts/source-acceptance.test.mjs',
         'scripts/check-shifu-entry-contract.test.mjs',
@@ -195,10 +214,14 @@ export function sourceAcceptancePlan(files) {
         'scripts/shifu-uv-cache-adapter.test.mjs',
         'scripts/shifu-gate-runtime.test.mjs',
         'scripts/shifu-gate-executor.test.mjs',
+        'scripts/shifu-documentation-runtime.test.mjs',
         'scripts/check-kungfu-gate-catalog.test.mjs',
+        'xinfa/tooling/check-boundary.test.mjs',
         'scripts/check-schema-authority.test.mjs',
         'scripts/check-runtime-contract.test.mjs',
         'scripts/check-upgrade-contract.test.mjs',
+        'scripts/check-upgrade-qualification.test.mjs',
+        'scripts/upgrade-publication-admission.test.mjs',
         'scripts/check-agent-session-contract.test.mjs',
         'framework/agent-session/tests/capsule-host.test.mjs',
         'framework/agent-session/tests/peer-transport.test.mjs',
@@ -238,6 +261,11 @@ export function sourceAcceptancePlan(files) {
       label: 'runtime upgrade control-plane tests',
       command: process.execPath,
       args: ['scripts/run-runtime-upgrade-tests.mjs'],
+    },
+    {
+      label: 'desktop update adapter tests',
+      command: process.execPath,
+      args: ['scripts/run-desktop-update-tests.mjs'],
     },
     {
       label: 'tooling type check',

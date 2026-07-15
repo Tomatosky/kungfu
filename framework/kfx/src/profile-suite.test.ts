@@ -17,9 +17,14 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
   type KfxContract,
+  type KfxLoadPlan,
   type KfxPlanDeps,
+  type NativeKfxPlanProjection,
+  compareKfxShadowPlans,
   planKfx,
   resolveKfxProfileSuiteSource,
+  resolveRuntimeTier,
+  validateKfxPackageManifest,
   validateKfxProfileSuite,
 } from './index';
 
@@ -51,6 +56,17 @@ const invalidCases = JSON.parse(
   operation: 'set' | 'remove';
   path: string[];
   value?: unknown;
+}>;
+const parityCases = JSON.parse(
+  readFileSync(
+    path.join(root, 'tests/fixtures/native-kfx-registry-parity/cases.json'),
+    'utf8',
+  ),
+) as Array<{
+  name: string;
+  legacy: KfxLoadPlan;
+  native: NativeKfxPlanProjection;
+  expected: 'intended-match' | 'legacy-defect' | 'adr-required-divergence';
 }>;
 
 const planDeps: KfxPlanDeps = {
@@ -162,12 +178,46 @@ test('KFX plan projects the declared Mission Control GUI experience', () => {
     ],
     defaultView: 'work-dashboard',
   });
+  assert.deepEqual(
+    plan.entries.find((entry) => entry.id === 'work-dashboard')?.product,
+    { roles: ['profile-view'], icon: '🧭', order: 10 },
+  );
+  assert.deepEqual(
+    plan.entries.find((entry) => entry.id === 'terminal')?.product,
+    { roles: ['agent-console'], icon: '💬', order: 20 },
+  );
+});
+
+test('KFX package contract rejects unknown or duplicate product roles', () => {
+  const manifest = {
+    name: '@example/view',
+    version: '1.0.0',
+    kungfuConfig: {
+      key: 'example-view',
+      product: { roles: ['unknown-role'] },
+      config: { view: { title: 'Example', capabilities: [] } },
+    },
+  };
+  assert.throws(() => validateKfxPackageManifest(manifest, contract));
+  manifest.kungfuConfig.product.roles = ['tool', 'tool'];
+  assert.throws(() => validateKfxPackageManifest(manifest, contract));
+  manifest.kungfuConfig.product.roles = ['tool'];
+  validateKfxPackageManifest(manifest, contract);
+});
+
+test('product roles cannot elevate an untrusted runtime tier', () => {
+  assert.equal(
+    resolveRuntimeTier({ runtime: 'node-integrated', system: false }, false),
+    'sandboxed-ipc',
+  );
 });
 
 test('Node resolves exact Suite member package roots without lifecycle authority', () => {
-  const source = mkdtempSync(path.join(os.tmpdir(), 'kungfu-profile-source-'));
+  const parent = mkdtempSync(path.join(os.tmpdir(), 'kungfu-profile-source-'));
+  const source = path.join(parent, 'suite');
   try {
     const members = ['week-contract', 'week-actions'];
+    mkdirSync(source);
     mkdirSync(path.join(source, 'members'), { recursive: true });
     writeFileSync(
       path.join(source, 'package.json'),
@@ -208,6 +258,22 @@ test('Node resolves exact Suite member package roots without lifecycle authority
       ),
     );
   } finally {
-    rmSync(source, { recursive: true, force: true });
+    rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test('shadow parity corpus classifies matches, legacy defects, and ADR divergences', () => {
+  for (const fixture of parityCases) {
+    const report = compareKfxShadowPlans(fixture.legacy, fixture.native);
+    assert.equal(report.schema, 'kungfu.kfx.shadow-parity/v1', fixture.name);
+    assert.equal(report.nativeRegistryRoot, fixture.native.registryRoot);
+    assert.equal(report.nativePlanRoot, fixture.native.planRoot);
+    assert.equal(report.findings.length, 1, fixture.name);
+    assert.equal(
+      report.findings[0]?.classification,
+      fixture.expected,
+      fixture.name,
+    );
+    assert.equal(report.counts[fixture.expected], 1, fixture.name);
   }
 });

@@ -90,12 +90,16 @@ overridden by the profile. Conan receives a disposable `CONAN_HOME` containing
 only the managed remote plus an explicitly declared development fallback, if
 any. When storage is selected, its `global.conf` points package and download
 data at a profile-owned host-local cache under `${SHIFU_CACHE_HOME}`.
-Development and named runner partitions do not share one mutable Conan database,
-and an exclusive lock fails closed on concurrent use. The persistent storage
-survives the task; the temporary policy overlay and lock do not. Kungfu detects
-a default compiler profile inside the isolated home. Both temporary overlays
-are removed after the child exits, including non-zero exits. The nested
-libwasm Cargo invocation inherits the same wrapper.
+Each development worktree and named runner receives a deterministic partition,
+so independent checkouts do not share one mutable Conan database. Conan itself
+is invoked through a temporary PATH wrapper: non-Conan tasks never take the
+storage lock, while each real Conan process waits for the same-partition lock
+for a bounded interval. A lock whose recorded process is no longer running is
+reclaimed; an unreadable lock still fails closed. The persistent storage
+survives the task, while the temporary policy overlay and on-demand lock do not.
+Kungfu detects a default compiler profile inside the isolated home. Both
+temporary overlays are removed after the child exits, including non-zero exits.
+The nested libwasm Cargo invocation inherits the same wrapper.
 
 Checksum-backed recipe sources use ordinary environment bindings. Shifu may
 select a mirrored archive URL, but the Conan recipe owns and enforces the same

@@ -1,0 +1,13 @@
+[package]
+name = "xinfa"
+version = "0.1.0"
+edition = "2021"
+license-file = "LICENSE"
+description = "The Context Compiler for Agents"
+publish = false
+
+[[bin]]
+name = "xinfa"
+path = "src/main.rs"
+
+[workspace]

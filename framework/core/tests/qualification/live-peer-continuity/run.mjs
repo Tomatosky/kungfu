@@ -32,6 +32,19 @@ export function sourceFacts() {
   };
 }
 
+export function pythonInvocation({ platform = process.platform } = {}) {
+  return {
+    command: [
+      'uv',
+      'run',
+      '--frozen',
+      '--project',
+      path.join(ROOT, 'framework', 'core'),
+      'python',
+    ],
+    shell: platform === 'win32',
+  };
+}
 function nativeEnvironment() {
   const build = path.join(ROOT, 'framework', 'core', 'build', 'Release');
   const env = {
@@ -69,6 +82,7 @@ function nativeEnvironment() {
 }
 
 export function qualificationPlan(outputDir) {
+  const python = pythonInvocation();
   return [
     {
       id: 'core-continuity-state-machine',
@@ -95,18 +109,14 @@ export function qualificationPlan(outputDir) {
     {
       id: 'native-cross-process-restart',
       command: [
-        'uv',
-        'run',
-        '--project',
-        path.join(ROOT, 'framework', 'core'),
-        '--frozen',
-        'python',
+        ...python.command,
         path.join(HARNESS_DIR, 'native_campaign.py'),
         'campaign',
         '--output-dir',
         path.join(outputDir, 'native-campaign'),
       ],
       env: nativeEnvironment(),
+      shell: python.shell,
     },
   ];
 }
@@ -118,6 +128,7 @@ function runSuite(suite, outputDir) {
     env: suite.env,
     encoding: 'utf8',
     maxBuffer: 128 * 1024 * 1024,
+    shell: suite.shell || false,
   });
   const output = `${result.stdout || ''}${result.stderr || ''}${
     result.error ? `${result.error.name}: ${result.error.message}\n` : ''

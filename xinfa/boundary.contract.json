@@ -1,0 +1,22 @@
+{
+  "schema": "xinfa.standalone-boundary/v1",
+  "product": "xinfa",
+  "core": {
+    "manifest": "Cargo.toml",
+    "sourceRoots": ["src"],
+    "allowedDependencies": [],
+    "forbiddenRustNamespaces": ["shifu", "kungfu", "libkungfu"],
+    "forbiddenPackagePrefixes": ["@kungfu-tech/"],
+    "forbiddenRelativeRoots": [
+      "../crates",
+      "../developer",
+      "../framework",
+      "../product",
+      "../shifu"
+    ]
+  },
+  "adapters": {
+    "mustLiveOutsideCore": true,
+    "consumeOnlyPublicContracts": true
+  }
+}

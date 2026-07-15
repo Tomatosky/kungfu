@@ -5,8 +5,11 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { test } from 'node:test';
+import { cliLauncherContent } from './cli-launcher.mjs';
 import {
   cliArchiveBase,
+  cliArchiveLayout,
+  desktopUpdaterArtifact,
   esbuildPlatformBinaryPath,
   kfxBundleExternalModules,
   verifyProductObservabilityEvents,
@@ -26,6 +29,23 @@ test('CLI product archive name uses the Kungfu Episodes product prefix', () => {
   );
   assert.equal(cliArchiveBase('linux-x64'), 'kungfu-episodes-cli-linux-x64');
   assert.equal(cliArchiveBase('win32-x64'), 'kungfu-episodes-cli-win32-x64');
+});
+
+test('CLI archive keeps the launcher distinct from its runtime tree', () => {
+  assert.deepEqual(cliArchiveLayout('darwin'), {
+    launcherName: 'kungfu',
+    runtimeDirectory: 'runtime',
+    runtimeEntrypoint: 'runtime/kungfu',
+    compatibility: 'runtime/product-compatibility.json',
+  });
+  assert.deepEqual(cliArchiveLayout('win32'), {
+    launcherName: 'kungfu.cmd',
+    runtimeDirectory: 'runtime',
+    runtimeEntrypoint: 'runtime/kungfu.exe',
+    compatibility: 'runtime/product-compatibility.json',
+  });
+  assert.match(cliLauncherContent('darwin'), /exec "\$here\/runtime\/kungfu"/);
+  assert.match(cliLauncherContent('win32'), /%~dp0runtime\\kungfu\.exe/);
 });
 
 test('product observability ignores errors from sibling components', () => {
@@ -132,6 +152,56 @@ test('desktop product carries the externalized Agent Session runtime', () => {
   );
   assert.match(config, /from: \.\.\/agent-session/);
   assert.match(config, /to: app\/node_modules\/@kungfu-tech\/agent-session/);
+});
+
+test('desktop product declares prerelease update metadata without implicit publishing', () => {
+  const config = fs.readFileSync(
+    new URL('../electron-builder.yml', import.meta.url),
+    'utf8',
+  );
+  assert.match(config, /publish:\n\s+- provider: github/);
+  assert.match(config, /owner: kungfu-systems/);
+  assert.match(config, /repo: kungfu/);
+  assert.match(config, /channel: alpha/);
+  assert.match(config, /releaseType: prerelease/);
+  assert.match(config, /generateUpdatesFilesForAllChannels: true/);
+  const launcher = fs.readFileSync(
+    new URL(
+      '../../framework/gui/scripts/run-electron-builder.mjs',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+  assert.match(launcher, /--publish=never/);
+  assert.match(
+    config,
+    /dist\/update\/kungfu-release-manifest\.json\n\s+to: upgrade\/kungfu-release-manifest\.json/,
+  );
+});
+
+test('desktop updater artifact selection is exact per platform', () => {
+  assert.equal(
+    desktopUpdaterArtifact(
+      [
+        'latest-mac.yml',
+        'Kungfu Episodes-4.0.0-arm64.zip.blockmap',
+        'Kungfu Episodes-4.0.0-arm64.zip',
+      ],
+      'darwin',
+    ),
+    'Kungfu Episodes-4.0.0-arm64.zip',
+  );
+  assert.equal(
+    desktopUpdaterArtifact(
+      ['latest.yml', 'Kungfu Episodes Setup.exe'],
+      'win32',
+    ),
+    'Kungfu Episodes Setup.exe',
+  );
+  assert.throws(
+    () => desktopUpdaterArtifact(['one.zip', 'two.zip'], 'darwin'),
+    /expected one/,
+  );
 });
 
 test('installed SDK resolves the packaged KFX contract beside its resources', () => {

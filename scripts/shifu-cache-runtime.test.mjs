@@ -14,6 +14,7 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import {
   CacheProfileError,
   applyCacheProfile,
+  conanStoragePartition,
   resolveCacheProfile,
   sha256,
   validateProfileBytes,
@@ -33,6 +34,31 @@ test('Windows cache re-entry leaves the welded shim token unquoted', () => {
   assert.equal(
     windowsShifuCommandLine(['install', 'argument with spaces']),
     'shifu.cmd install "argument with spaces"',
+  );
+});
+
+test('Conan storage partitions are stable per execution principal and isolated across principals', () => {
+  const first = conanStoragePartition('development', {
+    SHIFU_CACHE_PRINCIPAL: 'worktree:first',
+  });
+  assert.equal(
+    first,
+    conanStoragePartition('development', {
+      SHIFU_CACHE_PRINCIPAL: 'worktree:first',
+    }),
+  );
+  assert.notEqual(
+    first,
+    conanStoragePartition('development', {
+      SHIFU_CACHE_PRINCIPAL: 'worktree:second',
+    }),
+  );
+  assert.match(first, /^development-[a-f0-9]{12}$/);
+  assert.match(
+    conanStoragePartition('self-hosted-runner', {
+      RUNNER_NAME: 'runner-one',
+    }),
+    /^runner-[a-f0-9]{12}$/,
   );
 });
 
@@ -85,6 +111,23 @@ function profile(overrides = {}) {
 
 function bytes(value = profile()) {
   return Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
+}
+
+function writeFakeNodeCommand(directory, name, source) {
+  const modulePath = path.join(directory, `fake-${name}.mjs`);
+  fs.writeFileSync(modulePath, source);
+  if (process.platform === 'win32') {
+    fs.writeFileSync(
+      path.join(directory, `${name}.cmd`),
+      `@node "%~dp0fake-${name}.mjs" %*\r\n`,
+    );
+  } else {
+    fs.writeFileSync(
+      path.join(directory, name),
+      `#!/usr/bin/env node\nimport './fake-${name}.mjs';\n`,
+      { mode: 0o700 },
+    );
+  }
 }
 
 function toolConfigProfile() {
@@ -591,13 +634,19 @@ test('cache apply overrides Cargo and isolates Conan without mutating persistent
   const outputPath = path.join(directory, 'child.json');
   const receiptPath = path.join(directory, 'receipt.json');
   const fakeCargoArgsPath = path.join(directory, 'fake-cargo-args.json');
+  const fakeConanArgsPath = path.join(directory, 'fake-conan-args.json');
   const xdgCache = path.join(directory, 'cache');
+  const partition = conanStoragePartition(
+    'development',
+    process.env,
+    process.cwd(),
+  );
   const conanStorage = path.join(
     xdgCache,
     'kungfu',
     'conan',
     'workhub-v1',
-    'development',
+    partition,
   );
   const fakeBin = path.join(directory, 'fake-bin');
   const inheritedWrapperBin = path.join(directory, 'inherited-wrapper-bin');
@@ -629,6 +678,11 @@ test('cache apply overrides Cargo and isolates Conan without mutating persistent
       { mode: 0o700 },
     );
   }
+  writeFakeNodeCommand(
+    fakeBin,
+    'conan',
+    `import fs from 'node:fs'; fs.writeFileSync(process.env.FAKE_CONAN_ARGS, JSON.stringify(process.argv.slice(2)));\n`,
+  );
   fs.writeFileSync(profilePath, raw);
   const script = [
     "const cp = require('node:child_process');",
@@ -636,6 +690,8 @@ test('cache apply overrides Cargo and isolates Conan without mutating persistent
     "const path = require('node:path');",
     "const result = cp.spawnSync('cargo', ['metadata'], {stdio: 'inherit', shell: process.platform === 'win32'});",
     'if (result.status !== 0) process.exit(result.status || 1);',
+    "const conan = cp.spawnSync('conan', ['--version'], {stdio: 'inherit'});",
+    'if (conan.status !== 0) process.exit(conan.status || 1);',
     `fs.writeFileSync(${JSON.stringify(outputPath)}, JSON.stringify({`,
     'cargoHome: process.env.CARGO_HOME,',
     'conanHome: process.env.CONAN_HOME,',
@@ -663,6 +719,7 @@ test('cache apply overrides Cargo and isolates Conan without mutating persistent
       CONAN_HOME: persistentConan,
       XDG_CACHE_HOME: xdgCache,
       FAKE_CARGO_ARGS: fakeCargoArgsPath,
+      FAKE_CONAN_ARGS: fakeConanArgsPath,
       PATH: `${inheritedWrapperBin}${path.delimiter}${fakeBin}${path.delimiter}${process.env.PATH || ''}`,
       SHIFU_CARGO_ORIGINAL_PATH: `${fakeBin}${path.delimiter}${process.env.PATH || ''}`,
     },
@@ -689,6 +746,9 @@ test('cache apply overrides Cargo and isolates Conan without mutating persistent
           'metadata',
         ],
   );
+  assert.deepEqual(JSON.parse(fs.readFileSync(fakeConanArgsPath, 'utf8')), [
+    '--version',
+  ]);
   assert.deepEqual(child.conanRemotes, {
     remotes: [
       {
@@ -699,12 +759,14 @@ test('cache apply overrides Cargo and isolates Conan without mutating persistent
     ],
   });
   assert.equal(child.managedConan, '1');
-  assert.deepEqual(
-    child.wrapperFiles,
-    process.platform === 'win32'
-      ? ['cargo-wrapper.mjs', 'cargo.cmd']
-      : ['cargo', 'cargo-wrapper.mjs'],
-  );
+  assert.deepEqual(child.wrapperFiles, [
+    'cargo',
+    'cargo-wrapper.mjs',
+    'cargo.cmd',
+    'conan',
+    'conan-wrapper.mjs',
+    'conan.cmd',
+  ]);
   assert.equal(
     child.rocksdbSource,
     'http://cache.example.invalid/sources/rocksdb.tar.gz',
@@ -768,8 +830,8 @@ test('cache apply overrides Cargo and isolates Conan without mutating persistent
     mode: 'persistent-host-local',
     namespace: 'workhub-v1',
     pathDigest: sha256(Buffer.from(conanStorage)),
-    partitionDigest: sha256(Buffer.from('development')),
-    lock: 'released',
+    partitionDigest: sha256(Buffer.from(partition)),
+    lock: 'on-demand',
   });
 });
 
@@ -801,13 +863,13 @@ test('cache apply cleans config overlays after a failing child', async (t) => {
     'kungfu',
     'conan',
     'workhub-v1',
-    'development',
+    conanStoragePartition('development', process.env, process.cwd()),
   );
   assert.equal(fs.existsSync(storage), true);
   assert.equal(fs.existsSync(path.join(storage, '.shifu-conan.lock')), false);
 });
 
-test('outer cache apply owns the Conan lock across nested Gate task re-entry', async (t) => {
+test('nested Gate task re-entry does not acquire Conan storage when Conan is unused', async (t) => {
   const directory = fs.mkdtempSync(
     path.join(os.tmpdir(), 'shifu-cache-gate-reentry-'),
   );
@@ -827,7 +889,7 @@ test('outer cache apply owns the Conan lock across nested Gate task re-entry', a
     'kungfu',
     'conan',
     'workhub-v1',
-    'development',
+    conanStoragePartition('development', process.env, root),
   );
   const lock = path.join(storage, '.shifu-conan.lock');
   fs.mkdirSync(root, { recursive: true });
@@ -909,65 +971,31 @@ process.exit(receipt.ok ? 0 : 1);
   assert.equal(nested.active, '1');
   assert.equal(nested.bypass, '');
   assert.match(nested.conanHome, /shifu-cache-overlay-.*conan-home/);
-  assert.equal(nested.lockHeld, true);
+  assert.equal(nested.lockHeld, false);
   assert.equal(fs.existsSync(lock), false);
 });
 
-test('cache apply fails closed when managed Conan storage is already in use', async (t) => {
+test('a non-Conan child does not contend with an occupied Conan partition', async (t) => {
   const directory = fs.mkdtempSync(
     path.join(os.tmpdir(), 'shifu-cache-conan-lock-'),
   );
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const xdgCache = path.join(directory, 'cache');
+  const principal = 'non-conan-child';
+  const partition = conanStoragePartition('development', {
+    SHIFU_CACHE_PRINCIPAL: principal,
+  });
   const storage = path.join(
     xdgCache,
     'kungfu',
     'conan',
     'workhub-v1',
-    'development',
+    partition,
   );
   fs.mkdirSync(storage, { recursive: true });
   const lock = path.join(storage, '.shifu-conan.lock');
   const liveOwner = `${JSON.stringify({ pid: process.pid, acquiredAt: new Date().toISOString() })}\n`;
   fs.writeFileSync(lock, liveOwner);
-  const raw = bytes(toolConfigProfile());
-  const profilePath = path.join(directory, 'profile.json');
-  fs.writeFileSync(profilePath, raw);
-  await assert.rejects(
-    applyCacheProfile({
-      reference: profilePath,
-      expectedDigest: sha256(raw),
-      scope: 'development',
-      command: process.execPath,
-      args: ['-e', 'process.exit(0)'],
-      env: { ...process.env, XDG_CACHE_HOME: xdgCache },
-    }),
-    /managed Conan storage is already in use/,
-  );
-  assert.equal(fs.readFileSync(lock, 'utf8'), liveOwner);
-});
-
-test('cache apply reclaims a managed Conan lock whose owner exited', async (t) => {
-  const directory = fs.mkdtempSync(
-    path.join(os.tmpdir(), 'shifu-cache-stale-conan-lock-'),
-  );
-  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-  const xdgCache = path.join(directory, 'cache');
-  const storage = path.join(
-    xdgCache,
-    'kungfu',
-    'conan',
-    'workhub-v1',
-    'development',
-  );
-  fs.mkdirSync(storage, { recursive: true });
-  const lock = path.join(storage, '.shifu-conan.lock');
-  const child = spawnSync(process.execPath, ['-e', 'process.exit(0)']);
-  assert.equal(child.status, 0);
-  fs.writeFileSync(
-    lock,
-    `${JSON.stringify({ pid: child.pid, acquiredAt: new Date().toISOString() })}\n`,
-  );
   const raw = bytes(toolConfigProfile());
   const profilePath = path.join(directory, 'profile.json');
   fs.writeFileSync(profilePath, raw);
@@ -977,7 +1005,106 @@ test('cache apply reclaims a managed Conan lock whose owner exited', async (t) =
     scope: 'development',
     command: process.execPath,
     args: ['-e', 'process.exit(0)'],
-    env: { ...process.env, XDG_CACHE_HOME: xdgCache },
+    env: {
+      ...process.env,
+      XDG_CACHE_HOME: xdgCache,
+      SHIFU_CACHE_PRINCIPAL: principal,
+    },
+  });
+  assert.equal(status, 0);
+  assert.equal(fs.readFileSync(lock, 'utf8'), liveOwner);
+});
+
+test('a Conan child waits boundedly and preserves a live same-partition lock', async (t) => {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'shifu-cache-conan-live-lock-'),
+  );
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const principal = 'live-lock';
+  const xdgCache = path.join(directory, 'cache');
+  const storage = path.join(
+    xdgCache,
+    'kungfu',
+    'conan',
+    'workhub-v1',
+    conanStoragePartition('development', {
+      SHIFU_CACHE_PRINCIPAL: principal,
+    }),
+  );
+  fs.mkdirSync(storage, { recursive: true });
+  const lock = path.join(storage, '.shifu-conan.lock');
+  const owner = `${JSON.stringify({ pid: process.pid, token: 'owner', acquiredAt: new Date().toISOString() })}\n`;
+  fs.writeFileSync(lock, owner);
+  const fakeBin = path.join(directory, 'fake-bin');
+  fs.mkdirSync(fakeBin);
+  writeFakeNodeCommand(fakeBin, 'conan', 'process.exit(0);\n');
+  const raw = bytes(toolConfigProfile());
+  const profilePath = path.join(directory, 'profile.json');
+  fs.writeFileSync(profilePath, raw);
+  const status = await applyCacheProfile({
+    reference: profilePath,
+    expectedDigest: sha256(raw),
+    scope: 'development',
+    command: process.execPath,
+    args: [
+      '-e',
+      "const r=require('node:child_process').spawnSync('conan',['--version'],{stdio:'inherit'});process.exit(r.status??1)",
+    ],
+    env: {
+      ...process.env,
+      PATH: `${fakeBin}${path.delimiter}${process.env.PATH || ''}`,
+      XDG_CACHE_HOME: xdgCache,
+      SHIFU_CACHE_PRINCIPAL: principal,
+      SHIFU_CONAN_LOCK_TIMEOUT_MS: '20',
+    },
+  });
+  assert.equal(status, 1);
+  assert.equal(fs.readFileSync(lock, 'utf8'), owner);
+});
+
+test('a Conan child reclaims a lock whose recorded process is dead', async (t) => {
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'shifu-cache-conan-stale-lock-'),
+  );
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const principal = 'stale-lock';
+  const xdgCache = path.join(directory, 'cache');
+  const storage = path.join(
+    xdgCache,
+    'kungfu',
+    'conan',
+    'workhub-v1',
+    conanStoragePartition('development', {
+      SHIFU_CACHE_PRINCIPAL: principal,
+    }),
+  );
+  fs.mkdirSync(storage, { recursive: true });
+  const lock = path.join(storage, '.shifu-conan.lock');
+  fs.writeFileSync(
+    lock,
+    `${JSON.stringify({ pid: 2147483647, token: 'dead-owner', acquiredAt: '2026-07-14T00:00:00Z' })}\n`,
+  );
+  const fakeBin = path.join(directory, 'fake-bin');
+  fs.mkdirSync(fakeBin);
+  writeFakeNodeCommand(fakeBin, 'conan', 'process.exit(0);\n');
+  const raw = bytes(toolConfigProfile());
+  const profilePath = path.join(directory, 'profile.json');
+  fs.writeFileSync(profilePath, raw);
+  const status = await applyCacheProfile({
+    reference: profilePath,
+    expectedDigest: sha256(raw),
+    scope: 'development',
+    command: process.execPath,
+    args: [
+      '-e',
+      "const r=require('node:child_process').spawnSync('conan',['--version'],{stdio:'inherit'});process.exit(r.status??1)",
+    ],
+    env: {
+      ...process.env,
+      PATH: `${fakeBin}${path.delimiter}${process.env.PATH || ''}`,
+      XDG_CACHE_HOME: xdgCache,
+      SHIFU_CACHE_PRINCIPAL: principal,
+    },
   });
   assert.equal(status, 0);
   assert.equal(fs.existsSync(lock), false);
