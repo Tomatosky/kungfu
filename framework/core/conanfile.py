@@ -177,7 +177,6 @@ class KungfuCoreConan(ConanFile):
     def requirements(self):
         profile = BUILD_PROFILES[str(self.options.build_profile)]
         dependency_roots = set(_profile_dependency_roots(profile))
-        dependency_roots.add("gtest")
         for dependency_id in sorted(dependency_roots):
             dependency = BUILD_DEPENDENCIES[dependency_id]
             if dependency["kind"] == "conan":
@@ -207,22 +206,27 @@ class KungfuCoreConan(ConanFile):
             pass
 
     def generate(self):
-        rxcpp_package_folder = self.dependencies["rxcpp"].package_folder
-        if rxcpp_package_folder is None:
-            raise RuntimeError("RxCpp dependency has no Conan package folder")
-        rxcpp_compat_include_dir = _prepare_rxcpp_compat(
-            path.join(rxcpp_package_folder, "include"),
-            path.join(self.build_folder, "compat", "rxcpp-4.1.1"),
-        )
+        profile = BUILD_PROFILES[str(self.options.build_profile)]
+        dependency_roots = set(_profile_dependency_roots(profile))
+        rxcpp_compat_include_dir = None
+        if "rxcpp" in dependency_roots:
+            rxcpp_package_folder = self.dependencies["rxcpp"].package_folder
+            if rxcpp_package_folder is None:
+                raise RuntimeError("RxCpp dependency has no Conan package folder")
+            rxcpp_compat_include_dir = _prepare_rxcpp_compat(
+                path.join(rxcpp_package_folder, "include"),
+                path.join(self.build_folder, "compat", "rxcpp-4.1.1"),
+            )
         deps = CMakeDeps(self)
         deps.generate()
         tc = CMakeToolchain(self, generator="Ninja")
         # Pass the selected profile and log level into the generated CMake toolchain.
         tc.variables["SPDLOG_LOG_LEVEL_COMPILE"] = self.__spdlog_level()
         tc.variables["KUNGFU_BUILD_PROFILE"] = str(self.options.build_profile)
-        tc.variables["KUNGFU_RXCPP_COMPAT_INCLUDE_DIR"] = _cmake_path(
-            rxcpp_compat_include_dir
-        )
+        if rxcpp_compat_include_dir is not None:
+            tc.variables["KUNGFU_RXCPP_COMPAT_INCLUDE_DIR"] = _cmake_path(
+                rxcpp_compat_include_dir
+            )
         tc.variables["CMAKE_CXX_STANDARD"] = 23
         tc.variables["CMAKE_CXX_STANDARD_REQUIRED"] = True
         tc.variables["CMAKE_CXX_EXTENSIONS"] = False

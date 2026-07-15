@@ -10,8 +10,10 @@
 #include <stdexcept>
 #include <utility>
 
+#if KUNGFU_HAS_ROCKSDB
 #include <rocksdb/db.h>
 #include <rocksdb/iterator.h>
+#endif
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -145,58 +147,7 @@ std::string payload_uri_for(const std::string &provider, const std::string &runt
                                       : payload_path(runtime_dir, digest).string();
 }
 
-class file_storage_provider : public storage_provider {
-public:
-  explicit file_storage_provider(std::string runtime_dir) : runtime_dir_(std::move(runtime_dir)) {}
-
-  [[nodiscard]] std::string name() const override { return PROVIDER_FILE; }
-
-  [[nodiscard]] storage_provider_layout_view layout() const override {
-    return {{},
-            "journal/system/storage/manifest-catalog/live/*.journal",
-            "storage/manifests/<hash-prefix>/<sha256>",
-            "storage/payloads/<hash-prefix>/<sha256>"};
-  }
-
-  [[nodiscard]] storage_provider_runtime_view runtime() const override {
-    return {"stateless-filesystem", "process-cached", "per filesystem operation", false, true};
-  }
-
-  [[nodiscard]] bool payload_exists(const std::string &digest) const override {
-    return fs::exists(payload_path(runtime_dir_, digest));
-  }
-
-  [[nodiscard]] std::string read_payload(const std::string &digest) const override {
-    return read_bytes(payload_path(runtime_dir_, digest));
-  }
-
-  void write_payload(const std::string &digest, const std::string &raw) const override {
-    // ADR-0040: publish through the immutable content store (atomic
-    // tmp+rename, digest checked against the bytes) instead of a bare file
-    // write; the store's layout is byte-compatible with payload_path.
-    const auto result = content_store_.put_if_absent("payloads", raw, yy_storage::make_content_hash(digest));
-    if (!result.ok()) {
-      throw std::runtime_error("failed to publish payload " + digest + ": " +
-                               yy_storage::content_store_error_name(result.error) +
-                               (result.message.empty() ? "" : " (" + result.message + ")"));
-    }
-  }
-
-  [[nodiscard]] yy_storage::content_store &content_store() const override { return content_store_; }
-
-  [[nodiscard]] std::vector<stored_payload> all_payloads() const override {
-    std::vector<stored_payload> result;
-    for (const auto &path : all_payload_paths(runtime_dir_)) {
-      result.push_back({payload_digest_from_path(path), path.string(), fs::file_size(path)});
-    }
-    return result;
-  }
-
-private:
-  std::string runtime_dir_;
-  mutable yy_storage::file_content_store content_store_{root_dir(runtime_dir_).string()};
-};
-
+#if KUNGFU_HAS_ROCKSDB
 // ADR-0040: the RocksDB-backed content store lives in the runtime/provider
 // layer and implements the yijinjing contract over the provider's single
 // long-lived engine handle (decision 6). Keys are "<namespace>/<digest>",
@@ -537,12 +488,17 @@ private:
   }();
   rocksdb::WriteOptions write_options_ = {};
 };
+#endif
 
 std::unique_ptr<storage_provider> make_provider(const std::string &provider_name, const std::string &runtime_dir) {
   if (provider_name == PROVIDER_ROCKSDB) {
+#if KUNGFU_HAS_ROCKSDB
     return std::make_unique<rocksdb_storage_provider>(runtime_dir);
+#else
+    throw std::runtime_error("provider_unavailable: rocksdb");
+#endif
   }
-  return std::make_unique<file_storage_provider>(runtime_dir);
+  return make_file_storage_provider(runtime_dir);
 }
 
 // ADR-0040 decision 6: the per-operation provider open/close was a lifecycle

@@ -1,12 +1,12 @@
 {
   "schema": "kungfu.core-build-capability-manifest/v1",
   "authority_version": 1,
-  "authority_sha256": "sha256:8ee58ba59f994066001016ed32e7c841167288ebe3fe2f8ff78ebc3f822b7f1f",
+  "authority_sha256": "sha256:9685ddaf9c7ca19dfa7f5736dc0d9a880bbe01e710a61fbbf689bf1b7c8a2755",
   "default_profile": "full",
   "profiles": [
     {
       "id": "journal",
-      "status": "planned",
+      "status": "supported",
       "components": [
         "journal-core"
       ],
@@ -26,38 +26,30 @@
     },
     {
       "id": "embedded-minimal",
-      "status": "planned",
+      "status": "supported",
       "components": [
         "journal-core",
-        "runtime-contracts",
-        "runtime-services",
-        "runtime-adapters",
-        "composition"
+        "storage-provider-sdk"
       ],
       "providers": [
-        "file-storage"
+        "custom-content-store"
       ],
       "projections": [],
       "bindings": [
-        "cxx",
-        "c"
+        "cxx"
       ],
       "requires": [],
       "conflicts": [],
       "dependency_roots": [
-        "flatbuffers",
         "fmt",
         "nlohmann-json",
-        "nng",
-        "rxcpp",
         "spdlog",
-        "tabulate",
         "xxhash"
       ]
     },
     {
       "id": "embedded-sqlite",
-      "status": "planned",
+      "status": "supported",
       "components": [
         "journal-core",
         "runtime-contracts",
@@ -69,7 +61,9 @@
         "file-storage"
       ],
       "projections": [
-        "sqlite"
+        "sqlite-projection",
+        "sqlite-state-cache",
+        "sqlite-query-acceleration"
       ],
       "bindings": [
         "cxx",
@@ -108,7 +102,9 @@
         "rocksdb-live-kv"
       ],
       "projections": [
-        "sqlite"
+        "sqlite-projection",
+        "sqlite-state-cache",
+        "sqlite-query-acceleration"
       ],
       "bindings": [
         "cxx",
@@ -150,7 +146,9 @@
         "rocksdb-live-kv"
       ],
       "projections": [
-        "sqlite"
+        "sqlite-projection",
+        "sqlite-state-cache",
+        "sqlite-query-acceleration"
       ],
       "bindings": [
         "cxx",
@@ -189,6 +187,8 @@
       "projections",
       "bindings",
       "dependency_roots",
+      "live_capability",
+      "build_root",
       "source_revision",
       "compiler",
       "compiler_version",

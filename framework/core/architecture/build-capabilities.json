@@ -11,6 +11,12 @@
       "dependencies": ["fmt", "spdlog", "nlohmann-json", "xxhash"]
     },
     {
+      "id": "storage-provider-sdk",
+      "architecture_components": ["yijinjing-kernel"],
+      "requires": ["journal-core"],
+      "dependencies": []
+    },
+    {
       "id": "runtime-contracts",
       "architecture_components": ["libkungfu-contracts"],
       "requires": ["journal-core"],
@@ -37,6 +43,11 @@
   ],
   "providers": [
     {
+      "id": "custom-content-store",
+      "requires_components": ["storage-provider-sdk"],
+      "dependencies": []
+    },
+    {
       "id": "file-storage",
       "requires_components": ["runtime-adapters"],
       "dependencies": []
@@ -54,7 +65,20 @@
   ],
   "projections": [
     {
-      "id": "sqlite",
+      "id": "sqlite-projection",
+      "responsibility": "projection",
+      "requires_components": ["runtime-services", "runtime-adapters"],
+      "dependencies": ["sqlite", "sqlite-orm"]
+    },
+    {
+      "id": "sqlite-state-cache",
+      "responsibility": "state-cache",
+      "requires_components": ["runtime-services", "runtime-adapters"],
+      "dependencies": ["sqlite", "sqlite-orm"]
+    },
+    {
+      "id": "sqlite-query-acceleration",
+      "responsibility": "query-acceleration",
       "requires_components": ["runtime-services", "runtime-adapters"],
       "dependencies": ["sqlite", "sqlite-orm"]
     }
@@ -110,7 +134,7 @@
   "profiles": [
     {
       "id": "journal",
-      "status": "planned",
+      "status": "supported",
       "components": ["journal-core"],
       "providers": [],
       "projections": [],
@@ -120,20 +144,20 @@
     },
     {
       "id": "embedded-minimal",
-      "status": "planned",
-      "components": ["journal-core", "runtime-contracts", "runtime-services", "runtime-adapters", "composition"],
-      "providers": ["file-storage"],
+      "status": "supported",
+      "components": ["journal-core", "storage-provider-sdk"],
+      "providers": ["custom-content-store"],
       "projections": [],
-      "bindings": ["cxx", "c"],
+      "bindings": ["cxx"],
       "requires": [],
       "conflicts": []
     },
     {
       "id": "embedded-sqlite",
-      "status": "planned",
+      "status": "supported",
       "components": ["journal-core", "runtime-contracts", "runtime-services", "runtime-adapters", "composition"],
       "providers": ["file-storage"],
-      "projections": ["sqlite"],
+      "projections": ["sqlite-projection", "sqlite-state-cache", "sqlite-query-acceleration"],
       "bindings": ["cxx", "c"],
       "requires": ["embedded-minimal"],
       "conflicts": []
@@ -143,7 +167,7 @@
       "status": "planned",
       "components": ["journal-core", "runtime-contracts", "runtime-services", "runtime-adapters", "composition"],
       "providers": ["file-storage", "rocksdb-storage", "rocksdb-live-kv"],
-      "projections": ["sqlite"],
+      "projections": ["sqlite-projection", "sqlite-state-cache", "sqlite-query-acceleration"],
       "bindings": ["cxx", "c", "python", "node"],
       "requires": [],
       "conflicts": []
@@ -153,14 +177,14 @@
       "status": "supported",
       "components": ["journal-core", "runtime-contracts", "runtime-services", "runtime-adapters", "composition"],
       "providers": ["file-storage", "rocksdb-storage", "rocksdb-live-kv"],
-      "projections": ["sqlite"],
+      "projections": ["sqlite-projection", "sqlite-state-cache", "sqlite-query-acceleration"],
       "bindings": ["cxx", "c", "python", "node", "electron", "wasm"],
       "requires": [],
       "conflicts": []
     }
   ],
   "target_dependencies": {
-    "kungfu_contracts": ["nlohmann-json", "nng", "flatbuffers", "rxcpp", "sqlite", "rocksdb"],
+    "kungfu_contracts": ["nlohmann-json", "nng", "flatbuffers", "rxcpp", "sqlite"],
     "kungfu_services": ["fmt"],
     "kungfu_services_state_cache": ["sqlite"],
     "kungfu_adapters": ["flatbuffers", "nng", "sqlite", "rocksdb", "tabulate"],
@@ -176,6 +200,8 @@
       "projections",
       "bindings",
       "dependency_roots",
+      "live_capability",
+      "build_root",
       "source_revision",
       "compiler",
       "compiler_version",

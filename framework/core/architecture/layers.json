@@ -23,7 +23,7 @@
   "target_evidence": [
     {
       "file": "src/libyijinjing/CMakeLists.txt",
-      "targets": ["yijinjing", "yijinjing_mmap_tests", "yijinjing_content_hash_tests", "yijinjing_mmap_qualification"]
+      "targets": ["yijinjing", "yijinjing_mmap_tests", "yijinjing_content_hash_tests", "yijinjing_custom_provider_qualification", "yijinjing_mmap_qualification"]
     },
     {
       "file": "src/libkungfu/CMakeLists.txt",
@@ -84,7 +84,16 @@
       "component": "libkungfu-adapters",
       "kind": "OBJECT",
       "compile_options": "optimize-on",
-      "dependencies": ["kungfu_services", "kungfu_services_state_cache"]
+      "dependencies": ["kungfu_services", "kungfu_services_state_cache"],
+      "conditional_sources": [
+        {
+          "dependency": "rocksdb",
+          "files": [
+            "src/libkungfu/src/runtime/util/key_value_rocksdb.cpp",
+            "src/libkungfu/src/runtime/util/rocks.cpp"
+          ]
+        }
+      ]
     },
     {
       "id": "kungfu_composition",
@@ -130,10 +139,17 @@
     },
     {
       "file": "src/libkungfu/src/runtime/storage/provider.cpp",
-      "responsibility": "File and RocksDB content providers behind the storage port",
+      "responsibility": "Provider registry and RocksDB content adapter behind the storage port",
       "max_lines": 800,
-      "required_text": ["class file_storage_provider", "class rocksdb_storage_provider"],
+      "required_text": ["class rocksdb_storage_provider", "make_file_storage_provider"],
       "forbidden_text": ["class file_storage_service", "dispatch_json_edge_operation"]
+    },
+    {
+      "file": "src/libkungfu/src/runtime/storage/provider_file.cpp",
+      "responsibility": "Filesystem content adapter behind the storage port",
+      "max_lines": 160,
+      "required_text": ["class file_storage_provider", "make_file_storage_provider"],
+      "forbidden_text": ["#include <rocksdb/", "rocksdb::", "class rocksdb_storage_provider"]
     },
     {
       "file": "src/libkungfu/src/runtime/storage/maintenance_service.cpp",
@@ -264,6 +280,7 @@
         "src/libkungfu/src/runtime/native_storage.cpp",
         "src/libkungfu/src/runtime/storage/domain_dispatch.cpp",
         "src/libkungfu/src/runtime/storage/provider.cpp",
+        "src/libkungfu/src/runtime/storage/provider_file.cpp",
         "src/libkungfu/src/runtime/projection_bootstrap.cpp"
       ],
       "dependencies": ["libkungfu-contracts", "yijinjing-kernel", "yijinjing-schema"],
@@ -282,7 +299,8 @@
       ],
       "include_files": [
         "src/libkungfu/src/runtime/native_storage.cpp",
-        "src/libkungfu/src/runtime/storage/provider.cpp"
+        "src/libkungfu/src/runtime/storage/provider.cpp",
+        "src/libkungfu/src/runtime/storage/provider_file.cpp"
       ],
       "exclude_prefixes": [],
       "exclude_files": [],
@@ -314,7 +332,7 @@
       "exclude_prefixes": [],
       "exclude_files": [],
       "dependencies": ["core-composition-bindings", "libkungfu-adapters", "libkungfu-services", "libkungfu-contracts", "yijinjing-kernel", "yijinjing-schema"],
-      "current_targets": ["yijinjing_mmap_tests", "yijinjing_content_hash_tests", "yijinjing_mmap_qualification", "kungfu_durability_contract_tests", "kungfu_runtime_error_tests", "kungfu_embedding_generic_codec_tests", "kungfu_peer_continuity_tests", "kungfu_state_service_contract_tests", "kungfu_durable_ingest_tests", "kungfu_durability_powercut_fixture", "kungfu_durability_slo_fixture", "kungfu_offhost_backup_fixture", "kungfu_projection_bootstrap_tests", "kungfu_crash_recovery_tests", "kungfu_profile_lifecycle_tests"],
+      "current_targets": ["yijinjing_mmap_tests", "yijinjing_content_hash_tests", "yijinjing_custom_provider_qualification", "yijinjing_mmap_qualification", "kungfu_durability_contract_tests", "kungfu_runtime_error_tests", "kungfu_embedding_generic_codec_tests", "kungfu_peer_continuity_tests", "kungfu_state_service_contract_tests", "kungfu_durable_ingest_tests", "kungfu_durability_powercut_fixture", "kungfu_durability_slo_fixture", "kungfu_offhost_backup_fixture", "kungfu_projection_bootstrap_tests", "kungfu_crash_recovery_tests", "kungfu_profile_lifecycle_tests"],
       "entry_points": ["src/libkungfu/tests/durability_contract_tests.cpp", "src/libyijinjing/tests/mmap_tests.cpp"]
     }
   ],
@@ -327,7 +345,8 @@
     {"question": "Storage facade or shared application helpers", "component": "libkungfu-services", "entry_point": "src/libkungfu/src/runtime/storage/service.cpp"},
     {"question": "Storage status, fsck, rebuild, GC or compact planning", "component": "libkungfu-services", "entry_point": "src/libkungfu/src/runtime/storage/maintenance_service.cpp"},
     {"question": "Storage bundle import, export or sync verification", "component": "libkungfu-services", "entry_point": "src/libkungfu/src/runtime/storage/transfer_service.cpp"},
-    {"question": "File or RocksDB storage provider integration", "component": "libkungfu-adapters", "entry_point": "src/libkungfu/src/runtime/storage/provider.cpp"},
+    {"question": "Storage provider registry or RocksDB adapter integration", "component": "libkungfu-adapters", "entry_point": "src/libkungfu/src/runtime/storage/provider.cpp"},
+    {"question": "Filesystem storage provider integration", "component": "libkungfu-adapters", "entry_point": "src/libkungfu/src/runtime/storage/provider_file.cpp"},
     {"question": "Storage JSON edge or domain operation dispatch", "component": "core-composition-bindings", "entry_point": "src/libkungfu/src/runtime/storage/domain_dispatch.cpp"},
     {"question": "General RocksDB or SQLite integration", "component": "libkungfu-adapters", "entry_point": "src/libkungfu/src/runtime/util/rocks.cpp"},
     {"question": "FlatBuffers projection boundary", "component": "libkungfu-adapters", "entry_point": "src/libkungfu/src/view/schema.cpp"},

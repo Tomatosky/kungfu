@@ -84,6 +84,20 @@ function validate(authority, layers) {
       }
     }
   }
+  const projectionResponsibilities = new Set(
+    (authority.projections || []).map((item) => item.responsibility),
+  );
+  for (const responsibility of [
+    'projection',
+    'state-cache',
+    'query-acceleration',
+  ]) {
+    if (!projectionResponsibilities.has(responsibility)) {
+      problems.push(
+        `projections miss required responsibility ${responsibility}`,
+      );
+    }
+  }
 
   const profileById = new Map(
     (authority.profiles || []).map((item) => [item.id, item]),
@@ -172,6 +186,8 @@ function validate(authority, layers) {
     'projections',
     'bindings',
     'dependency_roots',
+    'live_capability',
+    'build_root',
     'source_revision',
   ]) {
     if (!fields.includes(required))
@@ -247,19 +263,19 @@ function renderCmake(authority) {
     lines.push(
       `  set(KUNGFU_BUILD_LINK_DEPENDENCIES "${linkTargets.join(';')}")`,
     );
+    for (const [target, dependencies] of Object.entries(
+      authority.target_dependencies,
+    )) {
+      const targets = dependencies
+        .filter((id) => roots.includes(id))
+        .map((id) => dependencyById.get(id)?.cmake_target)
+        .filter(Boolean);
+      lines.push(
+        `  set(KUNGFU_TARGET_${variable(target)}_DEPENDENCIES "${targets.join(';')}")`,
+      );
+    }
   }
   lines.push('endif()', '');
-  for (const [target, dependencies] of Object.entries(
-    authority.target_dependencies,
-  )) {
-    const targets = dependencies
-      .map((id) => dependencyById.get(id)?.cmake_target)
-      .filter(Boolean);
-    lines.push(
-      `set(KUNGFU_TARGET_${variable(target)}_DEPENDENCIES "${targets.join(';')}")`,
-    );
-  }
-  lines.push('');
   return `${lines.join('\n')}\n`;
 }
 
@@ -363,6 +379,8 @@ function selfTest() {
     'planned default fails closed',
     (value) => {
       value.default_profile = 'journal';
+      value.profiles.find((profile) => profile.id === 'journal').status =
+        'planned';
     },
     'default_profile must be supported',
   );

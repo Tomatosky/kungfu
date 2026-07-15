@@ -11,6 +11,19 @@ const { copyContractArtifacts } = require(
   path.join(CORE, '..', '..', 'scripts', 'contract-registry.cjs'),
 );
 
+function selectedBuildBindings() {
+  const authority = require('../architecture/build-capabilities.json');
+  const profileId =
+    process.env.KUNGFU_BUILD_PROFILE ||
+    shell.getConfigValue('build_profile') ||
+    authority.default_profile;
+  const profile = authority.profiles.find(({ id }) => id === profileId);
+  if (!profile || profile.status !== 'supported') {
+    throw new Error(`unsupported Kungfu Core build profile: ${profileId}`);
+  }
+  return new Set(profile.bindings);
+}
+
 function copyConfigContract() {
   copyContractArtifacts(path.join(CORE, 'dist', 'kungfu'));
 }
@@ -25,6 +38,19 @@ function copyBuildInfo(sourceDir, targetDir, staged) {
   if (!fs.existsSync(source) || staged.has('kungfubuildinfo.json')) return;
   staged.add('kungfubuildinfo.json');
   fs.copyFileSync(source, path.join(targetDir, 'kungfubuildinfo.json'));
+}
+
+/**
+ * @param {string} sourceDir
+ * @param {string} targetDir
+ * @param {Set<string>} staged
+ */
+function copyBuildIdentity(sourceDir, targetDir, staged) {
+  const name = 'kungfu-core-build-identity.json';
+  const source = path.join(sourceDir, name);
+  if (!fs.existsSync(source) || staged.has(name)) return;
+  staged.add(name);
+  fs.copyFileSync(source, path.join(targetDir, name));
 }
 
 function cpVsDependencies() {
@@ -61,11 +87,11 @@ function stage() {
   // `*.so.*` catches versioned ELF sonames (e.g. libnode.so.127) that pykungfu's
   // DT_NEEDED references; `*.pyd` catches the Windows Python binding, which is a
   // `*.so` on posix.
-  const buildDirs = [path.join('build', buildType)];
-  if (process.platform === 'win32') buildDirs.push('build');
+  const buildDirs = ['build', path.join('build', buildType)];
   const staged = new Set();
   for (const buildDir of buildDirs) {
     copyBuildInfo(buildDir, distKungfu, staged);
+    copyBuildIdentity(buildDir, distKungfu, staged);
     for (const pattern of [
       '*.node',
       '*.pyd',
@@ -92,6 +118,7 @@ function stage() {
 // In-process (not a node subprocess) so process.execPath with spaces —
 // e.g. Windows `C:\Program Files\nodejs\node.exe` — cannot break the call.
 function build() {
+  const bindings = selectedBuildBindings();
   const { conanInstall, conanBuild } = require('./run-conan');
   conanInstall();
   conanBuild();
@@ -100,17 +127,27 @@ function build() {
   // dist/kungfu is the single runtime surface that kfx and the platform package
   // both depend on. Require lazily (loads @kungfu-tech/libnode) so non-build
   // commands stay light.
-  require('./run-link-node').main();
+  if (
+    [...bindings].some((binding) =>
+      ['python', 'node', 'electron'].includes(binding),
+    )
+  ) {
+    require('./run-link-node').main();
+  }
   // With libnode colocated above, pykungfu imports — regenerate its .pyi stubs
   // from the fresh binding so committed stubs/ track the C++ (see gen-stubs.js).
-  require('./gen-stubs').main();
+  if (bindings.has('python')) {
+    require('./gen-stubs').main();
+  }
   // The pykungfu wheel ships in dist/kungfu/wheels — the product install
   // surface (`kungfu env`) resolves it from there. Build it with the binding
   // so every build/rebuild leaves a wheel matching the fresh natives; before
   // this only the gyp kfc chain built it, and the product dist chain shipped
   // without wheels (run-freeze copyWheel warned but could not fail).
   // run-wheel.js ends with process.exit, so spawn it instead of requiring.
-  shell.run(process.execPath, [path.join(__dirname, 'run-wheel.js')], true);
+  if (bindings.has('python')) {
+    shell.run(process.execPath, [path.join(__dirname, 'run-wheel.js')], true);
+  }
   stage();
   cpVsDependencies();
 }

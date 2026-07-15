@@ -81,6 +81,37 @@ if(YIJINJING_BUILD_TESTS)
   target_compile_features(yijinjing_content_hash_tests PRIVATE cxx_std_20)
   add_test(NAME yijinjing_content_hash_tests COMMAND yijinjing_content_hash_tests)
 
+  add_executable(yijinjing_custom_provider_qualification tests/custom_provider_qualification.cpp)
+  target_link_libraries(yijinjing_custom_provider_qualification PRIVATE yijinjing)
+  if(TARGET kungfu_compile_contract)
+    target_link_libraries(yijinjing_custom_provider_qualification PRIVATE kungfu_compile_contract)
+  endif()
+  target_compile_features(yijinjing_custom_provider_qualification PRIVATE cxx_std_20)
+  add_test(NAME yijinjing_custom_provider_qualification COMMAND yijinjing_custom_provider_qualification)
+
+  # A no-SQLite profile must retain fact authority, not merely compile the
+  # journal target. These two independent programs write and then reopen a
+  # causal fact ledger without starting libkungfu or a projection backend.
+  add_executable(yijinjing_fact_ledger_host ../../slices/fact-ledger/host.cpp)
+  target_link_libraries(yijinjing_fact_ledger_host PRIVATE yijinjing)
+  add_executable(yijinjing_fact_ledger_export ../../slices/fact-ledger/export.cpp)
+  target_link_libraries(yijinjing_fact_ledger_export PRIVATE yijinjing)
+  set(YIJINJING_FACT_LEDGER_TEST_ROOT "${CMAKE_CURRENT_BINARY_DIR}/fact-ledger-qualification")
+  add_test(NAME yijinjing_fact_authority_reset
+    COMMAND ${CMAKE_COMMAND} -E remove_directory "${YIJINJING_FACT_LEDGER_TEST_ROOT}")
+  set_tests_properties(yijinjing_fact_authority_reset PROPERTIES FIXTURES_SETUP yijinjing_fact_root)
+  add_test(NAME yijinjing_fact_authority_write
+    COMMAND yijinjing_fact_ledger_host "${YIJINJING_FACT_LEDGER_TEST_ROOT}" 3)
+  set_tests_properties(yijinjing_fact_authority_write PROPERTIES
+    FIXTURES_REQUIRED yijinjing_fact_root
+    FIXTURES_SETUP yijinjing_fact_ledger)
+  add_test(NAME yijinjing_fact_authority_reopen
+    COMMAND yijinjing_fact_ledger_export "${YIJINJING_FACT_LEDGER_TEST_ROOT}"
+      fact_ledger_slice host "${YIJINJING_FACT_LEDGER_TEST_ROOT}/export")
+  set_tests_properties(yijinjing_fact_authority_reopen PROPERTIES
+    FIXTURES_REQUIRED yijinjing_fact_ledger
+    PASS_REGULAR_EXPRESSION "causal_chain_verified: true")
+
   # Evidence tool only: this executable exercises the qualified production
   # surface but is not linked into or shipped with the runtime.
   add_executable(yijinjing_mmap_qualification tests/mmap_qualification.cpp)

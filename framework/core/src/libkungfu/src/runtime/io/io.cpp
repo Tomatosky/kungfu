@@ -3,7 +3,7 @@
 #include <kungfu/common.h>
 #include <kungfu/runtime/io.h>
 #include <kungfu/runtime/live/identity.h>
-#include <kungfu/runtime/util/rocks.h>
+#include <kungfu/runtime/live/key_value_store.h>
 #include <kungfu/yijinjing/journal/bus.h>
 #include <kungfu/yijinjing/log.h>
 #include <kungfu/yijinjing/schema/registry.h>
@@ -158,7 +158,7 @@ io_device::io_device(data::location_ptr home, const bool low_latency, io_mapping
   // keep the guarantees deterministic even when static-library linking drops
   // the seam installers' load-time static initializers
   journal::install_typed_frame_dumper();
-  util::install_coordinator_kv_provider();
+  live::install_coordinator_key_value_provider();
   if (spdlog::default_logger()->name().empty()) {
     yijinjing::log::setup_log(home_, home_->name);
   }

@@ -553,8 +553,20 @@ function renderTargetsCmake(contract, ownership) {
     for (const source of sources) {
       lines.push(`  "\${PROJECT_SOURCE_DIR}/${source}"`);
     }
+    lines.push(')');
+    for (const conditional of target.conditional_sources || []) {
+      lines.push(
+        `if(NOT "${conditional.dependency}" IN_LIST KUNGFU_BUILD_DEPENDENCY_ROOTS)`,
+        `  list(REMOVE_ITEM ${variable}`,
+      );
+      for (const file of conditional.files || []) {
+        lines.push(
+          `    "\${PROJECT_SOURCE_DIR}/${file.replace(/^src\/libkungfu\//, '')}"`,
+        );
+      }
+      lines.push('  )', 'endif()');
+    }
     lines.push(
-      ')',
       `add_library_object(${target.id} "\${${variable}}" "\${${options}}" "\${KUNGFU_BUILD_DIR}")`,
     );
     if ((target.dependencies || []).length) {

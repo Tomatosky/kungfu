@@ -59,7 +59,10 @@ set(KUNGFU_ADAPTERS_SOURCE_FILES
   "${PROJECT_SOURCE_DIR}/src/runtime/native_storage.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/sandbox/app_container.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/storage/provider.cpp"
+  "${PROJECT_SOURCE_DIR}/src/runtime/storage/provider_file.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/util/StackWalker.cpp"
+  "${PROJECT_SOURCE_DIR}/src/runtime/util/key_value_factory.cpp"
+  "${PROJECT_SOURCE_DIR}/src/runtime/util/key_value_rocksdb.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/util/nanomsg.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/util/rocks.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/util/signal.cpp"
@@ -68,6 +71,12 @@ set(KUNGFU_ADAPTERS_SOURCE_FILES
   "${PROJECT_SOURCE_DIR}/src/view/action_envelope.cpp"
   "${PROJECT_SOURCE_DIR}/src/view/schema.cpp"
 )
+if(NOT "rocksdb" IN_LIST KUNGFU_BUILD_DEPENDENCY_ROOTS)
+  list(REMOVE_ITEM KUNGFU_ADAPTERS_SOURCE_FILES
+    "${PROJECT_SOURCE_DIR}/src/runtime/util/key_value_rocksdb.cpp"
+    "${PROJECT_SOURCE_DIR}/src/runtime/util/rocks.cpp"
+  )
+endif()
 add_library_object(kungfu_adapters "${KUNGFU_ADAPTERS_SOURCE_FILES}" "${COMPILER_OPTIMIZE_ON_OPTIONS}" "${KUNGFU_BUILD_DIR}")
 target_link_libraries(kungfu_adapters PUBLIC kungfu_services kungfu_services_state_cache)
 target_link_libraries(kungfu_adapters PUBLIC ${KUNGFU_TARGET_KUNGFU_ADAPTERS_DEPENDENCIES})
