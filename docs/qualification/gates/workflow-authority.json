@@ -50,7 +50,7 @@
           "authority": "qualification",
           "publication": "none",
           "receipt": "diagnostic",
-          "definitionDigest": "sha256:ff4c92f7baa3e4c15c6a19056e5e3a64a2dcae5b7210ec85a23de505ff5f4cb5",
+          "definitionDigest": "sha256:3894261eb4d2e6d3d19ec1a200c24567b0c876983c324c66f0546a2036945f75",
           "credentials": {
             "githubToken": "read",
             "oidc": false,
@@ -78,21 +78,27 @@
             },
             {
               "index": 3,
+              "label": "name:Install pinned source acceptance tools",
+              "authority": "qualification",
+              "definitionDigest": "sha256:8f73a6ce23af072a4eb6783d631d2e07de85bf68d16f48656a94c69b229102f1"
+            },
+            {
+              "index": 4,
               "label": "name:Install frozen workspace",
               "authority": "qualification",
               "definitionDigest": "sha256:69ea68940dc616ba6987005e02e4a7b177faea26e2b88a9099bd7fdee99532a4"
             },
             {
-              "index": 4,
+              "index": 5,
               "label": "name:Resolve and run affected native closure",
-              "authority": "qualification",
+              "authority": "evidence-publication",
               "definitionDigest": "sha256:0739d9270b170c10be5fe15be1aa8b877cf7eea4f6bcffdfa655fdfef2ee3790"
             },
             {
-              "index": 5,
+              "index": 6,
               "label": "name:Upload raw plan, receipt, and logs",
               "authority": "evidence-publication",
-              "definitionDigest": "sha256:514fa92b2e415e583b2468677de7089278684ba772400a690c90f004008eeb7d"
+              "definitionDigest": "sha256:bba7ae2210a39e6817240dd0e1bc92bf837ce79b6bb5fc3dd1f86aea1e0e4603"
             }
           ]
         }
