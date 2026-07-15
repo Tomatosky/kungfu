@@ -2,8 +2,10 @@
 metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
 adr_id: SHIFU-ADR-0006
-decision_status: proposed
-implementation_status: not-started
+decision_status: accepted
+implementation_status: staged
+implementation_commits: [07d0240808dbd8c037fa038a88b9a563456b5914]
+qualification_refs: [scripts/check-shifu-documentation-contract.mjs, scripts/shifu-documentation-runtime.test.mjs]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -16,7 +18,7 @@ last_reviewed: 2026-07-15
 
 # SHIFU-ADR-0006: Documentation Protocol and provider boundary
 
-- Status: proposed; implementation in this change
+- Status: accepted; implementation staged in this change
 - Date: 2026-07-15
 - Scope: project documentation submission, canonical roots, provider seams,
   diagnostics, and validation receipts
