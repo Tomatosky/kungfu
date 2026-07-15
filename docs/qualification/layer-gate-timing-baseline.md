@@ -247,19 +247,25 @@ bounding only the Episode seeds and accumulation/contention counts:
 
 | Execution profile | End-to-end budget | Upstream allowance | Reserve | Episode workload |
 | --- | ---: | ---: | ---: | --- |
-| `alpha` | 2700s | 750s | 240s | `mvp-smoke-v1` |
+| `alpha` | 5400s | 2400s | 600s | `mvp-smoke-v1` |
 | `release-candidate` | 3600s | 900s | 600s | `mvp-candidate-v1` |
 | `full-patrol` | 14400s | 900s | 900s | unchanged `mvp-baseline-v1` |
 
-The alpha figures are anchored to the slowest measured upstream host
+The original alpha figures were anchored to the slowest measured upstream host
 (`673.13s` Linux install plus distribution) with additional setup allowance.
 The first exact-source hosted acceptance run then measured `1467s` inside the
 qualification process because runtime activation intentionally rebuilds and
-verifies the complete product distribution. The original `810s` execution
-allowance therefore rejected an otherwise passing Linux campaign. The revised
-alpha total preserves the upstream and reserve allocations while raising the
-qualification execution allowance to `1710s`; it does not skip or shorten any
-gate.
+verifies the complete product distribution. That raised the execution
+allowance from `810s` to `1710s`.
+
+GitHub run `29410685685` later exercised the expanded exact-source product gate
+on hosted Linux. Install plus build consumed `2086s`; the qualification wrapper
+then ran for `1751s`, reached the native upgrade evidence stage with all prior
+stages passing, and failed only because it exceeded the `1710s` execution
+allowance. The revised alpha profile reserves `2400s` for upstream work and
+`600s` for transfer and variance, leaving a `2400s` qualification execution
+allowance inside a `5400s` end-to-end budget. It does not skip or shorten any
+gate, fuzz target, or Episode workload.
 The release profile adds the measured 10,000 accumulation checkpoint while the
 100,000 checkpoint and three-seed soak remain available in full-patrol. The
 workflow summary fails when qualification exceeds the budget after subtracting
