@@ -3,8 +3,10 @@ metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
 adr_id: ADR-0100
 decision_status: accepted
-implementation_status: staged
+implementation_status: implemented
 implementation_commits: [ab315d671ac89d890d85ef91e336e160f1ba87f6]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/968]
+closure_pr: https://github.com/kungfu-systems/kungfu/pull/968
 qualification_refs: [xinfa/qualification/episode-provider-v1.json, xinfa/fixtures/negative/episode-provider-cases-v1.json]
 review_state: self-reviewed
 sensitivity: public
@@ -18,7 +20,7 @@ last_reviewed: 2026-07-15
 
 # ADR-0100: Xinfa admits qualified sealed Episodes as sourced successor-Atlas evidence
 
-- Status: accepted; implementation staged
+- Status: accepted; implementation implemented by PR #968
 - Date: 2026-07-15
 - Category: Xinfa / Episode provider / successor Atlas
 - Related: [ADR-0095](ADR-0095-xinfa-atlas-primitive-and-compatibility-boundary.md),
