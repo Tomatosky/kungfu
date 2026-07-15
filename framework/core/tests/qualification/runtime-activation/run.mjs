@@ -304,15 +304,6 @@ export function suiteInvocation(suite, options = {}) {
   if (platform !== 'win32' || command !== 'shifu.cmd') {
     return { command, args };
   }
-  // The qualification runner is itself launched by Shifu, so its environment
-  // already contains the pinned toolchain. Re-entering the batch shim for an
-  // `exec` suite nests cmd.exe inside Node spawnSync; Windows then propagates
-  // console interruption across both batch frames and aborts the outer Gate.
-  // Execute only the already-resolved tool directly while keeping non-exec
-  // repository tasks on the welded shifu.cmd surface.
-  if (args[0] === 'exec' && args.length >= 2) {
-    return { command: args[1], args: args.slice(2) };
-  }
   const comspec = options.comspec || env.ComSpec || env.COMSPEC || 'cmd.exe';
   if (args.some((value) => /[\r\n%!]/.test(String(value)))) {
     throw new Error(
