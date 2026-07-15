@@ -374,11 +374,8 @@ export function main(argv = process.argv.slice(2)) {
     ]
       .filter(Boolean)
       .join(path.delimiter);
-    const command = [
-      'call',
-      'shifu.cmd',
-      'exec',
-      'uv',
+    const command = 'uv';
+    const args = [
       'run',
       '--frozen',
       '--project',
@@ -390,17 +387,13 @@ export function main(argv = process.argv.slice(2)) {
       'framework/core/tests/python/test_runtime_service.py',
       '-vv',
       '-s',
-    ].join(' ');
+    ];
     return (
-      spawnSync(
-        process.env.ComSpec || process.env.COMSPEC || 'cmd.exe',
-        ['/d', '/s', '/c', command],
-        {
-          cwd: ROOT,
-          env,
-          stdio: 'inherit',
-        },
-      ).status ?? 1
+      spawnSync(command, args, {
+        cwd: ROOT,
+        env,
+        stdio: 'inherit',
+      }).status ?? 1
     );
   }
   const options = parseReleaseQualificationOptions(argv);
