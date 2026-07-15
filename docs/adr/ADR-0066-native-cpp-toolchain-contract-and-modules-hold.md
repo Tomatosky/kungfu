@@ -4,8 +4,8 @@ doc_type: architecture-decision
 adr_id: ADR-0066
 decision_status: accepted
 implementation_status: staged
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/951, https://github.com/kungfu-systems/kungfu/pull/955]
-qualification_refs: [framework/core/architecture/build-capabilities.json, framework/core/architecture/check-build-capabilities.mjs, framework/core/src/libyijinjing/tests/custom_provider_qualification.cpp, .github/workflows/core-build-profiles.yml, scripts/source-acceptance.mjs]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/951, https://github.com/kungfu-systems/kungfu/pull/955, https://github.com/kungfu-systems/kungfu/pull/966]
+qualification_refs: [framework/core/architecture/build-capabilities.json, framework/core/architecture/check-build-capabilities.mjs, framework/core/architecture/layers.json, framework/core/architecture/check-layers.mjs, framework/core/src/libkungfu/tests/domain_component_link_tests.cpp, framework/core/src/libyijinjing/tests/custom_provider_qualification.cpp, .github/workflows/core-build-profiles.yml, scripts/source-acceptance.mjs]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files]
@@ -138,6 +138,26 @@ workflow builds both `embedded-minimal` and `full` with Apple Clang, GCC and
 MSVC, then checks the selected identity and the custom-provider fixture. Local
 macOS qualification additionally rebuilds `embedded-sqlite` and the complete
 Node/Python/Electron/WASM `full` product.
+
+### Domain component graph stage (2026-07-15)
+
+The production Core source closure is now projected through eleven bounded
+domain components and eleven internal CMake targets instead of coarse service
+and adapter buckets. `framework/core/architecture/layers.json` is the authority
+for component ownership, entry points, declared dependencies and contract-test
+evidence; generated CMake targets retain `libkungfu` as the public facade while
+making ledger, state/query, live, storage, extension, adapter and composition
+responsibilities independently visible to the linker and architecture gate.
+
+The architecture checker enforces a six-to-twelve production-component budget,
+one owner for every production source and internal target, acyclic component
+and target graphs, declared target edges, CMake-backed contract tests, reverse
+layer/include rejection and source-responsibility budgets. The build-capability
+checker additionally requires every production component to be projected into
+the profile authority. Negative fixtures prove each failure mode, and the view
+adapter has an independent link test that does not consume the `libkungfu`
+facade. The refactor preserves the exact 54-file production source set and all
+four previously qualified build profiles.
 
 The 2026-07-12 baseline used source `175e5b7694aa`:
 

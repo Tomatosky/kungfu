@@ -24,13 +24,13 @@
     },
     {
       "id": "runtime-services",
-      "architecture_components": ["libkungfu-services"],
+      "architecture_components": ["runtime-ledger-services", "runtime-state-query-services", "runtime-live-services", "runtime-storage-services", "runtime-extension-services"],
       "requires": ["runtime-contracts"],
       "dependencies": []
     },
     {
       "id": "runtime-adapters",
-      "architecture_components": ["libkungfu-adapters"],
+      "architecture_components": ["runtime-storage-adapters", "runtime-platform-adapters"],
       "requires": ["runtime-services"],
       "dependencies": ["tabulate"]
     },
@@ -185,9 +185,15 @@
   ],
   "target_dependencies": {
     "kungfu_contracts": ["nlohmann-json", "nng", "flatbuffers", "rxcpp", "sqlite"],
-    "kungfu_services": ["fmt"],
-    "kungfu_services_state_cache": ["sqlite"],
-    "kungfu_adapters": ["flatbuffers", "nng", "sqlite", "rocksdb", "tabulate"],
+    "kungfu_ledger_services": [],
+    "kungfu_state_query_services": ["fmt"],
+    "kungfu_state_cache_services": ["sqlite"],
+    "kungfu_live_services": [],
+    "kungfu_storage_services": ["sqlite"],
+    "kungfu_extension_services": [],
+    "kungfu_storage_adapters": ["sqlite", "rocksdb"],
+    "kungfu_view_adapters": ["flatbuffers"],
+    "kungfu_platform_adapters": ["nng", "sqlite", "tabulate"],
     "kungfu_composition": []
   },
   "build_identity": {
