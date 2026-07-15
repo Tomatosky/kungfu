@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { test } from 'node:test';
+import { cliLauncherContent, cliProductLayout } from './cli-launcher.mjs';
 import {
   cliArchiveBase,
   desktopUpdaterArtifact,
@@ -27,6 +28,27 @@ test('CLI product archive name uses the Kungfu Episodes product prefix', () => {
   );
   assert.equal(cliArchiveBase('linux-x64'), 'kungfu-episodes-cli-linux-x64');
   assert.equal(cliArchiveBase('win32-x64'), 'kungfu-episodes-cli-win32-x64');
+});
+
+test('CLI product layout keeps the Unix launcher separate from its runtime tree', () => {
+  for (const platform of ['darwin', 'linux']) {
+    const layout = cliProductLayout(platform);
+    assert.equal(layout.launcher, 'kungfu');
+    assert.equal(layout.runtimeDirectory, 'runtime');
+    assert.equal(layout.runtimeEntrypoint, 'runtime/kungfu');
+    assert.notEqual(layout.launcher, layout.runtimeDirectory);
+    assert.match(
+      cliLauncherContent(platform),
+      /exec "\$here\/runtime\/kungfu" "\$@"/,
+    );
+  }
+
+  assert.deepEqual(cliProductLayout('win32'), {
+    launcher: 'kungfu.cmd',
+    runtimeDirectory: 'kungfu',
+    runtimeEntrypoint: 'kungfu/kungfu.exe',
+  });
+  assert.match(cliLauncherContent('win32'), /"%~dp0kungfu\\kungfu\.exe" %\*/);
 });
 
 test('product observability ignores errors from sibling components', () => {
