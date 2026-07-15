@@ -345,9 +345,13 @@ def _run_campaign(output_dir: Path, temp_parent: Path | None = None) -> int:
             final = _wait_for_markers(marker_path, 3)
             _write_authority(capsule_command_path, "8", "1")
             capsule_final = _wait_for_markers(capsule_marker_path, 3)
-            if peer.poll() is not None or {item["pid"] for item in final} != {peer_pid}:
+            peer_return_code = peer.poll()
+            ready_pids = sorted({item["pid"] for item in final})
+            if peer_return_code is not None or ready_pids != [peer_pid]:
                 raise RuntimeError(
-                    "runtime generation replacement restarted the Peer workload"
+                    "runtime generation replacement did not preserve the Peer workload: "
+                    f"peer_pid={peer_pid} ready_pids={ready_pids} "
+                    f"peer_return_code={peer_return_code}"
                 )
             if [len(first), len(second), len(final)] != [1, 2, 3]:
                 raise RuntimeError("unexpected Peer readiness sequence")

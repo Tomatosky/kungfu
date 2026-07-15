@@ -162,6 +162,14 @@ function runSuite(suite, outputDir) {
     const detail =
       campaign?.error || result.error?.message || 'campaign report unavailable';
     console.error(`[live-peer-continuity] native-campaign-error=${detail}`);
+    const peerTail = boundedDiagnosticTail(
+      path.join(outputDir, 'native-campaign', 'peer.log'),
+    );
+    if (peerTail) {
+      console.error(
+        `[live-peer-continuity] peer-log-tail-start\n${peerTail}\n[live-peer-continuity] peer-log-tail-end`,
+      );
+    }
   }
   console.log(
     `[live-peer-continuity] suite=${suite.id} status=${passed ? 'passed' : 'failed'} duration_ms=${Date.now() - started}`,
@@ -235,6 +243,23 @@ function nativeCampaignReport(outputDir) {
   } catch {
     return null;
   }
+}
+
+export function boundedDiagnosticTail(
+  logPath,
+  { maxBytes = 16 * 1024, maxLines = 40 } = {},
+) {
+  if (!fs.existsSync(logPath)) return null;
+  const content = fs.readFileSync(logPath);
+  const tail = content.subarray(Math.max(0, content.length - maxBytes));
+  return tail
+    .toString('utf8')
+    .replaceAll('\r\n', '\n')
+    .trimEnd()
+    .split('\n')
+    .slice(-maxLines)
+    .join('\n')
+    .trimStart();
 }
 
 export function evaluateQualification({
