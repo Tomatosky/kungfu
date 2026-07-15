@@ -302,6 +302,7 @@ function planFromChanged(changedFiles, authority, buildAuthority, base, head) {
   const closure = new Set([...direct, ...broad]);
   const internalByComponent = new Map();
   for (const target of authority.internal_targets) {
+    if (target.kind === 'INTERFACE') continue;
     const list = internalByComponent.get(target.component) || [];
     list.push(target.id);
     internalByComponent.set(target.component, list);
@@ -666,6 +667,8 @@ function selfTest(authority, buildAuthority) {
       throw new Error('no propagation');
     if (!plan.tests.includes('kungfu_public_contract_compatibility_tests'))
       throw new Error('compat test missing');
+    if (plan.targets.includes('kungfu_contracts'))
+      throw new Error('INTERFACE target scheduled as a build goal');
   });
   expect(
     'target deletion fails closed',
