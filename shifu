@@ -219,12 +219,11 @@ fi
 # Project Cut is an agent-first JSON surface. Dispatch it directly so a
 # non-zero protocol result cannot be followed by pnpm lifecycle text on stdout.
 if [ "${1:-}" = "project-cut" ]; then
-  shift
   if command -v fnm >/dev/null 2>&1; then
     fnm install >/dev/null 2>&1 || true
-    exec fnm exec --using-file -- node ./framework/project-cut/bin/project-cut.mjs "$@"
+    exec fnm exec --using-file -- node ./scripts/run-project-cut-entry.mjs "$@"
   elif command -v node >/dev/null 2>&1; then
-    exec node ./framework/project-cut/bin/project-cut.mjs "$@"
+    exec node ./scripts/run-project-cut-entry.mjs "$@"
   else
     echo "shifu: project-cut needs node" >&2
     exit 127

@@ -73,14 +73,13 @@ if /i "%~1"=="adr:release:gate" goto adrrelease
 
 :projectcut
 if /i not "%~1"=="project-cut" goto sourceacceptance
-shift
 where fnm >nul 2>nul && (
   fnm install >nul 2>nul
-  fnm exec --using-file -- node "%~dp0framework\project-cut\bin\project-cut.mjs" %*
+  fnm exec --using-file -- node "%~dp0scripts\run-project-cut-entry.mjs" %*
   exit /b !errorlevel!
 )
 where node >nul 2>nul && (
-  node "%~dp0framework\project-cut\bin\project-cut.mjs" %*
+  node "%~dp0scripts\run-project-cut-entry.mjs" %*
   exit /b !errorlevel!
 )
 echo shifu: project-cut needs node 1>&2

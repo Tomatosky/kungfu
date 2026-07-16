@@ -42,6 +42,10 @@ const SHIFU = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../shifu',
 );
+const SHIFU_CMD = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../shifu.cmd',
+);
 
 function git(root, ...args) {
   return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
@@ -407,4 +411,11 @@ test('CLI emits one stable JSON envelope and requires the agent-first flag', (t)
   assert.equal(publicResponse.ok, false);
   assert.equal(publicResponse.diagnostics[0].code, 'missing-cut');
   assert.equal(publicResponse.recovery.action, 'prepare-project-cut');
+
+  const windowsProjectCut = fs
+    .readFileSync(SHIFU_CMD, 'utf8')
+    .match(/:projectcut[\s\S]*?:sourceacceptance/iu)?.[0];
+  assert.ok(windowsProjectCut, 'Windows Project Cut dispatch must be present');
+  assert.doesNotMatch(windowsProjectCut, /^shift\s*$/imu);
+  assert.match(windowsProjectCut, /scripts\\run-project-cut-entry\.mjs" %\*/iu);
 });
