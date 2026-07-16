@@ -33,6 +33,7 @@ STATE_SCHEMA = "kungfu.runtime.peer-lifecycle-state/v1"
 STATUS_SCHEMA = "kungfu.runtime.peer-lifecycle-status/v1"
 PLAN_SCHEMA = "kungfu.runtime.peer-lifecycle-plan/v1"
 READY_SCHEMA = "kungfu.runtime.peer-ready/v1"
+IDENTITY_REQUEST_SCHEMA = "kungfu.runtime.peer-identity-request/v1"
 RECOVERY_SCHEMA = "kungfu.runtime.peer-recovery/v1"
 PEER_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 HEARTBEAT_TTL_SECONDS = 5.0
@@ -178,6 +179,10 @@ def spec_path(runtime_dir: str | os.PathLike[str], peer_id: str) -> Path:
 
 def ready_path(runtime_dir: str | os.PathLike[str], peer_id: str) -> Path:
     return peer_dir(runtime_dir, peer_id) / "ready.json"
+
+
+def identity_request_path(runtime_dir: str | os.PathLike[str], peer_id: str) -> Path:
+    return peer_dir(runtime_dir, peer_id) / "identity-request.json"
 
 
 def log_path(runtime_dir: str | os.PathLike[str], peer_id: str) -> Path:
@@ -673,6 +678,18 @@ def _bound_peer_identity_from_environment(pid: int) -> str | None:
         "readyToken": os.environ.get("KF_PEER_READY_TOKEN"),
         "peerPid": pid,
     }
+    _write_json(
+        Path(state_dir) / "identity-request.json",
+        {
+            "schema": IDENTITY_REQUEST_SCHEMA,
+            "peerId": expected["peerId"],
+            "hostGeneration": expected["peerOwnerHostGeneration"],
+            "peerGeneration": expected["peerGeneration"],
+            "readyToken": expected["readyToken"],
+            "pid": pid,
+            "requestedAt": _now(),
+        },
+    )
     deadline = time.monotonic() + _peer_identity_binding_timeout()
     managed_state = Path(state_dir) / "state.json"
     while True:
@@ -786,11 +803,12 @@ def _host_bind_state(
 
 def _spawn_peer(
     spec: Mapping[str, Any], state: dict[str, Any]
-) -> subprocess.Popen[Any]:
+) -> tuple[psutil.Process | subprocess.Popen[Any], float]:
     peer_id = str(state["peerId"])
     runtime = str(state["runtimeDir"])
     generation = int(state.get("peerGeneration") or 0) + 1
     token = hashlib.sha256(os.urandom(32)).hexdigest()
+    readiness_deadline = time.monotonic() + float(spec["readiness"]["timeoutSeconds"])
     environment = {
         **os.environ,
         "KF_RUNTIME_DIR": runtime,
@@ -806,6 +824,10 @@ def _spawn_peer(
         ready_path(runtime, peer_id).unlink()
     except FileNotFoundError:
         pass
+    try:
+        identity_request_path(runtime, peer_id).unlink()
+    except FileNotFoundError:
+        pass
     with log_path(runtime, peer_id).open("ab") as log:
         child = subprocess.Popen(
             list(spec["command"]["argv"]),
@@ -816,20 +838,42 @@ def _spawn_peer(
             stderr=log,
             shell=False,
         )
-    peer_identity = _await_process_identity(child.pid)
-    if peer_identity is None:
+    bound = _await_peer_identity_request(
+        child,
+        runtime,
+        peer_id,
+        int(state["hostGeneration"]),
+        generation,
+        token,
+        max(0.0, readiness_deadline - time.monotonic()),
+    )
+    if bound is None:
+        request = _read_json(identity_request_path(runtime, peer_id))
+        requested_pid = request.get("pid")
+        requested_identity = (
+            _process_identity(requested_pid)
+            if isinstance(requested_pid, int)
+            and _is_process_or_descendant(child.pid, requested_pid)
+            else None
+        )
+        if requested_identity is not None and isinstance(requested_pid, int):
+            _terminate_matching(requested_pid, requested_identity, force=True)
         if child.poll() is None:
             child.kill()
-        child.wait(timeout=5)
+        try:
+            child.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            pass
         raise PeerLifecycleError(
             "process-identity-unavailable",
-            "Peer process start identity was unavailable",
+            "Peer did not present a host-verifiable process identity",
         )
+    peer_pid, peer_identity = bound
     state.update(
         {
             "peerGeneration": generation,
             "peerOwnerHostGeneration": state["hostGeneration"],
-            "peerPid": child.pid,
+            "peerPid": peer_pid,
             "peerStartIdentity": peer_identity,
             "readyToken": token,
             "readinessState": "registering",
@@ -839,7 +883,67 @@ def _spawn_peer(
         }
     )
     _host_write_state(runtime, peer_id, int(state["hostGeneration"]), state)
-    return child
+    peer = child if peer_pid == child.pid else psutil.Process(peer_pid)
+    return peer, readiness_deadline
+
+
+def _await_peer_identity_request(
+    child: subprocess.Popen[Any],
+    runtime_dir: str,
+    peer_id: str,
+    host_generation: int,
+    peer_generation: int,
+    ready_token: str,
+    timeout: float,
+) -> tuple[int, str] | None:
+    """Bind the kernel identity of the actual launched process.
+
+    Windows virtual-environment launchers may wait on a child interpreter, so
+    ``Popen.pid`` is not always the PID seen by Python inside the Peer.  The
+    request is fenced by the launch token and must name the launched process or
+    one of its descendants before the host signs its kernel start identity.
+    """
+
+    deadline = time.monotonic() + max(0.0, timeout)
+    expected = {
+        "schema": IDENTITY_REQUEST_SCHEMA,
+        "peerId": peer_id,
+        "hostGeneration": host_generation,
+        "peerGeneration": peer_generation,
+        "readyToken": ready_token,
+    }
+    request_file = identity_request_path(runtime_dir, peer_id)
+    while True:
+        request = _read_json(request_file)
+        requested_pid = request.get("pid")
+        if (
+            all(request.get(key) == value for key, value in expected.items())
+            and isinstance(requested_pid, int)
+            and requested_pid > 0
+            and _is_process_or_descendant(child.pid, requested_pid)
+        ):
+            identity = _process_identity(requested_pid)
+            if identity is not None:
+                return requested_pid, identity
+        if time.monotonic() >= deadline:
+            return None
+        time.sleep(0.02)
+
+
+def _is_process_or_descendant(parent_pid: int, candidate_pid: int) -> bool:
+    if candidate_pid == parent_pid:
+        return True
+    try:
+        process = psutil.Process(candidate_pid)
+        for _ in range(64):
+            process = process.parent()
+            if process is None:
+                return False
+            if process.pid == parent_pid:
+                return True
+    except (psutil.Error, OSError, ValueError):
+        return False
+    return False
 
 
 def _managed_peer_alive(
@@ -974,9 +1078,8 @@ def run_host(
                             break
                         time.sleep(0.2)
                     break
-            peer = _spawn_peer(spec, state)
+            peer, deadline = _spawn_peer(spec, state)
             adopted = False
-            deadline = time.monotonic() + float(spec["readiness"]["timeoutSeconds"])
             while time.monotonic() < deadline and not stopping:
                 state = _read_json(state_file)
                 if state.get("desiredState") != "running":

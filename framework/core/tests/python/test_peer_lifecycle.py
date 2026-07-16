@@ -18,7 +18,7 @@ def _spec(*, process_exit="restart", durable_state="declared", max_restarts=3):
         "schema": peer_lifecycle.SPEC_SCHEMA,
         "peerId": "test.probe",
         "command": {"argv": ["probe", "--serve"]},
-        "readiness": {"kind": "file-handshake", "timeoutSeconds": 10},
+        "readiness": {"kind": "file-handshake", "timeoutSeconds": 30},
         "recovery": {
             "schema": peer_lifecycle.RECOVERY_SCHEMA,
             "processExit": process_exit,
@@ -285,6 +285,84 @@ def test_peer_identity_binding_waits_past_the_kernel_lookup_window(
 
     assert (
         peer_lifecycle._bound_peer_identity_from_environment(pid) == "host-bound-start"
+    )
+
+
+def test_host_binds_the_actual_descendant_process_from_a_fenced_request(
+    tmp_path, monkeypatch
+):
+    runtime_dir = str(tmp_path / "runtime")
+    peer_lifecycle._write_json(
+        peer_lifecycle.identity_request_path(runtime_dir, "test.probe"),
+        {
+            "schema": peer_lifecycle.IDENTITY_REQUEST_SCHEMA,
+            "peerId": "test.probe",
+            "hostGeneration": 4,
+            "peerGeneration": 2,
+            "readyToken": "token-12",
+            "pid": 202,
+        },
+    )
+
+    class Child:
+        pid = 101
+
+    monkeypatch.setattr(
+        peer_lifecycle,
+        "_is_process_or_descendant",
+        lambda parent, candidate: (parent, candidate) == (101, 202),
+    )
+    monkeypatch.setattr(
+        peer_lifecycle,
+        "_process_identity",
+        lambda pid: "filetime:202" if pid == 202 else None,
+    )
+
+    assert peer_lifecycle._await_peer_identity_request(
+        Child(),  # type: ignore[arg-type]
+        runtime_dir,
+        "test.probe",
+        4,
+        2,
+        "token-12",
+        0,
+    ) == (202, "filetime:202")
+
+
+def test_host_rejects_an_identity_request_outside_the_spawned_process_tree(
+    tmp_path, monkeypatch
+):
+    runtime_dir = str(tmp_path / "runtime")
+    peer_lifecycle._write_json(
+        peer_lifecycle.identity_request_path(runtime_dir, "test.probe"),
+        {
+            "schema": peer_lifecycle.IDENTITY_REQUEST_SCHEMA,
+            "peerId": "test.probe",
+            "hostGeneration": 4,
+            "peerGeneration": 2,
+            "readyToken": "token-12",
+            "pid": 303,
+        },
+    )
+
+    class Child:
+        pid = 101
+
+    monkeypatch.setattr(
+        peer_lifecycle, "_is_process_or_descendant", lambda _parent, _candidate: False
+    )
+
+    assert (
+        peer_lifecycle._await_peer_identity_request(
+            Child(),  # type: ignore[arg-type]
+            runtime_dir,
+            "test.probe",
+            4,
+            2,
+            "token-12",
+            0,
+        )
+        is None
     )
 
 
