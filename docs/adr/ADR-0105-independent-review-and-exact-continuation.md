@@ -3,22 +3,23 @@ metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
 adr_id: ADR-0105
 decision_status: accepted
-implementation_status: staged
-implementation_prs: []
-qualification_refs: [framework/core/tests/python/test_atlas_storage.py, framework/core/tests/python/test_agent_console_contract.py, extensions/work-dashboard/tests/mission-control-profile.test.ts, framework/core/src/python/kungfu/agent/kfd3_api.registry.json, framework/project-cut/qualification/three-agent-dogfood/actor-b-review.json, framework/project-cut/qualification/three-agent-dogfood/actor-b-continuation-plan.json]
+implementation_status: implemented
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/980, https://github.com/kungfu-systems/kungfu/pull/1000, https://github.com/kungfu-systems/kungfu/pull/1002]
+closure_pr: https://github.com/kungfu-systems/kungfu/pull/1002
+qualification_refs: [framework/core/tests/python/test_atlas_storage.py, framework/core/tests/python/test_agent_console_contract.py, extensions/work-dashboard/tests/mission-control-profile.test.ts, framework/core/src/python/kungfu/agent/kfd3_api.registry.json, framework/project-cut/qualification/three-agent-dogfood/final-actor-b-review.json, framework/project-cut/qualification/three-agent-dogfood/final-actor-c-continuation.json, framework/project-cut/qualification/three-agent-dogfood/final-phase-matrix.json]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
 period: 2026-07-16
 theme: independent-review-exact-continuation
 confidence: high
-evidence_grade: B
+evidence_grade: A
 last_reviewed: 2026-07-16
 ---
 
 # ADR-0105: Completion review is independent, root-bound, and mechanically continuable
 
-- Status: accepted; implementation stage-ready
+- Status: accepted; implemented and product-qualified
 - Date: 2026-07-16
 - Category: Mission Control / KFD-2 / KFD-3 / Project Cut
 - Related: [ADR-0052](ADR-0052-kfd2-assessment-lifecycle-and-executors.md),
@@ -117,3 +118,20 @@ root inputs make handoff more explicit, and retained full evidence may still be
 required for deep capabilities. The design deliberately prefers a visible
 `partial` or evidence request over either false closure or a blanket history
 failure.
+
+## Final retained qualification
+
+The final product oracle used independent fresh clones and runtime roots for all
+participants. Actor A exported portable settlement bundle
+`sha256:3cb4a0d7025136fe15c4c1535f1b18f63a06bd1720ec64be51e0844eceaae4d6`;
+Actor B independently returned `fit` at review root
+`sha256:b40e6aa8be9ca69e2f5764d64efd6b9e73a58dcc0bdafa1baf0c60e058d21ac9`
+with continuation plan
+`sha256:d9ce88f66b45b5ada845f744b2bf2f2f9ca13bff3ac19c8da098849ecc889b71`.
+Actor C bound those exact roots and published successor Cut
+`sha256:bd41466469738ac0b1e0a0247fadb6f6358caab367a298f97651992d2bd0feb4`;
+a fourth clean clone reconciled the full parent/successor history without a
+runtime directory at receipt
+`sha256:8903577599974dd95871d346f20fa7cc05051676eafb9e05363cb02061e799c2`.
+The retained phase matrix records zero human relay, independent runtimes,
+native-only Mission Control writes, fault rejection, and GUI/CLI/Agent parity.
