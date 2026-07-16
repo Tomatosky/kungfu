@@ -79,6 +79,23 @@ test('Xinfa product tasks bypass unrelated Kungfu dependency caches', () => {
   }
 });
 
+test('Windows source-fresh launcher retries one transient build failure', () => {
+  const windows = fs.readFileSync(path.join(ROOT, 'shifu.cmd'), 'utf8');
+  const sourceBuild = windows.match(
+    /echo shifu: building launcher from source[\s\S]*?echo shifu: source build failed; falling back/,
+  )?.[0];
+  assert.ok(sourceBuild, 'Windows source-build block is missing');
+  assert.equal(
+    sourceBuild.match(
+      /cargo build --release --locked --manifest-path crates\\Cargo\.toml -p shifu/g,
+    )?.length,
+    2,
+  );
+  assert.match(sourceBuild, /if errorlevel 1 \(/);
+  assert.match(sourceBuild, /ping -n 3 127\.0\.0\.1/);
+  assert.match(sourceBuild, /if not errorlevel 1 \(/);
+});
+
 test('runtime guard rejects a direct task and accepts Shifu provenance', () => {
   const guard = path.join(ROOT, 'scripts', 'require-shifu.mjs');
   const rejected = spawnSync(process.execPath, [guard, 'build:core'], {

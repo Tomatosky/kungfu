@@ -186,7 +186,16 @@ set "_KFC_TGTKEY=%_KFC_TGTKEY::=%"
 set "_KFC_TGT=%_KFC_CACHE%\kungfu\shifu\cargo-target\%_KFC_TGTKEY%"
 echo shifu: building launcher from source ^(cargo build --release^) 1>&2
 set "CARGO_TARGET_DIR=%_KFC_TGT%"
-cargo build --release --locked --manifest-path crates\Cargo.toml -p shifu 1>&2 && (
+cargo build --release --locked --manifest-path crates\Cargo.toml -p shifu 1>&2
+if errorlevel 1 (
+  rem Windows scanners and concurrent first-use processes can briefly hold a
+  rem just-linked executable. Retry once after a bounded delay; a second
+  rem failure keeps the existing release-pinned fallback unchanged.
+  echo shifu: source build failed once; retrying after a short delay 1>&2
+  ping -n 3 127.0.0.1 >nul 2>nul
+  cargo build --release --locked --manifest-path crates\Cargo.toml -p shifu 1>&2
+)
+if not errorlevel 1 (
   set "CARGO_TARGET_DIR="
   if not exist "%_KFC_DEVDIR%" mkdir "%_KFC_DEVDIR%" >nul 2>nul
   copy /y "%_KFC_TGT%\release\shifu.exe" "%_KFC_DEVBIN%" >nul && (
