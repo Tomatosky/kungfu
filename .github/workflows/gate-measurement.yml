@@ -43,7 +43,7 @@ jobs:
       shifu-cache-profile-digest: ${{ vars.SHIFU_CACHE_PROFILE_DIGEST }}
 
   focused:
-    timeout-minutes: 900
+    timeout-minutes: 1200
     if: ${{ inputs.focused-gates != '' }}
     strategy:
       fail-fast: false

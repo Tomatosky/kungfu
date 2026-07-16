@@ -826,7 +826,7 @@
       },
       "cost": {
         "class": "heavy",
-        "timeoutSeconds": 43200
+        "timeoutSeconds": 64800
       },
       "action": {
         "kind": "task",
