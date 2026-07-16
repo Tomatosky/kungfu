@@ -4,8 +4,8 @@ doc_type: architecture-decision
 adr_id: ADR-0106
 decision_status: accepted
 implementation_status: implemented
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/987]
-closure_pr: https://github.com/kungfu-systems/kungfu/pull/987
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/999]
+closure_pr: https://github.com/kungfu-systems/kungfu/pull/999
 qualification_refs: [framework/runtime/kungfu-diagnostics.contract.json, scripts/check-health-diagnostics-contract.test.mjs, framework/core/tests/python/test_health_diagnostics.py, framework/core/tests/python/test_health_diagnostics_native.py, .github/workflows/core-build-profiles.yml]
 review_state: self-reviewed
 sensitivity: public
