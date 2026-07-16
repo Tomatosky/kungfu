@@ -97,4 +97,9 @@ test('focused measurement bootstraps without remote Action downloads', () => {
     /RUNNER_TOOL_CACHE%\\kungfu-gate-cargo-v1/,
     'Windows focused measurement must retain its managed Cargo cache',
   );
+  assert.match(
+    focusedJob[1],
+    /\$sourceDir = Join-Path \$env:RUNNER_TEMP "kg-\$env:GITHUB_RUN_ID-\$env:GITHUB_RUN_ATTEMPT"/,
+    'Windows focused measurement must preserve headroom for path-limited MSVC dependency outputs',
+  );
 });

@@ -90,7 +90,10 @@ jobs:
           KUNGFU_GATE_SOURCE_REF: ${{ inputs.source-ref || github.sha }}
         run: |
           $ErrorActionPreference = "Stop"
-          $sourceDir = Join-Path $env:RUNNER_TEMP "kungfu-gate-source-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT-${{ matrix.id }}"
+          # Keep the checkout leaf short: MSVC's C++ dependency scanner still
+          # writes .ddi outputs through path-limited APIs for long CMake target
+          # names, even when the host has long paths enabled.
+          $sourceDir = Join-Path $env:RUNNER_TEMP "kg-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
           New-Item -ItemType Directory -Force -Path $sourceDir | Out-Null
           git -C $sourceDir init
           git -C $sourceDir remote add origin https://github.com/kungfu-systems/kungfu.git

@@ -639,7 +639,7 @@
           "authority": "qualification",
           "publication": "none",
           "receipt": "diagnostic",
-          "definitionDigest": "sha256:938d4878a30e1e145127263b63929c885a612ca038179f53c1cda0fd7baf1797",
+          "definitionDigest": "sha256:cefde271ab9c2ac3bd1e7c35f68ee5679e1294b5453e41ab1e2a6769ccb89b05",
           "credentials": {
             "githubToken": "read",
             "oidc": false,
@@ -659,7 +659,7 @@
               "index": 2,
               "label": "name:Prepare locked consumer source on Windows",
               "authority": "qualification",
-              "definitionDigest": "sha256:ed9bd45a1ae4e72b6bf07ad8ee5c407a64be8b3d7433735e54bd66709ccb3f49"
+              "definitionDigest": "sha256:cabca1f3d55471366258d3cc71a64e8ef6e03b6498cd943c4697830746016d51"
             },
             {
               "index": 3,
