@@ -1,6 +1,6 @@
 {
   "schema": "kungfu.core-review-routes/v1",
-  "authorityRoot": "sha256:b59f580d316bb01def5fd85291566b822165758f801c8ac41996208f2ee301fa",
+  "authorityRoot": "sha256:cf8e851d8b6a44fc113c3ec254e7b9e38aefac8d575a1dd913a44abb883b9a95",
   "fallbackAccount": "@dongkeren",
   "routes": [
     {
@@ -177,7 +177,8 @@
       "component": "core-native-qualification",
       "paths": [
         "src/libkungfu/tests/",
-        "src/libyijinjing/tests/"
+        "src/libyijinjing/tests/",
+        "tests/qualification/"
       ],
       "ownerRole": "core/qualification",
       "backupRole": "core/architecture",
