@@ -91,9 +91,10 @@ test('Windows source-fresh launcher retries one transient build failure', () => 
     )?.length,
     2,
   );
-  assert.match(sourceBuild, /if errorlevel 1 \(/);
+  assert.match(sourceBuild, /_KFC_BUILD_ERROR=!errorlevel!/);
+  assert.match(sourceBuild, /_KFC_TGT=!_KFC_TGT!-retry-!RANDOM!-!RANDOM!/);
   assert.match(sourceBuild, /ping -n 3 127\.0\.0\.1/);
-  assert.match(sourceBuild, /if not errorlevel 1 \(/);
+  assert.match(sourceBuild, /if "!_KFC_BUILD_ERROR!"=="0" \(/);
 });
 
 test('runtime guard rejects a direct task and accepts Shifu provenance', () => {
