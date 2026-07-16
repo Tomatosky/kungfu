@@ -270,7 +270,10 @@ function planFromChanged(changedFiles, authority, buildAuthority, base, head) {
       continue;
     }
     const extension = path.extname(relative);
-    if (relative.startsWith('src/python/')) {
+    if (
+      relative.startsWith('src/python/') ||
+      relative.startsWith('tests/python/')
+    ) {
       reasons.push({ path: file, kind: 'python-surface' });
       continue;
     }
@@ -654,6 +657,7 @@ function selfTest(authority, buildAuthority) {
       [
         'framework/core/src/python/kungfu/workspace.py',
         'framework/core/src/python/kungfu/agent/commands.json',
+        'framework/core/tests/python/test_workspace.py',
       ],
       authority,
       buildAuthority,
