@@ -38,10 +38,15 @@
   "kungfuConfig": {
     "key": "settings",
     "name": "Settings",
+    "product": {
+      "roles": ["boot-critical"]
+    },
     "config": {
       "view": {
         "title": "Settings",
-        "capabilities": [],
+        "capabilities": [
+          "agentRuntime"
+        ],
         "system": true
       }
     }

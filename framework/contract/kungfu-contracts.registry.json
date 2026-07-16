@@ -77,6 +77,64 @@
           "artifact": "config/skill/schema/skill-manager.schema.json"
         }
       ]
+    },
+    {
+      "surface": "runtime",
+      "id": "kungfu-runtime",
+      "schema": "kungfu.runtime.contract/v1",
+      "weldedSurface": "runtime-activation-contract",
+      "env": "KUNGFU_RUNTIME_CONTRACT",
+      "file": "kungfu-runtime.contract.json",
+      "source": "framework/runtime/kungfu-runtime.contract.json",
+      "artifact": "config/kungfu-runtime.contract.json",
+      "probeFixture": "tests/fixtures/runtime-contract-topology-neutral/valid-cases.json",
+      "cli": {
+        "contract": ["contract", "show", "runtime", "--json"],
+        "schema": ["contract", "show", "runtime", "--json"]
+      }
+    },
+    {
+      "surface": "peer-lifecycle",
+      "id": "kungfu-peer-lifecycle",
+      "schema": "kungfu.runtime.peer-lifecycle-contract/v1",
+      "weldedSurface": "peer-process-lifecycle-control-plane",
+      "env": "KUNGFU_PEER_LIFECYCLE_CONTRACT",
+      "file": "kungfu-peer-lifecycle.contract.json",
+      "source": "framework/runtime/kungfu-peer-lifecycle.contract.json",
+      "artifact": "config/kungfu-peer-lifecycle.contract.json",
+      "cli": {
+        "contract": ["runtime", "peer", "contract", "--json"],
+        "schema": ["runtime", "peer", "contract", "--json"]
+      }
+    },
+    {
+      "surface": "upgrade",
+      "id": "kungfu-product-upgrade",
+      "schema": "kungfu.product-upgrade.contract/v1",
+      "weldedSurface": "product-upgrade-control-plane",
+      "env": "KUNGFU_UPGRADE_CONTRACT",
+      "file": "kungfu-upgrade.contract.json",
+      "source": "framework/upgrade/kungfu-upgrade.contract.json",
+      "artifact": "config/kungfu-upgrade.contract.json",
+      "cli": {
+        "contract": ["contract", "show", "upgrade", "--json"],
+        "schema": ["contract", "show", "upgrade", "--json"]
+      }
+    },
+    {
+      "surface": "agent-session",
+      "id": "kungfu-agent-session",
+      "schema": "kungfu.agent-session.contract/v1",
+      "weldedSurface": "agent-session-control-plane-contract",
+      "env": "KUNGFU_AGENT_SESSION_CONTRACT",
+      "file": "kungfu-agent-session.contract.json",
+      "source": "framework/agent-session/kungfu-agent-session.contract.json",
+      "artifact": "config/kungfu-agent-session.contract.json",
+      "probeFixture": "tests/fixtures/agent-session-capsule-contract/valid-cases.json",
+      "cli": {
+        "contract": ["contract", "show", "agent-session", "--json"],
+        "schema": ["contract", "show", "agent-session", "--json"]
+      }
     }
   ]
 }

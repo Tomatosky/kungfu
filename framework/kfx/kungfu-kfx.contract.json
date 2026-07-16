@@ -1,7 +1,7 @@
 {
   "schema": "kungfu.kfx.contract/v1",
   "id": "kungfu-kfx",
-  "version": 1,
+  "version": 8,
   "weldedSurface": "kfx-contract",
   "description": "Single source for KFX package manifests, discovery rules, trust inputs, and build detection.",
   "contractSchema": {
@@ -18,7 +18,9 @@
       "resolution",
       "knownCapabilities",
       "packageManifestSchema",
-      "firstPartyManifestSchema"
+      "profileSuiteSchema",
+      "firstPartyManifestSchema",
+      "nativeRuntime"
     ],
     "properties": {
       "schema": {
@@ -101,7 +103,13 @@
       "packageManifestSchema": {
         "type": "object"
       },
+      "profileSuiteSchema": {
+        "type": "object"
+      },
       "firstPartyManifestSchema": {
+        "type": "object"
+      },
+      "nativeRuntime": {
         "type": "object"
       }
     }
@@ -121,7 +129,6 @@
     "packageManifestFile": "package.json"
   },
   "knownCapabilities": [
-    "atlas",
     "domain",
     "ledger",
     "rewind",
@@ -157,6 +164,37 @@
           "name": {
             "type": "string"
           },
+          "product": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "roles"
+            ],
+            "properties": {
+              "roles": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "profile-view",
+                    "agent-console",
+                    "system-management",
+                    "tool",
+                    "devtool",
+                    "boot-critical"
+                  ]
+                },
+                "uniqueItems": true
+              },
+              "icon": {
+                "type": "string",
+                "minLength": 1
+              },
+              "order": {
+                "type": "integer"
+              }
+            }
+          },
           "suite": {
             "type": "object",
             "additionalProperties": false,
@@ -175,6 +213,11 @@
                   "minLength": 1
                 },
                 "uniqueItems": true
+              },
+              "profile": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._/-]+$"
               }
             }
           },
@@ -328,6 +371,90 @@
                     "uniqueItems": true
                   }
                 }
+              },
+              "wasm": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "world",
+                  "entry",
+                  "sha256",
+                  "capabilities",
+                  "engine",
+                  "fallback",
+                  "limits"
+                ],
+                "properties": {
+                  "world": {
+                    "type": "string",
+                    "const": "kungfu:journal/batch@1.0.0"
+                  },
+                  "entry": {
+                    "type": "string",
+                    "pattern": "^(?!.*\\.\\.)(?!/)[A-Za-z0-9._/-]+\\.wasm$"
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "capabilities": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "journal.read.batch"
+                      ]
+                    },
+                    "minItems": 1,
+                    "uniqueItems": true
+                  },
+                  "engine": {
+                    "type": "string",
+                    "const": "wasmtime"
+                  },
+                  "fallback": {
+                    "type": "string",
+                    "const": "wasmer"
+                  },
+                  "limits": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "fuel",
+                      "memoryPages",
+                      "batchFrames",
+                      "moduleBytes",
+                      "outputBytes"
+                    ],
+                    "properties": {
+                      "fuel": {
+                        "type": "integer",
+                        "minimum": 1000,
+                        "maximum": 1000000000
+                      },
+                      "memoryPages": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 256
+                      },
+                      "batchFrames": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 4096
+                      },
+                      "moduleBytes": {
+                        "type": "integer",
+                        "minimum": 8,
+                        "maximum": 16777216
+                      },
+                      "outputBytes": {
+                        "type": "integer",
+                        "minimum": 8,
+                        "maximum": 4096
+                      }
+                    }
+                  }
+                }
               }
             }
           }
@@ -340,6 +467,217 @@
           "python": {
             "type": "object",
             "additionalProperties": true
+          }
+        }
+      }
+    }
+  },
+  "profileSuiteSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://kungfu.link/schema/profile-suite-v1.json",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema",
+      "id",
+      "title",
+      "version",
+      "members",
+      "kfd1",
+      "kfd2",
+      "actions",
+      "views",
+      "migrations",
+      "permissions",
+      "qualification"
+    ],
+    "properties": {
+      "schema": {
+        "type": "string",
+        "const": "kungfu.profile-suite/v1"
+      },
+      "id": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$"
+      },
+      "title": {
+        "type": "string",
+        "minLength": 1
+      },
+      "version": {
+        "type": "string",
+        "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+      },
+      "members": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "required",
+          "optional"
+        ],
+        "properties": {
+          "required": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/$defs/memberKey"
+            }
+          },
+          "optional": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/$defs/memberKey"
+            }
+          }
+        }
+      },
+      "kfd1": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "contractWorld",
+          "factSurfaces",
+          "reducers",
+          "compatibility"
+        ],
+        "properties": {
+          "contractWorld": {
+            "$ref": "#/$defs/contentRef"
+          },
+          "factSurfaces": {
+            "$ref": "#/$defs/nonEmptyContentRefs"
+          },
+          "reducers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/contentRef"
+            }
+          },
+          "compatibility": {
+            "$ref": "#/$defs/contentRef"
+          }
+        }
+      },
+      "kfd2": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "claims",
+          "purposes",
+          "policies"
+        ],
+        "properties": {
+          "claims": {
+            "$ref": "#/$defs/nonEmptyContentRefs"
+          },
+          "purposes": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._-]+$"
+            }
+          },
+          "policies": {
+            "$ref": "#/$defs/nonEmptyContentRefs"
+          }
+        }
+      },
+      "kfd3": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "collaboration"
+        ],
+        "properties": {
+          "collaboration": {
+            "$ref": "#/$defs/contentRef"
+          }
+        }
+      },
+      "actions": {
+        "$ref": "#/$defs/registryFacet"
+      },
+      "views": {
+        "$ref": "#/$defs/registryFacet"
+      },
+      "migrations": {
+        "$ref": "#/$defs/registryFacet"
+      },
+      "permissions": {
+        "$ref": "#/$defs/registryFacet"
+      },
+      "qualification": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "profile"
+        ],
+        "properties": {
+          "profile": {
+            "$ref": "#/$defs/contentRef"
+          }
+        }
+      },
+      "experience": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "homeView"
+        ],
+        "properties": {
+          "homeView": {
+            "$ref": "#/$defs/memberKey"
+          }
+        }
+      }
+    },
+    "$defs": {
+      "memberKey": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[A-Za-z0-9._-]+$"
+      },
+      "contentRef": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "sha256"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._/-]+$"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      },
+      "nonEmptyContentRefs": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "$ref": "#/$defs/contentRef"
+        }
+      },
+      "registryFacet": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "registry"
+        ],
+        "properties": {
+          "registry": {
+            "$ref": "#/$defs/contentRef"
           }
         }
       }
@@ -379,6 +717,520 @@
               ]
             }
           }
+        }
+      }
+    }
+  },
+  "nativeRuntime": {
+    "schema": "kungfu.kfx.native-contract/v2",
+    "contractVersion": 2,
+    "versionNegotiation": {
+      "current": 2,
+      "supported": [
+        1,
+        2
+      ],
+      "minimumReader": 1,
+      "minimumWriter": 2,
+      "policy": "exact-supported-version-or-refuse"
+    },
+    "authority": {
+      "owner": "libkungfu",
+      "writer": "kungfu.runtime.kfx.native-service",
+      "scope": "one-runtime-directory",
+      "jsonEdge": "validation-and-transport-only",
+      "profileLifecycle": "existing-kungfu.profile-lifecycle/v1",
+      "receiptsAreTrustEvidence": false
+    },
+    "canonicalRoots": {
+      "sourceContractRoot": "core-computed",
+      "nativeContractRoot": "core-computed",
+      "packageRoot": "core-computed",
+      "suiteRoot": "profile-lifecycle-owned",
+      "planRoot": "core-computed",
+      "policyRoot": "core-computed",
+      "trustRoot": "core-computed",
+      "receiptRoot": "core-computed"
+    },
+    "service": {
+      "interface": "kungfu::runtime::kfx::native_kfx_service",
+      "operations": [
+        "list",
+        "inspect",
+        "resolve",
+        "plan",
+        "assess",
+        "apply",
+        "status",
+        "history"
+      ],
+      "bootstrapOperations": [
+        "contract",
+        "validate"
+      ],
+      "lifecycleStates": [
+        "discovered",
+        "inspected",
+        "planned",
+        "installed",
+        "activated",
+        "disabled",
+        "removed"
+      ]
+    },
+    "runtimeTiers": [
+      "first-party-pinned",
+      "verified-third-party",
+      "untrusted"
+    ],
+    "admissionGrades": [
+      "unverified",
+      "identity-verified",
+      "kfd-attested",
+      "product-system"
+    ],
+    "admissionAssessment": {
+      "schema": "kungfu.kfx-admission-assessment/v1",
+      "authority": "libkungfu-read-only-projection",
+      "verifierContract": {
+        "contract": "kungfu-buildchain-artifact-verification",
+        "schemaVersion": 1,
+        "requiredOutcome": "pass"
+      },
+      "operations": [
+        "inspect",
+        "install",
+        "update",
+        "enable",
+        "activate",
+        "host-placement",
+        "capability",
+        "migration",
+        "system-role"
+      ],
+      "trustInputs": {
+        "schema": "kungfu.kfx-trust-inputs/v1",
+        "required": [
+          "schema",
+          "packageRoot",
+          "sourceRoot",
+          "dependencyRoot",
+          "buildPlanRoot",
+          "toolchainRoot",
+          "artifactRoot",
+          "qualificationRoot",
+          "verifierRoot",
+          "issuer",
+          "publisher",
+          "contractVersion"
+        ],
+        "allowed": [
+          "schema",
+          "packageRoot",
+          "sourceRoot",
+          "dependencyRoot",
+          "buildPlanRoot",
+          "toolchainRoot",
+          "artifactRoot",
+          "qualificationRoot",
+          "verifierRoot",
+          "issuer",
+          "publisher",
+          "contractVersion"
+        ],
+        "rootFields": [
+          "packageRoot",
+          "sourceRoot",
+          "dependencyRoot",
+          "buildPlanRoot",
+          "toolchainRoot",
+          "artifactRoot",
+          "qualificationRoot",
+          "verifierRoot"
+        ],
+        "rootFormat": "canonical-lowercase-sha256"
+      },
+      "policy": {
+        "schema": "kungfu.kfx-admission-policy/v1",
+        "required": [
+          "schema",
+          "allowedIssuers",
+          "allowedPublishers",
+          "allowedContracts",
+          "allowedVerifierRoots",
+          "autoOperations",
+          "highConsequenceCapabilities",
+          "systemCapabilities",
+          "productSystemRoots",
+          "residualRisk"
+        ],
+        "allowed": [
+          "schema",
+          "allowedIssuers",
+          "allowedPublishers",
+          "allowedContracts",
+          "allowedVerifierRoots",
+          "autoOperations",
+          "highConsequenceCapabilities",
+          "systemCapabilities",
+          "productSystemRoots",
+          "residualRisk"
+        ],
+        "nonEmptyAllowlists": [
+          "allowedIssuers",
+          "allowedPublishers",
+          "allowedContracts",
+          "allowedVerifierRoots"
+        ]
+      },
+      "kfdAssessment": {
+        "schema": "kungfu.trust.assessment/v1",
+        "lifecycleOwner": "ADR-0052",
+        "requiredState": "fresh",
+        "required": [
+          "schema",
+          "state",
+          "assessment_key",
+          "report"
+        ],
+        "reportRequired": [
+          "report_hash",
+          "state",
+          "purpose",
+          "query_proof_root",
+          "contract_world",
+          "policy",
+          "fact_surfaces"
+        ],
+        "qualificationBinding": "trustInputs.qualificationRoot == report.report_hash"
+      },
+      "assessment": {
+        "required": [
+          "schema",
+          "registryRoot",
+          "trustReport",
+          "admissionPlan"
+        ],
+        "allowed": [
+          "schema",
+          "registryRoot",
+          "trustReport",
+          "admissionPlan"
+        ]
+      },
+      "trustReport": {
+        "schema": "kungfu.kfx-trust-report/v1",
+        "required": [
+          "schema",
+          "packageKey",
+          "packageRoot",
+          "registryRoot",
+          "purpose",
+          "cut",
+          "operation",
+          "supplyChainGrade",
+          "admissionGrade",
+          "runtimeAssessment",
+          "fresh",
+          "policyRoot",
+          "trustInputRoot",
+          "kfdAssessmentKey",
+          "kfdReportRoot",
+          "dependencyRoot",
+          "evidenceDependencies",
+          "reasons",
+          "constraints",
+          "recoveryGuidance",
+          "residualRisk",
+          "reportRoot"
+        ],
+        "allowed": [
+          "schema",
+          "packageKey",
+          "packageRoot",
+          "registryRoot",
+          "purpose",
+          "cut",
+          "operation",
+          "supplyChainGrade",
+          "admissionGrade",
+          "runtimeAssessment",
+          "fresh",
+          "policyRoot",
+          "trustInputRoot",
+          "kfdAssessmentKey",
+          "kfdReportRoot",
+          "dependencyRoot",
+          "evidenceDependencies",
+          "reasons",
+          "constraints",
+          "recoveryGuidance",
+          "residualRisk",
+          "reportRoot"
+        ]
+      },
+      "admissionPlan": {
+        "schema": "kungfu.kfx-admission-plan/v1",
+        "required": [
+          "schema",
+          "reportRoot",
+          "packageRoot",
+          "dependencyRoot",
+          "operation",
+          "allowed",
+          "requiredApprovals",
+          "constraints",
+          "planRoot",
+          "receiptDependencyRoot"
+        ],
+        "allowed": [
+          "schema",
+          "reportRoot",
+          "packageRoot",
+          "dependencyRoot",
+          "operation",
+          "allowed",
+          "requiredApprovals",
+          "constraints",
+          "planRoot",
+          "receiptDependencyRoot"
+        ]
+      },
+      "receiptDependency": {
+        "schema": "kungfu.kfx-admission-receipt-dependency/v1",
+        "requiredRoots": [
+          "reportRoot",
+          "planRoot",
+          "packageRoot",
+          "dependencyRoot"
+        ],
+        "mutationRule": "future-mutation-must-bind-exact-root"
+      },
+      "nonClaims": [
+        "verifier-report-is-not-universal-safety-proof",
+        "assessment-does-not-execute-or-authenticate-the-buildchain-verifier",
+        "assessment-does-not-mutate-package-or-profile-lifecycle",
+        "kfx-admission-consumes-adr-0052-report-and-does-not-replace-its-lifecycle"
+      ]
+    },
+    "legacyV1": {
+      "trustGradeMeaning": "runtime-tier",
+      "runtimeTiers": [
+        "first-party-pinned",
+        "verified-third-party",
+        "untrusted"
+      ],
+      "compatibility": "validate-only",
+      "authorityCutover": "forbidden"
+    },
+    "contributionKinds": [
+      "view",
+      "adapter",
+      "service",
+      "profile-member"
+    ],
+    "errors": [
+      "KF_KFX_CONTRACT_VERSION_UNSUPPORTED",
+      "KF_KFX_DOCUMENT_KIND_UNKNOWN",
+      "KF_KFX_SCHEMA_INVALID",
+      "KF_KFX_PATH_TRAVERSAL",
+      "KF_KFX_CLOSURE_MISSING",
+      "KF_KFX_OWNER_DUPLICATE",
+      "KF_KFX_PACKAGE_DUPLICATE",
+      "KF_KFX_ROOT_COLLISION",
+      "KF_KFX_MEMBER_MISSING",
+      "KF_KFX_SUITE_CYCLE",
+      "KF_KFX_HOST_UNKNOWN",
+      "KF_KFX_REGISTRY_STALE",
+      "KF_KFX_GENERATION_MISMATCH",
+      "KF_KFX_CAPABILITY_BROADENING",
+      "KF_KFX_ATTESTATION_INVALID",
+      "KF_KFX_ATTESTATION_ROOT_MISMATCH",
+      "KF_KFX_ATTESTATION_PRINCIPAL_REJECTED",
+      "KF_KFX_KFD_ASSESSMENT_INVALID",
+      "KF_KFX_ATTESTATION_REVOKED",
+      "KF_KFX_ATTESTATION_EXPIRED",
+      "KF_KFX_ASSESSMENT_STALE",
+      "KF_KFX_AUTHORITY_CLAIM_FORBIDDEN"
+    ],
+    "compatibility": {
+      "typescriptLoader": "retained-shadow-adapter",
+      "pythonInstaller": "retained-shadow-adapter",
+      "mutationCutover": "forbidden-before-native-parity",
+      "unknownFields": "reject",
+      "migration": "validate-existing-documents-before-authority-cutover"
+    },
+    "documents": {
+      "1": {
+        "request": {
+          "schema": "kungfu.kfx.native-request/v1",
+          "required": [
+            "schema",
+            "contractVersion",
+            "operation",
+            "packagePath",
+            "requestedCapabilities"
+          ],
+          "allowed": [
+            "schema",
+            "contractVersion",
+            "operation",
+            "packagePath",
+            "requestedCapabilities",
+            "actor"
+          ]
+        },
+        "inspection": {
+          "schema": "kungfu.kfx.native-inspection/v1",
+          "required": [
+            "schema",
+            "contractVersion",
+            "packageKey",
+            "packageRoot",
+            "trustGrade",
+            "owners",
+            "closure",
+            "declaredCapabilities"
+          ],
+          "allowed": [
+            "schema",
+            "contractVersion",
+            "packageKey",
+            "packageRoot",
+            "trustGrade",
+            "owners",
+            "closure",
+            "declaredCapabilities"
+          ]
+        },
+        "plan": {
+          "schema": "kungfu.kfx.native-plan/v1",
+          "required": [
+            "schema",
+            "contractVersion",
+            "planId",
+            "basis",
+            "nextGeneration",
+            "requestedCapabilities",
+            "grantedCapabilities",
+            "effects"
+          ],
+          "allowed": [
+            "schema",
+            "contractVersion",
+            "planId",
+            "basis",
+            "nextGeneration",
+            "requestedCapabilities",
+            "grantedCapabilities",
+            "effects"
+          ]
+        },
+        "receipt": {
+          "schema": "kungfu.kfx.native-receipt/v1",
+          "required": [
+            "schema",
+            "contractVersion",
+            "receiptId",
+            "planId",
+            "generation",
+            "verified"
+          ],
+          "allowed": [
+            "schema",
+            "contractVersion",
+            "receiptId",
+            "planId",
+            "generation",
+            "verified"
+          ]
+        }
+      },
+      "2": {
+        "request": {
+          "schema": "kungfu.kfx.native-request/v2",
+          "required": [
+            "schema",
+            "contractVersion",
+            "operation",
+            "packagePath",
+            "requestedCapabilities"
+          ],
+          "allowed": [
+            "schema",
+            "contractVersion",
+            "operation",
+            "packagePath",
+            "requestedCapabilities",
+            "actor"
+          ]
+        },
+        "inspection": {
+          "schema": "kungfu.kfx.native-inspection/v2",
+          "required": [
+            "schema",
+            "contractVersion",
+            "packageKey",
+            "packageRoot",
+            "runtimeTier",
+            "admissionGrade",
+            "owners",
+            "closure",
+            "declaredCapabilities"
+          ],
+          "allowed": [
+            "schema",
+            "contractVersion",
+            "packageKey",
+            "packageRoot",
+            "runtimeTier",
+            "admissionGrade",
+            "owners",
+            "closure",
+            "declaredCapabilities"
+          ]
+        },
+        "plan": {
+          "schema": "kungfu.kfx.native-plan/v2",
+          "required": [
+            "schema",
+            "contractVersion",
+            "planId",
+            "basis",
+            "nextGeneration",
+            "requestedCapabilities",
+            "grantedCapabilities",
+            "effects"
+          ],
+          "allowed": [
+            "schema",
+            "contractVersion",
+            "planId",
+            "basis",
+            "nextGeneration",
+            "requestedCapabilities",
+            "grantedCapabilities",
+            "effects"
+          ]
+        },
+        "receipt": {
+          "schema": "kungfu.kfx.native-receipt/v2",
+          "required": [
+            "schema",
+            "contractVersion",
+            "receiptId",
+            "planId",
+            "generation",
+            "verified"
+          ],
+          "allowed": [
+            "schema",
+            "contractVersion",
+            "receiptId",
+            "planId",
+            "generation",
+            "verified"
+          ]
         }
       }
     }

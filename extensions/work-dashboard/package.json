@@ -22,7 +22,8 @@
   ],
   "scripts": {
     "build": "kungfu sdk kfx build",
-    "clean": "kungfu sdk kfx clean"
+    "clean": "kungfu sdk kfx clean",
+    "test": "node --test tests/*.test.ts"
   },
   "dependencies": {
     "@kungfu-tech/api": "workspace:*",
@@ -39,13 +40,20 @@
   "kungfuConfig": {
     "key": "work-dashboard",
     "name": "Work dashboard",
+    "product": {
+      "roles": ["profile-view"],
+      "icon": "🧭",
+      "order": 10
+    },
     "config": {
       "view": {
-        "title": "Work dashboard",
+        "title": "Mission Control",
         "capabilities": [
           "ledger",
           "work",
-          "atlas"
+          "profile",
+          "storage",
+          "workspace"
         ]
       }
     }

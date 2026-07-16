@@ -27,10 +27,24 @@ Before acting in a Kungfu runtime, read local facts from the installed pack:
 kungfu agent brief
 kungfu agent capabilities --json
 kungfu agent choose-mode --json
+kungfu agent verify --json
 kungfu agent status --target claude --json
+kungfu agent console current --json
+kungfu agent runtime list --json
+kungfu agent session capabilities --json
+kungfu agent session list --json
 ```
 
 Use the smallest mode that preserves evidence:
+
+- When `console current` reports `available: true`, preserve its Console,
+  attempt, optional WorkRef, exact Profile roots, and envelope root. Query its
+  declared entrypoints before claiming what Kungfu can do.
+
+- Use `kungfu agent session` for the shared Capsule action port. Review the
+  exact `plan-start` or `plan-control` root before executing the matching
+  action. A delivery receipt proves PTY delivery only; mutate and close work
+  through public Profile/KFD-3 actions and their receipts.
 
 - `report` for structured work facts.
 - `atlas-projection` when importing an Atlas-style mission/goal/worktree repo
@@ -45,6 +59,11 @@ For Atlas projection, the source repo remains authoritative. Import and verify:
 
 ```sh
 kungfu atlas import --repo <atlas-repo> --json
+kungfu storage fsck --scope all --json
+kungfu storage repair --scope episode --episode-id <id> --plan --dry-run --json
+kungfu storage repair --scope episode --episode-id <id> --fetch --out repair-material.json --dry-run --json
+kungfu storage repair --scope episode --episode-id <id> --apply --from <bundle.json> --dry-run --json
+kungfu storage verify-sync --source <source-id> --json
 kungfu atlas show import --json
 kungfu atlas show missions --json
 kungfu atlas show goals --json

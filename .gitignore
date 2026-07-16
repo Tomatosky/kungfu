@@ -12,6 +12,7 @@
 *.vcxproj*
 *.flow
 *.log
+!docs/qualification/evidence/durability/**/*.raw/*.log
 
 # Node related
 node_modules/
@@ -30,12 +31,26 @@ __kungfulibs__/
 # Build related
 build/
 build-*/
+target/
 cmake-build-debug/
 dist/
+.buildchain/*
+!.buildchain/buildchain.toml
+!.buildchain/alpha-contract-lock.json
+!.buildchain/contract-lock.json
+!.buildchain/kfd/
+.buildchain/kfd/*
+!.buildchain/kfd/kfd-1/
+!.buildchain/kfd/kfd-1/**
+!.buildchain/kfd/kfd-2/
+!.buildchain/kfd/kfd-2/**
+!.buildchain/kfd/kfd-3/
+!.buildchain/kfd/kfd-3/**
 
 # Debug related
 debug-example/
 .cache/
+.lycheecache
 
 # assemble demo result
 *.csv

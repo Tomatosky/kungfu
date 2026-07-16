@@ -15,8 +15,13 @@
     "access": "public"
   },
   "main": "index.js",
+  "bin": {
+    "kungfu-spec": "bin/kungfu-spec.js"
+  },
   "files": [
     "index.js",
+    "bin/",
+    "conformance/",
     "schema/",
     "dist/",
     "README.md",
@@ -24,7 +29,8 @@
   ],
   "scripts": {
     "build": "node scripts/aggregate.js",
-    "verify": "node scripts/verify.js",
+    "pack:artifact": "node scripts/pack.js",
+    "verify": "node scripts/verify.js && node --test index.test.js",
     "prepublishOnly": "node scripts/aggregate.js && node scripts/verify.js",
     "clean": "rimraf dist"
   },

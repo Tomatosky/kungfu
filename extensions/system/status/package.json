@@ -38,11 +38,17 @@
   "kungfuConfig": {
     "key": "system-status",
     "name": "Status",
+    "product": {
+      "roles": ["devtool", "boot-critical"],
+      "icon": "🩺",
+      "order": 10
+    },
     "config": {
       "view": {
         "title": "Status",
         "capabilities": [
-          "ledger"
+          "ledger",
+          "storage"
         ],
         "system": true
       }

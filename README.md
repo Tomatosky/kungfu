@@ -1,145 +1,172 @@
 # Kungfu
 
-Kungfu is a framework and runtime for building journal-first,
-streaming-data applications. It is built on one discipline: never let a
-load-bearing truth rest on a claim you could fake — weld it to something that
-can't. ([design philosophy](docs/design-philosophy.md); [facts before
-trust](docs/facts-before-trust.md).)
+Kungfu is a local-first runtime that records real-world agent work and verifies
+what actually got done. It works alongside the agents and execution surfaces
+you already use.
 
-The product goal is to make fact-first responsibility the path of least
-resistance: once a user starts relying on Kungfu, the natural way to use it
-should be to inspect facts, understand responsibility, and make control
-decisions from local proof rather than from opaque claims.
+> **Never Guess. Facts Unfold.**
 
-At its core is a low-latency, append-only event journal with a shared,
-strongly-typed schema, exposed zero-copy to C++, Python, and Node. Kungfu
-offers these capabilities — the journal, in-process state, and deterministic
-replay — as a foundation (SDK) to build on, and ships a minimal reference
-application built on that foundation.
+**Status: Coming soon.**
 
-Originally created for trading execution, the core is general: anything that
-needs to capture, share, and faithfully replay high-frequency event streams.
+<!-- buildchain:badges:start -->
+[![KFD-1: declared](https://buildchain.libkungfu.dev/badges/v1/kfd-1/declared.svg)](https://github.com/kungfu-systems/kungfu/releases/latest/download/buildchain.release.json)
+[![KFD-2: declared](https://buildchain.libkungfu.dev/badges/v1/kfd-2/declared.svg)](https://github.com/kungfu-systems/kungfu/releases/latest/download/buildchain.release.json)
+[![KFD-3: declared](https://buildchain.libkungfu.dev/badges/v1/kfd-3/declared.svg)](https://github.com/kungfu-systems/kungfu/releases/latest/download/buildchain.release.json)
+[![KFD-4: declared](https://buildchain.libkungfu.dev/badges/v1/kfd-4/declared.svg)](https://github.com/kungfu-systems/kungfu/releases/latest/download/buildchain.release.json)
+[![Buildchain Release Passport: declared](https://buildchain.libkungfu.dev/badges/v1/buildchain-release-passport/declared.svg)](https://github.com/kungfu-systems/kungfu/releases/latest/download/buildchain.release.json)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-0969da.svg)](https://github.com/kungfu-systems/kungfu/blob/HEAD/LICENSE)
+[![Platform: macOS | Linux | Windows](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-6e7781.svg)](https://github.com/kungfu-systems/kungfu/releases/latest/download/buildchain.release.json)
+[![Source Acceptance](https://github.com/kungfu-systems/kungfu/actions/workflows/source-acceptance.yml/badge.svg)](https://github.com/kungfu-systems/kungfu/actions/workflows/source-acceptance.yml)
+[![Buildchain Validate](https://github.com/kungfu-systems/kungfu/actions/workflows/buildchain-validate.yml/badge.svg)](https://github.com/kungfu-systems/kungfu/actions/workflows/buildchain-validate.yml)
+[![DCO](https://github.com/kungfu-systems/kungfu/actions/workflows/dco.yml/badge.svg)](https://github.com/kungfu-systems/kungfu/actions/workflows/dco.yml)
+<!-- buildchain:badges:end -->
 
-## Core ideas
+Kungfu turns execution into **Episodes**, bounded causal units that bind Facts,
+Artifacts, Receipts, dependencies, and verification roots into one inspectable
+record. Episodes can be sealed, exported, and replayed to support recovery and
+evidence-based Decisions.
 
-- **Journal-first data plane** — one append-only event log
-  ([`yijinjing`](framework/core)) with a unified type system
-  ([`longfist`](framework/core)) carrying source / destination / nanosecond
-  timestamp / message type. Every component consumes the same frames rather than
-  inventing its own format.
-- **Zero-copy, multi-language runtime** — the same in-process journal data is
-  shared across C++, Python, and Node (N-API) without serialization on the hot
-  path.
-- **Deterministic replay** — live and replay run on the same runtime and the
-  same journal semantics, so recorded streams replay with high precision rather
-  than through a separate engine.
-
-## Build on it
-
-Kungfu is meant to be a base others build on, not a single fixed application:
-
-- **Capabilities SDK** — consume journal / state / replay from your own code in
-  C++, Python, or Node.
-- **Extension points** — add features and UI to a Kungfu application.
-- **Application SDK** — assemble a complete application on top of Kungfu, with
-  Kungfu as the underlying dependency.
-
-The repository ships the core plus a minimal reference application that
-demonstrates and exercises these capabilities.
-
-## The toolchain comes with the runtime
-
-A guiding principle of kungfu is that the machine adapts to the person, not the
-other way around. The `kungfu` runtime is batteries-included: it embeds a Python
-and a Node runtime and brings a full Python development lifecycle — dependency
-management, formatting, and ahead-of-time compilation — reachable through
-`kungfu engage`. Building a kfx extension does not start by assembling a
-toolchain: most extension development needs no separately installed Python,
-Node, or package manager.
-
-The runtime deliberately absorbs this complexity so its users do not have to. To
-keep that convenience sustainable rather than bespoke, the absorbed tooling is
-built on mainstream, well-maintained foundations.
-
-## Components
-
-- **Core & runtime** — `longfist` (type system) and `yijinjing` (journal
-  runtime) with Python and Node bindings, plus the `kungfu` runtime, packaged as
-  `@kungfu-tech/core`. It embeds a Python and a Node runtime and is fronted by
-  the `kungfu` end-user command; operator-facing shell slices such as
-  `kungfu cockpit`, managed runs, and skill context injection grow under the
-  same command.
-- **Capability SDK** — typed, framework-neutral access to journal / state /
-  replay (`framework/api`).
-- **Application SDK** — scaffolding to build kfx extensions, create Kungfu
-  Skills, and assemble applications (`developer/sdk`).
-- **Reference surfaces** — two minimal reference UIs over the same capability
-  SDK: a desktop GUI on Electron + React (`framework/gui`) and a terminal TUI
-  (`framework/tui`).
-- **Distribution** — a dogfood installer bundling the runtime, both reference
-  UIs and the SDK (`artifact`).
-
-Runs on Windows, macOS, and Linux (including arm64). See
-[`docs/architecture.md`](docs/architecture.md) for how these pieces are layered.
-
-## Getting started
-
-See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the toolchain, build steps, coding
-conventions, and the pull request / release flow.
-
-```sh
-# install fnm and uv once, then:
-git clone git@github.com:kungfu-systems/kungfu.git
-cd kungfu
-./kungfu-code sync && ./kungfu-code build
+```text
+Real-world work happens in Episodes.
+Facts are authoritative. Projections are rebuildable.
+Claims require Proof before they support Decisions.
 ```
 
-## Documentation
+This open monorepo contains the low-latency runtime, CLI and TUI, desktop GUI,
+language bindings, SDKs, extension system, product assembly, and the shared
+qualification contracts that keep them aligned. The user-facing distribution
+is named **Kungfu Episodes**; the runtime, command, SDKs, and extension system
+use the Kungfu, `libkungfu`, and `kfx` names.
 
-Start at the [**documentation map**](docs/MAP.md) — it routes your question
-(why it's built this way / how to trust the artifact / how to use it) to the
-right document, and is readable by both people and agents.
+## Why an Episode?
 
-- Installed agent entrypoint: `kungfu agent brief`,
-  `kungfu agent capabilities --json`, and `kungfu agent choose-mode --json`.
-- [`docs/MAP.md`](docs/MAP.md) — the question-indexed map of all documentation.
-- [`docs/concepts.md`](docs/concepts.md) — the vocabulary in one place
-  (`kungfu`/`kfx`/`sdk`, `libkungfu`, `longfist`, `yijinjing`, journal, …).
-- [`docs/design-philosophy.md`](docs/design-philosophy.md) — the two first
-  principles the whole design follows from, and how the architecture falls out
-  of them.
-- [`docs/facts-before-trust.md`](docs/facts-before-trust.md) — why Kungfu starts
-  from accountability: facts before trust, local proof before control.
-- [`docs/architecture.md`](docs/architecture.md) — how the repository is layered
-  (runtime, capability SDK, application SDK, reference surfaces) and why.
-- [`docs/skills.md`](docs/skills.md) — design target for Kungfu Skills:
-  `SKILL.md` as the minimal source, compact agent catalog injection,
-  Node/Python manage modes, and kfx dependency composition.
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — toolchain, build, conventions, releases.
-- [`LICENSE-POLICY.md`](LICENSE-POLICY.md) — project licensing, DCO-based
-  contributions, third-party notice policy, and commercial boundary.
-- [`TRADEMARK.md`](TRADEMARK.md) — official project mark and fork identity
-  boundary.
-- [`ACCEPTABLE_USE.md`](ACCEPTABLE_USE.md) — acceptable use of official hosted,
-  managed, and maintainer-operated services.
-- [`PROVIDER_COMPLIANCE.md`](PROVIDER_COMPLIANCE.md) — official posture for
-  provider APIs, CLIs, credentials, usage attribution, and anti-bypass
-  boundaries.
-- [`SECURITY.md`](SECURITY.md) — how to report vulnerabilities privately.
-- [`docs/version-release-design.md`](docs/version-release-design.md) — versioning
-  and release mechanism rationale.
-- [`framework/core/docs/adr/`](framework/core/docs/adr) — architecture decision
-  records.
+Logs show activity. Traces show calls. Workflows describe intended steps. A
+chat session preserves a conversation. None of them, by itself, is the durable
+object needed to answer:
 
-## Feedback & support
+- What actually happened?
+- Which facts and artifacts belong to the work?
+- What did the runtime acknowledge, and what survived a crash?
+- What evidence supports completion?
+- What may safely happen next?
 
-Project contact happens through GitHub — there is no email support channel.
+An Episode gives those questions one stable semantic boundary without making a
+process, UI, mutable database row, or provider session the authority. Read
+[The Episode](docs/concepts/the-episode.md) for the narrative and
+[Vocabulary](docs/concepts/vocabulary.md) for the precise public terms.
 
-- Bugs, feature requests, questions, and documentation issues:
-  [open an issue](https://github.com/kungfu-systems/kungfu/issues/new/choose).
-- Changes: open a pull request (see [`CONTRIBUTING.md`](CONTRIBUTING.md)).
-- Security vulnerabilities: report them privately — see [`SECURITY.md`](SECURITY.md).
+## What Kungfu lets you do
 
-## License
+- Record typed runtime Facts in an append-only journal with explicit schema
+  ownership and provenance.
+- Inspect Episodes, causal Timelines, Artifacts, Receipts, Cuts, Watermarks, and
+  rebuildable Projections.
+- Query current and historical fact state with proof and lineage attached.
+- Replay recorded Facts, Rewind an Episode for forensic inspection, and qualify
+  Recovery without silently repeating external side effects.
+- Embed `libkungfu`, use one ecosystem SDK, add a `kfx`, or assemble a complete
+  application without adopting every higher layer.
+- Qualify visibility, durability, recovery, and meaning as one end-to-end
+  contract rather than treating ingestion speed as sufficient evidence.
 
-[Apache License 2.0](LICENSE).
+## Start here
+
+- **New to Kungfu:** use the curated [Documentation Guide](docs/README.md).
+- **Choosing a product layer:** read [Choose Your Kungfu](docs/guides/choose-your-kungfu.md).
+- **Evaluating trust or production use:** begin with
+  [Known Limits](docs/qualification/known-limits.md) and the
+  [Single-host institutional trust profile](docs/qualification/single-host-institutional-trust.md).
+- **Looking up one exact question:** use the exhaustive
+  [Documentation Map](docs/MAP.md).
+- **Contributing:** read [CONTRIBUTING.md](CONTRIBUTING.md).
+
+An installed runtime also carries an agent-readable product brief:
+
+```sh
+kungfu agent brief
+kungfu agent capabilities --json
+kungfu agent choose-mode --json
+```
+
+To evaluate the source tree before public artifacts are available:
+
+```sh
+git clone https://github.com/kungfu-systems/kungfu.git
+cd kungfu
+./shifu doctor
+./shifu sync && ./shifu build
+```
+
+## Adopt only what you need
+
+| Job | Smallest relevant surface |
+| --- | --- |
+| complete official experience | assembled Kungfu App |
+| visual inspection and human workflows | GUI |
+| headless operation and automation | CLI/TUI |
+| one language ecosystem | Python, Node/TypeScript, or Rust SDK |
+| native embedding | `libkungfu` |
+| independent preservation and inspection | `.kungfu` format/spec |
+
+Higher layers add convenience; they do not become a second authority over the
+Facts. [Product Layers](docs/concepts/product-layers.md) defines the independent
+qualification contract behind these choices.
+
+## Incubated standalone products
+
+[Xinfa](xinfa/README.md), **The Verified Context Compiler for Human-Agent
+Software Development**, is incubated in
+this repository with its own CLI, protocol namespace, version, artifacts,
+state/cache roots, release identity, and extraction manifest. Its core has no
+Kungfu or Shifu runtime dependency; those products may integrate only through
+thin public-contract adapters. See
+[ADR-0092](docs/adr/ADR-0092-xinfa-product-and-incubation-boundary.md),
+[ADR-0093](docs/adr/ADR-0093-xinfa-dual-first-verified-context-contract.md),
+[ADR-0094](docs/adr/ADR-0094-xinfa-repository-context-pack.md), and
+[ADR-0095](docs/adr/ADR-0095-xinfa-atlas-primitive-and-compatibility-boundary.md).
+
+## Architecture at a glance
+
+The data plane is `yijinjing`, a low-latency append-only mmap journal shared by
+C++, Python, and Node. Closed kernel records use fixed-layout Hana POD schemas;
+open and domain Facts use FlatBuffers. JSON is an edge rendering or interchange
+format, not a third journal schema.
+
+Live work and Replay use the same frame and runtime semantics. SQLite and GUI
+models are rebuildable Projections over journal-backed authority. The runtime,
+capability SDK, application SDK, reference surfaces, and product assembly remain
+separate layers with explicit contracts. See [Architecture](docs/architecture/overview.md)
+and [Event Model](docs/architecture/event-model.md).
+
+## Why Kungfu?
+
+Kungfu began with the Chinese idea of **功夫**: capability built through
+disciplined practice. As the product evolved, **KUNGFU** acquired a recursive
+technical meaning: `KUNGFU UNGFU: Never Guess. Facts Unfold.`
+
+The name describes the architecture: deeply integrated at the product surface,
+self-bootstrapping from Facts at the core. Read
+[Why Kungfu?](docs/concepts/why-kungfu.md) for the complete recursion and its
+connection to the product's fact-first design.
+
+## Status and guarantees
+
+Kungfu v4 is **Coming soon**. Source-built capabilities and qualification
+slices exist, but public packaging, cross-platform evidence, strong
+power-loss durability, and the institutional profile remain staged unless the
+linked evidence says otherwise.
+
+Design intent, implemented behavior, qualified guarantees, and released
+artifacts are deliberately distinct. Before relying on a claim, check
+[Contracts](docs/qualification/contracts.md),
+[Known Limits](docs/qualification/known-limits.md), and the applicable retained
+qualification evidence.
+
+## Project links
+
+- Product home: <https://kungfu.tech>
+- Developer and agent surface: <https://libkungfu.dev>
+- Documentation: [docs/README.md](docs/README.md)
+- Issues and questions: [GitHub issue forms](https://github.com/kungfu-systems/kungfu/issues/new/choose)
+- Security reports: [SECURITY.md](SECURITY.md)
+- License: [Apache License 2.0](LICENSE)
