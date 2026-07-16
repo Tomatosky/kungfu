@@ -38,6 +38,7 @@ import {
 import { createLatestRefresh } from './latest-refresh';
 import {
   type Atlas,
+  type AtlasAuthorityInspection,
   type AtlasDashboardSnapshot,
   type AtlasGoal,
   type AtlasImportInfo,
@@ -452,8 +453,14 @@ function AtlasProjectionView({
   const [evidenceEpisodes, setEvidenceEpisodes] = React.useState('');
   const [bundlePath, setBundlePath] = React.useState('');
   const [importBundlePath, setImportBundlePath] = React.useState('');
+  const [authorityInspection, setAuthorityInspection] =
+    React.useState<AtlasAuthorityInspection | null>(null);
+  const [authorityProjectCutRoot, setAuthorityProjectCutRoot] =
+    React.useState('');
+  const [authorityAtlasRoot, setAuthorityAtlasRoot] = React.useState('');
+  const [authorityReason, setAuthorityReason] = React.useState('');
   const [actionPanel, setActionPanel] = React.useState<
-    'mission' | 'go' | 'import' | 'bundle' | 'claim' | null
+    'mission' | 'go' | 'import' | 'bundle' | 'claim' | 'authority' | null
   >(null);
   const actor = 'work-dashboard';
   const selectedMissionSource = React.useMemo(() => {
@@ -807,6 +814,77 @@ function AtlasProjectionView({
     }
   };
 
+  const refreshAuthority = async () => {
+    const inspection = await atlas.authorityStatus();
+    setAuthorityInspection(inspection);
+    return inspection;
+  };
+
+  const openAuthorityPanel = async () => {
+    setActionPanel('authority');
+    try {
+      await refreshAuthority();
+    } catch (error) {
+      setMessage((error as Error).message);
+    }
+  };
+
+  const cutoverAuthorityNow = async () => {
+    const inspection = authorityInspection ?? (await refreshAuthority());
+    if (inspection.parity.status !== 'matched') {
+      setMessage('Atlas/native Mission and Go parity is degraded');
+      return;
+    }
+    if (
+      !authorityProjectCutRoot.trim() ||
+      !authorityAtlasRoot.trim() ||
+      !authorityReason.trim()
+    ) {
+      setMessage('enter Project Cut root, successor Atlas root, and reason');
+      return;
+    }
+    try {
+      const receipt = await atlas.cutoverAuthority({
+        expectedParityRoot: inspection.parity.parity_root,
+        projectCutRoot: authorityProjectCutRoot,
+        atlasRoot: authorityAtlasRoot,
+        actor,
+        actorType: 'user',
+        reason: authorityReason,
+      });
+      setMessage(
+        `${receipt.migration.migration_id}: ${receipt.status} · writer=kungfu-native`,
+      );
+      await refreshAuthority();
+      dashboardRefresh.request();
+    } catch (error) {
+      setMessage((error as Error).message);
+    }
+  };
+
+  const rollbackAuthorityNow = async () => {
+    const inspection = authorityInspection ?? (await refreshAuthority());
+    if (!inspection.authority.migration_id || !authorityReason.trim()) {
+      setMessage('active migration id and rollback reason are required');
+      return;
+    }
+    try {
+      const receipt = await atlas.rollbackAuthority({
+        expectedMigrationId: inspection.authority.migration_id,
+        actor,
+        actorType: 'user',
+        reason: authorityReason,
+      });
+      setMessage(
+        `${receipt.migration.migration_id}: ${receipt.status} · writer=atlas-adapter`,
+      );
+      await refreshAuthority();
+      dashboardRefresh.request();
+    } catch (error) {
+      setMessage((error as Error).message);
+    }
+  };
+
   const createMissionNow = async () => {
     try {
       const result = await atlas.createMission(newMissionId, {
@@ -1059,6 +1137,9 @@ function AtlasProjectionView({
           </SmallButton>
           <SmallButton onClick={() => setActionPanel('bundle')}>
             Bundle
+          </SmallButton>
+          <SmallButton onClick={() => void openAuthorityPanel()}>
+            Authority
           </SmallButton>
           <SmallButton onClick={refreshAll}>refresh</SmallButton>
           {info && (
@@ -1472,6 +1553,49 @@ function AtlasProjectionView({
                   materialize
                 </SmallButton>
               </div>
+            </>
+          )}
+          {actionPanel === 'authority' && (
+            <>
+              <div style={{ ...mono, color: '#858585' }}>
+                state: {authorityInspection?.authority.state ?? 'loading'} ·
+                writer:{' '}
+                {authorityInspection?.authority.write_authority ?? 'unknown'}
+              </div>
+              <div style={{ ...mono, color: '#858585' }}>
+                parity: {authorityInspection?.parity.status ?? 'unknown'} ·{' '}
+                {authorityInspection?.parity.parity_root ?? ''}
+              </div>
+              {authorityInspection?.authority.write_authority !==
+                'kungfu-native' && (
+                <>
+                  <TextInput
+                    value={authorityProjectCutRoot}
+                    placeholder="Project Cut root (sha256:...)"
+                    onChange={setAuthorityProjectCutRoot}
+                  />
+                  <TextInput
+                    value={authorityAtlasRoot}
+                    placeholder="successor Xinfa Atlas root (sha256:...)"
+                    onChange={setAuthorityAtlasRoot}
+                  />
+                </>
+              )}
+              <TextInput
+                value={authorityReason}
+                placeholder="auditable transition reason"
+                onChange={setAuthorityReason}
+              />
+              {authorityInspection?.authority.write_authority ===
+              'kungfu-native' ? (
+                <SmallButton onClick={() => void rollbackAuthorityNow()}>
+                  roll back exact migration
+                </SmallButton>
+              ) : (
+                <SmallButton onClick={() => void cutoverAuthorityNow()}>
+                  cut over at exact parity
+                </SmallButton>
+              )}
             </>
           )}
           {actionPanel === 'claim' && (

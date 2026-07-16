@@ -26,6 +26,7 @@ const source = (dirty = false) => ({
 
 const suites = (failed = null) =>
   [
+    'peer-lifecycle-control-plane',
     'core-continuity-state-machine',
     'agent-session-capsule-continuity',
     'native-cross-process-restart',
@@ -37,6 +38,10 @@ const campaign = {
     peerPidPreserved: true,
     capsulePidPreserved: true,
     capsuleStreamEpochPreserved: true,
+    peerHostCrashAdopted: true,
+    staleHostGenerationRejected: true,
+    peerCrashRestarted: true,
+    peerGenerationAdvanced: true,
   },
 };
 
@@ -47,10 +52,24 @@ test('default evidence is outside the Core build tree', () => {
 });
 
 test('native state-machine leg fails when CTest discovers no matching test', () => {
-  const command = qualificationPlan('/tmp/qualification-test')[0].command;
+  const command = qualificationPlan('/tmp/qualification-test').find(
+    (suite) => suite.id === 'core-continuity-state-machine',
+  ).command;
   assert.ok(command.includes('--no-tests=error'));
   assert.ok(command.includes('^kungfu_peer_continuity_tests$'));
   assert.ok(command.includes('framework/core/build/src/libkungfu'));
+});
+
+test('Peer lifecycle control plane unit suite uses the Shifu-managed Python project', () => {
+  const suite = qualificationPlan('/tmp/qualification-test').find(
+    (item) => item.id === 'peer-lifecycle-control-plane',
+  );
+  assert.ok(suite.command.includes('pytest'));
+  assert.ok(
+    suite.command.includes(
+      'framework/core/tests/python/test_peer_lifecycle.py',
+    ),
+  );
 });
 
 test('native campaign enters Python through the Shifu-managed uv project', () => {
@@ -95,8 +114,12 @@ test('native campaign uses a short platform-owned temp root', () => {
     }),
     'C:\\Users\\local\\AppData\\Local\\Temp',
   );
-  const linux = qualificationPlan('/qualification', { platform: 'linux' })[2];
-  const windows = qualificationPlan('/qualification', { platform: 'win32' })[2];
+  const linux = qualificationPlan('/qualification', {
+    platform: 'linux',
+  }).find((suite) => suite.id === 'native-cross-process-restart');
+  const windows = qualificationPlan('/qualification', {
+    platform: 'win32',
+  }).find((suite) => suite.id === 'native-cross-process-restart');
   assert.deepEqual(linux.command.slice(-2), ['--temp-parent', '/tmp']);
   assert.ok(windows.command.includes('--temp-parent'));
   assert.notEqual(
@@ -120,15 +143,22 @@ test('native campaign failure diagnostics retain only a bounded log tail', () =>
   }
 });
 
-test('native campaign binds Peer workload identity to its ready marker', () => {
+test('native campaign binds Peer workload identity and fenced host adoption', () => {
   const campaignSource = fs.readFileSync(
     path.join(import.meta.dirname, 'native_campaign.py'),
     'utf8',
   );
-  assert.match(campaignSource, /peer_launcher_pid = peer\.pid/u);
+  assert.match(
+    campaignSource,
+    /peer_host_pid = int\(hosted\["host"\]\["pid"\]\)/u,
+  );
   assert.match(campaignSource, /peer_pid = int\(first\[0\]\["pid"\]\)/u);
   assert.match(campaignSource, /second_ready_pids != \[peer_pid\]/u);
-  assert.doesNotMatch(campaignSource, /peer_pid = peer\.pid/u);
+  assert.match(
+    campaignSource,
+    /expected_host_generation=peer_host_generation/u,
+  );
+  assert.match(campaignSource, /restarted_pid == peer_pid/u);
 });
 
 test('clean complete evidence qualifies only the bounded single-host claim', () => {

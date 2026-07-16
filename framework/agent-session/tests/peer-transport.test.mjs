@@ -8,6 +8,7 @@ import {
   InMemoryJournalNoticePort,
 } from '../src/peer-transport.mjs';
 import {
+  AGENT_SESSION_PEER_RECOVERY,
   admitCoordinator,
   coordinatorAuthority,
   peerContinuityObservation,
@@ -112,6 +113,15 @@ test('multiple readers recover by journal cursor even when notices are lost', ()
     port.notices.some((notice) => notice.kind === 'output-bytes'),
     false,
   );
+});
+
+test('AgentSession declares process loss as lost-control instead of fake PTY recovery', () => {
+  const { port, transport } = fixture();
+  const registration = port.frames.find(
+    (frame) => frame.kind === 'peer-registration',
+  );
+  assert.deepEqual(registration.payload.recovery, AGENT_SESSION_PEER_RECOVERY);
+  assert.deepEqual(transport.status().recovery, AGENT_SESSION_PEER_RECOVERY);
 });
 
 test('one controller wins, duplicate input is idempotent, and stale authority fails closed', () => {

@@ -53,6 +53,7 @@ import {
   WORKSPACE_OPEN_CHANNEL,
   WORKSPACE_SELECT_HOME_CHANNEL,
   WORKSPACE_SELECT_RECENT_CHANNEL,
+  WORKSPACE_START_CONTINUATION_CHANNEL,
 } from '../sandbox/channels';
 import { executeAgentRuntimeCli } from './agent-runtime-cli';
 import {
@@ -89,6 +90,7 @@ import {
 import {
   clearDesktopWorkspaceEnvForRelaunch,
   defaultHomeDesktopWorkspace,
+  inspectDesktopContinuation,
   listRecentDesktopWorkspaces,
   resolveLastDesktopWorkspace,
 } from './workspace-selection';
@@ -187,9 +189,9 @@ if (
   (process.env.KF_WORKSPACE_ROOT ||
     path.basename(process.env.KF_HOME) === '.kungfu')
 ) {
-  process.env.KF_WORKSPACE_STATE = existsSync(process.env.KF_HOME)
-    ? 'ready'
-    : 'selected-uninitialized';
+  process.env.KF_WORKSPACE_STATE = inspectDesktopContinuation(
+    process.env.KF_HOME,
+  ).state;
 }
 
 // Explicit instance/runtime homes are compatibility execution roots rather
@@ -197,7 +199,9 @@ if (
 // behavior while the Workspace product path remains lazy.
 process.env.KF_WORKSPACE_STATE = process.env.KF_WORKSPACE_STATE || 'ready';
 
-const workspaceRuntimeReady = process.env.KF_WORKSPACE_STATE === 'ready';
+const workspaceRuntimeReady =
+  process.env.KF_WORKSPACE_STATE === 'ready' ||
+  process.env.KF_WORKSPACE_STATE === 'live-runtime';
 
 // ADR-0016 parity is now the product path: the main-process host survives view
 // changes and owns every tab/window, while callers may still explicitly opt
@@ -815,6 +819,9 @@ ipcMain.handle(RUNTIME_BACKUP_RESET_CHANNEL, async (_event, payload) => {
 });
 
 function workspaceSnapshot() {
+  const continuation = process.env.KF_HOME
+    ? inspectDesktopContinuation(process.env.KF_HOME)
+    : null;
   return {
     current: {
       workspaceId: process.env.KF_WORKSPACE_ID || '',
@@ -824,6 +831,9 @@ function workspaceSnapshot() {
       dataHome: process.env.KF_HOME || '',
       state: process.env.KF_WORKSPACE_STATE || 'unavailable',
       diagnosis: process.env.KF_WORKSPACE_DIAGNOSIS || '',
+      evidenceLevel: continuation?.evidenceLevel || 'none',
+      settledEpisodeCount: continuation?.settledEpisodeCount || 0,
+      projectCutCount: continuation?.projectCutCount || 0,
     },
     recent: listRecentDesktopWorkspaces(defaultConfigHome()),
   };
@@ -846,6 +856,46 @@ function relaunchWithWorkspaceSelection(args: string[]) {
 }
 
 ipcMain.handle(WORKSPACE_GET_CHANNEL, () => workspaceSnapshot());
+ipcMain.handle(WORKSPACE_START_CONTINUATION_CHANNEL, () => {
+  const workspaceRoot = process.env.KF_WORKSPACE_ROOT || '';
+  if (!workspaceRoot || !existsSync(workspaceRoot)) {
+    throw new Error(
+      'start continuation requires an available project workspace',
+    );
+  }
+  if (
+    process.env.KF_WORKSPACE_STATE !== 'shadow-only' &&
+    process.env.KF_WORKSPACE_STATE !== 'uninitialized'
+  ) {
+    throw new Error(
+      `workspace state cannot start continuation: ${process.env.KF_WORKSPACE_STATE}`,
+    );
+  }
+  const out = execFileSync(
+    kungfuBinPath(),
+    [
+      'workspace',
+      'ensure',
+      workspaceRoot,
+      '--reason',
+      'gui-start-continuation',
+      '--json',
+    ],
+    {
+      env: { ...process.env, KF_CONFIG_HOME: defaultConfigHome() },
+      timeout: 10000,
+    },
+  );
+  const receipt = JSON.parse(out.toString());
+  if (desktopWorkspaceIsRegistryManaged) {
+    clearDesktopWorkspaceEnvForRelaunch(process.env);
+  }
+  setImmediate(() => {
+    app.relaunch();
+    app.exit(0);
+  });
+  return { ok: true, receipt };
+});
 ipcMain.handle(WORKSPACE_SELECT_HOME_CHANNEL, () =>
   relaunchWithWorkspaceSelection(['workspace', 'select-home', '--json']),
 );

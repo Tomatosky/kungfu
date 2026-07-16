@@ -13,7 +13,7 @@ The canonical process-adapter terminology is defined by
 [ADR-0036](../adr/ADR-0036-supervisor-and-workspace-master-topology.md)
 records the original topology decision. The current process-control topology is
 implemented by `ProcessRuntimeHost` over a directly callable
-`CoordinatorEngine` and has two live process roles:
+`CoordinatorEngine` and has two global live process roles:
 
 - `supervisor` is one per OS user/session. It owns no workspace facts. It
   starts, discovers, health-checks, and stops workspace coordinators.
@@ -21,6 +21,11 @@ implemented by `ProcessRuntimeHost` over a directly callable
   machine fallback selected by `KF_HOME`. It owns live location/channel
   registry, active actor supervision, subscriptions, and live projections for
   that fact ledger.
+
+Declared application Peers may additionally use one independent, per-Peer
+process host. That host owns only placement and recovery for its declared argv;
+it is not a global service and never acquires Coordinator authority. See
+[ADR-0086](../adr/ADR-0086-live-peer-continuity-and-coordinator-authority.md).
 
 Durable facts are not daemon-owned. The source of truth remains the data-root
 storage: yijinjing journals, Episode manifest journal, payload store, and
@@ -59,6 +64,14 @@ kungfu runtime service install --json
 kungfu runtime service install --execute --json
 kungfu runtime service uninstall --json
 kungfu runtime service uninstall --execute --json
+kungfu runtime peer contract --json
+kungfu runtime peer plan PEER_SPEC.json --json
+kungfu runtime peer start PEER_SPEC.json --json
+kungfu runtime peer ensure PEER_SPEC.json --json
+kungfu runtime peer status [PEER_ID] --json
+kungfu runtime peer health PEER_ID --json
+kungfu runtime peer stop PEER_ID --json
+kungfu runtime peer restart PEER_SPEC.json --json
 ```
 
 `install` and `uninstall` are dry-run by default. They write or remove the
@@ -174,6 +187,31 @@ route diagnostics rather than retrying forever.
 
 These are single-host process-adapter semantics. They do not provide a network
 lease, distributed election, cross-machine adoption, or high availability.
+
+## Independent Peer Lifecycle Hosts
+
+The registered `peer-lifecycle` contract defines one declaration and one host
+per Peer. Runtime-local state lives at:
+
+```text
+<kungfu-data-root>/runtime/peers/<peer-id>/
+```
+
+`state.json` records desired and observed lifecycle, host and Peer generations,
+both process-start identities, readiness, bounded restart attempts, and the
+recovery declaration. `launch.json` is the normalized argv-only declaration;
+`ready.json` is the process-authored handshake; `peer.log` is diagnostic output.
+
+The status model distinguishes `stopped`, `starting`, `registering`, `ready`,
+`degraded`, `orphaned`, `ownership-unknown`, `crash-loop`, `ended`, and
+`lost-control`. A live PID does not imply `ready`. Host-loss adoption requires
+the exact surviving Peer generation, PID/start identity, and readiness token.
+Peer loss restarts only declarations that name a durable recovery boundary;
+otherwise it becomes `lost-control`.
+
+AgentSession uses the same recovery vocabulary and declares Capsule process
+loss as `lost-control`. This preserves the existing rule that a lost PTY master
+cannot be reconstructed from a child PID or terminal text.
 
 If the supervisor is not running, a product entrypoint may start it. If a
 command only needs closed-data storage access, it may bypass the live coordinator and

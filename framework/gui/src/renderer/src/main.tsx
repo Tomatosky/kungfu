@@ -58,6 +58,7 @@ import {
   WORKSPACE_OPEN_CHANNEL,
   WORKSPACE_SELECT_HOME_CHANNEL,
   WORKSPACE_SELECT_RECENT_CHANNEL,
+  WORKSPACE_START_CONTINUATION_CHANNEL,
 } from '../../sandbox/channels';
 import { publishRefresh } from '../../sandbox/refresh';
 import { createKfxSharedModules } from '../shared-modules';
@@ -598,8 +599,16 @@ type WorkspaceSnapshot = {
     workspaceRoot: string | null;
     displayPath: string;
     dataHome: string;
-    state: 'ready' | 'selected-uninitialized' | 'unavailable';
+    state:
+      | 'uninitialized'
+      | 'shadow-only'
+      | 'live-runtime'
+      | 'evidence-degraded'
+      | 'unavailable';
     diagnosis: string;
+    evidenceLevel: 'none' | 'settled-review' | 'live-local' | 'degraded';
+    settledEpisodeCount: number;
+    projectCutCount: number;
   };
   recent: Array<{
     workspace_id?: string;
@@ -623,6 +632,8 @@ function workspaceIpc() {
       ipcRenderer.invoke(WORKSPACE_GET_CHANNEL) as Promise<WorkspaceSnapshot>,
     open: () => ipcRenderer.invoke(WORKSPACE_OPEN_CHANNEL),
     home: () => ipcRenderer.invoke(WORKSPACE_SELECT_HOME_CHANNEL),
+    startContinuation: () =>
+      ipcRenderer.invoke(WORKSPACE_START_CONTINUATION_CHANNEL),
     recent: (workspaceId: string) =>
       ipcRenderer.invoke(WORKSPACE_SELECT_RECENT_CHANNEL, { workspaceId }),
   };
@@ -673,7 +684,42 @@ function WorkspacePanel() {
         Opening or selecting is read-only. The first fact-bearing action creates
         the selected `.kungfu` data home.
       </div>
-      {snapshot?.current.state === 'selected-uninitialized' && (
+      {snapshot?.current.state === 'shadow-only' && (
+        <div
+          style={{
+            display: 'grid',
+            gap: 5,
+            padding: 8,
+            marginBottom: 10,
+            border: '1px solid #3c3c3c',
+            borderRadius: 5,
+          }}
+        >
+          <div style={{ ...mono, color: '#9cdcfe' }}>
+            Settled history is available without a local runtime.
+          </div>
+          <div style={{ ...mono, color: '#858585' }}>
+            {snapshot.current.settledEpisodeCount} Episode shadow(s) ·{' '}
+            {snapshot.current.projectCutCount} Project Cut(s) · evidence{' '}
+            {snapshot.current.evidenceLevel}. Git shadows are not Episode
+            authority; raw replay and requalification require full evidence.
+          </div>
+          <button
+            type="button"
+            onClick={() => run(bridge.startContinuation)}
+            style={{ ...mono, padding: '6px 10px', width: 'fit-content' }}
+          >
+            Start local continuation
+          </button>
+        </div>
+      )}
+      {snapshot?.current.state === 'evidence-degraded' && (
+        <div style={{ ...mono, color: '#f48771', marginBottom: 10 }}>
+          Settled evidence is degraded. Continuation is disabled until the
+          reported shadow mismatch is repaired or full evidence is imported.
+        </div>
+      )}
+      {snapshot?.current.state === 'uninitialized' && (
         <div
           style={{
             display: 'grid',
@@ -1857,8 +1903,9 @@ function App() {
               justifyContent: 'center',
             }}
           >
-            {window.process.env.KF_WORKSPACE_STATE ===
-              'selected-uninitialized' ||
+            {window.process.env.KF_WORKSPACE_STATE === 'uninitialized' ||
+            window.process.env.KF_WORKSPACE_STATE === 'shadow-only' ||
+            window.process.env.KF_WORKSPACE_STATE === 'evidence-degraded' ||
             window.process.env.KF_WORKSPACE_STATE === 'unavailable' ? (
               <WorkspacePanel />
             ) : (

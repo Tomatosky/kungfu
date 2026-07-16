@@ -15,6 +15,17 @@
       "to": "kungfu.query.saved-view/v1#profile-envelope",
       "factRewrite": false,
       "activation": "explicit-on-save"
+    },
+    {
+      "id": "mission-control-atlas-to-native-authority",
+      "from": "kungfu.mission-control/v3#atlas-bridge",
+      "to": "kungfu.mission-control/v3#kungfu-native",
+      "factRewrite": false,
+      "activation": "explicit-parity-gated-action",
+      "receiptSchema": "kungfu.mission-control.authority-cutover-receipt/v1",
+      "rollbackAction": "rollback-authority",
+      "legacyHistory": "retained-read-only",
+      "singleWriteAuthority": true
     }
   ]
 }

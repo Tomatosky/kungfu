@@ -426,6 +426,232 @@ def test_atlas_import_admits_mission_and_go_into_shared_fact_state(tmp_path):
     assert latest_body["record"]["status"] == "ready"
 
 
+def test_mission_go_authority_cutover_is_parity_bound_and_freezes_atlas(tmp_path):
+    repo = tmp_path / "atlas"
+    runtime_dir = tmp_path / "runtime"
+    _activate_mission_profile(runtime_dir)
+    _atlas_fixture(repo)
+    imported = _import_atlas(runtime_dir, repo)
+
+    parity = mission_control.authority_parity(str(runtime_dir))
+    assert parity["status"] == "matched"
+    assert parity["counts"] == {
+        "expected": 2,
+        "admitted": 2,
+        "missing": 0,
+        "extra": 0,
+        "hash_mismatch": 0,
+        "unavailable": 0,
+    }
+    assert parity["basis"]["atlas_import"]["import_id"] == imported["import_id"]
+    assert parity["parity_root"].startswith("sha256:")
+
+    with pytest.raises(ValueError, match="parity root changed"):
+        mission_control.cutover_authority(
+            str(runtime_dir),
+            storage_source_id="atlas",
+            expected_parity_root=_sha256_root("stale-parity"),
+            project_cut_root=_sha256_root("project-cut"),
+            atlas_root=_sha256_root("atlas-root"),
+            actor="test-agent",
+            reason="prove exact parity",
+        )
+
+    cutover = mission_control.cutover_authority(
+        str(runtime_dir),
+        storage_source_id="atlas",
+        expected_parity_root=parity["parity_root"],
+        project_cut_root=_sha256_root("project-cut"),
+        atlas_root=_sha256_root("atlas-root"),
+        actor="test-agent",
+        reason="move runtime writes to native Mission Control",
+    )
+    assert cutover["status"] == "cutover"
+    assert cutover["migration"]["legacy_mutation_path"] == "frozen-read-only"
+    assert cutover["migration"]["atlas_import"]["repo_head"] == (
+        imported["repo_head"] or ""
+    )
+    authority = mission_control.authority_status(str(runtime_dir))
+    assert authority["state"] == "native-active"
+    assert authority["write_authority"] == "kungfu-native"
+    assert authority["parity_root"] == parity["parity_root"]
+
+    with pytest.raises(ValueError, match="Atlas Mission/Go mutation path is frozen"):
+        _import_atlas(runtime_dir, repo)
+
+    created = mission_control.create_go(
+        str(runtime_dir),
+        mission_id="mission-a",
+        goal_id="native-child",
+        title="Native child",
+        objective="Continue after authority cutover",
+        actor="test-agent",
+        parent_goal_id="goal-a",
+        depends_on=["external-proof"],
+        responsibility="review-agent",
+        acceptance_root=_sha256_root("acceptance"),
+        atlas_root=_sha256_root("successor-atlas"),
+        project_cut_root=_sha256_root("successor-cut"),
+        evidence_episode_roots=[_sha256_root("episode")],
+    )
+    assert created["receipt"]["status"] == "admitted"
+    native = next(
+        row
+        for row in mission_control.list_goals(str(runtime_dir))
+        if row["goal_id"] == "native-child"
+    )
+    assert native["parent_goal_id"] == "goal-a"
+    assert native["depends_on"] == ["external-proof"]
+    assert native["parent_goal_id"] not in native["depends_on"]
+    assert native["responsibility"] == "review-agent"
+    assert native["project_cut_root"] == _sha256_root("successor-cut")
+
+
+def test_mission_go_authority_rollback_is_exact_and_retains_native_facts(tmp_path):
+    repo = tmp_path / "atlas"
+    runtime_dir = tmp_path / "runtime"
+    _activate_mission_profile(runtime_dir)
+    _atlas_fixture(repo)
+    _import_atlas(runtime_dir, repo)
+    parity = mission_control.authority_parity(str(runtime_dir))
+    cutover = mission_control.cutover_authority(
+        str(runtime_dir),
+        storage_source_id="atlas",
+        expected_parity_root=parity["parity_root"],
+        project_cut_root=_sha256_root("project-cut"),
+        atlas_root=_sha256_root("atlas-root"),
+        actor="test-agent",
+        reason="exercise rollback",
+    )
+    cutover_id = cutover["migration"]["migration_id"]
+
+    with pytest.raises(ValueError, match="migration changed"):
+        mission_control.rollback_authority(
+            str(runtime_dir),
+            expected_migration_id="authority-stale",
+            actor="test-agent",
+            reason="stale rollback",
+        )
+
+    rolled_back = mission_control.rollback_authority(
+        str(runtime_dir),
+        expected_migration_id=cutover_id,
+        actor="test-agent",
+        reason="restore legacy writer",
+    )
+    assert rolled_back["migration"]["native_fact_disposition"] == ("retained-read-only")
+    authority = mission_control.authority_status(str(runtime_dir))
+    assert authority["state"] == "rolled-back"
+    assert authority["write_authority"] == mission_control.ATLAS_FACT_SOURCE_ID
+    assert authority["transition_count"] == 2
+
+    with pytest.raises(ValueError, match="mutation is frozen by authority rollback"):
+        mission_control.create_go(
+            str(runtime_dir),
+            mission_id="mission-a",
+            goal_id="must-not-dual-write",
+            title="Rejected",
+            objective="Prevent dual writes",
+            actor="test-agent",
+        )
+    repeated_import = _import_atlas(runtime_dir, repo)
+    assert repeated_import["mission_control"]["status"] == "admitted"
+    next_parity = mission_control.authority_parity(str(runtime_dir))
+    recutover = mission_control.cutover_authority(
+        str(runtime_dir),
+        storage_source_id="atlas",
+        expected_parity_root=next_parity["parity_root"],
+        project_cut_root=_sha256_root("project-cut-2"),
+        atlas_root=_sha256_root("atlas-root-2"),
+        actor="test-agent",
+        reason="prove a successor cutover is a new event",
+    )
+    assert recutover["migration"]["migration_id"] != cutover_id
+    assert (
+        recutover["migration"]["previous_migration_id"]
+        == (rolled_back["migration"]["migration_id"])
+    )
+    assert mission_control.authority_status(str(runtime_dir))["transition_count"] == 3
+
+
+def test_mission_go_authority_cli_uses_the_profile_action_boundary(
+    tmp_path, monkeypatch
+):
+    repo = tmp_path / "atlas"
+    runtime_dir = tmp_path / "runtime"
+    config_home = tmp_path / "config"
+    _activate_mission_profile(runtime_dir)
+    _atlas_fixture(repo)
+    _import_atlas(runtime_dir, repo)
+    _admit_profile_runtime(monkeypatch, runtime_dir, config_home)
+
+    from click.testing import CliRunner
+    from kungfu.cli.commands import __registry__  # noqa: F401
+    from kungfu.cli.commands import kfc
+
+    runner = CliRunner()
+    cli_env = {
+        "KF_RUNTIME_DIR": str(runtime_dir),
+        "KF_CONFIG_HOME": str(config_home),
+    }
+    status_cli = runner.invoke(
+        kfc, ["atlas", "authority-status", "--json"], env=cli_env
+    )
+    assert status_cli.exit_code == 0, status_cli.output
+    before = json.loads(status_cli.output)
+    assert before["authority"]["state"] == "pre-cutover"
+    assert before["parity"]["status"] == "matched"
+
+    cutover_cli = runner.invoke(
+        kfc,
+        [
+            "atlas",
+            "authority-cutover",
+            "--expected-parity-root",
+            before["parity"]["parity_root"],
+            "--project-cut-root",
+            _sha256_root("project-cut"),
+            "--atlas-root",
+            _sha256_root("atlas-root"),
+            "--actor",
+            "test-agent",
+            "--reason",
+            "prove the shared CLI and Profile action boundary",
+            "--json",
+        ],
+        env=cli_env,
+    )
+    assert cutover_cli.exit_code == 0, cutover_cli.output
+    cutover = json.loads(cutover_cli.output)
+    assert cutover["status"] == "cutover"
+
+    active_cli = runner.invoke(
+        kfc, ["atlas", "authority-status", "--json"], env=cli_env
+    )
+    assert active_cli.exit_code == 0, active_cli.output
+    assert json.loads(active_cli.output)["authority"]["write_authority"] == (
+        "kungfu-native"
+    )
+
+    rollback_cli = runner.invoke(
+        kfc,
+        [
+            "atlas",
+            "authority-rollback",
+            "--expected-migration-id",
+            cutover["migration"]["migration_id"],
+            "--actor",
+            "test-agent",
+            "--reason",
+            "exercise the exact rollback fence",
+            "--json",
+        ],
+        env=cli_env,
+    )
+    assert rollback_cli.exit_code == 0, rollback_cli.output
+    assert json.loads(rollback_cli.output)["status"] == "rolled-back"
+
+
 def test_atlas_source_import_does_not_own_mission_admission(tmp_path):
     repo = tmp_path / "atlas"
     runtime_dir = tmp_path / "runtime"

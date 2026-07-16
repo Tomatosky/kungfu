@@ -28,6 +28,15 @@ test('Mission Control uses the exact-root Profile projection and intent surfaces
       writableAuthority: false,
     },
     import_info: null,
+    authority: {
+      schema: 'kungfu.mission-control.authority-status/v1',
+      state: 'pre-cutover',
+      write_authority: 'atlas-adapter',
+      legacy_mutation_path: 'available',
+      migration_id: '',
+      parity_root: '',
+      transition_count: 0,
+    },
     missions: [],
     goals: [],
   };

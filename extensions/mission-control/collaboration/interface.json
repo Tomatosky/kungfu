@@ -114,6 +114,38 @@
       }
     },
     {
+      "id": "cutover-authority",
+      "title": "Cut over Mission and Go authority",
+      "actionId": "cutover-authority",
+      "inspectViewId": "mission-state",
+      "verifyViewId": "mission-timeline",
+      "requiredAuthority": "mission-fact-author",
+      "requiredCapabilities": ["storage"],
+      "material": true,
+      "protocol": {
+        "mode": "shared-api",
+        "apiId": "kungfu.profile.application",
+        "guiMember": "work-dashboard",
+        "guiMethod": "cutoverAuthority"
+      }
+    },
+    {
+      "id": "rollback-authority",
+      "title": "Roll back Mission and Go authority",
+      "actionId": "rollback-authority",
+      "inspectViewId": "mission-state",
+      "verifyViewId": "mission-timeline",
+      "requiredAuthority": "mission-fact-author",
+      "requiredCapabilities": ["storage"],
+      "material": true,
+      "protocol": {
+        "mode": "shared-api",
+        "apiId": "kungfu.profile.application",
+        "guiMember": "work-dashboard",
+        "guiMethod": "rollbackAuthority"
+      }
+    },
+    {
       "id": "export-mission",
       "title": "Export portable Mission bundle",
       "actionId": "export-mission",

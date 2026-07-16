@@ -94,6 +94,20 @@
       }
     },
     {
+      "surface": "peer-lifecycle",
+      "id": "kungfu-peer-lifecycle",
+      "schema": "kungfu.runtime.peer-lifecycle-contract/v1",
+      "weldedSurface": "peer-process-lifecycle-control-plane",
+      "env": "KUNGFU_PEER_LIFECYCLE_CONTRACT",
+      "file": "kungfu-peer-lifecycle.contract.json",
+      "source": "framework/runtime/kungfu-peer-lifecycle.contract.json",
+      "artifact": "config/kungfu-peer-lifecycle.contract.json",
+      "cli": {
+        "contract": ["runtime", "peer", "contract", "--json"],
+        "schema": ["runtime", "peer", "contract", "--json"]
+      }
+    },
+    {
       "surface": "upgrade",
       "id": "kungfu-product-upgrade",
       "schema": "kungfu.product-upgrade.contract/v1",

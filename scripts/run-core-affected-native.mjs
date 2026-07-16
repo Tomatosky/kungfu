@@ -22,6 +22,16 @@ const baselinePath = path.join(
   'architecture',
   'affected-native-baseline.json',
 );
+const nonNativeCoreRules = [
+  { prefix: 'src/python/', kind: 'core-python-source' },
+  { prefix: 'tests/fixtures/', kind: 'core-test-fixture' },
+  { prefix: 'tests/python/', kind: 'core-python-test' },
+  {
+    prefix: 'tests/qualification/',
+    kind: 'core-qualification-harness',
+    extensions: ['.js', '.json', '.mjs', '.py'],
+  },
+];
 
 function ordered(value) {
   if (Array.isArray(value)) return value.map(ordered);
@@ -62,6 +72,16 @@ function owns(rule, file) {
     included &&
     !(rule.exclude_files || []).includes(file) &&
     !(rule.exclude_prefixes || []).some((prefix) => file.startsWith(prefix))
+  );
+}
+
+function nonNativeCoreRule(relative) {
+  return (
+    nonNativeCoreRules.find(
+      (rule) =>
+        relative.startsWith(rule.prefix) &&
+        (!rule.extensions || rule.extensions.includes(path.extname(relative))),
+    ) || null
   );
 }
 
@@ -251,6 +271,11 @@ function planFromChanged(changedFiles, authority, buildAuthority, base, head) {
       reasons.push({ path: file, kind: 'core-documentation-only' });
       continue;
     }
+    const nonNativeRule = nonNativeCoreRule(relative);
+    if (nonNativeRule) {
+      reasons.push({ path: file, kind: nonNativeRule.kind });
+      continue;
+    }
     if (/\/CMakeLists\.txt$/.test(relative)) {
       global = true;
       reasons.push({ path: file, kind: 'composition-or-build-definition' });
@@ -272,6 +297,13 @@ function planFromChanged(changedFiles, authority, buildAuthority, base, head) {
       continue;
     }
     const extension = path.extname(relative);
+    if (
+      relative.startsWith('src/python/') ||
+      relative.startsWith('tests/python/')
+    ) {
+      reasons.push({ path: file, kind: 'python-surface' });
+      continue;
+    }
     if (!(authority.extensions || []).includes(extension)) {
       throw new Error(`${file}: unclassified Core file impact`);
     }
@@ -677,11 +709,70 @@ function selfTest(authority, buildAuthority) {
       }
     },
   );
+  expect('Python surface changes do not invent native work', () => {
+    const plan = planFromChanged(
+      [
+        'framework/core/src/python/kungfu/workspace.py',
+        'framework/core/src/python/kungfu/agent/commands.json',
+        'framework/core/tests/python/test_workspace.py',
+      ],
+      authority,
+      buildAuthority,
+      'base',
+      'head',
+    );
+    if (
+      plan.platformTier !== 'none' ||
+      plan.profile !== null ||
+      plan.targets.length ||
+      plan.tests.length ||
+      plan.reasons.some(({ kind }) => kind !== 'python-surface')
+    ) {
+      throw new Error('Python surface scheduled native work');
+    }
+  });
   expect(
     'unclassified source fails closed',
     () =>
       planFromChanged(
         ['framework/core/src/libkungfu/src/runtime/unknown.cpp'],
+        authority,
+        buildAuthority,
+        'base',
+        'head',
+      ),
+    /exactly one architecture component/,
+  );
+  expect('known Core Python and qualification files are non-native', () => {
+    const plan = planFromChanged(
+      [
+        'framework/core/src/python/kungfu/peer_lifecycle.py',
+        'framework/core/tests/fixtures/peer_lifecycle_probe.py',
+        'framework/core/tests/python/test_peer_lifecycle.py',
+        'framework/core/tests/qualification/live-peer-continuity/run.mjs',
+      ],
+      authority,
+      buildAuthority,
+      'base',
+      'head',
+    );
+    if (
+      plan.platformTier !== 'none' ||
+      plan.profile !== null ||
+      plan.targets.length ||
+      plan.tests.length
+    ) {
+      throw new Error('non-native Core files scheduled native work');
+    }
+    if (plan.reasons.some(({ kind }) => !kind.startsWith('core-'))) {
+      throw new Error('non-native Core file classification missing');
+    }
+  });
+  expect(
+    'unknown qualification source still fails closed',
+    () =>
+      planFromChanged(
+        ['framework/core/tests/qualification/example/driver.cpp'],
         authority,
         buildAuthority,
         'base',

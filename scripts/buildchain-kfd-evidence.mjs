@@ -946,7 +946,7 @@ function buildKfd3PrebuildWitness(registry) {
     witnessKind: 'prebuild',
     supportLevel: 'release',
     source: {
-      cwd: ROOT,
+      cwd: '.',
       sourceSha: gitValue(['rev-parse', 'HEAD']) || '',
       registryPath: KFD3_DEFAULT_REGISTRY_PATH,
       registryDigest: `sha256:${sha256Json(registry)}`,

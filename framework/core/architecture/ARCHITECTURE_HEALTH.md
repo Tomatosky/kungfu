@@ -29,4 +29,4 @@ Authority root: `sha256:bc872c084f0a5f009b732f63784a0542536aea8277bd827a9a3867f0
 | `binary_size_bytes` | unknown | unknown | advisory | advisory: PR source authority has no stable packaged artifact; release qualification retains binary-size evidence. |
 | `external_dependency_closure` | 8 | 8 | 12 | blocking |
 
-Findings: none.
+Observations: none.

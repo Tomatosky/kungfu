@@ -26,7 +26,7 @@ Episodes, queries, assessments, and decisions.
 | --- | --- | --- |
 | Default GUI view | `work-dashboard` is already the default profile view | It renders Mission/Goal lists and large inline forms before the responsibility questions |
 | Workspace data resolution | ADR-0035 and dev launchers resolve nearest or Git-root `.kungfu` | Packaged Desktop has no Open Workspace or recent-workspace session and defaults to Electron `userData/runtime` |
-| Lazy creation | Dev path discovery can return a nonexistent Git-root `.kungfu` without creating it | GUI boot eagerly joins a runtime and writes runtime support files; no uninitialized workspace state exists |
+| Lazy creation | Dev path discovery and GUI inspection can return an uninitialized or shadow-only Git-root `.kungfu` without creating runtime state | Explicit first continuation or another fact-bearing action creates the local runtime through the shared Workspace ensure gate |
 | Mission Control | Atlas import, native Mission/Go, completion claims, ADR-0048 state, ADR-0052 TrustReport, Cost/State/Proof, and bundles exist | Mission Home now renders the five resolved query-profile answers; decision recording and cross-cut drift remain later slices |
 | Saved Query Catalog | Journal-backed QueryDefinition + ViewSpec revisions, GUI save/delete/run, Node/Python/native parity | Five built-in Mission Control views now share this catalog; override/fork/restore policy still needs a dedicated manager flow |
 | Shell state | Profile and sidebar state persist in the selected runtime ConfigStore | Last/recent workspace must exist before a workspace runtime and therefore needs global config-home state |
@@ -113,11 +113,11 @@ relaunch in version 1. The reopened window goes directly to Mission Home.
 | State | Home behavior | Allowed actions |
 | --- | --- | --- |
 | `none-selected` | First-run/Workspace chooser | start Home, open/recent/inspect only |
-| `selected-uninitialized` | Empty Mission Home or Agent Work Inbox with detected source hints | start managed run, create Mission, import, materialize bundle; first write initializes the selected data home |
-| `ready-empty` | Initialized fact world with no Mission; Home may show unassigned work | start managed run, create/import Mission, attach inbox work |
-| `ready` | Five-question Mission Home | all admitted read/write actions |
+| `uninitialized` | Empty Mission Home or Agent Work Inbox with detected source hints | start managed run, create Mission, import, materialize bundle; first write initializes the selected data home |
+| `shadow-only` | Qualified Git-settled Episode/Project Cut history, with no local runtime authority | inspect settled history, request/import full evidence, or explicitly start a local continuation |
+| `live-runtime` | Initialized fact world; Home may show unassigned work or the five-question Mission Home | all admitted read/write actions |
 | `unavailable` | Path/permission diagnosis; never fall through | locate, forget, retry |
-| `degraded` | Existing data with fsck/migration/missing-evidence warnings | inspect/export/repair actions allowed by diagnosis |
+| `evidence-degraded` | Tracked history or existing data with fsck/migration/missing-evidence warnings | inspect/export/request full evidence; continuation remains blocked until repair or qualified import |
 
 ## Mission Home information architecture
 

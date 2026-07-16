@@ -72,6 +72,34 @@
       "effects": ["append-admitted-fact", "seal-episode"]
     },
     {
+      "id": "cutover-authority",
+      "title": "Cut over Mission and Go authority",
+      "runner": "kfx-member",
+      "operation": "mission-control-actions",
+      "runtimeOperation": "episode.append",
+      "authorityClass": "mission-fact-author",
+      "requiredCapabilities": ["storage"],
+      "effects": [
+        "verify-atlas-parity",
+        "append-authority-receipt",
+        "freeze-atlas-mutation"
+      ]
+    },
+    {
+      "id": "rollback-authority",
+      "title": "Roll back Mission and Go authority",
+      "runner": "kfx-member",
+      "operation": "mission-control-actions",
+      "runtimeOperation": "episode.append",
+      "authorityClass": "mission-fact-author",
+      "requiredCapabilities": ["storage"],
+      "effects": [
+        "append-authority-receipt",
+        "restore-atlas-mutation",
+        "retain-native-facts-read-only"
+      ]
+    },
+    {
       "id": "export-mission",
       "title": "Export portable Mission bundle",
       "runner": "kfx-member",
