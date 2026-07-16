@@ -3,9 +3,10 @@ metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
 adr_id: ADR-0086
 decision_status: accepted
-implementation_status: partial
-implementation_commits: [69b0b82ebdf972a39f09e9a2737b0456314c2de8]
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/876, https://github.com/kungfu-systems/kungfu/pull/885]
+implementation_status: implemented
+implementation_commits: [69b0b82ebdf972a39f09e9a2737b0456314c2de8, 37e8ff1817f5b154f3c63eab2d02260b68adfaf8]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/876, https://github.com/kungfu-systems/kungfu/pull/885, https://github.com/kungfu-systems/kungfu/pull/967]
+closure_pr: https://github.com/kungfu-systems/kungfu/pull/967
 qualification_refs: [framework/core/src/libkungfu/tests/peer_continuity_tests.cpp, framework/core/tests/python/test_runtime_service.py, framework/core/tests/python/test_runtime_broker.py, framework/core/tests/python/test_peer_lifecycle.py, framework/agent-session/tests/peer-transport.test.mjs, framework/core/tests/qualification/live-peer-continuity/run.mjs, framework/core/tests/qualification/live-peer-continuity/native_campaign.py, .github/workflows/core-build-profiles.yml, scripts/run-zero-burden-product-qualification.mjs, docs/qualification/zero-burden-desktop-runtime.md]
 review_state: self-reviewed
 sensitivity: public
@@ -19,7 +20,7 @@ last_reviewed: 2026-07-15
 
 # ADR-0086: Live peers reconnect through fenced coordinator authority
 
-- Status: accepted; implementation complete pending three-platform evidence
+- Status: accepted; implemented and qualified on macOS, Linux, and Windows
 - Date: 2026-07-14
 - Category: Core runtime / Peer lifecycle / coordinator recovery
 - Related: [ADR-0064](ADR-0064-runtime-error-propagation-and-stop-ownership.md),
@@ -148,6 +149,26 @@ cross-process campaign on macOS, Linux, and Windows and retains the report plus
 compressed raw logs as per-platform CI artifacts. Source/unit checks do not by
 themselves establish a platform qualification claim; all three full-profile
 jobs must pass for promotion.
+
+The closure evidence is bound to source tree
+`6f28b9557e0f589c27c61c5431dea2d5e9717567` through synthetic merge revision
+`2393f68672c0c6c3cf6950aec89b8017be3c6d8a`, whose parents are base
+`4f7f48a5ee0d1af53d431f2eb0fb9ddf4a8a1453` and implementation head
+`37e8ff1817f5b154f3c63eab2d02260b68adfaf8`:
+
+- [Core build profiles run 29463399076](https://github.com/kungfu-systems/kungfu/actions/runs/29463399076)
+  passed all six profile/platform jobs and retained
+  `peer-lifecycle-macOS-ARM64`, `peer-lifecycle-Linux-X64`, and
+  `peer-lifecycle-Windows-X64`. Each full-profile report has four passing
+  suites, no violations, all thirteen native-campaign coverage claims true,
+  and a hash-bound ten-entry raw-log bundle. The Peer lifecycle suite reports
+  18 passed plus one Windows-only skip on macOS/Linux and 19 passed on Windows.
+- [Core affected native run 29463399082](https://github.com/kungfu-systems/kungfu/actions/runs/29463399082)
+  passed the embedded-SQLite closure: 29 selected build targets, 15 registered
+  CTest tests, a verified plan digest, and four non-empty retained step logs.
+
+These artifacts qualify single-host process continuity. They deliberately do
+not claim physical power-loss recovery or cross-host high availability.
 
 ## Rejected alternatives
 
