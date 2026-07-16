@@ -10,8 +10,8 @@
   "sourceRegistry": {
     "id": "kungfu",
     "path": ".buildchain/kfd/kfd-3/surfaces.json",
-    "sha256": "d4d2fff1a9fa30cf81eb1e420347bcf0a058abc1f09716e7d0ac9badeff51db0",
-    "digest": "sha256:c634cb4848df82c0b4da02b05594f55d9b4caa55a71ae618d22f11297bd9b1d5"
+    "sha256": "a712f4e012638c966c2ae143b3c41a294e5683df58ee4231f902085060d6ce79",
+    "digest": "sha256:aba6455b4be2be2bdaa88f7e531d4bfaeb48cb3fc45b1bcbb7d2a224ce84bc55"
   },
   "upstreamKfd": {
     "aggregatePath": "developer/sdk/kfd/upstream-aggregate.json",
@@ -28,7 +28,7 @@
     },
     "digest": "sha256:0d156f449d0939018917504e3909a540898cb388d360a1dd759cc026afa9e8b3"
   },
-  "collaborationInterfaceDigest": "sha256:0dfc91bc62ad476cc9bd43262b0937846a2ca47cfcc37196bd65bcf91ed7c24f",
+  "collaborationInterfaceDigest": "sha256:2c3e28ef98fb3516ea049ff6ec48c8d903bb55f2eb3295839300bfd6b0d647ea",
   "exposedSurfaces": [
     {
       "id": "kungfu.agent",
@@ -551,6 +551,66 @@
       }
     },
     {
+      "id": "kungfu.atlas.authority-cutover",
+      "name": "kungfu atlas authority-cutover --expected-parity-root <root> --project-cut-root <root> --atlas-root <root> --actor <actor> --reason <reason> --json",
+      "kind": "cli-api-gui",
+      "participantProfile": "agent-or-developer",
+      "state": "declared",
+      "availability": "shipped",
+      "visibility": "public",
+      "participantFacing": true,
+      "public": true,
+      "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
+      "evidencePath": "framework/core/src/python/kungfu/agent/commands.json",
+      "artifactPath": "framework/core/src/python/kungfu/agent/commands.json",
+      "maturity": "experimental",
+      "declaration": {
+        "owner": "kungfu",
+        "source": "scripts/buildchain-kfd-evidence.mjs",
+        "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json"
+      }
+    },
+    {
+      "id": "kungfu.atlas.authority-rollback",
+      "name": "kungfu atlas authority-rollback --expected-migration-id <id> --actor <actor> --reason <reason> --json",
+      "kind": "cli-api-gui",
+      "participantProfile": "agent-or-developer",
+      "state": "declared",
+      "availability": "shipped",
+      "visibility": "public",
+      "participantFacing": true,
+      "public": true,
+      "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
+      "evidencePath": "framework/core/src/python/kungfu/agent/commands.json",
+      "artifactPath": "framework/core/src/python/kungfu/agent/commands.json",
+      "maturity": "experimental",
+      "declaration": {
+        "owner": "kungfu",
+        "source": "scripts/buildchain-kfd-evidence.mjs",
+        "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json"
+      }
+    },
+    {
+      "id": "kungfu.atlas.authority-status",
+      "name": "kungfu atlas authority-status --source <source> --json",
+      "kind": "cli-api-gui",
+      "participantProfile": "agent-or-developer",
+      "state": "declared",
+      "availability": "shipped",
+      "visibility": "public",
+      "participantFacing": true,
+      "public": true,
+      "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
+      "evidencePath": "framework/core/src/python/kungfu/agent/commands.json",
+      "artifactPath": "framework/core/src/python/kungfu/agent/commands.json",
+      "maturity": "experimental",
+      "declaration": {
+        "owner": "kungfu",
+        "source": "scripts/buildchain-kfd-evidence.mjs",
+        "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json"
+      }
+    },
+    {
       "id": "kungfu.atlas.claim-completion",
       "name": "kungfu atlas claim-completion <mission-id> <goal-id> --statement <statement> --actor <actor> --evidence-episode <id> --json",
       "kind": "cli-api-gui",
@@ -572,7 +632,7 @@
     },
     {
       "id": "kungfu.atlas.create-go",
-      "name": "kungfu atlas create-go <mission-id> <goal-id> --title <title> --objective <objective> --actor <actor> --json",
+      "name": "kungfu atlas create-go <mission-id> <goal-id> --title <title> --objective <objective> --actor <actor> [--parent-go <id>] [--depends-on <id>] [--responsibility <owner>] [--acceptance-root <root>] [--atlas-root <root>] [--project-cut-root <root>] [--episode-root <root>] --json",
       "kind": "cli-api-gui",
       "participantProfile": "agent-or-developer",
       "state": "declared",

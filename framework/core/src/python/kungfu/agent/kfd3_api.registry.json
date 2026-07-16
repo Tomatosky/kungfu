@@ -426,6 +426,36 @@
       "projections": ["commands.json", "agent-pack-doc", "provider-skill"]
     },
     {
+      "id": "kungfu.atlas.authority-status",
+      "surface": "cli-api-gui",
+      "name": "kungfu atlas authority-status --source <source> --json",
+      "purpose": "Show exact Atlas bridge parity and the current single Mission/Go write authority.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill", "work-dashboard-gui"]
+    },
+    {
+      "id": "kungfu.atlas.authority-cutover",
+      "surface": "cli-api-gui",
+      "name": "kungfu atlas authority-cutover --expected-parity-root <root> --project-cut-root <root> --atlas-root <root> --actor <actor> --reason <reason> --json",
+      "purpose": "Append a parity-bound authority receipt and freeze Atlas Mission/Go mutation read-only.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill", "work-dashboard-gui"]
+    },
+    {
+      "id": "kungfu.atlas.authority-rollback",
+      "surface": "cli-api-gui",
+      "name": "kungfu atlas authority-rollback --expected-migration-id <id> --actor <actor> --reason <reason> --json",
+      "purpose": "Append an exact rollback receipt, restore Atlas mutation, and retain native facts read-only.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill", "work-dashboard-gui"]
+    },
+    {
       "id": "kungfu.atlas.create-mission",
       "surface": "cli-api-gui",
       "name": "kungfu atlas create-mission <mission-id> --title <title> --intent <intent> --actor <actor> --json",
@@ -468,8 +498,8 @@
     {
       "id": "kungfu.atlas.create-go",
       "surface": "cli-api-gui",
-      "name": "kungfu atlas create-go <mission-id> <goal-id> --title <title> --objective <objective> --actor <actor> --json",
-      "purpose": "Create a Kungfu-native Go linked to an admitted Mission without writing back to the bridged source.",
+      "name": "kungfu atlas create-go <mission-id> <goal-id> --title <title> --objective <objective> --actor <actor> [--parent-go <id>] [--depends-on <id>] [--responsibility <owner>] [--acceptance-root <root>] [--atlas-root <root>] [--project-cut-root <root>] [--episode-root <root>] --json",
+      "purpose": "Create a Kungfu-native Go with separate containment and execution dependencies plus exact Atlas, Project Cut, Episode, responsibility, and acceptance roots.",
       "maturity": "experimental",
       "visibility": "public-agent",
       "anchor": { "kind": "catalog" },

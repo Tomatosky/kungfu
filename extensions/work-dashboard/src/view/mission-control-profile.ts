@@ -91,6 +91,37 @@ export type AtlasImportInfo = {
   markers: number;
 };
 
+export type AtlasAuthorityState = {
+  schema: 'kungfu.mission-control.authority-status/v1';
+  state: 'native-only' | 'pre-cutover' | 'native-active' | 'rolled-back';
+  write_authority: 'atlas-adapter' | 'kungfu-native';
+  legacy_mutation_path: string;
+  migration_id: string;
+  parity_root: string;
+  transition_count: number;
+};
+
+export type AtlasAuthorityInspection = {
+  authority: AtlasAuthorityState;
+  parity: {
+    schema: 'kungfu.mission-control.authority-parity/v1';
+    status: 'matched' | 'degraded';
+    parity_root: string;
+    counts: Record<string, number>;
+  };
+};
+
+export type AtlasAuthorityTransition = {
+  status: 'cutover' | 'already-active' | 'rolled-back';
+  migration: {
+    migration_id: string;
+    migration_status: 'native-active' | 'rolled-back';
+    write_authority: 'atlas-adapter' | 'kungfu-native';
+    parity_root: string;
+    previous_migration_id?: string | null;
+  };
+};
+
 export type AtlasDashboardSnapshot = {
   schema: 'kungfu.mission-control.dashboard-snapshot/v1';
   cut: {
@@ -110,6 +141,7 @@ export type AtlasDashboardSnapshot = {
     writableAuthority: false;
   };
   import_info: AtlasImportInfo | null;
+  authority: AtlasAuthorityState;
   missions: AtlasMission[];
   goals: AtlasGoal[];
 };
@@ -358,6 +390,21 @@ export type Atlas = {
   dashboard: () => Promise<AtlasDashboardSnapshot>;
   currentDashboard: () => AtlasDashboardSnapshot | null;
   importRepo: (repoRoot: string) => Promise<AtlasImportResult>;
+  authorityStatus: () => Promise<AtlasAuthorityInspection>;
+  cutoverAuthority: (input: {
+    expectedParityRoot: string;
+    projectCutRoot: string;
+    atlasRoot: string;
+    actor: string;
+    actorType?: 'user' | 'agent';
+    reason: string;
+  }) => Promise<AtlasAuthorityTransition>;
+  rollbackAuthority: (input: {
+    expectedMigrationId: string;
+    actor: string;
+    actorType?: 'user' | 'agent';
+    reason: string;
+  }) => Promise<AtlasAuthorityTransition>;
   importInfo: () => AtlasImportInfo | null;
   missions: () => AtlasMission[];
   mission: (missionId: string) => AtlasMissionDetail | null;
@@ -398,6 +445,13 @@ export type Atlas = {
       actor: string;
       actorType?: 'user' | 'agent';
       status?: 'proposed' | 'active' | 'blocked' | 'waiting-for-decision';
+      parentGoalId?: string;
+      dependsOn?: string[];
+      responsibility?: string;
+      acceptanceRoot?: string;
+      atlasRoot?: string;
+      projectCutRoot?: string;
+      evidenceEpisodeRoots?: string[];
     },
   ) => Promise<AtlasGoWrite>;
   claimCompletion: (
@@ -488,6 +542,22 @@ export function openMissionControlProfile(
         'import-atlas',
         { repo: repoRoot, source: 'atlas' },
         'work-dashboard',
+      ),
+    authorityStatus: () =>
+      memberAsync<AtlasAuthorityInspection>('authority-status', {
+        source: 'atlas',
+      }),
+    cutoverAuthority: (input) =>
+      authorize<AtlasAuthorityTransition>(
+        'cutover-authority',
+        { source: 'atlas', ...input },
+        input.actor,
+      ),
+    rollbackAuthority: (input) =>
+      authorize<AtlasAuthorityTransition>(
+        'rollback-authority',
+        input,
+        input.actor,
       ),
     importInfo: () => member<AtlasDashboardSnapshot>('dashboard').import_info,
     missions: () => member<AtlasDashboardSnapshot>('dashboard').missions,
