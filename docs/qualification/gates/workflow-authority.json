@@ -639,7 +639,7 @@
           "authority": "qualification",
           "publication": "none",
           "receipt": "diagnostic",
-          "definitionDigest": "sha256:c35d6d3d8e5c57f6aad2c3600f995bbf9adebe2c132cb05e6405d2b43e90f1a3",
+          "definitionDigest": "sha256:e80186fd6a853c52537b4100802c744d068fa2b2c36dc7caa928c47f6c55f496",
           "credentials": {
             "githubToken": "read",
             "oidc": false,
@@ -647,24 +647,19 @@
             "inheritedSecrets": false,
             "environment": null
           },
-          "externalActions": [
-            "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
-            "actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e",
-            "dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30",
-            "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
-          ],
+          "externalActions": [],
           "steps": [
             {
               "index": 1,
-              "label": "name:Checkout locked consumer source",
+              "label": "name:Prepare locked consumer source on Unix",
               "authority": "qualification",
-              "definitionDigest": "sha256:744bd7b35c74d1765a0285778c2a33f27dd3ac3186e8bdfb42a8b817cd3259da"
+              "definitionDigest": "sha256:cce42c9b795d56c2f825b2c6686f2eeaa6855bebd3ddfa371af7ccc60804cf32"
             },
             {
               "index": 2,
-              "label": "name:Setup Node.js",
+              "label": "name:Prepare locked consumer source on Windows",
               "authority": "qualification",
-              "definitionDigest": "sha256:384af37f92b38755198bae9d802d7493c42528f40cac9a18be364611b1c3992e"
+              "definitionDigest": "sha256:ed9bd45a1ae4e72b6bf07ad8ee5c407a64be8b3d7433735e54bd66709ccb3f49"
             },
             {
               "index": 3,
@@ -676,25 +671,25 @@
               "index": 4,
               "label": "name:Setup Rust toolchain",
               "authority": "qualification",
-              "definitionDigest": "sha256:ca32dec64c7877f38cd997a77411ca2b3de124108d07d9b08973375a321f3341"
+              "definitionDigest": "sha256:ae5a6ece593e6d04413e7f8d022a5a2499eb405410c1a842b0470fbe8500cca5"
             },
             {
               "index": 5,
               "label": "id:measurement",
               "authority": "qualification",
-              "definitionDigest": "sha256:d9278eaa7640f0f5827d0db34826adb7c3e1f0071359e2ff9f55234a067481ab"
+              "definitionDigest": "sha256:14264ec02b2eef7dd684b664b95856a9cb5fcd52624d4d50e9c0f3275076d992"
             },
             {
               "index": 6,
-              "label": "name:Upload focused Gate receipt",
+              "label": "name:Emit focused Gate receipt",
               "authority": "evidence-publication",
-              "definitionDigest": "sha256:37f8c8a7535af4fccb1ba25ca32e829f328150b15bf1c2d45bf4575b5f13de9e"
+              "definitionDigest": "sha256:091285de6dbd77854aeb12c2f98841274aca7232fd146a20de54e38419a0782e"
             },
             {
               "index": 7,
               "label": "name:Propagate focused Gate result",
               "authority": "qualification",
-              "definitionDigest": "sha256:3585abd7ef326026c485d643f0490c60313b3831fb318cee917a4f03b8ee693a"
+              "definitionDigest": "sha256:11ac3e4b995c6def946976461a49063149f3d115ea4fd8324d26bf23cc860333"
             }
           ]
         },

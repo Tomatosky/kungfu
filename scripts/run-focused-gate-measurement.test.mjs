@@ -67,3 +67,24 @@ test('focused measurement job budget covers the heaviest Gate with headroom', ()
     'focused measurement job must leave at least two hours beyond the heaviest Gate action',
   );
 });
+
+test('focused measurement bootstraps without remote Action downloads', () => {
+  const workflow = fs.readFileSync(
+    new URL('../.github/workflows/gate-measurement.yml', import.meta.url),
+    'utf8',
+  );
+  const focusedJob = workflow.match(
+    /\n {2}focused:\n([\s\S]*?)(?=\n {2}[a-zA-Z0-9_-]+:\n|$)/,
+  );
+  assert.ok(focusedJob, 'focused measurement job must exist');
+  assert.doesNotMatch(
+    focusedJob[1],
+    /(?:^|\n) {6,}uses:/,
+    'focused measurement must not depend on codeload Action archives',
+  );
+  assert.match(
+    focusedJob[1],
+    /KUNGFU_GATE_RECEIPT_BASE64=/,
+    'focused measurement must retain a log-recoverable receipt',
+  );
+});

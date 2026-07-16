@@ -170,6 +170,17 @@ and what credential surface it receives. Both checks must pass.
 gh workflow run gate-measurement.yml --ref dev/v4/v4.0 -f source-ref=<FULL_SHA>
 ```
 
+Focused measurements bootstrap from the locked source with the self-hosted
+runner's bundled Node.js and do not download external Actions. Each focused job
+retains its receipt in the job log. Recover one exact receipt without relying
+on the Actions artifact service:
+
+```sh
+gh run view <RUN_ID> --job <JOB_ID> --log 2>/dev/null \
+  | node scripts/recover-focused-gate-receipt.mjs \
+      --output docs/qualification/evidence/gate-measurements/<SOURCE>/<PLATFORM>/receipt.json
+```
+
 Explicit `gate run GATE` is diagnostic and non-qualifying. A qualifying receipt
 requires a clean full-profile run. Handler actions such as DCO, Buildchain
 configuration, and artifact admission are remote controller boundaries until
