@@ -104,9 +104,7 @@ test('source-fresh launchers pin nested Shifu entry to the resolved binary', () 
     posix.match(/SHIFU_BIN="\$kungfu_dev_bin" exec "\$kungfu_dev_bin"/g)
       ?.length >= 2,
   );
-  assert.ok(
-    windows.match(/set "SHIFU_BIN=%_KFC_DEVBIN%"/g)?.length >= 2,
-  );
+  assert.ok(windows.match(/set "SHIFU_BIN=%_KFC_DEVBIN%"/g)?.length >= 2);
 });
 
 test('runtime guard rejects a direct task and accepts Shifu provenance', () => {
