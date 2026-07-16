@@ -261,9 +261,13 @@ and observer metadata belong to the selected fact-world authority.
 
 Desktop remembers the last selected workspace under `KF_CONFIG_HOME`, but that
 registry is only global GUI session state. Opening a directory remains
-read-only; `.kungfu` initializes on the first operation that changes the
-workspace fact world. [ADR-0060](../adr/ADR-0060-desktop-workspace-selection-and-lazy-data-home.md)
-defines the lifecycle and prevents recent-workspace convenience from becoming
+read-only. A clone containing qualified Episode/Project Cut shadows opens as
+`shadow-only`; those Git records remain a settled read model rather than local
+Episode authority. The runtime initializes only through an explicit
+continuation or another operation that changes the workspace fact world.
+[ADR-0060](../adr/ADR-0060-desktop-workspace-selection-and-lazy-data-home.md)
+and [ADR-0103](../adr/ADR-0103-shadow-only-workspace-continuation.md) define the
+lifecycle and prevent recent-workspace convenience or Git JSON from becoming
 Mission authority.
 
 A full bundle carries the bounded content closure needed for offline replay and

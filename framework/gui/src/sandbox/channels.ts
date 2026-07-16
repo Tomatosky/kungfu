@@ -72,3 +72,5 @@ export const WORKSPACE_GET_CHANNEL = 'kf-workspace:get';
 export const WORKSPACE_OPEN_CHANNEL = 'kf-workspace:open';
 export const WORKSPACE_SELECT_HOME_CHANNEL = 'kf-workspace:select-home';
 export const WORKSPACE_SELECT_RECENT_CHANNEL = 'kf-workspace:select-recent';
+export const WORKSPACE_START_CONTINUATION_CHANNEL =
+  'kf-workspace:start-continuation';

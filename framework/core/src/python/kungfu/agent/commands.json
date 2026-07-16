@@ -152,6 +152,12 @@
       "purpose": "Inspect a Home or project workspace candidate without initializing it."
     },
     {
+      "apiId": "kungfu.workspace.start-continuation",
+      "name": "kungfu workspace ensure <path> --reason start-continuation --json",
+      "maturity": "experimental",
+      "purpose": "Create local runtime authority only after explicit continuation intent; a shadow-only inspection never invokes this action."
+    },
+    {
       "apiId": "kungfu.workspace.advise",
       "name": "kungfu workspace advise --home --source <path> --json",
       "maturity": "experimental",

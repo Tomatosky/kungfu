@@ -6,15 +6,15 @@
   "supportLevel": "release",
   "source": {
     "cwd": "/Users/dkr/Worktrees/kungfu/feature/peer-lifecycle-control-plane",
-    "sourceSha": "45aad5e329d8353399a635c2a26552a6d825751d",
+    "sourceSha": "b1054e7e070af8a1871a4070990123121f80ead7",
     "registryPath": ".buildchain/kfd/kfd-3/surfaces.json",
-    "registryDigest": "sha256:b34b9d50f3454e472119d22dbaf56d6bc4c645a08548e082cfad62225049eb9e"
+    "registryDigest": "sha256:dc63cf78edac18ffb4dbaef31f78ec4f5c00b2650e0db276d644bf95e8bd7a0c"
   },
   "sourceRegistry": {
     "id": "kungfu",
     "path": ".buildchain/kfd/kfd-3/surfaces.json",
-    "sha256": "96ef790bdeb961abf26bfd922a417adb898ef58a9e129c423930119e66d562c0",
-    "digest": "sha256:b34b9d50f3454e472119d22dbaf56d6bc4c645a08548e082cfad62225049eb9e"
+    "sha256": "cb09556dada714fb3ae0a86d8ccef9e6ffee6a3b390fe11ff7526afe7deef9f1",
+    "digest": "sha256:dc63cf78edac18ffb4dbaef31f78ec4f5c00b2650e0db276d644bf95e8bd7a0c"
   },
   "upstreamKfd": {
     "aggregatePath": "developer/sdk/kfd/upstream-aggregate.json",
@@ -34,7 +34,7 @@
   "expectedArtifactVerification": {
     "command": "node scripts/buildchain-kfd-evidence.mjs --artifact-witness --json"
   },
-  "collaborationInterfaceDigest": "sha256:755787f53ad7fd0933ee7e4fd2ebc3260939d7fe193271b71aec97123eb3160a",
+  "collaborationInterfaceDigest": "sha256:962f3f8d23a00da73500236d7538d1a7f04e750062d2595d4196b2ff84addab8",
   "collaborationInterface": {
     "schemaVersion": 1,
     "contract": "kungfu-buildchain-kfd-3-surface-registry",
@@ -2346,6 +2346,26 @@
         }
       },
       {
+        "id": "kungfu.workspace.start-continuation",
+        "name": "kungfu workspace ensure <path> --reason start-continuation --json",
+        "kind": "cli",
+        "participantProfile": "agent-or-developer",
+        "state": "declared",
+        "availability": "shipped",
+        "visibility": "public",
+        "participantFacing": true,
+        "public": true,
+        "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
+        "evidencePath": "framework/core/src/python/kungfu/agent/commands.json",
+        "artifactPath": "framework/core/src/python/kungfu/agent/commands.json",
+        "maturity": "experimental",
+        "declaration": {
+          "owner": "kungfu",
+          "source": "scripts/buildchain-kfd-evidence.mjs",
+          "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json"
+        }
+      },
+      {
         "id": "kungfu.workspace.verify",
         "name": "kungfu workspace verify --home --receipt-id <id> --json",
         "kind": "cli",
@@ -2368,8 +2388,8 @@
     ],
     "audit": {
       "status": "passed",
-      "declared": 114,
-      "artifactPublic": 114,
+      "declared": 115,
+      "artifactPublic": 115,
       "policy": {
         "sourceOfTruth": ".buildchain/kfd/kfd-3/surfaces.json",
         "detectedButUnregistered": "product-specific-audit",
@@ -4649,6 +4669,26 @@
     {
       "id": "kungfu.workspace.preview",
       "name": "kungfu workspace preview --home --source <path> --intent create-project-workspace --json",
+      "kind": "cli",
+      "participantProfile": "agent-or-developer",
+      "state": "declared",
+      "availability": "shipped",
+      "visibility": "public",
+      "participantFacing": true,
+      "public": true,
+      "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
+      "evidencePath": "framework/core/src/python/kungfu/agent/commands.json",
+      "artifactPath": "framework/core/src/python/kungfu/agent/commands.json",
+      "maturity": "experimental",
+      "declaration": {
+        "owner": "kungfu",
+        "source": "scripts/buildchain-kfd-evidence.mjs",
+        "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json"
+      }
+    },
+    {
+      "id": "kungfu.workspace.start-continuation",
+      "name": "kungfu workspace ensure <path> --reason start-continuation --json",
       "kind": "cli",
       "participantProfile": "agent-or-developer",
       "state": "declared",

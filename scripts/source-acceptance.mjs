@@ -186,6 +186,10 @@ export function sourceAcceptancePlan(files) {
     ],
     ['Project Cut history contract', 'scripts/check-project-cut-history.mjs'],
     [
+      'workspace continuation contract',
+      'scripts/check-workspace-continuation.mjs',
+    ],
+    [
       'durability production-candidate admission',
       'scripts/check-durability-production-candidate.mjs',
     ],
@@ -231,6 +235,7 @@ export function sourceAcceptancePlan(files) {
         'scripts/check-git-episode-provider.test.mjs',
         'scripts/check-project-cut-settlement.test.mjs',
         'scripts/check-project-cut-history.test.mjs',
+        'scripts/check-workspace-continuation.test.mjs',
         'framework/agent-session/tests/capsule-host.test.mjs',
         'framework/agent-session/tests/peer-transport.test.mjs',
         'framework/agent-session/tests/runtime-port.test.mjs',

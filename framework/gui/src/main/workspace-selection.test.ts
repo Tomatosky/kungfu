@@ -1,5 +1,12 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import {
+  existsSync,
+  mkdirSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -59,12 +66,22 @@ function writeRegistry(
   );
 }
 
+function semanticRoot(value: Record<string, unknown>): string {
+  const canonical = `{${Object.entries(value)
+    .sort(([left], [right]) =>
+      Buffer.compare(Buffer.from(left), Buffer.from(right)),
+    )
+    .map(([key, child]) => `${JSON.stringify(key)}:${JSON.stringify(child)}`)
+    .join(',')}}`;
+  return `sha256:${createHash('sha256').update(canonical).digest('hex')}`;
+}
+
 test('first install selects logical Home without creating its data home', () => {
   const root = fixture('home');
   const selection = defaultHomeDesktopWorkspace(root);
 
   assert.equal(selection.workspaceId, 'home');
-  assert.equal(selection.state, 'selected-uninitialized');
+  assert.equal(selection.state, 'uninitialized');
   assert.equal(selection.dataHome, path.join(realpathSync(root), '.kungfu'));
   assert.equal(
     listRecentDesktopWorkspaces(path.join(root, 'config')).length,
@@ -114,11 +131,88 @@ test('existing project is selected read-only until its data home exists', () => 
     'project:ready-later',
   );
 
-  assert.equal(
-    resolveLastDesktopWorkspace(configHome)?.state,
-    'selected-uninitialized',
-  );
+  assert.equal(resolveLastDesktopWorkspace(configHome)?.state, 'uninitialized');
   assert.equal(listRecentDesktopWorkspaces(configHome).length, 1);
-  mkdirSync(path.join(project, '.kungfu'));
-  assert.equal(resolveLastDesktopWorkspace(configHome)?.state, 'ready');
+  mkdirSync(path.join(project, '.kungfu', 'runtime'), { recursive: true });
+  assert.equal(resolveLastDesktopWorkspace(configHome)?.state, 'live-runtime');
+});
+
+test('tracked settled history is shadow-only and inspection creates no runtime', () => {
+  const root = fixture('shadow-only');
+  const configHome = path.join(root, 'config');
+  const project = path.join(root, 'project');
+  const dataHome = path.join(project, '.kungfu');
+  const episode = path.join(
+    dataHome,
+    'episodes',
+    'sealed',
+    'sha256',
+    'aa',
+    'a'.repeat(64),
+  );
+  mkdirSync(episode, { recursive: true });
+  const manifest = {
+    schema: 'kungfu.episode.git-workspace-manifest/v1',
+    authority: 'shadow-of-yijinjing-journal',
+    semanticRoot: `sha256:${'a'.repeat(64)}`,
+  };
+  writeFileSync(
+    path.join(episode, 'manifest.json'),
+    JSON.stringify({ ...manifest, providerRoot: semanticRoot(manifest) }),
+  );
+  writeRegistry(
+    configHome,
+    [
+      {
+        workspace_id: 'project:shadow',
+        workspace_kind: 'project',
+        workspace_root: project,
+        display_path: project,
+        data_home: dataHome,
+      },
+    ],
+    'project:shadow',
+  );
+
+  const selection = resolveLastDesktopWorkspace(configHome);
+  assert.equal(selection?.state, 'shadow-only');
+  assert.equal(selection?.evidenceLevel, 'settled-review');
+  assert.equal(selection?.settledEpisodeCount, 1);
+  assert.equal(existsSync(path.join(dataHome, 'runtime')), false);
+});
+
+test('root-mismatched tracked history is evidence-degraded and remains read-only', () => {
+  const root = fixture('shadow-invalid');
+  const configHome = path.join(root, 'config');
+  const project = path.join(root, 'project');
+  const dataHome = path.join(project, '.kungfu');
+  const episode = path.join(dataHome, 'episodes', 'sealed', 'broken');
+  mkdirSync(episode, { recursive: true });
+  writeFileSync(
+    path.join(episode, 'manifest.json'),
+    JSON.stringify({
+      schema: 'kungfu.episode.git-workspace-manifest/v1',
+      authority: 'shadow-of-yijinjing-journal',
+      semanticRoot: `sha256:${'a'.repeat(64)}`,
+      providerRoot: `sha256:${'b'.repeat(64)}`,
+    }),
+  );
+  writeRegistry(
+    configHome,
+    [
+      {
+        workspace_id: 'project:broken',
+        workspace_kind: 'project',
+        workspace_root: project,
+        display_path: project,
+        data_home: dataHome,
+      },
+    ],
+    'project:broken',
+  );
+
+  const selection = resolveLastDesktopWorkspace(configHome);
+  assert.equal(selection?.state, 'evidence-degraded');
+  assert.match(selection?.diagnosis ?? '', /Invalid settled Episode/);
+  assert.equal(existsSync(path.join(dataHome, 'runtime')), false);
 });

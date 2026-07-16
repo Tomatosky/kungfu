@@ -2497,6 +2497,28 @@
       "residualRisk": []
     },
     {
+      "id": "kungfu.workspace.start-continuation",
+      "kind": "cli",
+      "name": "kungfu workspace ensure <path> --reason start-continuation --json",
+      "state": "declared",
+      "detected": true,
+      "enforced": false,
+      "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
+      "artifactPath": "framework/core/src/python/kungfu/agent/commands.json",
+      "kfd1Basis": {
+        "registryPath": ".buildchain/kfd/kfd-3/surfaces.json",
+        "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
+        "artifactPath": "framework/core/src/python/kungfu/agent/commands.json",
+        "digest": "sha256:a822a3945ba6cc484826990f0705e5f8ecb2ed703130212b7edc1c6edc00371f"
+      },
+      "kfd2Trust": {
+        "status": "release-passport-required",
+        "trustImpact": "query-release-passport-for-final-trust",
+        "residualRisk": []
+      },
+      "residualRisk": []
+    },
+    {
       "id": "kungfu.workspace.verify",
       "kind": "cli",
       "name": "kungfu workspace verify --home --receipt-id <id> --json",
