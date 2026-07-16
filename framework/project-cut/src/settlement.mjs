@@ -1241,6 +1241,28 @@ function verifyEpisodeProviderEntries(entries, providerRoot) {
   ];
 }
 
+function episodeProviderRef(entries, providerRoot) {
+  for (const entry of entries) {
+    if (
+      !entry.path.endsWith('/manifest.json') ||
+      !entry.path.includes('/episodes/sealed/')
+    )
+      continue;
+    try {
+      const manifest = parseRootJson(entry.bytes.toString('utf8'));
+      if (manifest.providerRoot === providerRoot)
+        return {
+          providerRoot,
+          semanticRoot: manifest.semanticRoot,
+          qualificationRoot: manifest.qualificationRoot,
+        };
+    } catch {
+      // Reconcile diagnostics already retain malformed provider manifests.
+    }
+  }
+  return { providerRoot, semanticRoot: null, qualificationRoot: null };
+}
+
 export function reconcileCommit(rootInput, commitInput) {
   const root = repositoryRoot(rootInput);
   const commit = git(root, ['rev-parse', `${commitInput}^{commit}`]).trim();
@@ -1274,6 +1296,7 @@ export function reconcileCommit(rootInput, commitInput) {
   const cuts = paths
     .map((path) => {
       let cut;
+      let receiptRoot = null;
       try {
         cut = parseRootJson(byPath.get(path).toString('utf8'));
       } catch (error) {
@@ -1305,6 +1328,7 @@ export function reconcileCommit(rootInput, commitInput) {
           const receipt = parseRootJson(
             byPath.get(receiptPath).toString('utf8'),
           );
+          receiptRoot = receipt.receiptRoot ?? null;
           diagnostics.push(
             ...verifyProjectCutReceipt(receipt, cut, byPath.get(path), {
               availableParentRoots: availableCutRoots,
@@ -1360,6 +1384,12 @@ export function reconcileCommit(rootInput, commitInput) {
         sourceProjectionRoot: isLeaf
           ? projection.root
           : cut.sourceProjection.root,
+        atlasRoot: cut.atlas.root,
+        parentCutRoots: cut.parentCutRoots,
+        receiptRoot,
+        episodes: cut.episodeDelta.nativeRoots.map((entry) =>
+          episodeProviderRef(entries, entry.root),
+        ),
       };
     })
     .filter(Boolean);

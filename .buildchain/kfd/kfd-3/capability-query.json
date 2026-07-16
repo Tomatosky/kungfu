@@ -651,7 +651,7 @@
     {
       "id": "kungfu.atlas.claim-completion",
       "kind": "cli-api-gui",
-      "name": "kungfu atlas claim-completion <mission-id> <goal-id> --statement <statement> --actor <actor> [--actor-type <type>] [--source <source>] [--evidence-episode <id>] [--go-set <id>] [--acceptance-root <root>] [--input-atlas-root <root>] [--result-atlas-root <root>] [--project-cut-root <root>] [--git-commit <sha>] [--git-tree-root <root>] [--proof-root <root>] [--known-gap <gap>] [--evidence-availability <json>] --json",
+      "name": "kungfu atlas claim-completion <mission-id> <goal-id> --statement <statement> --actor <actor> [--actor-type <type>] [--source <source>] [--evidence-episode <id>] [--go-set <id>] [--acceptance-root <root>] [--input-atlas-root <root>] [--result-atlas-root <root>] [--project-cut-root <root>] [--project-cut-receipt-root <root>] [--git-commit <sha>] [--git-tree-root <root>] [--proof-root <root>] [--known-gap <gap>] [--evidence-availability <json>] --json",
       "state": "declared",
       "detected": true,
       "enforced": false,
@@ -661,7 +661,7 @@
         "registryPath": ".buildchain/kfd/kfd-3/surfaces.json",
         "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
         "artifactPath": "framework/core/src/python/kungfu/agent/commands.json",
-        "digest": "sha256:131f8ac591755803776be1f47fc06ccb1967e4f10b261dcf9e9c690817e2b594"
+        "digest": "sha256:8f6062969ffa1752eb16798e629e9852c12366b2b848bb43f7a9344969cee921"
       },
       "kfd2Trust": {
         "status": "release-passport-required",
@@ -805,7 +805,7 @@
     {
       "id": "kungfu.atlas.review-completion",
       "kind": "cli-api-gui",
-      "name": "kungfu atlas review-completion <mission-id> <goal-id> --reviewer <actor> --reviewer-source <source> [--source <source>] [--purpose <purpose>] [--cut-system-time <ns>] [--executor <profile>] [--follow-up <json>] --json",
+      "name": "kungfu atlas review-completion <mission-id> <goal-id> --reviewer <actor> --reviewer-source <source> [--checkout <path>] [--source <source>] [--purpose <purpose>] [--cut-system-time <ns>] [--executor <profile>] [--follow-up <json>] --json",
       "state": "declared",
       "detected": true,
       "enforced": false,
@@ -815,7 +815,7 @@
         "registryPath": ".buildchain/kfd/kfd-3/surfaces.json",
         "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
         "artifactPath": "framework/core/src/python/kungfu/agent/commands.json",
-        "digest": "sha256:cdb270f4b9821b17fee866eb7cba6fcb23590d22ffa801095ebcce0e6e8ec7ca"
+        "digest": "sha256:dee0a79ba8b8d26ad6b57468226c20daffda718e5258d96663f86e9477f351d4"
       },
       "kfd2Trust": {
         "status": "release-passport-required",

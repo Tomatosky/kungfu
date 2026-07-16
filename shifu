@@ -236,6 +236,19 @@ if [ "${1:-}" = "project-cut" ]; then
   fi
 fi
 
+# The agent-facing Mission Control CLI must be the executable assembled from
+# this checkout.  Bypass pnpm here so --json remains a single JSON document and
+# cannot silently fall through to an unrelated globally installed `kungfu`.
+if [ "${1:-}" = "kungfu" ]; then
+  shift
+  _kungfu_checkout_bin="./framework/core/dist/kungfu/kungfu"
+  if [ -x "$_kungfu_checkout_bin" ]; then
+    exec "$_kungfu_checkout_bin" "$@"
+  fi
+  echo "shifu: kungfu source CLI is not assembled; run ./shifu build:core" >&2
+  exit 127
+fi
+
 # Xinfa is an independently extractable product. Its build/check/smoke tasks use
 # only Node plus Cargo and must not contend for Kungfu's managed Conan storage.
 case "${1:-}" in

@@ -44,18 +44,23 @@ creates false confidence.
 ### 1. A Completion Claim is one exact evidence envelope
 
 `claim-completion` records the claimant and Go set together with acceptance,
-input/result Atlas, Project Cut, Git commit/tree, Episode/proof roots, known
-gaps, and per-acceptance `thin` or `full` evidence availability. Git commits and
-content roots retain their own identity domains. The claim does not become a
-decision merely because it was admitted.
+input/result Atlas, Project Cut and receipt, Git commit/tree, Episode/proof
+roots, known gaps, and per-acceptance `thin` or `full` evidence availability.
+The Git tree root is the semantic SHA-256 root of the exact Git tree object id;
+Git commits and content roots otherwise retain their own identity domains. The
+claim does not become a decision merely because it was admitted.
 
 ### 2. Independent review uses a different actor and source
 
-`review-completion` rejects a reviewer whose actor identity equals the
-claimant. It executes the existing purpose-bound completion assessment over the
-selected exact cut, producing an Assessment Episode and TrustReport, then seals
-the reviewer's findings and deterministic continuation plan under independent
-roots. It never modifies the claimant's Episode.
+`review-completion` rejects a reviewer whose actor or source equals the
+claimant. With `--checkout`, the trusted verifier requires checkout `HEAD` to
+equal the claim commit and cross-checks the commit tree, Go acceptance and
+parent/child matrix, Project Cut receipt, successor Atlas, and sealed Episode
+roots before `fit` is possible. It executes the existing purpose-bound
+completion assessment over the selected exact cut, producing an Assessment
+Episode and TrustReport, then seals the reviewer's findings and deterministic
+continuation plan under independent roots. It never modifies the claimant's
+Episode.
 
 The verdict vocabulary is exactly `fit`, `partial`, `insufficient`,
 `conflicted`, `stale`, or `unverifiable`. Missing thin evidence is insufficient.

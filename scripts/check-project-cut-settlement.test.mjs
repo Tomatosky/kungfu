@@ -237,7 +237,19 @@ test('commit observe preserves sealed-unpublished state, then proves publication
     JSON.stringify(published.receipt.diagnostics),
   );
   assert.equal(published.state.status, 'published');
-  assert.equal(reconcileCommit(root, 'HEAD').ok, true);
+  const reconciled = reconcileCommit(root, 'HEAD');
+  assert.equal(reconciled.ok, true);
+  assert.equal(reconciled.cuts.length, 1);
+  assert.equal(reconciled.cuts[0].cutRoot, applied.cut.cutRoot);
+  assert.equal(reconciled.cuts[0].atlasRoot, applied.cut.atlas.root);
+  assert.equal(reconciled.cuts[0].receiptRoot, applied.cutReceipt.receiptRoot);
+  assert.deepEqual(reconciled.cuts[0].episodes, [
+    {
+      providerRoot: applied.cut.episodeDelta.nativeRoots[0].root,
+      semanticRoot: EPISODE_ROOT,
+      qualificationRoot: semanticRoot(qualification()),
+    },
+  ]);
   assert.equal(
     inspectSettlement(root, applied.statePath).cut.cutRoot,
     applied.cut.cutRoot,

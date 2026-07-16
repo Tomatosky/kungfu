@@ -1144,6 +1144,15 @@ def test_independent_completion_review_and_exact_continuation(tmp_path):
     assert review["review_root"].startswith("sha256:")
     assert review["continuation_plan_root"].startswith("sha256:")
     assert review["receipt"]["episode_id"]
+    assert review["review"]["continuation_plan"]["evidence_requests"] == [
+        {
+            "acceptance": "raw replay",
+            "level": "full",
+            "state": "unavailable",
+            "action": "request-evidence",
+            "command": "./shifu workspace request-full-evidence <checkout> --json",
+        }
+    ]
 
     with pytest.raises(ValueError, match="review changed"):
         mission_control.decide_continuation(
@@ -1195,6 +1204,157 @@ def test_independent_completion_review_and_exact_continuation(tmp_path):
         row["payload"]["record"].get("goal_id") == "obtain-full-evidence"
         for row in state["goals"]
     )
+
+
+def test_tracked_completion_evidence_rejects_fault_campaign(tmp_path, monkeypatch):
+    checkout = tmp_path / "checkout"
+    checkout.mkdir()
+    subprocess.run(["git", "init", "-q", checkout], check=True)
+    subprocess.run(
+        ["git", "-C", checkout, "config", "user.name", "Review Test"], check=True
+    )
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            checkout,
+            "config",
+            "user.email",
+            "review@example.invalid",
+        ],
+        check=True,
+    )
+    (checkout / "work.txt").write_text("qualified\n", encoding="utf-8")
+    subprocess.run(["git", "-C", checkout, "add", "work.txt"], check=True)
+    subprocess.run(
+        ["git", "-C", checkout, "commit", "-qm", "test: qualified cut"],
+        check=True,
+    )
+    commit = subprocess.run(
+        ["git", "-C", checkout, "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    tree_oid = subprocess.run(
+        ["git", "-C", checkout, "rev-parse", "HEAD^{tree}"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    acceptance = _sha256_root("acceptance")
+    input_atlas = _sha256_root("input-atlas")
+    result_atlas = _sha256_root("result-atlas")
+    cut_root = _sha256_root("project-cut")
+    receipt_root = _sha256_root("cut-receipt")
+    episode_root = _sha256_root("episode")
+    state = {
+        "goals": [
+            {
+                "subject_key": "kungfu:parent-go",
+                "payload": {
+                    "record": {
+                        "goal_id": "parent-go",
+                        "acceptance_root": acceptance,
+                        "input_atlas_root": input_atlas,
+                        "project_cut_root": cut_root,
+                        "parent_goal_id": "",
+                    }
+                },
+            },
+            {
+                "subject_key": "kungfu:child-go",
+                "payload": {
+                    "record": {
+                        "goal_id": "child-go",
+                        "parent_goal_id": "parent-go",
+                    }
+                },
+            },
+        ]
+    }
+    claim = {
+        "git_commit": commit,
+        "git_tree_root": mission_control._sha256_root(tree_oid),
+        "go_set": ["child-go", "parent-go"],
+        "acceptance_root": acceptance,
+        "input_atlas_root": input_atlas,
+        "result_atlas_root": result_atlas,
+        "project_cut_root": cut_root,
+        "project_cut_receipt_root": receipt_root,
+        "evidence_episodes": [{"episode_id": "7", "episode_root": episode_root}],
+    }
+    reconcile = {
+        "ok": True,
+        "diagnostics": [],
+        "cuts": [
+            {
+                "cutRoot": cut_root,
+                "atlasRoot": result_atlas,
+                "receiptRoot": receipt_root,
+                "episodes": [{"semanticRoot": episode_root}],
+            }
+        ],
+    }
+    real_run = subprocess.run
+
+    def fake_run(args, **kwargs):
+        if args[0] == "node":
+            return subprocess.CompletedProcess(args, 0, json.dumps(reconcile), "")
+        return real_run(args, **kwargs)
+
+    monkeypatch.setattr(mission_control.subprocess, "run", fake_run)
+    valid = mission_control._tracked_completion_evidence(
+        str(checkout), state, "parent-go", claim
+    )
+    assert valid["valid"] is True
+    assert valid["evidence_root"].startswith("sha256:")
+
+    cases = {
+        "missing-episode": {"episodes": []},
+        "stale-atlas": {"atlasRoot": _sha256_root("stale-atlas")},
+        "receipt-cut-mismatch": {"receiptRoot": _sha256_root("wrong-receipt")},
+    }
+    for code, cut_patch in cases.items():
+        reconcile["cuts"][0].update(cut_patch)
+        rejected = mission_control._tracked_completion_evidence(
+            str(checkout), state, "parent-go", claim
+        )
+        assert rejected["valid"] is False
+        assert code in {row["code"] for row in rejected["diagnostics"]}
+        reconcile["cuts"][0] = {
+            "cutRoot": cut_root,
+            "atlasRoot": result_atlas,
+            "receiptRoot": receipt_root,
+            "episodes": [{"semanticRoot": episode_root}],
+        }
+
+    incomplete = {**claim, "go_set": ["parent-go"]}
+    rejected = mission_control._tracked_completion_evidence(
+        str(checkout), state, "parent-go", incomplete
+    )
+    assert "incomplete-parent-acceptance" in {
+        row["code"] for row in rejected["diagnostics"]
+    }
+
+    forged = {**claim, "project_cut_root": _sha256_root("forged-cut")}
+    rejected = mission_control._tracked_completion_evidence(
+        str(checkout), state, "parent-go", forged
+    )
+    assert "project-cut-root-mismatch" in {
+        row["code"] for row in rejected["diagnostics"]
+    }
+
+    (checkout / "work.txt").write_text("drifted\n", encoding="utf-8")
+    subprocess.run(["git", "-C", checkout, "add", "work.txt"], check=True)
+    subprocess.run(
+        ["git", "-C", checkout, "commit", "-qm", "test: post-claim drift"],
+        check=True,
+    )
+    rejected = mission_control._tracked_completion_evidence(
+        str(checkout), state, "parent-go", claim
+    )
+    assert "post-claim-source-drift" in {row["code"] for row in rejected["diagnostics"]}
 
 
 def test_native_only_workspace_keeps_optional_atlas_projection_stdout_clean(

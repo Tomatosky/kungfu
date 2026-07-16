@@ -66,6 +66,7 @@ rem native dispatch; an inner `shifu <task>` can still select the native path.
 if /i "%~1"=="cache" goto delegate
 if /i "%~1"=="check:source" goto sourceacceptance
 if /i "%~1"=="project-cut" goto projectcut
+if /i "%~1"=="kungfu" goto kungfucli
 if /i "%~1"=="xinfa:build" goto xinfa
 if /i "%~1"=="xinfa:check" goto xinfa
 if /i "%~1"=="xinfa:fix" goto xinfa
@@ -102,6 +103,15 @@ where node >nul 2>nul && (
   exit /b !errorlevel!
 )
 echo shifu: check:source needs node -- install fnm or any system node 1>&2
+exit /b 127
+
+:kungfucli
+shift
+if exist "%~dp0framework\core\dist\kungfu\kungfu.exe" (
+  "%~dp0framework\core\dist\kungfu\kungfu.exe" %*
+  exit /b !errorlevel!
+)
+echo shifu: kungfu source CLI is not assembled; run shifu.cmd build:core 1>&2
 exit /b 127
 
 :xinfa

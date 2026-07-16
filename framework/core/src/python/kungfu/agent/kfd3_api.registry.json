@@ -548,7 +548,7 @@
     {
       "id": "kungfu.atlas.claim-completion",
       "surface": "cli-api-gui",
-      "name": "kungfu atlas claim-completion <mission-id> <goal-id> --statement <statement> --actor <actor> [--actor-type <type>] [--source <source>] [--evidence-episode <id>] [--go-set <id>] [--acceptance-root <root>] [--input-atlas-root <root>] [--result-atlas-root <root>] [--project-cut-root <root>] [--git-commit <sha>] [--git-tree-root <root>] [--proof-root <root>] [--known-gap <gap>] [--evidence-availability <json>] --json",
+      "name": "kungfu atlas claim-completion <mission-id> <goal-id> --statement <statement> --actor <actor> [--actor-type <type>] [--source <source>] [--evidence-episode <id>] [--go-set <id>] [--acceptance-root <root>] [--input-atlas-root <root>] [--result-atlas-root <root>] [--project-cut-root <root>] [--project-cut-receipt-root <root>] [--git-commit <sha>] [--git-tree-root <root>] [--proof-root <root>] [--known-gap <gap>] [--evidence-availability <json>] --json",
       "purpose": "Record a versioned root-bound completion claim over a Go set, Atlas transition, Project Cut, Git object, Episodes, proofs, evidence availability, and known gaps.",
       "maturity": "experimental",
       "visibility": "public-agent",
@@ -568,7 +568,7 @@
     {
       "id": "kungfu.atlas.review-completion",
       "surface": "cli-api-gui",
-      "name": "kungfu atlas review-completion <mission-id> <goal-id> --reviewer <actor> --reviewer-source <source> [--source <source>] [--purpose <purpose>] [--cut-system-time <ns>] [--executor <profile>] [--follow-up <json>] --json",
+      "name": "kungfu atlas review-completion <mission-id> <goal-id> --reviewer <actor> --reviewer-source <source> [--checkout <path>] [--source <source>] [--purpose <purpose>] [--cut-system-time <ns>] [--executor <profile>] [--follow-up <json>] --json",
       "purpose": "Independently review one exact completion claim, emit an Assessment Episode and purpose-bound TrustReport, and seal a deterministic continuation plan.",
       "maturity": "experimental",
       "visibility": "public-agent",

@@ -85,6 +85,7 @@
     "sync": "node scripts/require-shifu.mjs sync && pnpm install --frozen-lockfile",
     "app": "node scripts/require-shifu.mjs app && pnpm --filter @kungfu-tech/product-kungfu run app",
     "cli": "node scripts/require-shifu.mjs cli && pnpm --filter @kungfu-tech/product-kungfu run cli",
+    "kungfu": "node scripts/require-shifu.mjs kungfu && pnpm --filter @kungfu-tech/core run kungfu",
     "dev": "node scripts/require-shifu.mjs dev && pnpm --filter @kungfu-tech/product-kungfu run dev",
     "product": "node scripts/require-shifu.mjs product && pnpm --filter @kungfu-tech/product-kungfu run product",
     "build:app": "node scripts/require-shifu.mjs build:app && pnpm --filter @kungfu-tech/gui run build",
