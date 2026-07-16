@@ -114,6 +114,13 @@ def _action(domain, operation: str, runtime_dir: str, values: Mapping[str, Any])
                 "actorType",
                 "source",
                 "status",
+                "parentGoalId",
+                "dependsOn",
+                "responsibility",
+                "acceptanceRoot",
+                "atlasRoot",
+                "projectCutRoot",
+                "evidenceEpisodeRoots",
             },
             operation,
         )
@@ -127,6 +134,15 @@ def _action(domain, operation: str, runtime_dir: str, values: Mapping[str, Any])
             actor_type=str(values.get("actorType") or "agent"),
             storage_source_id=str(values.get("source") or "atlas"),
             status=str(values.get("status") or "active"),
+            parent_goal_id=str(values.get("parentGoalId") or ""),
+            depends_on=[str(row) for row in (values.get("dependsOn") or [])],
+            responsibility=str(values.get("responsibility") or ""),
+            acceptance_root=str(values.get("acceptanceRoot") or ""),
+            atlas_root=str(values.get("atlasRoot") or ""),
+            project_cut_root=str(values.get("projectCutRoot") or ""),
+            evidence_episode_roots=[
+                str(row) for row in (values.get("evidenceEpisodeRoots") or [])
+            ],
         )
         affected = [receipt["mission_subject"], receipt["go_subject"]]
     elif operation == "claim-completion":
@@ -140,6 +156,16 @@ def _action(domain, operation: str, runtime_dir: str, values: Mapping[str, Any])
                 "actorType",
                 "source",
                 "evidenceEpisodeIds",
+                "goSet",
+                "acceptanceRoot",
+                "inputAtlasRoot",
+                "resultAtlasRoot",
+                "projectCutRoot",
+                "gitCommit",
+                "gitTreeRoot",
+                "proofRoots",
+                "knownGaps",
+                "evidenceAvailability",
             },
             operation,
         )
@@ -154,6 +180,16 @@ def _action(domain, operation: str, runtime_dir: str, values: Mapping[str, Any])
             evidence_episode_ids=[
                 int(row) for row in values.get("evidenceEpisodeIds", [])
             ],
+            go_set=[str(row) for row in values.get("goSet", [])],
+            acceptance_root=str(values.get("acceptanceRoot") or ""),
+            input_atlas_root=str(values.get("inputAtlasRoot") or ""),
+            result_atlas_root=str(values.get("resultAtlasRoot") or ""),
+            project_cut_root=str(values.get("projectCutRoot") or ""),
+            git_commit=str(values.get("gitCommit") or ""),
+            git_tree_root=str(values.get("gitTreeRoot") or ""),
+            proof_roots=[str(row) for row in values.get("proofRoots", [])],
+            known_gaps=[str(row) for row in values.get("knownGaps", [])],
+            evidence_availability=list(values.get("evidenceAvailability", [])),
         )
         affected = [
             receipt["mission_subject"],
@@ -189,6 +225,71 @@ def _action(domain, operation: str, runtime_dir: str, values: Mapping[str, Any])
         else:
             receipt = mission_control.assess_progress(runtime_dir, **common)
         affected = [receipt["state"]["mission_subject"]]
+    elif operation == "review-completion":
+        _only(
+            values,
+            {
+                "missionId",
+                "goalId",
+                "reviewer",
+                "reviewerSource",
+                "source",
+                "purpose",
+                "cutSystemTime",
+                "executorProfile",
+                "proposedFollowups",
+            },
+            operation,
+        )
+        receipt = mission_control.review_completion(
+            runtime_dir,
+            mission_id=str(values.get("missionId") or ""),
+            goal_id=str(values.get("goalId") or ""),
+            reviewer=str(values.get("reviewer") or ""),
+            reviewer_source=str(values.get("reviewerSource") or ""),
+            storage_source_id=str(values.get("source") or "atlas"),
+            purpose=str(values.get("purpose") or "handoff"),
+            cut_system_time=int(values.get("cutSystemTime") or 0),
+            executor_profile=str(values.get("executorProfile") or "thread"),
+            proposed_followups=list(values.get("proposedFollowups", [])),
+        )
+        affected = [
+            receipt["trust_report"]["state"]["mission_subject"],
+            receipt["review"]["review_id"],
+        ]
+    elif operation == "decide-continuation":
+        _only(
+            values,
+            {
+                "missionId",
+                "goalId",
+                "reviewId",
+                "expectedReviewRoot",
+                "expectedPlanRoot",
+                "action",
+                "actor",
+                "actorType",
+                "changeClass",
+                "source",
+                "reason",
+            },
+            operation,
+        )
+        receipt = mission_control.decide_continuation(
+            runtime_dir,
+            mission_id=str(values.get("missionId") or ""),
+            goal_id=str(values.get("goalId") or ""),
+            review_id=str(values.get("reviewId") or ""),
+            expected_review_root=str(values.get("expectedReviewRoot") or ""),
+            expected_plan_root=str(values.get("expectedPlanRoot") or ""),
+            action=str(values.get("action") or ""),
+            actor=str(values.get("actor") or ""),
+            actor_type=str(values.get("actorType") or "agent"),
+            change_class=str(values.get("changeClass") or "mechanical"),
+            storage_source_id=str(values.get("source") or "atlas"),
+            reason=str(values.get("reason") or ""),
+        )
+        affected = [receipt["decision"]["review_id"]]
     elif operation == "export-mission":
         _only(values, {"missionId", "out", "mode", "source", "purpose"}, operation)
         receipt = mission_bundle.write_mission_bundle(
@@ -202,6 +303,7 @@ def _action(domain, operation: str, runtime_dir: str, values: Mapping[str, Any])
         affected = [receipt["mission_subject"]]
     elif operation == "import-mission":
         _only(values, {"from", "execute"}, operation)
+        mission_control._ensure_native_write_allowed(runtime_dir)
         receipt = mission_bundle.import_mission_bundle_file(
             runtime_dir,
             str(values.get("from") or ""),
@@ -212,6 +314,7 @@ def _action(domain, operation: str, runtime_dir: str, values: Mapping[str, Any])
         _only(values, {"repo", "source", "range"}, operation)
         from kungfu.atlas.store import ImportStore
 
+        mission_control._ensure_atlas_write_allowed(runtime_dir)
         receipt = ImportStore(runtime_dir).run_import(
             str(values.get("repo") or ""),
             storage_source_id=str(values.get("source") or "atlas"),
@@ -228,6 +331,45 @@ def _action(domain, operation: str, runtime_dir: str, values: Mapping[str, Any])
         )
         receipt["mission_control"] = receipt.pop("post_seal")
         affected = [str(values.get("repo") or "")]
+    elif operation == "cutover-authority":
+        _only(
+            values,
+            {
+                "source",
+                "expectedParityRoot",
+                "projectCutRoot",
+                "atlasRoot",
+                "actor",
+                "actorType",
+                "reason",
+            },
+            operation,
+        )
+        receipt = mission_control.cutover_authority(
+            runtime_dir,
+            storage_source_id=str(values.get("source") or "atlas"),
+            expected_parity_root=str(values.get("expectedParityRoot") or ""),
+            project_cut_root=str(values.get("projectCutRoot") or ""),
+            atlas_root=str(values.get("atlasRoot") or ""),
+            actor=str(values.get("actor") or ""),
+            actor_type=str(values.get("actorType") or "agent"),
+            reason=str(values.get("reason") or ""),
+        )
+        affected = ["mission-go-authority"]
+    elif operation == "rollback-authority":
+        _only(
+            values,
+            {"expectedMigrationId", "actor", "actorType", "reason"},
+            operation,
+        )
+        receipt = mission_control.rollback_authority(
+            runtime_dir,
+            expected_migration_id=str(values.get("expectedMigrationId") or ""),
+            actor=str(values.get("actor") or ""),
+            actor_type=str(values.get("actorType") or "agent"),
+            reason=str(values.get("reason") or ""),
+        )
+        affected = ["mission-go-authority"]
     else:
         raise ValueError(f"unsupported Mission Control action: {operation}")
     return {
@@ -250,9 +392,13 @@ def invoke(
         "create-go",
         "claim-completion",
         "assess-progress",
+        "review-completion",
+        "decide-continuation",
         "export-mission",
         "import-mission",
         "import-atlas",
+        "cutover-authority",
+        "rollback-authority",
     }:
         if context.get("invocationMode") != "authorized-action":
             raise ValueError(
@@ -286,6 +432,7 @@ def invoke(
                 "writableAuthority": False,
             },
             "import_info": import_info,
+            "authority": domain.mission_control.authority_status(runtime_dir),
             "missions": _mission_cards(domain, runtime_dir, cut),
             "goals": _goal_cards(domain, runtime_dir, cut_system_time=cut),
         }
@@ -310,4 +457,13 @@ def invoke(
             (projection or {}).get("markers", {}).values(),
             key=lambda row: row["branch"],
         )
+    if operation == "authority-status":
+        _only(values, {"source"}, operation)
+        return {
+            "authority": domain.mission_control.authority_status(runtime_dir),
+            "parity": domain.mission_control.authority_parity(
+                runtime_dir,
+                storage_source_id=str(values.get("source") or "atlas"),
+            ),
+        }
     raise ValueError(f"unsupported Mission Control adapter operation: {operation}")

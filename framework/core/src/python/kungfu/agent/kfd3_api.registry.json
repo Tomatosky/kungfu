@@ -285,6 +285,16 @@
       "projections": ["commands.json", "agent-pack-doc"]
     },
     {
+      "id": "kungfu.workspace.start-continuation",
+      "surface": "cli",
+      "name": "kungfu workspace ensure <path> --reason start-continuation --json",
+      "purpose": "Create local runtime authority only after explicit continuation intent; a shadow-only inspection never invokes this action.",
+      "maturity": "experimental",
+      "visibility": "adjacent-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc"]
+    },
+    {
       "id": "kungfu.workspace.advise",
       "surface": "cli",
       "name": "kungfu workspace advise --home --source <path> --json",
@@ -416,6 +426,36 @@
       "projections": ["commands.json", "agent-pack-doc", "provider-skill"]
     },
     {
+      "id": "kungfu.atlas.authority-status",
+      "surface": "cli-api-gui",
+      "name": "kungfu atlas authority-status --source <source> --json",
+      "purpose": "Show exact Atlas bridge parity and the current single Mission/Go write authority.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill", "work-dashboard-gui"]
+    },
+    {
+      "id": "kungfu.atlas.authority-cutover",
+      "surface": "cli-api-gui",
+      "name": "kungfu atlas authority-cutover --expected-parity-root <root> --project-cut-root <root> --atlas-root <root> --actor <actor> --reason <reason> --json",
+      "purpose": "Append a parity-bound authority receipt and freeze Atlas Mission/Go mutation read-only.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill", "work-dashboard-gui"]
+    },
+    {
+      "id": "kungfu.atlas.authority-rollback",
+      "surface": "cli-api-gui",
+      "name": "kungfu atlas authority-rollback --expected-migration-id <id> --actor <actor> --reason <reason> --json",
+      "purpose": "Append an exact rollback receipt, restore Atlas mutation, and retain native facts read-only.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill", "work-dashboard-gui"]
+    },
+    {
       "id": "kungfu.atlas.create-mission",
       "surface": "cli-api-gui",
       "name": "kungfu atlas create-mission <mission-id> --title <title> --intent <intent> --actor <actor> --json",
@@ -458,8 +498,8 @@
     {
       "id": "kungfu.atlas.create-go",
       "surface": "cli-api-gui",
-      "name": "kungfu atlas create-go <mission-id> <goal-id> --title <title> --objective <objective> --actor <actor> --json",
-      "purpose": "Create a Kungfu-native Go linked to an admitted Mission without writing back to the bridged source.",
+      "name": "kungfu atlas create-go <mission-id> <goal-id> --title <title> --objective <objective> --actor <actor> [--parent-go <id>] [--depends-on <id>] [--responsibility <owner>] [--acceptance-root <root>] [--atlas-root <root>] [--project-cut-root <root>] [--episode-root <root>] --json",
+      "purpose": "Create a Kungfu-native Go with separate containment and execution dependencies plus exact Atlas, Project Cut, Episode, responsibility, and acceptance roots.",
       "maturity": "experimental",
       "visibility": "public-agent",
       "anchor": { "kind": "catalog" },
@@ -468,8 +508,8 @@
     {
       "id": "kungfu.atlas.claim-completion",
       "surface": "cli-api-gui",
-      "name": "kungfu atlas claim-completion <mission-id> <goal-id> --statement <statement> --actor <actor> --evidence-episode <id> --json",
-      "purpose": "Record an explicit completion claim with independently verifiable Episode evidence.",
+      "name": "kungfu atlas claim-completion <mission-id> <goal-id> --statement <statement> --actor <actor> --evidence-episode <id> [--acceptance-root <root>] [--input-atlas-root <root>] [--result-atlas-root <root>] [--project-cut-root <root>] [--git-commit <sha>] [--proof-root <root>] [--known-gap <gap>] --json",
+      "purpose": "Record a versioned root-bound completion claim over a Go set, Atlas transition, Project Cut, Git object, Episodes, proofs, evidence availability, and known gaps.",
       "maturity": "experimental",
       "visibility": "public-agent",
       "anchor": { "kind": "catalog" },
@@ -484,6 +524,26 @@
       "visibility": "adjacent-agent",
       "anchor": { "kind": "catalog" },
       "projections": ["commands.json", "agent-pack-doc", "provider-skill"]
+    },
+    {
+      "id": "kungfu.atlas.review-completion",
+      "surface": "cli-api-gui",
+      "name": "kungfu atlas review-completion <mission-id> <goal-id> --reviewer <actor> --reviewer-source <source> [--follow-up <json>] --json",
+      "purpose": "Independently review one exact completion claim, emit an Assessment Episode and purpose-bound TrustReport, and seal a deterministic continuation plan.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill", "work-dashboard-gui"]
+    },
+    {
+      "id": "kungfu.atlas.decide-continuation",
+      "surface": "cli-api-gui",
+      "name": "kungfu atlas decide-continuation <mission-id> <goal-id> <review-id> --expected-review-root <root> --expected-plan-root <root> --action <action> --actor <actor> --reason <reason> --json",
+      "purpose": "Apply one exact-root continuation decision and materialize only bounded mechanical follow-up Go rows while preserving human gates for mission, authority, privacy, security, public claims, and irreversible changes.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill", "work-dashboard-gui"]
     },
     {
       "id": "kungfu.atlas.show.import",

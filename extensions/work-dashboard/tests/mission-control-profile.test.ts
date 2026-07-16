@@ -28,6 +28,15 @@ test('Mission Control uses the exact-root Profile projection and intent surfaces
       writableAuthority: false,
     },
     import_info: null,
+    authority: {
+      schema: 'kungfu.mission-control.authority-status/v1',
+      state: 'pre-cutover',
+      write_authority: 'atlas-adapter',
+      legacy_mutation_path: 'available',
+      migration_id: '',
+      parity_root: '',
+      transition_count: 0,
+    },
     missions: [],
     goals: [],
   };
@@ -88,6 +97,18 @@ test('Mission Control uses the exact-root Profile projection and intent surfaces
     intent: input.intent,
     actor: input.actor,
   });
+  await missionControl.reviewCompletion('mission-a', 'goal-a', {
+    reviewer: 'test-owner',
+    reviewerSource: 'new-review-session',
+  });
+  await missionControl.decideContinuation('mission-a', 'goal-a', {
+    reviewId: 'review-a',
+    expectedReviewRoot: 'sha256:review',
+    expectedPlanRoot: 'sha256:plan-root',
+    action: 'close',
+    actor: 'test-owner',
+    reason: 'the exact claim is fit',
+  });
 
   assert.equal(projected.projection_authority.writableAuthority, false);
   assert.equal(missionControl.currentDashboard(), projected);
@@ -96,5 +117,49 @@ test('Mission Control uses the exact-root Profile projection and intent surfaces
     { operation: 'dashboard', input: {} },
     { operation: 'plan:create-mission', input },
     { operation: 'authorize:create-mission', input },
+    {
+      operation: 'plan:review-completion',
+      input: {
+        missionId: 'mission-a',
+        goalId: 'goal-a',
+        reviewer: 'test-owner',
+        reviewerSource: 'new-review-session',
+      },
+    },
+    {
+      operation: 'authorize:review-completion',
+      input: {
+        missionId: 'mission-a',
+        goalId: 'goal-a',
+        reviewer: 'test-owner',
+        reviewerSource: 'new-review-session',
+      },
+    },
+    {
+      operation: 'plan:decide-continuation',
+      input: {
+        missionId: 'mission-a',
+        goalId: 'goal-a',
+        reviewId: 'review-a',
+        expectedReviewRoot: 'sha256:review',
+        expectedPlanRoot: 'sha256:plan-root',
+        action: 'close',
+        actor: 'test-owner',
+        reason: 'the exact claim is fit',
+      },
+    },
+    {
+      operation: 'authorize:decide-continuation',
+      input: {
+        missionId: 'mission-a',
+        goalId: 'goal-a',
+        reviewId: 'review-a',
+        expectedReviewRoot: 'sha256:review',
+        expectedPlanRoot: 'sha256:plan-root',
+        action: 'close',
+        actor: 'test-owner',
+        reason: 'the exact claim is fit',
+      },
+    },
   ]);
 });

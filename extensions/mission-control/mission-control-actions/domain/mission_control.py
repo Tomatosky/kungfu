@@ -28,6 +28,10 @@ LEGACY_CONTRACT_VERSIONS = ("1", "2")
 MISSION_SURFACE_ID = "kungfu.mission-control.mission"
 GO_SURFACE_ID = "kungfu.mission-control.go"
 CLAIM_SURFACE_ID = "kungfu.mission-control.completion-claim"
+# Reviews and continuation decisions are versioned record kinds on the existing
+# claim surface. Keeping the v3 surface register stable lets an authority-cutover
+# workspace adopt this additive profile without rewriting its admitted facts.
+REVIEW_SURFACE_ID = CLAIM_SURFACE_ID
 ATLAS_FACT_SOURCE_ID = "atlas-adapter"
 USER_FACT_SOURCE_ID = "kungfu-user"
 AGENT_FACT_SOURCE_ID = "kungfu-agent"
@@ -80,6 +84,29 @@ PROGRESS_POLICY: dict[str, Any] = {
 }
 COMPLETION_CLAIM = "task-completed"
 COMPLETION_PURPOSE = "handoff"
+INDEPENDENT_REVIEW = "independent-completion-review"
+CONTINUATION_DECISION = "continuation-decision"
+REVIEW_VERDICTS = {
+    "fit",
+    "partial",
+    "insufficient",
+    "conflicted",
+    "stale",
+    "unverifiable",
+}
+CONTINUATION_ACTIONS = {
+    "approve",
+    "adjust",
+    "request-evidence",
+    "reopen",
+    "stop",
+    "close",
+    "create-follow-up",
+}
+AUTHORITY_MIGRATION_CLAIM = "mission-go-authority-migration"
+AUTHORITY_SUBJECT_PREFIX = "kungfu:authority:mission-go:"
+ROOT_ID = re.compile(r"^sha256:[0-9a-f]{64}$")
+GIT_OBJECT_ID = re.compile(r"^[0-9a-f]{40}$")
 COMPLETION_POLICY = {
     "id": "kungfu.mission-control.task-completed",
     "version": "1",
@@ -238,6 +265,7 @@ def admit_import(
 ) -> dict[str, Any]:
     """Admit present Mission/Go snapshots and return a bridge receipt."""
 
+    _ensure_atlas_write_allowed(runtime_dir)
     system_time = time.time_ns()
     contract = _ensure_contract(runtime_dir, system_time)
     state = storage_service.fact_state(runtime_dir)
@@ -655,6 +683,7 @@ def query_state(
     mission = None
     goals = []
     claims = []
+    reviews = []
     for row in result.get("rows", []):
         body = payloads.get(str(row.get("payload_hash") or ""))
         resolved = {**row, "payload": body}
@@ -664,9 +693,17 @@ def query_state(
         elif row.get("fact_surface_id") == GO_SURFACE_ID:
             goals.append(resolved)
         elif row.get("fact_surface_id") == CLAIM_SURFACE_ID:
-            claims.append(resolved)
+            record = (body or {}).get("record", {})
+            if record.get("review_type") in {
+                INDEPENDENT_REVIEW,
+                CONTINUATION_DECISION,
+            }:
+                reviews.append(resolved)
+            else:
+                claims.append(resolved)
     goals.sort(key=lambda row: str(row.get("subject_key") or ""))
     claims.sort(key=lambda row: str(row.get("subject_key") or ""))
+    reviews.sort(key=lambda row: str(row.get("subject_key") or ""))
     return {
         "schema": "kungfu.mission-control.state/v1",
         "authority_mode": "atlas-bridge",
@@ -685,6 +722,7 @@ def query_state(
         "mission": mission,
         "goals": goals,
         "claims": claims,
+        "reviews": reviews,
         "rows": rows,
     }
 
@@ -819,6 +857,383 @@ def list_goals(runtime_dir: str, *, cut_system_time: int = 0) -> list[dict[str, 
     )
 
 
+def _root_id(value: str, field: str, *, required: bool = False) -> str:
+    value = value.strip()
+    if not value and not required:
+        return ""
+    if not ROOT_ID.fullmatch(value):
+        raise ValueError(f"{field} must be a sha256 content root")
+    return value
+
+
+def _authority_events(runtime_dir: str) -> list[dict[str, Any]]:
+    materials = storage_service.fact_material_list(runtime_dir)
+    payloads = materials.get("payloads", {})
+    events = []
+    for row in materials.get("state", {}).get("canonical_facts", []):
+        if row.get("fact_surface_id") != CLAIM_SURFACE_ID:
+            continue
+        payload = payloads.get(str(row.get("payload_hash") or ""), {})
+        record = dict(payload.get("record") or {})
+        if record.get("claim_type") != AUTHORITY_MIGRATION_CLAIM:
+            continue
+        events.append(
+            {
+                **record,
+                "subject_key": str(row.get("subject_key") or ""),
+                "observation_id": str(row.get("observation_id") or ""),
+                "system_time": int(row.get("system_time") or 0),
+                "source_authority": str(row.get("source_id") or ""),
+                "source": dict(payload.get("source") or {}),
+            }
+        )
+    events.sort(
+        key=lambda row: (int(row.get("system_time") or 0), row["observation_id"])
+    )
+    return events
+
+
+def authority_status(runtime_dir: str) -> dict[str, Any]:
+    """Return the append-only Mission/Go write-authority decision."""
+
+    events = _authority_events(runtime_dir)
+    if events:
+        current = events[-1]
+        return {
+            "schema": "kungfu.mission-control.authority-status/v1",
+            "state": str(current["migration_status"]),
+            "write_authority": str(current["write_authority"]),
+            "legacy_mutation_path": str(current["legacy_mutation_path"]),
+            "migration_id": str(current["migration_id"]),
+            "parity_root": str(current.get("parity_root") or ""),
+            "transition_count": len(events),
+            "latest": current,
+        }
+    materials = storage_service.fact_material_list(runtime_dir)
+    bridge_present = any(
+        row.get("fact_surface_id") in {MISSION_SURFACE_ID, GO_SURFACE_ID}
+        and row.get("source_id") == ATLAS_FACT_SOURCE_ID
+        for row in materials.get("state", {}).get("canonical_facts", [])
+    )
+    return {
+        "schema": "kungfu.mission-control.authority-status/v1",
+        "state": "pre-cutover" if bridge_present else "native-only",
+        "write_authority": ATLAS_FACT_SOURCE_ID if bridge_present else "kungfu-native",
+        "legacy_mutation_path": "available" if bridge_present else "not-configured",
+        "migration_id": "",
+        "parity_root": "",
+        "transition_count": 0,
+        "latest": None,
+    }
+
+
+def _ensure_native_write_allowed(runtime_dir: str) -> None:
+    authority = authority_status(runtime_dir)
+    if (
+        authority["transition_count"]
+        and authority["write_authority"] != "kungfu-native"
+    ):
+        raise ValueError(
+            "Kungfu-native Mission/Go mutation is frozen by authority rollback "
+            f"{authority['migration_id']}"
+        )
+
+
+def _ensure_atlas_write_allowed(runtime_dir: str) -> None:
+    authority = authority_status(runtime_dir)
+    if (
+        authority["transition_count"]
+        and authority["write_authority"] == "kungfu-native"
+    ):
+        raise ValueError(
+            "Atlas Mission/Go mutation path is frozen read-only by authority "
+            f"cutover {authority['migration_id']}"
+        )
+
+
+def authority_parity(
+    runtime_dir: str, *, storage_source_id: str = "atlas"
+) -> dict[str, Any]:
+    """Compare the latest Atlas import manifest with admitted bridge facts."""
+
+    from kungfu.atlas import payloads as atlas_payloads
+    from kungfu.atlas import store as atlas_store
+
+    manifest = atlas_payloads.load_latest_manifest(atlas_store.store_dir(runtime_dir))
+    if manifest is None:
+        raise ValueError("authority cutover requires a completed Atlas import manifest")
+    if str(manifest.get("storage_source_id") or "atlas") != storage_source_id:
+        raise ValueError("latest Atlas import belongs to another storage source")
+
+    expected: dict[tuple[str, str], dict[str, str]] = {}
+    unavailable = []
+    for entry in manifest.get("entries", []):
+        kind = str(entry.get("kind") or "")
+        if kind not in SURFACE_BY_KIND:
+            continue
+        key = (kind, str(entry.get("source_id") or ""))
+        if entry.get("payload_state") != "present":
+            unavailable.append(
+                {
+                    "kind": key[0],
+                    "source_id": key[1],
+                    "payload_state": str(entry.get("payload_state") or "unknown"),
+                }
+            )
+            continue
+        expected[key] = {
+            "kind": key[0],
+            "source_id": key[1],
+            "payload_hash": str(entry.get("payload_hash") or ""),
+            "source_path": str(entry.get("source_path") or ""),
+        }
+
+    materials = storage_service.fact_material_list(runtime_dir)
+    payloads = materials.get("payloads", {})
+    admitted: dict[tuple[str, str], dict[str, str]] = {}
+    for row in materials.get("state", {}).get("canonical_facts", []):
+        if row.get("source_id") != ATLAS_FACT_SOURCE_ID:
+            continue
+        payload = payloads.get(str(row.get("payload_hash") or ""), {})
+        source = payload.get("source", {})
+        kind = str(source.get("kind") or "")
+        if kind not in SURFACE_BY_KIND:
+            continue
+        if str(source.get("storage_source_id") or "") != storage_source_id:
+            continue
+        key = (kind, str(source.get("source_id") or ""))
+        admitted[key] = {
+            "kind": key[0],
+            "source_id": key[1],
+            "payload_hash": str(source.get("payload_hash") or ""),
+            "source_path": str(source.get("source_path") or ""),
+        }
+
+    missing = [expected[key] for key in sorted(set(expected) - set(admitted))]
+    extra = [admitted[key] for key in sorted(set(admitted) - set(expected))]
+    hash_mismatch = [
+        {
+            "kind": key[0],
+            "source_id": key[1],
+            "expected": expected[key]["payload_hash"],
+            "actual": admitted[key]["payload_hash"],
+        }
+        for key in sorted(set(expected) & set(admitted))
+        if expected[key]["payload_hash"] != admitted[key]["payload_hash"]
+    ]
+    parity_basis = {
+        "schema": "kungfu.mission-control.authority-parity-basis/v1",
+        "storage_source_id": storage_source_id,
+        "atlas_import": {
+            "import_id": str(manifest.get("import_id") or ""),
+            "repo_head": str(manifest.get("repo_head") or ""),
+            "sync_root": str(manifest.get("sync_root") or ""),
+            "episode_id": str(manifest.get("episode_id") or ""),
+        },
+        "expected": [expected[key] for key in sorted(expected)],
+        "admitted": [admitted[key] for key in sorted(admitted)],
+    }
+    parity_root = _sha256_root(parity_basis)
+    return {
+        "schema": "kungfu.mission-control.authority-parity/v1",
+        "status": (
+            "matched"
+            if not missing and not extra and not hash_mismatch and not unavailable
+            else "degraded"
+        ),
+        "parity_root": parity_root,
+        "basis": parity_basis,
+        "counts": {
+            "expected": len(expected),
+            "admitted": len(admitted),
+            "missing": len(missing),
+            "extra": len(extra),
+            "hash_mismatch": len(hash_mismatch),
+            "unavailable": len(unavailable),
+        },
+        "missing": missing,
+        "extra": extra,
+        "hash_mismatch": hash_mismatch,
+        "unavailable": unavailable,
+    }
+
+
+def cutover_authority(
+    runtime_dir: str,
+    *,
+    storage_source_id: str,
+    expected_parity_root: str,
+    project_cut_root: str,
+    atlas_root: str,
+    actor: str,
+    actor_type: str = "agent",
+    reason: str,
+    system_time: int = 0,
+) -> dict[str, Any]:
+    """Freeze Atlas writes after an exact parity-bound native cutover."""
+
+    system_time = system_time or time.time_ns()
+    _ensure_contract(runtime_dir, system_time)
+    parity = authority_parity(runtime_dir, storage_source_id=storage_source_id)
+    expected_parity_root = _root_id(
+        expected_parity_root, "expected_parity_root", required=True
+    )
+    project_cut_root = _root_id(project_cut_root, "project_cut_root", required=True)
+    atlas_root = _root_id(atlas_root, "atlas_root", required=True)
+    actor = actor.strip()
+    reason = reason.strip()
+    if not actor or not reason:
+        raise ValueError("actor and reason are required")
+    if parity["status"] != "matched":
+        raise ValueError("Atlas/Kungfu authority parity is degraded")
+    if parity["parity_root"] != expected_parity_root:
+        raise ValueError("authority parity root changed before cutover")
+    current = authority_status(runtime_dir)
+    if current["transition_count"] and current["write_authority"] == "kungfu-native":
+        if current["parity_root"] != expected_parity_root:
+            raise ValueError(
+                "native authority is already active at another parity root"
+            )
+        return {**current, "status": "already-active", "parity": parity}
+
+    migration_basis = {
+        "schema": "kungfu.mission-control.authority-migration-basis/v1",
+        "transition": "atlas-to-kungfu-native",
+        "previous_migration_id": current["migration_id"] or None,
+        "storage_source_id": storage_source_id,
+        "parity_root": expected_parity_root,
+        "project_cut_root": project_cut_root,
+        "atlas_root": atlas_root,
+        "actor": actor,
+        "actor_type": actor_type,
+        "reason": reason,
+    }
+    migration_id = f"authority-{_sha256_root(migration_basis)[7:31]}"
+    record = {
+        "claim_id": migration_id,
+        "claim_type": AUTHORITY_MIGRATION_CLAIM,
+        "migration_id": migration_id,
+        "migration_status": "native-active",
+        "write_authority": "kungfu-native",
+        "previous_write_authority": ATLAS_FACT_SOURCE_ID,
+        "previous_migration_id": current["migration_id"] or None,
+        "legacy_mutation_path": "frozen-read-only",
+        "rollback_action": "rollback-authority",
+        "parity_root": expected_parity_root,
+        "project_cut_root": project_cut_root,
+        "atlas_root": atlas_root,
+        "atlas_import": parity["basis"]["atlas_import"],
+        "source_record_count": parity["counts"]["expected"],
+        "reason": reason,
+        "authorized_by": actor,
+        "actor_type": actor_type,
+    }
+    source_id = _native_source(actor_type)
+    payload = {
+        "record": record,
+        "source": {
+            "authority_mode": "kungfu-native",
+            "source_id": source_id,
+            "source_time": "journal-system-time",
+            "payload_hash": _sha256_root(record),
+            "actor": actor,
+        },
+        "links": {},
+    }
+    receipt = _put_native_fact(
+        runtime_dir,
+        kind="authority-migration",
+        surface_id=CLAIM_SURFACE_ID,
+        subject_key=f"{AUTHORITY_SUBJECT_PREFIX}{migration_id}",
+        source_id=source_id,
+        payload=payload,
+        system_time=system_time,
+    )
+    return {
+        "schema": "kungfu.mission-control.authority-cutover-receipt/v1",
+        "status": "cutover",
+        "migration": record,
+        "parity": parity,
+        "receipt": receipt,
+    }
+
+
+def rollback_authority(
+    runtime_dir: str,
+    *,
+    expected_migration_id: str,
+    actor: str,
+    actor_type: str = "agent",
+    reason: str,
+    system_time: int = 0,
+) -> dict[str, Any]:
+    """Append an explicit rollback without deleting native facts."""
+
+    system_time = system_time or time.time_ns()
+    _ensure_contract(runtime_dir, system_time)
+    current = authority_status(runtime_dir)
+    if current["write_authority"] != "kungfu-native":
+        raise ValueError("Kungfu-native authority is not active")
+    if current["migration_id"] != expected_migration_id:
+        raise ValueError("authority migration changed before rollback")
+    actor = actor.strip()
+    reason = reason.strip()
+    if not actor or not reason:
+        raise ValueError("actor and reason are required")
+    rollback_basis = {
+        "schema": "kungfu.mission-control.authority-rollback-basis/v1",
+        "transition": "kungfu-native-to-atlas",
+        "previous_migration_id": expected_migration_id,
+        "actor": actor,
+        "actor_type": actor_type,
+        "reason": reason,
+    }
+    migration_id = f"authority-{_sha256_root(rollback_basis)[7:31]}"
+    record = {
+        "claim_id": migration_id,
+        "claim_type": AUTHORITY_MIGRATION_CLAIM,
+        "migration_id": migration_id,
+        "migration_status": "rolled-back",
+        "write_authority": ATLAS_FACT_SOURCE_ID,
+        "previous_write_authority": "kungfu-native",
+        "previous_migration_id": expected_migration_id,
+        "legacy_mutation_path": "restored",
+        "native_fact_disposition": "retained-read-only",
+        "rollback_action": "cutover-authority",
+        "parity_root": current["parity_root"],
+        "reason": reason,
+        "authorized_by": actor,
+        "actor_type": actor_type,
+    }
+    source_id = _native_source(actor_type)
+    payload = {
+        "record": record,
+        "source": {
+            "authority_mode": "kungfu-native",
+            "source_id": source_id,
+            "source_time": "journal-system-time",
+            "payload_hash": _sha256_root(record),
+            "actor": actor,
+        },
+        "links": {},
+    }
+    receipt = _put_native_fact(
+        runtime_dir,
+        kind="authority-migration",
+        surface_id=CLAIM_SURFACE_ID,
+        subject_key=f"{AUTHORITY_SUBJECT_PREFIX}{migration_id}",
+        source_id=source_id,
+        payload=payload,
+        system_time=system_time,
+    )
+    return {
+        "schema": "kungfu.mission-control.authority-rollback-receipt/v1",
+        "status": "rolled-back",
+        "migration": record,
+        "receipt": receipt,
+    }
+
+
 def create_mission(
     runtime_dir: str,
     *,
@@ -833,6 +1248,7 @@ def create_mission(
 ) -> dict[str, Any]:
     """Create one Kungfu-native Mission in the shared Fact Library."""
 
+    _ensure_native_write_allowed(runtime_dir)
     system_time = system_time or time.time_ns()
     _ensure_contract(runtime_dir, system_time)
     system_time += len(FACT_SURFACES) + 1
@@ -898,10 +1314,18 @@ def create_go(
     actor_type: str = "agent",
     storage_source_id: str = "atlas",
     status: str = "active",
+    parent_goal_id: str = "",
+    depends_on: list[str] | None = None,
+    responsibility: str = "",
+    acceptance_root: str = "",
+    atlas_root: str = "",
+    project_cut_root: str = "",
+    evidence_episode_roots: list[str] | None = None,
     system_time: int = 0,
 ) -> dict[str, Any]:
     """Create one Kungfu-native Go linked to an admitted Mission."""
 
+    _ensure_native_write_allowed(runtime_dir)
     system_time = system_time or time.time_ns()
     _ensure_contract(runtime_dir, system_time)
     mission_subject, _, _ = _selected_subjects(
@@ -928,6 +1352,23 @@ def create_go(
         )
     if status not in {"proposed", "active", "blocked", "waiting-for-decision"}:
         raise ValueError("native Go status is not in the v1 responsibility vocabulary")
+    parent_goal_id = (
+        _stable_id(parent_goal_id, "parent_goal_id") if parent_goal_id.strip() else ""
+    )
+    dependencies = sorted(
+        {_stable_id(str(dependency), "depends_on") for dependency in (depends_on or [])}
+    )
+    if goal_id in dependencies:
+        raise ValueError("a Go cannot depend on itself")
+    acceptance_root = _root_id(acceptance_root, "acceptance_root")
+    atlas_root = _root_id(atlas_root, "atlas_root")
+    project_cut_root = _root_id(project_cut_root, "project_cut_root")
+    episode_roots = sorted(
+        {
+            _root_id(str(root), "evidence_episode_root", required=True)
+            for root in (evidence_episode_roots or [])
+        }
+    )
     source_id = _native_source(actor_type)
     subject_key = f"kungfu:{goal_id}"
     record = {
@@ -939,6 +1380,13 @@ def create_go(
         "mission_subject": mission_subject,
         "actor": actor.strip(),
         "actor_type": actor_type,
+        "parent_goal_id": parent_goal_id,
+        "depends_on": dependencies,
+        "responsibility": responsibility.strip() or actor.strip(),
+        "acceptance_root": acceptance_root,
+        "input_atlas_root": atlas_root,
+        "project_cut_root": project_cut_root,
+        "evidence_episode_roots": episode_roots,
     }
     if not record["title"] or not record["objective"] or not record["actor"]:
         raise ValueError("title, objective, and actor are required")
@@ -1001,10 +1449,21 @@ def claim_completion(
     actor_type: str = "agent",
     storage_source_id: str = "atlas",
     evidence_episode_ids: list[int] | None = None,
+    go_set: list[str] | None = None,
+    acceptance_root: str = "",
+    input_atlas_root: str = "",
+    result_atlas_root: str = "",
+    project_cut_root: str = "",
+    git_commit: str = "",
+    git_tree_root: str = "",
+    proof_roots: list[str] | None = None,
+    known_gaps: list[str] | None = None,
+    evidence_availability: list[dict[str, Any]] | None = None,
     system_time: int = 0,
 ) -> dict[str, Any]:
     """Record a visible completion claim without treating it as authority."""
 
+    _ensure_native_write_allowed(runtime_dir)
     system_time = system_time or time.time_ns()
     _ensure_contract(runtime_dir, system_time)
     state = query_state(
@@ -1031,12 +1490,65 @@ def claim_completion(
         _verified_episode(runtime_dir, int(episode_id))
         for episode_id in (evidence_episode_ids or [])
     ]
+    go_set = [_stable_id(row, "go_set") for row in (go_set or [goal_id])]
+    if goal_id not in go_set:
+        raise ValueError("go_set must contain the claimed goal_id")
+    if len(set(go_set)) != len(go_set):
+        raise ValueError("go_set must not contain duplicates")
+    roots = {
+        "acceptance_root": _root_id(acceptance_root, "acceptance_root"),
+        "input_atlas_root": _root_id(input_atlas_root, "input_atlas_root"),
+        "result_atlas_root": _root_id(result_atlas_root, "result_atlas_root"),
+        "project_cut_root": _root_id(project_cut_root, "project_cut_root"),
+        "git_tree_root": _root_id(git_tree_root, "git_tree_root"),
+        "proof_roots": sorted(
+            {_root_id(row, "proof_roots", required=True) for row in proof_roots or []}
+        ),
+    }
+    git_commit = git_commit.strip()
+    if git_commit and not GIT_OBJECT_ID.fullmatch(git_commit):
+        raise ValueError("git_commit must be a full lowercase Git object id")
+    gaps = [row.strip() for row in (known_gaps or []) if row.strip()]
+    availability = []
+    for row in evidence_availability or []:
+        if not isinstance(row, dict):
+            raise ValueError("evidence_availability rows must be objects")
+        acceptance = str(row.get("acceptance") or "").strip()
+        level = str(row.get("level") or "").strip()
+        availability_state = str(row.get("state") or "").strip()
+        if (
+            not acceptance
+            or level not in {"thin", "full"}
+            or availability_state
+            not in {
+                "available",
+                "unavailable",
+                "missing",
+            }
+        ):
+            raise ValueError(
+                "evidence_availability requires acceptance, thin/full level, "
+                "and available/unavailable/missing state"
+            )
+        availability.append(
+            {
+                "acceptance": acceptance,
+                "level": level,
+                "state": availability_state,
+            }
+        )
+    availability.sort(key=lambda row: (row["acceptance"], row["level"], row["state"]))
     claim_basis = {
         "mission_subject": state["mission_subject"],
         "go_subject": str(goal["subject_key"]),
         "statement": statement.strip(),
         "actor": actor.strip(),
         "evidence": evidence,
+        "go_set": sorted(go_set),
+        "roots": roots,
+        "git_commit": git_commit,
+        "known_gaps": gaps,
+        "evidence_availability": availability,
     }
     claim_id = f"completion-{_sha256_root(claim_basis)[7:31]}"
     source_id = _native_source(actor_type)
@@ -1049,6 +1561,11 @@ def claim_completion(
         "asserted_by": actor.strip(),
         "actor_type": actor_type,
         "evidence_episodes": evidence,
+        "go_set": sorted(go_set),
+        **roots,
+        "git_commit": git_commit,
+        "known_gaps": gaps,
+        "evidence_availability": availability,
     }
     payload = {
         "record": record,
@@ -1918,4 +2435,369 @@ def assess_completion(
             report_hash=report_hash,
             go_subject=goal_subject,
         ),
+    }
+
+
+def _review_verdict(
+    report: dict[str, Any], claim_record: dict[str, Any]
+) -> tuple[str, list[str], list[dict[str, str]]]:
+    fitness = str(report.get("fitness") or "unverifiable")
+    verdict = {
+        "fit": "fit",
+        "insufficient": "insufficient",
+        "conflicted": "conflicted",
+        "stale": "stale",
+        "unverifiable": "unverifiable",
+    }.get(fitness, "unverifiable")
+    findings = list(report.get("findings") or [])
+    requests = []
+    for row in claim_record.get("evidence_availability", []):
+        state = str(row.get("state") or "")
+        if state == "available":
+            continue
+        request = {
+            "acceptance": str(row.get("acceptance") or ""),
+            "level": str(row.get("level") or ""),
+            "state": state,
+        }
+        requests.append(request)
+        findings.append(
+            f"{request['level']} evidence is {state} for {request['acceptance']}"
+        )
+        if request["level"] == "thin" or state == "missing":
+            verdict = "insufficient"
+        elif verdict == "fit":
+            verdict = "partial"
+    gaps = [str(row) for row in claim_record.get("known_gaps", []) if str(row)]
+    if gaps and verdict == "fit":
+        verdict = "partial"
+    findings.extend(f"known gap: {row}" for row in gaps)
+    if verdict not in REVIEW_VERDICTS:
+        verdict = "unverifiable"
+    return verdict, findings, requests
+
+
+def _continuation_actions(verdict: str) -> list[str]:
+    return {
+        "fit": ["approve", "close"],
+        "partial": ["adjust", "request-evidence", "create-follow-up"],
+        "insufficient": ["request-evidence", "reopen", "create-follow-up"],
+        "conflicted": ["request-evidence", "reopen"],
+        "stale": ["request-evidence", "reopen"],
+        "unverifiable": ["request-evidence", "reopen", "create-follow-up"],
+    }[verdict]
+
+
+def _bounded_followups(rows: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    if len(rows or []) > 6:
+        raise ValueError("continuation plans may contain at most six follow-up Go rows")
+    result = []
+    for row in rows or []:
+        if not isinstance(row, dict):
+            raise ValueError("follow-up Go rows must be objects")
+        goal_id = _stable_id(str(row.get("goal_id") or ""), "followup.goal_id")
+        title = str(row.get("title") or "").strip()
+        objective = str(row.get("objective") or "").strip()
+        why_created = str(row.get("why_created") or "").strip()
+        if not title or not objective or not why_created:
+            raise ValueError(
+                "follow-up Go title, objective, and why_created are required"
+            )
+        result.append(
+            {
+                "goal_id": goal_id,
+                "title": title,
+                "objective": objective,
+                "why_created": why_created,
+                "depends_on": sorted(
+                    {
+                        _stable_id(str(value), "followup.depends_on")
+                        for value in row.get("depends_on", [])
+                    }
+                ),
+                "acceptance_root": _root_id(
+                    str(row.get("acceptance_root") or ""),
+                    "followup.acceptance_root",
+                ),
+            }
+        )
+    if len({row["goal_id"] for row in result}) != len(result):
+        raise ValueError("continuation plan follow-up goal ids must be unique")
+    result.sort(key=lambda row: row["goal_id"])
+    return result
+
+
+def review_completion(
+    runtime_dir: str,
+    *,
+    mission_id: str,
+    goal_id: str,
+    reviewer: str,
+    reviewer_source: str,
+    storage_source_id: str = "atlas",
+    purpose: str = COMPLETION_PURPOSE,
+    cut_system_time: int = 0,
+    executor_profile: str = "thread",
+    proposed_followups: list[dict[str, Any]] | None = None,
+    system_time: int = 0,
+) -> dict[str, Any]:
+    """Write an independent exact-cut review and deterministic continuation plan."""
+
+    _ensure_native_write_allowed(runtime_dir)
+    reviewer = reviewer.strip()
+    reviewer_source = reviewer_source.strip()
+    if not reviewer or not reviewer_source:
+        raise ValueError("reviewer and reviewer_source are required")
+    report = assess_completion(
+        runtime_dir,
+        mission_id=mission_id,
+        goal_id=goal_id,
+        storage_source_id=storage_source_id,
+        purpose=purpose,
+        cut_system_time=cut_system_time,
+        executor_profile=executor_profile,
+        authorized_by=reviewer,
+    )
+    claim_id = str(report["claim"]["id"])
+    claim_rows = [
+        row
+        for row in report["state"]["claims"]
+        if row.get("payload", {}).get("record", {}).get("claim_id") == claim_id
+    ]
+    if len(claim_rows) != 1:
+        raise ValueError("review requires one exact completion claim")
+    claim_row = claim_rows[0]
+    claim_record = dict(claim_row["payload"]["record"])
+    claimant = str(claim_record.get("asserted_by") or "")
+    if not claimant or claimant == reviewer:
+        raise ValueError("independent reviewer identity must differ from claimant")
+    verdict, findings, evidence_requests = _review_verdict(report, claim_record)
+    followups = _bounded_followups(proposed_followups)
+    trust_basis = {
+        "schema": "kungfu.mission-control.review-trust-basis/v1",
+        "claim_id": claim_id,
+        "claim_payload_hash": claim_row["payload_hash"],
+        "assessment_key": report["assessment_key"],
+        "assessment_report_hash": report.get("report_hash") or "",
+        "query_definition_root": report["query_definition_root"],
+        "query_proof_root": report["query_proof_root"],
+        "reviewer": reviewer,
+        "reviewer_source": reviewer_source,
+        "verdict": verdict,
+        "findings": findings,
+        "evidence_requests": evidence_requests,
+    }
+    trust_report_root = _sha256_root(trust_basis)
+    plan = {
+        "schema": "kungfu.mission-control.continuation-plan/v1",
+        "claim_id": claim_id,
+        "verdict": verdict,
+        "allowed_actions": _continuation_actions(verdict),
+        "evidence_requests": evidence_requests,
+        "followups": followups,
+        "authority_gate": (
+            "mechanical-only; mission, authority, privacy, security, public-claim, "
+            "and irreversible changes require a human actor"
+        ),
+    }
+    plan_root = _sha256_root(plan)
+    review_basis = {
+        "schema": "kungfu.mission-control.independent-review-basis/v1",
+        "mission_subject": report["state"]["mission_subject"],
+        "go_subject": report["claim"]["go_subject"],
+        "trust_report_root": trust_report_root,
+        "plan_root": plan_root,
+    }
+    review_id = f"review-{_sha256_root(review_basis)[7:31]}"
+    record = {
+        "review_id": review_id,
+        "review_type": INDEPENDENT_REVIEW,
+        "claim_id": claim_id,
+        "claimant": claimant,
+        "reviewer": reviewer,
+        "reviewer_source": reviewer_source,
+        "purpose": purpose,
+        "verdict": verdict,
+        "findings": findings,
+        "trust_report_root": trust_report_root,
+        "assessment_key": report["assessment_key"],
+        "assessment_report_hash": report.get("report_hash") or "",
+        "query_definition_root": report["query_definition_root"],
+        "query_proof_root": report["query_proof_root"],
+        "claim_payload_hash": claim_row["payload_hash"],
+        "continuation_plan": plan,
+        "continuation_plan_root": plan_root,
+    }
+    payload = {
+        "record": record,
+        "source": {
+            "authority_mode": "kungfu-native",
+            "source_id": AGENT_FACT_SOURCE_ID,
+            "source_time": "journal-system-time",
+            "payload_hash": _sha256_root(record),
+            "actor": reviewer,
+        },
+        "links": {
+            "mission_id": report["state"]["mission_subject"],
+            "go_id": report["claim"]["go_subject"],
+        },
+    }
+    receipt = _put_native_fact(
+        runtime_dir,
+        kind="independent-review",
+        surface_id=REVIEW_SURFACE_ID,
+        subject_key=f"kungfu:review:{review_id}",
+        source_id=AGENT_FACT_SOURCE_ID,
+        payload=payload,
+        system_time=system_time or time.time_ns(),
+    )
+    return {
+        "schema": "kungfu.mission-control.independent-review/v1",
+        "review": record,
+        "review_root": _sha256_root(record),
+        "continuation_plan_root": plan_root,
+        "trust_report": report,
+        "receipt": receipt,
+    }
+
+
+def decide_continuation(
+    runtime_dir: str,
+    *,
+    mission_id: str,
+    goal_id: str,
+    review_id: str,
+    expected_review_root: str,
+    expected_plan_root: str,
+    action: str,
+    actor: str,
+    actor_type: str = "agent",
+    change_class: str = "mechanical",
+    storage_source_id: str = "atlas",
+    reason: str = "",
+    system_time: int = 0,
+) -> dict[str, Any]:
+    """Append an exact-review continuation decision and materialize bounded follow-ups."""
+
+    _ensure_native_write_allowed(runtime_dir)
+    action = action.strip()
+    actor = actor.strip()
+    reason = reason.strip()
+    if action not in CONTINUATION_ACTIONS or not actor or not reason:
+        raise ValueError("valid action, actor, and reason are required")
+    if change_class != "mechanical" and actor_type != "user":
+        raise ValueError(f"human-decision-required for change class {change_class}")
+    if action == "stop" and actor_type != "user":
+        raise ValueError("stop requires a human actor")
+    state = query_state(
+        runtime_dir,
+        mission_id=mission_id,
+        storage_source_id=storage_source_id,
+    )
+    goal_id = _stable_id(goal_id, "goal_id")
+    review_id = _stable_id(review_id, "review_id")
+    rows = [
+        row
+        for row in state["reviews"]
+        if row.get("payload", {}).get("record", {}).get("review_id") == review_id
+        and row.get("payload", {}).get("record", {}).get("review_type")
+        == INDEPENDENT_REVIEW
+    ]
+    if len(rows) != 1:
+        raise ValueError("continuation decision requires one exact independent review")
+    review_row = rows[0]
+    review = dict(review_row["payload"]["record"])
+    review_root = _sha256_root(review)
+    if review_root != _root_id(
+        expected_review_root, "expected_review_root", required=True
+    ):
+        raise ValueError("independent review changed before continuation decision")
+    if review["continuation_plan_root"] != _root_id(
+        expected_plan_root, "expected_plan_root", required=True
+    ):
+        raise ValueError("continuation plan changed before decision")
+    if action not in review["continuation_plan"]["allowed_actions"]:
+        raise ValueError(
+            f"continuation action {action} is not allowed for verdict {review['verdict']}"
+        )
+    decision_basis = {
+        "schema": "kungfu.mission-control.continuation-decision-basis/v1",
+        "review_id": review_id,
+        "review_root": review_root,
+        "plan_root": expected_plan_root,
+        "action": action,
+        "actor": actor,
+        "actor_type": actor_type,
+        "change_class": change_class,
+        "reason": reason,
+    }
+    decision_id = f"decision-{_sha256_root(decision_basis)[7:31]}"
+    record = {
+        "decision_id": decision_id,
+        "review_type": CONTINUATION_DECISION,
+        "review_id": review_id,
+        "review_root": review_root,
+        "continuation_plan_root": expected_plan_root,
+        "action": action,
+        "actor": actor,
+        "actor_type": actor_type,
+        "change_class": change_class,
+        "reason": reason,
+    }
+    goal_subject = next(
+        (
+            str(row["subject_key"])
+            for row in state["goals"]
+            if row.get("subject_key") in {goal_id, f"kungfu:{goal_id}"}
+            or row.get("payload", {}).get("record", {}).get("goal_id") == goal_id
+        ),
+        "",
+    )
+    if not goal_subject:
+        raise ValueError(f"Go not found under Mission: {goal_id}")
+    source_id = _native_source(actor_type)
+    payload = {
+        "record": record,
+        "source": {
+            "authority_mode": "kungfu-native",
+            "source_id": source_id,
+            "source_time": "journal-system-time",
+            "payload_hash": _sha256_root(record),
+            "actor": actor,
+        },
+        "links": {"mission_id": state["mission_subject"], "go_id": goal_subject},
+    }
+    receipt = _put_native_fact(
+        runtime_dir,
+        kind="continuation-decision",
+        surface_id=REVIEW_SURFACE_ID,
+        subject_key=f"kungfu:decision:{decision_id}",
+        source_id=source_id,
+        payload=payload,
+        system_time=system_time or time.time_ns(),
+    )
+    created = []
+    if action == "create-follow-up":
+        for followup in review["continuation_plan"]["followups"]:
+            created.append(
+                create_go(
+                    runtime_dir,
+                    mission_id=state["mission_subject"],
+                    goal_id=followup["goal_id"],
+                    title=followup["title"],
+                    objective=followup["objective"],
+                    actor=actor,
+                    actor_type=actor_type,
+                    storage_source_id=storage_source_id,
+                    parent_goal_id=goal_id,
+                    depends_on=followup["depends_on"],
+                    responsibility=followup["why_created"],
+                    acceptance_root=followup["acceptance_root"],
+                )
+            )
+    return {
+        "schema": "kungfu.mission-control.continuation-decision/v1",
+        "decision": record,
+        "receipt": receipt,
+        "created_followups": created,
     }

@@ -5,7 +5,9 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import tempfile
+import unicodedata
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,6 +21,23 @@ WORKSPACE_SCHEMA = "kungfu.workspace.identity/v1"
 REGISTRY_SCHEMA = "kungfu.workspace.registry/v1"
 ENSURE_RECEIPT_SCHEMA = "kungfu.workspace.ensure-receipt/v1"
 TARGET_RECEIPT_SCHEMA = "kungfu.workspace.target-receipt/v1"
+CONTINUATION_STATUS_SCHEMA = "kungfu.workspace.continuation-status/v1"
+
+_ROOT = re.compile(r"^sha256:[0-9a-f]{64}$")
+_MAX_SAFE_INTEGER = 9_007_199_254_740_991
+_PROJECT_CUT_ROOT_FIELDS = (
+    "project",
+    "parentCutRoots",
+    "sourceProjection",
+    "atlas",
+    "episodeDelta",
+    "interpretation",
+    "visibility",
+    "omissions",
+    "conflicts",
+    "unknowns",
+    "compatibility",
+)
 
 WorkspaceKind = Literal["home", "project", "machine"]
 OperationClass = Literal[
@@ -43,6 +62,7 @@ class WorkspaceIdentity:
     resolution_reason: str
 
     def as_dict(self) -> dict[str, Any]:
+        continuation = inspect_workspace_continuation(self)
         return {
             "schema": WORKSPACE_SCHEMA,
             "workspace_id": self.workspace_id,
@@ -52,8 +72,9 @@ class WorkspaceIdentity:
             "data_home": self.data_home,
             "runtime_dir": os.path.join(self.data_home, "runtime"),
             "initialized": self.initialized,
-            "state": "ready" if self.initialized else "selected-uninitialized",
+            "state": continuation["state"],
             "resolution_reason": self.resolution_reason,
+            "continuation": continuation,
         }
 
 
@@ -90,6 +111,150 @@ class WorkspaceTargetRequired(ValueError):
         super().__init__(
             f"{operation_class} requires an explicit or discovered workspace target"
         )
+
+
+def _canonical_json(value: Any) -> str:
+    if value is None or isinstance(value, bool):
+        return json.dumps(value, separators=(",", ":"))
+    if isinstance(value, str):
+        if unicodedata.normalize("NFC", value) != value:
+            raise ValueError("canonical JSON strings must be NFC-normalized")
+        return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+    if isinstance(value, int):
+        if value < 0 or value > _MAX_SAFE_INTEGER:
+            raise ValueError("canonical JSON integers must be non-negative and safe")
+        return str(value)
+    if isinstance(value, list):
+        return "[" + ",".join(_canonical_json(item) for item in value) + "]"
+    if isinstance(value, dict):
+        if not all(isinstance(key, str) for key in value):
+            raise ValueError("canonical JSON object keys must be strings")
+        keys = sorted(value, key=lambda key: key.encode("utf-8"))
+        return (
+            "{"
+            + ",".join(
+                f"{_canonical_json(key)}:{_canonical_json(value[key])}" for key in keys
+            )
+            + "}"
+        )
+    raise ValueError("unsupported canonical JSON value")
+
+
+def _semantic_root(value: Any) -> str:
+    digest = hashlib.sha256(_canonical_json(value).encode("utf-8")).hexdigest()
+    return f"sha256:{digest}"
+
+
+def inspect_workspace_continuation(identity: WorkspaceIdentity) -> dict[str, Any]:
+    """Inspect settled Git material without creating or repairing local state.
+
+    This is deliberately a bounded read model.  It can establish that tracked
+    Project Cut and Episode shadow material is present and structurally usable;
+    it never promotes that material into yijinjing authority or claims raw
+    replay/requalification evidence.
+    """
+
+    runtime_dir = Path(identity.data_home) / "runtime"
+    runtime_present = runtime_dir.is_dir()
+    episode_root = Path(identity.data_home) / "episodes" / "sealed"
+    cut_root = Path(identity.data_home) / "project-cuts"
+    issues: list[dict[str, str]] = []
+    episode_roots: list[str] = []
+    cut_roots: list[str] = []
+
+    if episode_root.is_dir():
+        for manifest_path in sorted(episode_root.rglob("manifest.json")):
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                semantic_root = str(manifest.get("semanticRoot") or "")
+                provider_root = str(manifest.get("providerRoot") or "")
+                if (
+                    manifest.get("schema") != "kungfu.episode.git-workspace-manifest/v1"
+                    or manifest.get("authority") != "shadow-of-yijinjing-journal"
+                    or not _ROOT.fullmatch(semantic_root)
+                    or not _ROOT.fullmatch(provider_root)
+                ):
+                    raise ValueError("manifest contract mismatch")
+                provider_root_value = manifest.pop("providerRoot")
+                if _semantic_root(manifest) != provider_root_value:
+                    raise ValueError("Episode provider root mismatch")
+                episode_roots.append(semantic_root)
+            except (OSError, ValueError, json.JSONDecodeError) as error:
+                issues.append(
+                    {
+                        "code": "episode-shadow-invalid",
+                        "path": str(manifest_path.relative_to(identity.data_home)),
+                        "message": str(error),
+                    }
+                )
+
+    if cut_root.is_dir():
+        for cut_path in sorted(cut_root.rglob("*.json")):
+            if cut_path.name.endswith(".receipt.json"):
+                continue
+            try:
+                cut = json.loads(cut_path.read_text(encoding="utf-8"))
+                cut_root_value = str(cut.get("cutRoot") or "")
+                if cut.get("schema") != "project.cut/v1" or not _ROOT.fullmatch(
+                    cut_root_value
+                ):
+                    raise ValueError("Project Cut contract mismatch")
+                root_input = {
+                    "schema": "project.cut.root-input/v1",
+                    **{field: cut[field] for field in _PROJECT_CUT_ROOT_FIELDS},
+                }
+                if _semantic_root(root_input) != cut_root_value:
+                    raise ValueError("Project Cut root mismatch")
+                cut_roots.append(cut_root_value)
+            except (OSError, ValueError, json.JSONDecodeError) as error:
+                issues.append(
+                    {
+                        "code": "project-cut-invalid",
+                        "path": str(cut_path.relative_to(identity.data_home)),
+                        "message": str(error),
+                    }
+                )
+
+    shadow_present = bool(episode_roots or cut_roots)
+    if issues:
+        state = "evidence-degraded"
+        evidence_level = "degraded"
+    elif runtime_present:
+        state = "live-runtime"
+        evidence_level = "live-local"
+    elif shadow_present:
+        state = "shadow-only"
+        evidence_level = "settled-review"
+    else:
+        state = "uninitialized"
+        evidence_level = "none"
+
+    return {
+        "schema": CONTINUATION_STATUS_SCHEMA,
+        "state": state,
+        "runtime_authority": "yijinjing-journal" if runtime_present else None,
+        "settled_history_authority": (
+            "qualified-git-shadow" if shadow_present else None
+        ),
+        "evidence_level": evidence_level,
+        "episode_roots": sorted(set(episode_roots)),
+        "project_cut_roots": sorted(set(cut_roots)),
+        "issues": issues,
+        "capabilities": {
+            "inspect_settled_history": shadow_present and not issues,
+            "start_continuation": identity.workspace_kind == "project" and not issues,
+            "append_facts": runtime_present and not issues,
+            "raw_replay": runtime_present,
+            "requalify": runtime_present,
+            "request_full_evidence": shadow_present and not runtime_present,
+            "settle_project_cut": runtime_present and not issues,
+        },
+        "non_claims": [
+            "git-shadow-is-not-episode-authority",
+            "settled-review-does-not-prove-raw-replay",
+            "inspection-does-not-initialize-runtime",
+        ],
+    }
 
 
 def home_data_home(env: Mapping[str, str] | None = None) -> str:
@@ -359,13 +524,20 @@ def ensure_workspace_data_home(
     reason = reason.strip()
     if not reason:
         raise ValueError("workspace initialization requires a non-empty write intent")
-    existed = os.path.isdir(identity.data_home)
+    continuation = inspect_workspace_continuation(identity)
+    previous_state = continuation["state"]
+    if previous_state == "evidence-degraded":
+        raise ValueError(
+            "workspace continuation is blocked by degraded settled evidence"
+        )
+    data_home_existed = os.path.isdir(identity.data_home)
+    runtime_dir = os.path.join(identity.data_home, "runtime")
+    runtime_existed = os.path.isdir(runtime_dir)
     created_paths: list[str] = []
-    if not existed:
+    if not data_home_existed:
         os.makedirs(identity.data_home, exist_ok=True)
         created_paths.append(identity.data_home)
-    runtime_dir = os.path.join(identity.data_home, "runtime")
-    if not os.path.isdir(runtime_dir):
+    if not runtime_existed:
         os.makedirs(runtime_dir, exist_ok=True)
         created_paths.append(runtime_dir)
     return {
@@ -378,7 +550,11 @@ def ensure_workspace_data_home(
         "data_home": identity.data_home,
         "runtime_dir": runtime_dir,
         "reason": reason,
-        "initialized": not existed,
+        "initialized": not runtime_existed,
+        "previous_state": previous_state,
+        "resulting_state": "live-runtime",
+        "parent_episode_roots": continuation["episode_roots"],
+        "parent_project_cut_roots": continuation["project_cut_roots"],
         "created_paths": created_paths,
         "git_effects": [],
         "coordinator_action": "deferred",
@@ -393,7 +569,7 @@ def _home_identity(env: Mapping[str, str], resolution_reason: str) -> WorkspaceI
         workspace_root=None,
         display_path="~/.kungfu",
         data_home=data_home,
-        initialized=os.path.isdir(data_home),
+        initialized=os.path.isdir(os.path.join(data_home, "runtime")),
         resolution_reason=resolution_reason,
     )
 
@@ -409,7 +585,7 @@ def _project_identity(workspace_root: str, resolution_reason: str) -> WorkspaceI
         workspace_root=canonical_root,
         display_path=display_path,
         data_home=data_home,
-        initialized=os.path.isdir(data_home),
+        initialized=os.path.isdir(os.path.join(data_home, "runtime")),
         resolution_reason=resolution_reason,
     )
 
@@ -422,7 +598,7 @@ def _machine_identity(data_home: str, resolution_reason: str) -> WorkspaceIdenti
         workspace_root=None,
         display_path=data_home,
         data_home=data_home,
-        initialized=os.path.isdir(data_home),
+        initialized=os.path.isdir(os.path.join(data_home, "runtime")),
         resolution_reason=resolution_reason,
     )
 

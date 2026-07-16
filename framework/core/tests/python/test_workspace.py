@@ -3,6 +3,9 @@
 import json
 import os
 import subprocess
+from hashlib import sha256
+
+import pytest
 
 from kungfu.workspace import (
     WorkspaceTargetRequired,
@@ -59,12 +62,103 @@ def test_ensure_creates_minimum_layout_and_receipt_without_git_effects(tmp_path)
     assert receipt["schema"] == "kungfu.workspace.ensure-receipt/v1"
     assert receipt["reason"] == "create-mission"
     assert receipt["initialized"] is True
+    assert receipt["previous_state"] == "uninitialized"
+    assert receipt["resulting_state"] == "live-runtime"
     assert (repo / ".kungfu" / "runtime").is_dir()
     assert receipt["git_effects"] == []
 
     repeated = ensure_workspace_data_home(identity, "create-go")
     assert repeated["initialized"] is False
     assert repeated["created_paths"] == []
+
+
+def test_tracked_settled_shadow_is_readable_without_runtime_initialization(tmp_path):
+    repo = tmp_path / "repo"
+    manifest_dir = (
+        repo / ".kungfu" / "episodes" / "sealed" / "sha256" / "aa" / ("a" * 64)
+    )
+    manifest_dir.mkdir(parents=True)
+    manifest = {
+        "schema": "kungfu.episode.git-workspace-manifest/v1",
+        "authority": "shadow-of-yijinjing-journal",
+        "semanticRoot": "sha256:" + "a" * 64,
+    }
+    manifest["providerRoot"] = (
+        "sha256:"
+        + sha256(
+            json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+    )
+    (manifest_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    cut_dir = repo / ".kungfu" / "project-cuts" / "sha256" / "cc"
+    cut_dir.mkdir(parents=True)
+    cut = {
+        "schema": "project.cut/v1",
+        "project": {"id": "fixture"},
+        "parentCutRoots": [],
+        "sourceProjection": {},
+        "atlas": {},
+        "episodeDelta": {},
+        "interpretation": {},
+        "visibility": "internal",
+        "omissions": [],
+        "conflicts": [],
+        "unknowns": [],
+        "compatibility": {},
+    }
+    root_input = {
+        "schema": "project.cut.root-input/v1",
+        **{key: value for key, value in cut.items() if key != "schema"},
+    }
+    cut["cutRoot"] = (
+        "sha256:"
+        + sha256(
+            json.dumps(root_input, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+    )
+    (cut_dir / ("c" * 64 + ".json")).write_text(
+        json.dumps(cut),
+        encoding="utf-8",
+    )
+
+    identity = inspect_workspace(str(repo), env={"HOME": str(tmp_path)})
+    assert identity is not None
+    status = identity.as_dict()
+
+    assert identity.initialized is False
+    assert status["state"] == "shadow-only"
+    assert status["continuation"]["evidence_level"] == "settled-review"
+    assert status["continuation"]["capabilities"]["inspect_settled_history"] is True
+    assert status["continuation"]["capabilities"]["append_facts"] is False
+    assert not (repo / ".kungfu" / "runtime").exists()
+
+    receipt = ensure_workspace_data_home(identity, "start-continuation")
+    assert receipt["initialized"] is True
+    assert receipt["previous_state"] == "shadow-only"
+    assert receipt["resulting_state"] == "live-runtime"
+    assert receipt["parent_episode_roots"] == ["sha256:" + "a" * 64]
+    assert receipt["parent_project_cut_roots"] == [cut["cutRoot"]]
+    assert (manifest_dir / "manifest.json").exists()
+
+
+def test_invalid_tracked_shadow_fails_visible_without_creating_runtime(tmp_path):
+    repo = tmp_path / "repo"
+    manifest_dir = repo / ".kungfu" / "episodes" / "sealed" / "broken"
+    manifest_dir.mkdir(parents=True)
+    (manifest_dir / "manifest.json").write_text("{", encoding="utf-8")
+
+    identity = inspect_workspace(str(repo), env={"HOME": str(tmp_path)})
+    assert identity is not None
+    status = identity.as_dict()
+
+    assert status["state"] == "evidence-degraded"
+    assert status["continuation"]["issues"][0]["code"] == "episode-shadow-invalid"
+    assert status["continuation"]["capabilities"]["start_continuation"] is False
+    assert not (repo / ".kungfu" / "runtime").exists()
+
+    with pytest.raises(ValueError, match="degraded settled evidence"):
+        ensure_workspace_data_home(identity, "start-continuation")
+    assert not (repo / ".kungfu" / "runtime").exists()
 
 
 def test_capture_only_falls_back_to_unassigned_home_with_source_cwd(tmp_path):

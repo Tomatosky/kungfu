@@ -110,14 +110,22 @@ void coordinator::register_peer(const event_ptr &event) {
   }
 
   auto peer_location = location::make_shared(register_data, home->locator);
-  const auto already_registered = is_location_live(peer_location->uid);
+  auto already_registered = is_location_live(peer_location->uid);
   if (already_registered) {
     const auto &current = get_registry().at(peer_location->uid);
     if (current.pid != register_data.pid || current.uid64 != register_data.uid64) {
-      SPDLOG_ERROR("location {} is already owned by a different live peer", peer_location->uname);
-      return;
+      if (os::is_process_alive(current.pid)) {
+        SPDLOG_ERROR("location {} is already owned by a different live peer", peer_location->uname);
+        return;
+      }
+      SPDLOG_WARN("replacing dead peer owner for location {} old pid {} new pid {}", peer_location->uname, current.pid,
+                  register_data.pid);
+      deregister_peer(event->gen_time(), peer_location->uid);
+      remove_location(event->gen_time(), peer_location->uid);
+      already_registered = false;
+    } else {
+      SPDLOG_WARN("replaying continuity bootstrap for live peer {}", peer_location->uname);
     }
-    SPDLOG_WARN("replaying continuity bootstrap for live peer {}", peer_location->uname);
   }
 
   state_service::peer_projection_declaration projection_declaration;

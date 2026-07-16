@@ -245,11 +245,88 @@ mixed with v3 because their authority sets differ. Those data roots therefore
 report an explicit migration/re-import requirement. No released format is
 affected; this boundary must become a durable migration before stable release.
 
-### Native mode
+### Native authority cutover
 
-If Kungfu later becomes authoritative for Mission/Go state, the cutover is an
-explicit KFD-1 migration event. Atlas then becomes a projection, index, or
-export consumer. Long-lived dual writes with two authorities are forbidden.
+Kungfu can now become authoritative through one explicit KFD-1 migration. The
+operator first inspects the latest completed Atlas import against its admitted
+Mission/Go facts:
+
+```sh
+kungfu atlas authority-status --source atlas --json
+```
+
+The result is `matched` only when source ids, paths, payload hashes, import id,
+and repository head agree. Cutover then pins that exact parity root together
+with the Project Cut and successor Xinfa Atlas roots:
+
+```sh
+kungfu atlas authority-cutover \
+  --expected-parity-root sha256:<parity> \
+  --project-cut-root sha256:<project-cut> \
+  --atlas-root sha256:<successor-atlas> \
+  --actor <actor> --reason <reason> --json
+```
+
+After the receipt is admitted, Kungfu-native Mission/Go actions are the sole
+writer. Atlas import becomes read-only; its cards, source coordinates, import
+Episodes, and admitted bridge facts remain available for history and audit. A
+native child Go may carry `parent_goal_id`, an independent `depends_on` list,
+responsibility, acceptance, Atlas, Project Cut, and evidence Episode roots.
+Containment never implies execution dependency.
+
+Rollback is also an authorized Profile action and requires the exact active
+migration id:
+
+```sh
+kungfu atlas authority-rollback \
+  --expected-migration-id authority-<id> \
+  --actor <actor> --reason <reason> --json
+```
+
+Rollback appends a new transition, restores Atlas import, and retains native
+facts read-only. It neither deletes history nor enables dual writes. Desktop,
+CLI, and public agent APIs project these same Profile intents and domain
+receipts. [ADR-0104](../adr/ADR-0104-native-mission-go-authority-cutover.md)
+defines the parity, single-writer, and rollback boundaries.
+
+### Independent review and continuation
+
+A completion handoff can now bind the Go set, acceptance, input/result Atlas,
+Project Cut, Git commit/tree, Episode/proof roots, known gaps, and evidence
+availability:
+
+```sh
+kungfu atlas claim-completion <mission-id> <goal-id> \
+  --statement <claim> --actor <claimant> --evidence-episode <id> \
+  --acceptance-root sha256:<root> \
+  --input-atlas-root sha256:<root> \
+  --result-atlas-root sha256:<root> \
+  --project-cut-root sha256:<root> \
+  --git-commit <full-sha> --proof-root sha256:<root> --json
+kungfu atlas review-completion <mission-id> <goal-id> \
+  --reviewer <different-actor> --reviewer-source <session-or-provider> \
+  --follow-up '<json>' --json
+kungfu atlas decide-continuation <mission-id> <goal-id> <review-id> \
+  --expected-review-root sha256:<root> \
+  --expected-plan-root sha256:<root> \
+  --action create-follow-up --actor <actor> --reason <reason> --json
+```
+
+Review rejects the claimant as reviewer, runs a purpose-bound Assessment
+Episode, and seals a TrustReport plus continuation plan. Its verdict is one of
+`fit`, `partial`, `insufficient`, `conflicted`, `stale`, or `unverifiable`.
+Thin evidence can establish ordinary settled-history acceptance while
+unavailable full replay or forensic material remains an explicit capability
+contraction and evidence request.
+
+Continuation is stale-safe: both the review and plan roots must match. An agent
+may create at most six declared mechanical follow-up Go rows. Mission,
+authority, privacy, security, public-claim, irreversible, and stop decisions
+require a human actor. Review and decision are distinct versioned records on the
+existing v3 completion-claim surface, preserving the materialized KFD-1 fact
+register while retaining their own actors, Episodes, payloads, and roots.
+[ADR-0105](../adr/ADR-0105-independent-review-and-exact-continuation.md)
+defines the independence, evidence, and continuation policy.
 
 ## Storage and portability
 
@@ -261,9 +338,13 @@ and observer metadata belong to the selected fact-world authority.
 
 Desktop remembers the last selected workspace under `KF_CONFIG_HOME`, but that
 registry is only global GUI session state. Opening a directory remains
-read-only; `.kungfu` initializes on the first operation that changes the
-workspace fact world. [ADR-0060](../adr/ADR-0060-desktop-workspace-selection-and-lazy-data-home.md)
-defines the lifecycle and prevents recent-workspace convenience from becoming
+read-only. A clone containing qualified Episode/Project Cut shadows opens as
+`shadow-only`; those Git records remain a settled read model rather than local
+Episode authority. The runtime initializes only through an explicit
+continuation or another operation that changes the workspace fact world.
+[ADR-0060](../adr/ADR-0060-desktop-workspace-selection-and-lazy-data-home.md)
+and [ADR-0103](../adr/ADR-0103-shadow-only-workspace-continuation.md) define the
+lifecycle and prevent recent-workspace convenience or Git JSON from becoming
 Mission authority.
 
 A full bundle carries the bounded content closure needed for offline replay and
@@ -298,8 +379,10 @@ sealed Episodes, domain fact declaration/admission, Fact Manager, historical
 proof-carrying queries, saved views and changelogs, and durable KFD-2
 assessments. Atlas Mission and Go snapshots now enter the shared Fact Library
 under an explicit bridge authority while retaining their source coordinates and
-sealed import root. Mission Control is the product composition that connects
-these mechanisms into proof-backed progress and decision workflows.
+sealed import root. An exact parity-bound migration can freeze that bridge and
+make Kungfu-native facts the sole Mission/Go writer, with append-only rollback.
+Mission Control is the product composition that connects these mechanisms into
+proof-backed progress and decision workflows.
 
 The first implementation target is intentionally narrow:
 
@@ -315,6 +398,11 @@ The first implementation target is intentionally narrow:
 6. run entirely in an isolated temporary data root (**implemented**).
 7. create a native Mission and move its Mission/Go/cost/claim/proof closure to
    a fresh data root (**implemented for full and thin local bundles**).
+8. prove Atlas/imported-fact parity, cut over to one native writer, and retain
+   an exact append-only rollback path (**implemented**).
+9. bind a root-complete Completion Claim to an independent six-state review and
+   exact bounded continuation plan across CLI, Agent, and GUI
+   (**implemented**).
 
 This slice does not require a general ontology, unrestricted rule engine,
 cloud-only control plane, or full visual query builder.

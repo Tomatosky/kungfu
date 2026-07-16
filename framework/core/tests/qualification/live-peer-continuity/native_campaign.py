@@ -15,6 +15,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+import psutil
+
 
 SCHEMA = "kungfu.runtime.live-peer-continuity-campaign/v1"
 
@@ -153,11 +155,19 @@ def _run_peer(runtime_dir: Path, marker_path: Path) -> int:
             super().__init__(location, False, "{}")
 
         def on_start(self) -> None:
+            from kungfu import peer_lifecycle
+
+            lifecycle = peer_lifecycle.declare_ready_from_environment(
+                {"registration": "native-peer-on-start"}
+            )
             _append_json(
                 marker_path,
                 {
                     "event": "peer-ready",
                     "pid": os.getpid(),
+                    "peerGeneration": lifecycle["peerGeneration"],
+                    "hostGeneration": lifecycle["hostGeneration"],
+                    "processStartIdentity": lifecycle["processStartIdentity"],
                     "readyIndex": len(_read_markers(marker_path)) + 1,
                     "observedAtNs": time.time_ns(),
                 },
@@ -234,6 +244,8 @@ def _spawn_capsule(
 
 
 def _run_campaign(output_dir: Path, temp_parent: Path | None = None) -> int:
+    from kungfu import peer_lifecycle
+
     output_dir.mkdir(parents=True, exist_ok=True)
     report_path = output_dir / "report.json"
     # NNG's ipc transport inherits the platform Unix-domain socket path limit.
@@ -247,7 +259,7 @@ def _run_campaign(output_dir: Path, temp_parent: Path | None = None) -> int:
         capsule_rejection_path = Path(root) / "capsule-rejection.jsonl"
         runtime_dir.mkdir(parents=True)
         coordinator: subprocess.Popen[Any] | None = None
-        peer: subprocess.Popen[Any] | None = None
+        peer_spec: dict[str, Any] | None = None
         capsule: subprocess.Popen[Any] | None = None
         streams: list[Any] = []
         started_at = time.time_ns()
@@ -265,21 +277,41 @@ def _run_campaign(output_dir: Path, temp_parent: Path | None = None) -> int:
             )
             streams.append(stream)
             _wait_for_coordinator_storage(runtime_dir, coordinator)
-            peer, stream = _spawn_role(
-                "peer",
-                runtime_dir,
-                output_dir / "peer.log",
-                "--marker-path",
-                str(marker_path),
-            )
-            streams.append(stream)
+            peer_spec = {
+                "schema": peer_lifecycle.SPEC_SCHEMA,
+                "peerId": "qualification.continuity-probe",
+                "command": {
+                    "argv": [
+                        sys.executable,
+                        str(Path(__file__).resolve()),
+                        "peer",
+                        "--runtime-dir",
+                        str(runtime_dir),
+                        "--marker-path",
+                        str(marker_path),
+                    ]
+                },
+                "readiness": {"kind": "file-handshake", "timeoutSeconds": 120},
+                "recovery": {
+                    "schema": peer_lifecycle.RECOVERY_SCHEMA,
+                    "processExit": "restart",
+                    "durableState": "declared",
+                    "maxRestarts": 3,
+                    "windowSeconds": 60,
+                    "guidance": "The qualification Peer has no volatile workload state and re-registers from its declaration.",
+                },
+                "metadata": {"qualification": "live-peer-continuity"},
+            }
+            hosted = peer_lifecycle.ensure(peer_spec, runtime_dir)
+            if not hosted["healthy"]:
+                raise RuntimeError(
+                    f"Peer lifecycle host did not reach Ready: {hosted['lifecycleState']}"
+                )
             first = _wait_for_markers(marker_path, 1)
-            # The Windows Shifu/uv Python launch chain may keep a launcher
-            # process in front of the interpreter. Popen.pid therefore proves
-            # launcher liveness, while the first ready marker is the workload's
-            # self-reported process identity that must remain stable.
-            peer_launcher_pid = peer.pid
+            peer_host_pid = int(hosted["host"]["pid"])
+            peer_host_generation = int(hosted["host"]["generation"])
             peer_pid = int(first[0]["pid"])
+            peer_generation = int(first[0]["peerGeneration"])
             capsule, stream = _spawn_capsule(
                 capsule_command_path,
                 capsule_marker_path,
@@ -306,14 +338,16 @@ def _run_campaign(output_dir: Path, temp_parent: Path | None = None) -> int:
             second = _wait_for_markers(marker_path, 2)
             _write_authority(capsule_command_path, "7", "2")
             capsule_second = _wait_for_markers(capsule_marker_path, 2)
-            peer_return_code = peer.poll()
             second_ready_pids = sorted({int(item["pid"]) for item in second})
-            if peer_return_code is not None or second_ready_pids != [peer_pid]:
+            peer_status = peer_lifecycle.status(
+                runtime_dir, "qualification.continuity-probe"
+            )
+            if not peer_status["healthy"] or second_ready_pids != [peer_pid]:
                 raise RuntimeError(
                     "peer process did not survive Coordinator replacement: "
-                    f"peer_launcher_pid={peer_launcher_pid} peer_pid={peer_pid} "
+                    f"peer_host_pid={peer_host_pid} peer_pid={peer_pid} "
                     f"ready_pids={second_ready_pids} "
-                    f"peer_return_code={peer_return_code}"
+                    f"lifecycle={peer_status['lifecycleState']}"
                 )
 
             _stop_test_process(coordinator, hard=True)
@@ -355,14 +389,16 @@ def _run_campaign(output_dir: Path, temp_parent: Path | None = None) -> int:
             final = _wait_for_markers(marker_path, 3)
             _write_authority(capsule_command_path, "8", "1")
             capsule_final = _wait_for_markers(capsule_marker_path, 3)
-            peer_return_code = peer.poll()
             ready_pids = sorted({int(item["pid"]) for item in final})
-            if peer_return_code is not None or ready_pids != [peer_pid]:
+            peer_status = peer_lifecycle.status(
+                runtime_dir, "qualification.continuity-probe"
+            )
+            if not peer_status["healthy"] or ready_pids != [peer_pid]:
                 raise RuntimeError(
                     "runtime generation replacement did not preserve the Peer workload: "
-                    f"peer_launcher_pid={peer_launcher_pid} peer_pid={peer_pid} "
+                    f"peer_host_pid={peer_host_pid} peer_pid={peer_pid} "
                     f"ready_pids={ready_pids} "
-                    f"peer_return_code={peer_return_code}"
+                    f"lifecycle={peer_status['lifecycleState']}"
                 )
             if [len(first), len(second), len(final)] != [1, 2, 3]:
                 raise RuntimeError("unexpected Peer readiness sequence")
@@ -378,12 +414,81 @@ def _run_campaign(output_dir: Path, temp_parent: Path | None = None) -> int:
                 raise RuntimeError(
                     "Capsule workload identity did not survive Coordinator replacement"
                 )
+
+            # Hard-kill only the generic host.  The native Peer must remain
+            # alive, become an adoptable orphan, and be fenced-adopted by a new
+            # host generation without another Peer on_start event.
+            peer_host_process = psutil.Process(peer_host_pid)
+            peer_host_process.kill()
+            peer_host_process.wait(timeout=5)
+            orphan_deadline = time.monotonic() + 5
+            orphan = peer_lifecycle.status(
+                runtime_dir, "qualification.continuity-probe"
+            )
+            while time.monotonic() < orphan_deadline and not orphan["orphaned"]:
+                time.sleep(0.1)
+                orphan = peer_lifecycle.status(
+                    runtime_dir, "qualification.continuity-probe"
+                )
+            if not orphan["adoptable"] or orphan["peer"]["pid"] != peer_pid:
+                raise RuntimeError(
+                    f"host crash did not expose an adoptable Peer: {orphan}"
+                )
+            adopted = peer_lifecycle.ensure(peer_spec, runtime_dir)
+            if (
+                not adopted["healthy"]
+                or adopted["host"]["generation"] != peer_host_generation + 1
+                or adopted["peer"]["pid"] != peer_pid
+                or len(_read_markers(marker_path)) != 3
+            ):
+                raise RuntimeError(f"fenced Peer adoption failed: {adopted}")
+
+            # A stale controller generation must not be able to stop the newly
+            # adopted Peer.
+            try:
+                peer_lifecycle.stop(
+                    runtime_dir,
+                    "qualification.continuity-probe",
+                    expected_host_generation=peer_host_generation,
+                    timeout=0,
+                )
+            except peer_lifecycle.PeerLifecycleError as stale:
+                if stale.code != "stale-host-generation":
+                    raise
+            else:
+                raise RuntimeError("stale Peer host generation was not rejected")
+
+            # Hard-kill the Peer itself.  The restartable declaration must
+            # produce a new fenced Peer generation and a different process.
+            psutil.Process(peer_pid).kill()
+            restarted_markers = _wait_for_markers(marker_path, 4)
+            restarted = peer_lifecycle.status(
+                runtime_dir, "qualification.continuity-probe"
+            )
+            restart_deadline = time.monotonic() + 5
+            while time.monotonic() < restart_deadline and not restarted["healthy"]:
+                time.sleep(0.1)
+                restarted = peer_lifecycle.status(
+                    runtime_dir, "qualification.continuity-probe"
+                )
+            restarted_pid = int(restarted_markers[-1]["pid"])
+            if (
+                not restarted["healthy"]
+                or restarted_pid == peer_pid
+                or int(restarted_markers[-1]["peerGeneration"]) != peer_generation + 1
+                or restarted["restartAttempts"] != 1
+            ):
+                raise RuntimeError(f"bounded Peer restart failed: {restarted}")
             verdict = "passed"
         except Exception as failure:  # noqa: BLE001
             error = str(failure)
         finally:
             _stop_test_process(coordinator, hard=True)
-            _stop_test_process(peer, hard=False)
+            if peer_spec is not None:
+                try:
+                    peer_lifecycle.stop(runtime_dir, "qualification.continuity-probe")
+                except peer_lifecycle.PeerLifecycleError:
+                    pass
             _stop_test_process(capsule, hard=False)
             for stream in streams:
                 stream.close()
@@ -412,6 +517,11 @@ def _run_campaign(output_dir: Path, temp_parent: Path | None = None) -> int:
                 "capsulePidPreserved": verdict == "passed",
                 "capsuleStreamEpochPreserved": verdict == "passed",
                 "capsuleStaleAuthorityRejected": verdict == "passed",
+                "independentPeerHost": verdict == "passed",
+                "peerHostCrashAdopted": verdict == "passed",
+                "staleHostGenerationRejected": verdict == "passed",
+                "peerCrashRestarted": verdict == "passed",
+                "peerGenerationAdvanced": verdict == "passed",
             },
             "claims": {
                 "singleHostProcessContinuity": verdict == "passed",

@@ -62,6 +62,33 @@
       ]
     },
     {
+      "id": "review-completion",
+      "title": "Review completion independently",
+      "runner": "kfx-member",
+      "operation": "mission-control-actions",
+      "runtimeOperation": "assessment.request",
+      "authorityClass": "independent-reviewer",
+      "requiredCapabilities": ["storage"],
+      "effects": [
+        "request-assessment",
+        "append-independent-review",
+        "seal-continuation-plan"
+      ]
+    },
+    {
+      "id": "decide-continuation",
+      "title": "Decide exact-root continuation",
+      "runner": "kfx-member",
+      "operation": "mission-control-actions",
+      "runtimeOperation": "episode.append",
+      "authorityClass": "continuation-operator",
+      "requiredCapabilities": ["storage"],
+      "effects": [
+        "append-continuation-decision",
+        "create-bounded-follow-up-go"
+      ]
+    },
+    {
       "id": "import-atlas",
       "title": "Import Atlas projection source",
       "runner": "kfx-member",
@@ -70,6 +97,34 @@
       "authorityClass": "mission-fact-author",
       "requiredCapabilities": ["storage"],
       "effects": ["append-admitted-fact", "seal-episode"]
+    },
+    {
+      "id": "cutover-authority",
+      "title": "Cut over Mission and Go authority",
+      "runner": "kfx-member",
+      "operation": "mission-control-actions",
+      "runtimeOperation": "episode.append",
+      "authorityClass": "mission-fact-author",
+      "requiredCapabilities": ["storage"],
+      "effects": [
+        "verify-atlas-parity",
+        "append-authority-receipt",
+        "freeze-atlas-mutation"
+      ]
+    },
+    {
+      "id": "rollback-authority",
+      "title": "Roll back Mission and Go authority",
+      "runner": "kfx-member",
+      "operation": "mission-control-actions",
+      "runtimeOperation": "episode.append",
+      "authorityClass": "mission-fact-author",
+      "requiredCapabilities": ["storage"],
+      "effects": [
+        "append-authority-receipt",
+        "restore-atlas-mutation",
+        "retain-native-facts-read-only"
+      ]
     },
     {
       "id": "export-mission",

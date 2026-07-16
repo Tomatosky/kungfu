@@ -151,6 +151,116 @@ def verify(ctx, repo_root, storage_source_id, since, from_time, until, as_json):
         sys.exit(1)
 
 
+@atlas.command(
+    name="authority-status",
+    help="show Atlas/native Mission and Go authority parity and current writer",
+)
+@click.option("--source", "storage_source_id", type=str, default="atlas")
+@click.option("--json", "as_json", is_flag=True, help="machine-readable output")
+@atlas_command_context
+def authority_status_cmd(ctx, storage_source_id, as_json):
+    try:
+        result = _profile_read(ctx, "authority-status", {"source": storage_source_id})
+    except (RuntimeError, ValueError) as error:
+        click.echo(f"[atlas] authority status failed: {error}", err=True)
+        sys.exit(1)
+    if as_json:
+        _echo_json(result)
+        return
+    click.echo(
+        f"[atlas] writer={result['authority']['write_authority']} "
+        f"state={result['authority']['state']} parity={result['parity']['status']} "
+        f"root={result['parity']['parity_root']}"
+    )
+
+
+@atlas.command(
+    name="authority-cutover",
+    help="cut Mission and Go writes over to Kungfu native authority",
+)
+@click.option("--source", "storage_source_id", type=str, default="atlas")
+@click.option("--expected-parity-root", type=str, required=True)
+@click.option("--project-cut-root", type=str, required=True)
+@click.option("--atlas-root", type=str, required=True)
+@click.option("--actor", type=str, required=True)
+@click.option("--actor-type", type=click.Choice(["user", "agent"]), default="agent")
+@click.option("--reason", type=str, required=True)
+@click.option("--json", "as_json", is_flag=True, help="machine-readable output")
+@atlas_command_context
+def authority_cutover_cmd(
+    ctx,
+    storage_source_id,
+    expected_parity_root,
+    project_cut_root,
+    atlas_root,
+    actor,
+    actor_type,
+    reason,
+    as_json,
+):
+    try:
+        result = _profile_action(
+            ctx,
+            "cutover-authority",
+            {
+                "source": storage_source_id,
+                "expectedParityRoot": expected_parity_root,
+                "projectCutRoot": project_cut_root,
+                "atlasRoot": atlas_root,
+                "actor": actor,
+                "actorType": actor_type,
+                "reason": reason,
+            },
+        )
+    except (RuntimeError, ValueError) as error:
+        click.echo(f"[atlas] authority cutover failed: {error}", err=True)
+        sys.exit(1)
+    if as_json:
+        _echo_json(result)
+        return
+    migration = result.get("migration") or result.get("latest") or {}
+    click.echo(
+        f"[atlas] {migration.get('migration_id', '')}: "
+        f"{result['status']} writer=kungfu-native"
+    )
+
+
+@atlas.command(
+    name="authority-rollback",
+    help="roll Mission and Go writes back to Atlas without deleting native facts",
+)
+@click.option("--expected-migration-id", type=str, required=True)
+@click.option("--actor", type=str, required=True)
+@click.option("--actor-type", type=click.Choice(["user", "agent"]), default="agent")
+@click.option("--reason", type=str, required=True)
+@click.option("--json", "as_json", is_flag=True, help="machine-readable output")
+@atlas_command_context
+def authority_rollback_cmd(
+    ctx, expected_migration_id, actor, actor_type, reason, as_json
+):
+    try:
+        result = _profile_action(
+            ctx,
+            "rollback-authority",
+            {
+                "expectedMigrationId": expected_migration_id,
+                "actor": actor,
+                "actorType": actor_type,
+                "reason": reason,
+            },
+        )
+    except (RuntimeError, ValueError) as error:
+        click.echo(f"[atlas] authority rollback failed: {error}", err=True)
+        sys.exit(1)
+    if as_json:
+        _echo_json(result)
+        return
+    click.echo(
+        f"[atlas] {result['migration']['migration_id']}: "
+        "rolled-back writer=atlas-adapter"
+    )
+
+
 @atlas.group(
     cls=PrioritizedCommandGroup,
     help="render the latest completed import (a projection, not the authority)",
@@ -507,6 +617,13 @@ def import_mission_cmd(ctx, from_path, execute, as_json):
     default="agent",
 )
 @click.option("--source", "storage_source_id", type=str, default="atlas")
+@click.option("--parent-go", "parent_goal_id", type=str, default="")
+@click.option("--depends-on", "depends_on", type=str, multiple=True)
+@click.option("--responsibility", type=str, default="")
+@click.option("--acceptance-root", type=str, default="")
+@click.option("--atlas-root", type=str, default="")
+@click.option("--project-cut-root", type=str, default="")
+@click.option("--episode-root", "evidence_episode_roots", type=str, multiple=True)
 @click.option(
     "--status",
     type=click.Choice(["proposed", "active", "blocked", "waiting-for-decision"]),
@@ -523,6 +640,13 @@ def create_go_cmd(
     actor,
     actor_type,
     storage_source_id,
+    parent_goal_id,
+    depends_on,
+    responsibility,
+    acceptance_root,
+    atlas_root,
+    project_cut_root,
+    evidence_episode_roots,
     status,
     as_json,
 ):
@@ -539,6 +663,13 @@ def create_go_cmd(
                 "actorType": actor_type,
                 "source": storage_source_id,
                 "status": status,
+                "parentGoalId": parent_goal_id,
+                "dependsOn": list(depends_on),
+                "responsibility": responsibility,
+                "acceptanceRoot": acceptance_root,
+                "atlasRoot": atlas_root,
+                "projectCutRoot": project_cut_root,
+                "evidenceEpisodeRoots": list(evidence_episode_roots),
             },
         )
     except (RuntimeError, ValueError) as error:
@@ -573,6 +704,21 @@ def create_go_cmd(
     type=int,
     multiple=True,
 )
+@click.option("--go-set", "go_set", multiple=True)
+@click.option("--acceptance-root", default="")
+@click.option("--input-atlas-root", default="")
+@click.option("--result-atlas-root", default="")
+@click.option("--project-cut-root", default="")
+@click.option("--git-commit", default="")
+@click.option("--git-tree-root", default="")
+@click.option("--proof-root", "proof_roots", multiple=True)
+@click.option("--known-gap", "known_gaps", multiple=True)
+@click.option(
+    "--evidence-availability",
+    "evidence_availability",
+    multiple=True,
+    help="JSON object with acceptance, level, and state",
+)
 @click.option("--json", "as_json", is_flag=True, help="machine-readable output")
 @atlas_command_context
 def claim_completion_cmd(
@@ -584,9 +730,20 @@ def claim_completion_cmd(
     actor_type,
     storage_source_id,
     evidence_episode_ids,
+    go_set,
+    acceptance_root,
+    input_atlas_root,
+    result_atlas_root,
+    project_cut_root,
+    git_commit,
+    git_tree_root,
+    proof_roots,
+    known_gaps,
+    evidence_availability,
     as_json,
 ):
     try:
+        availability = [json.loads(row) for row in evidence_availability]
         result = _profile_action(
             ctx,
             "claim-completion",
@@ -598,9 +755,19 @@ def claim_completion_cmd(
                 "actorType": actor_type,
                 "source": storage_source_id,
                 "evidenceEpisodeIds": list(evidence_episode_ids),
+                "goSet": list(go_set),
+                "acceptanceRoot": acceptance_root,
+                "inputAtlasRoot": input_atlas_root,
+                "resultAtlasRoot": result_atlas_root,
+                "projectCutRoot": project_cut_root,
+                "gitCommit": git_commit,
+                "gitTreeRoot": git_tree_root,
+                "proofRoots": list(proof_roots),
+                "knownGaps": list(known_gaps),
+                "evidenceAvailability": availability,
             },
         )
-    except (RuntimeError, ValueError) as error:
+    except (json.JSONDecodeError, RuntimeError, ValueError) as error:
         click.echo(f"[atlas] completion claim failed: {error}", err=True)
         sys.exit(1)
     if as_json:
@@ -669,3 +836,160 @@ def assess_completion_cmd(
     click.echo(f"  proof: {report['query_proof_root']}")
     for finding in report["findings"]:
         click.echo(f"  finding: {finding}")
+
+
+@atlas.command(
+    name="review-completion",
+    help="independently review one exact-root completion claim",
+)
+@click.argument("mission_id", type=str)
+@click.argument("goal_id", type=str)
+@click.option("--reviewer", required=True)
+@click.option("--reviewer-source", required=True)
+@click.option("--source", "storage_source_id", default="atlas")
+@click.option("--purpose", default="handoff")
+@click.option("--cut-system-time", type=int, default=0)
+@click.option(
+    "--executor",
+    "executor_profile",
+    type=click.Choice(["inline", "thread", "process"]),
+    default="thread",
+)
+@click.option(
+    "--follow-up",
+    "proposed_followups",
+    multiple=True,
+    help="JSON follow-up Go object; repeat at most six times",
+)
+@click.option("--json", "as_json", is_flag=True, help="machine-readable output")
+@atlas_command_context
+def review_completion_cmd(
+    ctx,
+    mission_id,
+    goal_id,
+    reviewer,
+    reviewer_source,
+    storage_source_id,
+    purpose,
+    cut_system_time,
+    executor_profile,
+    proposed_followups,
+    as_json,
+):
+    try:
+        result = _profile_action(
+            ctx,
+            "review-completion",
+            {
+                "missionId": mission_id,
+                "goalId": goal_id,
+                "reviewer": reviewer,
+                "reviewerSource": reviewer_source,
+                "source": storage_source_id,
+                "purpose": purpose,
+                "cutSystemTime": cut_system_time,
+                "executorProfile": executor_profile,
+                "proposedFollowups": [json.loads(row) for row in proposed_followups],
+            },
+        )
+    except (json.JSONDecodeError, RuntimeError, ValueError) as error:
+        click.echo(f"[atlas] completion review failed: {error}", err=True)
+        sys.exit(1)
+    if as_json:
+        _echo_json(result)
+        return
+    click.echo(
+        f"[atlas] {result['review']['review_id']}: {result['review']['verdict']}"
+    )
+    click.echo(f"  review: {result['review_root']}")
+    click.echo(f"  continuation: {result['continuation_plan_root']}")
+
+
+@atlas.command(
+    name="decide-continuation",
+    help="apply one exact-root continuation decision",
+)
+@click.argument("mission_id", type=str)
+@click.argument("goal_id", type=str)
+@click.argument("review_id", type=str)
+@click.option("--expected-review-root", required=True)
+@click.option("--expected-plan-root", required=True)
+@click.option(
+    "--action",
+    type=click.Choice(
+        [
+            "approve",
+            "adjust",
+            "request-evidence",
+            "reopen",
+            "stop",
+            "close",
+            "create-follow-up",
+        ]
+    ),
+    required=True,
+)
+@click.option("--actor", required=True)
+@click.option("--actor-type", type=click.Choice(["user", "agent"]), default="agent")
+@click.option(
+    "--change-class",
+    type=click.Choice(
+        [
+            "mechanical",
+            "mission",
+            "authority",
+            "privacy",
+            "security",
+            "public-claim",
+            "irreversible",
+        ]
+    ),
+    default="mechanical",
+)
+@click.option("--source", "storage_source_id", default="atlas")
+@click.option("--reason", required=True)
+@click.option("--json", "as_json", is_flag=True, help="machine-readable output")
+@atlas_command_context
+def decide_continuation_cmd(
+    ctx,
+    mission_id,
+    goal_id,
+    review_id,
+    expected_review_root,
+    expected_plan_root,
+    action,
+    actor,
+    actor_type,
+    change_class,
+    storage_source_id,
+    reason,
+    as_json,
+):
+    try:
+        result = _profile_action(
+            ctx,
+            "decide-continuation",
+            {
+                "missionId": mission_id,
+                "goalId": goal_id,
+                "reviewId": review_id,
+                "expectedReviewRoot": expected_review_root,
+                "expectedPlanRoot": expected_plan_root,
+                "action": action,
+                "actor": actor,
+                "actorType": actor_type,
+                "changeClass": change_class,
+                "source": storage_source_id,
+                "reason": reason,
+            },
+        )
+    except (RuntimeError, ValueError) as error:
+        click.echo(f"[atlas] continuation decision failed: {error}", err=True)
+        sys.exit(1)
+    if as_json:
+        _echo_json(result)
+        return
+    click.echo(
+        f"[atlas] {result['decision']['decision_id']}: {result['decision']['action']}"
+    )
+    click.echo(f"  follow-ups: {len(result['created_followups'])}")

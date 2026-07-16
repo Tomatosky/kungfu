@@ -91,6 +91,37 @@ export type AtlasImportInfo = {
   markers: number;
 };
 
+export type AtlasAuthorityState = {
+  schema: 'kungfu.mission-control.authority-status/v1';
+  state: 'native-only' | 'pre-cutover' | 'native-active' | 'rolled-back';
+  write_authority: 'atlas-adapter' | 'kungfu-native';
+  legacy_mutation_path: string;
+  migration_id: string;
+  parity_root: string;
+  transition_count: number;
+};
+
+export type AtlasAuthorityInspection = {
+  authority: AtlasAuthorityState;
+  parity: {
+    schema: 'kungfu.mission-control.authority-parity/v1';
+    status: 'matched' | 'degraded';
+    parity_root: string;
+    counts: Record<string, number>;
+  };
+};
+
+export type AtlasAuthorityTransition = {
+  status: 'cutover' | 'already-active' | 'rolled-back';
+  migration: {
+    migration_id: string;
+    migration_status: 'native-active' | 'rolled-back';
+    write_authority: 'atlas-adapter' | 'kungfu-native';
+    parity_root: string;
+    previous_migration_id?: string | null;
+  };
+};
+
 export type AtlasDashboardSnapshot = {
   schema: 'kungfu.mission-control.dashboard-snapshot/v1';
   cut: {
@@ -110,6 +141,7 @@ export type AtlasDashboardSnapshot = {
     writableAuthority: false;
   };
   import_info: AtlasImportInfo | null;
+  authority: AtlasAuthorityState;
   missions: AtlasMission[];
   goals: AtlasGoal[];
 };
@@ -347,6 +379,43 @@ export type AtlasCompletionClaimWrite = {
   };
 };
 
+export type AtlasIndependentReview = {
+  schema: 'kungfu.mission-control.independent-review/v1';
+  review_root: string;
+  continuation_plan_root: string;
+  review: {
+    review_id: string;
+    claim_id: string;
+    claimant: string;
+    reviewer: string;
+    reviewer_source: string;
+    verdict:
+      | 'fit'
+      | 'partial'
+      | 'insufficient'
+      | 'conflicted'
+      | 'stale'
+      | 'unverifiable';
+    findings: string[];
+    continuation_plan: {
+      allowed_actions: string[];
+      evidence_requests: Array<Record<string, string>>;
+      followups: Array<Record<string, unknown>>;
+    };
+  };
+  trust_report: AtlasMissionControlReport;
+};
+
+export type AtlasContinuationDecision = {
+  schema: 'kungfu.mission-control.continuation-decision/v1';
+  decision: {
+    decision_id: string;
+    review_id: string;
+    action: string;
+  };
+  created_followups: AtlasGoWrite[];
+};
+
 export type AtlasGoalFilter = {
   status?: string;
   missionId?: string;
@@ -358,6 +427,21 @@ export type Atlas = {
   dashboard: () => Promise<AtlasDashboardSnapshot>;
   currentDashboard: () => AtlasDashboardSnapshot | null;
   importRepo: (repoRoot: string) => Promise<AtlasImportResult>;
+  authorityStatus: () => Promise<AtlasAuthorityInspection>;
+  cutoverAuthority: (input: {
+    expectedParityRoot: string;
+    projectCutRoot: string;
+    atlasRoot: string;
+    actor: string;
+    actorType?: 'user' | 'agent';
+    reason: string;
+  }) => Promise<AtlasAuthorityTransition>;
+  rollbackAuthority: (input: {
+    expectedMigrationId: string;
+    actor: string;
+    actorType?: 'user' | 'agent';
+    reason: string;
+  }) => Promise<AtlasAuthorityTransition>;
   importInfo: () => AtlasImportInfo | null;
   missions: () => AtlasMission[];
   mission: (missionId: string) => AtlasMissionDetail | null;
@@ -398,6 +482,13 @@ export type Atlas = {
       actor: string;
       actorType?: 'user' | 'agent';
       status?: 'proposed' | 'active' | 'blocked' | 'waiting-for-decision';
+      parentGoalId?: string;
+      dependsOn?: string[];
+      responsibility?: string;
+      acceptanceRoot?: string;
+      atlasRoot?: string;
+      projectCutRoot?: string;
+      evidenceEpisodeRoots?: string[];
     },
   ) => Promise<AtlasGoWrite>;
   claimCompletion: (
@@ -408,6 +499,20 @@ export type Atlas = {
       actor: string;
       actorType?: 'user' | 'agent';
       evidenceEpisodeIds?: string[];
+      goSet?: string[];
+      acceptanceRoot?: string;
+      inputAtlasRoot?: string;
+      resultAtlasRoot?: string;
+      projectCutRoot?: string;
+      gitCommit?: string;
+      gitTreeRoot?: string;
+      proofRoots?: string[];
+      knownGaps?: string[];
+      evidenceAvailability?: Array<{
+        acceptance: string;
+        level: 'thin' | 'full';
+        state: 'available' | 'unavailable' | 'missing';
+      }>;
     },
   ) => Promise<AtlasCompletionClaimWrite>;
   assessCompletion: (
@@ -420,6 +525,32 @@ export type Atlas = {
     goalId: string,
     options?: { source?: string; purpose?: string; authorizedBy?: string },
   ) => Promise<AtlasMissionControlReport>;
+  reviewCompletion: (
+    missionId: string,
+    goalId: string,
+    input: {
+      reviewer: string;
+      reviewerSource: string;
+      source?: string;
+      purpose?: string;
+      proposedFollowups?: Array<Record<string, unknown>>;
+    },
+  ) => Promise<AtlasIndependentReview>;
+  decideContinuation: (
+    missionId: string,
+    goalId: string,
+    input: {
+      reviewId: string;
+      expectedReviewRoot: string;
+      expectedPlanRoot: string;
+      action: string;
+      actor: string;
+      actorType?: 'user' | 'agent';
+      changeClass?: string;
+      source?: string;
+      reason: string;
+    },
+  ) => Promise<AtlasContinuationDecision>;
   goals: (filter?: AtlasGoalFilter) => AtlasGoal[];
   goal: (goalId: string) => AtlasGoal | null;
   markers: () => AtlasMarker[];
@@ -488,6 +619,22 @@ export function openMissionControlProfile(
         'import-atlas',
         { repo: repoRoot, source: 'atlas' },
         'work-dashboard',
+      ),
+    authorityStatus: () =>
+      memberAsync<AtlasAuthorityInspection>('authority-status', {
+        source: 'atlas',
+      }),
+    cutoverAuthority: (input) =>
+      authorize<AtlasAuthorityTransition>(
+        'cutover-authority',
+        { source: 'atlas', ...input },
+        input.actor,
+      ),
+    rollbackAuthority: (input) =>
+      authorize<AtlasAuthorityTransition>(
+        'rollback-authority',
+        input,
+        input.actor,
       ),
     importInfo: () => member<AtlasDashboardSnapshot>('dashboard').import_info,
     missions: () => member<AtlasDashboardSnapshot>('dashboard').missions,
@@ -568,6 +715,18 @@ export function openMissionControlProfile(
           authorizedBy: assessment.authorizedBy,
         },
         assessment.authorizedBy ?? 'work-dashboard',
+      ),
+    reviewCompletion: (missionId, goalId, input) =>
+      authorize<AtlasIndependentReview>(
+        'review-completion',
+        { missionId, goalId, ...input },
+        input.reviewer,
+      ),
+    decideContinuation: (missionId, goalId, input) =>
+      authorize<AtlasContinuationDecision>(
+        'decide-continuation',
+        { missionId, goalId, ...input },
+        input.actor,
       ),
     goals: (filter = {}) => member<AtlasGoal[]>('goals', filter),
     goal: (goalId) =>

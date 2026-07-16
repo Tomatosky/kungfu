@@ -152,6 +152,12 @@
       "purpose": "Inspect a Home or project workspace candidate without initializing it."
     },
     {
+      "apiId": "kungfu.workspace.start-continuation",
+      "name": "kungfu workspace ensure <path> --reason start-continuation --json",
+      "maturity": "experimental",
+      "purpose": "Create local runtime authority only after explicit continuation intent; a shadow-only inspection never invokes this action."
+    },
+    {
       "apiId": "kungfu.workspace.advise",
       "name": "kungfu workspace advise --home --source <path> --json",
       "maturity": "experimental",
@@ -236,6 +242,24 @@
       "purpose": "Snapshot an Atlas-style control-plane repo into Kungfu's local read-only projection."
     },
     {
+      "apiId": "kungfu.atlas.authority-status",
+      "name": "kungfu atlas authority-status --source <source> --json",
+      "maturity": "experimental",
+      "purpose": "Show exact Atlas bridge parity and the current single Mission/Go write authority."
+    },
+    {
+      "apiId": "kungfu.atlas.authority-cutover",
+      "name": "kungfu atlas authority-cutover --expected-parity-root <root> --project-cut-root <root> --atlas-root <root> --actor <actor> --reason <reason> --json",
+      "maturity": "experimental",
+      "purpose": "Append a parity-bound authority receipt and freeze Atlas Mission/Go mutation read-only."
+    },
+    {
+      "apiId": "kungfu.atlas.authority-rollback",
+      "name": "kungfu atlas authority-rollback --expected-migration-id <id> --actor <actor> --reason <reason> --json",
+      "maturity": "experimental",
+      "purpose": "Append an exact rollback receipt, restore Atlas mutation, and retain native facts read-only."
+    },
+    {
       "apiId": "kungfu.atlas.create-mission",
       "name": "kungfu atlas create-mission <mission-id> --title <title> --intent <intent> --actor <actor> --json",
       "maturity": "experimental",
@@ -261,21 +285,33 @@
     },
     {
       "apiId": "kungfu.atlas.create-go",
-      "name": "kungfu atlas create-go <mission-id> <goal-id> --title <title> --objective <objective> --actor <actor> --json",
+      "name": "kungfu atlas create-go <mission-id> <goal-id> --title <title> --objective <objective> --actor <actor> [--parent-go <id>] [--depends-on <id>] [--responsibility <owner>] [--acceptance-root <root>] [--atlas-root <root>] [--project-cut-root <root>] [--episode-root <root>] --json",
       "maturity": "experimental",
-      "purpose": "Create a Kungfu-native Go linked to an admitted Mission without writing back to the bridged source."
+      "purpose": "Create a Kungfu-native Go with separate containment and execution dependencies plus exact Atlas, Project Cut, Episode, responsibility, and acceptance roots."
     },
     {
       "apiId": "kungfu.atlas.claim-completion",
-      "name": "kungfu atlas claim-completion <mission-id> <goal-id> --statement <statement> --actor <actor> --evidence-episode <id> --json",
+      "name": "kungfu atlas claim-completion <mission-id> <goal-id> --statement <statement> --actor <actor> --evidence-episode <id> [--acceptance-root <root>] [--input-atlas-root <root>] [--result-atlas-root <root>] [--project-cut-root <root>] [--git-commit <sha>] [--proof-root <root>] [--known-gap <gap>] --json",
       "maturity": "experimental",
-      "purpose": "Record an explicit completion claim with independently verifiable Episode evidence."
+      "purpose": "Record a versioned root-bound completion claim over a Go set, Atlas transition, Project Cut, Git object, Episodes, proofs, evidence availability, and known gaps."
     },
     {
       "apiId": "kungfu.atlas.assess-completion",
       "name": "kungfu atlas assess-completion <mission-id> <goal-id> --json",
       "maturity": "experimental",
       "purpose": "Assess a Go completion claim for a declared purpose and fail closed on missing evidence."
+    },
+    {
+      "apiId": "kungfu.atlas.review-completion",
+      "name": "kungfu atlas review-completion <mission-id> <goal-id> --reviewer <actor> --reviewer-source <source> [--follow-up <json>] --json",
+      "maturity": "experimental",
+      "purpose": "Independently review one exact completion claim, emit an Assessment Episode and purpose-bound TrustReport, and seal a deterministic continuation plan."
+    },
+    {
+      "apiId": "kungfu.atlas.decide-continuation",
+      "name": "kungfu atlas decide-continuation <mission-id> <goal-id> <review-id> --expected-review-root <root> --expected-plan-root <root> --action <action> --actor <actor> --reason <reason> --json",
+      "maturity": "experimental",
+      "purpose": "Apply one exact-root continuation decision and materialize only bounded mechanical follow-up Go rows while preserving human gates for mission, authority, privacy, security, public claims, and irreversible changes."
     },
     {
       "apiId": "kungfu.atlas.show.import",

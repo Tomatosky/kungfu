@@ -38,9 +38,11 @@ import {
 import { createLatestRefresh } from './latest-refresh';
 import {
   type Atlas,
+  type AtlasAuthorityInspection,
   type AtlasDashboardSnapshot,
   type AtlasGoal,
   type AtlasImportInfo,
+  type AtlasIndependentReview,
   type AtlasMission,
   type AtlasMissionControlReport,
   openMissionControlProfile,
@@ -431,6 +433,15 @@ function AtlasProjectionView({
     null,
   );
   const [completionError, setCompletionError] = React.useState<string>('');
+  const [independentReview, setIndependentReview] =
+    React.useState<AtlasIndependentReview | null>(null);
+  const [reviewerIdentity, setReviewerIdentity] = React.useState(
+    'independent-reviewer',
+  );
+  const [reviewerSource, setReviewerSource] = React.useState(
+    'work-dashboard:new-session',
+  );
+  const [reviewReason, setReviewReason] = React.useState('');
   const [queryStream, setQueryStream] = React.useState<QueryChangelogState>(
     emptyQueryChangelogState,
   );
@@ -452,8 +463,21 @@ function AtlasProjectionView({
   const [evidenceEpisodes, setEvidenceEpisodes] = React.useState('');
   const [bundlePath, setBundlePath] = React.useState('');
   const [importBundlePath, setImportBundlePath] = React.useState('');
+  const [authorityInspection, setAuthorityInspection] =
+    React.useState<AtlasAuthorityInspection | null>(null);
+  const [authorityProjectCutRoot, setAuthorityProjectCutRoot] =
+    React.useState('');
+  const [authorityAtlasRoot, setAuthorityAtlasRoot] = React.useState('');
+  const [authorityReason, setAuthorityReason] = React.useState('');
   const [actionPanel, setActionPanel] = React.useState<
-    'mission' | 'go' | 'import' | 'bundle' | 'claim' | null
+    | 'mission'
+    | 'go'
+    | 'import'
+    | 'bundle'
+    | 'claim'
+    | 'review'
+    | 'authority'
+    | null
   >(null);
   const actor = 'work-dashboard';
   const selectedMissionSource = React.useMemo(() => {
@@ -807,6 +831,77 @@ function AtlasProjectionView({
     }
   };
 
+  const refreshAuthority = async () => {
+    const inspection = await atlas.authorityStatus();
+    setAuthorityInspection(inspection);
+    return inspection;
+  };
+
+  const openAuthorityPanel = async () => {
+    setActionPanel('authority');
+    try {
+      await refreshAuthority();
+    } catch (error) {
+      setMessage((error as Error).message);
+    }
+  };
+
+  const cutoverAuthorityNow = async () => {
+    const inspection = authorityInspection ?? (await refreshAuthority());
+    if (inspection.parity.status !== 'matched') {
+      setMessage('Atlas/native Mission and Go parity is degraded');
+      return;
+    }
+    if (
+      !authorityProjectCutRoot.trim() ||
+      !authorityAtlasRoot.trim() ||
+      !authorityReason.trim()
+    ) {
+      setMessage('enter Project Cut root, successor Atlas root, and reason');
+      return;
+    }
+    try {
+      const receipt = await atlas.cutoverAuthority({
+        expectedParityRoot: inspection.parity.parity_root,
+        projectCutRoot: authorityProjectCutRoot,
+        atlasRoot: authorityAtlasRoot,
+        actor,
+        actorType: 'user',
+        reason: authorityReason,
+      });
+      setMessage(
+        `${receipt.migration.migration_id}: ${receipt.status} · writer=kungfu-native`,
+      );
+      await refreshAuthority();
+      dashboardRefresh.request();
+    } catch (error) {
+      setMessage((error as Error).message);
+    }
+  };
+
+  const rollbackAuthorityNow = async () => {
+    const inspection = authorityInspection ?? (await refreshAuthority());
+    if (!inspection.authority.migration_id || !authorityReason.trim()) {
+      setMessage('active migration id and rollback reason are required');
+      return;
+    }
+    try {
+      const receipt = await atlas.rollbackAuthority({
+        expectedMigrationId: inspection.authority.migration_id,
+        actor,
+        actorType: 'user',
+        reason: authorityReason,
+      });
+      setMessage(
+        `${receipt.migration.migration_id}: ${receipt.status} · writer=atlas-adapter`,
+      );
+      await refreshAuthority();
+      dashboardRefresh.request();
+    } catch (error) {
+      setMessage((error as Error).message);
+    }
+  };
+
   const createMissionNow = async () => {
     try {
       const result = await atlas.createMission(newMissionId, {
@@ -926,6 +1021,69 @@ function AtlasProjectionView({
       setCompletionReport(null);
       setCompletionGoalId(null);
       setCompletionError((error as Error).message);
+    }
+  };
+
+  const reviewCompletionNow = async () => {
+    if (selectedMission === 'all' || !selectedGoal) {
+      setCompletionError('select a Mission and Go before independent review');
+      return;
+    }
+    try {
+      const result = await atlas.reviewCompletion(
+        selectedMission,
+        selectedGoal,
+        {
+          reviewer: reviewerIdentity,
+          reviewerSource,
+        },
+      );
+      setIndependentReview(result);
+      setCompletionReport(result.trust_report);
+      setCompletionGoalId(selectedGoal);
+      setCompletionError('');
+      setMessage(
+        `${result.review.review_id}: ${result.review.verdict} · ${result.review_root}`,
+      );
+      dashboardRefresh.request();
+    } catch (error) {
+      setIndependentReview(null);
+      setCompletionError((error as Error).message);
+    }
+  };
+
+  const decideContinuationNow = async (action: string) => {
+    if (
+      selectedMission === 'all' ||
+      !selectedGoal ||
+      !independentReview ||
+      !reviewReason.trim()
+    ) {
+      setMessage('select an exact review and enter a continuation reason');
+      return;
+    }
+    try {
+      const result = await atlas.decideContinuation(
+        selectedMission,
+        selectedGoal,
+        {
+          reviewId: independentReview.review.review_id,
+          expectedReviewRoot: independentReview.review_root,
+          expectedPlanRoot: independentReview.continuation_plan_root,
+          action,
+          actor,
+          actorType: 'user',
+          changeClass: 'mechanical',
+          reason: reviewReason,
+        },
+      );
+      setMessage(
+        `${result.decision.decision_id}: ${result.decision.action} · ${result.created_followups.length} follow-up Go`,
+      );
+      dashboardRefresh.request();
+      void refreshAssessment();
+    } catch (error) {
+      setMessage((error as Error).message);
     }
   };
 
@@ -1059,6 +1217,9 @@ function AtlasProjectionView({
           </SmallButton>
           <SmallButton onClick={() => setActionPanel('bundle')}>
             Bundle
+          </SmallButton>
+          <SmallButton onClick={() => void openAuthorityPanel()}>
+            Authority
           </SmallButton>
           <SmallButton onClick={refreshAll}>refresh</SmallButton>
           {info && (
@@ -1345,6 +1506,9 @@ function AtlasProjectionView({
                 <SmallButton onClick={() => setActionPanel('claim')}>
                   claim completion
                 </SmallButton>
+                <SmallButton onClick={() => setActionPanel('review')}>
+                  independent review
+                </SmallButton>
               </div>
             )}
           </aside>
@@ -1474,6 +1638,49 @@ function AtlasProjectionView({
               </div>
             </>
           )}
+          {actionPanel === 'authority' && (
+            <>
+              <div style={{ ...mono, color: '#858585' }}>
+                state: {authorityInspection?.authority.state ?? 'loading'} ·
+                writer:{' '}
+                {authorityInspection?.authority.write_authority ?? 'unknown'}
+              </div>
+              <div style={{ ...mono, color: '#858585' }}>
+                parity: {authorityInspection?.parity.status ?? 'unknown'} ·{' '}
+                {authorityInspection?.parity.parity_root ?? ''}
+              </div>
+              {authorityInspection?.authority.write_authority !==
+                'kungfu-native' && (
+                <>
+                  <TextInput
+                    value={authorityProjectCutRoot}
+                    placeholder="Project Cut root (sha256:...)"
+                    onChange={setAuthorityProjectCutRoot}
+                  />
+                  <TextInput
+                    value={authorityAtlasRoot}
+                    placeholder="successor Xinfa Atlas root (sha256:...)"
+                    onChange={setAuthorityAtlasRoot}
+                  />
+                </>
+              )}
+              <TextInput
+                value={authorityReason}
+                placeholder="auditable transition reason"
+                onChange={setAuthorityReason}
+              />
+              {authorityInspection?.authority.write_authority ===
+              'kungfu-native' ? (
+                <SmallButton onClick={() => void rollbackAuthorityNow()}>
+                  roll back exact migration
+                </SmallButton>
+              ) : (
+                <SmallButton onClick={() => void cutoverAuthorityNow()}>
+                  cut over at exact parity
+                </SmallButton>
+              )}
+            </>
+          )}
           {actionPanel === 'claim' && (
             <>
               <TextInput
@@ -1489,6 +1696,51 @@ function AtlasProjectionView({
               <SmallButton onClick={() => void claimAndAssessNow()}>
                 claim and assess
               </SmallButton>
+            </>
+          )}
+          {actionPanel === 'review' && (
+            <>
+              <TextInput
+                value={reviewerIdentity}
+                placeholder="reviewer identity (must differ from claimant)"
+                onChange={setReviewerIdentity}
+              />
+              <TextInput
+                value={reviewerSource}
+                placeholder="independent reviewer source/session"
+                onChange={setReviewerSource}
+              />
+              <SmallButton onClick={() => void reviewCompletionNow()}>
+                review exact cut
+              </SmallButton>
+              {independentReview && (
+                <>
+                  <div style={{ ...mono, color: '#9cdcfe' }}>
+                    {independentReview.review.verdict} ·{' '}
+                    {independentReview.review_root}
+                  </div>
+                  <div style={{ ...mono, color: '#858585' }}>
+                    plan {independentReview.continuation_plan_root}
+                  </div>
+                  <TextInput
+                    value={reviewReason}
+                    placeholder="continuation decision reason"
+                    onChange={setReviewReason}
+                  />
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {independentReview.review.continuation_plan.allowed_actions
+                      .filter((action) => action !== 'create-follow-up')
+                      .map((action) => (
+                        <SmallButton
+                          key={action}
+                          onClick={() => void decideContinuationNow(action)}
+                        >
+                          {action}
+                        </SmallButton>
+                      ))}
+                  </div>
+                </>
+              )}
             </>
           )}
         </section>
