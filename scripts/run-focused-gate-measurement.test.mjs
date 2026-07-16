@@ -92,4 +92,9 @@ test('focused measurement bootstraps without remote Action downloads', () => {
     /rustup_bin="\$cargo_bin\/rustup"/,
     'Unix focused measurement must bind the runner user rustup explicitly',
   );
+  assert.match(
+    focusedJob[1],
+    /RUNNER_TOOL_CACHE%\\kungfu-gate-cargo-v1/,
+    'Windows focused measurement must retain its managed Cargo cache',
+  );
 });
