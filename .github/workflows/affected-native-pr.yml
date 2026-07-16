@@ -6,6 +6,8 @@ on:
   pull_request:
     branches:
       - dev/v*/v*
+  merge_group:
+    types: [checks_requested]
 
 permissions:
   contents: read
@@ -35,17 +37,40 @@ jobs:
       - name: Install frozen workspace
         shell: bash
         run: ./shifu install --frozen-lockfile
-      - name: Resolve and run affected native closure
+      - name: Resolve affected native revisions
+        id: revisions
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$GITHUB_EVENT_NAME" in
+            pull_request)
+              base_sha="$(jq -r '.pull_request.base.sha' "$GITHUB_EVENT_PATH")"
+              head_sha="$(jq -r '.pull_request.head.sha' "$GITHUB_EVENT_PATH")"
+              ;;
+            merge_group)
+              base_sha="$(jq -r '.merge_group.base_sha' "$GITHUB_EVENT_PATH")"
+              head_sha="$(jq -r '.merge_group.head_sha' "$GITHUB_EVENT_PATH")"
+              ;;
+            *)
+              echo "unsupported event: $GITHUB_EVENT_NAME" >&2
+              exit 1
+              ;;
+          esac
+          {
+            echo "base_sha=${base_sha}"
+            echo "head_sha=${head_sha}"
+          } >> "$GITHUB_OUTPUT"
+      - name: Run affected native closure
         shell: bash
         env:
-          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GITHUB_BASE_SHA: ${{ steps.revisions.outputs.base_sha }}
+          GITHUB_HEAD_SHA: ${{ steps.revisions.outputs.head_sha }}
         run: ./shifu gate run source.changed-scope --capability native-toolchain
       - name: Upload raw plan, receipt, and logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: core-affected-native-${{ github.event.pull_request.head.sha }}
+          name: core-affected-native-${{ github.sha }}
           path: product/qualification/affected-native
           if-no-files-found: warn
           retention-days: 14

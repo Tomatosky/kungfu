@@ -44,6 +44,19 @@ function fixture() {
   return root;
 }
 
+test('required dev workflows are merge-queue compatible', () => {
+  for (const relative of [
+    '.github/workflows/adr-release-gate.yml',
+    '.github/workflows/source-acceptance.yml',
+    '.github/workflows/affected-native-pr.yml',
+  ]) {
+    const source = fs.readFileSync(path.join(ROOT, relative), 'utf8');
+    assert.match(source, /^\s{2}pull_request\s*:/m, relative);
+    assert.match(source, /^\s{2}merge_group\s*:/m, relative);
+    assert.doesNotMatch(source, /github\.event\.pull_request/, relative);
+  }
+});
+
 function readMeasurementCoverage(root) {
   return JSON.parse(
     fs.readFileSync(

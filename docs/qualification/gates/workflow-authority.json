@@ -5,7 +5,7 @@
     {
       "path": ".github/workflows/adr-release-gate.yml",
       "authority": "qualification",
-      "definitionDigest": "sha256:d013214baea0c069e28dc0a7caa1b63e8218ca606b9d9a9544f16d1f7126d726",
+      "definitionDigest": "sha256:764221a765a63991f974bcf2d4fac01da83071ce4b275267c9395e4241a1b4ac",
       "jobs": [
         {
           "id": "adr-release",
@@ -43,14 +43,14 @@
     {
       "path": ".github/workflows/affected-native-pr.yml",
       "authority": "qualification",
-      "definitionDigest": "sha256:1595ebe91c02f6cd012cc727ca549c0a8ea53c80e8bcdf3cb0f9aecdd4a802e0",
+      "definitionDigest": "sha256:32862231d1b4eb54e22a5cbf489ada9a6110e446248d9ff14fffbefc5337593d",
       "jobs": [
         {
           "id": "affected-native",
           "authority": "qualification",
           "publication": "none",
           "receipt": "diagnostic",
-          "definitionDigest": "sha256:3894261eb4d2e6d3d19ec1a200c24567b0c876983c324c66f0546a2036945f75",
+          "definitionDigest": "sha256:83313d08b90150a4726ac0a04a64540e10801db905455a08993e0b911750b545",
           "credentials": {
             "githubToken": "read",
             "oidc": false,
@@ -90,15 +90,21 @@
             },
             {
               "index": 5,
-              "label": "name:Resolve and run affected native closure",
+              "label": "id:revisions",
               "authority": "evidence-publication",
-              "definitionDigest": "sha256:0739d9270b170c10be5fe15be1aa8b877cf7eea4f6bcffdfa655fdfef2ee3790"
+              "definitionDigest": "sha256:8d698e168327279f524a07f5a4bcbdeda409dbe30cddd1435937c462cfb2243f"
             },
             {
               "index": 6,
+              "label": "name:Run affected native closure",
+              "authority": "evidence-publication",
+              "definitionDigest": "sha256:a193caabc09cb9f518482971ad6611781873d17d9927077af8e5cf5ff0c5bbcc"
+            },
+            {
+              "index": 7,
               "label": "name:Upload raw plan, receipt, and logs",
               "authority": "evidence-publication",
-              "definitionDigest": "sha256:bba7ae2210a39e6817240dd0e1bc92bf837ce79b6bb5fc3dd1f86aea1e0e4603"
+              "definitionDigest": "sha256:0f28160bcefdbe43893cc96cb3f0c16cf658bae71720fec314f4ef478c38590a"
             }
           ]
         }
@@ -1153,7 +1159,7 @@
     {
       "path": ".github/workflows/source-acceptance.yml",
       "authority": "qualification",
-      "definitionDigest": "sha256:192b9c96c6f56ef78dde4a9906ee89018383a6db34b1d9bad35dc9508f02fab7",
+      "definitionDigest": "sha256:97060b5dd54286d6d8ee81abd2a3e796cdb76bcb4e1d2be6a8ba52883e4c23de",
       "jobs": [
         {
           "id": "source-acceptance",
