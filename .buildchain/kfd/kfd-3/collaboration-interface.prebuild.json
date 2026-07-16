@@ -6,15 +6,15 @@
   "supportLevel": "release",
   "source": {
     "cwd": ".",
-    "sourceSha": "ce54e443a444e884828ebed9517497a10232050f",
+    "sourceSha": "ef4df5e39ae2e14422417c4a7deafb4d15b25c5a",
     "registryPath": ".buildchain/kfd/kfd-3/surfaces.json",
-    "registryDigest": "sha256:309b736e862c82727384770975257384ac2f17ee9a9b0ae2206d2b5f07116d1f"
+    "registryDigest": "sha256:5476d8c37e741790e6ab0e5c8146e8c9b9af8d631d654d2093923732c56b78ff"
   },
   "sourceRegistry": {
     "id": "kungfu",
     "path": ".buildchain/kfd/kfd-3/surfaces.json",
-    "sha256": "81bfe5de3b0c816e2e89a316b75efff05bdbd18a053d275bfcb2e6042c477e4a",
-    "digest": "sha256:309b736e862c82727384770975257384ac2f17ee9a9b0ae2206d2b5f07116d1f"
+    "sha256": "8e171d867ba06195e5153c72c390a84d37bffeccc3f154e41fe5fce9b9d841e8",
+    "digest": "sha256:5476d8c37e741790e6ab0e5c8146e8c9b9af8d631d654d2093923732c56b78ff"
   },
   "upstreamKfd": {
     "aggregatePath": "developer/sdk/kfd/upstream-aggregate.json",
@@ -34,7 +34,7 @@
   "expectedArtifactVerification": {
     "command": "node scripts/buildchain-kfd-evidence.mjs --artifact-witness --json"
   },
-  "collaborationInterfaceDigest": "sha256:f22e9afdf7bb2ae09fec913c203a83e9c599402867a6803c46dfe25198793a69",
+  "collaborationInterfaceDigest": "sha256:d57f4b6fbdeefe301d48a107a61b07c9f609d5650c0541013947db929c6d8549",
   "collaborationInterface": {
     "schemaVersion": 1,
     "contract": "kungfu-buildchain-kfd-3-surface-registry",
@@ -642,7 +642,7 @@
       },
       {
         "id": "kungfu.atlas.claim-completion",
-        "name": "kungfu atlas claim-completion <mission-id> <goal-id> --statement <statement> --actor <actor> --evidence-episode <id> [--acceptance-root <root>] [--input-atlas-root <root>] [--result-atlas-root <root>] [--project-cut-root <root>] [--git-commit <sha>] [--proof-root <root>] [--known-gap <gap>] --json",
+        "name": "kungfu atlas claim-completion <mission-id> <goal-id> --statement <statement> --actor <actor> [--actor-type <type>] [--source <source>] [--evidence-episode <id>] [--go-set <id>] [--acceptance-root <root>] [--input-atlas-root <root>] [--result-atlas-root <root>] [--project-cut-root <root>] [--git-commit <sha>] [--git-tree-root <root>] [--proof-root <root>] [--known-gap <gap>] [--evidence-availability <json>] --json",
         "kind": "cli-api-gui",
         "participantProfile": "agent-or-developer",
         "state": "declared",
@@ -702,7 +702,7 @@
       },
       {
         "id": "kungfu.atlas.decide-continuation",
-        "name": "kungfu atlas decide-continuation <mission-id> <goal-id> <review-id> --expected-review-root <root> --expected-plan-root <root> --action <action> --actor <actor> --reason <reason> --json",
+        "name": "kungfu atlas decide-continuation <mission-id> <goal-id> <review-id> --expected-review-root <root> --expected-plan-root <root> --action <action> --actor <actor> [--actor-type <type>] [--change-class <class>] [--source <source>] --reason <reason> --json",
         "kind": "cli-api-gui",
         "participantProfile": "agent-or-developer",
         "state": "declared",
@@ -782,7 +782,7 @@
       },
       {
         "id": "kungfu.atlas.review-completion",
-        "name": "kungfu atlas review-completion <mission-id> <goal-id> --reviewer <actor> --reviewer-source <source> [--follow-up <json>] --json",
+        "name": "kungfu atlas review-completion <mission-id> <goal-id> --reviewer <actor> --reviewer-source <source> [--source <source>] [--purpose <purpose>] [--cut-system-time <ns>] [--executor <profile>] [--follow-up <json>] --json",
         "kind": "cli-api-gui",
         "participantProfile": "agent-or-developer",
         "state": "declared",
@@ -3083,7 +3083,7 @@
     },
     {
       "id": "kungfu.atlas.claim-completion",
-      "name": "kungfu atlas claim-completion <mission-id> <goal-id> --statement <statement> --actor <actor> --evidence-episode <id> [--acceptance-root <root>] [--input-atlas-root <root>] [--result-atlas-root <root>] [--project-cut-root <root>] [--git-commit <sha>] [--proof-root <root>] [--known-gap <gap>] --json",
+      "name": "kungfu atlas claim-completion <mission-id> <goal-id> --statement <statement> --actor <actor> [--actor-type <type>] [--source <source>] [--evidence-episode <id>] [--go-set <id>] [--acceptance-root <root>] [--input-atlas-root <root>] [--result-atlas-root <root>] [--project-cut-root <root>] [--git-commit <sha>] [--git-tree-root <root>] [--proof-root <root>] [--known-gap <gap>] [--evidence-availability <json>] --json",
       "kind": "cli-api-gui",
       "participantProfile": "agent-or-developer",
       "state": "declared",
@@ -3143,7 +3143,7 @@
     },
     {
       "id": "kungfu.atlas.decide-continuation",
-      "name": "kungfu atlas decide-continuation <mission-id> <goal-id> <review-id> --expected-review-root <root> --expected-plan-root <root> --action <action> --actor <actor> --reason <reason> --json",
+      "name": "kungfu atlas decide-continuation <mission-id> <goal-id> <review-id> --expected-review-root <root> --expected-plan-root <root> --action <action> --actor <actor> [--actor-type <type>] [--change-class <class>] [--source <source>] --reason <reason> --json",
       "kind": "cli-api-gui",
       "participantProfile": "agent-or-developer",
       "state": "declared",
@@ -3223,7 +3223,7 @@
     },
     {
       "id": "kungfu.atlas.review-completion",
-      "name": "kungfu atlas review-completion <mission-id> <goal-id> --reviewer <actor> --reviewer-source <source> [--follow-up <json>] --json",
+      "name": "kungfu atlas review-completion <mission-id> <goal-id> --reviewer <actor> --reviewer-source <source> [--source <source>] [--purpose <purpose>] [--cut-system-time <ns>] [--executor <profile>] [--follow-up <json>] --json",
       "kind": "cli-api-gui",
       "participantProfile": "agent-or-developer",
       "state": "declared",
