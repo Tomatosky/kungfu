@@ -176,6 +176,7 @@ if defined _KFC_DIRTY set "_KFC_SRC=%_KFC_SRC%-dirty"
 set "_KFC_DEVDIR=%_KFC_CACHE%\kungfu\shifu\%_KFC_VER%-%_KFC_SRC%"
 set "_KFC_DEVBIN=%_KFC_DEVDIR%\shifu.exe"
 if not defined _KFC_DIRTY if exist "%_KFC_DEVBIN%" (
+  set "SHIFU_BIN=%_KFC_DEVBIN%"
   "%_KFC_DEVBIN%" %*
   exit /b !errorlevel!
 )
@@ -227,6 +228,7 @@ if "!_KFC_BUILD_ERROR!"=="0" (
     move /y "%_KFC_DEVDIR%\meta.env.tmp" "%_KFC_DEVDIR%\meta.env" >nul
     rem Source slots are catalog entries. The native catalog retires only
     rem proven ancestors after a successful promotion.
+    set "SHIFU_BIN=%_KFC_DEVBIN%"
     "%_KFC_DEVBIN%" %*
     exit /b !errorlevel!
   )

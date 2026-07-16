@@ -97,6 +97,18 @@ test('Windows source-fresh launcher retries one transient build failure', () => 
   assert.match(sourceBuild, /if "!_KFC_BUILD_ERROR!"=="0" \(/);
 });
 
+test('source-fresh launchers pin nested Shifu entry to the resolved binary', () => {
+  const posix = fs.readFileSync(path.join(ROOT, 'shifu'), 'utf8');
+  const windows = fs.readFileSync(path.join(ROOT, 'shifu.cmd'), 'utf8');
+  assert.ok(
+    posix.match(/SHIFU_BIN="\$kungfu_dev_bin" exec "\$kungfu_dev_bin"/g)
+      ?.length >= 2,
+  );
+  assert.ok(
+    windows.match(/set "SHIFU_BIN=%_KFC_DEVBIN%"/g)?.length >= 2,
+  );
+});
+
 test('runtime guard rejects a direct task and accepts Shifu provenance', () => {
   const guard = path.join(ROOT, 'scripts', 'require-shifu.mjs');
   const rejected = spawnSync(process.execPath, [guard, 'build:core'], {
