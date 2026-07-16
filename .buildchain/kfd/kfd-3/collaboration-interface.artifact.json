@@ -10,8 +10,8 @@
   "sourceRegistry": {
     "id": "kungfu",
     "path": ".buildchain/kfd/kfd-3/surfaces.json",
-    "sha256": "68090fd07389152404b1c0200e1f28417cc80aa97d51e6a456bd64cadcb8df10",
-    "digest": "sha256:79c035b26f51d1ccca535ba368204896b4188a036be3b66bcd29bdacae52cac4"
+    "sha256": "81bfe5de3b0c816e2e89a316b75efff05bdbd18a053d275bfcb2e6042c477e4a",
+    "digest": "sha256:309b736e862c82727384770975257384ac2f17ee9a9b0ae2206d2b5f07116d1f"
   },
   "upstreamKfd": {
     "aggregatePath": "developer/sdk/kfd/upstream-aggregate.json",
@@ -28,7 +28,7 @@
     },
     "digest": "sha256:02fab40cf7fa301ada0a17c830b844123be6f8d767e77a8dfd03934166556b60"
   },
-  "collaborationInterfaceDigest": "sha256:ce8b9731eaff23d8c5f9ab03a27f58622f27791cc309d75b46cb08416f47bdb4",
+  "collaborationInterfaceDigest": "sha256:f22e9afdf7bb2ae09fec913c203a83e9c599402867a6803c46dfe25198793a69",
   "exposedSurfaces": [
     {
       "id": "kungfu.agent",
@@ -612,7 +612,7 @@
     },
     {
       "id": "kungfu.atlas.claim-completion",
-      "name": "kungfu atlas claim-completion <mission-id> <goal-id> --statement <statement> --actor <actor> --evidence-episode <id> --json",
+      "name": "kungfu atlas claim-completion <mission-id> <goal-id> --statement <statement> --actor <actor> --evidence-episode <id> [--acceptance-root <root>] [--input-atlas-root <root>] [--result-atlas-root <root>] [--project-cut-root <root>] [--git-commit <sha>] [--proof-root <root>] [--known-gap <gap>] --json",
       "kind": "cli-api-gui",
       "participantProfile": "agent-or-developer",
       "state": "declared",
@@ -653,6 +653,26 @@
     {
       "id": "kungfu.atlas.create-mission",
       "name": "kungfu atlas create-mission <mission-id> --title <title> --intent <intent> --actor <actor> --json",
+      "kind": "cli-api-gui",
+      "participantProfile": "agent-or-developer",
+      "state": "declared",
+      "availability": "shipped",
+      "visibility": "public",
+      "participantFacing": true,
+      "public": true,
+      "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
+      "evidencePath": "framework/core/src/python/kungfu/agent/commands.json",
+      "artifactPath": "framework/core/src/python/kungfu/agent/commands.json",
+      "maturity": "experimental",
+      "declaration": {
+        "owner": "kungfu",
+        "source": "scripts/buildchain-kfd-evidence.mjs",
+        "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json"
+      }
+    },
+    {
+      "id": "kungfu.atlas.decide-continuation",
+      "name": "kungfu atlas decide-continuation <mission-id> <goal-id> <review-id> --expected-review-root <root> --expected-plan-root <root> --action <action> --actor <actor> --reason <reason> --json",
       "kind": "cli-api-gui",
       "participantProfile": "agent-or-developer",
       "state": "declared",
@@ -714,6 +734,26 @@
       "id": "kungfu.atlas.import-mission",
       "name": "kungfu atlas import-mission --from <bundle.json> [--execute] --json",
       "kind": "cli",
+      "participantProfile": "agent-or-developer",
+      "state": "declared",
+      "availability": "shipped",
+      "visibility": "public",
+      "participantFacing": true,
+      "public": true,
+      "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
+      "evidencePath": "framework/core/src/python/kungfu/agent/commands.json",
+      "artifactPath": "framework/core/src/python/kungfu/agent/commands.json",
+      "maturity": "experimental",
+      "declaration": {
+        "owner": "kungfu",
+        "source": "scripts/buildchain-kfd-evidence.mjs",
+        "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json"
+      }
+    },
+    {
+      "id": "kungfu.atlas.review-completion",
+      "name": "kungfu atlas review-completion <mission-id> <goal-id> --reviewer <actor> --reviewer-source <source> [--follow-up <json>] --json",
+      "kind": "cli-api-gui",
       "participantProfile": "agent-or-developer",
       "state": "declared",
       "availability": "shipped",
