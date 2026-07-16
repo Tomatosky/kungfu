@@ -2607,6 +2607,50 @@
       "residualRisk": []
     },
     {
+      "id": "kungfu.workspace.pull",
+      "kind": "cli-api",
+      "name": "kungfu workspace pull --source-runtime <path> --destination-runtime <path> --episode-id <id> --json",
+      "state": "declared",
+      "detected": true,
+      "enforced": false,
+      "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
+      "artifactPath": "framework/core/src/python/kungfu/agent/commands.json",
+      "kfd1Basis": {
+        "registryPath": ".buildchain/kfd/kfd-3/surfaces.json",
+        "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
+        "artifactPath": "framework/core/src/python/kungfu/agent/commands.json",
+        "digest": "sha256:4cc55a99d07ea7636cb0ad0bfd037dd57083862b623f5c98be7b2f1ab4267705"
+      },
+      "kfd2Trust": {
+        "status": "release-passport-required",
+        "trustImpact": "query-release-passport-for-final-trust",
+        "residualRisk": []
+      },
+      "residualRisk": []
+    },
+    {
+      "id": "kungfu.workspace.push",
+      "kind": "cli-api",
+      "name": "kungfu workspace push --source-runtime <path> --destination-runtime <path> --episode-id <id> --json",
+      "state": "declared",
+      "detected": true,
+      "enforced": false,
+      "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
+      "artifactPath": "framework/core/src/python/kungfu/agent/commands.json",
+      "kfd1Basis": {
+        "registryPath": ".buildchain/kfd/kfd-3/surfaces.json",
+        "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
+        "artifactPath": "framework/core/src/python/kungfu/agent/commands.json",
+        "digest": "sha256:35186d2344531bc58e77283dca667628868a873f7cf628e903dae50360602908"
+      },
+      "kfd2Trust": {
+        "status": "release-passport-required",
+        "trustImpact": "query-release-passport-for-final-trust",
+        "residualRisk": []
+      },
+      "residualRisk": []
+    },
+    {
       "id": "kungfu.workspace.start-continuation",
       "kind": "cli",
       "name": "kungfu workspace ensure <path> --reason start-continuation --json",

@@ -180,6 +180,11 @@ test('source plan covers representative source-only checks', () => {
       'scripts/check-workspace-continuation.test.mjs',
     ),
   );
+  assert.ok(
+    contractTests.args.includes(
+      'scripts/check-episode-admission-contract.test.mjs',
+    ),
+  );
   const upgradeTests = plan.find(
     (step) => step.label === 'runtime upgrade control-plane tests',
   );

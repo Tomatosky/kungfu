@@ -285,6 +285,26 @@
       "projections": ["commands.json", "agent-pack-doc"]
     },
     {
+      "id": "kungfu.workspace.pull",
+      "surface": "cli-api",
+      "name": "kungfu workspace pull --source-runtime <path> --destination-runtime <path> --episode-id <id> --json",
+      "purpose": "Plan or execute destination-initiated Episode Admission through the shared native admission protocol.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc"]
+    },
+    {
+      "id": "kungfu.workspace.push",
+      "surface": "cli-api",
+      "name": "kungfu workspace push --source-runtime <path> --destination-runtime <path> --episode-id <id> --json",
+      "purpose": "Propose source-initiated Episode Admission while preserving destination authority and the shared native receipt.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc"]
+    },
+    {
       "id": "kungfu.workspace.start-continuation",
       "surface": "cli",
       "name": "kungfu workspace ensure <path> --reason start-continuation --json",

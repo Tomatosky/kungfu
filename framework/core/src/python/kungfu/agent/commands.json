@@ -152,6 +152,18 @@
       "purpose": "Inspect a Home or project workspace candidate without initializing it."
     },
     {
+      "apiId": "kungfu.workspace.pull",
+      "name": "kungfu workspace pull --source-runtime <path> --destination-runtime <path> --episode-id <id> --json",
+      "maturity": "experimental",
+      "purpose": "Plan or execute destination-initiated Episode Admission through the shared native admission protocol."
+    },
+    {
+      "apiId": "kungfu.workspace.push",
+      "name": "kungfu workspace push --source-runtime <path> --destination-runtime <path> --episode-id <id> --json",
+      "maturity": "experimental",
+      "purpose": "Propose source-initiated Episode Admission while preserving destination authority and the shared native receipt."
+    },
+    {
       "apiId": "kungfu.workspace.start-continuation",
       "name": "kungfu workspace ensure <path> --reason start-continuation --json",
       "maturity": "experimental",

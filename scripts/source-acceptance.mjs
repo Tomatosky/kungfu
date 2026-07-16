@@ -200,6 +200,10 @@ export function sourceAcceptancePlan(files) {
       'scripts/check-workspace-continuation.mjs',
     ],
     [
+      'Episode Admission contract',
+      'scripts/check-episode-admission-contract.mjs',
+    ],
+    [
       'durability production-candidate admission',
       'scripts/check-durability-production-candidate.mjs',
     ],
@@ -246,6 +250,7 @@ export function sourceAcceptancePlan(files) {
         'scripts/check-project-cut-settlement.test.mjs',
         'scripts/check-project-cut-history.test.mjs',
         'scripts/check-workspace-continuation.test.mjs',
+        'scripts/check-episode-admission-contract.test.mjs',
         'framework/agent-session/tests/capsule-host.test.mjs',
         'framework/agent-session/tests/peer-transport.test.mjs',
         'framework/agent-session/tests/runtime-port.test.mjs',

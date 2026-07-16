@@ -2135,6 +2135,7 @@ std::vector<std::string> storage_operation_names() {
       storage_operation_name(storage_operation::RepairApply),
       storage_operation_name(storage_operation::ExportBundle),
       storage_operation_name(storage_operation::ImportBundle),
+      storage_operation_name(storage_operation::EpisodeAdmission),
       storage_operation_name(storage_operation::RebuildIndex),
       storage_operation_name(storage_operation::GcPlan),
       storage_operation_name(storage_operation::CompactPlan),
@@ -2202,6 +2203,8 @@ std::string storage_operation_name(storage_operation operation) {
     return "export_bundle";
   case storage_operation::ImportBundle:
     return "import_bundle";
+  case storage_operation::EpisodeAdmission:
+    return "episode_admission";
   case storage_operation::RebuildIndex:
     return "rebuild_index";
   case storage_operation::GcPlan:
@@ -2323,6 +2326,9 @@ storage_operation parse_storage_operation(const std::string &operation) {
   }
   if (operation == "import_bundle") {
     return storage_operation::ImportBundle;
+  }
+  if (operation == "episode_admission") {
+    return storage_operation::EpisodeAdmission;
   }
   if (operation == "rebuild_index") {
     return storage_operation::RebuildIndex;
