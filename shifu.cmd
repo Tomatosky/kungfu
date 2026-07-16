@@ -63,12 +63,27 @@ rem Cache profiles are checkout-owned L2 contracts. Resolve/apply them before
 rem native dispatch; an inner `shifu <task>` can still select the native path.
 if /i "%~1"=="cache" goto delegate
 if /i "%~1"=="check:source" goto sourceacceptance
+if /i "%~1"=="project-cut" goto projectcut
 if /i "%~1"=="xinfa:build" goto xinfa
 if /i "%~1"=="xinfa:check" goto xinfa
 if /i "%~1"=="xinfa:fix" goto xinfa
 if /i "%~1"=="xinfa:standalone" goto xinfa
 if /i "%~1"=="docs:check:readonly" goto docsreadonly
 if /i "%~1"=="adr:release:gate" goto adrrelease
+
+:projectcut
+if /i not "%~1"=="project-cut" goto sourceacceptance
+where fnm >nul 2>nul && (
+  fnm install >nul 2>nul
+  fnm exec --using-file -- node "%~dp0scripts\run-project-cut-entry.mjs" %*
+  exit /b !errorlevel!
+)
+where node >nul 2>nul && (
+  node "%~dp0scripts\run-project-cut-entry.mjs" %*
+  exit /b !errorlevel!
+)
+echo shifu: project-cut needs node 1>&2
+exit /b 127
 
 :sourceacceptance
 rem shifu-cache-entry: source-acceptance-bypass

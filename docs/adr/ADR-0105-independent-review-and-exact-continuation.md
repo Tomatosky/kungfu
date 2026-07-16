@@ -5,7 +5,7 @@ adr_id: ADR-0105
 decision_status: accepted
 implementation_status: staged
 implementation_prs: []
-qualification_refs: [framework/core/tests/python/test_atlas_storage.py, extensions/work-dashboard/tests/mission-control-profile.test.ts, framework/core/src/python/kungfu/agent/kfd3_api.registry.json]
+qualification_refs: [framework/core/tests/python/test_atlas_storage.py, framework/core/tests/python/test_agent_console_contract.py, extensions/work-dashboard/tests/mission-control-profile.test.ts, framework/core/src/python/kungfu/agent/kfd3_api.registry.json, framework/project-cut/qualification/three-agent-dogfood/actor-b-review.json, framework/project-cut/qualification/three-agent-dogfood/actor-b-continuation-plan.json]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -98,6 +98,8 @@ script owns authority.
   request, while available thin evidence remains usable;
 - wrong review or plan roots reject continuation;
 - non-mechanical agent decisions reject with `human-decision-required`;
+- public KFD-3 completion, review, and continuation signatures remain welded to
+  the live Click option contracts;
 - a valid mechanical plan creates only its bounded follow-up Go rows; and
 - CLI, Agent, and GUI projections expose the same claim, review, verdict,
   decision, and continuation roots.
