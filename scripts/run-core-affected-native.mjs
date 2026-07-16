@@ -270,6 +270,10 @@ function planFromChanged(changedFiles, authority, buildAuthority, base, head) {
       continue;
     }
     const extension = path.extname(relative);
+    if (relative.startsWith('src/python/')) {
+      reasons.push({ path: file, kind: 'python-surface' });
+      continue;
+    }
     if (!(authority.extensions || []).includes(extension)) {
       throw new Error(`${file}: unclassified Core file impact`);
     }
@@ -645,6 +649,27 @@ function selfTest(authority, buildAuthority) {
       }
     },
   );
+  expect('Python surface changes do not invent native work', () => {
+    const plan = planFromChanged(
+      [
+        'framework/core/src/python/kungfu/workspace.py',
+        'framework/core/src/python/kungfu/agent/commands.json',
+      ],
+      authority,
+      buildAuthority,
+      'base',
+      'head',
+    );
+    if (
+      plan.platformTier !== 'none' ||
+      plan.profile !== null ||
+      plan.targets.length ||
+      plan.tests.length ||
+      plan.reasons.some(({ kind }) => kind !== 'python-surface')
+    ) {
+      throw new Error('Python surface scheduled native work');
+    }
+  });
   expect(
     'unclassified source fails closed',
     () =>
