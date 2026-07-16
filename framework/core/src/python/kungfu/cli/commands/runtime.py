@@ -9,7 +9,13 @@ from pathlib import Path
 import click
 
 from kungfu import contract as contract_runtime
-from kungfu import peer_lifecycle, runtime_broker, runtime_service, runtime_upgrade
+from kungfu import (
+    diagnostics,
+    peer_lifecycle,
+    runtime_broker,
+    runtime_service,
+    runtime_upgrade,
+)
 from kungfu.cli.commands import PrioritizedCommandGroup, kfc
 
 runtime_command_context = kfc.pass_context()
@@ -49,7 +55,14 @@ def _plain_status(payload):
         click.echo(f"active leases: {product.get('leases', {}).get('activeCount', 0)}")
     error = product.get("error") or {}
     if error:
-        click.echo(f"runtime error: {error.get('code')}: {error.get('message')}")
+        translated = diagnostics.problem(
+            str(error.get("code") or "runtime_not_ready"),
+            area="runtime",
+            technical_detail=str(error.get("message") or error),
+        )
+        click.echo("runtime problem:")
+        for line in diagnostics.actionable_text(translated).splitlines():
+            click.echo(f"  {line}")
     click.echo(f"config: {payload['configHome']}")
     click.echo(f"data root: {payload['dataRoot']}")
     click.echo(f"runtime: {payload['runtimeDir']}")
@@ -97,14 +110,16 @@ def _peer_spec(path):
     try:
         return peer_lifecycle.load_spec(path)
     except peer_lifecycle.PeerLifecycleError as error:
-        raise click.ClickException(f"{error.code}: {error}") from error
+        translated = diagnostics.problem_from_exception(error, area="peer")
+        raise click.ClickException(diagnostics.actionable_text(translated)) from error
 
 
 def _peer_call(callable_):
     try:
         return callable_()
     except peer_lifecycle.PeerLifecycleError as error:
-        raise click.ClickException(f"{error.code}: {error}") from error
+        translated = diagnostics.problem_from_exception(error, area="peer")
+        raise click.ClickException(diagnostics.actionable_text(translated)) from error
 
 
 @runtime_peer.command(

@@ -175,6 +175,7 @@ implemented and qualified or explicitly waived for that release.
 | [0103](ADR-0103-shadow-only-workspace-continuation.md) | accepted | Git-settled Episode and Project Cut shadows can open read-only without creating local runtime or becoming Episode authority; explicit continuation creates the write boundary |
 | [0104](ADR-0104-native-mission-go-authority-cutover.md) | accepted | Mission/Go authority cuts over once at an exact Atlas parity, Project Cut, and successor Atlas root; rollback is append-only and never enables dual writers |
 | [0105](ADR-0105-independent-review-and-exact-continuation.md) | accepted | Completion Claims bind exact Git, Atlas, Project Cut, Episode, proof, and availability roots; independent review seals a six-state verdict and bounded exact-root continuation plan |
+| [0106](ADR-0106-unified-read-only-product-diagnostics.md) | accepted | Product diagnostics are one read-only runtime, Peer, storage, and Episode projection with stable actionable problems and fail-closed unknown outcomes |
 | [SHIFU-0001](SHIFU-ADR-0001-cache-profile-contract-and-ownership.md) | accepted | Cache profiles are Shifu-owned contracts; inventories project instances and Buildchain owns process |
 | [SHIFU-0002](SHIFU-ADR-0002-local-artifact-catalog-and-safe-promotion.md) | accepted | Shifu and Kungfu product artifacts share provenance-aware, Git-safe local promotion semantics |
 | [SHIFU-0003](SHIFU-ADR-0003-uv-effective-lock-cache-enforcement.md) | accepted | Strict uv cache execution uses a disposable effective lock while canonical locks stay public |

@@ -219,7 +219,7 @@
           "authority": "qualification",
           "publication": "none",
           "receipt": "diagnostic",
-          "definitionDigest": "sha256:c12d157c83067c9d6ba86b20fd7e903f7e045defa46fbc137525379883f992a8",
+          "definitionDigest": "sha256:bbc910cce262bc790fd3b2e2ceba7e9a38b08d432552013ff61cd6c6bf3efb71",
           "credentials": {
             "githubToken": "read",
             "oidc": false,
@@ -307,12 +307,24 @@
             },
             {
               "index": 13,
-              "label": "name:Qualify Peer lifecycle faults (Windows full profile)",
+              "label": "name:Qualify read-only health diagnostics (POSIX full profile)",
               "authority": "qualification",
-              "definitionDigest": "sha256:676042ba962c219518879fcfa329a11204f2fc89c8139156d420727a57e25724"
+              "definitionDigest": "sha256:8fa4c47ace29ecb3b89baeecc34da5e492a94a11eafc5ff232a52147d64389e5"
             },
             {
               "index": 14,
+              "label": "name:Qualify Peer lifecycle faults (Windows full profile)",
+              "authority": "evidence-publication",
+              "definitionDigest": "sha256:676042ba962c219518879fcfa329a11204f2fc89c8139156d420727a57e25724"
+            },
+            {
+              "index": 15,
+              "label": "name:Qualify read-only health diagnostics (Windows full profile)",
+              "authority": "qualification",
+              "definitionDigest": "sha256:5b42277e35906ed9aab05438248fa912c2558b4bf82b0a19554d2419ed7bfbde"
+            },
+            {
+              "index": 16,
               "label": "name:Retain Peer lifecycle qualification",
               "authority": "evidence-publication",
               "definitionDigest": "sha256:e3c75225448d5c9347c0fb60d3a56744bb827efe6acd7f8621f5eaa861058e79"
