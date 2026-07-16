@@ -243,6 +243,7 @@ function planFromChanged(changedFiles, authority, buildAuthority, base, head) {
     'framework/core/CMakeLists.txt',
     'framework/core/conanfile.py',
     'framework/core/package.json',
+    'framework/core/tests/',
     'scripts/run-core-affected-native.mjs',
     '.github/workflows/affected-native-pr.yml',
     'shifu.gates.json',
@@ -257,6 +258,7 @@ function planFromChanged(changedFiles, authority, buildAuthority, base, head) {
       )
     ) {
       global = true;
+      if (file.startsWith('framework/core/tests/')) forceFull = true;
       reasons.push({ path: file, kind: 'architecture-or-gate-authority' });
       continue;
     }
@@ -656,6 +658,36 @@ function selfTest(authority, buildAuthority) {
     if (stableJson(first) !== stableJson(second)) throw new Error('plan drift');
     if (!first.directComponents.includes('runtime-storage-services'))
       throw new Error('owner missing');
+  });
+  expect('native contract JSON fixture selects qualification tests', () => {
+    const plan = planFromChanged(
+      [
+        'framework/core/src/libkungfu/tests/fixtures/native_kfx_contract/buildchain-envelope.json',
+      ],
+      authority,
+      buildAuthority,
+      'base',
+      'head',
+    );
+    if (!plan.directComponents.includes('core-native-qualification'))
+      throw new Error('qualification owner missing');
+    if (!plan.tests.includes('kungfu_native_kfx_contract_tests'))
+      throw new Error('native KFX contract test missing');
+  });
+  expect('cross-language Core qualification expands globally', () => {
+    const plan = planFromChanged(
+      ['framework/core/tests/python/test_native_kfx_contract.py'],
+      authority,
+      buildAuthority,
+      'base',
+      'head',
+    );
+    if (plan.closureComponents.length !== authority.components.length)
+      throw new Error('cross-language qualification closure incomplete');
+    if (plan.profile !== buildAuthority.default_profile)
+      throw new Error(
+        'cross-language qualification did not select full profile',
+      );
   });
   expect(
     'outside-Core change emits a required-check-safe tier-none plan',
