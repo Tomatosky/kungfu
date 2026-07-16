@@ -23,6 +23,11 @@ const baselinePath = path.join(
   'affected-native-baseline.json',
 );
 const nonNativeCoreRules = [
+  {
+    prefix: 'slices/',
+    kind: 'core-qualification-harness',
+    extensions: ['.js', '.json', '.mjs'],
+  },
   { prefix: 'src/python/', kind: 'core-python-source' },
   { prefix: 'tests/fixtures/', kind: 'core-test-fixture' },
   { prefix: 'tests/python/', kind: 'core-python-test' },
@@ -280,6 +285,16 @@ function planFromChanged(changedFiles, authority, buildAuthority, base, head) {
       continue;
     }
     if (
+      (relative.startsWith('.cmake/') && relative.endsWith('.cmake')) ||
+      (relative.startsWith('.gyp/') && relative.endsWith('.js')) ||
+      (relative.startsWith('lib/') && relative.endsWith('.js'))
+    ) {
+      global = true;
+      forceFull = true;
+      reasons.push({ path: file, kind: 'composition-or-build-definition' });
+      continue;
+    }
+    if (
       relative.startsWith('src/libkungfu/schemas/') &&
       relative.endsWith('.fbs')
     ) {
@@ -300,6 +315,10 @@ function planFromChanged(changedFiles, authority, buildAuthority, base, head) {
       relative.startsWith('tests/python/')
     ) {
       reasons.push({ path: file, kind: 'python-surface' });
+      continue;
+    }
+    if (relative.startsWith('tests/') && /\.(?:c|m)?js$/.test(relative)) {
+      reasons.push({ path: file, kind: 'core-javascript-test' });
       continue;
     }
     if (!(authority.extensions || []).includes(extension)) {
@@ -694,7 +713,10 @@ function selfTest(authority, buildAuthority) {
       plan.profile !== null ||
       plan.targets.length ||
       plan.tests.length ||
-      plan.reasons.some(({ kind }) => kind !== 'python-surface')
+      plan.reasons.some(
+        ({ kind }) =>
+          !['core-python-source', 'core-python-test'].includes(kind),
+      )
     ) {
       throw new Error('Python surface scheduled native work');
     }
@@ -711,13 +733,16 @@ function selfTest(authority, buildAuthority) {
       ),
     /exactly one architecture component/,
   );
-  expect('known Core Python and qualification files are non-native', () => {
+  expect('known Core support and qualification files are non-native', () => {
     const plan = planFromChanged(
       [
         'framework/core/src/python/kungfu/peer_lifecycle.py',
         'framework/core/tests/fixtures/peer_lifecycle_probe.py',
         'framework/core/tests/python/test_peer_lifecycle.py',
         'framework/core/tests/qualification/live-peer-continuity/run.mjs',
+        'framework/core/slices/embedding/run.mjs',
+        'framework/core/tests/episode-release-evidence.test.mjs',
+        'framework/core/tests/run-conan.test.js',
       ],
       authority,
       buildAuthority,
@@ -758,6 +783,28 @@ function selfTest(authority, buildAuthority) {
     );
     if (plan.closureComponents.length !== authority.components.length)
       throw new Error('closure incomplete');
+  });
+  expect('Core native build support changes expand globally', () => {
+    const plan = planFromChanged(
+      [
+        'framework/core/.cmake/libwasm-cargo-cache.cmake',
+        'framework/core/.gyp/run-link-node.js',
+        'framework/core/lib/executable.js',
+      ],
+      authority,
+      buildAuthority,
+      'base',
+      'head',
+    );
+    if (
+      plan.closureComponents.length !== authority.components.length ||
+      plan.profile !== 'full' ||
+      !plan.reasons.some(
+        ({ kind }) => kind === 'composition-or-build-definition',
+      )
+    ) {
+      throw new Error('Core build support did not schedule full native work');
+    }
   });
   expect('public header propagates to consumers', () => {
     const plan = planFromChanged(
