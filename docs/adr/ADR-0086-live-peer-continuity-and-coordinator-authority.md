@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0086
 decision_status: accepted
 implementation_status: implemented
-implementation_commits: [69b0b82ebdf972a39f09e9a2737b0456314c2de8, 37e8ff1817f5b154f3c63eab2d02260b68adfaf8]
+implementation_commits: [69b0b82ebdf972a39f09e9a2737b0456314c2de8]
 implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/876, https://github.com/kungfu-systems/kungfu/pull/885, https://github.com/kungfu-systems/kungfu/pull/967]
 closure_pr: https://github.com/kungfu-systems/kungfu/pull/967
 qualification_refs: [framework/core/src/libkungfu/tests/peer_continuity_tests.cpp, framework/core/tests/python/test_runtime_service.py, framework/core/tests/python/test_runtime_broker.py, framework/core/tests/python/test_peer_lifecycle.py, framework/agent-session/tests/peer-transport.test.mjs, framework/core/tests/qualification/live-peer-continuity/run.mjs, framework/core/tests/qualification/live-peer-continuity/native_campaign.py, .github/workflows/core-build-profiles.yml, scripts/run-zero-burden-product-qualification.mjs, docs/qualification/zero-burden-desktop-runtime.md]
