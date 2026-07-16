@@ -606,6 +606,26 @@
       "projections": ["commands.json", "agent-pack-doc", "provider-skill"]
     },
     {
+      "id": "kungfu.health",
+      "surface": "cli",
+      "name": "kungfu health --json",
+      "purpose": "Run the bounded read-only runtime, Peer, storage, and Episode preflight and return actionable problems with stable exit semantics.",
+      "maturity": "experimental",
+      "visibility": "adjacent-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill"]
+    },
+    {
+      "id": "kungfu.health.deep",
+      "surface": "cli",
+      "name": "kungfu health --deep --json",
+      "purpose": "Add the complete read-only storage fsck and open-Episode recovery-plan inspection to the shared health report.",
+      "maturity": "experimental",
+      "visibility": "adjacent-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc", "provider-skill"]
+    },
+    {
       "id": "kungfu.storage.status",
       "surface": "cli",
       "name": "kungfu storage status --scope all --json",

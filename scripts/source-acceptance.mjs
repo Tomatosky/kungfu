@@ -229,6 +229,7 @@ export function sourceAcceptancePlan(files) {
         'scripts/source-acceptance.test.mjs',
         'scripts/check-shifu-entry-contract.test.mjs',
         'scripts/check-shifu-cache-contract.test.mjs',
+        'scripts/check-health-diagnostics-contract.test.mjs',
         'scripts/shifu-cache-runtime.test.mjs',
         'scripts/shifu-conan-publish.test.mjs',
         'scripts/shifu-uv-cache-adapter.test.mjs',

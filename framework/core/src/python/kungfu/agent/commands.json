@@ -350,6 +350,18 @@
       "purpose": "List imported Atlas worktree-status markers from the latest projection."
     },
     {
+      "apiId": "kungfu.health",
+      "name": "kungfu health --json",
+      "maturity": "experimental",
+      "purpose": "Run the bounded read-only runtime, Peer, storage, and Episode preflight and return actionable problems with stable exit semantics."
+    },
+    {
+      "apiId": "kungfu.health.deep",
+      "name": "kungfu health --deep --json",
+      "maturity": "experimental",
+      "purpose": "Add the complete read-only storage fsck and open-Episode recovery-plan inspection to the shared health report."
+    },
+    {
       "apiId": "kungfu.storage.status",
       "name": "kungfu storage status --scope all --json",
       "maturity": "stable",
