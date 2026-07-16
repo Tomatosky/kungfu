@@ -5,16 +5,16 @@
   "witnessKind": "prebuild",
   "supportLevel": "release",
   "source": {
-    "cwd": "/Users/dkr/Worktrees/kungfu/feature/kungfu-shadow-only-workspace-continuation",
-    "sourceSha": "4f7f48a5ee0d1af53d431f2eb0fb9ddf4a8a1453",
+    "cwd": ".",
+    "sourceSha": "5eb09f08bdee76ca1eb517f7454d309b7ac58587",
     "registryPath": ".buildchain/kfd/kfd-3/surfaces.json",
-    "registryDigest": "sha256:c634cb4848df82c0b4da02b05594f55d9b4caa55a71ae618d22f11297bd9b1d5"
+    "registryDigest": "sha256:dc63cf78edac18ffb4dbaef31f78ec4f5c00b2650e0db276d644bf95e8bd7a0c"
   },
   "sourceRegistry": {
     "id": "kungfu",
     "path": ".buildchain/kfd/kfd-3/surfaces.json",
-    "sha256": "d4d2fff1a9fa30cf81eb1e420347bcf0a058abc1f09716e7d0ac9badeff51db0",
-    "digest": "sha256:c634cb4848df82c0b4da02b05594f55d9b4caa55a71ae618d22f11297bd9b1d5"
+    "sha256": "cb09556dada714fb3ae0a86d8ccef9e6ffee6a3b390fe11ff7526afe7deef9f1",
+    "digest": "sha256:dc63cf78edac18ffb4dbaef31f78ec4f5c00b2650e0db276d644bf95e8bd7a0c"
   },
   "upstreamKfd": {
     "aggregatePath": "developer/sdk/kfd/upstream-aggregate.json",
@@ -29,12 +29,12 @@
       "libnode": "22.22.3-kf.3-alpha.16",
       "buildchain": "2.11.14-alpha.0"
     },
-    "digest": "sha256:0d156f449d0939018917504e3909a540898cb388d360a1dd759cc026afa9e8b3"
+    "digest": "sha256:02fab40cf7fa301ada0a17c830b844123be6f8d767e77a8dfd03934166556b60"
   },
   "expectedArtifactVerification": {
     "command": "node scripts/buildchain-kfd-evidence.mjs --artifact-witness --json"
   },
-  "collaborationInterfaceDigest": "sha256:0dfc91bc62ad476cc9bd43262b0937846a2ca47cfcc37196bd65bcf91ed7c24f",
+  "collaborationInterfaceDigest": "sha256:962f3f8d23a00da73500236d7538d1a7f04e750062d2595d4196b2ff84addab8",
   "collaborationInterface": {
     "schemaVersion": 1,
     "contract": "kungfu-buildchain-kfd-3-surface-registry",
@@ -57,7 +57,7 @@
         "libnode": "22.22.3-kf.3-alpha.16",
         "buildchain": "2.11.14-alpha.0"
       },
-      "digest": "sha256:0d156f449d0939018917504e3909a540898cb388d360a1dd759cc026afa9e8b3"
+      "digest": "sha256:02fab40cf7fa301ada0a17c830b844123be6f8d767e77a8dfd03934166556b60"
     },
     "surfaces": [
       {
