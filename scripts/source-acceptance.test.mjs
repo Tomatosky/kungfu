@@ -276,7 +276,7 @@ test('reusable workflow is bound to source mode and the pinned stable runtime', 
     'utf8',
   );
   assert.match(workflow, /mode: source/);
-  assert.match(workflow, /check\.yml@52dba6d30051b53d6f6b723fa6e27b090ce4311f/);
+  assert.match(workflow, /check\.yml@ec48c0b311212c5f3a591e0284da6e85a9fdded5/);
   assert.match(workflow, /buildchain-ref: v2/);
   assert.doesNotMatch(workflow, /self-hosted/);
 });
