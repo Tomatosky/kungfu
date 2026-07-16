@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <kungfu/runtime/live/continuity.h>
+#include <kungfu/runtime/live/key_value_store.h>
+#include <kungfu/runtime/os.h>
 
+#include <chrono>
+#include <filesystem>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -14,6 +18,8 @@ using kungfu::runtime::live::peer_continuity_phase;
 using kungfu::runtime::live::peer_continuity_tracker;
 
 namespace {
+
+namespace fs = std::filesystem;
 
 void require(bool condition, const std::string &message) {
   if (!condition) {
@@ -88,6 +94,60 @@ void test_tracker_uses_bounded_retry_and_requires_bootstrap() {
   require(tracker.phase() == peer_continuity_phase::Registering, "rejected coordinator changed peer recovery phase");
 }
 
+void test_empty_live_kv_directory_is_an_uninitialized_store() {
+#if KUNGFU_HAS_ROCKSDB
+  const auto nonce = std::chrono::steady_clock::now().time_since_epoch().count();
+  const auto root = fs::temp_directory_path() / ("kungfu-live-kv-cold-start-" + std::to_string(nonce));
+  const auto store_path = root / "map" / "system" / "master" / "master" / "live";
+  fs::create_directories(store_path);
+
+  try {
+    const auto store = kungfu::runtime::live::make_live_key_value_store(store_path.string(), true);
+    require(store->get("location_uid64").empty(), "empty live-KV directory did not read as uninitialized");
+    store->put("cold-start", "ready");
+    require(store->get("cold-start") == "ready", "uninitialized live-KV store did not bootstrap on first write");
+  } catch (...) {
+    std::error_code ignored;
+    fs::remove_all(root, ignored);
+    throw;
+  }
+
+  std::error_code ignored;
+  fs::remove_all(root, ignored);
+#endif
+}
+
+void test_writable_live_kv_reopens_after_reading_an_existing_store() {
+#if KUNGFU_HAS_ROCKSDB
+  const auto nonce = std::chrono::steady_clock::now().time_since_epoch().count();
+  const auto root = fs::temp_directory_path() / ("kungfu-live-kv-read-then-write-" + std::to_string(nonce));
+  const auto store_path = root / "map" / "system" / "master" / "master" / "live";
+
+  try {
+    {
+      const auto seed = kungfu::runtime::live::make_live_key_value_store(store_path.string(), true);
+      seed->put("existing", "value");
+    }
+    const auto store = kungfu::runtime::live::make_live_key_value_store(store_path.string(), true);
+    require(store->get("existing") == "value", "existing live-KV store did not open for reading");
+    store->put_many({{"replacement", "ready"}});
+    require(store->get("replacement") == "ready", "writable live-KV store retained a read-only handle");
+  } catch (...) {
+    std::error_code ignored;
+    fs::remove_all(root, ignored);
+    throw;
+  }
+
+  std::error_code ignored;
+  fs::remove_all(root, ignored);
+#endif
+}
+
+void test_process_liveness_fails_closed_around_the_current_process() {
+  require(kungfu::runtime::os::is_process_alive(GETPID()), "current process was reported dead");
+  require(not kungfu::runtime::os::is_process_alive(-1), "invalid process identity was reported alive");
+}
+
 } // namespace
 
 int main() {
@@ -96,6 +156,11 @@ int main() {
       {"coordinator rejects peer from the future", test_coordinator_rejects_peer_from_the_future},
       {"registration payload round trip is exact", test_registration_payload_round_trip_is_exact},
       {"tracker uses bounded retry and requires bootstrap", test_tracker_uses_bounded_retry_and_requires_bootstrap},
+      {"empty live KV directory is an uninitialized store", test_empty_live_kv_directory_is_an_uninitialized_store},
+      {"writable live KV reopens after reading an existing store",
+       test_writable_live_kv_reopens_after_reading_an_existing_store},
+      {"process liveness fails closed around current process",
+       test_process_liveness_fails_closed_around_the_current_process},
   };
   for (const auto &[name, test] : tests) {
     try {

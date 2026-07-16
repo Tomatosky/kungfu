@@ -98,3 +98,21 @@ jobs:
           $vsDevCmd = Join-Path $vsInstall "Common7\Tools\VsDevCmd.bat"
           cmd.exe /d /s /c "`"$vsDevCmd`" -arch=x64 -host_arch=x64 >nul && node framework/core/slices/custom-provider/run.mjs"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Qualify Peer lifecycle faults (POSIX full profile)
+        if: runner.os != 'Windows' && matrix.profile == 'full'
+        shell: bash
+        run: ./shifu live-peer:qualify --retain product/release/qualification/live-peer-continuity/${{ runner.os }}
+
+      - name: Qualify Peer lifecycle faults (Windows full profile)
+        if: runner.os == 'Windows' && matrix.profile == 'full'
+        shell: pwsh
+        run: .\shifu.cmd live-peer:qualify --retain product/release/qualification/live-peer-continuity/${{ runner.os }}
+
+      - name: Retain Peer lifecycle qualification
+        if: always() && matrix.profile == 'full'
+        uses: actions/upload-artifact@v4
+        with:
+          name: peer-lifecycle-${{ runner.os }}-${{ runner.arch }}
+          path: product/release/qualification/live-peer-continuity/${{ runner.os }}
+          if-no-files-found: error

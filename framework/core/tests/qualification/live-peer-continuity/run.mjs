@@ -105,6 +105,18 @@ export function qualificationPlan(
   const tempParent = campaignTempParent(platform);
   return [
     {
+      id: 'peer-lifecycle-control-plane',
+      command: [
+        ...python.command,
+        '-m',
+        'pytest',
+        'framework/core/tests/python/test_peer_lifecycle.py',
+        '-q',
+      ],
+      env: nativeEnvironment(),
+      shell: python.shell,
+    },
+    {
       id: 'core-continuity-state-machine',
       command: [
         'ctest',
@@ -268,9 +280,23 @@ export function evaluateQualification({
   bundle,
 }) {
   const failed = suites.some((suite) => suite.status === 'failed');
-  const complete =
-    suites.length === 3 && suites.every((suite) => suite.status === 'passed');
+  const requiredSuites = [
+    'peer-lifecycle-control-plane',
+    'core-continuity-state-machine',
+    'agent-session-capsule-continuity',
+    'native-cross-process-restart',
+  ];
+  const suiteStatus = new Map(suites.map((suite) => [suite.id, suite.status]));
+  const complete = requiredSuites.every(
+    (id) => suiteStatus.get(id) === 'passed',
+  );
   const campaignPassed = campaign?.verdict === 'passed';
+  const lifecycleCampaignPassed =
+    campaignPassed &&
+    campaign?.coverage?.peerHostCrashAdopted === true &&
+    campaign?.coverage?.staleHostGenerationRejected === true &&
+    campaign?.coverage?.peerCrashRestarted === true &&
+    campaign?.coverage?.peerGenerationAdvanced === true;
   const violations = [];
   if (source.dirty)
     violations.push('source tree is dirty; evidence is not source-exact');
@@ -280,7 +306,10 @@ export function evaluateQualification({
     violations.push(
       'native cross-process campaign did not produce a passing report',
     );
-  const passed = !source.dirty && !failed && complete && campaignPassed;
+  if (campaignPassed && !lifecycleCampaignPassed)
+    violations.push('Peer lifecycle fault coverage is incomplete');
+  const passed =
+    !source.dirty && !failed && complete && lifecycleCampaignPassed;
   return {
     schema: SCHEMA,
     generated_at: new Date().toISOString(),
@@ -288,14 +317,23 @@ export function evaluateQualification({
     platform,
     suites,
     coverage: {
-      core_state_machine: suites[0]?.status === 'passed',
-      agent_session_capsule: suites[1]?.status === 'passed',
+      peer_lifecycle_control_plane:
+        suiteStatus.get('peer-lifecycle-control-plane') === 'passed',
+      core_state_machine:
+        suiteStatus.get('core-continuity-state-machine') === 'passed',
+      agent_session_capsule:
+        suiteStatus.get('agent-session-capsule-continuity') === 'passed',
       capsule_process_restart_campaign:
         campaign?.coverage?.capsulePidPreserved === true &&
         campaign?.coverage?.capsuleStreamEpochPreserved === true,
       hard_coordinator_crash: campaignPassed,
       stale_authority_rejection: campaignPassed,
       peer_pid_preserved: campaign?.coverage?.peerPidPreserved === true,
+      peer_host_crash_adopted:
+        campaign?.coverage?.peerHostCrashAdopted === true,
+      stale_host_generation_rejected:
+        campaign?.coverage?.staleHostGenerationRejected === true,
+      peer_crash_restarted: campaign?.coverage?.peerCrashRestarted === true,
     },
     claims: {
       single_host_process_continuity: passed,

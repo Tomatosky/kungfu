@@ -4,6 +4,7 @@
 // Created by Keren Dong on 2019-06-10.
 //
 
+#include <cerrno>
 #include <csignal>
 #include <cstdio>
 #include <kungfu/common.h>
@@ -16,6 +17,29 @@ using namespace kungfu::runtime::util;
 namespace kungfu::runtime::os {
 static kungfu::runtime::live::reactor *reactor_instance = {};
 static bool signals_handler_enabled = true;
+
+bool is_process_alive(int32_t pid) {
+  if (pid <= 0) {
+    return false;
+  }
+#ifdef _WIN32
+  HANDLE process = OpenProcess(SYNCHRONIZE, FALSE, static_cast<DWORD>(pid));
+  if (process == nullptr) {
+    // Access-denied and other indeterminate results remain live so a new Peer
+    // cannot steal an owner identity.  Windows reports an exited/nonexistent
+    // PID as ERROR_INVALID_PARAMETER.
+    return GetLastError() != ERROR_INVALID_PARAMETER;
+  }
+  const DWORD wait_result = WaitForSingleObject(process, 0);
+  CloseHandle(process);
+  return wait_result != WAIT_OBJECT_0;
+#else
+  if (::kill(pid, 0) == 0) {
+    return true;
+  }
+  return errno == EPERM;
+#endif
+}
 
 void stop_reactor() {
   if (reactor_instance != nullptr && reactor_instance->is_live()) {

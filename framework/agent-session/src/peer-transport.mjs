@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import {
+  AGENT_SESSION_PEER_RECOVERY,
   admitCoordinator,
   coordinatorAuthority,
   positiveIntegerString,
@@ -123,6 +124,7 @@ export class AgentSessionCapsulePeerTransport {
       coordinatorEpoch: candidate.coordinator_epoch,
       runtimeContinuity: candidate,
       supervisorGeneration: epoch(supervisorGeneration, 'supervisorGeneration'),
+      recovery: AGENT_SESSION_PEER_RECOVERY,
       registeredAt: this.now(),
       capabilities: [
         'journal-output-writer',
@@ -197,6 +199,7 @@ export class AgentSessionCapsulePeerTransport {
     this.registration = {
       ...registration,
       supervisorGeneration: this.supervisorGeneration,
+      recovery: registration.recovery,
       adoptedAt: this.now(),
     };
     return this.#append('durable-lifecycle', 'supervisor-adopted', {
@@ -539,6 +542,7 @@ export class AgentSessionCapsulePeerTransport {
       coordinatorEpoch: registration.coordinatorEpoch,
       runtimeContinuity: registration.runtimeContinuity,
       supervisorGeneration: this.supervisorGeneration,
+      recovery: registration.recovery,
       controllerLease: controller
         ? {
             leaseId: controller.leaseId,

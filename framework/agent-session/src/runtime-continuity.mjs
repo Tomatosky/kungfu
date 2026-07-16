@@ -1,6 +1,14 @@
 export const RUNTIME_PEER_CONTINUITY_SCHEMA =
   'kungfu.runtime.peer-continuity/v1';
 
+export const AGENT_SESSION_PEER_RECOVERY = Object.freeze({
+  schema: 'kungfu.runtime.peer-recovery/v1',
+  processExit: 'lost-control',
+  durableState: 'none',
+  guidance:
+    'End the old SessionAttempt and start a new attempt or use provider-supported resume; never claim PTY process recovery.',
+});
+
 const POSITIVE_INTEGER = /^[1-9][0-9]*$/u;
 
 export function positiveIntegerString(value, label) {

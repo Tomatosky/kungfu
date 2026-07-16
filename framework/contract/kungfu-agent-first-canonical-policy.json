@@ -59,7 +59,7 @@
   },
   "contractWorld": {
     "schemaId": "https://kfd.libkungfu.dev/schemas/kfd-1/contract-world.schema.json",
-    "digest": "sha256:c539da4d0579efec830a55539692f70e241d69f1f71583fe5bb859da1072bfdc",
+    "digest": "sha256:db0d79445ec905c7ce6a38301a47117a25b21112ce2058b1060df945d2952a28",
     "value": {
       "schemaVersion": 1,
       "contract": "kfd-1-contract-world",
@@ -85,6 +85,11 @@
           "id": "kungfu-runtime",
           "class": "integration-time",
           "description": "runtime contract source framework/runtime/kungfu-runtime.contract.json is copied byte-for-byte to config/kungfu-runtime.contract.json."
+        },
+        {
+          "id": "kungfu-peer-lifecycle",
+          "class": "integration-time",
+          "description": "peer-lifecycle contract source framework/runtime/kungfu-peer-lifecycle.contract.json is copied byte-for-byte to config/kungfu-peer-lifecycle.contract.json."
         },
         {
           "id": "kungfu-product-upgrade",
@@ -174,6 +179,25 @@
       "artifact": {
         "path": "config/kungfu-runtime.contract.json",
         "expectedSha256": "sha256:191f99eb3cdb42af6c217870e0c6118c1c0e30ce887e4309322c239f6ead2592"
+      }
+    },
+    {
+      "surface": "peer-lifecycle",
+      "id": "kungfu-peer-lifecycle",
+      "recipe": {
+        "path": "framework/runtime/kungfu-peer-lifecycle.contract.json",
+        "generator": "kungfu sdk contract render",
+        "evidence": "kungfu sdk contract evidence"
+      },
+      "source": {
+        "path": "framework/runtime/kungfu-peer-lifecycle.contract.json",
+        "sha256": "sha256:f38dcd9418068452432fee9f2fe291b841ca928cd578905fcbb09ff50c1fba52",
+        "renderedSha256": "sha256:f38dcd9418068452432fee9f2fe291b841ca928cd578905fcbb09ff50c1fba52",
+        "byteForByte": true
+      },
+      "artifact": {
+        "path": "config/kungfu-peer-lifecycle.contract.json",
+        "expectedSha256": "sha256:f38dcd9418068452432fee9f2fe291b841ca928cd578905fcbb09ff50c1fba52"
       }
     },
     {
