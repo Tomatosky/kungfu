@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 from pathlib import Path
 import time
 
@@ -92,7 +93,10 @@ def test_native_fault_matrix_translates_episode_and_peer_fences(tmp_path):
                 "peerId": "fixture-peer",
                 "desiredState": "running",
                 "lifecycleState": "ready",
-                "hostPid": 1,
+                # Use a process that is provably live on every platform, then
+                # falsify its creation identity. PID 1 is not inspectable on
+                # all Windows runners and only proves "not ready" there.
+                "hostPid": os.getpid(),
                 "hostStartIdentity": "not-the-real-process-identity",
                 "peerPid": None,
                 "readinessState": "ready",
@@ -104,7 +108,7 @@ def test_native_fault_matrix_translates_episode_and_peer_fences(tmp_path):
 
     result, report = _invoke_health(home)
 
-    assert result.exit_code == 3
+    assert result.exit_code == 3, report
     assert report["status"] == "blocked"
     codes = {item["code"] for item in report["problems"]}
     assert "episode_stale_recoverable" in codes
