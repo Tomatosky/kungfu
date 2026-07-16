@@ -394,9 +394,15 @@ function health(layers, build, affectedBaseline) {
   };
 }
 
-function healthFindings(report, layers, baseline) {
+function healthFindings(
+  report,
+  layers,
+  baseline,
+  { blockingOnly = false } = {},
+) {
   const findings = [];
   for (const [id, policy] of Object.entries(layers.health_policy.metrics)) {
+    if (blockingOnly && !policy.blocking) continue;
     const value = report.values[id];
     const baselineValue = baseline?.values?.[id];
     if (value === null) {
@@ -448,7 +454,7 @@ function renderIndex(layers, build) {
   return `---\nmetadata_schema: kungfu.document-metadata/v1\ndocument_status: active\nperiod: ongoing\ntheme: kungfu-core-architecture-query\ndoc_type: generated-architecture-index\nsources: [local-files]\nconfidence: high\nsensitivity: public\nevidence_grade: A\nreview_state: self-reviewed\nlast_reviewed: 2026-07-15\n---\n\n# Core Architecture Query Index\n\nGenerated from \`layers.json\` and \`build-capabilities.json\`. Do not edit by hand. The projection contains only checked-in authority facts and does not identify unrecorded human maintainers.\n\n| Component | Owner | Backup reviewer | Entry points | Targets | Profiles | Tests | Diagnostics |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n${rows.join('\n')}\n\n## Query\n\n\`./shifu core:architecture --path framework/core/src/libkungfu/src/runtime/storage/service.cpp\`\n\nUse one of \`--path\`, \`--component\`, \`--target\`, \`--symbol\`, \`--error\`, \`--capability\`, or \`--profile\`; append \`--json\` for the stable machine surface.\n`;
 }
 
-function renderHealth(report, layers, baseline, findings) {
+function renderHealth(report, layers, baseline, observations) {
   const evidenceNote =
     report.values.affected_native_duration_ms === null
       ? 'Binary size and successful affected-native timing remain unknown until retained qualification artifacts exist.'
@@ -457,7 +463,7 @@ function renderHealth(report, layers, baseline, findings) {
     ([id, policy]) =>
       `| \`${id}\` | ${report.values[id] ?? 'unknown'} | ${baseline?.values?.[id] ?? 'unknown'} | ${policy.budget ?? 'advisory'} | ${policy.blocking ? 'blocking' : `advisory: ${policy.reason}`} |`,
   );
-  return `---\nmetadata_schema: kungfu.document-metadata/v1\ndocument_status: active\nperiod: 2026-06-01/2026-07-15\ntheme: kungfu-core-architecture-health\ndoc_type: generated-health-report\nsources: [local-files]\nconfidence: high\nsensitivity: public\nevidence_grade: A\nreview_state: self-reviewed\nlast_reviewed: 2026-07-15\n---\n\n# Core Architecture Health\n\nGenerated from the architecture authority and repository facts. Metrics are structural signals, not individual performance measures. ${evidenceNote}\n\nAuthority root: \`${report.authorityRoot}\`\n\n| Metric | Current | Baseline | Budget | Policy |\n| --- | ---: | ---: | ---: | --- |\n${rows.join('\n')}\n\nFindings: ${findings.length ? findings.map((finding) => `\n- ${finding}`).join('') : 'none.'}\n`;
+  return `---\nmetadata_schema: kungfu.document-metadata/v1\ndocument_status: active\nperiod: 2026-06-01/2026-07-15\ntheme: kungfu-core-architecture-health\ndoc_type: generated-health-report\nsources: [local-files]\nconfidence: high\nsensitivity: public\nevidence_grade: A\nreview_state: self-reviewed\nlast_reviewed: 2026-07-15\n---\n\n# Core Architecture Health\n\nGenerated from the architecture authority and repository facts. Metrics are structural signals, not individual performance measures. ${evidenceNote}\n\nAuthority root: \`${report.authorityRoot}\`\n\n| Metric | Current | Baseline | Budget | Policy |\n| --- | ---: | ---: | ---: | --- |\n${rows.join('\n')}\n\nObservations:${observations.length ? observations.map((observation) => `\n- ${observation}`).join('') : ' none.'}\n`;
 }
 
 function validateAuthority(layers, build) {
@@ -554,6 +560,14 @@ function selfTest(layers, build) {
   if (!healthFindings(regression, regressionPolicy, regressionBaseline).length)
     throw new Error('health regression did not fail closed');
   console.log('  ok: health regression fails closed');
+  regressionPolicy.health_policy.metrics.maximum_component_fanout.blocking = false;
+  if (
+    healthFindings(regression, regressionPolicy, regressionBaseline, {
+      blockingOnly: true,
+    }).length
+  )
+    throw new Error('advisory regression blocked development');
+  console.log('  ok: advisory regression stays visible without blocking');
 }
 
 function main() {
@@ -591,12 +605,15 @@ function main() {
   const baseline = fs.existsSync(healthBaselinePath)
     ? readJson(healthBaselinePath)
     : null;
-  const findings = baseline
+  const observations = baseline
     ? healthFindings(report, layers, baseline)
+    : ['architecture health baseline is missing'];
+  const findings = baseline
+    ? healthFindings(report, layers, baseline, { blockingOnly: true })
     : ['architecture health baseline is missing'];
   const projections = new Map([
     [indexPath, renderIndex(layers, build)],
-    [healthPath, renderHealth(report, layers, baseline, findings)],
+    [healthPath, renderHealth(report, layers, baseline, observations)],
     [reviewRoutesPath, `${JSON.stringify(reviewRoutes(layers), null, 2)}\n`],
   ]);
   if (options.write) {
@@ -609,7 +626,7 @@ function main() {
     }
   }
   if (options.health || options.json)
-    console.log(JSON.stringify({ ...report, findings }, null, 2));
+    console.log(JSON.stringify({ ...report, observations, findings }, null, 2));
   else
     console.log(
       `[core-architecture] components=${layers.components.length} authority=${report.authorityRoot} findings=${findings.length}`,
