@@ -615,7 +615,7 @@
       "id": "core-native-qualification",
       "layer": "qualification",
       "owner": "core/qualification",
-      "include_prefixes": ["src/libkungfu/tests/", "src/libyijinjing/tests/"],
+      "include_prefixes": ["src/libkungfu/tests/", "src/libyijinjing/tests/", "tests/qualification/"],
       "exclude_prefixes": [],
       "exclude_files": [],
       "dependencies": ["core-composition-bindings", "runtime-storage-adapters", "runtime-platform-adapters", "runtime-ledger-services", "runtime-state-query-services", "runtime-live-services", "runtime-storage-services", "runtime-extension-services", "libkungfu-contracts", "yijinjing-kernel", "yijinjing-schema"],
