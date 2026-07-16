@@ -5,16 +5,16 @@
   "witnessKind": "prebuild",
   "supportLevel": "release",
   "source": {
-    "cwd": "/Users/dkr/Worktrees/kungfu/feature/2026-07-15-kungfu-kfx-kfd-buildchain-admission",
-    "sourceSha": "9d73db6103e19c99daaa5a5fd7957a523267b8ff",
+    "cwd": "/Users/dkr/Worktrees/kungfu/feature/kungfu-shadow-only-workspace-continuation",
+    "sourceSha": "4f7f48a5ee0d1af53d431f2eb0fb9ddf4a8a1453",
     "registryPath": ".buildchain/kfd/kfd-3/surfaces.json",
-    "registryDigest": "sha256:46fa6e6d8e6cabe4e89ed1f13dfb20382fdde55185db35a2d479c471ac077831"
+    "registryDigest": "sha256:c634cb4848df82c0b4da02b05594f55d9b4caa55a71ae618d22f11297bd9b1d5"
   },
   "sourceRegistry": {
     "id": "kungfu",
     "path": ".buildchain/kfd/kfd-3/surfaces.json",
-    "sha256": "dc6a5175e564df72ba397bc3f8ef365282f8f3a75508a54f34a7c85d3d3f94ad",
-    "digest": "sha256:46fa6e6d8e6cabe4e89ed1f13dfb20382fdde55185db35a2d479c471ac077831"
+    "sha256": "d4d2fff1a9fa30cf81eb1e420347bcf0a058abc1f09716e7d0ac9badeff51db0",
+    "digest": "sha256:c634cb4848df82c0b4da02b05594f55d9b4caa55a71ae618d22f11297bd9b1d5"
   },
   "upstreamKfd": {
     "aggregatePath": "developer/sdk/kfd/upstream-aggregate.json",
@@ -34,7 +34,7 @@
   "expectedArtifactVerification": {
     "command": "node scripts/buildchain-kfd-evidence.mjs --artifact-witness --json"
   },
-  "collaborationInterfaceDigest": "sha256:4ecfd9b54270b44dd2a41e16254902c9c791bd938940d37b56012946480d4bf5",
+  "collaborationInterfaceDigest": "sha256:0dfc91bc62ad476cc9bd43262b0937846a2ca47cfcc37196bd65bcf91ed7c24f",
   "collaborationInterface": {
     "schemaVersion": 1,
     "contract": "kungfu-buildchain-kfd-3-surface-registry",
@@ -2346,6 +2346,26 @@
         }
       },
       {
+        "id": "kungfu.workspace.start-continuation",
+        "name": "kungfu workspace ensure <path> --reason start-continuation --json",
+        "kind": "cli",
+        "participantProfile": "agent-or-developer",
+        "state": "declared",
+        "availability": "shipped",
+        "visibility": "public",
+        "participantFacing": true,
+        "public": true,
+        "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
+        "evidencePath": "framework/core/src/python/kungfu/agent/commands.json",
+        "artifactPath": "framework/core/src/python/kungfu/agent/commands.json",
+        "maturity": "experimental",
+        "declaration": {
+          "owner": "kungfu",
+          "source": "scripts/buildchain-kfd-evidence.mjs",
+          "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json"
+        }
+      },
+      {
         "id": "kungfu.workspace.verify",
         "name": "kungfu workspace verify --home --receipt-id <id> --json",
         "kind": "cli",
@@ -2368,8 +2388,8 @@
     ],
     "audit": {
       "status": "passed",
-      "declared": 114,
-      "artifactPublic": 114,
+      "declared": 115,
+      "artifactPublic": 115,
       "policy": {
         "sourceOfTruth": ".buildchain/kfd/kfd-3/surfaces.json",
         "detectedButUnregistered": "product-specific-audit",
@@ -4649,6 +4669,26 @@
     {
       "id": "kungfu.workspace.preview",
       "name": "kungfu workspace preview --home --source <path> --intent create-project-workspace --json",
+      "kind": "cli",
+      "participantProfile": "agent-or-developer",
+      "state": "declared",
+      "availability": "shipped",
+      "visibility": "public",
+      "participantFacing": true,
+      "public": true,
+      "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
+      "evidencePath": "framework/core/src/python/kungfu/agent/commands.json",
+      "artifactPath": "framework/core/src/python/kungfu/agent/commands.json",
+      "maturity": "experimental",
+      "declaration": {
+        "owner": "kungfu",
+        "source": "scripts/buildchain-kfd-evidence.mjs",
+        "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json"
+      }
+    },
+    {
+      "id": "kungfu.workspace.start-continuation",
+      "name": "kungfu workspace ensure <path> --reason start-continuation --json",
       "kind": "cli",
       "participantProfile": "agent-or-developer",
       "state": "declared",

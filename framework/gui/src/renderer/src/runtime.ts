@@ -187,11 +187,15 @@ function createRuntime(): Runtime {
     agentSession: null,
     workspace: null,
   };
-  if (env.KF_WORKSPACE_STATE === 'selected-uninitialized') {
+  if (
+    env.KF_WORKSPACE_STATE === 'uninitialized' ||
+    env.KF_WORKSPACE_STATE === 'shadow-only' ||
+    env.KF_WORKSPACE_STATE === 'evidence-degraded'
+  ) {
     return {
       ...base,
       ok: false,
-      message: 'workspace selected but not initialized',
+      message: `workspace runtime unavailable (${env.KF_WORKSPACE_STATE})`,
     };
   }
   try {
