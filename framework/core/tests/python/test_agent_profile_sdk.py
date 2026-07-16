@@ -1252,6 +1252,31 @@ def test_live_profile_action_plan_fails_without_native_evidence(tmp_path, monkey
         raise AssertionError("live action planned without native evidence")
 
 
+def test_completion_review_plans_as_storage_append_without_native_runtime_evidence(
+    tmp_path, monkeypatch
+):
+    runtime = tmp_path / "runtime"
+    source = _activate_mission_control(runtime)
+    monkeypatch.setenv("KF_CONFIG_HOME", str(tmp_path / "config"))
+
+    plan = profile_sdk.plan_action(
+        source,
+        runtime,
+        "review-completion",
+        {
+            "missionId": "mission:test",
+            "goalId": "goal:test",
+            "reviewer": "independent-reviewer",
+            "reviewerSource": "qualification",
+            "executorProfile": "inline",
+        },
+    )
+
+    assert plan["runtimePlan"]["operation"]["id"] == "episode.append"
+    assert plan["runtimePlan"]["requirement"]["operationClass"] == "storage-only"
+    assert plan["runtimePlan"]["requirement"]["minimumCut"] is None
+
+
 def test_live_profile_action_does_not_run_callback_when_broker_refuses(
     tmp_path, monkeypatch
 ):

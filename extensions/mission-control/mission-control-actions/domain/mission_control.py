@@ -645,6 +645,7 @@ def _batched_state_query(
             }
         ),
         "result_hash": result_hash,
+        "row_count": len(rows),
         "rows": rows,
         "lineage": lineage,
     }

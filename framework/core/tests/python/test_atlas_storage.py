@@ -1443,6 +1443,7 @@ def test_mission_control_batches_large_mission_state_queries(tmp_path):
         "subquery_count": 2,
     }
     assert len(state["lineage"]["subqueries"]) == 2
+    assert state["profile_query_receipt"]["result"]["row_count"] == 262
     assert state["query_proof_root"].startswith("sha256:")
 
 
