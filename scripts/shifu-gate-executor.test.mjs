@@ -297,6 +297,29 @@ test('task failure reasons retain a bounded diagnostic output tail', async () =>
   assert.ok(reason.length <= 1000);
 });
 
+test('task output above the legacy 16 MiB buffer remains executable', async () => {
+  const registry = structuredClone(loaded.registry);
+  const gate = registry.gates.find((item) => item.id === 'fixture.fail');
+  gate.cost.timeoutSeconds = 30;
+  gate.action = {
+    kind: 'argv',
+    command: process.execPath,
+    args: ['-e', "process.stdout.write('x'.repeat(17 * 1024 * 1024))"],
+  };
+  const receipt = await executeGateRun(registry, {
+    root: ROOT,
+    registryRef: REGISTRY_REF,
+    registryDigest: loaded.digest,
+    source: SOURCE,
+    profile: 'required-failure',
+    writer: WRITER,
+  });
+  const result = receipt.results.find((item) => item.gateId === 'fixture.fail');
+  assert.equal(result.status, 'pass');
+  assert.equal(result.exitCode, 0);
+  assert.equal(result.reason, null);
+});
+
 test('required gate-specific evidence is enforced without embedding its content', async () => {
   const passed = await run({ profile: 'evidence-success' });
   assert.equal(passed.status, 'pass');

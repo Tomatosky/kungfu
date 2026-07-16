@@ -24,6 +24,7 @@ const RESULT_STATUSES = new Set([
   'skip',
   'error',
 ]);
+const GATE_ACTION_MAX_BUFFER_BYTES = 256 * 1024 * 1024;
 
 /** @typedef {{write:(chunk:any)=>any}} Writer */
 /** @typedef {{id:string, ref:string, digest?:string}} EvidencePointer */
@@ -401,7 +402,7 @@ async function executeAction(gate, context) {
         },
         encoding: 'utf8',
         timeout: gate.cost.timeoutSeconds * 1000,
-        maxBuffer: 16 * 1024 * 1024,
+        maxBuffer: GATE_ACTION_MAX_BUFFER_BYTES,
         windowsHide: true,
         windowsVerbatimArguments: invocation.windowsVerbatimArguments === true,
       });
