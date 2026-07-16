@@ -119,6 +119,9 @@ def _windows_process_identity(pid: int) -> str | None:
             ctypes.byref(user_time),
         ):
             return None
+        exit_value = (exit_time.dwHighDateTime << 32) | exit_time.dwLowDateTime
+        if exit_value != 0:
+            return None
         value = (creation.dwHighDateTime << 32) | creation.dwLowDateTime
         return f"filetime:{value}"
     finally:

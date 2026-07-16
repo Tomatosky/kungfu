@@ -2,6 +2,7 @@
 
 import json
 import os
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -88,6 +89,16 @@ def test_windows_process_identity_uses_the_kernel_filetime(monkeypatch):
     )
 
     assert peer_lifecycle._process_identity(42) == "filetime:42"
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows kernel identity only")
+def test_windows_process_identity_rejects_an_exited_process():
+    child = subprocess.Popen([sys.executable, "-c", "pass"])
+    assert peer_lifecycle._windows_process_identity(child.pid) is not None
+
+    child.wait(timeout=5)
+
+    assert peer_lifecycle._windows_process_identity(child.pid) is None
 
 
 def test_status_distinguishes_ready_orphan_from_unowned_pid(tmp_path, monkeypatch):
