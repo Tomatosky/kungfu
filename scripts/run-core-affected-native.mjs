@@ -295,6 +295,15 @@ function planFromChanged(changedFiles, authority, buildAuthority, base, head) {
       continue;
     }
     const extension = path.extname(relative);
+    if (relative.startsWith('stubs/') && extension === '.pyi') {
+      global = true;
+      forceFull = true;
+      reasons.push({
+        path: file,
+        kind: 'generated-native-binding-contract',
+      });
+      continue;
+    }
     if (
       relative.startsWith('src/python/') ||
       relative.startsWith('tests/python/')
@@ -693,10 +702,36 @@ function selfTest(authority, buildAuthority) {
       plan.platformTier !== 'none' ||
       plan.profile !== null ||
       plan.targets.length ||
-      plan.tests.length ||
-      plan.reasons.some(({ kind }) => kind !== 'python-surface')
+      plan.tests.length
     ) {
       throw new Error('Python surface scheduled native work');
+    }
+    const kinds = new Set(plan.reasons.map(({ kind }) => kind));
+    if (
+      kinds.size !== 2 ||
+      !kinds.has('core-python-source') ||
+      !kinds.has('core-python-test')
+    ) {
+      throw new Error('Python surface classification drifted');
+    }
+  });
+  expect('generated native binding stubs force full native coverage', () => {
+    const plan = planFromChanged(
+      ['framework/core/stubs/pykungfu/runtime.pyi'],
+      authority,
+      buildAuthority,
+      'base',
+      'head',
+    );
+    if (plan.profile !== 'full') throw new Error('full profile not selected');
+    if (plan.closureComponents.length !== authority.components.length)
+      throw new Error('native binding contract closure incomplete');
+    if (
+      !plan.reasons.some(
+        ({ kind }) => kind === 'generated-native-binding-contract',
+      )
+    ) {
+      throw new Error('native binding contract classification missing');
     }
   });
   expect(
