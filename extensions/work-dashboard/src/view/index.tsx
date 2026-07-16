@@ -42,6 +42,7 @@ import {
   type AtlasDashboardSnapshot,
   type AtlasGoal,
   type AtlasImportInfo,
+  type AtlasIndependentReview,
   type AtlasMission,
   type AtlasMissionControlReport,
   openMissionControlProfile,
@@ -432,6 +433,15 @@ function AtlasProjectionView({
     null,
   );
   const [completionError, setCompletionError] = React.useState<string>('');
+  const [independentReview, setIndependentReview] =
+    React.useState<AtlasIndependentReview | null>(null);
+  const [reviewerIdentity, setReviewerIdentity] = React.useState(
+    'independent-reviewer',
+  );
+  const [reviewerSource, setReviewerSource] = React.useState(
+    'work-dashboard:new-session',
+  );
+  const [reviewReason, setReviewReason] = React.useState('');
   const [queryStream, setQueryStream] = React.useState<QueryChangelogState>(
     emptyQueryChangelogState,
   );
@@ -460,7 +470,14 @@ function AtlasProjectionView({
   const [authorityAtlasRoot, setAuthorityAtlasRoot] = React.useState('');
   const [authorityReason, setAuthorityReason] = React.useState('');
   const [actionPanel, setActionPanel] = React.useState<
-    'mission' | 'go' | 'import' | 'bundle' | 'claim' | 'authority' | null
+    | 'mission'
+    | 'go'
+    | 'import'
+    | 'bundle'
+    | 'claim'
+    | 'review'
+    | 'authority'
+    | null
   >(null);
   const actor = 'work-dashboard';
   const selectedMissionSource = React.useMemo(() => {
@@ -1007,6 +1024,69 @@ function AtlasProjectionView({
     }
   };
 
+  const reviewCompletionNow = async () => {
+    if (selectedMission === 'all' || !selectedGoal) {
+      setCompletionError('select a Mission and Go before independent review');
+      return;
+    }
+    try {
+      const result = await atlas.reviewCompletion(
+        selectedMission,
+        selectedGoal,
+        {
+          reviewer: reviewerIdentity,
+          reviewerSource,
+        },
+      );
+      setIndependentReview(result);
+      setCompletionReport(result.trust_report);
+      setCompletionGoalId(selectedGoal);
+      setCompletionError('');
+      setMessage(
+        `${result.review.review_id}: ${result.review.verdict} · ${result.review_root}`,
+      );
+      dashboardRefresh.request();
+    } catch (error) {
+      setIndependentReview(null);
+      setCompletionError((error as Error).message);
+    }
+  };
+
+  const decideContinuationNow = async (action: string) => {
+    if (
+      selectedMission === 'all' ||
+      !selectedGoal ||
+      !independentReview ||
+      !reviewReason.trim()
+    ) {
+      setMessage('select an exact review and enter a continuation reason');
+      return;
+    }
+    try {
+      const result = await atlas.decideContinuation(
+        selectedMission,
+        selectedGoal,
+        {
+          reviewId: independentReview.review.review_id,
+          expectedReviewRoot: independentReview.review_root,
+          expectedPlanRoot: independentReview.continuation_plan_root,
+          action,
+          actor,
+          actorType: 'user',
+          changeClass: 'mechanical',
+          reason: reviewReason,
+        },
+      );
+      setMessage(
+        `${result.decision.decision_id}: ${result.decision.action} · ${result.created_followups.length} follow-up Go`,
+      );
+      dashboardRefresh.request();
+      void refreshAssessment();
+    } catch (error) {
+      setMessage((error as Error).message);
+    }
+  };
+
   const effectiveGoals = new Map(goals.map((goal) => [goal.goal_id, goal]));
   for (const row of trustReport?.state.goals ?? []) {
     const goal = row.payload?.record;
@@ -1426,6 +1506,9 @@ function AtlasProjectionView({
                 <SmallButton onClick={() => setActionPanel('claim')}>
                   claim completion
                 </SmallButton>
+                <SmallButton onClick={() => setActionPanel('review')}>
+                  independent review
+                </SmallButton>
               </div>
             )}
           </aside>
@@ -1613,6 +1696,51 @@ function AtlasProjectionView({
               <SmallButton onClick={() => void claimAndAssessNow()}>
                 claim and assess
               </SmallButton>
+            </>
+          )}
+          {actionPanel === 'review' && (
+            <>
+              <TextInput
+                value={reviewerIdentity}
+                placeholder="reviewer identity (must differ from claimant)"
+                onChange={setReviewerIdentity}
+              />
+              <TextInput
+                value={reviewerSource}
+                placeholder="independent reviewer source/session"
+                onChange={setReviewerSource}
+              />
+              <SmallButton onClick={() => void reviewCompletionNow()}>
+                review exact cut
+              </SmallButton>
+              {independentReview && (
+                <>
+                  <div style={{ ...mono, color: '#9cdcfe' }}>
+                    {independentReview.review.verdict} ·{' '}
+                    {independentReview.review_root}
+                  </div>
+                  <div style={{ ...mono, color: '#858585' }}>
+                    plan {independentReview.continuation_plan_root}
+                  </div>
+                  <TextInput
+                    value={reviewReason}
+                    placeholder="continuation decision reason"
+                    onChange={setReviewReason}
+                  />
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {independentReview.review.continuation_plan.allowed_actions
+                      .filter((action) => action !== 'create-follow-up')
+                      .map((action) => (
+                        <SmallButton
+                          key={action}
+                          onClick={() => void decideContinuationNow(action)}
+                        >
+                          {action}
+                        </SmallButton>
+                      ))}
+                  </div>
+                </>
+              )}
             </>
           )}
         </section>
