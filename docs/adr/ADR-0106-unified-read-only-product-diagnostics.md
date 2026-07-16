@@ -3,8 +3,9 @@ metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
 adr_id: ADR-0106
 decision_status: accepted
-implementation_status: staged
-implementation_prs: []
+implementation_status: implemented
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/987]
+closure_pr: https://github.com/kungfu-systems/kungfu/pull/987
 qualification_refs: [framework/runtime/kungfu-diagnostics.contract.json, scripts/check-health-diagnostics-contract.test.mjs, framework/core/tests/python/test_health_diagnostics.py, framework/core/tests/python/test_health_diagnostics_native.py, .github/workflows/core-build-profiles.yml]
 review_state: self-reviewed
 sensitivity: public
@@ -18,7 +19,7 @@ last_reviewed: 2026-07-16
 
 # ADR-0106: Product diagnostics are one read-only projection over existing authorities
 
-- Status: accepted; implementation in progress
+- Status: accepted; implemented
 - Date: 2026-07-16
 - Category: product diagnostics / runtime / storage / Episode
 - Related: [ADR-0061](ADR-0061-agent-mediated-guidance-is-a-first-class-product-interface.md),
