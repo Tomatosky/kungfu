@@ -216,6 +216,21 @@ if [ "${1:-}" = "check:source" ]; then
   fi
 fi
 
+# Project Cut is an agent-first JSON surface. Dispatch it directly so a
+# non-zero protocol result cannot be followed by pnpm lifecycle text on stdout.
+if [ "${1:-}" = "project-cut" ]; then
+  shift
+  if command -v fnm >/dev/null 2>&1; then
+    fnm install >/dev/null 2>&1 || true
+    exec fnm exec --using-file -- node ./framework/project-cut/bin/project-cut.mjs "$@"
+  elif command -v node >/dev/null 2>&1; then
+    exec node ./framework/project-cut/bin/project-cut.mjs "$@"
+  else
+    echo "shifu: project-cut needs node" >&2
+    exit 127
+  fi
+fi
+
 # Xinfa is an independently extractable product. Its build/check/smoke tasks use
 # only Node plus Cargo and must not contend for Kungfu's managed Conan storage.
 case "${1:-}" in

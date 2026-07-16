@@ -38,6 +38,10 @@ const CLI = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../framework/project-cut/bin/project-cut.mjs',
 );
+const SHIFU = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../shifu',
+);
 
 function git(root, ...args) {
   return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
@@ -257,10 +261,16 @@ test('source drift, private input, and a commit without a cut fail visibly', (t)
   assert.throws(() => prepareSettlement(root, { ...request(), rogue: true }), {
     code: 'unknown-field',
   });
-  assert.equal(
-    reconcileCommit(root, 'HEAD').diagnostics[0].code,
-    'missing-cut',
-  );
+  const missingCut = reconcileCommit(root, 'HEAD');
+  assert.equal(missingCut.ok, false);
+  assert.equal(missingCut.diagnostics[0].code, 'missing-cut');
+  assert.deepEqual(missingCut.recovery, {
+    action: 'prepare-project-cut',
+    command:
+      './shifu project-cut prepare --request settlement-request.json --json',
+    detail:
+      'Create settlement-request.json if absent, inspect the dry-run, rerun with --execute --stage, commit the outputs, then reconcile the new commit.',
+  });
   const applied = prepareSettlement(root, request(), {
     execute: true,
     stage: true,
@@ -362,4 +372,39 @@ test('CLI emits one stable JSON envelope and requires the agent-first flag', (t)
   });
   assert.equal(rejected.status, 1);
   assert.equal(JSON.parse(rejected.stdout).error.code, 'json-required');
+
+  const missingCut = spawnSync(
+    process.execPath,
+    [CLI, 'reconcile', '--root', root, '--commit', 'HEAD', '--json'],
+    { cwd: root, encoding: 'utf8', timeout: 5_000 },
+  );
+  assert.equal(missingCut.status, 1, missingCut.stdout || missingCut.stderr);
+  assert.equal(missingCut.signal, null);
+  assert.equal(missingCut.stderr, '');
+  assert.equal(missingCut.stdout.trimEnd().split('\n').length, 1);
+  const missingCutResponse = JSON.parse(missingCut.stdout);
+  assert.equal(missingCutResponse.ok, false);
+  assert.equal(missingCutResponse.action, 'reconcile');
+  assert.equal(missingCutResponse.diagnostics[0].code, 'missing-cut');
+  assert.equal(missingCutResponse.recovery.action, 'prepare-project-cut');
+  assert.equal(
+    missingCutResponse.recovery.command,
+    './shifu project-cut prepare --request settlement-request.json --json',
+  );
+
+  const publicMissingCut = spawnSync(
+    SHIFU,
+    ['project-cut', 'reconcile', '--root', root, '--commit', 'HEAD', '--json'],
+    { cwd: root, encoding: 'utf8', timeout: 30_000 },
+  );
+  assert.equal(
+    publicMissingCut.status,
+    1,
+    publicMissingCut.stdout || publicMissingCut.stderr,
+  );
+  assert.equal(publicMissingCut.signal, null);
+  const publicResponse = JSON.parse(publicMissingCut.stdout);
+  assert.equal(publicResponse.ok, false);
+  assert.equal(publicResponse.diagnostics[0].code, 'missing-cut');
+  assert.equal(publicResponse.recovery.action, 'prepare-project-cut');
 });

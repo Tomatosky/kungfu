@@ -348,8 +348,10 @@ function indexEntries(root) {
     });
 }
 
-function commitEntries(root, commit) {
-  const output = git(root, ['ls-tree', '-r', '-z', commit], {
+function commitEntries(root, commit, pathspec = null) {
+  const args = ['ls-tree', '-r', '-z', commit];
+  if (pathspec) args.push('--', pathspec);
+  const output = git(root, args, {
     encoding: 'buffer',
     code: 'commit-unavailable',
   });
@@ -1163,9 +1165,13 @@ function verifyEpisodeProviderEntries(entries, providerRoot) {
 export function reconcileCommit(rootInput, commitInput) {
   const root = repositoryRoot(rootInput);
   const commit = git(root, ['rev-parse', `${commitInput}^{commit}`]).trim();
-  const entries = commitEntries(root, commit);
+  const cutEntries = commitEntries(root, commit, SETTLEMENT_OUTPUT);
+  const candidatePaths = projectCutPaths(cutEntries);
+  const entries =
+    candidatePaths.length === 0 ? cutEntries : commitEntries(root, commit);
   const byPath = new Map(entries.map((entry) => [entry.path, entry.bytes]));
-  const paths = projectCutPaths(entries);
+  const paths =
+    candidatePaths.length === 0 ? candidatePaths : projectCutPaths(entries);
   const diagnostics = [];
   if (paths.length === 0)
     diagnostics.push({
@@ -1269,6 +1275,17 @@ export function reconcileCommit(rootInput, commitInput) {
     commit,
     cuts,
     diagnostics: normalizedDiagnostics,
+    ...(paths.length === 0
+      ? {
+          recovery: {
+            action: 'prepare-project-cut',
+            command:
+              './shifu project-cut prepare --request settlement-request.json --json',
+            detail:
+              'Create settlement-request.json if absent, inspect the dry-run, rerun with --execute --stage, commit the outputs, then reconcile the new commit.',
+          },
+        }
+      : {}),
     receipt: actionReceipt({
       action: 'reconcile',
       outcome: normalizedDiagnostics.length === 0 ? 'reconciled' : 'incomplete',
