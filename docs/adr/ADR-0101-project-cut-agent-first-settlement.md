@@ -6,7 +6,7 @@ decision_status: accepted
 implementation_status: implemented
 implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/969]
 closure_pr: https://github.com/kungfu-systems/kungfu/pull/969
-qualification_refs: [framework/project-cut/settlement.contract.json, scripts/check-project-cut-settlement.test.mjs, scripts/check-project-cut-settlement-integration.test.mjs]
+qualification_refs: [framework/project-cut/settlement.contract.json, scripts/check-project-cut-settlement.test.mjs, scripts/check-project-cut-settlement-integration.test.mjs, scripts/run-project-cut-entry.mjs]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -87,6 +87,8 @@ diagnostic.
 - A real Xinfa binary compiles and verifies the successor Atlas used by the
   settlement path.
 - Removing local runtime state does not prevent commit-level reconcile.
+- The public Shifu entry emits one JSON document and a non-zero result with an
+  exact recovery action when the selected commit has no Project Cut.
 
 ## Non-claims
 
