@@ -419,3 +419,69 @@ test('CLI emits one stable JSON envelope and requires the agent-first flag', (t)
   assert.doesNotMatch(windowsProjectCut, /^shift\s*$/imu);
   assert.match(windowsProjectCut, /scripts\\run-project-cut-entry\.mjs" %\*/iu);
 });
+
+test('public CLI seals a qualified Episode only on execute and stages exact outputs', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'project-cut-seal-cli-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  git(root, 'init', '-q');
+  git(root, 'config', 'user.name', 'Settlement Test');
+  git(root, 'config', 'user.email', 'settlement@example.invalid');
+  fs.writeFileSync(path.join(root, 'source.txt'), 'bounded task\n');
+  writeJson(path.join(root, 'episode-bundle.json'), bundle());
+  writeJson(path.join(root, 'episode-qualification.json'), {
+    qualification: qualification(),
+  });
+  git(root, 'add', '--all');
+  git(root, 'commit', '-qm', 'test: public seal input');
+
+  const command = [
+    CLI,
+    'episode-seal',
+    '--root',
+    root,
+    '--bundle',
+    path.join(root, 'episode-bundle.json'),
+    '--qualification',
+    path.join(root, 'episode-qualification.json'),
+    '--writer-id',
+    'public-cli-test',
+    '--json',
+  ];
+  const dryRun = spawnSync(process.execPath, command, {
+    cwd: root,
+    encoding: 'utf8',
+  });
+  assert.equal(dryRun.status, 0, dryRun.stdout || dryRun.stderr);
+  const plan = JSON.parse(dryRun.stdout);
+  assert.equal(plan.schema, 'project.cut.episode-seal-response/v1');
+  assert.equal(plan.dryRun, true);
+  assert.equal(plan.receipt, null);
+  assert.equal(git(root, 'status', '--short'), '');
+
+  const applied = spawnSync(
+    process.execPath,
+    [...command.slice(0, -1), '--execute', '--stage', '--json'],
+    { cwd: root, encoding: 'utf8' },
+  );
+  assert.equal(applied.status, 0, applied.stdout || applied.stderr);
+  const result = JSON.parse(applied.stdout);
+  assert.equal(result.dryRun, false);
+  assert.equal(result.staged, true);
+  assert.equal(result.receipt.status, 'sealed');
+  assert.equal(result.receipt.semanticRoot, EPISODE_ROOT);
+  assert.deepEqual(
+    git(root, 'diff', '--cached', '--name-only').split('\n'),
+    result.outputs,
+  );
+
+  const rejected = spawnSync(
+    process.execPath,
+    [...command.slice(0, -1), '--stage', '--json'],
+    { cwd: root, encoding: 'utf8' },
+  );
+  assert.equal(rejected.status, 1);
+  assert.equal(
+    JSON.parse(rejected.stdout).error.code,
+    'stage-requires-execute',
+  );
+});
