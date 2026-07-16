@@ -718,12 +718,11 @@ function selfTest(authority, buildAuthority) {
       }
     },
   );
-  expect('Python surface changes do not invent native work', () => {
+  expect('Python source changes do not invent native work', () => {
     const plan = planFromChanged(
       [
         'framework/core/src/python/kungfu/workspace.py',
         'framework/core/src/python/kungfu/agent/commands.json',
-        'framework/core/tests/python/test_workspace.py',
       ],
       authority,
       buildAuthority,
@@ -739,12 +738,8 @@ function selfTest(authority, buildAuthority) {
       throw new Error('Python surface scheduled native work');
     }
     const kinds = new Set(plan.reasons.map(({ kind }) => kind));
-    if (
-      kinds.size !== 2 ||
-      !kinds.has('core-python-source') ||
-      !kinds.has('core-python-test')
-    ) {
-      throw new Error('Python surface classification drifted');
+    if (kinds.size !== 1 || !kinds.has('core-python-source')) {
+      throw new Error('Python source classification drifted');
     }
   });
   expect('generated native binding stubs force full native coverage', () => {
@@ -778,12 +773,10 @@ function selfTest(authority, buildAuthority) {
       ),
     /exactly one architecture component/,
   );
-  expect('known Core Python and qualification files are non-native', () => {
+  expect('Core test fixtures and qualification harness expand globally', () => {
     const plan = planFromChanged(
       [
-        'framework/core/src/python/kungfu/peer_lifecycle.py',
         'framework/core/tests/fixtures/peer_lifecycle_probe.py',
-        'framework/core/tests/python/test_peer_lifecycle.py',
         'framework/core/tests/qualification/live-peer-continuity/run.mjs',
       ],
       authority,
@@ -792,29 +785,28 @@ function selfTest(authority, buildAuthority) {
       'head',
     );
     if (
-      plan.platformTier !== 'none' ||
-      plan.profile !== null ||
-      plan.targets.length ||
-      plan.tests.length
+      plan.platformTier !== 'github-hosted-linux-native-pr' ||
+      plan.profile !== buildAuthority.default_profile ||
+      plan.closureComponents.length !== authority.components.length
     ) {
-      throw new Error('non-native Core files scheduled native work');
-    }
-    if (plan.reasons.some(({ kind }) => !kind.startsWith('core-'))) {
-      throw new Error('non-native Core file classification missing');
+      throw new Error('Core test surface did not expand globally');
     }
   });
-  expect(
-    'unknown qualification source still fails closed',
-    () =>
-      planFromChanged(
-        ['framework/core/tests/qualification/example/driver.cpp'],
-        authority,
-        buildAuthority,
-        'base',
-        'head',
-      ),
-    /exactly one architecture component/,
-  );
+  expect('unknown qualification source expands globally', () => {
+    const plan = planFromChanged(
+      ['framework/core/tests/qualification/example/driver.cpp'],
+      authority,
+      buildAuthority,
+      'base',
+      'head',
+    );
+    if (
+      plan.profile !== buildAuthority.default_profile ||
+      plan.closureComponents.length !== authority.components.length
+    ) {
+      throw new Error('unknown qualification source did not expand globally');
+    }
+  });
   expect('authority dependency change expands globally', () => {
     const plan = planFromChanged(
       ['framework/core/architecture/layers.json'],
