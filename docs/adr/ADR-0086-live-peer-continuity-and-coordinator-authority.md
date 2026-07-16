@@ -5,8 +5,8 @@ adr_id: ADR-0086
 decision_status: accepted
 implementation_status: implemented
 implementation_commits: [69b0b82ebdf972a39f09e9a2737b0456314c2de8]
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/876, https://github.com/kungfu-systems/kungfu/pull/885, https://github.com/kungfu-systems/kungfu/pull/967]
-closure_pr: https://github.com/kungfu-systems/kungfu/pull/967
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/876, https://github.com/kungfu-systems/kungfu/pull/885, https://github.com/kungfu-systems/kungfu/pull/967, https://github.com/kungfu-systems/kungfu/pull/977]
+closure_pr: https://github.com/kungfu-systems/kungfu/pull/977
 qualification_refs: [framework/core/src/libkungfu/tests/peer_continuity_tests.cpp, framework/core/tests/python/test_runtime_service.py, framework/core/tests/python/test_runtime_broker.py, framework/core/tests/python/test_peer_lifecycle.py, framework/agent-session/tests/peer-transport.test.mjs, framework/core/tests/qualification/live-peer-continuity/run.mjs, framework/core/tests/qualification/live-peer-continuity/native_campaign.py, .github/workflows/core-build-profiles.yml, scripts/run-zero-burden-product-qualification.mjs, docs/qualification/zero-burden-desktop-runtime.md]
 review_state: self-reviewed
 sensitivity: public
@@ -15,7 +15,7 @@ period: 2026-07-14
 theme: live-peer-continuity-coordinator-authority
 confidence: high
 evidence_grade: B
-last_reviewed: 2026-07-15
+last_reviewed: 2026-07-16
 ---
 
 # ADR-0086: Live peers reconnect through fenced coordinator authority
