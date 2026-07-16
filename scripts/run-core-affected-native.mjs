@@ -625,6 +625,21 @@ function selfTest(authority, buildAuthority) {
     if (!first.directComponents.includes('runtime-storage-services'))
       throw new Error('owner missing');
   });
+  expect('native contract JSON fixture selects qualification tests', () => {
+    const plan = planFromChanged(
+      [
+        'framework/core/src/libkungfu/tests/fixtures/native_kfx_contract/buildchain-envelope.json',
+      ],
+      authority,
+      buildAuthority,
+      'base',
+      'head',
+    );
+    if (!plan.directComponents.includes('core-native-qualification'))
+      throw new Error('qualification owner missing');
+    if (!plan.tests.includes('kungfu_native_kfx_contract_tests'))
+      throw new Error('native KFX contract test missing');
+  });
   expect(
     'outside-Core change emits a required-check-safe tier-none plan',
     () => {
