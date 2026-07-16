@@ -291,15 +291,27 @@
     },
     {
       "apiId": "kungfu.atlas.claim-completion",
-      "name": "kungfu atlas claim-completion <mission-id> <goal-id> --statement <statement> --actor <actor> --evidence-episode <id> --json",
+      "name": "kungfu atlas claim-completion <mission-id> <goal-id> --statement <statement> --actor <actor> --evidence-episode <id> [--acceptance-root <root>] [--input-atlas-root <root>] [--result-atlas-root <root>] [--project-cut-root <root>] [--git-commit <sha>] [--proof-root <root>] [--known-gap <gap>] --json",
       "maturity": "experimental",
-      "purpose": "Record an explicit completion claim with independently verifiable Episode evidence."
+      "purpose": "Record a versioned root-bound completion claim over a Go set, Atlas transition, Project Cut, Git object, Episodes, proofs, evidence availability, and known gaps."
     },
     {
       "apiId": "kungfu.atlas.assess-completion",
       "name": "kungfu atlas assess-completion <mission-id> <goal-id> --json",
       "maturity": "experimental",
       "purpose": "Assess a Go completion claim for a declared purpose and fail closed on missing evidence."
+    },
+    {
+      "apiId": "kungfu.atlas.review-completion",
+      "name": "kungfu atlas review-completion <mission-id> <goal-id> --reviewer <actor> --reviewer-source <source> [--follow-up <json>] --json",
+      "maturity": "experimental",
+      "purpose": "Independently review one exact completion claim, emit an Assessment Episode and purpose-bound TrustReport, and seal a deterministic continuation plan."
+    },
+    {
+      "apiId": "kungfu.atlas.decide-continuation",
+      "name": "kungfu atlas decide-continuation <mission-id> <goal-id> <review-id> --expected-review-root <root> --expected-plan-root <root> --action <action> --actor <actor> --reason <reason> --json",
+      "maturity": "experimental",
+      "purpose": "Apply one exact-root continuation decision and materialize only bounded mechanical follow-up Go rows while preserving human gates for mission, authority, privacy, security, public claims, and irreversible changes."
     },
     {
       "apiId": "kungfu.atlas.show.import",

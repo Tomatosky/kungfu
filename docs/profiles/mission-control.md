@@ -289,6 +289,45 @@ CLI, and public agent APIs project these same Profile intents and domain
 receipts. [ADR-0104](../adr/ADR-0104-native-mission-go-authority-cutover.md)
 defines the parity, single-writer, and rollback boundaries.
 
+### Independent review and continuation
+
+A completion handoff can now bind the Go set, acceptance, input/result Atlas,
+Project Cut, Git commit/tree, Episode/proof roots, known gaps, and evidence
+availability:
+
+```sh
+kungfu atlas claim-completion <mission-id> <goal-id> \
+  --statement <claim> --actor <claimant> --evidence-episode <id> \
+  --acceptance-root sha256:<root> \
+  --input-atlas-root sha256:<root> \
+  --result-atlas-root sha256:<root> \
+  --project-cut-root sha256:<root> \
+  --git-commit <full-sha> --proof-root sha256:<root> --json
+kungfu atlas review-completion <mission-id> <goal-id> \
+  --reviewer <different-actor> --reviewer-source <session-or-provider> \
+  --follow-up '<json>' --json
+kungfu atlas decide-continuation <mission-id> <goal-id> <review-id> \
+  --expected-review-root sha256:<root> \
+  --expected-plan-root sha256:<root> \
+  --action create-follow-up --actor <actor> --reason <reason> --json
+```
+
+Review rejects the claimant as reviewer, runs a purpose-bound Assessment
+Episode, and seals a TrustReport plus continuation plan. Its verdict is one of
+`fit`, `partial`, `insufficient`, `conflicted`, `stale`, or `unverifiable`.
+Thin evidence can establish ordinary settled-history acceptance while
+unavailable full replay or forensic material remains an explicit capability
+contraction and evidence request.
+
+Continuation is stale-safe: both the review and plan roots must match. An agent
+may create at most six declared mechanical follow-up Go rows. Mission,
+authority, privacy, security, public-claim, irreversible, and stop decisions
+require a human actor. Review and decision are distinct versioned records on the
+existing v3 completion-claim surface, preserving the materialized KFD-1 fact
+register while retaining their own actors, Episodes, payloads, and roots.
+[ADR-0105](../adr/ADR-0105-independent-review-and-exact-continuation.md)
+defines the independence, evidence, and continuation policy.
+
 ## Storage and portability
 
 Project workspace state lives under its resolved `<project>/.kungfu/`; the
@@ -361,6 +400,9 @@ The first implementation target is intentionally narrow:
    a fresh data root (**implemented for full and thin local bundles**).
 8. prove Atlas/imported-fact parity, cut over to one native writer, and retain
    an exact append-only rollback path (**implemented**).
+9. bind a root-complete Completion Claim to an independent six-state review and
+   exact bounded continuation plan across CLI, Agent, and GUI
+   (**implemented**).
 
 This slice does not require a general ontology, unrestricted rule engine,
 cloud-only control plane, or full visual query builder.

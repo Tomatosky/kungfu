@@ -379,6 +379,43 @@ export type AtlasCompletionClaimWrite = {
   };
 };
 
+export type AtlasIndependentReview = {
+  schema: 'kungfu.mission-control.independent-review/v1';
+  review_root: string;
+  continuation_plan_root: string;
+  review: {
+    review_id: string;
+    claim_id: string;
+    claimant: string;
+    reviewer: string;
+    reviewer_source: string;
+    verdict:
+      | 'fit'
+      | 'partial'
+      | 'insufficient'
+      | 'conflicted'
+      | 'stale'
+      | 'unverifiable';
+    findings: string[];
+    continuation_plan: {
+      allowed_actions: string[];
+      evidence_requests: Array<Record<string, string>>;
+      followups: Array<Record<string, unknown>>;
+    };
+  };
+  trust_report: AtlasMissionControlReport;
+};
+
+export type AtlasContinuationDecision = {
+  schema: 'kungfu.mission-control.continuation-decision/v1';
+  decision: {
+    decision_id: string;
+    review_id: string;
+    action: string;
+  };
+  created_followups: AtlasGoWrite[];
+};
+
 export type AtlasGoalFilter = {
   status?: string;
   missionId?: string;
@@ -462,6 +499,20 @@ export type Atlas = {
       actor: string;
       actorType?: 'user' | 'agent';
       evidenceEpisodeIds?: string[];
+      goSet?: string[];
+      acceptanceRoot?: string;
+      inputAtlasRoot?: string;
+      resultAtlasRoot?: string;
+      projectCutRoot?: string;
+      gitCommit?: string;
+      gitTreeRoot?: string;
+      proofRoots?: string[];
+      knownGaps?: string[];
+      evidenceAvailability?: Array<{
+        acceptance: string;
+        level: 'thin' | 'full';
+        state: 'available' | 'unavailable' | 'missing';
+      }>;
     },
   ) => Promise<AtlasCompletionClaimWrite>;
   assessCompletion: (
@@ -474,6 +525,32 @@ export type Atlas = {
     goalId: string,
     options?: { source?: string; purpose?: string; authorizedBy?: string },
   ) => Promise<AtlasMissionControlReport>;
+  reviewCompletion: (
+    missionId: string,
+    goalId: string,
+    input: {
+      reviewer: string;
+      reviewerSource: string;
+      source?: string;
+      purpose?: string;
+      proposedFollowups?: Array<Record<string, unknown>>;
+    },
+  ) => Promise<AtlasIndependentReview>;
+  decideContinuation: (
+    missionId: string,
+    goalId: string,
+    input: {
+      reviewId: string;
+      expectedReviewRoot: string;
+      expectedPlanRoot: string;
+      action: string;
+      actor: string;
+      actorType?: 'user' | 'agent';
+      changeClass?: string;
+      source?: string;
+      reason: string;
+    },
+  ) => Promise<AtlasContinuationDecision>;
   goals: (filter?: AtlasGoalFilter) => AtlasGoal[];
   goal: (goalId: string) => AtlasGoal | null;
   markers: () => AtlasMarker[];
@@ -638,6 +715,18 @@ export function openMissionControlProfile(
           authorizedBy: assessment.authorizedBy,
         },
         assessment.authorizedBy ?? 'work-dashboard',
+      ),
+    reviewCompletion: (missionId, goalId, input) =>
+      authorize<AtlasIndependentReview>(
+        'review-completion',
+        { missionId, goalId, ...input },
+        input.reviewer,
+      ),
+    decideContinuation: (missionId, goalId, input) =>
+      authorize<AtlasContinuationDecision>(
+        'decide-continuation',
+        { missionId, goalId, ...input },
+        input.actor,
       ),
     goals: (filter = {}) => member<AtlasGoal[]>('goals', filter),
     goal: (goalId) =>

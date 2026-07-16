@@ -1036,6 +1036,167 @@ def test_mission_control_native_go_completion_claim_fails_closed_then_passes(
     assert cli_report["assessment_key"] == completed["assessment_key"]
 
 
+def test_independent_completion_review_and_exact_continuation(tmp_path):
+    runtime_dir = tmp_path / "runtime"
+    _activate_mission_profile(runtime_dir)
+    catalog_before = storage_service.fact_type_list(runtime_dir)
+    assert {row["id"] for row in catalog_before["fact_types"]} == {
+        "kungfu.mission-control.mission",
+        "kungfu.mission-control.go",
+        "kungfu.mission-control.completion-claim",
+    }
+    mission_control.create_mission(
+        str(runtime_dir),
+        mission_id="review-mission",
+        title="Review Mission",
+        intent="Prove chat-free independent review and continuation",
+        actor="mission-owner",
+        actor_type="user",
+    )
+    mission_control.create_go(
+        str(runtime_dir),
+        mission_id="review-mission",
+        goal_id="reviewed-go",
+        title="Reviewed Go",
+        objective="Produce one root-bound completion claim",
+        actor="agent-a",
+    )
+    rewind_reporting.begin_run(
+        str(runtime_dir),
+        run_id="reviewed-go-run",
+        provider="codex",
+        cwd=None,
+        work_id="reviewed-go",
+    )
+    rewind_reporting.end_run(
+        str(runtime_dir),
+        run_id="reviewed-go-run",
+        status="succeeded",
+        exit_code=0,
+    )
+    work_episode = next(
+        row
+        for row in storage_service.episode_list(runtime_dir)["episodes"]
+        if row["open"]["source"] == "rewind:reviewed-go-run"
+    )
+    root_a = "sha256:" + "a" * 64
+    root_b = "sha256:" + "b" * 64
+    claimed = mission_control.claim_completion(
+        str(runtime_dir),
+        mission_id="review-mission",
+        goal_id="reviewed-go",
+        statement="The exact cut is ready for independent review",
+        actor="agent-a",
+        evidence_episode_ids=[int(work_episode["episode_id"])],
+        go_set=["reviewed-go"],
+        acceptance_root=root_a,
+        input_atlas_root=root_a,
+        result_atlas_root=root_b,
+        project_cut_root=root_b,
+        git_commit="1" * 40,
+        git_tree_root=root_a,
+        proof_roots=[root_b],
+        known_gaps=["full replay evidence is not retained in the thin shadow"],
+        evidence_availability=[
+            {
+                "acceptance": "source and root inspection",
+                "level": "thin",
+                "state": "available",
+            },
+            {
+                "acceptance": "raw replay",
+                "level": "full",
+                "state": "unavailable",
+            },
+        ],
+    )
+    assert claimed["claim"]["project_cut_root"] == root_b
+    assert claimed["claim"]["git_commit"] == "1" * 40
+
+    with pytest.raises(ValueError, match="identity must differ"):
+        mission_control.review_completion(
+            str(runtime_dir),
+            mission_id="review-mission",
+            goal_id="reviewed-go",
+            reviewer="agent-a",
+            reviewer_source="new-session-a",
+        )
+
+    review = mission_control.review_completion(
+        str(runtime_dir),
+        mission_id="review-mission",
+        goal_id="reviewed-go",
+        reviewer="agent-b",
+        reviewer_source="new-session-b",
+        proposed_followups=[
+            {
+                "goal_id": "obtain-full-evidence",
+                "title": "Obtain full evidence",
+                "objective": "Fetch the exact raw replay material",
+                "why_created": "The independent review found a bounded full-evidence gap",
+                "depends_on": ["reviewed-go"],
+                "acceptance_root": root_b,
+            }
+        ],
+    )
+    assert review["review"]["verdict"] == "partial"
+    assert review["review"]["reviewer"] == "agent-b"
+    assert review["review_root"].startswith("sha256:")
+    assert review["continuation_plan_root"].startswith("sha256:")
+    assert review["receipt"]["episode_id"]
+
+    with pytest.raises(ValueError, match="review changed"):
+        mission_control.decide_continuation(
+            str(runtime_dir),
+            mission_id="review-mission",
+            goal_id="reviewed-go",
+            review_id=review["review"]["review_id"],
+            expected_review_root=root_a,
+            expected_plan_root=review["continuation_plan_root"],
+            action="create-follow-up",
+            actor="agent-c",
+            reason="continue the bounded evidence gap",
+        )
+    with pytest.raises(ValueError, match="human-decision-required"):
+        mission_control.decide_continuation(
+            str(runtime_dir),
+            mission_id="review-mission",
+            goal_id="reviewed-go",
+            review_id=review["review"]["review_id"],
+            expected_review_root=review["review_root"],
+            expected_plan_root=review["continuation_plan_root"],
+            action="create-follow-up",
+            actor="agent-c",
+            change_class="mission",
+            reason="attempt to change the Mission",
+        )
+    decision = mission_control.decide_continuation(
+        str(runtime_dir),
+        mission_id="review-mission",
+        goal_id="reviewed-go",
+        review_id=review["review"]["review_id"],
+        expected_review_root=review["review_root"],
+        expected_plan_root=review["continuation_plan_root"],
+        action="create-follow-up",
+        actor="agent-c",
+        reason="continue the bounded evidence gap",
+    )
+    assert decision["decision"]["action"] == "create-follow-up"
+    assert [row["go_subject"] for row in decision["created_followups"]] == [
+        "kungfu:obtain-full-evidence"
+    ]
+    state = mission_control.query_state(str(runtime_dir), mission_id="review-mission")
+    assert len(state["claims"]) == 1
+    assert len(state["reviews"]) == 2
+    assert {row["fact_surface_id"] for row in state["reviews"]} == {
+        "kungfu.mission-control.completion-claim"
+    }
+    assert any(
+        row["payload"]["record"].get("goal_id") == "obtain-full-evidence"
+        for row in state["goals"]
+    )
+
+
 def test_native_only_workspace_keeps_optional_atlas_projection_stdout_clean(
     tmp_path, capfd
 ):
