@@ -3,6 +3,7 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
@@ -41,4 +42,28 @@ test('focused measurement rejects invalid capability JSON before execution', () 
   });
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /must be JSON/);
+});
+
+test('focused measurement job budget covers the heaviest Gate with headroom', () => {
+  const registry = JSON.parse(
+    fs.readFileSync(new URL('../shifu.gates.json', import.meta.url), 'utf8'),
+  );
+  const workflow = fs.readFileSync(
+    new URL('../.github/workflows/gate-measurement.yml', import.meta.url),
+    'utf8',
+  );
+  const focusedJob = workflow.match(
+    /\n {2}focused:\n([\s\S]*?)(?=\n {2}[a-zA-Z0-9_-]+:\n|$)/,
+  );
+  assert.ok(focusedJob, 'focused measurement job must exist');
+  const timeout = focusedJob[1].match(/(?:^|\n) {4}timeout-minutes: (\d+)\n/);
+  assert.ok(timeout, 'focused measurement job must declare timeout-minutes');
+  const jobBudgetSeconds = Number(timeout[1]) * 60;
+  const heaviestGateSeconds = Math.max(
+    ...registry.gates.map((gate) => gate.cost.timeoutSeconds),
+  );
+  assert.ok(
+    jobBudgetSeconds >= heaviestGateSeconds + 2 * 60 * 60,
+    'focused measurement job must leave at least two hours beyond the heaviest Gate action',
+  );
 });
