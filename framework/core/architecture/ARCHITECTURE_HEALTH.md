@@ -24,11 +24,9 @@ Authority root: `sha256:9b6caf6cff53bd39414b29a2d5a2a921eb4514d97d3f0d8f112fd3c2
 | `maximum_component_fanout` | 11 | 11 | 11 | blocking |
 | `maximum_public_header_propagation` | 12 | 12 | 12 | blocking |
 | `maximum_responsibility_utilization_percent` | 93 | 93 | 100 | blocking |
-| `maximum_component_churn` | 320 | 319 | 319 | advisory: Historical coupling is diagnostic; ordinary development must not be blocked by commit volume alone. |
+| `maximum_component_churn` | 319 | 319 | 319 | advisory: Historical coupling is diagnostic; ordinary development must not be blocked by commit volume alone. |
 | `affected_native_duration_ms` | 610610 | 610610 | 1200000 | blocking |
 | `binary_size_bytes` | unknown | unknown | advisory | advisory: PR source authority has no stable packaged artifact; release qualification retains binary-size evidence. |
 | `external_dependency_closure` | 8 | 8 | 12 | blocking |
 
-Observations:
-- maximum_component_churn: 320 exceeds budget 319
-- maximum_component_churn: 320 regressed from baseline 319
+Observations: none.
