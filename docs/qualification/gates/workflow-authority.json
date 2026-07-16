@@ -639,7 +639,7 @@
           "authority": "qualification",
           "publication": "none",
           "receipt": "diagnostic",
-          "definitionDigest": "sha256:e80186fd6a853c52537b4100802c744d068fa2b2c36dc7caa928c47f6c55f496",
+          "definitionDigest": "sha256:f03b102d6e6f70d3dcaf5e9cece6c4a248688afde3a3b2e564889cec30ad1002",
           "credentials": {
             "githubToken": "read",
             "oidc": false,
@@ -671,7 +671,7 @@
               "index": 4,
               "label": "name:Setup Rust toolchain",
               "authority": "qualification",
-              "definitionDigest": "sha256:ae5a6ece593e6d04413e7f8d022a5a2499eb405410c1a842b0470fbe8500cca5"
+              "definitionDigest": "sha256:1312c00103036bd30fe047e2e0f1da1802041b023d1849ca32bcfe16bcaa239f"
             },
             {
               "index": 5,

@@ -135,10 +135,14 @@ jobs:
           RUSTUP_UPDATE_ROOT: https://rsproxy.cn/rustup
         run: |
           set -euo pipefail
-          if ! rustup toolchain list | grep -q '^1\.96\.0'; then
-            rustup toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy
+          cargo_bin="${CARGO_HOME:-$HOME/.cargo}/bin"
+          rustup_bin="$cargo_bin/rustup"
+          test -x "$rustup_bin"
+          if ! "$rustup_bin" toolchain list | grep -q '^1\.96\.0'; then
+            "$rustup_bin" toolchain install 1.96.0 --profile minimal --component rustfmt --component clippy
           fi
-          rustup run 1.96.0 rustc --version
+          "$rustup_bin" run 1.96.0 rustc --version
+          printf '%s\n' "$cargo_bin" >>"$GITHUB_PATH"
           printf 'RUSTUP_TOOLCHAIN=1.96.0\n' >>"$GITHUB_ENV"
 
       - name: Run focused Gate measurement

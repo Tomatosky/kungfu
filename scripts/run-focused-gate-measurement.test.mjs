@@ -87,4 +87,9 @@ test('focused measurement bootstraps without remote Action downloads', () => {
     /KUNGFU_GATE_RECEIPT_BASE64=/,
     'focused measurement must retain a log-recoverable receipt',
   );
+  assert.match(
+    focusedJob[1],
+    /rustup_bin="\$cargo_bin\/rustup"/,
+    'Unix focused measurement must bind the runner user rustup explicitly',
+  );
 });
