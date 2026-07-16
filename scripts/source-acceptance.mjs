@@ -172,6 +172,15 @@ export function sourceAcceptancePlan(files) {
       '--self-test',
     ],
     [
+      'core architecture query and health contract',
+      'framework/core/architecture/query-health.mjs',
+    ],
+    [
+      'core architecture query negative and navigation fixtures',
+      'framework/core/architecture/query-health.mjs',
+      '--self-test',
+    ],
+    [
       'core build capability contract',
       'framework/core/architecture/check-build-capabilities.mjs',
     ],
@@ -197,6 +206,7 @@ export function sourceAcceptancePlan(files) {
       'Project Cut settlement contract',
       'scripts/check-project-cut-settlement.mjs',
     ],
+    ['Project Cut history contract', 'scripts/check-project-cut-history.mjs'],
     [
       'durability production-candidate admission',
       'scripts/check-durability-production-candidate.mjs',
@@ -243,6 +253,7 @@ export function sourceAcceptancePlan(files) {
         'scripts/check-project-cut-contract.test.mjs',
         'scripts/check-git-episode-provider.test.mjs',
         'scripts/check-project-cut-settlement.test.mjs',
+        'scripts/check-project-cut-history.test.mjs',
         'framework/agent-session/tests/capsule-host.test.mjs',
         'framework/agent-session/tests/peer-transport.test.mjs',
         'framework/agent-session/tests/runtime-port.test.mjs',
