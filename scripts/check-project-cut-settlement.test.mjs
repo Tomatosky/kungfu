@@ -243,8 +243,37 @@ test('commit observe preserves sealed-unpublished state, then proves publication
     applied.cut.cutRoot,
   );
 
-  const receiptPath = applied.plan.outputs.find((entry) =>
-    entry.endsWith('/receipt.json'),
+  fs.writeFileSync(path.join(root, 'src', 'app.txt'), 'v2\n');
+  git(root, 'add', 'src/app.txt');
+  const successor = prepareSettlement(
+    root,
+    { ...request(), parentCutRoots: [applied.cut.cutRoot] },
+    { execute: true, stage: true },
+  );
+  assert.equal(
+    verifySettlement(root, successor.statePath, { execute: true }).ok,
+    true,
+  );
+  git(root, 'commit', '-qm', 'test: publish successor project cut');
+  assert.equal(
+    observeSettlementCommit(root, successor.statePath, 'HEAD', {
+      execute: true,
+    }).ok,
+    true,
+  );
+  const history = reconcileCommit(root, 'HEAD');
+  assert.equal(history.ok, true, JSON.stringify(history.diagnostics));
+  assert.equal(history.cuts.length, 2);
+  assert.equal(
+    history.cuts.find((row) => row.cutRoot === applied.cut.cutRoot)
+      .sourceProjectionRoot,
+    applied.cut.sourceProjection.root,
+  );
+
+  const receiptPath = applied.plan.outputs.find(
+    (entry) =>
+      entry.startsWith('.kungfu/project-cuts/sha256/') &&
+      entry.endsWith('/receipt.json'),
   );
   const receipt = JSON.parse(
     fs.readFileSync(path.join(root, receiptPath), 'utf8'),

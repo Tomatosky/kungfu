@@ -2454,6 +2454,26 @@
       }
     },
     {
+      "id": "kungfu.workspace.import-full-evidence",
+      "name": "kungfu workspace import-full-evidence <path> --from <bundle> [--execute] --json",
+      "kind": "cli",
+      "participantProfile": "agent-or-developer",
+      "state": "declared",
+      "availability": "shipped",
+      "visibility": "public",
+      "participantFacing": true,
+      "public": true,
+      "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
+      "evidencePath": "framework/core/src/python/kungfu/agent/commands.json",
+      "artifactPath": "framework/core/src/python/kungfu/agent/commands.json",
+      "maturity": "experimental",
+      "declaration": {
+        "owner": "kungfu",
+        "source": "scripts/buildchain-kfd-evidence.mjs",
+        "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json"
+      }
+    },
+    {
       "id": "kungfu.workspace.inspect",
       "name": "kungfu workspace inspect --home --json",
       "kind": "cli",
@@ -2517,6 +2537,26 @@
       "id": "kungfu.workspace.push",
       "name": "kungfu workspace push --source-runtime <path> --destination-runtime <path> --episode-id <id> --json",
       "kind": "cli-api",
+      "participantProfile": "agent-or-developer",
+      "state": "declared",
+      "availability": "shipped",
+      "visibility": "public",
+      "participantFacing": true,
+      "public": true,
+      "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
+      "evidencePath": "framework/core/src/python/kungfu/agent/commands.json",
+      "artifactPath": "framework/core/src/python/kungfu/agent/commands.json",
+      "maturity": "experimental",
+      "declaration": {
+        "owner": "kungfu",
+        "source": "scripts/buildchain-kfd-evidence.mjs",
+        "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json"
+      }
+    },
+    {
+      "id": "kungfu.workspace.request-full-evidence",
+      "name": "kungfu workspace request-full-evidence <path> --json",
+      "kind": "cli",
       "participantProfile": "agent-or-developer",
       "state": "declared",
       "availability": "shipped",

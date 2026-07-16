@@ -5,8 +5,10 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   renameSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -41,6 +43,7 @@ const PROJECT_ID = /^[a-z0-9](?:[a-z0-9._/-]*[a-z0-9])?$/u;
 const SETTLEMENT_OUTPUT = '.kungfu/project-cuts';
 const SETTLEMENT_RUNTIME = '.kungfu/runtime/project-cut/settlements';
 const ATLAS_PROMOTIONS = '.xinfa/manifests/project-cuts';
+const ATLAS_BASELINES = '.xinfa/baselines/sha256';
 const SUPPORTED_VISIBILITIES = new Set(['public', 'internal', 'restricted']);
 const CONTRACT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SUPPORTED_STATES = new Set([
@@ -101,6 +104,48 @@ function writeImmutableJson(path, value) {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, bytes, { encoding: 'utf8', mode: 0o644 });
   return 'created';
+}
+
+function relativeFiles(root, prefix = '') {
+  return readdirSync(resolve(root, prefix))
+    .sort((left, right) =>
+      Buffer.compare(Buffer.from(left), Buffer.from(right)),
+    )
+    .flatMap((name) => {
+      const relative = prefix ? `${prefix}/${name}` : name;
+      return statSync(resolve(root, relative)).isDirectory()
+        ? relativeFiles(root, relative)
+        : [relative];
+    });
+}
+
+function writeImmutableDirectory(source, destination) {
+  const expected = relativeFiles(source);
+  if (!existsSync(destination)) {
+    mkdirSync(dirname(destination), { recursive: true });
+    cpSync(source, destination, { recursive: true });
+    return 'created';
+  }
+  const current = relativeFiles(destination);
+  if (canonicalJson(current) !== canonicalJson(expected))
+    throw failure(
+      'immutable-collision',
+      'content-addressed directory differs',
+      {
+        destination,
+      },
+    );
+  for (const relative of expected) {
+    if (
+      !readFileSync(resolve(source, relative)).equals(
+        readFileSync(resolve(destination, relative)),
+      )
+    )
+      throw failure('immutable-collision', 'content-addressed file differs', {
+        path: resolve(destination, relative),
+      });
+  }
+  return 'reused';
 }
 
 function readRootJson(path) {
@@ -666,11 +711,22 @@ export function prepareSettlement(rootInput, requestInput, options = {}) {
     const promotion = atlasPromotion(atlas);
     const promotionPath = `${ATLAS_PROMOTIONS}/${promotion.atlasRoot.slice(7)}.json`;
     const promotionBytes = Buffer.from(`${canonicalJson(promotion)}\n`, 'utf8');
+    const atlasBaselineDirectory = `${ATLAS_BASELINES}/${promotion.atlasRoot.slice(7)}`;
+    const atlasBaselinePaths = relativeFiles(atlasOutput).map(
+      (path) => `${atlasBaselineDirectory}/${path}`,
+    );
     const episodes = episodeMaterial(stagedRoot, request);
     const indexBefore = stagedPaths(root);
+    const trackedBefore = new Set(entries.map((entry) => entry.path));
     const source = buildSourceProjection(
       sourceInput(root, request, policy, entries, [
         { path: promotionPath, bytes: promotionBytes },
+        ...atlasBaselinePaths.map((path) => ({
+          path,
+          bytes: readFileSync(
+            resolve(atlasOutput, path.slice(atlasBaselineDirectory.length + 1)),
+          ),
+        })),
       ]),
       policy,
     );
@@ -736,14 +792,19 @@ export function prepareSettlement(rootInput, requestInput, options = {}) {
       ),
       indexTreeOid,
       unstagedPaths: unstagedPaths(root),
-      outputs: [promotionPath, cutPath, receiptPath],
+      outputs: [promotionPath, ...atlasBaselinePaths, cutPath, receiptPath],
       effects: [
         { kind: 'write', path: promotionPath },
+        ...atlasBaselinePaths.map((path) => ({ kind: 'write', path })),
         { kind: 'write', path: cutPath },
         { kind: 'write', path: receiptPath },
         ...(options.stage
           ? [
               { kind: 'git-add-explicit', path: promotionPath },
+              ...atlasBaselinePaths.map((path) => ({
+                kind: 'git-add-explicit',
+                path,
+              })),
               { kind: 'git-add-explicit', path: cutPath },
               { kind: 'git-add-explicit', path: receiptPath },
             ]
@@ -755,18 +816,29 @@ export function prepareSettlement(rootInput, requestInput, options = {}) {
     let state = null;
     if (options.execute) {
       writeImmutableJson(resolve(root, promotionPath), promotion);
+      writeImmutableDirectory(
+        atlasOutput,
+        resolve(root, atlasBaselineDirectory),
+      );
       writeImmutableJson(resolve(root, cutPath), cut);
       writeImmutableJson(resolve(root, receiptPath), cutReceipt);
       if (options.stage)
-        git(root, ['add', '--', promotionPath, cutPath, receiptPath]);
+        git(root, [
+          'add',
+          '--',
+          promotionPath,
+          ...atlasBaselinePaths,
+          cutPath,
+          receiptPath,
+        ]);
       const indexAfter = stagedPaths(root);
       const added = sortedUnique(
         [...indexAfter].filter((path) => !indexBefore.has(path)),
       );
       const expectedAdded = options.stage
         ? sortedUnique(
-            [promotionPath, cutPath, receiptPath].filter(
-              (path) => !indexBefore.has(path),
+            [promotionPath, ...atlasBaselinePaths, cutPath, receiptPath].filter(
+              (path) => !indexBefore.has(path) && !trackedBefore.has(path),
             ),
           )
         : [];
@@ -842,7 +914,11 @@ function stateFrom(root, statePath) {
 }
 
 function cutFromState(root, state) {
-  const path = state.outputs.find((entry) => entry.endsWith('/manifest.json'));
+  const path = state.outputs.find(
+    (entry) =>
+      entry.startsWith(`${SETTLEMENT_OUTPUT}/sha256/`) &&
+      entry.endsWith('/manifest.json'),
+  );
   if (!path) throw failure('missing-cut', 'settlement state has no cut path');
   return { path, cut: readRootJson(resolve(root, path)) };
 }
@@ -882,8 +958,10 @@ function verifyAgainstEntries(root, state, entries, mode) {
     availableParentRoots: cut.parentCutRoots,
   });
   diagnostics.push(...cutResult.diagnostics);
-  const receiptPath = state.outputs.find((entry) =>
-    entry.endsWith('/receipt.json'),
+  const receiptPath = state.outputs.find(
+    (entry) =>
+      entry.startsWith(`${SETTLEMENT_OUTPUT}/sha256/`) &&
+      entry.endsWith('/receipt.json'),
   );
   const cutBytes = readFileSync(resolve(root, cutFromState(root, state).path));
   const receipt = readRootJson(resolve(root, receiptPath));
@@ -908,6 +986,7 @@ function verifyAgainstEntries(root, state, entries, mode) {
 export function verifySettlement(rootInput, statePath, options = {}) {
   const root = repositoryRoot(rootInput);
   const state = stateFrom(root, statePath);
+  const indexed = new Set(indexEntries(root).map((entry) => entry.path));
   const result = verifyAgainstEntries(
     root,
     state,
@@ -915,7 +994,7 @@ export function verifySettlement(rootInput, statePath, options = {}) {
     'staged',
   );
   for (const path of state.outputs) {
-    if (!stagedPaths(root).has(path))
+    if (!indexed.has(path))
       result.diagnostics.push({
         code: 'candidate-not-staged',
         path,
@@ -1179,6 +1258,19 @@ export function reconcileCommit(rootInput, commitInput) {
       path: '$',
       detail: 'commit contains no Project Cut',
     });
+  const parsedCutValues = paths.flatMap((path) => {
+    try {
+      return [parseRootJson(byPath.get(path).toString('utf8'))];
+    } catch {
+      return [];
+    }
+  });
+  const availableCutRoots = sortedUnique(
+    parsedCutValues.map((cut) => cut.cutRoot),
+  );
+  const referencedParentRoots = new Set(
+    parsedCutValues.flatMap((cut) => cut.parentCutRoots),
+  );
   const cuts = paths
     .map((path) => {
       let cut;
@@ -1193,7 +1285,7 @@ export function reconcileCommit(rootInput, commitInput) {
         return null;
       }
       const result = verifyProjectCut(cut, {
-        availableParentRoots: cut.parentCutRoots,
+        availableParentRoots: availableCutRoots,
       });
       diagnostics.push(
         ...result.diagnostics.map((entry) => ({
@@ -1215,7 +1307,7 @@ export function reconcileCommit(rootInput, commitInput) {
           );
           diagnostics.push(
             ...verifyProjectCutReceipt(receipt, cut, byPath.get(path), {
-              availableParentRoots: cut.parentCutRoots,
+              availableParentRoots: availableCutRoots,
             }).diagnostics.map((entry) => ({
               ...entry,
               path: `${receiptPath}:${entry.path}`,
@@ -1255,7 +1347,8 @@ export function reconcileCommit(rootInput, commitInput) {
         sourceInput(root, request, policy, entries),
         policy,
       ).projection;
-      if (projection.root !== cut.sourceProjection.root)
+      const isLeaf = !referencedParentRoots.has(cut.cutRoot);
+      if (isLeaf && projection.root !== cut.sourceProjection.root)
         diagnostics.push({
           code: 'source-drift',
           path,
@@ -1264,7 +1357,9 @@ export function reconcileCommit(rootInput, commitInput) {
       return {
         path,
         cutRoot: cut.cutRoot,
-        sourceProjectionRoot: projection.root,
+        sourceProjectionRoot: isLeaf
+          ? projection.root
+          : cut.sourceProjection.root,
       };
     })
     .filter(Boolean);

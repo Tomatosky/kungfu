@@ -6,15 +6,15 @@
   "supportLevel": "release",
   "source": {
     "cwd": ".",
-    "sourceSha": "e91d5b659f00bb84026c0c83da54976358517044",
+    "sourceSha": "d76ac27a9288ae451d367901b88fc00510a3a989",
     "registryPath": ".buildchain/kfd/kfd-3/surfaces.json",
-    "registryDigest": "sha256:2e464677c1c9bd3f981846539a9732d6d7798a1e52896190518b06f872beb0f5"
+    "registryDigest": "sha256:8f36aa5399cdf004185161d179c82d1e3d2a84841b72e5e45166d455c9428074"
   },
   "sourceRegistry": {
     "id": "kungfu",
     "path": ".buildchain/kfd/kfd-3/surfaces.json",
-    "sha256": "f4bbb3a8ea4fe65f525be701f15c83719116e6b3b380e72a15b7345f1645df82",
-    "digest": "sha256:2e464677c1c9bd3f981846539a9732d6d7798a1e52896190518b06f872beb0f5"
+    "sha256": "2f6421083f3e487b5e9e455e58924cfdb37a939fb5c5e720d2dd832ea9b7f3f4",
+    "digest": "sha256:8f36aa5399cdf004185161d179c82d1e3d2a84841b72e5e45166d455c9428074"
   },
   "upstreamKfd": {
     "aggregatePath": "developer/sdk/kfd/upstream-aggregate.json",
@@ -34,7 +34,7 @@
   "expectedArtifactVerification": {
     "command": "node scripts/buildchain-kfd-evidence.mjs --artifact-witness --json"
   },
-  "collaborationInterfaceDigest": "sha256:a5da1f20ea5cbc7a5ef752a542979ad605b84f83512b926ab3009a3d1b243d68",
+  "collaborationInterfaceDigest": "sha256:4e1fb7d812576f4c3ad5d497016d953afce430edcff294e39115f8876c2cc206",
   "collaborationInterface": {
     "schemaVersion": 1,
     "contract": "kungfu-buildchain-kfd-3-surface-registry",
@@ -2446,6 +2446,26 @@
         }
       },
       {
+        "id": "kungfu.workspace.import-full-evidence",
+        "name": "kungfu workspace import-full-evidence <path> --from <bundle> [--execute] --json",
+        "kind": "cli",
+        "participantProfile": "agent-or-developer",
+        "state": "declared",
+        "availability": "shipped",
+        "visibility": "public",
+        "participantFacing": true,
+        "public": true,
+        "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
+        "evidencePath": "framework/core/src/python/kungfu/agent/commands.json",
+        "artifactPath": "framework/core/src/python/kungfu/agent/commands.json",
+        "maturity": "experimental",
+        "declaration": {
+          "owner": "kungfu",
+          "source": "scripts/buildchain-kfd-evidence.mjs",
+          "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json"
+        }
+      },
+      {
         "id": "kungfu.workspace.inspect",
         "name": "kungfu workspace inspect --home --json",
         "kind": "cli",
@@ -2526,6 +2546,26 @@
         }
       },
       {
+        "id": "kungfu.workspace.request-full-evidence",
+        "name": "kungfu workspace request-full-evidence <path> --json",
+        "kind": "cli",
+        "participantProfile": "agent-or-developer",
+        "state": "declared",
+        "availability": "shipped",
+        "visibility": "public",
+        "participantFacing": true,
+        "public": true,
+        "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
+        "evidencePath": "framework/core/src/python/kungfu/agent/commands.json",
+        "artifactPath": "framework/core/src/python/kungfu/agent/commands.json",
+        "maturity": "experimental",
+        "declaration": {
+          "owner": "kungfu",
+          "source": "scripts/buildchain-kfd-evidence.mjs",
+          "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json"
+        }
+      },
+      {
         "id": "kungfu.workspace.start-continuation",
         "name": "kungfu workspace ensure <path> --reason start-continuation --json",
         "kind": "cli",
@@ -2568,8 +2608,8 @@
     ],
     "audit": {
       "status": "passed",
-      "declared": 124,
-      "artifactPublic": 124,
+      "declared": 126,
+      "artifactPublic": 126,
       "policy": {
         "sourceOfTruth": ".buildchain/kfd/kfd-3/surfaces.json",
         "detectedButUnregistered": "product-specific-audit",
@@ -4967,6 +5007,26 @@
       }
     },
     {
+      "id": "kungfu.workspace.import-full-evidence",
+      "name": "kungfu workspace import-full-evidence <path> --from <bundle> [--execute] --json",
+      "kind": "cli",
+      "participantProfile": "agent-or-developer",
+      "state": "declared",
+      "availability": "shipped",
+      "visibility": "public",
+      "participantFacing": true,
+      "public": true,
+      "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
+      "evidencePath": "framework/core/src/python/kungfu/agent/commands.json",
+      "artifactPath": "framework/core/src/python/kungfu/agent/commands.json",
+      "maturity": "experimental",
+      "declaration": {
+        "owner": "kungfu",
+        "source": "scripts/buildchain-kfd-evidence.mjs",
+        "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json"
+      }
+    },
+    {
       "id": "kungfu.workspace.inspect",
       "name": "kungfu workspace inspect --home --json",
       "kind": "cli",
@@ -5030,6 +5090,26 @@
       "id": "kungfu.workspace.push",
       "name": "kungfu workspace push --source-runtime <path> --destination-runtime <path> --episode-id <id> --json",
       "kind": "cli-api",
+      "participantProfile": "agent-or-developer",
+      "state": "declared",
+      "availability": "shipped",
+      "visibility": "public",
+      "participantFacing": true,
+      "public": true,
+      "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
+      "evidencePath": "framework/core/src/python/kungfu/agent/commands.json",
+      "artifactPath": "framework/core/src/python/kungfu/agent/commands.json",
+      "maturity": "experimental",
+      "declaration": {
+        "owner": "kungfu",
+        "source": "scripts/buildchain-kfd-evidence.mjs",
+        "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json"
+      }
+    },
+    {
+      "id": "kungfu.workspace.request-full-evidence",
+      "name": "kungfu workspace request-full-evidence <path> --json",
+      "kind": "cli",
       "participantProfile": "agent-or-developer",
       "state": "declared",
       "availability": "shipped",

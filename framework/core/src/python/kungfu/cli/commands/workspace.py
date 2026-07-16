@@ -11,8 +11,10 @@ from kungfu.cli.commands import PrioritizedCommandGroup, kfc
 from kungfu.workspace import (
     current_workspace,
     ensure_workspace_data_home,
+    import_full_evidence,
     inspect_workspace,
     load_workspace_registry,
+    request_full_evidence,
     select_workspace,
 )
 from kungfu.workspace_guidance import (
@@ -276,6 +278,55 @@ def ensure(path, home, reason, as_json):
         _json(payload)
         return
     click.echo("initialized" if payload["initialized"] else "already initialized")
+
+
+@workspace.command(
+    name="request-full-evidence",
+    help="plan an exact full-evidence request without creating runtime state",
+)
+@click.argument("path")
+@click.option("--episode-root", "episode_roots", multiple=True)
+@click.option("--project-cut-root", "project_cut_roots", multiple=True)
+@click.option("--json", "as_json", is_flag=True, help="machine-readable output")
+def request_full_evidence_cmd(path, episode_roots, project_cut_roots, as_json):
+    try:
+        payload = request_full_evidence(
+            _identity_or_error(path, False),
+            episode_roots=list(episode_roots),
+            project_cut_roots=list(project_cut_roots),
+        )
+    except (OSError, ValueError) as error:
+        raise click.ClickException(str(error)) from error
+    if as_json:
+        _json(payload)
+        return
+    click.echo(
+        f"{payload['plan_root']} · missing={len(payload['missing_episode_roots'])}"
+    )
+
+
+@workspace.command(
+    name="import-full-evidence",
+    help="validate or import one full Episode bundle for settled history",
+)
+@click.argument("path")
+@click.option("--from", "bundle_path", type=click.Path(dir_okay=False), required=True)
+@click.option("--execute", is_flag=True, help="materialize the validated bundle")
+@click.option("--json", "as_json", is_flag=True, help="machine-readable output")
+def import_full_evidence_cmd(path, bundle_path, execute, as_json):
+    try:
+        payload = import_full_evidence(
+            _identity_or_error(path, False), bundle_path, execute=execute
+        )
+    except (OSError, ValueError) as error:
+        raise click.ClickException(str(error)) from error
+    if as_json:
+        _json(payload)
+        return
+    if execute:
+        click.echo(f"{payload['receipt']['receipt_root']} · imported")
+    else:
+        click.echo(f"{payload['plan_root']} · validated")
 
 
 @workspace.command(name="inspect-guidance", help="inspect project-gravity facts")

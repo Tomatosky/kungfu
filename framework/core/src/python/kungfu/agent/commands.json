@@ -170,6 +170,18 @@
       "purpose": "Create local runtime authority only after explicit continuation intent; a shadow-only inspection never invokes this action."
     },
     {
+      "apiId": "kungfu.workspace.request-full-evidence",
+      "name": "kungfu workspace request-full-evidence <path> --json",
+      "maturity": "experimental",
+      "purpose": "Produce an exact read-only request for full Episode evidence missing from a settled Git shadow."
+    },
+    {
+      "apiId": "kungfu.workspace.import-full-evidence",
+      "name": "kungfu workspace import-full-evidence <path> --from <bundle> [--execute] --json",
+      "maturity": "experimental",
+      "purpose": "Validate or explicitly import a full Episode bundle whose semantic root is already bound by settled history."
+    },
+    {
       "apiId": "kungfu.workspace.advise",
       "name": "kungfu workspace advise --home --source <path> --json",
       "maturity": "experimental",

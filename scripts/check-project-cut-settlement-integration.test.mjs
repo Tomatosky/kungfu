@@ -254,6 +254,11 @@ test('public runtime Episode seals and settles from a fresh checkout', (t) => {
     stage: true,
   });
   assert.equal(result.ok, true);
+  const retainedBaseline = `.xinfa/baselines/sha256/${result.cut.atlas.root.slice(7)}`;
+  assert.ok(
+    result.plan.outputs.includes(`${retainedBaseline}/atlas.json`),
+    'settlement must stage the full successor Atlas baseline',
+  );
   assert.equal(
     result.cut.episodeDelta.nativeRoots[0].root,
     plannedSeal.providerRoot,
@@ -269,7 +274,39 @@ test('public runtime Episode seals and settles from a fresh checkout', (t) => {
   assert.equal(published.ok, true);
   assert.equal(published.state.status, 'published');
 
+  // Reproduce an old settlement that published the Cut and promotion before
+  // successor Atlas retention was introduced. Repair must add only the missing
+  // baseline while accepting the already-indexed immutable outputs.
+  run(root, 'git', ['rm', '-qr', '--', retainedBaseline]);
+  run(root, 'git', [
+    'commit',
+    '-qm',
+    'test: model legacy settlement without retained Atlas',
+  ]);
+  const repaired = prepareSettlement(root, request, {
+    xinfaBin: BINARY,
+    execute: true,
+    stage: true,
+  });
+  assert.equal(repaired.ok, true);
+  assert.deepEqual(
+    run(root, 'git', ['diff', '--cached', '--name-only']).split('\n'),
+    repaired.plan.outputs
+      .filter((candidate) => candidate.startsWith(`${retainedBaseline}/`))
+      .sort(),
+  );
+  assert.equal(
+    verifySettlement(root, repaired.statePath, { execute: true }).ok,
+    true,
+  );
+  run(root, 'git', ['commit', '-qm', 'test: repair retained Atlas baseline']);
+
   run(root, 'git', ['clone', '-q', root, fresh]);
+  assert.equal(
+    fs.existsSync(path.join(fresh, retainedBaseline, 'atlas.json')),
+    true,
+    'a fresh clone must retain the successor Atlas needed by the next Cut',
+  );
   const reconciled = reconcileCommit(fresh, 'HEAD');
   assert.equal(reconciled.ok, true);
   assert.equal(reconciled.cuts[0].cutRoot, result.cut.cutRoot);

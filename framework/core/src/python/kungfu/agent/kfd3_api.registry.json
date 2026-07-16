@@ -315,6 +315,26 @@
       "projections": ["commands.json", "agent-pack-doc"]
     },
     {
+      "id": "kungfu.workspace.request-full-evidence",
+      "surface": "cli",
+      "name": "kungfu workspace request-full-evidence <path> --json",
+      "purpose": "Produce an exact read-only request for full Episode evidence missing from a settled Git shadow.",
+      "maturity": "experimental",
+      "visibility": "adjacent-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc"]
+    },
+    {
+      "id": "kungfu.workspace.import-full-evidence",
+      "surface": "cli",
+      "name": "kungfu workspace import-full-evidence <path> --from <bundle> [--execute] --json",
+      "purpose": "Validate or explicitly import a full Episode bundle whose semantic root is already bound by settled history.",
+      "maturity": "experimental",
+      "visibility": "adjacent-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc"]
+    },
+    {
       "id": "kungfu.workspace.advise",
       "surface": "cli",
       "name": "kungfu workspace advise --home --source <path> --json",
