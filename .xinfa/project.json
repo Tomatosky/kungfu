@@ -2,7 +2,7 @@
   "$schema": "https://xinfa.dev/schema/project-v1.schema.json",
   "schema": "xinfa.project/v1",
   "project": { "id": "kungfu-xinfa-dogfood", "title": "Kungfu Xinfa Dogfood Slice" },
-  "cut": { "id": "kungfu.dev-v4-v4.0", "revision": "sha256:ae02c18df41c50b00207f4d29ddde92512c3d81590bddd0b5ccf67d36d9a9806" },
+  "cut": { "id": "kungfu.dev-v4-v4.0", "revision": "sha256:05164b9418e06da117c5ac2b8515a03bef046639f0e7c54b33256751fef6b86d" },
   "roots": [{ "id": "repository", "path": ".", "visibility": "public" }],
   "providers": [{
     "id": "kungfu-xinfa-dogfood.files",
