@@ -460,15 +460,19 @@ function runSurfaceImpact(root, inventory, project, options) {
 
 /** @param {any} inventory @param {'human'|'agent'} audience @param {string} requested */
 function resolveReaderRoute(inventory, audience, requested) {
+  const exact = inventory.routes.filter(
+    (/** @type {any} */ candidate) =>
+      candidate.audience === audience && candidate.selection.mode === 'exact',
+  );
+  if (!requested && exact.length !== 1)
+    throw new Error(
+      `multiple exact ${audience} documentation routes are available; specify --route`,
+    );
   const route = requested
     ? inventory.routes.find(
         (/** @type {any} */ candidate) => candidate.id === requested,
       )
-    : inventory.routes.find(
-        (/** @type {any} */ candidate) =>
-          candidate.audience === audience &&
-          candidate.selection.mode === 'exact',
-      );
+    : exact[0];
   if (!route)
     throw new Error(`no ${audience} documentation route is available`);
   if (route.audience !== audience)

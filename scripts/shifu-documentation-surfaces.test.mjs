@@ -169,6 +169,24 @@ if (args[0] === 'atlas' && args[1] === 'compile') {
 `,
     );
     fs.chmodSync(binary, 0o755);
+    const ambiguous = spawnSync(
+      process.execPath,
+      [
+        SHIFU_MJS,
+        'docs',
+        'context',
+        '--task',
+        'change documentation adapter',
+        '--budget',
+        '2048',
+        '--xinfa',
+        binary,
+        '--json',
+      ],
+      { cwd: ROOT, encoding: 'utf8' },
+    );
+    assert.equal(ambiguous.status, 1);
+    assert.match(ambiguous.stderr, /multiple exact agent documentation routes/);
     const result = spawnSync(
       process.execPath,
       [
@@ -179,6 +197,8 @@ if (args[0] === 'atlas' && args[1] === 'compile') {
         'change documentation adapter',
         '--budget',
         '2048',
+        '--route',
+        'kungfu-documentation-control-agent',
         '--since',
         temporary,
         '--xinfa',
