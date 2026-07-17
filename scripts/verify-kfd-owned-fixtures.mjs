@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // SPDX-License-Identifier: Apache-2.0
 
+import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -14,6 +15,19 @@ const KFD_ROOT = path.dirname(
   fileURLToPath(import.meta.resolve('@kungfu-tech/kfd/package.json')),
 );
 const KFD_BIN = path.join(KFD_ROOT, 'bin', 'kfd.mjs');
+const KFD_ATLAS_FIXTURE = path.join(
+  KFD_ROOT,
+  'verifier',
+  'fixtures',
+  'xinfa',
+  'repository-small-atlas',
+);
+const XINFA_ATLAS_GOLDEN = path.join(
+  XINFA_ROOT,
+  'fixtures',
+  'golden',
+  'repository-small-atlas-v1.json',
+);
 
 function run(command, args, cwd = ROOT, env = process.env) {
   return execFileSync(command, args, {
@@ -70,16 +84,24 @@ try {
     '--json',
   ]);
 
-  const atlasOutput = path.join(temporary, 'atlas');
-  run(xinfaBinary, [
-    'atlas',
-    'compile',
-    '--project',
-    project,
-    '--output',
-    atlasOutput,
-    '--json',
-  ]);
+  const atlasGolden = JSON.parse(fs.readFileSync(XINFA_ATLAS_GOLDEN, 'utf8'));
+  const publishedAtlas = JSON.parse(
+    fs.readFileSync(path.join(KFD_ATLAS_FIXTURE, 'atlas.json'), 'utf8'),
+  );
+  const publishedManifest = JSON.parse(
+    fs.readFileSync(path.join(KFD_ATLAS_FIXTURE, 'manifest.json'), 'utf8'),
+  );
+  const publishedReceipt = JSON.parse(
+    fs.readFileSync(path.join(KFD_ATLAS_FIXTURE, 'receipt.json'), 'utf8'),
+  );
+  assert.equal(publishedAtlas.atlas_root, atlasGolden.atlas_root);
+  assert.equal(
+    publishedAtlas.roots.context_pack,
+    atlasGolden.context_pack_root,
+  );
+  assert.equal(publishedAtlas.roots.schema, atlasGolden.schema_root);
+  assert.equal(publishedManifest.manifest_root, atlasGolden.manifest_root);
+  assert.equal(publishedReceipt.receipt_root, atlasGolden.receipt_root);
 
   const episodeOutput = path.join(
     fixture,
@@ -92,7 +114,7 @@ try {
   );
   const profiles = {
     pack: verify('pack', packOutput),
-    atlas: verify('atlas', atlasOutput),
+    atlas: verify('atlas', KFD_ATLAS_FIXTURE),
     episode: verify('episode', episodeOutput),
   };
   console.log(
