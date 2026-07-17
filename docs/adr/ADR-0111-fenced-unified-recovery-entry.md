@@ -5,7 +5,7 @@ adr_id: ADR-0111
 decision_status: accepted
 implementation_status: partial
 implementation_commits: [9b4a7bffea1e039399b5fe28149b733d48cbb134]
-qualification_refs: [framework/runtime/kungfu-diagnostics.contract.json, scripts/check-health-diagnostics-contract.test.mjs, framework/core/tests/python/test_recovery.py, framework/core/tests/python/test_episode_control.py]
+qualification_refs: [framework/runtime/kungfu-diagnostics.contract.json, scripts/check-health-diagnostics-contract.test.mjs, framework/core/tests/python/test_recovery.py, framework/core/tests/python/test_episode_control.py, docs/qualification/unified-recovery.md]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -115,5 +115,7 @@ underlying fences.
 
 This decision does not promise unattended repair for unknown state, rollback
 across components, recovery from corrupted authoritative journals, or recovery
-from physical media loss. Those outcomes remain manual or require a different
-durability and restore contract.
+from physical media loss. The current entry is single-host: it does not provide
+cross-host ownership transfer, network-partition healing, distributed
+consensus, replication, or HA. Those outcomes remain manual or require a
+different distributed, durability, and restore contract.

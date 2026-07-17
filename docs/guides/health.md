@@ -70,8 +70,10 @@ plan. A command that can write still requires a separate explicit authorization.
   control, orphan, or unknown ownership reports the declared Peer identity and
   the read-only status command to run next.
 - An open Episode with a live writer is normal. A recent writer-less Episode is
-  degraded; a stale, proven-inactive Episode becomes action-required and links
-  only to `storage episode recover --plan`; unknown writer liveness is blocked.
+  degraded; a stale, proven-inactive Episode becomes action-required and points
+  first to `kungfu recover`. The lower-level
+  `storage episode recover --plan` command remains an advanced authority
+  inspection surface. Unknown writer liveness is blocked.
 - Deep storage findings distinguish rebuildable projection drift from failures
   in authoritative journals, manifests, payloads, or source heads.
 

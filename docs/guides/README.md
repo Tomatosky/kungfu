@@ -4,6 +4,9 @@ Use these documents to choose, operate, inspect, and extend a Kungfu runtime.
 They are task-oriented entry points; exact guarantees remain in
 [Qualification](../qualification/README.md).
 
+For ordinary local diagnosis and recovery, start with `kungfu health`, then
+review the plan from `kungfu recover`.
+
 - [Choose Your Kungfu](choose-your-kungfu.md)
 - [Load Verified Context for Agents](xinfa-agent-context.md)
 - [Check Kungfu Health](health.md)
