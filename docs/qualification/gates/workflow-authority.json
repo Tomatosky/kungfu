@@ -294,7 +294,7 @@
     {
       "path": ".github/workflows/core-build-profiles.yml",
       "authority": "qualification",
-      "definitionDigest": "sha256:3e5e6b4699933fb3c1ca94726ef490d4106a171ae0dd1b51fc453d7d4180180b",
+      "definitionDigest": "sha256:34c03b54cbe085fa521cbc9a676b68414100300ed6eae78264bf9f7393f4d1f6",
       "jobs": [
         {
           "id": "qualify",

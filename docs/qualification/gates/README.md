@@ -51,6 +51,16 @@ explains Kungfu's current policy and does not redefine Shifu semantics.
 | `release-promotion` | post-merge promotion rehearsal and Buildchain artifact/passport admission |
 | `measurement` | manual three-platform source-bound observation of every task-backed Gate; all selected actions are advisory and it never publishes |
 
+The separate `Core build profiles` workflow is an asynchronous diagnostic
+observer, not a policy profile or qualifying receipt source. It runs the
+`embedded-minimal` and `full` Core profiles on Linux, macOS, and Windows once
+per day or on explicit manual dispatch. It deliberately does not run for each
+development pull request: optional cross-platform observation must not occupy
+GitHub-hosted capacity ahead of the Linux required contexts or extend the dev
+merge critical path. Alpha and release qualification continue to require their
+declared three-platform Gate profiles; moving this observer off the PR event
+does not weaken those policies.
+
 `local-changed` is intentionally not a qualifying profile. Local diagnosis uses
 `./shifu gate run source.changed-scope` or an explicit list of Gate ids, and the
 result is non-qualifying by contract. Keeping it outside the remote profile
@@ -94,6 +104,13 @@ otherwise the machine verdict remains non-qualifying. Rebuild it with:
 ```sh
 ./shifu gate:latency:measure --branch dev/v4/v4.0 --limit 30
 ```
+
+Dev admission is intentionally narrower than asynchronous observation. The
+protected branch keeps the three Linux-hosted required contexts as its only
+merge-critical set. Daily/manual patrol and Core-profile workflows retain
+macOS, Windows, full-profile, and fault evidence without placing those optional
+jobs in front of required merge-group work. Alpha and release admission remain
+cross-platform and fail closed according to their own matrix rows.
 
 The command requires a read-only GitHub token through `GH_TOKEN` or
 `GITHUB_TOKEN`, or an authenticated `gh` client. It reads pull requests,
