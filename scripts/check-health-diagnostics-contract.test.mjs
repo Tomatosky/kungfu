@@ -118,7 +118,7 @@ test('fast mode contract excludes fsck and health source has no mutation calls',
   }
 });
 
-test('full-profile CI requires the native read-only fault matrix', () => {
+test('full-profile CI requires native health and preflight performance qualification', () => {
   const workflow = fs.readFileSync(
     path.join(ROOT, '.github/workflows/core-build-profiles.yml'),
     'utf8',
@@ -130,5 +130,7 @@ test('full-profile CI requires the native read-only fault matrix', () => {
   assert.match(workflow, /KUNGFU_HEALTH_REQUIRE_NATIVE: "1"/);
   assert.match(workflow, /\.\/shifu test:health-diagnostics/);
   assert.match(workflow, /shifu\.cmd test:health-diagnostics/);
+  assert.match(workflow, /\.\/shifu test:health-preflight-performance/);
+  assert.match(workflow, /shifu\.cmd test:health-preflight-performance/);
   assert.match(runner, /KUNGFU_HEALTH_REQUIRE_NATIVE !== '1'/);
 });
