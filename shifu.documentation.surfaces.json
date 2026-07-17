@@ -177,7 +177,7 @@
       "targetKind": "implementation",
       "targetPath": "scripts/shifu-documentation-surfaces.mjs",
       "relation": "explains",
-      "expectedRevision": "sha256:4c29a8891c9d631cbff3d694f68dcf9ee3b976e056f4763a3ca06ae105a2cd62"
+      "expectedRevision": "sha256:59e629425d44b83793b5b44243dabfe03af4630cf20dc7df6519e3601e5ce240"
     },
     {
       "id": "agent-command-artifact",
@@ -186,7 +186,7 @@
       "targetKind": "evidence",
       "targetPath": "framework/core/src/python/kungfu/agent/commands.json",
       "relation": "explains",
-      "expectedRevision": "sha256:42e2b78dc082b9976db664cf7dea8ca13ade9e283bce81c76953f44de3a23803"
+      "expectedRevision": "sha256:6a3362c4071d97c739c0198b7d51c87960cbf3fbc7995e54db51cdec0a019a81"
     },
     {
       "id": "xinfa-compiler-implementation",
