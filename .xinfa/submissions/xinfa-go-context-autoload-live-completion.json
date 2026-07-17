@@ -3,7 +3,7 @@
   "provider": "git-workspace-jsonl/v1",
   "providerId": "xinfa-go-context-autoload.live-completion-episode",
   "root": "repository",
-  "beforeAtlasRoot": "sha256:644ee0ea020c74cf7400930044a884fd4b183ca87cc0c753829747bb95d04853",
+  "beforeAtlasRoot": "sha256:37025ba1233f4bf800244b64b8bb644178d74b85217c57e556581c51003468db",
   "resultCut": {
     "id": "xinfa-go-context-autoload-live-completion"
   },
