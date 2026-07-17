@@ -195,7 +195,7 @@
       "targetKind": "implementation",
       "targetPath": "xinfa/src/lib.rs",
       "relation": "explains",
-      "expectedRevision": "sha256:fe77b3126cb5ae62acc344484086871b15945607ae797b7f04c6d3ef0b7bfd99"
+      "expectedRevision": "sha256:0053d72693cd89f044abff6d2d84f23eb9d55a2e7804c0e5d2a545c512d7561e"
     }
   ],
   "routes": [
