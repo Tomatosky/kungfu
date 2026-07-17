@@ -52,6 +52,8 @@
     "xinfa:build": "node scripts/require-shifu.mjs xinfa:build && node xinfa/tooling/task.mjs build",
     "xinfa:check": "node scripts/require-shifu.mjs xinfa:check && node xinfa/tooling/task.mjs check",
     "xinfa:fix": "node scripts/require-shifu.mjs xinfa:fix && node xinfa/tooling/task.mjs fix",
+    "xinfa:schema-set:check": "node scripts/require-shifu.mjs xinfa:schema-set:check && node xinfa/tooling/check-schema-set.mjs",
+    "xinfa:schema-set:write": "node scripts/require-shifu.mjs xinfa:schema-set:write && node xinfa/tooling/check-schema-set.mjs --write",
     "xinfa:standalone": "node scripts/require-shifu.mjs xinfa:standalone && node xinfa/tooling/task.mjs standalone",
     "xinfa:dogfood": "node scripts/require-shifu.mjs xinfa:dogfood && node xinfa/tooling/task.mjs build && node xinfa/tooling/dogfood.mjs",
     "project-cut": "node scripts/require-shifu.mjs project-cut && node framework/project-cut/bin/project-cut.mjs",

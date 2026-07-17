@@ -276,12 +276,15 @@ fn visibility_rank(value: &str) -> usize {
 fn canonical(value: &Value) -> Value {
     match value {
         Value::Array(values) => Value::Array(values.iter().map(canonical).collect()),
-        Value::Object(object) => Value::Object(
-            object
-                .iter()
-                .map(|(key, value)| (key.clone(), canonical(value)))
-                .collect(),
-        ),
+        Value::Object(object) => {
+            let mut entries: Vec<_> = object.iter().collect();
+            entries.sort_by(|(left, _), (right, _)| left.as_bytes().cmp(right.as_bytes()));
+            let mut canonical_object = serde_json::Map::new();
+            for (key, value) in entries {
+                canonical_object.insert(key.clone(), canonical(value));
+            }
+            Value::Object(canonical_object)
+        }
         _ => value.clone(),
     }
 }
@@ -1518,6 +1521,20 @@ mod tests {
     }
 
     #[test]
+    fn canonical_json_orders_object_keys_by_utf8_bytes() {
+        let first: Value =
+            serde_json::from_str(r#"{"z":0,"ä":1,"a":{"y":2,"b":3}}"#).expect("first JSON");
+        let second: Value =
+            serde_json::from_str(r#"{"a":{"b":3,"y":2},"ä":1,"z":0}"#).expect("second JSON");
+        assert_eq!(stable_json(&first), stable_json(&second));
+        assert_eq!(digest(&first), digest(&second));
+        assert_eq!(
+            stable_json(&first),
+            "{\"a\":{\"b\":3,\"y\":2},\"z\":0,\"ä\":1}\n"
+        );
+    }
+
+    #[test]
     fn published_schemas_are_welded_to_runtime_vocabulary() {
         let project: Value = serde_json::from_str(include_str!("../schema/project-v1.schema.json"))
             .expect("project schema");
@@ -1756,6 +1773,207 @@ mod tests {
         assert!(!output.contains("secret-input"));
         let receipt: Value = serde_json::from_str(&output).expect("json");
         assert_eq!(receipt["source"], "file");
+    }
+
+    #[test]
+    fn published_route_root_contract_reproduces_the_worked_example() {
+        let contract: Value =
+            serde_json::from_str(include_str!("../contract/route-root-authority-v1.json"))
+                .expect("route-root contract");
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../fixtures/golden/route-root-authority-v1.json"
+        ))
+        .expect("route-root fixture");
+        assert_eq!(contract["schema"], "xinfa.route-root-authority/v1");
+        assert_eq!(
+            digest(&fixture["workedExample"]["route"]),
+            fixture["workedExample"]["routeRoot"]
+        );
+        assert_eq!(
+            digest(&fixture["workedExample"]["selected"]),
+            fixture["workedExample"]["authorityRoot"]
+        );
+        assert_eq!(
+            fixture["cases"]
+                .as_array()
+                .expect("cases")
+                .iter()
+                .map(|case| case["id"].as_str().expect("case id"))
+                .collect::<Vec<_>>(),
+            vec![
+                "ordering",
+                "exclusion",
+                "missing-node",
+                "conflicting-authority",
+                "duplicate-node",
+            ]
+        );
+
+        let compiled: Value = serde_json::from_str(
+            &compile_project_bytes(
+                &std::fs::read(format!(
+                    "{}/fixtures/repository-small/project.json",
+                    env!("CARGO_MANIFEST_DIR")
+                ))
+                .expect("repository-small project"),
+                "route-root-worked-example",
+            )
+            .expect("compile worked example"),
+        )
+        .expect("compiled JSON");
+        let route = compiled["routes"]
+            .as_array()
+            .expect("routes")
+            .iter()
+            .find(|route| route["id"] == "small.agent")
+            .expect("agent route");
+        assert_eq!(route["routeRoot"], fixture["workedExample"]["routeRoot"]);
+        assert_eq!(
+            route["authorityRoot"],
+            fixture["workedExample"]["authorityRoot"]
+        );
+    }
+
+    #[test]
+    fn route_root_fixtures_cover_ordering_and_exclusion() {
+        let source = std::fs::read(format!(
+            "{}/fixtures/repository-small/project.json",
+            env!("CARGO_MANIFEST_DIR")
+        ))
+        .expect("repository-small project");
+        let base: Value = serde_json::from_str(
+            &compile_project_bytes(&source, "route-root-base").expect("compile base"),
+        )
+        .expect("base JSON");
+
+        let mut reordered: Value = serde_json::from_slice(&source).expect("source JSON");
+        reordered["routes"]
+            .as_array_mut()
+            .expect("routes")
+            .reverse();
+        for route in reordered["routes"].as_array_mut().expect("routes") {
+            route["nodes"].as_array_mut().expect("nodes").reverse();
+            route["entrypoints"]
+                .as_array_mut()
+                .expect("entrypoints")
+                .reverse();
+        }
+        let reordered: Value = serde_json::from_str(
+            &compile_project_bytes(stable_json(&reordered).as_bytes(), "route-root-ordering")
+                .expect("compile reordered"),
+        )
+        .expect("reordered JSON");
+        assert_eq!(base["routes"], reordered["routes"]);
+
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../fixtures/golden/route-root-authority-v1.json"
+        ))
+        .expect("route-root fixture");
+        let exclusion = fixture["cases"]
+            .as_array()
+            .expect("cases")
+            .iter()
+            .find(|case| case["id"] == "exclusion")
+            .expect("exclusion case");
+        let mut excluded: Value = serde_json::from_slice(&source).expect("source JSON");
+        for route in excluded["routes"].as_array_mut().expect("routes") {
+            route["nodes"]
+                .as_array_mut()
+                .expect("nodes")
+                .retain(|id| id != "small.evidence.runtime");
+        }
+        let excluded: Value = serde_json::from_str(
+            &compile_project_bytes(stable_json(&excluded).as_bytes(), "route-root-exclusion")
+                .expect("compile excluded"),
+        )
+        .expect("excluded JSON");
+        let excluded_route = excluded["routes"]
+            .as_array()
+            .expect("routes")
+            .iter()
+            .find(|route| route["id"] == "small.agent")
+            .expect("agent route");
+        assert_eq!(excluded_route["routeRoot"], exclusion["expectedRouteRoot"]);
+        assert_eq!(
+            excluded_route["authorityRoot"],
+            exclusion["expectedAuthorityRoot"]
+        );
+        assert_eq!(base["roots"]["authority"], excluded["roots"]["authority"]);
+        assert_ne!(
+            base["routes"][0]["authorityRoot"],
+            excluded["routes"][0]["authorityRoot"]
+        );
+    }
+
+    #[test]
+    fn route_root_fixtures_fail_closed_on_missing_duplicate_and_conflicting_authority() {
+        let source = std::fs::read(format!(
+            "{}/fixtures/repository-small/project.json",
+            env!("CARGO_MANIFEST_DIR")
+        ))
+        .expect("repository-small project");
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../fixtures/golden/route-root-authority-v1.json"
+        ))
+        .expect("route-root fixture");
+        for (name, route_id, node_id, expected_code, remove) in [
+            (
+                "missing-node",
+                "small.agent",
+                "small.missing",
+                "unknown-node",
+                false,
+            ),
+            (
+                "duplicate-node",
+                "small.agent",
+                "small.claim.greeting",
+                "duplicate-route-node",
+                false,
+            ),
+            (
+                "conflicting-authority",
+                "small.human",
+                "small.evidence.runtime",
+                "route-parity",
+                true,
+            ),
+        ] {
+            let declared = fixture["cases"]
+                .as_array()
+                .expect("cases")
+                .iter()
+                .find(|case| case["id"] == name)
+                .expect("declared case");
+            assert_eq!(declared["expectedCode"], expected_code);
+            let mut project: Value = serde_json::from_slice(&source).expect("source JSON");
+            let route = project["routes"]
+                .as_array_mut()
+                .expect("routes")
+                .iter_mut()
+                .find(|route| route["id"] == route_id)
+                .expect("target route");
+            let nodes = route["nodes"].as_array_mut().expect("nodes");
+            if remove {
+                nodes.retain(|id| id != node_id);
+            } else {
+                nodes.push(Value::String(node_id.to_owned()));
+            }
+            let receipt: Value = serde_json::from_str(
+                &compile_project_bytes(stable_json(&project).as_bytes(), name)
+                    .expect_err("invalid route must not emit roots"),
+            )
+            .expect("validation receipt");
+            assert_eq!(receipt["valid"], false, "{name}");
+            assert!(
+                receipt["diagnostics"]
+                    .as_array()
+                    .expect("diagnostics")
+                    .iter()
+                    .any(|diagnostic| diagnostic["code"] == expected_code),
+                "{name} lacks {expected_code}"
+            );
+        }
     }
 
     #[test]

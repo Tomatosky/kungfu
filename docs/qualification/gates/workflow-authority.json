@@ -1278,14 +1278,14 @@
     {
       "path": ".github/workflows/shifu-ci.yml",
       "authority": "qualification",
-      "definitionDigest": "sha256:c13dbb54f1dadb08e8f42337bc65e69d06fd2ce6110d79f3a0174dbaedeb7f96",
+      "definitionDigest": "sha256:1baad0888703e46697805886f3e35f5e858bb5766aaa918a204019d723f28ec1",
       "jobs": [
         {
           "id": "check",
           "authority": "qualification",
           "publication": "none",
           "receipt": "diagnostic",
-          "definitionDigest": "sha256:496176007abb380d55340564a08028f2ecb075c1c7c8ba6b2c18a53646b5306e",
+          "definitionDigest": "sha256:9561978feacb91127ec30a66241dfa7abbb3c51daaf62482322763d1e7344e87",
           "credentials": {
             "githubToken": "read",
             "oidc": false,
@@ -1321,6 +1321,18 @@
               "label": "name:Run Shifu workspace Gate (Windows)",
               "authority": "qualification",
               "definitionDigest": "sha256:f82bc35e53cd3f3c048c0b5f687a7a087c841b3c541802530415c86ee8c7a7fd"
+            },
+            {
+              "index": 5,
+              "label": "name:Verify Xinfa producer contracts (POSIX)",
+              "authority": "qualification",
+              "definitionDigest": "sha256:15752c37fb68edba03d505347c7aae2e2817db34c555691efefbee3eb4bb4546"
+            },
+            {
+              "index": 6,
+              "label": "name:Verify Xinfa producer contracts (Windows)",
+              "authority": "qualification",
+              "definitionDigest": "sha256:cf18195970fdb8eb168be74c0c3affcd71b0951a12e6b901f3573e1e9cd2b566"
             }
           ]
         }
