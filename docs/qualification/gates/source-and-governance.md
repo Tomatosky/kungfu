@@ -106,8 +106,10 @@ Each section is bound to the registry id by the catalog meta gate.
   exact root binds source and plan while compatibility also requires the same
   hosted image, platform/architecture, toolchain, lock set, profile, and roots.
   Exact or compatible restores still run the current configure/build/CTest
-  closure. Misses run and record the cold path; contradictory or foreign-key
-  evidence fails closed.
+  closure. Misses run and record the cold path; per-run ccache statistics are
+  retained beside the provider receipts so an exact restore cannot be confused
+  with effective compiler hits. Contradictory or foreign-key evidence fails
+  closed.
 - **Diagnosis:** inspect without building with `./shifu core:affected -- --base
   <base> --head <head> --json`; run mutation fixtures with `./shifu
   core:affected -- --self-test`.

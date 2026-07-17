@@ -50,7 +50,7 @@
           "authority": "qualification",
           "publication": "none",
           "receipt": "diagnostic",
-          "definitionDigest": "sha256:826e704c2180546a865ee8e5bd220a00aa0fbe086b8b455200e6ba07504f7084",
+          "definitionDigest": "sha256:37a2e806cabea6e8c1b85ee1cdcdf9d5d75b75af585b2690e3a65590f0b37e15",
           "credentials": {
             "githubToken": "read",
             "oidc": false,
@@ -142,36 +142,48 @@
             },
             {
               "index": 13,
+              "label": "name:Reset compiler cache statistics",
+              "authority": "qualification",
+              "definitionDigest": "sha256:7debb40c407c10b491c41b9471d69c03714d820577aae340186c78df1da298ad"
+            },
+            {
+              "index": 14,
               "label": "name:Install frozen workspace",
               "authority": "qualification",
               "definitionDigest": "sha256:f3c9aeb10fab884c5a41b9ba7399dfb2ac8cd6c464d53f5074eaf457aafd2461"
             },
             {
-              "index": 14,
+              "index": 15,
               "label": "id:native-gate",
               "authority": "qualification",
               "definitionDigest": "sha256:09a66ef457cc7fc0050f65ec8386625ca9a9d4b951ad9dcdb7411a8ed6edf95a"
             },
             {
-              "index": 15,
-              "label": "name:Seal portable cache receipts",
-              "authority": "qualification",
-              "definitionDigest": "sha256:4b019f0fc9427abf9f3ee0dd01a7ff189b0478e1a980b93b6a045ebf303ce1ae"
-            },
-            {
               "index": 16,
-              "label": "name:Save dependency cache",
+              "label": "name:Record compiler cache statistics",
               "authority": "qualification",
-              "definitionDigest": "sha256:3c71fa0fc12325dddd0ac84fb8f430b42474ece709f21d7f120026227ae1f58f"
+              "definitionDigest": "sha256:99c75fd56e1b610c02caed43631e07223641c12cfcbd657b8aff99b455143a77"
             },
             {
               "index": 17,
-              "label": "name:Save compiler cache",
+              "label": "name:Seal portable cache receipts",
               "authority": "evidence-publication",
-              "definitionDigest": "sha256:01670cfed95efad195e0c2e5451634eeb401468493d46aadbc9c8a329146bbe8"
+              "definitionDigest": "sha256:4b019f0fc9427abf9f3ee0dd01a7ff189b0478e1a980b93b6a045ebf303ce1ae"
             },
             {
               "index": 18,
+              "label": "name:Save dependency cache",
+              "authority": "evidence-publication",
+              "definitionDigest": "sha256:3c71fa0fc12325dddd0ac84fb8f430b42474ece709f21d7f120026227ae1f58f"
+            },
+            {
+              "index": 19,
+              "label": "name:Save compiler cache",
+              "authority": "qualification",
+              "definitionDigest": "sha256:01670cfed95efad195e0c2e5451634eeb401468493d46aadbc9c8a329146bbe8"
+            },
+            {
+              "index": 20,
               "label": "name:Upload raw plan, receipt, and logs",
               "authority": "evidence-publication",
               "definitionDigest": "sha256:0f28160bcefdbe43893cc96cb3f0c16cf658bae71720fec314f4ef478c38590a"
