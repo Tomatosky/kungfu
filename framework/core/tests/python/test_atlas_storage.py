@@ -1299,6 +1299,35 @@ def test_independent_completion_review_and_exact_continuation(tmp_path):
     )
 
 
+def test_tracked_empty_delta_closes_only_the_episode_gap():
+    report = {
+        "fitness": "insufficient",
+        "composite_proof": {"verified_evidence": [], "invalid_evidence": []},
+    }
+    claim = {
+        "evidence_episodes": [],
+        "evidence_availability": [],
+        "known_gaps": [],
+    }
+    tracked = {"valid": True, "cut": {"episodes": []}}
+
+    assert mission_control._tracked_empty_delta_closes_episode_gap(
+        report, claim, tracked
+    )
+    assert not mission_control._tracked_empty_delta_closes_episode_gap(
+        report, claim, {**tracked, "valid": False}
+    )
+    assert not mission_control._tracked_empty_delta_closes_episode_gap(
+        report, claim, {"valid": True, "cut": {"episodes": [{}]}}
+    )
+    assert not mission_control._tracked_empty_delta_closes_episode_gap(
+        {**report, "composite_proof": {"invalid_evidence": [{}]}}, claim, tracked
+    )
+    assert not mission_control._tracked_empty_delta_closes_episode_gap(
+        report, {**claim, "known_gaps": ["unclosed gap"]}, tracked
+    )
+
+
 def test_tracked_completion_evidence_rejects_fault_campaign(tmp_path, monkeypatch):
     checkout = tmp_path / "checkout"
     checkout.mkdir()
@@ -1411,6 +1440,13 @@ def test_tracked_completion_evidence_rejects_fault_campaign(tmp_path, monkeypatc
     assert valid_empty_delta["valid"] is True
     assert valid_empty_delta["cut"]["episodes"] == []
     reconcile["cuts"][0]["episodes"] = [{"semanticRoot": episode_root}]
+    missing_claim_episode = mission_control._tracked_completion_evidence(
+        str(checkout), state, "parent-go", episodeless_claim
+    )
+    assert missing_claim_episode["valid"] is False
+    assert "missing-episode" in {
+        row["code"] for row in missing_claim_episode["diagnostics"]
+    }
 
     reconcile["cuts"].append(
         {

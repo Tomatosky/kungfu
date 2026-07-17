@@ -2740,6 +2740,29 @@ def _bounded_followups(rows: list[dict[str, Any]] | None) -> list[dict[str, Any]
     return result
 
 
+def _tracked_empty_delta_closes_episode_gap(
+    report: dict[str, Any],
+    claim_record: dict[str, Any],
+    tracked_evidence: dict[str, Any],
+) -> bool:
+    """Admit exact empty-delta proof only when Episode absence is the sole gap."""
+
+    composite = report.get("composite_proof") or {}
+    return (
+        report.get("fitness") == "insufficient"
+        and tracked_evidence.get("valid") is True
+        and (tracked_evidence.get("cut") or {}).get("episodes") == []
+        and claim_record.get("evidence_episodes", []) == []
+        and composite.get("verified_evidence", []) == []
+        and composite.get("invalid_evidence", []) == []
+        and not claim_record.get("known_gaps")
+        and all(
+            str(row.get("state") or "") == "available"
+            for row in claim_record.get("evidence_availability", [])
+        )
+    )
+
+
 def review_completion(
     runtime_dir: str,
     *,
@@ -2802,6 +2825,13 @@ def review_completion(
         )
         if not tracked_evidence["valid"]:
             verdict = "unverifiable"
+        elif _tracked_empty_delta_closes_episode_gap(
+            report, claim_record, tracked_evidence
+        ):
+            verdict = "fit"
+            findings.append(
+                "tracked Project Cut proves an explicit empty Episode delta"
+            )
     followups = _bounded_followups(proposed_followups)
     trust_basis = {
         "schema": "kungfu.mission-control.review-trust-basis/v1",
