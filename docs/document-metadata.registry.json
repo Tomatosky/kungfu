@@ -1050,6 +1050,22 @@
       "review_state": "unreviewed",
       "sensitivity": "public"
     },
+    "docs/guides/recovery.md": {
+      "metadata_schema": "kungfu.document-metadata/v1",
+      "document_status": "active",
+      "doc_type": "public-document",
+      "review_state": "self-reviewed",
+      "sensitivity": "public",
+      "sources": [
+        "local-files",
+        "user-consensus"
+      ],
+      "period": "2026-07-17",
+      "theme": "fenced-unified-recovery-entry",
+      "confidence": "high",
+      "evidence_grade": "B",
+      "last_reviewed": "2026-07-17"
+    },
     "docs/development/cpp-error-handling.md": {
       "metadata_schema": "kungfu.document-metadata/v1",
       "document_status": "active",
