@@ -491,6 +491,21 @@ def test_mission_go_authority_cutover_is_parity_bound_and_freezes_atlas(tmp_path
         responsibility="review-agent",
         acceptance_root=_sha256_root("acceptance"),
         atlas_root=_sha256_root("successor-atlas"),
+        context_binding={
+            "schema": "xinfa.go-context-binding/v1",
+            "status": "complete",
+            "atlas_root": _sha256_root("successor-atlas"),
+            "cut_root": _sha256_root("input-cut"),
+            "route_id": "mission-control",
+            "route_root": _sha256_root("route"),
+            "authority_root": _sha256_root("authority"),
+            "task_envelope_root": _sha256_root("task-envelope"),
+            "route_receipt_root": _sha256_root("route-receipt"),
+            "chart_root": _sha256_root("chart"),
+            "policy_root": _sha256_root("policy"),
+            "omissions_root": _sha256_root("omissions"),
+            "budget": 32768,
+        },
         project_cut_root=_sha256_root("successor-cut"),
         evidence_episode_roots=[_sha256_root("episode")],
     )
@@ -505,6 +520,23 @@ def test_mission_go_authority_cutover_is_parity_bound_and_freezes_atlas(tmp_path
     assert native["parent_goal_id"] not in native["depends_on"]
     assert native["responsibility"] == "review-agent"
     assert native["project_cut_root"] == _sha256_root("successor-cut")
+    assert native["context_binding"]["route_id"] == "mission-control"
+    assert native["context_binding_root"].startswith("sha256:")
+
+    with pytest.raises(ValueError, match="must equal atlas_root"):
+        mission_control.create_go(
+            str(runtime_dir),
+            mission_id="mission-a",
+            goal_id="mismatched-context",
+            title="Mismatched context",
+            objective="Reject a stale context binding",
+            actor="test-agent",
+            atlas_root=_sha256_root("successor-atlas"),
+            context_binding={
+                **native["context_binding"],
+                "atlas_root": _sha256_root("stale-atlas"),
+            },
+        )
 
 
 def test_mission_go_authority_rollback_is_exact_and_retains_native_facts(tmp_path):
