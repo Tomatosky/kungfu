@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0109
 decision_status: accepted
 implementation_status: partial
-implementation_commits: [328e8ee2f27af96a0682df2644d51e84b16a39f2]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1021]
 qualification_refs: [framework/runtime/kungfu-diagnostics.contract.json, scripts/check-health-diagnostics-contract.test.mjs, framework/core/tests/python/test_recovery.py, framework/core/tests/python/test_episode_control.py]
 review_state: self-reviewed
 sensitivity: public
