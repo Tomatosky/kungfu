@@ -27,6 +27,14 @@ const FIXTURE_COMPATIBILITY = [
     sunsetCondition: 'Retain until the fixture has an equivalent native gate.',
   },
 ];
+const FIXTURE_RESOLUTION = {
+  subjects: ['documentation'],
+  capabilities: ['repository-navigation'],
+  owners: ['fixture-docs'],
+  roles: ['implementer'],
+  mission_tracks: ['fixture'],
+  terms: ['documentation'],
+};
 
 test('human surface inventory and Xinfa submission are deterministic', () => {
   const first = buildHumanSurfaceInventory({ root: ROOT });
@@ -116,6 +124,7 @@ test('a one-sided dual-first parity group fails closed', () => {
               'evidence',
               'next-action',
             ],
+            resolution: FIXTURE_RESOLUTION,
             selection: { mode: 'all' },
           },
         ],
@@ -372,6 +381,7 @@ test('authoring impact classifies review obligations and blocks historical delet
               'evidence',
               'next-action',
             ],
+            resolution: FIXTURE_RESOLUTION,
             selection: { mode: 'all' },
           },
           {
@@ -388,6 +398,7 @@ test('authoring impact classifies review obligations and blocks historical delet
               'evidence',
               'next-action',
             ],
+            resolution: FIXTURE_RESOLUTION,
             selection: { mode: 'all' },
           },
         ],
@@ -480,6 +491,7 @@ test('an eligible surface without a classification fails closed', () => {
               'evidence',
               'next-action',
             ],
+            resolution: FIXTURE_RESOLUTION,
             selection: { mode: 'all' },
           },
           {
@@ -496,6 +508,7 @@ test('an eligible surface without a classification fails closed', () => {
               'evidence',
               'next-action',
             ],
+            resolution: FIXTURE_RESOLUTION,
             selection: { mode: 'all' },
           },
         ],

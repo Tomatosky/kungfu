@@ -1,0 +1,30 @@
+{
+  "schema": "xinfa.go-route-qualification-summary/v1",
+  "phase": "C1-route-resolver",
+  "actor": "c1-retained",
+  "verdict": "pass",
+  "atlas_root": "sha256:23953a6387a9198ca9692bf216e4a4e872df4761709fab66cc2d7ff0ba1610eb",
+  "cut_root": "sha256:8e1260841a9204df0e523ffd4eea1a2dd0501d01b64b050be7bed11fe929d4a4",
+  "corpus_root": "sha256:5dd2a77920e2587d35b76b5b92e30f7b72ca757c2ea187ca81a3b4c46bc9f66b",
+  "source_qualification_root": "sha256:ddab4f17e6741ece4a39fbd763423899c9302078b1695449d8418775d9f5ea86",
+  "thresholds": {
+    "cases": 20,
+    "route_families": 4,
+    "top1_accuracy": 0.9,
+    "required_authority_recall": 1,
+    "required_omission_false_green": 0
+  },
+  "metrics": {
+    "cases": 24,
+    "route_families": 5,
+    "top1_accuracy": 1,
+    "required_authority_recall": 1,
+    "required_omission_false_green": 0
+  },
+  "faults": {
+    "cases": 24,
+    "mutation": "append one undeclared required authority node",
+    "resolved_false_green": 0
+  },
+  "reproduce": "node xinfa/tooling/qualify-route-resolver.mjs --xinfa xinfa/target/debug/xinfa --atlas <verified-atlas> --corpus xinfa/fixtures/golden/go-route-corpus-v1.json --actor c1-retained"
+}

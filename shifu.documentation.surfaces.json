@@ -177,7 +177,7 @@
       "targetKind": "implementation",
       "targetPath": "scripts/shifu-documentation-surfaces.mjs",
       "relation": "explains",
-      "expectedRevision": "sha256:c1f7144b032b4da825deb07f41d91d02c5dba76a7386cbe70134ad6a2aab3b61"
+      "expectedRevision": "sha256:4c29a8891c9d631cbff3d694f68dcf9ee3b976e056f4763a3ca06ae105a2cd62"
     },
     {
       "id": "agent-command-artifact",
@@ -195,7 +195,7 @@
       "targetKind": "implementation",
       "targetPath": "xinfa/src/lib.rs",
       "relation": "explains",
-      "expectedRevision": "sha256:a439923c7897f295546c774ff2a057b37b9fcfd7c86be68bd1a57426ddeb3ea4"
+      "expectedRevision": "sha256:fe77b3126cb5ae62acc344484086871b15945607ae797b7f04c6d3ef0b7bfd99"
     }
   ],
   "routes": [
@@ -205,6 +205,7 @@
       "parityGroup": "kungfu-documentation-control",
       "entrypoints": ["docs/shifu/README.md"],
       "capabilities": ["value", "use", "authority", "constraints", "known-limits", "evidence", "next-action"],
+      "resolution": {"subjects": ["agent-context", "documentation", "human-surface", "shifu", "xinfa"], "capabilities": ["documentation-control", "impact-analysis", "task-context"], "owners": ["shifu", "xinfa"], "roles": ["implementer", "independent-reviewer", "reviewer"], "mission_tracks": ["agent-context-control-plane", "documentation-adoption", "documentation-final-qualification", "documentation-go-gate", "documentation-release-passport"], "terms": ["documentation control", "human surface", "xinfa", "上下文", "文档"]},
       "selection": {
         "mode": "exact",
         "paths": ["docs/shifu/README.md", "docs/adr/SHIFU-ADR-0008-human-surface-closure-and-xinfa-impact-authority.md", "xinfa/README.md"]
@@ -216,6 +217,7 @@
       "parityGroup": "kungfu-documentation-control",
       "entrypoints": ["docs/shifu/README.md"],
       "capabilities": ["value", "use", "authority", "constraints", "known-limits", "evidence", "next-action"],
+      "resolution": {"subjects": ["agent-context", "documentation", "human-surface", "shifu", "xinfa"], "capabilities": ["documentation-control", "impact-analysis", "task-context"], "owners": ["shifu", "xinfa"], "roles": ["implementer", "independent-reviewer", "reviewer"], "mission_tracks": ["agent-context-control-plane", "documentation-adoption", "documentation-final-qualification", "documentation-go-gate", "documentation-release-passport"], "terms": ["documentation control", "human surface", "xinfa", "上下文", "文档"]},
       "selection": {
         "mode": "exact",
         "paths": ["docs/shifu/README.md", "docs/adr/SHIFU-ADR-0008-human-surface-closure-and-xinfa-impact-authority.md", "xinfa/README.md"]
@@ -227,6 +229,7 @@
       "parityGroup": "kungfu-kfx-development",
       "entrypoints": ["docs/architecture/kfx-topology.md"],
       "capabilities": ["value", "use", "authority", "constraints", "known-limits", "evidence", "next-action"],
+      "resolution": {"subjects": ["extension", "kfx", "profile"], "capabilities": ["kfx-development", "profile-runtime"], "owners": ["kfx"], "roles": ["implementer", "reviewer"], "mission_tracks": ["external", "kfx-runtime"], "terms": ["extension", "kfx", "profile", "扩展"]},
       "selection": {
         "mode": "exact",
         "paths": ["docs/architecture/kfx-topology.md", "docs/adr/ADR-0069-agent-first-kfx-profile-suite-runtime.md", "docs/adr/ADR-0083-core-system-kfx-profile-kfx-capability-boundary.md", "docs/adr/ADR-0091-surface-neutral-kfx-contributions-and-thin-bindings.md"]
@@ -238,6 +241,7 @@
       "parityGroup": "kungfu-kfx-development",
       "entrypoints": ["docs/architecture/kfx-topology.md"],
       "capabilities": ["value", "use", "authority", "constraints", "known-limits", "evidence", "next-action"],
+      "resolution": {"subjects": ["extension", "kfx", "profile"], "capabilities": ["kfx-development", "profile-runtime"], "owners": ["kfx"], "roles": ["implementer", "reviewer"], "mission_tracks": ["external", "kfx-runtime"], "terms": ["extension", "kfx", "profile", "扩展"]},
       "selection": {
         "mode": "exact",
         "paths": ["docs/architecture/kfx-topology.md", "docs/adr/ADR-0069-agent-first-kfx-profile-suite-runtime.md", "docs/adr/ADR-0083-core-system-kfx-profile-kfx-capability-boundary.md", "docs/adr/ADR-0091-surface-neutral-kfx-contributions-and-thin-bindings.md"]
@@ -249,6 +253,7 @@
       "parityGroup": "kungfu-core-development",
       "entrypoints": ["docs/architecture/README.md"],
       "capabilities": ["value", "use", "authority", "constraints", "known-limits", "evidence", "next-action"],
+      "resolution": {"subjects": ["core", "journal", "membrane", "runtime", "storage"], "capabilities": ["core-development", "native-runtime"], "owners": ["core"], "roles": ["implementer", "reviewer"], "mission_tracks": ["core-runtime", "external"], "terms": ["core", "journal", "membrane", "runtime", "storage", "存储", "核心"]},
       "selection": {
         "mode": "exact",
         "paths": ["docs/architecture/README.md", "docs/adr/ADR-0026-runtime-greenfield-core-surface.md", "docs/adr/ADR-0078-minimal-generic-core-closure-and-membrane-decode-checksum.md", "framework/core/slices/shared-embedding-membrane/README.md"]
@@ -260,6 +265,7 @@
       "parityGroup": "kungfu-core-development",
       "entrypoints": ["docs/architecture/README.md"],
       "capabilities": ["value", "use", "authority", "constraints", "known-limits", "evidence", "next-action"],
+      "resolution": {"subjects": ["core", "journal", "membrane", "runtime", "storage"], "capabilities": ["core-development", "native-runtime"], "owners": ["core"], "roles": ["implementer", "reviewer"], "mission_tracks": ["core-runtime", "external"], "terms": ["core", "journal", "membrane", "runtime", "storage", "存储", "核心"]},
       "selection": {
         "mode": "exact",
         "paths": ["docs/architecture/README.md", "docs/adr/ADR-0026-runtime-greenfield-core-surface.md", "docs/adr/ADR-0078-minimal-generic-core-closure-and-membrane-decode-checksum.md", "framework/core/slices/shared-embedding-membrane/README.md"]
@@ -271,6 +277,7 @@
       "parityGroup": "kungfu-user-guide",
       "entrypoints": ["docs/guides/README.md"],
       "capabilities": ["value", "use", "authority", "constraints", "known-limits", "evidence", "next-action"],
+      "resolution": {"subjects": ["config", "health", "installation", "operations", "user"], "capabilities": ["operations", "product-use"], "owners": ["product"], "roles": ["operator", "reviewer", "user"], "mission_tracks": ["external", "user-guide"], "terms": ["config", "health", "install", "user guide", "健康", "安装", "使用", "配置"]},
       "selection": {
         "mode": "exact",
         "paths": ["docs/README.md", "docs/guides/README.md", "docs/guides/choose-your-kungfu.md", "docs/guides/config.md", "docs/guides/health.md"]
@@ -282,6 +289,7 @@
       "parityGroup": "kungfu-user-guide",
       "entrypoints": ["docs/guides/README.md"],
       "capabilities": ["value", "use", "authority", "constraints", "known-limits", "evidence", "next-action"],
+      "resolution": {"subjects": ["config", "health", "installation", "operations", "user"], "capabilities": ["operations", "product-use"], "owners": ["product"], "roles": ["operator", "reviewer", "user"], "mission_tracks": ["external", "user-guide"], "terms": ["config", "health", "install", "user guide", "健康", "安装", "使用", "配置"]},
       "selection": {
         "mode": "exact",
         "paths": ["docs/README.md", "docs/guides/README.md", "docs/guides/choose-your-kungfu.md", "docs/guides/config.md", "docs/guides/health.md"]
@@ -293,6 +301,7 @@
       "parityGroup": "kungfu-documentation",
       "entrypoints": ["README.md", "docs/README.md", "docs/MAP.md"],
       "capabilities": ["value", "use", "authority", "constraints", "known-limits", "evidence", "next-action"],
+      "resolution": {"subjects": ["agent", "documentation", "repository"], "capabilities": ["repository-navigation"], "owners": ["documentation"], "roles": ["implementer", "reviewer"], "mission_tracks": ["external"], "terms": ["agent brief", "documentation", "repository", "仓库", "文档"]},
       "selection": { "mode": "all" }
     },
     {
@@ -301,6 +310,7 @@
       "parityGroup": "kungfu-documentation",
       "entrypoints": ["AGENTS.md", "framework/core/src/python/kungfu/agent/brief.md"],
       "capabilities": ["value", "use", "authority", "constraints", "known-limits", "evidence", "next-action"],
+      "resolution": {"subjects": ["agent", "documentation", "repository"], "capabilities": ["repository-navigation"], "owners": ["documentation"], "roles": ["implementer", "reviewer"], "mission_tracks": ["external"], "terms": ["agent brief", "documentation", "repository", "仓库", "文档"]},
       "selection": { "mode": "all" }
     }
   ]

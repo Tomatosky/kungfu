@@ -8,6 +8,7 @@ mod atlas;
 mod episode;
 mod pack;
 mod projection;
+mod resolver;
 
 pub use atlas::{
     compile_repository_atlas_bytes, diff_atlases, impact_from_atlas, import_context_pack,
@@ -29,6 +30,11 @@ pub use projection::{
     compile_gui_view, compile_human_view, compile_task_chart, expand_projection,
     inspect_projection, verify_projection, GUI_VIEW_VERSION, HUMAN_VIEW_VERSION,
     TASK_CHART_VERSION,
+};
+
+pub use resolver::{
+    resolve_route, resolve_route_bytes, resolve_route_value, RouteResolution,
+    ROUTE_RESOLUTION_VERSION, TASK_ENVELOPE_VERSION,
 };
 
 pub const PROJECT_SCHEMA_ID: &str = "https://xinfa.dev/schema/project-v1.schema.json";
@@ -349,6 +355,21 @@ fn normalized(project: &Value) -> Value {
         for route in routes {
             for key in ["nodes", "entrypoints"] {
                 if let Some(values) = route.get_mut(key).and_then(Value::as_array_mut) {
+                    values.sort_by(|a, b| a.as_str().cmp(&b.as_str()));
+                }
+            }
+            for key in [
+                "subjects",
+                "capabilities",
+                "owners",
+                "roles",
+                "mission_tracks",
+                "terms",
+            ] {
+                if let Some(values) = route
+                    .pointer_mut(&format!("/resolution/{key}"))
+                    .and_then(Value::as_array_mut)
+                {
                     values.sort_by(|a, b| a.as_str().cmp(&b.as_str()));
                 }
             }
@@ -965,7 +986,7 @@ fn validate(project: &Value) -> Vec<Diagnostic> {
     }
 
     let mut route_ids = BTreeSet::new();
-    let mut parity: BTreeMap<String, Vec<(String, String, BTreeSet<String>)>> = BTreeMap::new();
+    let mut parity: BTreeMap<String, Vec<(String, BTreeSet<String>, String)>> = BTreeMap::new();
     for (index, value) in arrays(project, "routes", &mut diagnostics)
         .iter()
         .enumerate()
@@ -984,11 +1005,11 @@ fn validate(project: &Value) -> Vec<Diagnostic> {
                 "nodes",
                 "entrypoints",
             ],
-            &[],
+            &["resolution"],
             &path,
             &mut diagnostics,
         );
-        let id = unique_id(route, &path, &mut route_ids, &mut diagnostics);
+        unique_id(route, &path, &mut route_ids, &mut diagnostics);
         let audience = enumeration(
             route.get("audience"),
             &["human", "agent"],
@@ -1076,16 +1097,74 @@ fn validate(project: &Value) -> Vec<Diagnostic> {
                 "must be a non-empty array",
             ),
         }
-        if let (Some(group), Some(id), Some(audience)) = (group, id, audience) {
+        if let Some(resolution_value) = route.get("resolution") {
+            if let Some(resolution) = object(
+                resolution_value,
+                &mut diagnostics,
+                &format!("{path}/resolution"),
+            ) {
+                exact_keys(
+                    resolution,
+                    &[
+                        "subjects",
+                        "capabilities",
+                        "owners",
+                        "roles",
+                        "mission_tracks",
+                        "terms",
+                    ],
+                    &[],
+                    &format!("{path}/resolution"),
+                    &mut diagnostics,
+                );
+                for key in [
+                    "subjects",
+                    "capabilities",
+                    "owners",
+                    "roles",
+                    "mission_tracks",
+                    "terms",
+                ] {
+                    match resolution.get(key).and_then(Value::as_array) {
+                        Some(items) if !items.is_empty() => {
+                            let mut seen = BTreeSet::new();
+                            for (item_index, item) in items.iter().enumerate() {
+                                let item_path = format!("{path}/resolution/{key}/{item_index}");
+                                let value = text(Some(item), &mut diagnostics, &item_path);
+                                if let Some(value) = value {
+                                    let normalized = value.to_ascii_lowercase();
+                                    if !seen.insert(normalized) {
+                                        push(
+                                            &mut diagnostics,
+                                            "duplicate-route-intent",
+                                            item_path,
+                                            "duplicates a route resolution value",
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                        _ => push(
+                            &mut diagnostics,
+                            "type",
+                            format!("{path}/resolution/{key}"),
+                            "must be a non-empty array",
+                        ),
+                    }
+                }
+            }
+        }
+        if let (Some(group), Some(audience)) = (group, audience) {
+            let resolution = stable_json(route.get("resolution").unwrap_or(&Value::Null));
             parity
                 .entry(group)
                 .or_default()
-                .push((id, audience, selected));
+                .push((audience, selected, resolution));
         }
     }
     for (group, routes) in parity {
-        let humans: Vec<_> = routes.iter().filter(|route| route.1 == "human").collect();
-        let agents: Vec<_> = routes.iter().filter(|route| route.1 == "agent").collect();
+        let humans: Vec<_> = routes.iter().filter(|route| route.0 == "human").collect();
+        let agents: Vec<_> = routes.iter().filter(|route| route.0 == "agent").collect();
         if humans.len() != 1 || agents.len() != 1 {
             push(
                 &mut diagnostics,
@@ -1093,12 +1172,19 @@ fn validate(project: &Value) -> Vec<Diagnostic> {
                 "/routes",
                 format!("parity group {group} requires exactly one human and one agent route"),
             );
-        } else if humans[0].2 != agents[0].2 {
+        } else if humans[0].1 != agents[0].1 {
             push(
                 &mut diagnostics,
                 "route-parity",
                 "/routes",
                 format!("parity group {group} must expose the same authority node set"),
+            );
+        } else if humans[0].2 != agents[0].2 {
+            push(
+                &mut diagnostics,
+                "route-parity",
+                "/routes",
+                format!("parity group {group} must declare the same route resolution intent"),
             );
         }
     }

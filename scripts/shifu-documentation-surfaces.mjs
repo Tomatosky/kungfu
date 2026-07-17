@@ -253,6 +253,7 @@ function validatePolicy(policy) {
         'parityGroup',
         'entrypoints',
         'capabilities',
+        'resolution',
         'selection',
       ],
       [],
@@ -262,6 +263,31 @@ function validatePolicy(policy) {
     routeIds.add(route.id);
     if (!['human', 'agent'].includes(route.audience))
       throw new Error(`unsupported route audience: ${route.audience}`);
+    exactKeys(
+      route.resolution,
+      [
+        'subjects',
+        'capabilities',
+        'owners',
+        'roles',
+        'mission_tracks',
+        'terms',
+      ],
+      [],
+      `route ${route.id} resolution`,
+    );
+    for (const [field, values] of Object.entries(route.resolution)) {
+      if (
+        !Array.isArray(values) ||
+        !values.length ||
+        values.some((value) => typeof value !== 'string' || !value) ||
+        new Set(values.map((value) => value.toLowerCase())).size !==
+          values.length
+      )
+        throw new Error(
+          `route ${route.id} resolution.${field} requires unique non-empty strings`,
+        );
+    }
     exactKeys(
       route.selection,
       ['mode'],
@@ -301,6 +327,14 @@ function validatePolicy(policy) {
       ).size !== 1
     )
       throw new Error(`parity group ${group} must use one shared selection`);
+    if (
+      new Set(
+        routes.map((/** @type {any} */ route) => stableJson(route.resolution)),
+      ).size !== 1
+    )
+      throw new Error(
+        `parity group ${group} must use one shared route resolution intent`,
+      );
   }
   const compatibilityIds = new Set();
   for (const [index, gate] of policy.compatibilityGates.entries()) {
@@ -826,6 +860,7 @@ export function humanSurfaceXinfaProject(inventory) {
         entrypoints: route.entrypoints,
         visibility: 'public',
         nodes: [...new Set(selectedNodes)],
+        resolution: route.resolution,
       };
     }),
     policies: {
