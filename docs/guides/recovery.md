@@ -85,4 +85,4 @@ kungfu contract show diagnostics --json
 ```
 
 The authority boundary and acceptance gates are frozen in
-[ADR-0108](../adr/ADR-0108-fenced-unified-recovery-entry.md).
+[ADR-0109](../adr/ADR-0109-fenced-unified-recovery-entry.md).

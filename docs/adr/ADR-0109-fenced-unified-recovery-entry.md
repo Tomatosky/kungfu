@@ -1,7 +1,7 @@
 ---
 metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
-adr_id: ADR-0108
+adr_id: ADR-0109
 decision_status: accepted
 implementation_status: partial
 implementation_commits: [328e8ee2f27af96a0682df2644d51e84b16a39f2]
@@ -16,7 +16,7 @@ evidence_grade: B
 last_reviewed: 2026-07-17
 ---
 
-# ADR-0108: Unified recovery is a fenced orchestrator over existing authorities
+# ADR-0109: Unified recovery is a fenced orchestrator over existing authorities
 
 - Status: accepted; implementation pending integration
 - Date: 2026-07-17
