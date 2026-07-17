@@ -66,8 +66,64 @@ class RunProgress(object):
             return self._tab.String(o + self._tab.Pos)
         return None
 
+    # RunProgress
+    def Signal(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
+    # RunProgress
+    def NextAction(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(18))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
+    # RunProgress
+    def WorkspaceId(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
+    # RunProgress
+    def ProfileId(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(22))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
+    # RunProgress
+    def ProfileRoot(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(24))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
+    # RunProgress
+    def EntityType(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(26))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
+    # RunProgress
+    def EntityId(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(28))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
+    # RunProgress
+    def EntityRoot(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(30))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
 def RunProgressStart(builder):
-    builder.StartObject(6)
+    builder.StartObject(14)
 
 def Start(builder):
     RunProgressStart(builder)
@@ -107,6 +163,54 @@ def RunProgressAddDetail(builder, detail):
 
 def AddDetail(builder, detail):
     RunProgressAddDetail(builder, detail)
+
+def RunProgressAddSignal(builder, signal):
+    builder.PrependUOffsetTRelativeSlot(6, flatbuffers.number_types.UOffsetTFlags.py_type(signal), 0)
+
+def AddSignal(builder, signal):
+    RunProgressAddSignal(builder, signal)
+
+def RunProgressAddNextAction(builder, nextAction):
+    builder.PrependUOffsetTRelativeSlot(7, flatbuffers.number_types.UOffsetTFlags.py_type(nextAction), 0)
+
+def AddNextAction(builder, nextAction):
+    RunProgressAddNextAction(builder, nextAction)
+
+def RunProgressAddWorkspaceId(builder, workspaceId):
+    builder.PrependUOffsetTRelativeSlot(8, flatbuffers.number_types.UOffsetTFlags.py_type(workspaceId), 0)
+
+def AddWorkspaceId(builder, workspaceId):
+    RunProgressAddWorkspaceId(builder, workspaceId)
+
+def RunProgressAddProfileId(builder, profileId):
+    builder.PrependUOffsetTRelativeSlot(9, flatbuffers.number_types.UOffsetTFlags.py_type(profileId), 0)
+
+def AddProfileId(builder, profileId):
+    RunProgressAddProfileId(builder, profileId)
+
+def RunProgressAddProfileRoot(builder, profileRoot):
+    builder.PrependUOffsetTRelativeSlot(10, flatbuffers.number_types.UOffsetTFlags.py_type(profileRoot), 0)
+
+def AddProfileRoot(builder, profileRoot):
+    RunProgressAddProfileRoot(builder, profileRoot)
+
+def RunProgressAddEntityType(builder, entityType):
+    builder.PrependUOffsetTRelativeSlot(11, flatbuffers.number_types.UOffsetTFlags.py_type(entityType), 0)
+
+def AddEntityType(builder, entityType):
+    RunProgressAddEntityType(builder, entityType)
+
+def RunProgressAddEntityId(builder, entityId):
+    builder.PrependUOffsetTRelativeSlot(12, flatbuffers.number_types.UOffsetTFlags.py_type(entityId), 0)
+
+def AddEntityId(builder, entityId):
+    RunProgressAddEntityId(builder, entityId)
+
+def RunProgressAddEntityRoot(builder, entityRoot):
+    builder.PrependUOffsetTRelativeSlot(13, flatbuffers.number_types.UOffsetTFlags.py_type(entityRoot), 0)
+
+def AddEntityRoot(builder, entityRoot):
+    RunProgressAddEntityRoot(builder, entityRoot)
 
 def RunProgressEnd(builder):
     return builder.EndObject()

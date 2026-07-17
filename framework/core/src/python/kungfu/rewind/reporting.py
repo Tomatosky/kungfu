@@ -218,7 +218,11 @@ def report_progress(
     severity: str = "info",
     pct: int = 0,
     detail: str | None = None,
+    signal: str = "progress",
+    next_action: str | None = None,
+    work_ref: dict[str, str] | None = None,
 ) -> str:
+    work_ref = work_ref or {}
     emit_event(
         runtime_dir,
         run_id,
@@ -230,6 +234,14 @@ def report_progress(
             severity=severity,
             pct=pct,
             detail=detail,
+            signal=signal,
+            next_action=next_action,
+            workspace_id=work_ref.get("workspaceId"),
+            profile_id=work_ref.get("profileId"),
+            profile_root=work_ref.get("profileRoot"),
+            entity_type=work_ref.get("entityType"),
+            entity_id=work_ref.get("entityId"),
+            entity_root=work_ref.get("entityRoot"),
         ),
     )
     return emit_manifest(
@@ -239,6 +251,8 @@ def report_progress(
             "progress_phase": phase,
             "progress_severity": severity,
             "progress_pct": pct,
+            "progress_signal": signal,
+            "work_ref": work_ref or None,
         },
     )
 
