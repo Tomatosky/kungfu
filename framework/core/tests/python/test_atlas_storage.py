@@ -1403,6 +1403,20 @@ def test_tracked_completion_evidence_rejects_fault_campaign(tmp_path, monkeypatc
     assert valid["valid"] is True
     assert valid["evidence_root"].startswith("sha256:")
 
+    reconcile["cuts"].append(
+        {
+            "cutRoot": _sha256_root("parent-project-cut"),
+            "atlasRoot": _sha256_root("parent-atlas"),
+            "receiptRoot": _sha256_root("parent-cut-receipt"),
+            "episodes": [],
+        }
+    )
+    valid_with_history = mission_control._tracked_completion_evidence(
+        str(checkout), state, "parent-go", claim
+    )
+    assert valid_with_history["valid"] is True
+    assert valid_with_history["cut"]["cutRoot"] == cut_root
+
     cases = {
         "missing-episode": {"episodes": []},
         "stale-atlas": {"atlasRoot": _sha256_root("stale-atlas")},
