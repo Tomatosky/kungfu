@@ -76,7 +76,9 @@ plan. A command that can write still requires a separate explicit authorization.
   in authoritative journals, manifests, payloads, or source heads.
 
 The decision and failure semantics are frozen in
-[ADR-0107](../adr/ADR-0107-unified-read-only-product-diagnostics.md).
+[ADR-0107](../adr/ADR-0107-unified-read-only-product-diagnostics.md). When health
+reports action-required or blocked findings, use the separate plan-first
+[`kungfu recover`](recovery.md) entry; health itself remains read-only.
 
 ## Automatic command preflight
 

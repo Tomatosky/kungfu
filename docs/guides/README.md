@@ -6,6 +6,7 @@ They are task-oriented entry points; exact guarantees remain in
 
 - [Choose Your Kungfu](choose-your-kungfu.md)
 - [Check Kungfu Health](health.md)
+- [Recover a Kungfu Workspace](recovery.md)
 - [Rewind an Episode](rewind.md)
 - [Configuration](config.md)
 - [Durability Configuration](durability-configuration.md)
