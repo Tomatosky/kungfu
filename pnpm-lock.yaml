@@ -35,6 +35,9 @@ importers:
       '@kungfu-tech/buildchain':
         specifier: 2.14.1
         version: 2.14.1
+      '@kungfu-tech/kfd':
+        specifier: 1.0.0-alpha.29
+        version: 1.0.0-alpha.29
       '@types/fs-extra':
         specifier: ^11.0.4
         version: 11.0.4
@@ -1388,6 +1391,10 @@ packages:
 
   '@kungfu-tech/kfd@1.0.0-alpha.21':
     resolution: {integrity: sha512-lsr3aJ93pUaO9gxnGBsrTJkTkvpIHPHp9Rxug7WvdS4Zkte3AdFvyCl1DgwQN+/38FAXf8fBozyGkHxxXaN7Dg==}
+
+  '@kungfu-tech/kfd@1.0.0-alpha.29':
+    resolution: {integrity: sha512-gX1xWL7I2bqRkjbAuLLbkqcGdbRn6Aemdxg2y7zQZHFYPKi0Y7Su55xby++52fafX6A/ZpPZtO+9iQalqHVRxw==}
+    hasBin: true
 
   '@kungfu-tech/libnode-darwin-arm64@22.22.3-kf.3-alpha.16':
     resolution: {integrity: sha512-arC7Vm85nBSRS4Vj5L5RL4XXb5c4xrLmldcf+zA0Qs0d01GW0ZHecthZTK/vf/syFtb4u1CFoHBviOwT3YFazQ==}
@@ -5719,6 +5726,8 @@ snapshots:
       smol-toml: 1.7.0
 
   '@kungfu-tech/kfd@1.0.0-alpha.21': {}
+
+  '@kungfu-tech/kfd@1.0.0-alpha.29': {}
 
   '@kungfu-tech/libnode-darwin-arm64@22.22.3-kf.3-alpha.16':
     optional: true

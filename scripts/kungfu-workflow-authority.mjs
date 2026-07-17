@@ -187,6 +187,8 @@ function initialJobPolicy(workflowPath, jobId) {
   if (
     (workflowPath.endsWith('/dev-verify-patrol.yml') && jobId === 'verify') ||
     (workflowPath.endsWith('/gate-measurement.yml') && jobId === 'measure') ||
+    (workflowPath.endsWith('/kfd-verifier-drift.yml') &&
+      jobId === 'verify-owned-fixtures') ||
     (workflowPath.endsWith('/build.yml') && jobId === 'build') ||
     (workflowPath.endsWith('/source-acceptance.yml') &&
       jobId === 'source-acceptance')
