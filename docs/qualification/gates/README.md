@@ -79,11 +79,16 @@ runner execution time alone is not the metric.
 
 The report uses the current source planner to classify samples as `native`,
 `non-native`, or `unknown`, and reports nearest-rank P50/P95 for every stratum.
-Planner failures remain unknown instead of becoming non-native. Cache outcome
-also remains `unknown` unless a provider receipt is collected; duration is
-never used to infer a hit. Missing or non-success required contexts are retained
-as explicit exclusions with their reason and are never silently removed from
-the dataset.
+Planner failures remain unknown instead of becoming non-native. For each native
+sample, the collector reads the final successful affected-native workflow's
+retained artifact and validates the Buildchain dependency/compiler portable
+cache receipts. It reports exact/compatible warm reuse, miss/corrupt cold
+fallback, unknown evidence, ccache hits, and the aggregate warm/cold ratio;
+duration is never used to infer a hit. Non-native samples are explicitly
+`not-applicable`. Missing, expired, or malformed artifacts remain `unknown`, and
+a window with unknown native cache evidence cannot qualify. Missing or
+non-success required contexts are retained as explicit exclusions with their
+reason and are never silently removed from the dataset.
 
 The current dev objective is queue-inclusive P50 at most 300 seconds and P95 at
 most 600 seconds. A report is an observation, not a release credential, and a
@@ -95,7 +100,7 @@ otherwise the machine verdict remains non-qualifying. Rebuild it with:
 ./shifu gate:latency:measure --branch dev/v4/v4.0 --limit 30
 ```
 
-The command requires a read-only GitHub token through `GH_TOKEN` or
+The command requires `unzip` plus a read-only GitHub token through `GH_TOKEN` or
 `GITHUB_TOKEN`, or an authenticated `gh` client. It reads pull requests,
 workflow/check metadata, changed paths, and branch protection; it does not
 modify repository settings or workflow runs.
