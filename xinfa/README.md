@@ -41,6 +41,34 @@ The dependency direction is Project sources → public submission contracts →
 Xinfa compiler → public Xinfa artifacts → product adapters. Shifu may validate
 and invoke that path, but it may not compile a parallel graph or pack.
 
+## Schema-set authority
+
+[`schema-set-manifest-v1.json`](schema-set-manifest-v1.json) is the public,
+versioned inventory for every supported Xinfa JSON Schema. Each member binds
+its repository-relative path, public `$id`, and exact file-byte SHA-256. The
+manifest also publishes a complete schema-set root and named root subsets used
+by immutable product objects. External verifiers can pin the digest of this one
+manifest instead of inferring authority from the repository layout.
+
+Schema-set roots hash parsed JSON with object keys ordered by UTF-8 bytes,
+arrays retained in declared order, no insignificant whitespace, and one final
+LF. Member digests continue to bind the original file bytes. The named
+`xinfa.atlas-schema-set/v1` root is the authority used by Atlas objects and is
+welded to the retained repository-small Atlas golden. Producer code reads that
+published root; it does not reconstruct an order from `serde_json` internals.
+
+After an intentional schema change, refresh and review the manifest with:
+
+```sh
+./shifu xinfa:schema-set:write
+./shifu xinfa:schema-set:check
+```
+
+The normal Xinfa check and standalone extraction both fail if a schema is
+unlisted, a member digest or `$id` drifts, a named subset changes, or the Atlas
+root no longer matches its retained golden. Changing that root is therefore an
+explicit compatibility decision, never a side effect of a compiler toolchain.
+
 ## Development and standalone proof
 
 Use the repository entrypoint while Xinfa is incubated here:

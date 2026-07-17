@@ -276,12 +276,15 @@ fn visibility_rank(value: &str) -> usize {
 fn canonical(value: &Value) -> Value {
     match value {
         Value::Array(values) => Value::Array(values.iter().map(canonical).collect()),
-        Value::Object(object) => Value::Object(
-            object
-                .iter()
-                .map(|(key, value)| (key.clone(), canonical(value)))
-                .collect(),
-        ),
+        Value::Object(object) => {
+            let mut entries: Vec<_> = object.iter().collect();
+            entries.sort_by(|(left, _), (right, _)| left.as_bytes().cmp(right.as_bytes()));
+            let mut canonical_object = serde_json::Map::new();
+            for (key, value) in entries {
+                canonical_object.insert(key.clone(), canonical(value));
+            }
+            Value::Object(canonical_object)
+        }
         _ => value.clone(),
     }
 }
@@ -1515,6 +1518,20 @@ mod tests {
         let first = canonicalize_project_bytes(&fixture("project-alpha"), "alpha").expect("valid");
         let second = canonicalize_project_bytes(first.as_bytes(), "canonical").expect("valid");
         assert_eq!(first, second);
+    }
+
+    #[test]
+    fn canonical_json_orders_object_keys_by_utf8_bytes() {
+        let first: Value =
+            serde_json::from_str(r#"{"z":0,"ä":1,"a":{"y":2,"b":3}}"#).expect("first JSON");
+        let second: Value =
+            serde_json::from_str(r#"{"a":{"b":3,"y":2},"ä":1,"z":0}"#).expect("second JSON");
+        assert_eq!(stable_json(&first), stable_json(&second));
+        assert_eq!(digest(&first), digest(&second));
+        assert_eq!(
+            stable_json(&first),
+            "{\"a\":{\"b\":3,\"y\":2},\"z\":0,\"ä\":1}\n"
+        );
     }
 
     #[test]

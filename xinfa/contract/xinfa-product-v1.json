@@ -22,6 +22,7 @@
       "xinfa.projection-recipe/v1",
       "xinfa.episode-provider-submission/v1",
       "xinfa.review-chart/v1",
+      "xinfa.schema-set-manifest/v1",
       "context graph and impact semantics",
       "context selection and provenance",
       "deterministic task-to-route resolution and fail-visible ambiguity receipts",
