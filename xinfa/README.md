@@ -27,6 +27,23 @@ and extraction manifest. The core binary has no Kungfu or Shifu runtime
 dependency; its closed public-registry dependency allowlist rejects path, git,
 private, and monorepo-relative dependencies.
 
+## Agent discovery and help
+
+Agents working in this repository start from
+[`AGENTS.md`](../AGENTS.md) and the task-oriented
+[`Verified Context for Agents`](../docs/guides/xinfa-agent-context.md) guide.
+The source-checkout entrypoint is `./shifu docs context`; it remains a thin
+adapter over the public Xinfa Atlas, route-resolution, and Task Chart contracts.
+The installed `kungfu agent docs` surface is read-only and consumes a
+precompiled Atlas; it is not a hidden Xinfa compiler or selector.
+
+For machine consumers, `xinfa contract --json` is the product discovery root.
+`xinfa schema task-envelope`, `xinfa schema route-resolution`, and
+`xinfa schema task-chart` print the exact current schemas. Automatic invocation
+requires a coordinator to create and resolve the structured task envelope and
+bind the verified roots. A Go card, Agent instruction, Skill, or Episode alone
+does not execute Xinfa.
+
 ## Authority
 
 | Layer | Owns | Does not own |

@@ -57,6 +57,9 @@ public execution vocabulary.
 
 - [Choose Your Kungfu](guides/choose-your-kungfu.md) — select the smallest complete
   product surface for your job.
+- [Verified Context for Agents](guides/xinfa-agent-context.md) — select and
+  verify the bounded Xinfa Task Chart for source work, or inspect the installed
+  read-only documentation Atlas.
 - [Check Kungfu Health](guides/health.md) — run one read-only preflight across
   runtime, Peer, storage, and Episode state and get actionable problems.
 - [Rewind an Episode](guides/rewind.md) — distinguish Rewind, Replay, Recovery, and

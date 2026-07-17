@@ -223,7 +223,7 @@ function parseFinalReadyOptions(args) {
       'review documentation authority, constraints, evidence, and next action',
     task: 'independently review documentation impact, authority, and final readiness',
     role: 'independent-reviewer',
-    budget: 40960,
+    budget: 66560,
     maxHops: 2,
     json: false,
   };

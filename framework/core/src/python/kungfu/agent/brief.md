@@ -18,6 +18,29 @@ kungfu agent session capabilities --json
 kungfu agent session list --json
 ```
 
+Before source implementation, load the repository's verified Xinfa context
+instead of treating this brief, a README, or chat history as the whole task
+surface. `xinfa-context.md` in this pack gives the stable boundary. In a Kungfu
+checkout, start with:
+
+```sh
+./shifu docs inventory --json
+./shifu docs context --task "<exact task>" --role implementer --budget <tokens> --route <agent-route> --json
+```
+
+Choose the route from the inventory. Ambiguous or degraded resolution, failed
+Atlas verification, stale authority, and required omissions fail closed. An
+installed runtime can verify and read only its precompiled documentation Atlas:
+
+```sh
+kungfu agent docs --verify --json
+kungfu agent docs --projection agent --json
+```
+
+Automatic admission requires a coordinator that invokes and binds Xinfa's
+task-envelope, route-resolution, and Task Chart contracts. A Go card, Skill,
+instruction file, or Episode alone does not execute the compiler.
+
 Kungfu is journal-first infrastructure for capturing local facts, replaying
 runs, and making control decisions from evidence. The agent-facing layer is not
 ambient permission. It is a set of local facts, command contracts, Skill
