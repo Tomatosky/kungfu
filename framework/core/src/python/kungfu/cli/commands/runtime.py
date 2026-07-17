@@ -18,6 +18,7 @@ from kungfu import (
     runtime_upgrade,
 )
 from kungfu.cli.commands import PrioritizedCommandGroup, kfc
+from kungfu.cli.preflight import command_preflight
 
 runtime_command_context = kfc.pass_context()
 
@@ -155,6 +156,7 @@ def peer_plan(ctx, spec, as_json):
 @click.option("--expected-plan-id")
 @click.option("--json", "as_json", is_flag=True, help="machine-readable output")
 @runtime_command_context
+@command_preflight("peer-activation")
 def peer_start(ctx, spec, expected_plan_id, as_json):
     payload = _peer_call(
         lambda: peer_lifecycle.ensure(
@@ -179,6 +181,7 @@ def peer_start(ctx, spec, expected_plan_id, as_json):
 @click.option("--expected-plan-id")
 @click.option("--json", "as_json", is_flag=True, help="machine-readable output")
 @runtime_command_context
+@command_preflight("peer-activation")
 def peer_ensure(ctx, spec, expected_plan_id, as_json):
     payload = _peer_call(
         lambda: peer_lifecycle.ensure(
@@ -635,6 +638,7 @@ def runtime_plan(ctx, operation_id, request_id, minimum_cut, as_json):
 )
 @click.option("--json", "as_json", is_flag=True, help="machine-readable output")
 @runtime_command_context
+@command_preflight("runtime-activation")
 def ensure(ctx, as_json):
     payload = runtime_service.ensure_coordinator(
         ctx.home,
@@ -651,6 +655,7 @@ def ensure(ctx, as_json):
 @runtime.command(help="start the resident coordinator supervisor")
 @click.option("--json", "as_json", is_flag=True, help="machine-readable output")
 @runtime_command_context
+@command_preflight("runtime-activation")
 def start(ctx, as_json):
     payload = runtime_service.ensure_coordinator(
         ctx.home,
@@ -680,6 +685,7 @@ def stop(ctx, as_json):
 @runtime.command(help="restart the resident coordinator supervisor")
 @click.option("--json", "as_json", is_flag=True, help="machine-readable output")
 @runtime_command_context
+@command_preflight("runtime-activation")
 def restart(ctx, as_json):
     stopped = runtime_service.stop_supervisor(ctx.config_home)
     if stopped.get("error"):
