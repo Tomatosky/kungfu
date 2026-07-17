@@ -89,7 +89,7 @@ def _action(
     preconditions: Sequence[str] = (),
     executable: bool = True,
 ) -> dict[str, Any]:
-    identity = {
+    identity: dict[str, Any] = {
         "problem": _problem_identity(problem),
         "operation": operation,
         "classification": classification,
