@@ -10,20 +10,15 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(import.meta.dirname, '..');
 const XINFA_ROOT = path.join(ROOT, 'xinfa');
 const XINFA_MANIFEST = path.join(XINFA_ROOT, 'Cargo.toml');
-const XINFA_BINARY = path.join(
-  XINFA_ROOT,
-  'target',
-  'debug',
-  process.platform === 'win32' ? 'xinfa.exe' : 'xinfa',
-);
 const KFD_ROOT = path.dirname(
   fileURLToPath(import.meta.resolve('@kungfu-tech/kfd/package.json')),
 );
 const KFD_BIN = path.join(KFD_ROOT, 'bin', 'kfd.mjs');
 
-function run(command, args, cwd = ROOT) {
+function run(command, args, cwd = ROOT, env = process.env) {
   return execFileSync(command, args, {
     cwd,
+    env,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -43,12 +38,21 @@ function verify(kind, objectPath) {
 
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'kungfu-kfd-drift-'));
 try {
-  run('cargo', ['build', '--locked', '--manifest-path', XINFA_MANIFEST]);
+  const cargoTarget = path.join(temporary, 'cargo-target');
+  run('cargo', ['build', '--locked', '--manifest-path', XINFA_MANIFEST], ROOT, {
+    ...process.env,
+    CARGO_TARGET_DIR: cargoTarget,
+  });
+  const xinfaBinary = path.join(
+    cargoTarget,
+    'debug',
+    process.platform === 'win32' ? 'xinfa.exe' : 'xinfa',
+  );
 
   const fixture = path.join(XINFA_ROOT, 'fixtures', 'repository-small');
   const project = path.join(fixture, 'project.json');
   const packOutput = path.join(temporary, 'pack');
-  run(XINFA_BINARY, [
+  run(xinfaBinary, [
     'compile',
     '--project',
     project,
@@ -58,7 +62,7 @@ try {
   ]);
 
   const atlasOutput = path.join(temporary, 'atlas');
-  run(XINFA_BINARY, [
+  run(xinfaBinary, [
     'atlas',
     'compile',
     '--project',
