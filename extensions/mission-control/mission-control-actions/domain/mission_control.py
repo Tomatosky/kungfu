@@ -1561,7 +1561,14 @@ def _tracked_completion_evidence(
         cut: dict[str, Any] = {}
     else:
         cut = matching_cuts[0]
-        cut_path = str(cut.get("path") or "")
+        cut_digest = claimed_cut_root.removeprefix("sha256:")
+        cut_path = str(
+            cut.get("path")
+            or (
+                f".kungfu/project-cuts/sha256/{cut_digest[:2]}/"
+                f"{cut_digest}/manifest.json"
+            )
+        )
         receipt_path = str(Path(cut_path).parent / "receipt.json")
         promotion_path = (
             ".xinfa/manifests/project-cuts/"
