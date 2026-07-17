@@ -387,6 +387,14 @@ function testShifuGateContract() {
   ]);
 }
 
+function testDevGateLatencyContract() {
+  run('dev required Gate latency contract tests', 'node', [
+    '--test',
+    path.join('scripts', 'measure-dev-required-latency.test.mjs'),
+    path.join('scripts', 'write-affected-native-cache-manifests.test.mjs'),
+  ]);
+}
+
 function checkKungfuGateCatalog() {
   run('Kungfu Gate catalog gate', 'node', [
     path.join('scripts', 'check-kungfu-gate-catalog.mjs'),
@@ -645,6 +653,7 @@ function checkStaged() {
   checkShifuDocumentationContract();
   checkXinfaBoundary();
   checkShifuGateContract();
+  testDevGateLatencyContract();
   checkKungfuGateCatalog();
   checkCarrierActionEnvelope(['--staged']);
   checkRuntimeGreenfield(['--staged']);
@@ -704,6 +713,7 @@ function checkShared() {
   testShifuDocumentationContract();
   testXinfaBoundary();
   testShifuGateContract();
+  testDevGateLatencyContract();
   checkKungfuGateCatalog();
   testSchemaAuthority();
   checkJournalAuthorityBoundary();

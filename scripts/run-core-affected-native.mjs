@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import { pathToFileURL } from 'node:url';
 
 import { writeShifuGateEvidence } from './shifu-gate-evidence.mjs';
 
@@ -230,7 +231,13 @@ function selectProfile(buildAuthority, components, forceFull) {
   return candidates[0].id;
 }
 
-function planFromChanged(changedFiles, authority, buildAuthority, base, head) {
+export function planFromChanged(
+  changedFiles,
+  authority,
+  buildAuthority,
+  base,
+  head,
+) {
   validateAuthority(authority, buildAuthority);
   const direct = new Set();
   const broad = new Set();
@@ -413,6 +420,16 @@ function planFromChanged(changedFiles, authority, buildAuthority, base, head) {
   return { ...plan, planDigest: digest(plan) };
 }
 
+export function planAffectedPaths(changedFiles, base, head) {
+  return planFromChanged(
+    changedFiles,
+    readJson(architecturePath),
+    readJson(buildPath),
+    base,
+    head,
+  );
+}
+
 function git(...args) {
   const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' });
   if (result.status !== 0)
@@ -430,6 +447,8 @@ function parseArgs(argv) {
     selfTest: false,
     receipt: '',
     verifyReceipt: '',
+    planOut: '',
+    planInput: process.env.KUNGFU_AFFECTED_NATIVE_PLAN || '',
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -439,12 +458,45 @@ function parseArgs(argv) {
     else if (arg === '--changed-file') options.changedFiles.push(argv[++index]);
     else if (arg === '--receipt') options.receipt = argv[++index];
     else if (arg === '--verify-receipt') options.verifyReceipt = argv[++index];
+    else if (arg === '--plan-out') options.planOut = argv[++index];
+    else if (arg === '--plan-input') options.planInput = argv[++index];
     else if (arg === '--json') options.json = true;
     else if (arg === '--execute') options.execute = true;
     else if (arg === '--self-test') options.selfTest = true;
     else throw new Error(`unknown argument: ${arg}`);
   }
   return options;
+}
+
+function verifyPlan(plan) {
+  if (plan.schema !== 'kungfu.core-affected-native-plan/v1') {
+    throw new Error('unsupported affected-native plan schema');
+  }
+  const { planDigest, ...planWithoutDigest } = plan;
+  if (planDigest !== digest(planWithoutDigest)) {
+    throw new Error('affected-native plan digest drift');
+  }
+  const currentHead = git('rev-parse', 'HEAD');
+  if (plan.head !== currentHead) {
+    throw new Error(
+      `affected-native plan source drift: expected ${plan.head}, got ${currentHead}`,
+    );
+  }
+  const currentAuthority = {
+    layers: digest(fs.readFileSync(architecturePath, 'utf8')),
+    buildCapabilities: digest(fs.readFileSync(buildPath, 'utf8')),
+  };
+  if (stableJson(plan.authority) !== stableJson(currentAuthority)) {
+    throw new Error('affected-native plan authority drift');
+  }
+  return plan;
+}
+
+function writePlan(plan, output) {
+  const absolute = path.resolve(root, output);
+  fs.mkdirSync(path.dirname(absolute), { recursive: true });
+  fs.writeFileSync(absolute, `${JSON.stringify(plan, null, 2)}\n`);
+  return absolute;
 }
 
 function runStep(id, command, args, cwd, env, logRoot) {
@@ -892,6 +944,21 @@ function selfTest(authority, buildAuthority) {
     },
     /plan digest drift/,
   );
+  const sourceBoundPlan = planFromChanged(
+    ['docs/README.md'],
+    authority,
+    buildAuthority,
+    git('rev-parse', 'HEAD'),
+    git('rev-parse', 'HEAD'),
+  );
+  expect('source-bound plan verifies before execution', () => {
+    verifyPlan(sourceBoundPlan);
+  });
+  expect(
+    'source-bound plan digest drift fails closed',
+    () => verifyPlan({ ...sourceBoundPlan, profile: 'full' }),
+    /plan digest drift/,
+  );
   console.log(`[core-affected] ${passed} negative/determinism fixtures passed`);
 }
 
@@ -905,23 +972,35 @@ function main() {
     console.log('[core-affected] receipt verified');
     return;
   }
-  const base = git('rev-parse', options.base);
-  const head = git('rev-parse', options.head);
-  const changedFiles = options.changedFiles.length
-    ? options.changedFiles
-    : git('diff', '--name-only', '--diff-filter=ACMRTUXB', `${base}...${head}`)
-        .split('\n')
-        .filter(Boolean);
-  const plan = planFromChanged(
-    changedFiles,
-    authority,
-    buildAuthority,
-    base,
-    head,
-  );
+  const plan = options.planInput
+    ? verifyPlan(readJson(path.resolve(root, options.planInput)))
+    : (() => {
+        const base = git('rev-parse', options.base);
+        const head = git('rev-parse', options.head);
+        const changedFiles = options.changedFiles.length
+          ? options.changedFiles
+          : git(
+              'diff',
+              '--name-only',
+              '--diff-filter=ACMRTUXB',
+              `${base}...${head}`,
+            )
+              .split('\n')
+              .filter(Boolean);
+        return planFromChanged(
+          changedFiles,
+          authority,
+          buildAuthority,
+          base,
+          head,
+        );
+      })();
+  if (options.planOut) writePlan(plan, options.planOut);
   if (options.json) console.log(JSON.stringify(plan, null, 2));
   else {
-    console.log(`[core-affected] ${base.slice(0, 12)}..${head.slice(0, 12)}`);
+    console.log(
+      `[core-affected] ${plan.base.slice(0, 12)}..${plan.head.slice(0, 12)}`,
+    );
     console.log(
       `[core-affected] profile=${plan.profile || 'none'} tier=${plan.platformTier}`,
     );
@@ -934,9 +1013,14 @@ function main() {
   if (options.execute) execute(plan, options.receipt);
 }
 
-try {
-  main();
-} catch (error) {
-  console.error(`[core-affected] ${error.message}`);
-  process.exitCode = 1;
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
+  try {
+    main();
+  } catch (error) {
+    console.error(`[core-affected] ${error.message}`);
+    process.exitCode = 1;
+  }
 }

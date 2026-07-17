@@ -44,6 +44,8 @@
     "check:shifu-gate-contract": "node scripts/require-shifu.mjs check:shifu-gate-contract && node scripts/check-shifu-gate-contract.mjs",
     "check:gate-catalog": "node scripts/require-shifu.mjs check:gate-catalog && node scripts/check-kungfu-gate-catalog.mjs",
     "gate:workflow-authority:refresh": "node scripts/require-shifu.mjs gate:workflow-authority:refresh && node scripts/kungfu-workflow-authority.mjs --refresh",
+    "gate:latency:measure": "node scripts/require-shifu.mjs gate:latency:measure && node scripts/measure-dev-required-latency.mjs",
+    "test:gate-latency": "node scripts/require-shifu.mjs test:gate-latency && node --test scripts/measure-dev-required-latency.test.mjs scripts/write-affected-native-cache-manifests.test.mjs",
     "test:release-admission": "node scripts/require-shifu.mjs test:release-admission && node --test scripts/verify-kungfu-release-admission.test.mjs",
     "verify:release-admission": "node scripts/require-shifu.mjs verify:release-admission && node scripts/verify-kungfu-release-admission.mjs",
     "check:shifu-workspace": "node scripts/require-shifu.mjs check:shifu-workspace && node scripts/check-shifu-workspace.mjs",
@@ -187,7 +189,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
-    "@kungfu-tech/buildchain": "2.13.0",
+    "@kungfu-tech/buildchain": "2.14.1",
     "@types/fs-extra": "^11.0.4",
     "@types/markdown-it": "14.1.2",
     "@types/node": "^22.0.0",
