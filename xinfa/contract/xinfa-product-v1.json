@@ -17,6 +17,7 @@
       "xinfa.human-view/v1",
       "xinfa.task-envelope/v1",
       "xinfa.route-resolution/v1",
+      "xinfa.route-root-authority/v1",
       "xinfa.task-chart/v1",
       "xinfa.gui-view/v1",
       "xinfa.projection-recipe/v1",

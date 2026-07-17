@@ -69,6 +69,41 @@ unlisted, a member digest or `$id` drifts, a named subset changes, or the Atlas
 root no longer matches its retained golden. Changing that root is therefore an
 explicit compatibility decision, never a side effect of a compiler toolchain.
 
+## Route-root authority
+
+[`contract/route-root-authority-v1.json`](contract/route-root-authority-v1.json)
+is the normative clean-room contract for the two roots carried by every
+compiled route. The compiler first validates the raw project, then normalizes
+routes by id and sorts each route's `nodes`, `entrypoints`, and optional
+`resolution` arrays by ascending UTF-8 bytes. Duplicate route or node ids,
+unknown selected nodes, visibility broadening, and Human/Agent parity conflicts
+fail before any root is emitted.
+
+`routeRoot` hashes only the normalized source route declaration: `id`,
+`audience`, `parityGroup`, `visibility`, `nodes`, `entrypoints`, and optional
+`resolution`. Generated `authorityRoot`, `routeRoot`, and `status` fields are
+not inputs. `authorityRoot` hashes an array in normalized `route.nodes` order;
+each entry contains the selected node's `id`, declared `revision`, and derived
+`verification.status`. Claim, document, implementation, and evidence nodes use
+the same rule. Provider and source coordinates affect a selected route through
+the node revision, while the enclosing Context IR authority root separately
+binds every complete node, edge, and cut.
+
+Both hashes use compact JSON whose object keys are recursively sorted by UTF-8
+bytes, followed by one LF, then SHA-256 with the `sha256:` prefix. Nodes absent
+from `route.nodes` are excluded from that route's authority root; they remain
+in the enclosing Context IR and Pack authority. Context Pack identity binds the
+compiled routes and both route roots, and Atlas identity in turn binds the
+verified Pack bytes and published Atlas schema root.
+
+The product-owned
+[`route-root-authority-v1.json`](fixtures/golden/route-root-authority-v1.json)
+fixture shows the exact canonical route, selected-node array, and expected
+roots. Its adversarial cases prove ordering independence, explicit exclusion,
+missing-node rejection, duplicate rejection, and fail-closed conflicting
+authority. This fixture and the reference implementation run in
+`./shifu xinfa:check` and the standalone extraction.
+
 ## Development and standalone proof
 
 Use the repository entrypoint while Xinfa is incubated here:

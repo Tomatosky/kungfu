@@ -1,6 +1,6 @@
 {
   "schema": "shifu.documentation-consumer-witness/v1",
-  "evidenceRoot": "sha256:a6141b147fef6c61b7d8ff45e07617eade5a76124336fc497fde2a03e415c13c",
+  "evidenceRoot": "sha256:89010e26ea05daeb4fcb2ca2365111a57031ba53ea3f47d853496565a45bb380",
   "inputs": {
     "contractRoot": "sha256:1938385bb996a34d8ff3c3ca4ce69a804f73381d31cb9768512db1c94a154b9e",
     "compiler": [
@@ -18,7 +18,7 @@
       },
       {
         "path": "xinfa/src/lib.rs",
-        "sha256": "sha256:75e9270fbcc2172c4caaa2dccb9f190b24e05e0865bff56b42fd6eab7dd6e714"
+        "sha256": "sha256:9f86705a2cf2c3efeea19a655625f787dbbd979de493b90d3a67a06e2607a28a"
       },
       {
         "path": "xinfa/src/main.rs",
@@ -125,7 +125,7 @@
         ]
       }
     ],
-    "evidenceRoot": "sha256:a6141b147fef6c61b7d8ff45e07617eade5a76124336fc497fde2a03e415c13c"
+    "evidenceRoot": "sha256:89010e26ea05daeb4fcb2ca2365111a57031ba53ea3f47d853496565a45bb380"
   },
   "result": {
     "schema": "shifu.documentation-consumer-qualification/v1",
@@ -154,8 +154,8 @@
           "mixed"
         ],
         "compileMilliseconds": [
-          904.129166,
-          55.498834
+          907.096542,
+          50.263875
         ],
         "human": {
           "route": "small.human",
@@ -187,8 +187,8 @@
           "non-claim"
         ],
         "compileMilliseconds": [
-          59.499083,
-          57.772625
+          53.573833,
+          54.103542
         ],
         "human": {
           "route": "medium.human.public",
@@ -204,7 +204,7 @@
         }
       }
     ],
-    "evidenceRoot": "sha256:a6141b147fef6c61b7d8ff45e07617eade5a76124336fc497fde2a03e415c13c",
+    "evidenceRoot": "sha256:89010e26ea05daeb4fcb2ca2365111a57031ba53ea3f47d853496565a45bb380",
     "evidenceMode": "live-xinfa",
     "negativeFixtures": [
       "xinfa/fixtures/negative/private-leak.json",
