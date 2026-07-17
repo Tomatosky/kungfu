@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: SHIFU-ADR-0004
 decision_status: accepted
 implementation_status: implemented
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/762, https://github.com/kungfu-systems/kungfu/pull/765, https://github.com/kungfu-systems/kungfu/pull/767, https://github.com/kungfu-systems/kungfu/pull/769, https://github.com/kungfu-systems/kungfu/pull/773, https://github.com/kungfu-systems/kungfu/pull/781, https://github.com/kungfu-systems/kungfu/pull/786, https://github.com/kungfu-systems/kungfu/pull/1004]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/762, https://github.com/kungfu-systems/kungfu/pull/765, https://github.com/kungfu-systems/kungfu/pull/767, https://github.com/kungfu-systems/kungfu/pull/769, https://github.com/kungfu-systems/kungfu/pull/773, https://github.com/kungfu-systems/kungfu/pull/781, https://github.com/kungfu-systems/kungfu/pull/786, https://github.com/kungfu-systems/kungfu/pull/1004, https://github.com/kungfu-systems/kungfu/pull/1014]
 closure_pr: https://github.com/kungfu-systems/kungfu/pull/781
 qualification_refs: [scripts/shifu-gate-runtime.test.mjs, scripts/check-kungfu-gate-catalog.test.mjs, scripts/shifu-cache-runtime.test.mjs, scripts/measure-dev-required-latency.test.mjs, scripts/write-affected-native-cache-manifests.test.mjs, .github/workflows/affected-native-pr.yml, .github/workflows/dev-verify-patrol.yml]
 review_state: self-reviewed
@@ -147,6 +147,16 @@ required-context P50/P95 and refuses a qualifying verdict below the declared
 sample floor. The retained initial window exceeds the target, so this projection
 does not claim the latency SLO is complete; subsequent real PR samples and fault
 campaign evidence must close that qualification separately.
+
+PR 1014 closes the cache-evidence observation boundary for that later
+qualification. The latency collector reads only the final successful
+affected-native run's retained artifact, validates its Buildchain dependency
+and compiler receipts against the artifact source, and reports exact or
+compatible warm reuse separately from qualified cold fallback. Missing,
+expired, malformed, source-mismatched, or fallback-incomplete artifacts remain
+unknown; elapsed time is never used to infer a hit. A latency window therefore
+cannot qualify until every native sample carries authoritative cache evidence,
+in addition to satisfying the sample floor and queue-inclusive P50/P95 target.
 
 ## Consequences
 
