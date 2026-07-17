@@ -1403,6 +1403,15 @@ def test_tracked_completion_evidence_rejects_fault_campaign(tmp_path, monkeypatc
     assert valid["valid"] is True
     assert valid["evidence_root"].startswith("sha256:")
 
+    reconcile["cuts"][0]["episodes"] = []
+    episodeless_claim = {**claim, "evidence_episodes": []}
+    valid_empty_delta = mission_control._tracked_completion_evidence(
+        str(checkout), state, "parent-go", episodeless_claim
+    )
+    assert valid_empty_delta["valid"] is True
+    assert valid_empty_delta["cut"]["episodes"] == []
+    reconcile["cuts"][0]["episodes"] = [{"semanticRoot": episode_root}]
+
     reconcile["cuts"].append(
         {
             "cutRoot": _sha256_root("parent-project-cut"),

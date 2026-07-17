@@ -1616,11 +1616,13 @@ def _tracked_completion_evidence(
             str(row.get("episode_root") or "")
             for row in claim_record.get("evidence_episodes", [])
         }
-        if not claimed_episode_roots or not claimed_episode_roots.issubset(
-            sealed_episode_roots
-        ):
+        if (
+            claimed_episode_roots
+            and not claimed_episode_roots.issubset(sealed_episode_roots)
+        ) or (sealed_episode_roots and not claimed_episode_roots):
             reject(
-                "missing-episode", "claimed Episode is not sealed by the Project Cut"
+                "missing-episode",
+                "claimed Episode set does not match the Project Cut Episode delta",
             )
 
     diagnostics.sort(key=lambda row: (row["code"], row["detail"]))
