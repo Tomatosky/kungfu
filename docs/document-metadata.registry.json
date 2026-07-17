@@ -488,6 +488,23 @@
       "review_state": "self-reviewed",
       "sensitivity": "public"
     },
+    "docs/qualification/unified-recovery.md": {
+      "metadata_schema": "kungfu.document-metadata/v1",
+      "document_status": "active",
+      "doc_type": "qualification-evidence",
+      "review_state": "self-reviewed",
+      "sensitivity": "public",
+      "sources": [
+        "architecture-decisions",
+        "local-files",
+        "executable-probe"
+      ],
+      "period": "2026-07-17",
+      "theme": "unified-recovery-portable-qualification",
+      "confidence": "high",
+      "evidence_grade": "B",
+      "last_reviewed": "2026-07-17"
+    },
     "docs/qualification/contracts.md": {
       "metadata_schema": "kungfu.document-metadata/v1",
       "document_status": "active",
