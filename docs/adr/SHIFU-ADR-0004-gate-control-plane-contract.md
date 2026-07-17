@@ -6,7 +6,7 @@ decision_status: accepted
 implementation_status: implemented
 implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/762, https://github.com/kungfu-systems/kungfu/pull/765, https://github.com/kungfu-systems/kungfu/pull/767, https://github.com/kungfu-systems/kungfu/pull/769, https://github.com/kungfu-systems/kungfu/pull/773, https://github.com/kungfu-systems/kungfu/pull/781, https://github.com/kungfu-systems/kungfu/pull/786, https://github.com/kungfu-systems/kungfu/pull/1004, https://github.com/kungfu-systems/kungfu/pull/1014]
 closure_pr: https://github.com/kungfu-systems/kungfu/pull/781
-qualification_refs: [scripts/shifu-gate-runtime.test.mjs, scripts/check-kungfu-gate-catalog.test.mjs, scripts/shifu-cache-runtime.test.mjs, scripts/measure-dev-required-latency.test.mjs, scripts/write-affected-native-cache-manifests.test.mjs, .github/workflows/affected-native-pr.yml, .github/workflows/dev-verify-patrol.yml]
+qualification_refs: [scripts/shifu-gate-runtime.test.mjs, scripts/check-kungfu-gate-catalog.test.mjs, scripts/shifu-cache-runtime.test.mjs, scripts/measure-dev-required-latency.test.mjs, scripts/write-affected-native-cache-manifests.test.mjs, .github/workflows/affected-native-pr.yml, .github/workflows/core-build-profiles.yml, .github/workflows/dev-verify-patrol.yml]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -147,6 +147,16 @@ required-context P50/P95 and refuses a qualifying verdict below the declared
 sample floor. The retained initial window exceeds the target, so this projection
 does not claim the latency SLO is complete; subsequent real PR samples and fault
 campaign evidence must close that qualification separately.
+
+The dev latency policy also separates merge admission from asynchronous
+observation. The protected branch continues to require its three Linux-hosted
+contexts, while `Core build profiles` exercises both Core profiles across
+Linux, macOS, and Windows on a daily or manual trigger instead of launching six
+optional jobs for every development PR. This preserves cross-platform drift
+and fault visibility without allowing non-required work to queue ahead of the
+required merge group. The `dev-patrol`, alpha, and release profiles retain
+their existing cross-platform semantics; this scheduling change cannot mint a
+qualifying receipt or weaken a matrix decision.
 
 PR 1014 closes the cache-evidence observation boundary for that later
 qualification. The latency collector reads only the final successful
