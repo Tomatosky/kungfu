@@ -111,12 +111,18 @@ Each section is bound to the registry id by the catalog meta gate.
   with effective compiler hits. The dev-only affected-native configure disables
   C++ module dependency scanning because the current closure declares no module
   sources; this avoids uncached scan work without changing alpha/release build
-  semantics. Contradictory or foreign-key evidence fails closed.
+  semantics. Contradictory or foreign-key evidence fails closed. Successful
+  native changes on `dev/v*/v*` also run this exact job after merge, placing a
+  compatible baseline in the base-branch cache scope. Pull-request and current
+  default-branch merge-group refs can restore that baseline while retaining
+  source-bound exact keys and always rerunning configure/build/CTest. PR-scoped
+  saves remain useful for same-PR reruns but are not treated as merge-queue
+  baselines.
 - **Diagnosis:** inspect without building with `./shifu core:affected -- --base
   <base> --head <head> --json`; run mutation fixtures with `./shifu
   core:affected -- --self-test`.
 - **Cost:** heavy; timeout 1500 seconds.
-- **Current source:** .github/workflows/affected-native-pr.yml (affected-native; every development pull request; outside-Core changes produce a passed tier-none receipt so the required check never deadlocks)
+- **Current source:** .github/workflows/affected-native-pr.yml (affected-native; every development pull request and merge group, plus post-merge dev pushes that seed the base-branch cache scope; outside-Core changes produce a passed tier-none receipt so the required check never deadlocks)
 - **Source-first orchestration:** the workflow first runs the build-free source
   planner with `node scripts/run-core-affected-native.mjs --plan-out <path>
   --json`. A non-empty, source-bound plan then enters the registered action; a

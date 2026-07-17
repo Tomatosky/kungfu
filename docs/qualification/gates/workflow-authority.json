@@ -43,14 +43,14 @@
     {
       "path": ".github/workflows/affected-native-pr.yml",
       "authority": "qualification",
-      "definitionDigest": "sha256:32862231d1b4eb54e22a5cbf489ada9a6110e446248d9ff14fffbefc5337593d",
+      "definitionDigest": "sha256:7442605d85c6dd1f55c8695729bf8cfb8d8fa9110173c66205c3553cfcb12daa",
       "jobs": [
         {
           "id": "affected-native",
           "authority": "qualification",
           "publication": "none",
           "receipt": "diagnostic",
-          "definitionDigest": "sha256:37a2e806cabea6e8c1b85ee1cdcdf9d5d75b75af585b2690e3a65590f0b37e15",
+          "definitionDigest": "sha256:90b2404524c21673945f5f6e30770b725d5d59139e8730f84175c77e3cd99d92",
           "credentials": {
             "githubToken": "read",
             "oidc": false,
@@ -84,7 +84,7 @@
               "index": 3,
               "label": "id:revisions",
               "authority": "qualification",
-              "definitionDigest": "sha256:ab8831c82e920fa855add48288d2302b4c4e9b0a394e2e5e21e072a739e1de98"
+              "definitionDigest": "sha256:fe90908136b386016b063401a251e84622ce26acf1cfc2d92593f19f58ba448b"
             },
             {
               "index": 4,
