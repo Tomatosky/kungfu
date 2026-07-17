@@ -1403,6 +1403,54 @@ def test_tracked_completion_evidence_rejects_fault_campaign(tmp_path, monkeypatc
     assert valid["valid"] is True
     assert valid["evidence_root"].startswith("sha256:")
 
+    reconcile["cuts"].append(
+        {
+            "cutRoot": _sha256_root("parent-project-cut"),
+            "atlasRoot": _sha256_root("parent-atlas"),
+            "receiptRoot": _sha256_root("parent-cut-receipt"),
+            "episodes": [],
+        }
+    )
+    valid_with_history = mission_control._tracked_completion_evidence(
+        str(checkout), state, "parent-go", claim
+    )
+    assert valid_with_history["valid"] is True
+    assert valid_with_history["cut"]["cutRoot"] == cut_root
+
+    parent_root = reconcile["cuts"][1]["cutRoot"]
+    parent_digest = parent_root.removeprefix("sha256:")
+    reconcile.update(
+        {
+            "ok": False,
+            "diagnostics": [
+                {
+                    "code": "source-drift",
+                    "path": (
+                        f".kungfu/project-cuts/sha256/{parent_digest[:2]}/"
+                        f"{parent_digest}/manifest.json"
+                    ),
+                    "detail": "retained parent Cut differs from the current source",
+                }
+            ],
+        }
+    )
+    valid_with_stale_history = mission_control._tracked_completion_evidence(
+        str(checkout), state, "parent-go", claim
+    )
+    assert valid_with_stale_history["valid"] is True
+
+    claimed_digest = cut_root.removeprefix("sha256:")
+    reconcile["diagnostics"][0]["path"] = (
+        f".kungfu/project-cuts/sha256/{claimed_digest[:2]}/"
+        f"{claimed_digest}/manifest.json"
+    )
+    invalid_claimed_cut = mission_control._tracked_completion_evidence(
+        str(checkout), state, "parent-go", claim
+    )
+    assert invalid_claimed_cut["valid"] is False
+    assert "source-drift" in {row["code"] for row in invalid_claimed_cut["diagnostics"]}
+    reconcile.update({"ok": True, "diagnostics": []})
+
     cases = {
         "missing-episode": {"episodes": []},
         "stale-atlas": {"atlasRoot": _sha256_root("stale-atlas")},
@@ -2593,6 +2641,67 @@ def test_episode_manifest_v1_is_yijinjing_backed_and_fscked(tmp_path):
     assert bundle["dependencies"][0]["status"] == "declared_external"
     assert bundle["record_count"] == 5
     assert bundle["frame_count"] == 1
+
+
+def test_episode_fixed_text_edges_are_capacity_bounded(tmp_path):
+    runtime_dir = tmp_path / "runtime"
+    title = "t" * 64
+    actor = "a" * 64
+    source = "s" * 64
+    note = "n" * 64
+    ref_id = "i" * 128
+    ref_hash = "h" * 128
+    reason = "r" * 64
+
+    opened = storage_service.episode_begin(
+        runtime_dir,
+        episode_id=43,
+        title=title,
+        actor=actor,
+        source=source,
+        begin_time=1000,
+    )
+    assert opened["title"] == title
+    assert opened["actor"] == actor
+    assert opened["source"] == source
+
+    heartbeat = storage_service.episode_heartbeat(
+        runtime_dir,
+        episode_id=43,
+        update_time=1100,
+        note=note,
+    )
+    assert heartbeat["note"] == note
+
+    reference = storage_service.episode_attach_ref(
+        runtime_dir,
+        episode_id=43,
+        ref_kind="payload",
+        ref_uid=1,
+        ref_id=ref_id,
+        ref_hash=ref_hash,
+        update_time=1200,
+    )
+    assert reference["ref_id"] == ref_id
+    assert reference["ref_hash"] == ref_hash
+
+    ended = storage_service.episode_end(
+        runtime_dir,
+        episode_id=43,
+        end_time=1300,
+        reason=reason,
+    )
+    assert ended["close"]["reason"] == reason
+
+    inspected = storage_service.episode_inspect(runtime_dir, episode_id=43)
+    records = inspected["episode"]["records"]
+    assert records[0]["body"]["title"] == title
+    assert records[0]["body"]["actor"] == actor
+    assert records[0]["body"]["source"] == source
+    assert records[1]["body"]["note"] == note
+    assert records[2]["body"]["ref_id"] == ref_id
+    assert records[2]["body"]["ref_hash"] == ref_hash
+    assert records[3]["body"]["reason"] == reason
 
 
 def test_fact_query_reproduces_head_and_historical_episode_cuts(tmp_path):

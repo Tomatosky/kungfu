@@ -179,6 +179,11 @@ export function sourceAcceptancePlan(files) {
       '--self-test',
     ],
     [
+      'core affected-native negative fixtures',
+      'scripts/run-core-affected-native.mjs',
+      '--self-test',
+    ],
+    [
       'journal authority boundary',
       'scripts/check-journal-authority-boundary.mjs',
     ],
