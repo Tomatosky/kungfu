@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0111
 decision_status: accepted
 implementation_status: partial
-implementation_commits: [9b4a7bffea1e039399b5fe28149b733d48cbb134]
+implementation_commits: [1e9d0baf86eced3fad9ef2d4173aed5bf96c0e4d]
 qualification_refs: [framework/runtime/kungfu-diagnostics.contract.json, scripts/check-health-diagnostics-contract.test.mjs, framework/core/tests/python/test_recovery.py, framework/core/tests/python/test_episode_control.py, docs/qualification/unified-recovery.md]
 review_state: self-reviewed
 sensitivity: public
