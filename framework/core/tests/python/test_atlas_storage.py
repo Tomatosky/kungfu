@@ -2595,6 +2595,67 @@ def test_episode_manifest_v1_is_yijinjing_backed_and_fscked(tmp_path):
     assert bundle["frame_count"] == 1
 
 
+def test_episode_fixed_text_edges_are_capacity_bounded(tmp_path):
+    runtime_dir = tmp_path / "runtime"
+    title = "t" * 64
+    actor = "a" * 64
+    source = "s" * 64
+    note = "n" * 64
+    ref_id = "i" * 128
+    ref_hash = "h" * 128
+    reason = "r" * 64
+
+    opened = storage_service.episode_begin(
+        runtime_dir,
+        episode_id=43,
+        title=title,
+        actor=actor,
+        source=source,
+        begin_time=1000,
+    )
+    assert opened["title"] == title
+    assert opened["actor"] == actor
+    assert opened["source"] == source
+
+    heartbeat = storage_service.episode_heartbeat(
+        runtime_dir,
+        episode_id=43,
+        update_time=1100,
+        note=note,
+    )
+    assert heartbeat["note"] == note
+
+    reference = storage_service.episode_attach_ref(
+        runtime_dir,
+        episode_id=43,
+        ref_kind="payload",
+        ref_uid=1,
+        ref_id=ref_id,
+        ref_hash=ref_hash,
+        update_time=1200,
+    )
+    assert reference["ref_id"] == ref_id
+    assert reference["ref_hash"] == ref_hash
+
+    ended = storage_service.episode_end(
+        runtime_dir,
+        episode_id=43,
+        end_time=1300,
+        reason=reason,
+    )
+    assert ended["close"]["reason"] == reason
+
+    inspected = storage_service.episode_inspect(runtime_dir, episode_id=43)
+    records = inspected["episode"]["records"]
+    assert records[0]["body"]["title"] == title
+    assert records[0]["body"]["actor"] == actor
+    assert records[0]["body"]["source"] == source
+    assert records[1]["body"]["note"] == note
+    assert records[2]["body"]["ref_id"] == ref_id
+    assert records[2]["body"]["ref_hash"] == ref_hash
+    assert records[3]["body"]["reason"] == reason
+
+
 def test_fact_query_reproduces_head_and_historical_episode_cuts(tmp_path):
     runtime_dir = tmp_path / "runtime"
     opened = storage_service.episode_begin(
