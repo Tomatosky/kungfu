@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // SPDX-License-Identifier: Apache-2.0
 
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -25,12 +25,21 @@ function run(command, args, cwd = ROOT, env = process.env) {
 }
 
 function verify(kind, objectPath) {
-  const report = JSON.parse(
-    run(process.execPath, [KFD_BIN, 'verify', kind, objectPath, '--json']),
+  const result = spawnSync(
+    process.execPath,
+    [KFD_BIN, 'verify', kind, objectPath, '--json'],
+    { cwd: ROOT, encoding: 'utf8' },
   );
-  if (report.valid !== true) {
+  const report = JSON.parse(result.stdout);
+  if (result.status !== 0 || report.valid !== true) {
+    const observed =
+      kind === 'atlas'
+        ? JSON.parse(
+            fs.readFileSync(path.join(objectPath, 'atlas.json'), 'utf8'),
+          ).roots
+        : undefined;
     throw new Error(
-      `KFD rejected Kungfu-owned ${kind}: ${JSON.stringify(report.issues)}`,
+      `KFD rejected Kungfu-owned ${kind}: ${JSON.stringify({ status: result.status, issues: report.issues, observed })}`,
     );
   }
   return report.profile;
