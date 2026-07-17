@@ -7,6 +7,7 @@ import tempfile
 import click
 
 from kungfu.cli.commands import PrioritizedCommandGroup, initialize_runtime_context, kfc
+from kungfu.cli.preflight import command_preflight, run_command_preflight
 from kungfu.workspace import (
     WorkspaceTargetRequired,
     prepare_workspace_write,
@@ -748,6 +749,7 @@ def _run_episode_write(ctx, as_json, operation, action):
         retry_episode_write,
     )
 
+    run_command_preflight(ctx, "episode-write")
     try:
         result, retry = retry_episode_write(operation, action)
     except EpisodeWriterBusyError as exc:
@@ -1017,6 +1019,7 @@ def episode_abort(
 @click.option("--execute", is_flag=True, help="execute only if the plan is eligible")
 @click.option("--json", "as_json", is_flag=True, help="machine-readable output")
 @storage_command_context
+@command_preflight("episode-recovery")
 def episode_recover(
     ctx,
     episode_id,
