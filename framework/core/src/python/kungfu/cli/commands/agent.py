@@ -244,6 +244,7 @@ def docs(ctx, as_json, atlas, verify_pack, show_catalog, read_path, projection):
         "packRoot": root,
         "documents": index["documents"],
         "skills": index["skills"],
+        "contextCompiler": index["contextCompiler"],
     }
     if as_json:
         _json(payload)

@@ -36,7 +36,7 @@
       "id": "kungfu.agent.docs",
       "surface": "cli",
       "name": "kungfu agent docs",
-      "purpose": "Show where the installed agent pack lives and list its documents.",
+      "purpose": "List installed Agent documents and expose the Xinfa context-discovery boundary.",
       "maturity": "stable",
       "visibility": "public-agent",
       "anchor": { "kind": "runtime-click", "symbol": "docs" },

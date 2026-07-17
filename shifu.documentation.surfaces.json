@@ -186,7 +186,7 @@
       "targetKind": "evidence",
       "targetPath": "framework/core/src/python/kungfu/agent/commands.json",
       "relation": "explains",
-      "expectedRevision": "sha256:6a3362c4071d97c739c0198b7d51c87960cbf3fbc7995e54db51cdec0a019a81"
+      "expectedRevision": "sha256:63d9f38b97a4b134d19aae73734228fb5c1a87654d4aadb0e29b331902f8c10d"
     },
     {
       "id": "xinfa-compiler-implementation",
@@ -203,24 +203,24 @@
       "id": "kungfu-documentation-control-human",
       "audience": "human",
       "parityGroup": "kungfu-documentation-control",
-      "entrypoints": ["docs/shifu/README.md"],
+      "entrypoints": ["docs/shifu/README.md", "docs/guides/xinfa-agent-context.md"],
       "capabilities": ["value", "use", "authority", "constraints", "known-limits", "evidence", "next-action"],
       "resolution": {"subjects": ["agent-context", "documentation", "human-surface", "shifu", "xinfa"], "capabilities": ["documentation-control", "impact-analysis", "task-context"], "owners": ["shifu", "xinfa"], "roles": ["implementer", "independent-reviewer", "reviewer"], "mission_tracks": ["agent-context-control-plane", "documentation-adoption", "documentation-final-qualification", "documentation-go-gate", "documentation-release-passport"], "terms": ["documentation control", "human surface", "xinfa", "上下文", "文档"]},
       "selection": {
         "mode": "exact",
-        "paths": ["docs/shifu/README.md", "docs/adr/SHIFU-ADR-0008-human-surface-closure-and-xinfa-impact-authority.md", "xinfa/README.md"]
+        "paths": ["docs/shifu/README.md", "docs/guides/xinfa-agent-context.md", "docs/adr/SHIFU-ADR-0008-human-surface-closure-and-xinfa-impact-authority.md", "framework/core/src/python/kungfu/agent/xinfa-context.md", "xinfa/README.md"]
       }
     },
     {
       "id": "kungfu-documentation-control-agent",
       "audience": "agent",
       "parityGroup": "kungfu-documentation-control",
-      "entrypoints": ["docs/shifu/README.md"],
+      "entrypoints": ["AGENTS.md", "docs/guides/xinfa-agent-context.md"],
       "capabilities": ["value", "use", "authority", "constraints", "known-limits", "evidence", "next-action"],
       "resolution": {"subjects": ["agent-context", "documentation", "human-surface", "shifu", "xinfa"], "capabilities": ["documentation-control", "impact-analysis", "task-context"], "owners": ["shifu", "xinfa"], "roles": ["implementer", "independent-reviewer", "reviewer"], "mission_tracks": ["agent-context-control-plane", "documentation-adoption", "documentation-final-qualification", "documentation-go-gate", "documentation-release-passport"], "terms": ["documentation control", "human surface", "xinfa", "上下文", "文档"]},
       "selection": {
         "mode": "exact",
-        "paths": ["docs/shifu/README.md", "docs/adr/SHIFU-ADR-0008-human-surface-closure-and-xinfa-impact-authority.md", "xinfa/README.md"]
+        "paths": ["docs/shifu/README.md", "docs/guides/xinfa-agent-context.md", "docs/adr/SHIFU-ADR-0008-human-surface-closure-and-xinfa-impact-authority.md", "framework/core/src/python/kungfu/agent/xinfa-context.md", "xinfa/README.md"]
       }
     },
     {

@@ -17,7 +17,7 @@
       "apiId": "kungfu.agent.docs",
       "name": "kungfu agent docs",
       "maturity": "stable",
-      "purpose": "Show where the installed agent pack lives and list its documents."
+      "purpose": "List installed Agent documents and expose the Xinfa context-discovery boundary."
     },
     {
       "apiId": "kungfu.agent.capabilities",

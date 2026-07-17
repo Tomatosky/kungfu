@@ -80,6 +80,72 @@ test('human surface inventory and Xinfa submission are deterministic', () => {
   assert.match(project.providers[0].revision, /^sha256:[0-9a-f]{64}$/);
 });
 
+test('Xinfa Agent discovery closes repository, installed-pack, and dual-first routes', () => {
+  const read = (relative) => fs.readFileSync(path.join(ROOT, relative), 'utf8');
+  const json = (relative) => JSON.parse(read(relative));
+  const guide = 'docs/guides/xinfa-agent-context.md';
+
+  for (const relative of [
+    'AGENTS.md',
+    'README.md',
+    'docs/README.md',
+    'docs/MAP.md',
+    'docs/guides/README.md',
+    'xinfa/README.md',
+  ]) {
+    assert.match(read(relative), /xinfa-agent-context\.md/);
+  }
+
+  const guideText = read(guide);
+  for (const phrase of [
+    './shifu docs inventory --json',
+    './shifu docs context',
+    'xinfa contract --json',
+    'xinfa schema task-envelope',
+    'kungfu agent docs --verify --json',
+    'do not execute Xinfa',
+  ]) {
+    assert.ok(guideText.includes(phrase), `${guide} missing ${phrase}`);
+  }
+  assert.match(
+    read('scripts/shifu-documentation-cli.mjs'),
+    /budget: 66560/,
+    'final-ready default must cover the documented complete Agent route',
+  );
+  assert.match(guideText, /66,560/);
+  assert.match(read('docs/shifu/README.md'), /66,560/);
+
+  const pack = json('framework/core/src/python/kungfu/agent/index.json');
+  assert.equal(pack.contextCompiler.product, 'xinfa');
+  assert.equal(pack.contextCompiler.automaticAdmission, 'coordinator-required');
+  assert.ok(
+    pack.documents.some((row) => row.path === 'xinfa-context.md'),
+    'installed Agent pack must list xinfa-context.md',
+  );
+
+  const policy = json('shifu.documentation.surfaces.json');
+  const human = policy.routes.find(
+    (route) => route.id === 'kungfu-documentation-control-human',
+  );
+  const agent = policy.routes.find(
+    (route) => route.id === 'kungfu-documentation-control-agent',
+  );
+  assert.deepEqual(agent.selection.paths, human.selection.paths);
+  assert.ok(agent.entrypoints.includes('AGENTS.md'));
+  for (const relative of [
+    guide,
+    'framework/core/src/python/kungfu/agent/xinfa-context.md',
+  ]) {
+    assert.ok(agent.selection.paths.includes(relative));
+  }
+
+  const protocol = json('shifu.documentation.json');
+  for (const audience of ['agent', 'human']) {
+    const route = protocol.routes.find((row) => row.audience === audience);
+    assert.ok(route.entrypoints.includes(guide));
+  }
+});
+
 test('a one-sided dual-first parity group fails closed', () => {
   const temporary = fs.mkdtempSync(
     path.join(os.tmpdir(), 'shifu-parity-negative-'),
