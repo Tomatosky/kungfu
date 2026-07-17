@@ -10,6 +10,16 @@ bounded projections build on that authority. `xinfa.task-chart/v1` is the
 canonical task/role/budget selection object; `xinfa context` is its direct
 Agent-facing alias, not a second context authority.
 
+Automatic Agent admission starts with `xinfa.task-envelope/v1` and
+`xinfa route resolve`. The project declares route `resolution` intent
+(subjects, capabilities, owners, roles, Mission tracks, and bounded lexical
+terms); Xinfa verifies that declaration against one exact Atlas and emits a
+content-addressed `xinfa.route-resolution/v1` receipt. Only unique structured
+evidence may select a route. Objective text and embeddings may break a tie but
+may not decide authority, visibility, required capability, or the active cut.
+Missing evidence is `ambiguous` or `degraded` with candidates, omissions, and a
+next action; it is never silently replaced by the first route.
+
 Xinfa is an independent product incubated in this repository. Its source
 location is not an ownership boundary: it has its own `xinfa` CLI, `xinfa.*`
 protocol namespace, version, release tag, artifacts, state, cache, license,
@@ -81,6 +91,7 @@ cargo build --locked --manifest-path Cargo.toml
 ./target/debug/xinfa atlas verify --atlas atlas --json
 ./target/debug/xinfa atlas diff --before atlas --after atlas --json
 ./target/debug/xinfa atlas impact --since atlas --project fixtures/repository-small-next/project.json --json
+./target/debug/xinfa route resolve --atlas atlas --task task-envelope.json --json
 ./target/debug/xinfa atlas compile --pack atlas/compatibility/context-pack-v1 --output imported-atlas --json
 ./target/debug/xinfa episode compile --before atlas --project fixtures/repository-small/project.json --submission evidence/episode-submission.json --output successor-atlas --json
 ./target/debug/xinfa read --atlas atlas --route small.human --intent "understand runtime" --surface human --max-hops 2 --json
@@ -138,6 +149,12 @@ authority returns `status=degraded` with explicit omissions; it never presents
 silent truncation as a complete context. `xinfa expand` verifies the handle and
 predecessor projection and refuses to switch Atlas root or cut. A changed cut
 requires compiling an explicit successor projection.
+
+The route-resolution receipt is the required predecessor of an automatically
+created Task Chart. Explicit `--route` remains a compatibility input, but an
+adapter must express it as `requested_route` in the task envelope and retain the
+resolver receipt. A compatibility adapter may not choose a route by array order
+or hide an ambiguity failure.
 
 Projection recipes are versioned under `.xinfa/projection-recipes/`. Generated
 materializations belong under `.xinfa/generated/`, never overwrite human-owned

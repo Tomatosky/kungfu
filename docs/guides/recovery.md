@@ -121,6 +121,6 @@ kungfu contract show diagnostics --json
 ```
 
 The authority boundary and acceptance gates are frozen in
-[ADR-0109](../adr/ADR-0109-fenced-unified-recovery-entry.md). The exact
+[ADR-0111](../adr/ADR-0111-fenced-unified-recovery-entry.md). The exact
 portable three-platform candidate evidence is retained in the
 [unified recovery qualification](../qualification/unified-recovery.md).
