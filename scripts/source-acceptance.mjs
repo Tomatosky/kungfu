@@ -10,6 +10,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CPP = /\.(?:c|cc|cpp|cxx|h|hh|hpp|hxx)$/;
 const WEB = /\.(?:ts|tsx|js|jsx|mjs|cjs|json|jsonc|css)$/;
+const GENERATED_EVIDENCE_ROOTS = ['.kungfu/', '.xinfa/'];
 // Repo-relative roots of the mypy-checked surface. Mirrors `files` under
 // [tool.mypy] in framework/core/pyproject.toml, which stays the single source of
 // truth for what gets checked; this list only decides whether a changed file
@@ -304,7 +305,11 @@ export function sourceAcceptancePlan(files) {
     },
   ];
 
-  const web = files.filter((file) => WEB.test(file));
+  const web = files.filter(
+    (file) =>
+      WEB.test(file) &&
+      !GENERATED_EVIDENCE_ROOTS.some((root) => file.startsWith(root)),
+  );
   if (web.length) {
     plan.push({
       label: 'changed web source format and lint',
