@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
+import json
 import random
 import time
 from pathlib import Path
@@ -19,6 +21,11 @@ MANIFEST_WRITER_BUSY = "manifest_writer_busy"
 WRITE_RETRY_SCHEMA = "kungfu.episode.write-retry/v1"
 RECOVERY_PLAN_SCHEMA = "kungfu.episode.recovery-plan/v1"
 RECOVERY_RECEIPT_SCHEMA = "kungfu.episode.recovery-receipt/v1"
+
+
+def _plan_root(value: dict[str, Any]) -> str:
+    payload = json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    return "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -264,6 +271,12 @@ def plan_episode_recovery(
     closed = bool(episode.get("closed"))
     close_count = int(episode.get("close_count") or 0)
     open_record = dict(episode.get("open") or {})
+    current_records = list(episode.get("records") or [])
+    expected_manifest_frame_uid = (
+        int(current_records[-1].get("manifest_frame_uid") or 0)
+        if current_records
+        else 0
+    )
     owner_location_uid = int(open_record.get("location_uid") or 0)
     age = _episode_age(
         episode,
@@ -338,7 +351,7 @@ def plan_episode_recovery(
             }
         )
 
-    return {
+    result = {
         "schema": RECOVERY_PLAN_SCHEMA,
         "ok": True,
         "action": "abort-open-episode",
@@ -346,6 +359,7 @@ def plan_episode_recovery(
         "episodeId": episode_id,
         "locationUid": owner_location_uid,
         "terminalRecordPresent": closed or close_count > 0,
+        "expectedManifestFrameUid": expected_manifest_frame_uid,
         "age": age,
         "writer": writer,
         "eligible": not blockers,
@@ -357,6 +371,30 @@ def plan_episode_recovery(
             "native manifest recovery acquires the data-root writer guard",
         ],
     }
+    identity = {
+        "schema": result["schema"],
+        "action": result["action"],
+        "runtimeDir": result["runtimeDir"],
+        "episodeId": result["episodeId"],
+        "locationUid": result["locationUid"],
+        "terminalRecordPresent": result["terminalRecordPresent"],
+        "expectedManifestFrameUid": result["expectedManifestFrameUid"],
+        "age": {
+            "anchorKind": age["anchorKind"],
+            "anchorTime": age["anchorTime"],
+            "staleAfterSeconds": age["staleAfterSeconds"],
+            "stale": age["stale"],
+        },
+        "writer": {
+            "resourceId": writer.get("resourceId"),
+            "status": writer.get("status"),
+            "active": bool(writer.get("active")),
+        },
+        "eligible": result["eligible"],
+        "blockers": [item["code"] for item in blockers],
+    }
+    result["planId"] = _plan_root(identity)
+    return result
 
 
 def execute_episode_recovery(
@@ -401,7 +439,7 @@ def execute_episode_recovery(
         stale_after_seconds=stale_after_seconds,
     )
     current_records = list(episode.get("records") or [])
-    expected_manifest_frame_uid = (
+    current_manifest_frame_uid = (
         int(current_records[-1].get("manifest_frame_uid") or 0)
         if current_records
         else 0
@@ -412,7 +450,8 @@ def execute_episode_recovery(
         or int(episode.get("close_count") or 0) > 0
         or current_location_uid != plan["locationUid"]
         or not current_age["stale"]
-        or expected_manifest_frame_uid == 0
+        or current_manifest_frame_uid == 0
+        or current_manifest_frame_uid != plan["expectedManifestFrameUid"]
     ):
         raise EpisodeRecoveryError(
             "episode_recovery_state_changed",
@@ -427,7 +466,7 @@ def execute_episode_recovery(
             episode_id=episode_id,
             location_uid=current_location_uid,
             reason=reason,
-            expected_manifest_frame_uid=expected_manifest_frame_uid,
+            expected_manifest_frame_uid=current_manifest_frame_uid,
         ),
     )
     recovered_ids = [

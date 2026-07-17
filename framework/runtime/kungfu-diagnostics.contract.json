@@ -1,9 +1,9 @@
 {
   "schema": "kungfu.diagnostics.contract/v1",
   "id": "kungfu-diagnostics",
-  "version": 1,
+  "version": 2,
   "weldedSurface": "product-diagnostics-contract",
-  "description": "One read-only health report and actionable problem vocabulary over runtime, Peer, storage, and Episode authority surfaces.",
+  "description": "One health, preflight, and fenced recovery-planning vocabulary over runtime, Peer, storage, and Episode authority surfaces.",
   "contractSchema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -20,9 +20,13 @@
       "exitCodes",
       "modes",
       "preflightProfiles",
+      "recoveryClassifications",
+      "recoveryActions",
       "problemSchema",
       "reportSchema",
       "preflightSchema",
+      "recoveryPlanSchema",
+      "recoveryReceiptSchema",
       "problemCatalog",
       "guarantees",
       "nonClaims"
@@ -141,6 +145,18 @@
           }
         }
       },
+      "recoveryClassifications": {
+        "type": "array",
+        "const": [
+          "automatic-safe",
+          "confirmation-required",
+          "manual-blocked"
+        ]
+      },
+      "recoveryActions": {
+        "type": "object",
+        "minProperties": 5
+      },
       "problemSchema": {
         "type": "object"
       },
@@ -148,6 +164,12 @@
         "type": "object"
       },
       "preflightSchema": {
+        "type": "object"
+      },
+      "recoveryPlanSchema": {
+        "type": "object"
+      },
+      "recoveryReceiptSchema": {
         "type": "object"
       },
       "problemCatalog": {
@@ -253,6 +275,43 @@
         "action-required": "warn",
         "blocked": "warn"
       }
+    }
+  },
+  "recoveryClassifications": [
+    "automatic-safe",
+    "confirmation-required",
+    "manual-blocked"
+  ],
+  "recoveryActions": {
+    "runtime.ensure": {
+      "classification": "automatic-safe",
+      "authority": "ProcessRuntimeHost",
+      "rule": "Activation revalidates process-start identity and runtime ownership at the execution point."
+    },
+    "peer.ensure": {
+      "classification": "confirmation-required",
+      "authority": "PeerLifecycleHost",
+      "rule": "The saved declaration, plan id, generation, and process-start identity remain authoritative."
+    },
+    "peer.restart": {
+      "classification": "confirmation-required",
+      "authority": "PeerLifecycleHost",
+      "rule": "Restart uses the expected host generation and never signals a process by PID alone."
+    },
+    "storage.rebuild-projection": {
+      "classification": "automatic-safe",
+      "authority": "StorageService",
+      "rule": "Only declared derived projections may be rebuilt from current authoritative journals."
+    },
+    "episode.abort-stale": {
+      "classification": "confirmation-required",
+      "authority": "EpisodeRecoveryPlanner",
+      "rule": "Execution reacquires the writer lease and compares the current manifest position before appending an abort record."
+    },
+    "manual-review": {
+      "classification": "manual-blocked",
+      "authority": "underlying problem authority",
+      "rule": "Unknown ownership, writer, or authoritative data outcomes have no executable recovery action."
     }
   },
   "problemSchema": {
@@ -636,6 +695,280 @@
         "items": {
           "$ref": "https://kungfu.link/schema/diagnostics/problem-v1.json"
         }
+      }
+    }
+  },
+  "recoveryPlanSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://kungfu.link/schema/diagnostics/recovery-plan-v1.json",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema",
+      "planId",
+      "status",
+      "readOnly",
+      "generatedAt",
+      "home",
+      "runtimeDir",
+      "healthStatus",
+      "healthExitCode",
+      "summary",
+      "actions",
+      "health"
+    ],
+    "properties": {
+      "schema": {
+        "const": "kungfu.recovery-plan/v1"
+      },
+      "planId": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "status": {
+        "enum": [
+          "ready",
+          "recoverable",
+          "blocked"
+        ]
+      },
+      "readOnly": {
+        "const": true
+      },
+      "generatedAt": {
+        "type": "string",
+        "minLength": 1
+      },
+      "home": {
+        "type": "string",
+        "minLength": 1
+      },
+      "runtimeDir": {
+        "type": "string",
+        "minLength": 1
+      },
+      "healthStatus": {
+        "enum": [
+          "ready",
+          "degraded",
+          "action-required",
+          "blocked"
+        ]
+      },
+      "healthExitCode": {
+        "enum": [
+          0,
+          1,
+          2,
+          3
+        ]
+      },
+      "summary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "automatic-safe",
+          "confirmation-required",
+          "manual-blocked"
+        ],
+        "properties": {
+          "automatic-safe": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "confirmation-required": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "manual-blocked": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "actions": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "actionId",
+            "problemCode",
+            "sourceCode",
+            "area",
+            "operation",
+            "classification",
+            "label",
+            "target",
+            "expected",
+            "preconditions",
+            "executable"
+          ],
+          "properties": {
+            "actionId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "problemCode": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sourceCode": {
+              "type": "string",
+              "minLength": 1
+            },
+            "area": {
+              "enum": [
+                "runtime",
+                "peer",
+                "storage",
+                "episode"
+              ]
+            },
+            "operation": {
+              "enum": [
+                "runtime.ensure",
+                "peer.ensure",
+                "peer.restart",
+                "storage.rebuild-projection",
+                "episode.abort-stale",
+                "manual-review"
+              ]
+            },
+            "classification": {
+              "enum": [
+                "automatic-safe",
+                "confirmation-required",
+                "manual-blocked"
+              ]
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1
+            },
+            "target": {
+              "type": "object"
+            },
+            "expected": {
+              "type": "object"
+            },
+            "preconditions": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "executable": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "health": {
+        "type": "object"
+      }
+    }
+  },
+  "recoveryReceiptSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://kungfu.link/schema/diagnostics/recovery-receipt-v1.json",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema",
+      "planId",
+      "ok",
+      "status",
+      "executedAt",
+      "selectedActionIds",
+      "actions",
+      "postflight"
+    ],
+    "properties": {
+      "schema": {
+        "const": "kungfu.recovery-receipt/v1"
+      },
+      "planId": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "ok": {
+        "type": "boolean"
+      },
+      "status": {
+        "enum": [
+          "succeeded",
+          "action-required",
+          "blocked",
+          "failed"
+        ]
+      },
+      "executedAt": {
+        "type": "string",
+        "minLength": 1
+      },
+      "selectedActionIds": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "actions": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema",
+            "actionId",
+            "operation",
+            "status",
+            "ok",
+            "result",
+            "error"
+          ],
+          "properties": {
+            "schema": {
+              "const": "kungfu.recovery-action-receipt/v1"
+            },
+            "actionId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "operation": {
+              "type": "string",
+              "minLength": 1
+            },
+            "status": {
+              "enum": [
+                "succeeded",
+                "failed",
+                "not-run"
+              ]
+            },
+            "ok": {
+              "type": "boolean"
+            },
+            "result": {
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "error": {
+              "type": [
+                "object",
+                "null"
+              ]
+            }
+          }
+        }
+      },
+      "postflight": {
+        "type": "object"
       }
     }
   },
@@ -1270,11 +1603,15 @@
     "kungfu health never repairs a runtime route or storage projection",
     "kungfu health never writes an Episode terminal record",
     "unknown process, writer, or I/O outcomes fail closed",
-    "fast mode never invokes storage fsck"
+    "fast mode never invokes storage fsck",
+    "kungfu recover is read-only unless --execute binds an exact current plan id",
+    "every recovery action reuses the underlying execution-point fence and returns a per-action receipt",
+    "manual-blocked actions are never executable through the unified recovery entry"
   ],
   "nonClaims": [
     "cross-host availability",
-    "automatic repair",
+    "unfenced or unattended repair of unknown authority state",
+    "one global transaction across independent runtime, Peer, storage, and Episode actions",
     "power-loss recovery beyond the underlying durability qualification",
     "business-level correctness of Profile or KFX logic"
   ]
