@@ -28,8 +28,8 @@ explains Kungfu's current policy and does not redefine Shifu semantics.
   `a6145efc210a961da0e5c63d7024d42061550f60`. Buildchain cannot weaken a
   Kungfu profile or mint missing Gate receipts.
 - The alpha/release build, source acceptance, and release promotion controllers
-  are pinned separately to stable Buildchain `v2.13.0` at
-  `ec48c0b311212c5f3a591e0284da6e85a9fdded5`. Its sealed publication verifier
+  are pinned separately to stable Buildchain `v2.14.1` at
+  `bb9ce34b368c6b5a27b00fbdcb0515076abd9744`. Its sealed publication verifier
   transports the complete Gate aggregate into Kungfu's credential-free
   consumer predicate and revalidates the resulting receipt immediately before
   provider mutation. Missing or drifted inputs deny publication rather than
@@ -67,6 +67,38 @@ than replaced by local no-op handlers.
 Its workflow binding sets `currentSource: false`: the checker still proves the
 profile invocation and full non-`off` Gate set in both directions, but the
 one-shot observation runner is not rendered as a Gate's standing policy source.
+
+## Dev required latency SLO
+
+`scripts/measure-dev-required-latency.mjs` is the read-only measurement surface
+for the protected development branch. It discovers the required context set
+from live branch protection, then measures each merged PR revision from the
+earliest matching Actions workflow `created_at` through the last required
+context's terminal success. This includes workflow/job queueing and retries;
+runner execution time alone is not the metric.
+
+The report uses the current source planner to classify samples as `native`,
+`non-native`, or `unknown`, and reports nearest-rank P50/P95 for every stratum.
+Planner failures remain unknown instead of becoming non-native. Cache outcome
+also remains `unknown` unless a provider receipt is collected; duration is
+never used to infer a hit. Missing or non-success required contexts are retained
+as explicit exclusions with their reason and are never silently removed from
+the dataset.
+
+The current dev objective is queue-inclusive P50 at most 300 seconds and P95 at
+most 600 seconds. A report is an observation, not a release credential, and a
+small passing sample does not by itself qualify the objective. Rebuild a recent
+window only after it contains at least 20 total samples and 10 native samples;
+otherwise the machine verdict remains non-qualifying. Rebuild it with:
+
+```sh
+./shifu gate:latency:measure --branch dev/v4/v4.0 --limit 30
+```
+
+The command requires a read-only GitHub token through `GH_TOKEN` or
+`GITHUB_TOKEN`, or an authenticated `gh` client. It reads pull requests,
+workflow/check metadata, changed paths, and branch protection; it does not
+modify repository settings or workflow runs.
 
 The matrix is deliberately conservative during rollout. Existing blocking
 checks remain `required`; independently runnable heavy Gates without a current

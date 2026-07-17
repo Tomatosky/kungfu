@@ -7,6 +7,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 
 import {
+  boundedFailureTail,
   createLogBundle,
   defaultOutputDir,
   evaluateQualification,
@@ -16,10 +17,15 @@ import {
   validateReport,
 } from './run.mjs';
 
-test('failed suites expose a bounded diagnostic tail in the workflow log', () => {
-  const source = fs.readFileSync(new URL('./run.mjs', import.meta.url), 'utf8');
-  assert.match(source, /output\.slice\(-64 \* 1024\)/);
-  assert.match(source, /failure output \(last 64 KiB\)/);
+test('failed suites print only a bounded normalized log tail', () => {
+  assert.equal(
+    boundedFailureTail('first\r\nsecond\r\nthird\r\nfourth\r\n', {
+      maxBytes: 1024,
+      maxLines: 2,
+    }),
+    'third\nfourth',
+  );
+  assert.equal(boundedFailureTail('', { maxBytes: 1024, maxLines: 2 }), '');
 });
 
 test('default evidence survives Core build-directory cleanup', () => {

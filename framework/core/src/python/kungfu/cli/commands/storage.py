@@ -3,6 +3,7 @@
 import json
 import sys
 import tempfile
+from typing import Any
 
 import click
 
@@ -627,7 +628,7 @@ def rebuild_index(ctx, scope, storage_source_id, dry_run, as_json):
     from kungfu.storage import service
 
     if scope == "atlas":
-        result = {
+        result: dict[str, Any] = {
             "ok": True,
             "scope": "atlas",
             "dry_run": True,
@@ -755,7 +756,10 @@ def _run_episode_write(ctx, as_json, operation, action):
         if as_json:
             _echo_json(payload)
         else:
-            click.echo(f"[storage] {exc}", err=True)
+            from kungfu import diagnostics
+
+            translated = diagnostics.problem_from_exception(exc, area="episode")
+            click.echo(f"[storage] {diagnostics.actionable_text(translated)}", err=True)
         ctx.exit(1)
     result = dict(result)
     result["write_retry"] = retry
@@ -1062,7 +1066,10 @@ def episode_recover(
         if as_json:
             _echo_json(payload)
         else:
-            click.echo(f"[storage] {exc}", err=True)
+            from kungfu import diagnostics
+
+            translated = diagnostics.problem_from_exception(exc, area="episode")
+            click.echo(f"[storage] {diagnostics.actionable_text(translated)}", err=True)
         ctx.exit(1)
     if as_json:
         _echo_json(receipt)
