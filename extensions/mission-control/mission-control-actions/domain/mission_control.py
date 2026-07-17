@@ -1321,6 +1321,7 @@ def create_go(
     responsibility: str = "",
     acceptance_root: str = "",
     atlas_root: str = "",
+    context_binding: dict[str, Any] | None = None,
     project_cut_root: str = "",
     evidence_episode_roots: list[str] | None = None,
     system_time: int = 0,
@@ -1364,6 +1365,53 @@ def create_go(
         raise ValueError("a Go cannot depend on itself")
     acceptance_root = _root_id(acceptance_root, "acceptance_root")
     atlas_root = _root_id(atlas_root, "atlas_root")
+    context_binding = dict(context_binding or {})
+    if context_binding:
+        required_context_fields = {
+            "schema",
+            "status",
+            "atlas_root",
+            "cut_root",
+            "route_id",
+            "route_root",
+            "authority_root",
+            "task_envelope_root",
+            "route_receipt_root",
+            "chart_root",
+            "policy_root",
+            "omissions_root",
+            "budget",
+        }
+        if set(context_binding) != required_context_fields:
+            raise ValueError("context_binding must contain the exact v1 field set")
+        if (
+            context_binding.get("schema") != "xinfa.go-context-binding/v1"
+            or context_binding.get("status") != "complete"
+        ):
+            raise ValueError("context_binding must be a complete Xinfa v1 binding")
+        for field in (
+            "atlas_root",
+            "cut_root",
+            "route_root",
+            "authority_root",
+            "task_envelope_root",
+            "route_receipt_root",
+            "chart_root",
+            "policy_root",
+            "omissions_root",
+        ):
+            context_binding[field] = _root_id(
+                str(context_binding.get(field) or ""),
+                f"context_binding.{field}",
+                required=True,
+            )
+        if context_binding["atlas_root"] != atlas_root:
+            raise ValueError("context_binding.atlas_root must equal atlas_root")
+        if not str(context_binding.get("route_id") or "").strip():
+            raise ValueError("context_binding.route_id is required")
+        budget = context_binding.get("budget")
+        if not isinstance(budget, int) or isinstance(budget, bool) or budget <= 0:
+            raise ValueError("context_binding.budget must be a positive integer")
     project_cut_root = _root_id(project_cut_root, "project_cut_root")
     episode_roots = sorted(
         {
@@ -1387,6 +1435,10 @@ def create_go(
         "responsibility": responsibility.strip() or actor.strip(),
         "acceptance_root": acceptance_root,
         "input_atlas_root": atlas_root,
+        "context_binding": context_binding,
+        "context_binding_root": _sha256_root(context_binding)
+        if context_binding
+        else "",
         "project_cut_root": project_cut_root,
         "evidence_episode_roots": episode_roots,
     }

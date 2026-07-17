@@ -315,9 +315,9 @@
     },
     {
       "apiId": "kungfu.atlas.create-go",
-      "name": "kungfu atlas create-go <mission-id> <goal-id> --title <title> --objective <objective> --actor <actor> [--parent-go <id>] [--depends-on <id>] [--responsibility <owner>] [--acceptance-root <root>] [--atlas-root <root>] [--project-cut-root <root>] [--episode-root <root>] --json",
+      "name": "kungfu atlas create-go <mission-id> <goal-id> --title <title> --objective <objective> --actor <actor> [--parent-go <id>] [--depends-on <id>] [--responsibility <owner>] [--acceptance-root <root>] [--atlas-root <root>] [--context-binding-json <json>] [--project-cut-root <root>] [--episode-root <root>] --json",
       "maturity": "experimental",
-      "purpose": "Create a Kungfu-native Go with separate containment and execution dependencies plus exact Atlas, Project Cut, Episode, responsibility, and acceptance roots."
+      "purpose": "Create a Kungfu-native Go with separate containment and execution dependencies plus exact verified Xinfa context, Atlas, Project Cut, Episode, responsibility, and acceptance roots."
     },
     {
       "apiId": "kungfu.atlas.claim-completion",

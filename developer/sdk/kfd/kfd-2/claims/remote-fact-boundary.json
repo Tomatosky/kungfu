@@ -34,7 +34,7 @@
       "pointer": {
         "kind": "file",
         "path": "framework/core/src/python/kungfu/agent/commands.json",
-        "sha256": "146a31f801d68a91ac41b313990de41f31722754d7a05779bfd7ce1c3ca9453d"
+        "sha256": "0b9358d6832cbd320d16eff6050668530a7e9bc8b3acce881ec88321ac08b606"
       },
       "description": "Remote add/sync command declarations and mode metadata."
     },
@@ -62,7 +62,7 @@
       },
       {
         "path": "framework/core/src/python/kungfu/agent/commands.json",
-        "sha256": "146a31f801d68a91ac41b313990de41f31722754d7a05779bfd7ce1c3ca9453d"
+        "sha256": "0b9358d6832cbd320d16eff6050668530a7e9bc8b3acce881ec88321ac08b606"
       },
       {
         "path": "framework/core/src/python/kungfu/cli/commands/agent.py",
