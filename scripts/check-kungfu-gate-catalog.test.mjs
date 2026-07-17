@@ -145,7 +145,7 @@ test('current Kungfu catalog, docs, matrix, actions, and workflows align', () =>
   );
   assert.equal(controllers.length, 6);
   assert.ok(controllers.every((fact) => fact.gates.length > 0));
-  assert.equal(result.workflowAuthority.workflows.length, 16);
+  assert.equal(result.workflowAuthority.workflows.length, 17);
 });
 
 test('workflow authority rejects unknown workflows, jobs, steps, and activation drift', () => {

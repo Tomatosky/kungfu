@@ -826,6 +826,57 @@
       ]
     },
     {
+      "path": ".github/workflows/kfd-verifier-drift.yml",
+      "authority": "qualification",
+      "definitionDigest": "sha256:1118746c44d94570ec7ae2004e52a04f0c60a9d8f2d290b9378669a8ca2de54e",
+      "jobs": [
+        {
+          "id": "verify-owned-fixtures",
+          "authority": "qualification",
+          "publication": "none",
+          "receipt": "qualifying",
+          "definitionDigest": "sha256:31aaa07f777612265ecf58b56c70c2e4884971de90e8af239b95a56bffcae15f",
+          "credentials": {
+            "githubToken": "read",
+            "oidc": false,
+            "repositorySecrets": [],
+            "inheritedSecrets": false,
+            "environment": null
+          },
+          "externalActions": [
+            "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
+            "actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e"
+          ],
+          "steps": [
+            {
+              "index": 1,
+              "label": "uses:actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
+              "authority": "qualification",
+              "definitionDigest": "sha256:86e974e8ec8e828d53576df6fcf46da9a32d9fccdd6ea0212e28bbcb36cdc2e7"
+            },
+            {
+              "index": 2,
+              "label": "uses:actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e",
+              "authority": "qualification",
+              "definitionDigest": "sha256:a869cc671103a9106dc90b4275a4148de9a5d18cd3578a2642d8ae8076d8dbf0"
+            },
+            {
+              "index": 3,
+              "label": "name:Install frozen workspace",
+              "authority": "qualification",
+              "definitionDigest": "sha256:87d057d2738138405008a036b85811bea2d8f7dadedf7179c773faf5f3d6fb12"
+            },
+            {
+              "index": 4,
+              "label": "name:Verify product-owned fixtures",
+              "authority": "qualification",
+              "definitionDigest": "sha256:2250b93c5189f38bcbac7c7da2220a55e73148d7091e9ab548b01ff58f681654"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "path": ".github/workflows/publish-layer-artifacts.yml",
       "authority": "product-publication",
       "definitionDigest": "sha256:f4186ee831659f177fa148c2a9cacc7910f6aa72b4e7ce654d43617e9c542738",

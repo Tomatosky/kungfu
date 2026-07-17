@@ -56,6 +56,7 @@
     "xinfa:schema-set:write": "node scripts/require-shifu.mjs xinfa:schema-set:write && node xinfa/tooling/check-schema-set.mjs --write",
     "xinfa:standalone": "node scripts/require-shifu.mjs xinfa:standalone && node xinfa/tooling/task.mjs standalone",
     "xinfa:dogfood": "node scripts/require-shifu.mjs xinfa:dogfood && node xinfa/tooling/task.mjs build && node xinfa/tooling/dogfood.mjs",
+    "kfd:verify-owned-fixtures": "node scripts/require-shifu.mjs kfd:verify-owned-fixtures && node scripts/verify-kfd-owned-fixtures.mjs",
     "project-cut": "node scripts/require-shifu.mjs project-cut && node framework/project-cut/bin/project-cut.mjs",
     "check:project-cut-settlement": "node scripts/require-shifu.mjs check:project-cut-settlement && node scripts/check-project-cut-settlement.mjs",
     "test:project-cut-settlement": "node scripts/require-shifu.mjs test:project-cut-settlement && node --test scripts/check-project-cut-settlement.test.mjs",
@@ -195,6 +196,7 @@
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
     "@kungfu-tech/buildchain": "2.14.1",
+    "@kungfu-tech/kfd": "1.0.0-alpha.29",
     "@types/fs-extra": "^11.0.4",
     "@types/markdown-it": "14.1.2",
     "@types/node": "^22.0.0",
