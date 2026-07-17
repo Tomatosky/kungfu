@@ -236,6 +236,7 @@ export function sourceAcceptancePlan(files) {
         'scripts/shifu-gate-runtime.test.mjs',
         'scripts/shifu-gate-executor.test.mjs',
         'scripts/shifu-documentation-runtime.test.mjs',
+        'scripts/shifu-documentation-surfaces.test.mjs',
         'scripts/kungfu-xinfa-consumer.test.mjs',
         'scripts/check-kungfu-gate-catalog.test.mjs',
         'scripts/verify-kungfu-release-admission.test.mjs',

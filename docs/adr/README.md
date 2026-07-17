@@ -184,6 +184,7 @@ implemented and qualified or explicitly waived for that release.
 | [SHIFU-0005](SHIFU-ADR-0005-repo-root-discovery-and-jurisdiction.md) | accepted | Two-level repo discovery; a buildchain-managed repo joins by declaring `registrar: shifu`, and shifu asks buildchain for the KFD-3 layout instead of copying it |
 | [SHIFU-0006](SHIFU-ADR-0006-documentation-protocol-and-provider-boundary.md) | accepted | Shifu owns a project-independent documentation submission, canonical-root, diagnostics, and receipt contract while projects retain semantic providers and routes |
 | [SHIFU-0007](SHIFU-ADR-0007-closed-world-workflow-release-admission.md) | accepted | Kungfu classifies the complete workflow execution surface and grants product or channel authority only through an independently reverified sealed capability |
+| [SHIFU-0008](SHIFU-ADR-0008-human-surface-closure-and-xinfa-impact-authority.md) | accepted | Shifu closes exact human surfaces and delegates canonical drift, impact, and route authority to Xinfa |
 
 ## Reading by theme
 

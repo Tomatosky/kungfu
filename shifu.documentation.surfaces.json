@@ -1,0 +1,186 @@
+{
+  "$schema": "https://libkungfu.dev/schemas/shifu/documentation-surface-policy-v1.schema.json",
+  "schema": "shifu.documentation-surface-policy/v1",
+  "project": "kungfu",
+  "discovery": {
+    "trackedOnly": true,
+    "extensions": [".adoc", ".md", ".mdx", ".rst", ".txt"]
+  },
+  "classifications": [
+    {
+      "id": "generated-index",
+      "lifecycle": "generated",
+      "documentProfile": "generated-index",
+      "verificationProfile": "machine-check",
+      "visibility": "public",
+      "owner": "kungfu-docs",
+      "waiver": null,
+      "selectors": { "paths": ["docs/MAP.md"] }
+    },
+    {
+      "id": "managed-projection",
+      "lifecycle": "managed-block",
+      "documentProfile": "generated-index",
+      "verificationProfile": "mixed-check",
+      "visibility": "public",
+      "owner": "kungfu-docs",
+      "waiver": null,
+      "selectors": { "paths": ["README.md"] }
+    },
+    {
+      "id": "historical-record",
+      "lifecycle": "historical-append-only",
+      "documentProfile": "decision-record",
+      "verificationProfile": "human-review",
+      "visibility": "public",
+      "owner": "kungfu-architecture",
+      "waiver": null,
+      "selectors": {
+        "prefixes": ["docs/adr/", "docs/qualification/evidence/", "docs/research/"]
+      }
+    },
+    {
+      "id": "expressive-non-claim",
+      "lifecycle": "non-claim",
+      "documentProfile": "authored-document",
+      "verificationProfile": "non-claim",
+      "visibility": "public",
+      "owner": "kungfu-docs",
+      "waiver": null,
+      "selectors": { "paths": ["docs/concepts/why-kungfu.md"] }
+    },
+    {
+      "id": "authored-document",
+      "lifecycle": "authored",
+      "documentProfile": "authored-document",
+      "verificationProfile": "human-review",
+      "visibility": "public",
+      "owner": "kungfu-docs",
+      "waiver": null,
+      "selectors": { "suffixes": [".adoc", ".md", ".mdx", ".rst", ".txt"] }
+    }
+  ],
+  "explicitSurfaces": [
+    {
+      "id": "agent-capability-index",
+      "path": "framework/core/src/python/kungfu/agent/index.json",
+      "kind": "agent-surface",
+      "classification": "generated-index"
+    },
+    {
+      "id": "agent-command-catalog",
+      "path": "framework/core/src/python/kungfu/agent/commands.json",
+      "kind": "agent-surface",
+      "classification": "generated-index"
+    },
+    {
+      "id": "agent-kfd3-registry",
+      "path": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
+      "kind": "agent-surface",
+      "classification": "generated-index"
+    },
+    {
+      "id": "gui-runtime-recovery-copy",
+      "path": "framework/gui/src/main/runtime-recovery.ts",
+      "kind": "error-recovery-copy",
+      "classification": "authored-document"
+    },
+    {
+      "id": "gui-upgrade-copy",
+      "path": "framework/gui/src/main/upgrade-message.ts",
+      "kind": "gui-copy",
+      "classification": "authored-document"
+    },
+    {
+      "id": "kungfu-cli-help",
+      "path": "crates/trunk/src/main.rs",
+      "kind": "cli-help",
+      "classification": "authored-document"
+    },
+    {
+      "id": "shifu-cli-help",
+      "path": "crates/shifu/src/main.rs",
+      "kind": "cli-help",
+      "classification": "authored-document"
+    },
+    {
+      "id": "shifu-docs-cli-help",
+      "path": "scripts/shifu-documentation-cli.mjs",
+      "kind": "cli-help",
+      "classification": "authored-document"
+    },
+    {
+      "id": "shifu-gate-cli-help",
+      "path": "scripts/shifu-gate-cli.mjs",
+      "kind": "cli-help",
+      "classification": "authored-document"
+    },
+    {
+      "id": "xinfa-cli-help",
+      "path": "xinfa/src/main.rs",
+      "kind": "cli-help",
+      "classification": "authored-document"
+    }
+  ],
+  "bindings": [
+    {
+      "id": "docs-gate-implementation",
+      "documentPath": "docs/MAP.md",
+      "targetId": "implementation.docs-gate",
+      "targetKind": "implementation",
+      "targetPath": "scripts/check-docs.mjs",
+      "relation": "explains",
+      "expectedRevision": "sha256:b8c8fc8d972bcb813b32026d5572fe4bfb7f47b5508bd9c1c9813a8d54d806a4"
+    },
+    {
+      "id": "docs-protocol-implementation",
+      "documentPath": "docs/shifu/README.md",
+      "targetId": "implementation.shifu-docs-runtime",
+      "targetKind": "implementation",
+      "targetPath": "scripts/shifu-documentation-runtime.mjs",
+      "relation": "explains",
+      "expectedRevision": "sha256:c2e3848471c4c9a1e869c5cdc52a6efcf7bfbac6aa108fc6954966b776925f02"
+    },
+    {
+      "id": "human-surface-closure-implementation",
+      "documentPath": "docs/shifu/README.md",
+      "targetId": "implementation.human-surface-closure",
+      "targetKind": "implementation",
+      "targetPath": "scripts/shifu-documentation-surfaces.mjs",
+      "relation": "explains",
+      "expectedRevision": "sha256:f6cf35c185eceeb6eb65654aedb2cbaecfc319911d636d5bb31735561705c61d"
+    },
+    {
+      "id": "agent-command-artifact",
+      "documentPath": "framework/core/src/python/kungfu/agent/brief.md",
+      "targetId": "artifact.agent-command-catalog",
+      "targetKind": "evidence",
+      "targetPath": "framework/core/src/python/kungfu/agent/commands.json",
+      "relation": "explains",
+      "expectedRevision": "sha256:42e2b78dc082b9976db664cf7dea8ca13ade9e283bce81c76953f44de3a23803"
+    },
+    {
+      "id": "xinfa-compiler-implementation",
+      "documentPath": "xinfa/README.md",
+      "targetId": "implementation.xinfa-compiler",
+      "targetKind": "implementation",
+      "targetPath": "xinfa/src/lib.rs",
+      "relation": "explains",
+      "expectedRevision": "sha256:a439923c7897f295546c774ff2a057b37b9fcfd7c86be68bd1a57426ddeb3ea4"
+    }
+  ],
+  "routes": [
+    {
+      "id": "kungfu-human-surfaces",
+      "audience": "human",
+      "parityGroup": "kungfu-documentation",
+      "entrypoints": ["README.md", "docs/README.md", "docs/MAP.md"]
+    },
+    {
+      "id": "kungfu-agent-surfaces",
+      "audience": "agent",
+      "parityGroup": "kungfu-documentation",
+      "entrypoints": ["AGENTS.md", "framework/core/src/python/kungfu/agent/brief.md"]
+    }
+  ]
+}

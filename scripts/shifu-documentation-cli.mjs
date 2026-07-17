@@ -3,14 +3,29 @@
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 import {
   documentationValidationReceipt,
   validateDocumentationSubmissionBytes,
 } from './shifu-documentation-runtime.mjs';
+import {
+  buildHumanSurfaceInventory,
+  humanSurfaceXinfaProject,
+} from './shifu-documentation-surfaces.mjs';
 
 const DEFAULT_SUBMISSION = 'shifu.documentation.json';
+
+/**
+ * @typedef {object} SurfaceOptions
+ * @property {string} policy
+ * @property {string} format
+ * @property {string} output
+ * @property {string} since
+ * @property {string} xinfa
+ * @property {boolean} json
+ */
 
 function help() {
   return `shifu docs — inspect the project-independent Documentation Protocol
@@ -21,6 +36,13 @@ function help() {
                                         validate without executing document commands
   docs show [--submission FILE] [--json]
                                         print deterministic canonical roots and projection
+  docs inventory [--policy FILE] [--format inventory|xinfa-project] [--json]
+                                        close every tracked human-readable surface into an
+                                        exact, classified inventory or Xinfa project submission
+  docs graph --output DIR [--policy FILE] [--xinfa FILE] [--json]
+                                        delegate the exact surface project to Xinfa Atlas
+  docs impact --since DIR [--policy FILE] [--xinfa FILE] [--json]
+                                        delegate bounded KFD-1 impact to Xinfa Atlas
   docs xinfa compile --project FILE --output DIR [--root DIR]
                      [--visibility LEVEL] [--submission FILE]
                      [--xinfa FILE] [--json]
@@ -29,6 +51,164 @@ function help() {
 
 Validation is diagnostic and non-qualifying. Probe providers may only reference
 a Shifu Gate registry; this command never executes them.`;
+}
+
+/** @param {string[]} args @param {'inventory'|'graph'|'impact'} operation @returns {SurfaceOptions} */
+function parseSurfaceOptions(args, operation) {
+  const options = {
+    policy: 'shifu.documentation.surfaces.json',
+    format: 'inventory',
+    output: '',
+    since: '',
+    xinfa: '',
+    json: false,
+  };
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === '--json') options.json = true;
+    else if (
+      ['--policy', '--format', '--output', '--since', '--xinfa'].includes(arg)
+    ) {
+      const value = args[++index];
+      if (!value) throw new Error(`${arg} requires a value`);
+      if (arg === '--policy') options.policy = value;
+      else if (arg === '--format') options.format = value;
+      else if (arg === '--output') options.output = value;
+      else if (arg === '--since') options.since = value;
+      else options.xinfa = value;
+    } else throw new Error(`unknown docs ${operation} option: ${arg}`);
+  }
+  if (!['inventory', 'xinfa-project'].includes(options.format))
+    throw new Error('--format must be inventory or xinfa-project');
+  if (operation === 'graph' && !options.output)
+    throw new Error('docs graph requires --output');
+  if (operation === 'impact' && !options.since)
+    throw new Error('docs impact requires --since');
+  return options;
+}
+
+/** @param {string} root @param {string} requested @returns {string} */
+function surfaceXinfaBinary(root, requested) {
+  return path.resolve(
+    root,
+    requested ||
+      path.join(
+        'xinfa',
+        'target',
+        'debug',
+        process.platform === 'win32' ? 'xinfa.exe' : 'xinfa',
+      ),
+  );
+}
+
+/** @param {any} result @param {string} operation @returns {any} */
+function parseJsonOutput(result, operation) {
+  if (result.error)
+    throw new Error(`${operation} failed to start: ${result.error.message}`);
+  try {
+    return JSON.parse(result.stdout || '{}');
+  } catch {
+    throw new Error(`${operation} did not emit JSON`);
+  }
+}
+
+/** @param {any} project @param {(reference: string) => any} callback */
+function withSurfaceProject(project, callback) {
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'shifu-surfaces-'));
+  const reference = path.join(temporary, 'project.json');
+  try {
+    fs.writeFileSync(reference, `${JSON.stringify(project, null, 2)}\n`);
+    return callback(reference);
+  } finally {
+    fs.rmSync(temporary, { recursive: true, force: true });
+  }
+}
+
+/** @param {string} root @param {any} inventory @param {any} project @param {SurfaceOptions} options */
+function runSurfaceGraph(root, inventory, project, options) {
+  const binary = surfaceXinfaBinary(root, options.xinfa);
+  return withSurfaceProject(project, (reference) => {
+    const compile = spawnSync(
+      binary,
+      [
+        'atlas',
+        'compile',
+        '--project',
+        reference,
+        '--output',
+        options.output,
+        '--root',
+        root,
+        '--visibility',
+        'public',
+        '--json',
+      ],
+      { cwd: root, encoding: 'utf8' },
+    );
+    const compileReceipt = parseJsonOutput(compile, 'Xinfa Atlas compile');
+    let verifyReceipt = null;
+    let verifyStatus = null;
+    if (compile.status === 0) {
+      const verify = spawnSync(
+        binary,
+        ['atlas', 'verify', '--atlas', options.output, '--json'],
+        { cwd: root, encoding: 'utf8' },
+      );
+      verifyReceipt = parseJsonOutput(verify, 'Xinfa Atlas verify');
+      verifyStatus = verify.status;
+    }
+    const passed =
+      compile.status === 0 &&
+      verifyStatus === 0 &&
+      verifyReceipt?.valid === true;
+    return {
+      status: passed ? 0 : 1,
+      receipt: {
+        schema: 'shifu.documentation-xinfa-graph-receipt/v1',
+        verdict: passed ? 'pass' : 'fail',
+        delegated: true,
+        qualifying: false,
+        inventoryRoot: inventory.inventoryRoot,
+        closure: inventory.closure,
+        xinfa: { compile: compileReceipt, verify: verifyReceipt },
+      },
+    };
+  });
+}
+
+/** @param {string} root @param {any} inventory @param {any} project @param {SurfaceOptions} options */
+function runSurfaceImpact(root, inventory, project, options) {
+  const binary = surfaceXinfaBinary(root, options.xinfa);
+  return withSurfaceProject(project, (reference) => {
+    const result = spawnSync(
+      binary,
+      [
+        'atlas',
+        'impact',
+        '--since',
+        options.since,
+        '--project',
+        reference,
+        '--root',
+        root,
+        '--visibility',
+        'public',
+        '--json',
+      ],
+      { cwd: root, encoding: 'utf8' },
+    );
+    return {
+      status: result.status ?? 1,
+      receipt: {
+        schema: 'shifu.documentation-xinfa-impact-receipt/v1',
+        verdict: result.status === 0 ? 'pass' : 'fail',
+        delegated: true,
+        qualifying: false,
+        inventoryRoot: inventory.inventoryRoot,
+        impact: parseJsonOutput(result, 'Xinfa Atlas impact'),
+      },
+    };
+  });
 }
 
 /** @param {string[]} args */
@@ -240,6 +420,28 @@ export async function runDocumentationCommand(
       for (const item of receipt.diagnostics)
         stderr.write(`${item.code}\t${item.path}\t${item.message}\n`);
     return result.valid ? 0 : 1;
+  }
+  if (['inventory', 'graph', 'impact'].includes(sub)) {
+    const operation = /** @type {'inventory'|'graph'|'impact'} */ (sub);
+    const options = parseSurfaceOptions(args.slice(1), operation);
+    const inventory = buildHumanSurfaceInventory({
+      root,
+      policyRef: options.policy,
+    });
+    const project = humanSurfaceXinfaProject(inventory);
+    if (sub === 'inventory') {
+      const value = options.format === 'xinfa-project' ? project : inventory;
+      stdout.write(`${JSON.stringify(value, null, options.json ? 2 : 0)}\n`);
+      return 0;
+    }
+    const result =
+      sub === 'graph'
+        ? runSurfaceGraph(root, inventory, project, options)
+        : runSurfaceImpact(root, inventory, project, options);
+    stdout.write(
+      `${JSON.stringify(result.receipt, null, options.json ? 2 : 0)}\n`,
+    );
+    return result.status;
   }
   if (sub === 'xinfa') {
     if (args[1] !== 'compile')

@@ -27,6 +27,10 @@ execution; Shifu owns how the task is executed after source checkout.
   subject/claim/probe/artifact providers, and computes deterministic contract,
   content, and submission roots. Kungfu's compatibility submission is
   [`../../shifu.documentation.json`](../../shifu.documentation.json).
+- [`../../shifu.documentation.surfaces.json`](../../shifu.documentation.surfaces.json)
+  classifies every tracked human-readable surface plus explicit product and
+  Agent surfaces. Shifu closes the exact-path inventory; Xinfa remains the sole
+  graph, impact, stale-propagation, and dual-first projection authority.
 - [`schema/cache-profile-v1.schema.json`](schema/cache-profile-v1.schema.json)
   is the single source of truth for cache profile fields.
 - [`schema/cache-resolution-v1.schema.json`](schema/cache-resolution-v1.schema.json)
@@ -62,6 +66,10 @@ package:
 ./shifu docs schema receipt
 ./shifu docs validate --json
 ./shifu docs show --json
+./shifu docs inventory --json
+./shifu docs inventory --format xinfa-project --json
+./shifu docs graph --output /tmp/kungfu-documentation-atlas --json
+./shifu docs impact --since /tmp/kungfu-documentation-atlas --json
 ./shifu docs xinfa compile --project .xinfa/project.json --root . --output /tmp/xinfa-atlas --json
 ./shifu gate contract
 ./shifu gate schema registry
@@ -83,6 +91,14 @@ and non-qualifying; it never executes document commands or provider probes.
 submission, then delegates Atlas compile and verify to the public Xinfa binary.
 Its adapter receipt retains both root sets, remains non-qualifying, and owns no
 Context IR, selection, or projection semantics.
+`docs inventory` fails closed when an eligible tracked surface is unclassified
+or a declared route entrypoint is missing. Its exact-path Xinfa submission
+includes explicit document-to-implementation or artifact revision bindings.
+`docs graph` and `docs impact` are thin invocations of the public Xinfa CLI;
+they do not introduce a Shifu graph, cache authority, or inferred semantic
+edge. Generated, managed-block, authored, historical-append-only, and non-claim
+lifecycles control how a diagnosed surface may be maintained; inventory
+membership alone never authorizes a prose rewrite.
 `status` is local-only, `doctor` probes
 endpoints only when explicitly requested, and local configuration changes are
 dry-run unless `--execute` is present.
