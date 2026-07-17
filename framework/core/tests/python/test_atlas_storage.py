@@ -1417,6 +1417,40 @@ def test_tracked_completion_evidence_rejects_fault_campaign(tmp_path, monkeypatc
     assert valid_with_history["valid"] is True
     assert valid_with_history["cut"]["cutRoot"] == cut_root
 
+    parent_root = reconcile["cuts"][1]["cutRoot"]
+    parent_digest = parent_root.removeprefix("sha256:")
+    reconcile.update(
+        {
+            "ok": False,
+            "diagnostics": [
+                {
+                    "code": "source-drift",
+                    "path": (
+                        f".kungfu/project-cuts/sha256/{parent_digest[:2]}/"
+                        f"{parent_digest}/manifest.json"
+                    ),
+                    "detail": "retained parent Cut differs from the current source",
+                }
+            ],
+        }
+    )
+    valid_with_stale_history = mission_control._tracked_completion_evidence(
+        str(checkout), state, "parent-go", claim
+    )
+    assert valid_with_stale_history["valid"] is True
+
+    claimed_digest = cut_root.removeprefix("sha256:")
+    reconcile["diagnostics"][0]["path"] = (
+        f".kungfu/project-cuts/sha256/{claimed_digest[:2]}/"
+        f"{claimed_digest}/manifest.json"
+    )
+    invalid_claimed_cut = mission_control._tracked_completion_evidence(
+        str(checkout), state, "parent-go", claim
+    )
+    assert invalid_claimed_cut["valid"] is False
+    assert "source-drift" in {row["code"] for row in invalid_claimed_cut["diagnostics"]}
+    reconcile.update({"ok": True, "diagnostics": []})
+
     cases = {
         "missing-episode": {"episodes": []},
         "stale-atlas": {"atlasRoot": _sha256_root("stale-atlas")},
