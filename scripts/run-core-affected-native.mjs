@@ -585,6 +585,7 @@ function execute(plan, receiptPath) {
             'Ninja',
             `-DCMAKE_TOOLCHAIN_FILE=${path.join(coreRoot, 'build', 'conan_toolchain.cmake')}`,
             '-DCMAKE_BUILD_TYPE=Release',
+            '-DCMAKE_CXX_SCAN_FOR_MODULES=OFF',
             `-DKUNGFU_BUILD_PROFILE=${plan.profile}`,
           ],
           root,

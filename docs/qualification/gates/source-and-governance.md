@@ -108,8 +108,10 @@ Each section is bound to the registry id by the catalog meta gate.
   Exact or compatible restores still run the current configure/build/CTest
   closure. Misses run and record the cold path; per-run ccache statistics are
   retained beside the provider receipts so an exact restore cannot be confused
-  with effective compiler hits. Contradictory or foreign-key evidence fails
-  closed.
+  with effective compiler hits. The dev-only affected-native configure disables
+  C++ module dependency scanning because the current closure declares no module
+  sources; this avoids uncached scan work without changing alpha/release build
+  semantics. Contradictory or foreign-key evidence fails closed.
 - **Diagnosis:** inspect without building with `./shifu core:affected -- --base
   <base> --head <head> --json`; run mutation fixtures with `./shifu
   core:affected -- --self-test`.
