@@ -1331,6 +1331,110 @@ def test_independent_completion_review_and_exact_continuation(tmp_path):
     )
 
 
+def test_tracked_empty_delta_closes_only_the_episode_gap():
+    report = {
+        "fitness": "insufficient",
+        "composite_proof": {"verified_evidence": [], "invalid_evidence": []},
+        "assessment": {
+            "state": "unverifiable",
+            "report": {
+                "state": "unverifiable",
+                "evidence": {
+                    "conflict_count": 0,
+                    "unregistered_surface_count": 0,
+                    "incompatible_schema_count": 0,
+                    "ambiguous_authority_count": 0,
+                    "unverifiable_count": 1,
+                },
+            },
+        },
+    }
+    claim = {
+        "evidence_episodes": [],
+        "evidence_availability": [],
+        "known_gaps": [],
+    }
+    tracked = {"valid": True, "cut": {"episodes": []}}
+
+    assert mission_control._tracked_empty_delta_closes_episode_gap(
+        report, claim, tracked
+    )
+    assert not mission_control._tracked_empty_delta_closes_episode_gap(
+        report, claim, {**tracked, "valid": False}
+    )
+    assert not mission_control._tracked_empty_delta_closes_episode_gap(
+        report, claim, {"valid": True, "cut": {"episodes": [{}]}}
+    )
+    assert not mission_control._tracked_empty_delta_closes_episode_gap(
+        {**report, "composite_proof": {"invalid_evidence": [{}]}}, claim, tracked
+    )
+    assert not mission_control._tracked_empty_delta_closes_episode_gap(
+        report, {**claim, "known_gaps": ["unclosed gap"]}, tracked
+    )
+    for state in ("conflicted", "stale"):
+        conflicting_assessment = {
+            **report["assessment"],
+            "state": state,
+            "report": {**report["assessment"]["report"], "state": state},
+        }
+        assert not mission_control._tracked_empty_delta_closes_episode_gap(
+            {**report, "assessment": conflicting_assessment}, claim, tracked
+        )
+    for field in (
+        "conflict_count",
+        "unregistered_surface_count",
+        "incompatible_schema_count",
+        "ambiguous_authority_count",
+    ):
+        conflicting_evidence = {
+            **report["assessment"]["report"]["evidence"],
+            field: 1,
+        }
+        assert not mission_control._tracked_empty_delta_closes_episode_gap(
+            {
+                **report,
+                "assessment": {
+                    **report["assessment"],
+                    "report": {
+                        **report["assessment"]["report"],
+                        "evidence": conflicting_evidence,
+                    },
+                },
+            },
+            claim,
+            tracked,
+        )
+    extra_unverifiable = {
+        **report["assessment"]["report"]["evidence"],
+        "unverifiable_count": 2,
+    }
+    assert not mission_control._tracked_empty_delta_closes_episode_gap(
+        {
+            **report,
+            "assessment": {
+                **report["assessment"],
+                "report": {
+                    **report["assessment"]["report"],
+                    "evidence": extra_unverifiable,
+                },
+            },
+        },
+        claim,
+        tracked,
+    )
+    for state in ("unavailable", "missing"):
+        assert not mission_control._tracked_empty_delta_closes_episode_gap(
+            report,
+            {
+                **claim,
+                "evidence_availability": [
+                    {"acceptance": "exact proof", "level": "full", "state": state}
+                ],
+            },
+            tracked,
+        )
+
+
 def test_tracked_completion_evidence_rejects_fault_campaign(tmp_path, monkeypatch):
     checkout = tmp_path / "checkout"
     checkout.mkdir()
@@ -1434,6 +1538,22 @@ def test_tracked_completion_evidence_rejects_fault_campaign(tmp_path, monkeypatc
     )
     assert valid["valid"] is True
     assert valid["evidence_root"].startswith("sha256:")
+
+    reconcile["cuts"][0]["episodes"] = []
+    episodeless_claim = {**claim, "evidence_episodes": []}
+    valid_empty_delta = mission_control._tracked_completion_evidence(
+        str(checkout), state, "parent-go", episodeless_claim
+    )
+    assert valid_empty_delta["valid"] is True
+    assert valid_empty_delta["cut"]["episodes"] == []
+    reconcile["cuts"][0]["episodes"] = [{"semanticRoot": episode_root}]
+    missing_claim_episode = mission_control._tracked_completion_evidence(
+        str(checkout), state, "parent-go", episodeless_claim
+    )
+    assert missing_claim_episode["valid"] is False
+    assert "missing-episode" in {
+        row["code"] for row in missing_claim_episode["diagnostics"]
+    }
 
     reconcile["cuts"].append(
         {

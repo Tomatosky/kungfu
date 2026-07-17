@@ -1668,11 +1668,13 @@ def _tracked_completion_evidence(
             str(row.get("episode_root") or "")
             for row in claim_record.get("evidence_episodes", [])
         }
-        if not claimed_episode_roots or not claimed_episode_roots.issubset(
-            sealed_episode_roots
-        ):
+        if (
+            claimed_episode_roots
+            and not claimed_episode_roots.issubset(sealed_episode_roots)
+        ) or (sealed_episode_roots and not claimed_episode_roots):
             reject(
-                "missing-episode", "claimed Episode is not sealed by the Project Cut"
+                "missing-episode",
+                "claimed Episode set does not match the Project Cut Episode delta",
             )
 
     diagnostics.sort(key=lambda row: (row["code"], row["detail"]))
@@ -2790,6 +2792,39 @@ def _bounded_followups(rows: list[dict[str, Any]] | None) -> list[dict[str, Any]
     return result
 
 
+def _tracked_empty_delta_closes_episode_gap(
+    report: dict[str, Any],
+    claim_record: dict[str, Any],
+    tracked_evidence: dict[str, Any],
+) -> bool:
+    """Admit exact empty-delta proof only when Episode absence is the sole gap."""
+
+    composite = report.get("composite_proof") or {}
+    assessment = report.get("assessment") or {}
+    assessment_report = assessment.get("report") or {}
+    assessment_evidence = assessment_report.get("evidence") or {}
+    return (
+        report.get("fitness") == "insufficient"
+        and assessment.get("state") == "unverifiable"
+        and assessment_report.get("state") == "unverifiable"
+        and assessment_evidence.get("conflict_count") == 0
+        and assessment_evidence.get("unregistered_surface_count") == 0
+        and assessment_evidence.get("incompatible_schema_count") == 0
+        and assessment_evidence.get("ambiguous_authority_count") == 0
+        and assessment_evidence.get("unverifiable_count") == 1
+        and tracked_evidence.get("valid") is True
+        and (tracked_evidence.get("cut") or {}).get("episodes") == []
+        and claim_record.get("evidence_episodes", []) == []
+        and composite.get("verified_evidence", []) == []
+        and composite.get("invalid_evidence", []) == []
+        and not claim_record.get("known_gaps")
+        and all(
+            str(row.get("state") or "") == "available"
+            for row in claim_record.get("evidence_availability", [])
+        )
+    )
+
+
 def review_completion(
     runtime_dir: str,
     *,
@@ -2852,6 +2887,13 @@ def review_completion(
         )
         if not tracked_evidence["valid"]:
             verdict = "unverifiable"
+        elif _tracked_empty_delta_closes_episode_gap(
+            report, claim_record, tracked_evidence
+        ):
+            verdict = "fit"
+            findings.append(
+                "tracked Project Cut proves an explicit empty Episode delta"
+            )
     followups = _bounded_followups(proposed_followups)
     trust_basis = {
         "schema": "kungfu.mission-control.review-trust-basis/v1",
