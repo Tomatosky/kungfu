@@ -128,6 +128,17 @@ def test_recovery_plan_requires_stale_inactive_owned_location(tmp_path, monkeypa
     )
     assert eligible["eligible"] is True
     assert eligible["writer"]["status"] == "absent"
+    assert eligible["expectedManifestFrameUid"] == 101
+    assert eligible["planId"].startswith("sha256:")
+    assert (
+        eligible["planId"]
+        == episode_control.plan_episode_recovery(
+            tmp_path,
+            episode_id=41,
+            stale_after_seconds=5,
+            now_ns=10_000_000_000,
+        )["planId"]
+    )
 
     evidence_path = tmp_path / "ownership" / "writers" / "00000011.00000000.lock"
     evidence_path.parent.mkdir(parents=True)
@@ -191,7 +202,12 @@ def test_recovery_execute_fences_writer_and_revalidates(tmp_path, monkeypatch):
                 "owned": True,
             }
 
-    monkeypatch.setattr(episode_control.yjj, "durability_writer_lease", FakeLease)
+    monkeypatch.setattr(
+        episode_control.yjj,
+        "durability_writer_lease",
+        FakeLease,
+        raising=False,
+    )
 
     receipt = episode_control.execute_episode_recovery(
         tmp_path,
@@ -206,6 +222,52 @@ def test_recovery_execute_fences_writer_and_revalidates(tmp_path, monkeypatch):
     assert recovery_calls[0][1]["location_uid"] == 17
     assert recovery_calls[0][1]["reason"] == "fixture recovery"
     assert recovery_calls[0][1]["expected_manifest_frame_uid"] == 101
+
+
+def test_recovery_execute_rejects_changed_manifest_frame(tmp_path, monkeypatch):
+    inspected = [_open_episode(), _open_episode()]
+    inspected[1]["episode"]["records"][-1]["manifest_frame_uid"] = 102
+    monkeypatch.setattr(
+        episode_control.service,
+        "episode_inspect",
+        lambda *_args, **_kwargs: inspected.pop(0),
+    )
+
+    class FakeLease:
+        def __init__(self, data_root, resource_id):
+            self.status = {
+                "dataRoot": data_root,
+                "resourceId": resource_id,
+                "generation": 3,
+                "owned": True,
+            }
+
+    monkeypatch.setattr(
+        episode_control.yjj,
+        "durability_writer_lease",
+        FakeLease,
+        raising=False,
+    )
+    recovery_calls = []
+    monkeypatch.setattr(
+        episode_control.service,
+        "episode_recover",
+        lambda *_args, **_kwargs: recovery_calls.append("write") or {},
+    )
+
+    with pytest.raises(
+        episode_control.EpisodeRecoveryError,
+        match="Episode facts changed after planning",
+    ) as raised:
+        episode_control.execute_episode_recovery(
+            tmp_path,
+            episode_id=41,
+            stale_after_seconds=5,
+            now_ns=10_000_000_000,
+        )
+
+    assert raised.value.code == "episode_recovery_state_changed"
+    assert recovery_calls == []
 
 
 def test_lifecycle_guard_aborts_keyboard_interrupt(tmp_path, monkeypatch):

@@ -16,6 +16,7 @@ const pythonPath = [
 
 for (const testCase of [
   { file: 'test_health_diagnostics.py', args: [] },
+  { file: 'test_recovery.py', args: [] },
   { file: 'test_health_diagnostics_native.py', args: [] },
   {
     file: 'test_atlas_storage.py',

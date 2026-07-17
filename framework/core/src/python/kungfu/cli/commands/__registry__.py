@@ -29,6 +29,7 @@ from . import workspace
 from . import profile
 from . import lock
 from . import health
+from . import recover
 
 __all__ = [
     "engage",
@@ -60,4 +61,5 @@ __all__ = [
     "profile",
     "lock",
     "health",
+    "recover",
 ]

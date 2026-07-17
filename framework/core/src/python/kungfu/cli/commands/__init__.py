@@ -221,7 +221,13 @@ def kfc(ctx, home, extension_path, log_level, name, stage, env_verify_location):
     # Workspace discovery and selection are control-plane operations. They must
     # be able to inspect an uninitialized candidate without the root callback
     # creating directories or rewriting the caller's resolution evidence first.
-    if ctx.invoked_subcommand in {"workspace", "managed-run", "storage", "health"}:
+    if ctx.invoked_subcommand in {
+        "workspace",
+        "managed-run",
+        "storage",
+        "health",
+        "recover",
+    }:
         return
     initialize_runtime_context(ctx)
 

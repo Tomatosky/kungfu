@@ -83,6 +83,43 @@ test('command preflight profiles are fresh, bounded, and explicit', () => {
   }
 });
 
+test('recovery classifications bind only fenced authority operations', () => {
+  assert.deepEqual(contract.recoveryClassifications, [
+    'automatic-safe',
+    'confirmation-required',
+    'manual-blocked',
+  ]);
+  assert.deepEqual(Object.keys(contract.recoveryActions).sort(), [
+    'episode.abort-stale',
+    'manual-review',
+    'peer.ensure',
+    'peer.restart',
+    'runtime.ensure',
+    'storage.rebuild-projection',
+  ]);
+  assert.equal(
+    contract.recoveryActions['manual-review'].classification,
+    'manual-blocked',
+  );
+  assert.equal(
+    contract.recoveryActions['episode.abort-stale'].authority,
+    'EpisodeRecoveryPlanner',
+  );
+});
+
+test('unified recovery defaults to plan-only and requires exact execution identity', () => {
+  const source = fs.readFileSync(
+    path.join(ROOT, 'framework/core/src/python/kungfu/cli/commands/recover.py'),
+    'utf8',
+  );
+  assert.match(source, /--execute/);
+  assert.match(source, /--plan-id/);
+  assert.match(source, /--approve/);
+  assert.match(source, /execute and not plan_id/);
+  assert.match(source, /plan_recovery/);
+  assert.match(source, /execute_recovery/);
+});
+
 test('high-value command paths declare the registered preflight profiles', () => {
   const runtimeSource = fs.readFileSync(
     path.join(ROOT, 'framework/core/src/python/kungfu/cli/commands/runtime.py'),
