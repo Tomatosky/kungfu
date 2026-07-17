@@ -36,8 +36,8 @@ importers:
         specifier: 2.14.1
         version: 2.14.1
       '@kungfu-tech/kfd':
-        specifier: 1.0.0-alpha.29
-        version: 1.0.0-alpha.29
+        specifier: 1.0.0-alpha.31
+        version: 1.0.0-alpha.31
       '@types/fs-extra':
         specifier: ^11.0.4
         version: 11.0.4
@@ -1392,8 +1392,8 @@ packages:
   '@kungfu-tech/kfd@1.0.0-alpha.21':
     resolution: {integrity: sha512-lsr3aJ93pUaO9gxnGBsrTJkTkvpIHPHp9Rxug7WvdS4Zkte3AdFvyCl1DgwQN+/38FAXf8fBozyGkHxxXaN7Dg==}
 
-  '@kungfu-tech/kfd@1.0.0-alpha.29':
-    resolution: {integrity: sha512-gX1xWL7I2bqRkjbAuLLbkqcGdbRn6Aemdxg2y7zQZHFYPKi0Y7Su55xby++52fafX6A/ZpPZtO+9iQalqHVRxw==}
+  '@kungfu-tech/kfd@1.0.0-alpha.31':
+    resolution: {integrity: sha512-Ki5xa9HSw7ZD2TeSkQEVuM+C+ANzbVTE/cKEVtbPrC6Rzqa/sgmmvkLTGL2b15GEBQqvqh6rfQMpr0QTW58G8A==}
     hasBin: true
 
   '@kungfu-tech/libnode-darwin-arm64@22.22.3-kf.3-alpha.16':
@@ -5727,7 +5727,7 @@ snapshots:
 
   '@kungfu-tech/kfd@1.0.0-alpha.21': {}
 
-  '@kungfu-tech/kfd@1.0.0-alpha.29': {}
+  '@kungfu-tech/kfd@1.0.0-alpha.31': {}
 
   '@kungfu-tech/libnode-darwin-arm64@22.22.3-kf.3-alpha.16':
     optional: true
