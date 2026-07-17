@@ -2748,8 +2748,18 @@ def _tracked_empty_delta_closes_episode_gap(
     """Admit exact empty-delta proof only when Episode absence is the sole gap."""
 
     composite = report.get("composite_proof") or {}
+    assessment = report.get("assessment") or {}
+    assessment_report = assessment.get("report") or {}
+    assessment_evidence = assessment_report.get("evidence") or {}
     return (
         report.get("fitness") == "insufficient"
+        and assessment.get("state") == "unverifiable"
+        and assessment_report.get("state") == "unverifiable"
+        and assessment_evidence.get("conflict_count") == 0
+        and assessment_evidence.get("unregistered_surface_count") == 0
+        and assessment_evidence.get("incompatible_schema_count") == 0
+        and assessment_evidence.get("ambiguous_authority_count") == 0
+        and assessment_evidence.get("unverifiable_count") == 1
         and tracked_evidence.get("valid") is True
         and (tracked_evidence.get("cut") or {}).get("episodes") == []
         and claim_record.get("evidence_episodes", []) == []
