@@ -131,6 +131,14 @@ remaining evidence for independent identity, end-to-end action, invalid
 inference rejection, progressive disclosure, human/agent parity, recovery and
 handoff, reality-pressure dogfood, and bounded release claims.
 
+The retained KFD-7 release-gate declaration is
+[`kungfu-kfd-7-release-gate.json`](../../framework/agent-work/kungfu-kfd-7-release-gate.json).
+Buildchain verifies its frozen action contract, positive and negative runtime
+reports, packaged contract surface, and required experiment inventory. The
+current result is deliberately `warning`: export/import, backend migration,
+clean-home continuation, and independent activation review remain explicit
+qualification debt even though the retained evidence is internally closed.
+
 Kungfu does not currently claim that the four names are permanent, that every
 workflow must display all four roles, that the model is universal for every
 organization, or that it is an adopted numbered KFD.
