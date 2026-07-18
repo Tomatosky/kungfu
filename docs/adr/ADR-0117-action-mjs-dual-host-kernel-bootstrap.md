@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0117
 decision_status: accepted
 implementation_status: staged
-implementation_prs: []
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1107]
 qualification_refs: [framework/action/action.contract.json, framework/action/action-response.schema.json, framework/action/manifest.json, framework/action/migration-map.json, framework/action/action.test.mjs, framework/core/tests/python/test_action_command.py]
 review_state: self-reviewed
 sensitivity: public
