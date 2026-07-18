@@ -4,9 +4,9 @@
   "profileId": "kungfu-kfd-7-action-profile",
   "profileVersion": "0.1.0",
   "stateMachineVersion": "0.1.0",
-  "sourceSha": "466bdc9b089bc06362e0153b7e0d2950bf00f7b0",
+  "sourceSha": "3c39ce4b139df7547326b80416dcf269d7c1cd37",
   "category": "export-import-rebuild",
-  "outcome": "fail",
+  "outcome": "pass",
   "matchedExpectation": true,
   "checks": [
     {
@@ -15,11 +15,17 @@
     },
     {
       "id": "qualified-fact-export-import-bundle",
-      "status": "fail"
+      "status": "pass"
+    },
+    {
+      "id": "tampered-bundle-fails-before-write",
+      "status": "pass"
     }
   ],
   "observations": {
-    "lossCode": "profile-authority-not-exported",
-    "retainedBoundary": "The Fact journal, body namespace, refs, and exact Cuts are not yet packaged as one qualified export/import bundle."
+    "bundleSchema": "kungfu.fact-authority-bundle/v1",
+    "authority": "yijinjing-hana-pod-journal",
+    "testPath": "framework/core/tests/python/test_agent_work_profile_native.py",
+    "retainedBoundary": "The bundle replays through the existing native Fact kernel; it does not create a second journal, CAS, schema registry, or query engine."
   }
 }

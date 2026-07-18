@@ -266,15 +266,21 @@
     },
     {
       "category": "export-import-rebuild",
-      "status": "planned",
-      "artifactRefs": [],
-      "residualRisk": "Profile-specific retained rebuild evidence is not yet sealed"
+      "status": "passed",
+      "artifactRefs": [
+        "framework/core/tests/python/test_agent_work_profile_native.py",
+        "framework/agent-work/evidence/kfd-7/export-import-rebuild.json"
+      ],
+      "residualRisk": "installed distribution and cross-version bundle compatibility remain separate release gates"
     },
     {
       "category": "backend-migration",
-      "status": "planned",
-      "artifactRefs": [],
-      "residualRisk": "the shared kernel migration exists but the five-role witness is pending"
+      "status": "passed",
+      "artifactRefs": [
+        "framework/core/tests/python/test_agent_work_profile_native.py",
+        "framework/agent-work/evidence/kfd-7/backend-migration.json"
+      ],
+      "residualRisk": "cross-machine consensus is outside the embedded two-provider witness"
     },
     {
       "category": "concurrency-retry-compensation",
@@ -308,9 +314,12 @@
     },
     {
       "category": "cold-start-continuation",
-      "status": "planned",
-      "artifactRefs": [],
-      "residualRisk": "clean-home installed-artifact continuation is pending"
+      "status": "passed",
+      "artifactRefs": [
+        "framework/core/tests/python/test_agent_work_profile_native.py",
+        "framework/agent-work/evidence/kfd-7/cold-start-continuation.json"
+      ],
+      "residualRisk": "installed-artifact parity remains a release qualification gate"
     }
   ],
   "nonClaims": [
@@ -328,6 +337,6 @@
       "framework/agent-work/kungfu-kfd-7-profile-receipt.schema.json",
       "framework/core/tests/python/test_agent_work_state_contract.py"
     ],
-    "residualRisk": "Export/import, backend migration, Episode replay, clean-home, installed-artifact parity, and independent review are not yet complete."
+    "residualRisk": "Episode replay, lifecycle breadth, role-minimality, independent product adoption, installed-artifact parity, and independent review are not yet complete."
   }
 }

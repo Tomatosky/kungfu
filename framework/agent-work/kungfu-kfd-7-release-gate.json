@@ -8,7 +8,7 @@
     "stateMachineVersion": "0.1.0",
     "actionContract": {
       "path": "framework/agent-work/kungfu-kfd-7-action-contract.json",
-      "sha256": "68eb48c73dd5f4e999ea80feeff8f4423b6dfb87fb392253db902812f8f81048"
+      "sha256": "201a602c5a36118e25134aec3f4300621f6f933767669fdf20cec7e4faafae97"
     },
     "verifierReport": {
       "path": "framework/agent-work/evidence/kfd-7/kfd-verifier.json",
@@ -16,7 +16,7 @@
     }
   },
   "source": {
-    "sha": "466bdc9b089bc06362e0153b7e0d2950bf00f7b0"
+    "sha": "3c39ce4b139df7547326b80416dcf269d7c1cd37"
   },
   "surfaces": [
     {
@@ -32,37 +32,37 @@
       "kind": "positive",
       "expectedOutcome": "pass",
       "path": "framework/agent-work/evidence/kfd-7/positive-native-bootstrap.json",
-      "sha256": "82119283a5841558b43ef7396425132c7e04d0b3899e005e7930cea4a23133fd"
+      "sha256": "d487cfbcc4951701e38d6bd5da02e2f408e2f00363bd45ecb8a7e3b13a9012e0"
     },
     {
       "id": "invalid-transition",
       "kind": "negative",
       "expectedOutcome": "fail",
       "path": "framework/agent-work/evidence/kfd-7/negative-invalid-transition.json",
-      "sha256": "3ea894af6c08faf8357ce8f67eedc2951efd05243a1f3258be9088e718e959ff"
+      "sha256": "07752cd26a11693c8ca1666335e5b93caf63137c35ef4be81d22f28cb3962c3c"
     }
   ],
   "experiments": [
     {
       "id": "export-import-rebuild",
       "category": "export-import-rebuild",
-      "expectedOutcome": "fail",
+      "expectedOutcome": "pass",
       "path": "framework/agent-work/evidence/kfd-7/export-import-rebuild.json",
-      "sha256": "b04431f51074219289b1c3daac316feb0dc21d6a57df23f6286c45ddf732c222"
+      "sha256": "0a66558b2ece52bd06f51ae055219231e1c53f254c7b3c0c46bc109abfc203e4"
     },
     {
       "id": "backend-migration",
       "category": "backend-migration",
-      "expectedOutcome": "fail",
+      "expectedOutcome": "pass",
       "path": "framework/agent-work/evidence/kfd-7/backend-migration.json",
-      "sha256": "8bcf3cabd3fa3d4f9fd2fe25a2bd08c9b07dcdf486296bebd695bcd12e288e80"
+      "sha256": "7f4d9eaa7d60160a689657575b0fd9a11c362bf1c40954054a806f429ff9bc46"
     },
     {
       "id": "cold-start-continuation",
       "category": "cold-start-continuation",
-      "expectedOutcome": "fail",
+      "expectedOutcome": "pass",
       "path": "framework/agent-work/evidence/kfd-7/cold-start-continuation.json",
-      "sha256": "1423aa513bd576807f4a2dc9510ed30e49e4085298c42fb03d20fb2eb7a691af"
+      "sha256": "94bc7c580c7af0c1885297118d1b0cb42266a437bf77453f25f65a2581dd6c14"
     }
   ],
   "residualRisk": [
@@ -73,7 +73,7 @@
       "trustImpact": "downgrade-warning",
       "machineProvability": "not-machine-verifiable",
       "agentAction": "semantic-review-required",
-      "reason": "The Profile has retained runtime evidence, but export/import, backend migration, clean-home continuation, and independent activation review remain incomplete.",
+      "reason": "The Profile now retains export/import, embedded backend migration, and clean-home continuation evidence; lifecycle breadth, role minimality, independent product adoption, installed-artifact parity, and independent activation review remain incomplete.",
       "owner": "kungfu-systems/kungfu"
     }
   ],
