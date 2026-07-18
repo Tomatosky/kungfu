@@ -8,7 +8,7 @@
     "stateMachineVersion": "0.1.0",
     "actionContract": {
       "path": "framework/agent-work/kungfu-kfd-7-action-contract.json",
-      "sha256": "f74fc9be55560bded8663fd1c03eeef8ef57248bc91fb1e717f72c3232a67971"
+      "sha256": "bff2b4f60846ed6358948976ad0b9f3305c2706bdee54486d9896d9b535402fb"
     },
     "verifierReport": {
       "path": "framework/agent-work/evidence/kfd-7/kfd-verifier.json",
@@ -16,7 +16,7 @@
     }
   },
   "source": {
-    "sha": "7905fafd1d797d4db65fbcbcadf5cf25801329bd"
+    "sha": "90417f01568fdb51880b92a53d0f2b38cd1860ce"
   },
   "surfaces": [
     {
@@ -32,14 +32,14 @@
       "kind": "positive",
       "expectedOutcome": "pass",
       "path": "framework/agent-work/evidence/kfd-7/positive-native-bootstrap.json",
-      "sha256": "cc21e213e505b3bba7aad0f9bad0fbef3316069ba4c45e021b9f3df47385ae66"
+      "sha256": "31571b2091317c56e5db9f771bfce9764c66057c93a249e3e337803d5a9ff046"
     },
     {
       "id": "invalid-transition",
       "kind": "negative",
       "expectedOutcome": "fail",
       "path": "framework/agent-work/evidence/kfd-7/negative-invalid-transition.json",
-      "sha256": "8804bd04576c74a55031c37eb9d6895406d287abdd8c9c5cf7c4c6ebc9ed17cf"
+      "sha256": "0aac2f5e3316f63eb2d8e33f44b9d8462cb6fe6c9de9dba64b8e00b922ec67bf"
     }
   ],
   "experiments": [
@@ -48,56 +48,84 @@
       "category": "export-import-rebuild",
       "expectedOutcome": "pass",
       "path": "framework/agent-work/evidence/kfd-7/export-import-rebuild.json",
-      "sha256": "7ea3a91e52be84d8ecc677eb7ccb37eb2bcdf37dc1dfa76c2fc080cb45c3bc2a"
+      "sha256": "27cacf2622d060aaa872090abf5dee5cf349822abc7d59def1b6ccff44142d2c"
     },
     {
       "id": "backend-migration",
       "category": "backend-migration",
       "expectedOutcome": "pass",
       "path": "framework/agent-work/evidence/kfd-7/backend-migration.json",
-      "sha256": "4a853e2d6e0f476100480dd7ed79b6cd8710a2a51c3b804e33d7949034f74a6a"
+      "sha256": "f1ea57f27f383a1358daaa47fe088102916229f45c495edc1c01032d748c19d5"
     },
     {
       "id": "cold-start-continuation",
       "category": "cold-start-continuation",
       "expectedOutcome": "pass",
       "path": "framework/agent-work/evidence/kfd-7/cold-start-continuation.json",
-      "sha256": "bb092b00309ea777d3a863f7bb5abefade360f78046fdc0971c2b34a07a92025"
+      "sha256": "711dfd44e21ccd464344928d34d434e41d84b0ad709552ce1c4b92bb9bccb18e"
     },
     {
       "id": "role-deletion-or-fusion",
       "category": "role-deletion-or-fusion",
       "expectedOutcome": "pass",
       "path": "framework/agent-work/evidence/kfd-7/role-deletion-or-fusion.json",
-      "sha256": "d16dfbd7c79ca630be3f0c657ac1fa4b2c20fdbba80d5f7e85607f70e8b71e74"
+      "sha256": "8aee1a98b8fe53b37e18a80a4076c8cd946924db48653869fef94eabb89e90b7"
     },
     {
       "id": "warrant-decay-revocation",
       "category": "warrant-decay-revocation",
       "expectedOutcome": "pass",
       "path": "framework/agent-work/evidence/kfd-7/warrant-decay-revocation.json",
-      "sha256": "ae920d3f3fb5d7a71a2cb0cba1d5749c822aa9f032c99b08cf9668e016c279f1"
+      "sha256": "aa2c2060a02957d9cb9e1ca5c90805d89c84a262cdfbd88aaf364d8fd4360eea"
     },
     {
       "id": "atlas-staleness-loss",
       "category": "atlas-staleness-loss",
       "expectedOutcome": "pass",
       "path": "framework/agent-work/evidence/kfd-7/atlas-staleness-loss.json",
-      "sha256": "1c1f06c82d0daab2adeb24053153b459142e601c5e20cc812ccb89be6eef7cf9"
+      "sha256": "2e73a078c3ff8eb52a74169fc542c6e77a684a918b3b88c429aaea828fdbac9b"
     },
     {
       "id": "pursuit-continuity-settlement",
       "category": "pursuit-continuity-settlement",
       "expectedOutcome": "pass",
       "path": "framework/agent-work/evidence/kfd-7/pursuit-continuity-settlement.json",
-      "sha256": "25e0bac6fbe082ea9e2c91cc9b2a58e8a753e7da680b3c9e7d0234e77747d461"
+      "sha256": "3eb6b8600a2a62c424b451dc47e175f0a6630e6b406e820537468ab8c3b6de81"
     },
     {
       "id": "episode-replay-contraction",
       "category": "episode-replay-contraction",
       "expectedOutcome": "pass",
       "path": "framework/agent-work/evidence/kfd-7/episode-replay-contraction.json",
-      "sha256": "abc90c5ed3a7f4b30e0b7d996d09fe105b2bca6639b995287ed7c8b6aaab779a"
+      "sha256": "114097a5c34c7d61b9656edc3b730bd9ed07bf32c7d935dc3193dc820ff3339b"
+    },
+    {
+      "id": "concurrency-retry-compensation",
+      "category": "concurrency-retry-compensation",
+      "expectedOutcome": "pass",
+      "path": "framework/agent-work/evidence/kfd-7/concurrency-retry-compensation.json",
+      "sha256": "009b0a0f02b37aafc2f809e5501ebb55cc727bf342e639ab6198bd97afd4a2d0"
+    },
+    {
+      "id": "session-round-trip-refinement",
+      "category": "session-round-trip-refinement",
+      "expectedOutcome": "pass",
+      "path": "framework/agent-work/evidence/kfd-7/session-round-trip-refinement.json",
+      "sha256": "f0c99d639d433935ea46b0fe7894be7471a97f9558bf710571bc98d8a2118d2c"
+    },
+    {
+      "id": "session-complexity-breakpoint",
+      "category": "session-complexity-breakpoint",
+      "expectedOutcome": "pass",
+      "path": "framework/agent-work/evidence/kfd-7/session-complexity-breakpoint.json",
+      "sha256": "842677ad10544ef19bb8ad7d6024d6d917954ca3eb89aecfc7440cb8ae5c10b3"
+    },
+    {
+      "id": "context-insufficiency-counterexample",
+      "category": "context-insufficiency-counterexample",
+      "expectedOutcome": "pass",
+      "path": "framework/agent-work/evidence/kfd-7/context-insufficiency-counterexample.json",
+      "sha256": "0cee80ddf7bac6b982bbc1cbf60d060d13885e205628cb64463238577f84afd4"
     }
   ],
   "residualRisk": [
@@ -108,7 +136,7 @@
       "trustImpact": "downgrade-warning",
       "machineProvability": "not-machine-verifiable",
       "agentAction": "semantic-review-required",
-      "reason": "The Profile now retains recovery, bounded role-counterfactual, and lifecycle evidence; cross-domain minimality, independent product adoption, installed-artifact parity, and independent activation review remain incomplete.",
+      "reason": "The Profile retains all twelve required experiment categories against the exact session implementation and installed KFD alpha.35; independent activation review remains incomplete.",
       "owner": "kungfu-systems/kungfu"
     }
   ],
@@ -119,6 +147,6 @@
   },
   "nonClaims": [
     "A passing evidence-closure check does not prove real-world work quality.",
-    "This provisional declaration does not activate KFD-7 or qualify the Kungfu Product Profile."
+    "This qualifying declaration does not activate KFD-7 before independent review."
   ]
 }

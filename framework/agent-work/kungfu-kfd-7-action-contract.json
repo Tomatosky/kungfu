@@ -1,14 +1,14 @@
 {
   "$schema": "https://kfd.libkungfu.dev/schemas/kfd-7/action-contract.schema.json",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "contract": "kfd-7-action-contract",
   "standard": "kfd-7",
   "profile": {
     "id": "kungfu-kfd-7-action-profile",
     "version": "0.1.0",
     "product": "kungfu",
-    "implementation": "source:framework/agent-work/kungfu-kfd-7-action-contract.json",
-    "qualificationStatus": "provisional"
+    "implementation": "git+https://github.com/kungfu-systems/kungfu.git@90417f01568fdb51880b92a53d0f2b38cd1860ce#framework/core/src/python/kungfu/agent/work_profile.py",
+    "qualificationStatus": "qualifying"
   },
   "roles": [
     {
@@ -277,6 +277,37 @@
     "child-authority-from-parent",
     "causal-equivalence-from-equal-endpoints"
   ],
+  "qualificationBasis": {
+    "sessionRoundTrip": {
+      "theoremId": "kfd-7-session-round-trip-preservation",
+      "theoremVersion": 1,
+      "source": "docs/KFD-7-formal.md#session-round-trip-preservation-theorem",
+      "applicability": "session-compressible-only",
+      "semanticDimensions": [
+        "direction",
+        "perspective-boundary",
+        "effective-authority",
+        "causal-process",
+        "admitted-result"
+      ],
+      "implementationRefs": {
+        "expand": "source:framework/core/src/python/kungfu/agent/work_profile.py#expand_session@90417f01568fdb51880b92a53d0f2b38cd1860ce",
+        "project": "source:framework/core/src/python/kungfu/agent/work_profile.py#project_session@90417f01568fdb51880b92a53d0f2b38cd1860ce",
+        "compressibilityPredicate": "source:framework/core/src/python/kungfu/agent/work_profile.py#session_compressibility@90417f01568fdb51880b92a53d0f2b38cd1860ce"
+      }
+    },
+    "contextInsufficiency": {
+      "corollaryId": "kfd-7-context-insufficiency",
+      "corollaryVersion": 1,
+      "source": "docs/KFD-7-formal.md#context-insufficiency-corollary",
+      "conclusion": "context-alone-is-not-sufficient"
+    },
+    "evidenceCategories": {
+      "roundTripRefinement": "session-round-trip-refinement",
+      "complexityBreakpoint": "session-complexity-breakpoint",
+      "contextCounterexample": "context-insufficiency-counterexample"
+    }
+  },
   "evidenceObligations": [
     {
       "category": "role-deletion-or-fusion",
@@ -314,7 +345,11 @@
     {
       "category": "concurrency-retry-compensation",
       "status": "passed",
-      "artifactRefs": ["framework/core/tests/python/test_agent_work_state_contract.py", "framework/core/tests/storage-node-binding.test.js"],
+      "artifactRefs": [
+        "framework/core/tests/python/test_agent_work_state_contract.py",
+        "framework/core/tests/storage-node-binding.test.js",
+        "framework/agent-work/evidence/kfd-7/concurrency-retry-compensation.json"
+      ],
       "residualRisk": "multi-process stress and compensation dogfood remain"
     },
     {
@@ -364,24 +399,51 @@
         "framework/core/tests/python/test_agent_work_profile_native.py",
         "framework/agent-work/evidence/kfd-7/cold-start-continuation.json"
       ],
-      "residualRisk": "installed-artifact parity remains a release qualification gate"
+      "residualRisk": "installed-artifact parity is bound separately to @kungfu-tech/kfd@1.0.0-alpha.35"
+    },
+    {
+      "category": "session-round-trip-refinement",
+      "status": "passed",
+      "artifactRefs": [
+        "framework/core/tests/python/test_agent_work_state_contract.py",
+        "framework/agent-work/evidence/kfd-7/session-round-trip-refinement.json"
+      ],
+      "residualRisk": "the theorem applies only while the session-compressibility predicate holds"
+    },
+    {
+      "category": "session-complexity-breakpoint",
+      "status": "passed",
+      "artifactRefs": [
+        "framework/core/tests/python/test_agent_work_state_contract.py",
+        "framework/agent-work/evidence/kfd-7/session-complexity-breakpoint.json"
+      ],
+      "residualRisk": "new product complexity dimensions require new explicit breakpoint witnesses"
+    },
+    {
+      "category": "context-insufficiency-counterexample",
+      "status": "passed",
+      "artifactRefs": [
+        "framework/core/tests/python/test_agent_work_state_contract.py",
+        "framework/agent-work/evidence/kfd-7/context-insufficiency-counterexample.json"
+      ],
+      "residualRisk": "the retained vectors cover direction, authority, and freshness rather than every future policy input"
     }
   ],
   "nonClaims": [
-    "This provisional Kungfu Product Profile does not activate or adopt KFD-7.",
+    "This qualifying Kungfu Product Profile does not activate KFD-7 before independent review.",
     "Profile states are product vocabulary rather than universal KFD enums.",
     "Runtime unit evidence is not a release qualification or authority cutover."
   ],
   "extensions": [],
   "activation": {
     "decision": "pending",
-    "evidenceCut": "pending-kungfu-runtime-project-cut",
-    "independentReview": "required-after-runtime-dogfood",
+    "evidenceCut": "git:90417f01568fdb51880b92a53d0f2b38cd1860ce+npm:@kungfu-tech/kfd@1.0.0-alpha.35",
+    "independentReview": "required-after-cross-repository-validation",
     "productWitnesses": [
       "framework/agent-work/kungfu-kfd-7-profile-action.schema.json",
       "framework/agent-work/kungfu-kfd-7-profile-receipt.schema.json",
       "framework/core/tests/python/test_agent_work_state_contract.py"
     ],
-    "residualRisk": "Cross-domain minimality, independent product adoption, installed-artifact parity, and independent review are not yet complete."
+    "residualRisk": "Independent cross-repository review and merged product witnesses remain before activation."
   }
 }
