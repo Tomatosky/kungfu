@@ -16,6 +16,16 @@ import {
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SHIFU_MJS = path.join(ROOT, 'shifu.mjs');
+const XINFA = path.join(
+  ROOT,
+  'xinfa',
+  'target',
+  'debug',
+  process.platform === 'win32' ? 'xinfa.exe' : 'xinfa',
+);
+const NATIVE_XINFA_TEST = {
+  skip: fs.existsSync(XINFA) ? false : 'requires a built Xinfa binary',
+};
 const SUBMISSION = JSON.parse(
   fs.readFileSync(path.join(ROOT, 'shifu.documentation.json'), 'utf8'),
 );
@@ -196,7 +206,7 @@ if (args[0] === 'atlas' && args[1] === 'compile') {
   }
 });
 
-test('surface inventory closes tracked prose and emits an exact Xinfa project', () => {
+test('surface inventory closes tracked prose', () => {
   const inventory = docs(['inventory', '--json']);
   assert.equal(inventory.status, 0, inventory.stderr);
   const value = JSON.parse(inventory.stdout);
@@ -206,11 +216,32 @@ test('surface inventory closes tracked prose and emits an exact Xinfa project', 
   assert.equal(value.closure.classified, value.entries.length);
   assert.ok(value.lifecycles.authored > 0);
   assert.ok(value.lifecycles['historical-append-only'] > 0);
-
-  const project = docs(['inventory', '--format', 'xinfa-project', '--json']);
-  assert.equal(project.status, 0, project.stderr);
-  const submission = JSON.parse(project.stdout);
-  assert.equal(submission.schema, 'xinfa.project/v1');
-  assert.equal(submission.providers[0].kind, 'exact-file-manifest');
-  assert.deepEqual(submission.routes[0].nodes, submission.routes[1].nodes);
 });
+
+test(
+  'surface inventory emits an exact Xinfa project',
+  NATIVE_XINFA_TEST,
+  () => {
+    const project = docs([
+      'inventory',
+      '--format',
+      'xinfa-project',
+      '--xinfa',
+      XINFA,
+      '--json',
+    ]);
+    assert.equal(project.status, 0, project.stderr);
+    const submission = JSON.parse(project.stdout);
+    assert.equal(submission.schema, 'xinfa.project/v1');
+    assert.equal(submission.providers[0].kind, 'exact-file-manifest');
+    for (const parityGroup of new Set(
+      submission.routes.map((route) => route.parityGroup),
+    )) {
+      const paired = submission.routes.filter(
+        (route) => route.parityGroup === parityGroup,
+      );
+      assert.equal(paired.length, 2);
+      assert.deepEqual(paired[0].nodes, paired[1].nodes);
+    }
+  },
+);

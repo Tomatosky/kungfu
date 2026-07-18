@@ -1050,10 +1050,15 @@ export async function runDocumentationCommand(
       root,
       policyRef: options.policy,
     });
+    if (sub === 'inventory' && options.format !== 'xinfa-project') {
+      stdout.write(
+        `${JSON.stringify(inventory, null, options.json ? 2 : 0)}\n`,
+      );
+      return 0;
+    }
     const project = materializeSurfaceProject(root, inventory, options.xinfa);
     if (sub === 'inventory') {
-      const value = options.format === 'xinfa-project' ? project : inventory;
-      stdout.write(`${JSON.stringify(value, null, options.json ? 2 : 0)}\n`);
+      stdout.write(`${JSON.stringify(project, null, options.json ? 2 : 0)}\n`);
       return 0;
     }
     const result =
