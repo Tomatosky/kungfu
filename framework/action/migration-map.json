@@ -1,0 +1,36 @@
+{
+  "schema": "kungfu.action.migration-map/v1",
+  "status": "bootstrap-only",
+  "surfaces": [
+    {
+      "id": "shared-kernel",
+      "target": "framework/action/action.mjs",
+      "status": "bootstrapped"
+    },
+    {
+      "id": "atlas-profile",
+      "target": "future Action profile",
+      "status": "planned"
+    },
+    {
+      "id": "pursuit-profile",
+      "target": "future Action profile",
+      "status": "planned"
+    },
+    {
+      "id": "warrant-profile",
+      "target": "future Action profile",
+      "status": "planned"
+    },
+    {
+      "id": "core-adapter",
+      "target": "Core public authority adapter",
+      "status": "unsupported-in-bootstrap"
+    },
+    {
+      "id": "compatibility-delete-candidates",
+      "target": "Rust Xinfa and current authority surfaces",
+      "status": "retained-no-delete"
+    }
+  ]
+}
