@@ -164,6 +164,26 @@ divergent material while deliberately refusing to select authority or mutate
 the source systems. The CLI and Python service are thin edges over the native
 kernel; the projection module owns only normalization and diagnostics.
 
+### 9. Integrity and portability consume an opt-in native authority inventory
+
+Integrity tooling does not gain a second index or storage authority. The native
+`query` action may expose the complete folded object, version, relation, Cut,
+ref-transition, receipt, and immutable-body inventory only when
+`include_inventory=true`; ordinary queries remain bounded to counts, refs, or
+one exact Cut. Python supplies orchestration and diagnostics over that native
+authority scan.
+
+`fsck` reports a stable issue taxonomy for torn/unknown records, missing or
+mismatched bodies, broken version/Cut ancestry, invalid relation lifecycle,
+stale refs, and missing declaration/admission support. Portable bundles are
+self-describing, bind explicit capabilities and loss, and import only after an
+exact bundle-root check. Execute-mode import replays the public native actions
+and rejects any version, relation, or Cut root drift. Projection rebuild is an
+authority replay (the current native kernel has no authoritative derived
+projection), backend qualification compares the same semantic authority root
+across an atomic provider switch, and retention remains a reachability plan
+with `destructive_execution=false`.
+
 ## Falsification and acceptance gates
 
 The contract is false if any implementation:
@@ -185,8 +205,11 @@ shape and falsifiers. The native stage additionally exercises the authoritative
 append and thin Node/Python edges. The Profile shadow stage exercises three
 source roles in one Cut, explicit cross-profile relations, path-independent
 identity, immutable body inspection, and typed gap diagnostics. Concurrency
-qualification, rebuild, fsck, export/import, and cross-platform exact-candidate
-evidence remain required before a release qualification claim.
+qualification remains separate. The integrity stage exercises native authority
+inventory fsck, exact-root export/import into a clean runtime, missing/torn body
+and stale-ref failures, no-op authority rebuild, reachability-only retention,
+and file-to-RocksDB semantic-root parity. Cross-platform exact-candidate
+evidence remains required before a release qualification claim.
 
 ## Consequences
 
@@ -197,5 +220,5 @@ merge views, rollback, and query gain explicit identities and receipts.
 
 This decision does not select RocksDB or any other long-term fleet backend,
 define distributed consensus, qualify physical power-loss durability or
-cross-platform portability, or make a projection or Profile source
-authoritative.
+claim cross-platform execution evidence from the local parity fixture, or make
+a projection or Profile source authoritative.

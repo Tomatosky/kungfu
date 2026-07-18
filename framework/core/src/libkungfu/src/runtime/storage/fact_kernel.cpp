@@ -95,9 +95,17 @@ std::string text_or(const nlohmann::json &value, const char *field, const std::s
 }
 
 uint64_t uint64_or(const nlohmann::json &value, const char *field, uint64_t fallback = 0) {
-  return value.is_object() && value.contains(field) && value.at(field).is_number_unsigned()
-             ? value.at(field).get<uint64_t>()
-             : fallback;
+  if (!value.is_object() || !value.contains(field)) {
+    return fallback;
+  }
+  const auto &number = value.at(field);
+  if (number.is_number_unsigned()) {
+    return number.get<uint64_t>();
+  }
+  if (number.is_number_integer() && number.get<int64_t>() >= 0) {
+    return static_cast<uint64_t>(number.get<int64_t>());
+  }
+  return fallback;
 }
 
 nlohmann::json array_or_empty(const nlohmann::json &value, const char *field) {
@@ -468,16 +476,11 @@ kernel_state fold_kernel(const std::string &runtime_dir) {
         }
         sequence = record.sequence;
         const auto root = fixed_string(record.transition_root);
-        (void)load_metadata(runtime_dir, root, "kungfu.fact.ref-transition/v1");
-        pending.push_back({FactRefTransition::tag,
-                           sequence,
-                           fixed_string(record.transition_id),
-                           root,
-                           {{"ref_name", fixed_string(record.ref_name)},
-                            {"cut_root", fixed_string(record.new_cut_root)},
-                            {"revision", record.expected_old_revision + 1},
-                            {"transition_id", fixed_string(record.transition_id)},
-                            {"transition_root", root}}});
+        auto document = load_metadata(runtime_dir, root, "kungfu.fact.ref-transition/v1");
+        document["transition_root"] = root;
+        document["revision"] = record.expected_old_revision + 1;
+        pending.push_back(
+            {FactRefTransition::tag, sequence, fixed_string(record.transition_id), root, std::move(document)});
         break;
       }
       case FactOperationReceipt::tag: {
@@ -537,7 +540,12 @@ kernel_state fold_kernel(const std::string &runtime_dir) {
       state.cuts[record.key] = record.document;
       break;
     case FactRefTransition::tag:
-      state.refs[record.document.at("ref_name").get<std::string>()] = record.document;
+      state.refs[record.document.at("refName").get<std::string>()] = {
+          {"ref_name", record.document.at("refName")},
+          {"cut_root", record.document.at("newCutRoot")},
+          {"revision", record.document.at("revision")},
+          {"transition_id", record.document.at("transitionId")},
+          {"transition_root", record.document.at("transition_root")}};
       state.transitions[record.key] = record.document;
       break;
     default:
@@ -625,7 +633,9 @@ nlohmann::json capabilities_document() {
       {"actions",
        {"capabilities", "object-put", "version-put", "relation-add", "relation-revoke", "cut-put", "ref-cas", "query"}},
       {"cas", {{"mode", "exact-expected-old-and-revision"}, {"stale_write", "no-journal-append"}}},
-      {"query", {{"include_bodies", "opt-in-immutable-content"}}},
+      {"query",
+       {{"include_bodies", "opt-in-immutable-content"},
+        {"include_inventory", "opt-in-authority-scan-for-integrity-and-portability"}}},
       {"projection_role", "rebuildable-edge-only"},
       {"clock_free_identity", true},
       {"product_vocabulary", false}};
@@ -644,18 +654,42 @@ nlohmann::json query_kernel(const std::string &runtime_dir, const kernel_state &
     cut_root = found->second.at("cut_root").get<std::string>();
   }
   if (cut_root.empty()) {
-    return {{"schema", FACT_KERNEL_STATE_SCHEMA_V1},
-            {"ok", true},
-            {"authority", "yijinjing-hana-pod-journal"},
-            {"counts",
-             {{"objects", state.objects.size()},
-              {"versions", state.versions.size()},
-              {"relations", state.relations.size()},
-              {"cuts", state.cuts.size()},
-              {"refs", state.refs.size()},
-              {"receipts", state.receipts.size()},
-              {"unknown_records", state.unknown_records}}},
-            {"refs", state.refs}};
+    auto result = nlohmann::json{{"schema", FACT_KERNEL_STATE_SCHEMA_V1},
+                                 {"ok", true},
+                                 {"authority", "yijinjing-hana-pod-journal"},
+                                 {"counts",
+                                  {{"objects", state.objects.size()},
+                                   {"versions", state.versions.size()},
+                                   {"relations", state.relations.size()},
+                                   {"cuts", state.cuts.size()},
+                                   {"refs", state.refs.size()},
+                                   {"receipts", state.receipts.size()},
+                                   {"unknown_records", state.unknown_records}}},
+                                 {"refs", state.refs}};
+    if (request.value("include_inventory", false)) {
+      auto inventory =
+          nlohmann::json{{"objects", state.objects},     {"versions", state.versions},
+                         {"relations", state.relations}, {"revoked_relation_roots", state.revoked_relations},
+                         {"cuts", state.cuts},           {"transitions", state.transitions},
+                         {"receipts", state.receipts}};
+      if (request.value("include_bodies", false)) {
+        auto bodies = nlohmann::json::object();
+        for (const auto &[version_root, version] : state.versions) {
+          const auto body_root = version.value("bodyRoot", std::string{});
+          try {
+            bodies[version_root] = {{"body", content_store_get(runtime_dir, BODY_NAMESPACE, body_root)},
+                                    {"body_root", body_root},
+                                    {"status", "available"}};
+          } catch (const std::exception &error) {
+            bodies[version_root] = {
+                {"body", nullptr}, {"body_root", body_root}, {"status", "missing"}, {"error", error.what()}};
+          }
+        }
+        inventory["bodies"] = std::move(bodies);
+      }
+      result["inventory"] = std::move(inventory);
+    }
+    return result;
   }
   const auto found = state.cuts.find(cut_root);
   if (found == state.cuts.end()) {
@@ -1031,7 +1065,9 @@ nlohmann::json run_fact_kernel_operation(const std::string &runtime_dir, const n
           input.contains("expected_old_cut_root") &&
           (input.at("expected_old_cut_root").is_null() || input.at("expected_old_cut_root").is_string());
       const auto has_expected_revision =
-          input.contains("expected_old_revision") && input.at("expected_old_revision").is_number_unsigned();
+          input.contains("expected_old_revision") && (input.at("expected_old_revision").is_number_unsigned() ||
+                                                      (input.at("expected_old_revision").is_number_integer() &&
+                                                       input.at("expected_old_revision").get<int64_t>() >= 0));
       const auto expected_old = text_or(input, "expected_old_cut_root");
       validate_root(expected_old, "expected_old_cut_root", true);
       const auto expected_revision = uint64_or(input, "expected_old_revision");

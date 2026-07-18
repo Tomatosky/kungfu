@@ -913,6 +913,54 @@ def fact_profile_shadow_compare(
     return fact_profile_shadow.compare(expected, actual)
 
 
+def fact_kernel_fsck(runtime_dir: str | Path, *, cut_root: str = "") -> dict[str, Any]:
+    from kungfu.storage import fact_kernel_integrity
+
+    return fact_kernel_integrity.fsck(runtime_dir, cut_root=cut_root)
+
+
+def fact_kernel_export(
+    runtime_dir: str | Path, *, cut_root: str = "", ref_name: str = ""
+) -> dict[str, Any]:
+    from kungfu.storage import fact_kernel_integrity
+
+    return fact_kernel_integrity.export_bundle(
+        runtime_dir, cut_root=cut_root, ref_name=ref_name
+    )
+
+
+def fact_kernel_import(
+    runtime_dir: str | Path, bundle: dict[str, Any], *, dry_run: bool = True
+) -> dict[str, Any]:
+    from kungfu.storage import fact_kernel_integrity
+
+    return fact_kernel_integrity.import_bundle(runtime_dir, bundle, dry_run=dry_run)
+
+
+def fact_kernel_retention_plan(
+    runtime_dir: str | Path, *, cut_roots: list[str] | None = None
+) -> dict[str, Any]:
+    from kungfu.storage import fact_kernel_integrity
+
+    return fact_kernel_integrity.retention_plan(runtime_dir, cut_roots=cut_roots)
+
+
+def fact_kernel_rebuild_projections(runtime_dir: str | Path) -> dict[str, Any]:
+    from kungfu.storage import fact_kernel_integrity
+
+    return fact_kernel_integrity.rebuild_projections(runtime_dir)
+
+
+def fact_kernel_backend_parity(
+    runtime_dir: str | Path, *, target_provider: str
+) -> dict[str, Any]:
+    from kungfu.storage import fact_kernel_integrity
+
+    return fact_kernel_integrity.qualify_backend_parity(
+        runtime_dir, target_provider=target_provider
+    )
+
+
 def fact_declare_contract_world(
     runtime_dir: str | Path,
     declaration: dict[str, Any],
