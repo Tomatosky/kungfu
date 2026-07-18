@@ -1,0 +1,30 @@
+{
+  "schema": "kungfu.action.kernel-contract/v1",
+  "version": "0.1.0",
+  "command": "contract",
+  "canonicalization": {
+    "format": "compact-json",
+    "objectKeyOrder": "utf8-byte-ascending",
+    "numbers": "safe-integers-only",
+    "trailingNewlineInRoot": false
+  },
+  "authority": {
+    "semanticAuthority": "framework/action/action.mjs",
+    "runtimeAuthority": "unsupported-in-bootstrap",
+    "journalAccess": false,
+    "casAccess": false
+  },
+  "hosts": [
+    "development-node",
+    "embedded-libnode"
+  ],
+  "profiles": [
+    "shared-kernel",
+    "atlas",
+    "pursuit",
+    "warrant"
+  ],
+  "capabilities": [
+    "contract"
+  ]
+}

@@ -236,6 +236,23 @@ if [ "${1:-}" = "project-cut" ]; then
   fi
 fi
 
+# Action kernel source host: execute the current checkout bytes through the
+# repository-pinned Node runtime. Product execution uses embedded libnode.
+if [ "${1:-}" = "action" ]; then
+  shift
+  export KUNGFU_ACTION_HOST=development-node
+  export KUNGFU_ACTION_LAYOUT=source
+  if command -v fnm >/dev/null 2>&1; then
+    fnm install >/dev/null 2>&1 || true
+    exec fnm exec --using-file -- node ./framework/action/action.mjs "$@"
+  elif command -v node >/dev/null 2>&1; then
+    exec node ./framework/action/action.mjs "$@"
+  else
+    echo "shifu: action needs node" >&2
+    exit 127
+  fi
+fi
+
 # The agent-facing Mission Control CLI must be the executable assembled from
 # this checkout.  Bypass pnpm here so --json remains a single JSON document and
 # cannot silently fall through to an unrelated globally installed `kungfu`.

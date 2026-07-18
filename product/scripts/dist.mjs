@@ -41,6 +41,7 @@ const CORE_DIST = path.join(ROOT, 'framework', 'core', 'dist', 'kungfu');
 const CRATES_DIR = path.join(ROOT, 'crates');
 const RUNTIME_PINS = path.join(PRODUCT_DIR, 'runtime-pins.env');
 const SDK_DIR = path.join(ROOT, 'developer', 'sdk');
+const ACTION_DIR = path.join(ROOT, 'framework', 'action');
 const EXTENSIONS_ROOT = path.join(ROOT, 'extensions');
 const ASSEMBLED_EXTENSIONS = path.join(PRODUCT_DIR, 'extensions');
 const DIST_DIR = path.join(PRODUCT_DIR, 'dist');
@@ -987,6 +988,26 @@ function bundleSdkForCli(stageRoot, esbuildRuntime) {
     esbuildRuntime.resolvePaths,
   );
   copySdkRuntimePackageForCli(stageRoot, '@kungfu-tech/kfd');
+  stageActionPackage(stageRoot);
+}
+
+export function stageActionPackage(stageRoot) {
+  const target = path.join(stageRoot, 'action');
+  const manifestPath = path.join(ACTION_DIR, 'manifest.json');
+  const manifest = readJson(manifestPath);
+  const files = [
+    'manifest.json',
+    ...(manifest.files || []).map(({ path }) => path),
+  ];
+  fs.mkdirSync(target, { recursive: true });
+  for (const relative of files) {
+    const source = path.join(ACTION_DIR, relative);
+    const destination = path.join(target, relative);
+    assertFile(source, `Action package file ${relative}`);
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    fs.copyFileSync(source, destination);
+  }
+  return target;
 }
 
 function stageDesktopAuthoringRuntime(esbuildRuntime) {
@@ -1056,6 +1077,11 @@ function writeCliManifest(stageRoot, archiveName, layout) {
           compatibility: layout.compatibility,
           sdk: 'sdk/sdk.js',
           sdkPackage: 'sdk/package.json',
+          action: 'action/action.mjs',
+          actionManifest: 'action/manifest.json',
+          actionContract: 'action/action.contract.json',
+          actionResponseSchema: 'action/action-response.schema.json',
+          actionMigrationMap: 'action/migration-map.json',
           kfd3Registry: 'kfd/kfd-3-surfaces.json',
           kfdUpstreamAggregate: 'kfd/upstream-aggregate.json',
           kfdPackage: 'node_modules/@kungfu-tech/kfd/package.json',
@@ -1356,6 +1382,69 @@ function runInstalledKungfuKfdSmoke({
   }
 }
 
+function runInstalledKungfuActionSmoke({
+  installRoot,
+  kungfuBin,
+  actionEntry,
+  env,
+}) {
+  const poisonDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'kungfu-action-node-poison-'),
+  );
+  const marker = path.join(poisonDir, 'system-node-used');
+  const fakeNode = path.join(poisonDir, isWin ? 'node.cmd' : 'node');
+  try {
+    fs.writeFileSync(
+      fakeNode,
+      isWin
+        ? `@echo off\r\n>"%KUNGFU_NODE_FALLBACK_MARKER%" echo fallback\r\nexit /b 99\r\n`
+        : '#!/bin/sh\nprintf fallback > "$KUNGFU_NODE_FALLBACK_MARKER"\nexit 99\n',
+      'utf8',
+    );
+    if (!isWin) fs.chmodSync(fakeNode, 0o755);
+    const result = spawnSync(kungfuBin, ['action', 'contract', '--json'], {
+      cwd: installRoot,
+      env: {
+        ...env,
+        KUNGFU_ACTION_ENTRY: actionEntry,
+        KUNGFU_NODE_FALLBACK_MARKER: marker,
+        PATH: [poisonDir, process.env.PATH || '']
+          .filter(Boolean)
+          .join(path.delimiter),
+      },
+      encoding: 'utf8',
+      shell: isWin,
+    });
+    if (result.status !== 0) {
+      throw new Error(
+        [
+          `installed kungfu action smoke failed (exit ${exitLabel(result.status, result.signal)})`,
+          result.stdout?.trim() ? `stdout:\n${result.stdout.trim()}` : '',
+          result.stderr?.trim() ? `stderr:\n${result.stderr.trim()}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n'),
+      );
+    }
+    if (fs.existsSync(marker)) {
+      throw new Error('installed kungfu action used PATH node fallback');
+    }
+    const data = parseJsonOutput(result.stdout || '', 'kungfu action contract');
+    if (
+      data.schema !== 'kungfu.action.response/v1' ||
+      data.host?.runtime !== 'embedded-libnode' ||
+      data.host?.layout !== 'installed' ||
+      !/^sha256:[0-9a-f]{64}$/.test(data.semanticRoot || '')
+    ) {
+      throw new Error(
+        'installed kungfu action returned an invalid host contract',
+      );
+    }
+  } finally {
+    fs.rmSync(poisonDir, { recursive: true, force: true });
+  }
+}
+
 export function smokeCliProductArchive({ archivePath, archiveBase }) {
   buildchainLogger.spanSync(
     'product.cli.smoke',
@@ -1399,6 +1488,27 @@ export function smokeCliProductArchive({ archivePath, archiveBase }) {
           manifest.entries,
           'sdkPackage',
         );
+        const actionEntry = entryPath(installRoot, manifest.entries, 'action');
+        const actionManifest = entryPath(
+          installRoot,
+          manifest.entries,
+          'actionManifest',
+        );
+        const actionContract = entryPath(
+          installRoot,
+          manifest.entries,
+          'actionContract',
+        );
+        const actionResponseSchema = entryPath(
+          installRoot,
+          manifest.entries,
+          'actionResponseSchema',
+        );
+        const actionMigrationMap = entryPath(
+          installRoot,
+          manifest.entries,
+          'actionMigrationMap',
+        );
         const kfd3Registry = entryPath(
           installRoot,
           manifest.entries,
@@ -1441,6 +1551,11 @@ export function smokeCliProductArchive({ archivePath, archiveBase }) {
         assertFile(compatibility, 'installed compatibility manifest');
         assertFile(sdkEntry, 'installed Kungfu SDK entry');
         assertFile(sdkPackage, 'installed Kungfu SDK package metadata');
+        assertFile(actionEntry, 'installed Action entry');
+        assertFile(actionManifest, 'installed Action package manifest');
+        assertFile(actionContract, 'installed Action contract');
+        assertFile(actionResponseSchema, 'installed Action response schema');
+        assertFile(actionMigrationMap, 'installed Action migration map');
         assertFile(kfd3Registry, 'installed KFD-3 registry');
         assertFile(kfdUpstreamAggregate, 'installed KFD upstream aggregate');
         assertFile(kfdPackage, 'installed KFD package metadata');
@@ -1469,7 +1584,14 @@ export function smokeCliProductArchive({ archivePath, archiveBase }) {
           KUNGFU_KFD3_REGISTRY: kfd3Registry,
           KUNGFU_KFD_UPSTREAM_AGGREGATE: kfdUpstreamAggregate,
           KF_FIRST_PARTY_SOURCE_ROOT: extensionsRoot,
+          KUNGFU_ACTION_ENTRY: actionEntry,
         };
+        runInstalledKungfuActionSmoke({
+          installRoot,
+          kungfuBin,
+          actionEntry,
+          env: smokeEnv,
+        });
         runInstalledKungfuKfdSmoke({
           installRoot,
           kungfuBin,
