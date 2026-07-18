@@ -58,6 +58,97 @@ def storage(ctx):
         initialize_runtime_context(ctx)
 
 
+@storage.group(
+    name="backend", help="inspect or change the authoritative content provider"
+)
+@click.help_option("-h", "--help")
+@storage_command_context
+def backend(ctx):
+    pass
+
+
+@backend.command(name="status", help="show the authoritative provider binding")
+@click.option(
+    "--provider",
+    type=click.Choice(["content-addressed-file", "rocksdb"]),
+    default=None,
+    help="assert that the configured provider matches authority",
+)
+@click.option("--json", "as_json", is_flag=True, help="machine-readable output")
+@storage_command_context
+def backend_status(ctx, provider, as_json):
+    from kungfu.storage import service
+
+    try:
+        result = service.backend_status(ctx.runtime_dir, provider=provider)
+    except (RuntimeError, ValueError) as error:
+        raise click.ClickException(str(error)) from error
+    if as_json:
+        _echo_json(result)
+        return
+    click.echo(f"[storage] authoritative provider: {result['provider']}")
+    if result["binding"]:
+        click.echo(f"[storage] generation: {result['binding']['generation']}")
+    if result["migration"]:
+        click.echo(f"[storage] migration phase: {result['migration']['phase']}")
+
+
+@backend.command(
+    name="switch", help="copy, verify, and atomically switch provider authority"
+)
+@click.option(
+    "--to",
+    "target_provider",
+    type=click.Choice(["content-addressed-file", "rocksdb"]),
+    required=True,
+)
+@click.option("--expected-generation", type=int, default=None)
+@click.option("--json", "as_json", is_flag=True, help="machine-readable output")
+@storage_command_context
+def backend_switch(ctx, target_provider, expected_generation, as_json):
+    from kungfu.storage import service
+
+    try:
+        result = service.backend_switch(
+            ctx.runtime_dir,
+            target_provider=target_provider,
+            expected_generation=expected_generation,
+        )
+    except (RuntimeError, ValueError) as error:
+        raise click.ClickException(str(error)) from error
+    if as_json:
+        _echo_json(result)
+        return
+    click.echo(
+        f"[storage] switched {result['source_provider']} -> "
+        f"{result['target_provider']} at generation {result['target_generation']}"
+    )
+
+
+@backend.command(
+    name="rollback", help="reverse-sync and atomically restore the retained provider"
+)
+@click.option("--expected-generation", type=int, default=None)
+@click.option("--json", "as_json", is_flag=True, help="machine-readable output")
+@storage_command_context
+def backend_rollback(ctx, expected_generation, as_json):
+    from kungfu.storage import service
+
+    try:
+        result = service.backend_rollback(
+            ctx.runtime_dir, expected_generation=expected_generation
+        )
+    except (RuntimeError, ValueError) as error:
+        raise click.ClickException(str(error)) from error
+    if as_json:
+        _echo_json(result)
+        return
+    click.echo(
+        f"[storage] rolled back {result['source_provider']} -> "
+        f"{result['target_provider']} at generation {result['target_generation']}"
+    )
+
+
 @storage.command(
     name="durability-reconcile",
     help="reconcile a durability request against checkpoint-covered receipts",

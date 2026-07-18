@@ -819,6 +819,10 @@ nlohmann::json dispatch_json_edge_operation(storage_operation operation, const s
     return storage_json_edge_service_instance().compact_plan(parsed_options);
   case storage_operation::VerifySync:
     return storage_json_edge_service_instance().verify_sync(parsed_options);
+  case storage_operation::BackendStatus:
+  case storage_operation::BackendSwitch:
+  case storage_operation::BackendRollback:
+    return dispatch_backend_operation(operation, parsed_options);
   case storage_operation::Query:
     return render_storage_query_result(default_storage_service().query(parse_storage_query_request(parsed_options)));
   case storage_operation::QueryPlan:

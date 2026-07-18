@@ -54,6 +54,7 @@ target_link_libraries(kungfu_live_services PUBLIC kungfu_contracts)
 target_link_libraries(kungfu_live_services PUBLIC ${KUNGFU_TARGET_KUNGFU_LIVE_SERVICES_DEPENDENCIES})
 
 set(KUNGFU_STORAGE_SERVICES_SOURCE_FILES
+  "${PROJECT_SOURCE_DIR}/src/runtime/storage/backend_switch.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/storage/episode_admission.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/storage/episode_manifest_projection.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/storage/episode_repair.cpp"

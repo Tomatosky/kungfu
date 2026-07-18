@@ -132,8 +132,13 @@
       "metadata_schema": "kungfu.document-metadata/v1",
       "document_status": "active",
       "doc_type": "public-document",
-      "review_state": "unreviewed",
-      "sensitivity": "public"
+      "review_state": "self-reviewed",
+      "sensitivity": "public",
+      "sources": [
+        "architecture-decisions",
+        "local-files"
+      ],
+      "last_reviewed": "2026-07-18"
     },
     "docs/architecture/storage-provider-lifecycle.md": {
       "metadata_schema": "kungfu.document-metadata/v1",
@@ -142,9 +147,10 @@
       "review_state": "self-reviewed",
       "sensitivity": "public",
       "sources": [
+        "architecture-decisions",
         "local-files"
       ],
-      "last_reviewed": "2026-07-13"
+      "last_reviewed": "2026-07-18"
     },
     "docs/architecture/skills.md": {
       "metadata_schema": "kungfu.document-metadata/v1",

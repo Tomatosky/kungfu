@@ -41,7 +41,38 @@ struct provider_selection {
   std::string source;
 };
 
+class backend_authority_write_guard {
+public:
+  backend_authority_write_guard(const std::string &runtime_dir, const std::string &provider);
+  ~backend_authority_write_guard();
+  backend_authority_write_guard(const backend_authority_write_guard &) = delete;
+  backend_authority_write_guard &operator=(const backend_authority_write_guard &) = delete;
+
+private:
+  struct implementation;
+  std::unique_ptr<implementation> implementation_;
+};
+
+class backend_authority_cut_guard {
+public:
+  explicit backend_authority_cut_guard(const std::string &runtime_dir);
+  ~backend_authority_cut_guard();
+  backend_authority_cut_guard(const backend_authority_cut_guard &) = delete;
+  backend_authority_cut_guard &operator=(const backend_authority_cut_guard &) = delete;
+
+private:
+  struct implementation;
+  std::unique_ptr<implementation> implementation_;
+};
+
 struct stored_payload {
+  std::string digest;
+  std::string uri;
+  uint64_t byte_len = 0;
+};
+
+struct stored_content_object {
+  std::string content_namespace;
   std::string digest;
   std::string uri;
   uint64_t byte_len = 0;
@@ -57,6 +88,7 @@ public:
   [[nodiscard]] virtual std::string read_payload(const std::string &digest) const = 0;
   virtual void write_payload(const std::string &digest, const std::string &raw) const = 0;
   [[nodiscard]] virtual std::vector<stored_payload> all_payloads() const = 0;
+  [[nodiscard]] virtual std::vector<stored_content_object> all_content_objects() const = 0;
   [[nodiscard]] virtual yijinjing::storage::content_store &content_store() const = 0;
 };
 
@@ -66,6 +98,8 @@ class provider_cache {
 public:
   static provider_cache &instance();
   [[nodiscard]] std::shared_ptr<storage_provider> acquire(const std::string &runtime, const std::string &provider);
+  [[nodiscard]] std::shared_ptr<storage_provider> acquire_migration(const std::string &runtime,
+                                                                    const std::string &provider);
   [[nodiscard]] bool release_temporary(const std::string &runtime, const std::string &provider);
   [[nodiscard]] storage_provider_cache_view stats() const;
 
@@ -113,6 +147,8 @@ template <size_t N> void assign_fixed(kungfu::array<char, N> &target, const std:
 [[nodiscard]] std::string optional_absolute_path(const nlohmann::json &object, const std::string &field);
 void write_json_file(const std::filesystem::path &path, const nlohmann::json &data);
 [[nodiscard]] provider_selection select_provider(std::string provider);
+[[nodiscard]] provider_selection select_provider_for_runtime(const std::string &runtime_dir, std::string provider);
+void assert_provider_write_allowed(const std::string &runtime_dir, const std::string &provider);
 [[nodiscard]] std::shared_ptr<storage_provider> shared_provider(const storage_service_options &options);
 [[nodiscard]] std::shared_ptr<storage_provider> shared_provider(const std::string &runtime_dir);
 [[nodiscard]] episode_store_with_provider episode_ref_store(const storage_service_options &options);
@@ -122,8 +158,16 @@ void write_json_file(const std::filesystem::path &path, const nlohmann::json &da
 [[nodiscard]] nlohmann::json provider_cache_json(const storage_provider_cache_view &cache);
 [[nodiscard]] storage_provider_layout_view provider_layout_for(const std::string &provider);
 [[nodiscard]] storage_provider_runtime_view provider_runtime_for(const std::string &provider);
+[[nodiscard]] bool provider_available(const std::string &provider);
 [[nodiscard]] std::vector<std::filesystem::path> all_payload_paths(const std::string &runtime_dir);
 [[nodiscard]] std::string payload_digest_from_path(const std::filesystem::path &path);
+[[nodiscard]] nlohmann::json backend_status_json(const storage_backend_status_result &result);
+[[nodiscard]] nlohmann::json backend_change_json(const storage_backend_change_result &result);
+[[nodiscard]] nlohmann::json backend_authority_capability_json();
+[[nodiscard]] std::string backend_operation_name(storage_operation operation);
+[[nodiscard]] std::optional<storage_operation> parse_backend_operation(const std::string &operation);
+[[nodiscard]] nlohmann::json dispatch_backend_operation(storage_operation operation,
+                                                        const storage_service_options &options);
 
 [[nodiscard]] std::string required_text(const nlohmann::json &object, const std::string &field);
 [[nodiscard]] nlohmann::json object_or_empty(const nlohmann::json &object, const std::string &field);
