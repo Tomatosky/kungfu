@@ -11,6 +11,15 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SHIFU = path.join(ROOT, 'shifu');
 
+test('Windows source resolver tail-delegates without CALL re-expansion', () => {
+  const source = fs.readFileSync(
+    path.join(ROOT, 'xinfa', 'tooling', 'source-xinfa.cmd'),
+    'utf8',
+  );
+  assert.doesNotMatch(source, /\bcall\b/i);
+  assert.match(source, /"%~dp0\.\.\\\.\.\\shifu\.cmd" xinfa %\*/i);
+});
+
 function fixture(body) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'shifu-xinfa-source-'));
   const cargo = path.join(root, 'cargo');
