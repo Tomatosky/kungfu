@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import net from 'node:net';
 import path from 'node:path';
 import process from 'node:process';
+import { pathToFileURL } from 'node:url';
 import { AgentSessionCapsuleHost } from './capsule-host.mjs';
 
 function argument(name) {
@@ -29,7 +30,7 @@ const packageJson = explicitPtyModule
 const packageRoot = path.dirname(packageJson);
 const ptyModulePath =
   explicitPtyModule ?? path.join(packageRoot, 'lib', 'index.js');
-const importedPty = await import(ptyModulePath);
+const importedPty = await import(pathToFileURL(ptyModulePath).href);
 const pty = importedPty.default ?? importedPty;
 const helper = path.join(
   packageRoot,

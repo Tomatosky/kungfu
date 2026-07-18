@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import fs from 'node:fs';
 import readline from 'node:readline';
 
 const mode = process.argv[2] ?? 'late-turn-response';
@@ -54,8 +53,6 @@ lines.on('line', (line) => {
       });
     } else if (mode === 'stderr-redaction') {
       process.stderr.write('synthetic-secret-must-not-be-retained');
-    } else if (mode === 'stdout-end') {
-      fs.closeSync(1);
     } else if (mode === 'unexpected-exit') {
       setTimeout(() => process.exit(23), 5);
     }
