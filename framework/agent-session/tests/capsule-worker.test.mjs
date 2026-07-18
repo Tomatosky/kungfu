@@ -114,6 +114,31 @@ async function connect(endpoint) {
   };
 }
 
+function syntheticProviderEnvironment(temp) {
+  const environment = { HOME: temp, TERM: 'xterm-256color' };
+  if (process.platform !== 'win32') {
+    environment.PATH = process.env.PATH ?? '';
+    return environment;
+  }
+  for (const requested of [
+    'path',
+    'systemroot',
+    'windir',
+    'comspec',
+    'pathext',
+    'temp',
+    'tmp',
+  ]) {
+    const actual = Object.keys(process.env).find(
+      (name) => name.toLowerCase() === requested,
+    );
+    if (actual && typeof process.env[actual] === 'string') {
+      environment[actual] = process.env[actual];
+    }
+  }
+  return environment;
+}
+
 test('detached Capsule worker survives client loss and reattaches to the same PTY', async (t) => {
   const temp = fs.mkdtempSync(path.join(socketTempRoot, 'kungfu-capsule-'));
   const endpoint =
@@ -166,7 +191,7 @@ test('detached Capsule worker survives client loss and reattaches to the same PT
     executable: process.execPath,
     argv: [providerScript],
     cwd: temp,
-    env: { PATH: process.env.PATH, HOME: temp, TERM: 'xterm-256color' },
+    env: syntheticProviderEnvironment(temp),
     cols: 40,
     rows: 8,
   });
