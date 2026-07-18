@@ -115,9 +115,10 @@ function validateFixture(value) {
   return 'unsupported-version';
 }
 
-test('registers one accepted contract without claiming a writer', () => {
+test('registers one accepted contract with the native writer stage implemented', () => {
   assert.equal(contract.status.specification, 'accepted');
-  assert.equal(contract.status.authoritativeWriter, 'not-implemented');
+  assert.equal(contract.status.authoritativeWriter, 'implemented');
+  assert.equal(contract.status.runtimeProjection, 'implemented');
   assert.equal(contract.status.releaseQualification, 'not-qualified');
   const entry = registry.contracts.find(
     (candidate) => candidate.surface === 'fact-cut-kernel',

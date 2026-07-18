@@ -37,6 +37,7 @@ enum class storage_operation {
   SavedQueryCatalog,
   ProfileLifecycle,
   KfxRuntime,
+  FactKernel,
   FactContract,
   FactDeclareWorld,
   FactDeclareSurface,

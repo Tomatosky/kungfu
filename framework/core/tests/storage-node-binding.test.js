@@ -1007,6 +1007,154 @@ test(
 );
 
 test(
+  'generic Fact kernel preserves immutable roots and rejects stale ref CAS without a write',
+  {
+    skip:
+      nativeAvailable || process.env.KUNGFU_REQUIRE_NATIVE === '1'
+        ? false
+        : 'built kungfu_node binding is unavailable',
+  },
+  () => {
+    const runtimeDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'kf-native-fact-kernel-'),
+    );
+    const root = (digit) => `sha256:${digit.repeat(64)}`;
+    const run = (action, request = {}) =>
+      normalizeTypedIntegers(
+        kungfu.runStorageServiceOperation('fact_kernel', runtimeDir, {
+          action,
+          ...request,
+        }),
+      );
+    try {
+      const capabilities = run('capabilities');
+      assert.equal(capabilities.owner, 'libkungfu');
+      assert.equal(capabilities.authority, 'yijinjing-hana-pod-journal');
+      assert.equal(capabilities.clock_free_identity, true);
+
+      const objectId = `fact:${'a'.repeat(32)}`;
+      const object = run('object-put', {
+        object_id: objectId,
+        object_type: 'generic.note',
+        created_by_receipt_root: root('1'),
+      });
+      assert.equal(object.ok, true);
+      assert.match(object.result.object_root, /^sha256:[0-9a-f]{64}$/);
+
+      const beforeRejectedVersion = run('query');
+      const rejectedVersion = run('version-put', {
+        object_id: objectId,
+        body: 'unsupported-body',
+        schema_root: root('2'),
+        parent_version_roots: [],
+        declaration_roots: [],
+        admission_roots: [],
+      });
+      assert.equal(rejectedVersion.failure_code, 'admission-missing');
+      assert.equal(rejectedVersion.write_occurred, false);
+      assert.deepEqual(run('query').counts, beforeRejectedVersion.counts);
+
+      const version = run('version-put', {
+        object_id: objectId,
+        body: 'opaque-body',
+        schema_root: root('2'),
+        parent_version_roots: [],
+        declaration_roots: [root('1')],
+        admission_roots: [root('3')],
+      });
+      assert.equal(version.ok, true);
+
+      const cut = run('cut-put', {
+        parent_cut_roots: [],
+        object_versions: [
+          { object_id: objectId, version_root: version.result.version_root },
+        ],
+        active_relation_roots: [],
+        declaration_roots: [root('1')],
+        admission_roots: [root('3')],
+        episode_frontier: [],
+        omission_roots: [],
+        conflict_roots: [],
+      });
+      assert.equal(cut.ok, true);
+
+      const moved = run('ref-cas', {
+        transition_id: 'transition-1',
+        ref_name: 'heads/main',
+        expected_old_cut_root: null,
+        expected_old_revision: 0,
+        new_cut_root: cut.result.cut_root,
+        kind: 'create',
+        reason_root: root('1'),
+      });
+      assert.equal(moved.ok, true);
+      assert.equal(moved.result.current_revision, 1);
+      assert.equal(moved.receipt.writeOccurred, true);
+
+      const replay = run('ref-cas', {
+        transition_id: 'transition-1',
+        ref_name: 'heads/main',
+        expected_old_cut_root: null,
+        expected_old_revision: 0,
+        new_cut_root: cut.result.cut_root,
+        kind: 'create',
+        reason_root: root('1'),
+      });
+      assert.equal(replay.status, 'idempotent-replay');
+      assert.equal(replay.write_occurred, false);
+
+      const reusedTransition = run('ref-cas', {
+        transition_id: 'transition-1',
+        ref_name: 'heads/main',
+        expected_old_cut_root: cut.result.cut_root,
+        expected_old_revision: 1,
+        new_cut_root: cut.result.cut_root,
+        kind: 'advance',
+        reason_root: root('1'),
+      });
+      assert.equal(reusedTransition.failure_code, 'transition-id-reused');
+      assert.equal(reusedTransition.write_occurred, false);
+
+      const missingExpectedOld = run('ref-cas', {
+        transition_id: 'transition-missing-expected-old',
+        ref_name: 'heads/main',
+        new_cut_root: cut.result.cut_root,
+        kind: 'advance',
+        reason_root: root('1'),
+      });
+      assert.equal(missingExpectedOld.failure_code, 'expected-old-required');
+      assert.equal(missingExpectedOld.write_occurred, false);
+
+      const before = run('query');
+      assert.equal(before.counts.unknown_records, 0);
+      const stale = run('ref-cas', {
+        transition_id: 'transition-2',
+        ref_name: 'heads/main',
+        expected_old_cut_root: root('9'),
+        expected_old_revision: 0,
+        new_cut_root: cut.result.cut_root,
+        kind: 'advance',
+        reason_root: root('1'),
+      });
+      const after = run('query');
+      assert.equal(stale.failure_code, 'stale-ref');
+      assert.equal(stale.write_occurred, false);
+      assert.deepEqual(after.counts, before.counts);
+
+      const projected = run('query', { ref_name: 'heads/main' });
+      assert.equal(projected.cut_root, cut.result.cut_root);
+      assert.deepEqual(projected.objects[0].member, [
+        objectId,
+        version.result.version_root,
+      ]);
+      assert.equal(projected.ref_resolution.revision, 1);
+    } finally {
+      fs.rmSync(runtimeDir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
   'assessment contract and lifecycle operations are owned by libkungfu across the Node edge',
   {
     skip:

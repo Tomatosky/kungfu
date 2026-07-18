@@ -6,8 +6,8 @@
   "description": "Backend-neutral identity, immutable version, typed relation, Fact Cut, named ref, compare-and-swap, and receipt semantics for the Kungfu fact kernel.",
   "status": {
     "specification": "accepted",
-    "authoritativeWriter": "not-implemented",
-    "runtimeProjection": "not-implemented",
+    "authoritativeWriter": "implemented",
+    "runtimeProjection": "implemented",
     "releaseQualification": "not-qualified"
   },
   "contractSchema": {
@@ -759,11 +759,10 @@
     }
   ],
   "qualification": {
-    "status": "contract-only",
+    "status": "native-writer-stage-ready",
     "fixture": "tests/fixtures/fact-cut-kernel-contract/cases.json",
     "test": "scripts/check-fact-cut-kernel-contract.test.mjs",
     "requiredNextEvidence": [
-      "native append and authority-scan implementation",
       "positive and negative CAS concurrency tests",
       "rebuild parity against at least one replaceable projection",
       "fsck and portable export/import root preservation",
@@ -771,7 +770,7 @@
     ]
   },
   "nonClaims": [
-    "An authoritative Fact Cut writer is implemented.",
+    "The native writer is release-qualified for production durability or distributed operation.",
     "A long-term fleet backend is selected.",
     "Distributed consensus, replication, or high availability is provided.",
     "A receipt proves universal external truth or work completion.",

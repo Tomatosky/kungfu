@@ -4,8 +4,8 @@ doc_type: architecture-decision
 adr_id: ADR-0112
 decision_status: accepted
 implementation_status: staged
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1058, https://github.com/kungfu-systems/kungfu/pull/1062]
-qualification_refs: [framework/fact/kungfu-fact-cut-kernel.contract.json, scripts/check-fact-cut-kernel-contract.test.mjs, tests/fixtures/fact-cut-kernel-contract/cases.json]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1058, https://github.com/kungfu-systems/kungfu/pull/1062, https://github.com/kungfu-systems/kungfu/pull/1073]
+qualification_refs: [framework/fact/kungfu-fact-cut-kernel.contract.json, framework/core/src/libkungfu/src/runtime/storage/fact_kernel.cpp, framework/core/tests/storage-node-binding.test.js, framework/core/tests/python/test_query_cli.py, scripts/check-fact-cut-kernel-contract.test.mjs, tests/fixtures/fact-cut-kernel-contract/cases.json]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -19,8 +19,9 @@ ai_provenance: GPT-5 via Codex on 2026-07-18; based on repository sources and us
 
 # ADR-0112: Fact identity, versions, relations, Cuts, refs, CAS, and receipts form one backend-neutral kernel
 
-- Status: accepted; the machine-contract stage and falsification fixtures are
-  implemented; no authoritative writer is implemented by this decision
+- Status: accepted; the machine contract, falsification fixtures, and bounded
+  native authority stage are implemented; portability and release qualification
+  remain open
 - Date: 2026-07-18
 - Category: storage / fact identity / historical cuts / integrity
 - Related: [ADR-0018](ADR-0018-runtime-storage-service-architecture.md),
@@ -163,17 +164,18 @@ The contract is false if any implementation:
 
 The checked positive and negative cases live in
 `tests/fixtures/fact-cut-kernel-contract/cases.json`. They qualify the contract
-shape and falsifiers only. Native append, concurrency, rebuild, fsck,
+shape and falsifiers. The native stage additionally exercises the authoritative
+append and thin Node/Python edges. Concurrency qualification, rebuild, fsck,
 export/import, and cross-platform exact-candidate evidence remain required
-before implementation or release qualification claims.
+before a release qualification claim.
 
 ## Consequences
 
-The next native slice can implement one small semantic kernel over the existing
+The bounded native slice implements one small semantic kernel over the existing
 journal and content-store substrate without importing product workflow
 vocabulary or selecting a fleet backend. Historical state, branching views,
 merge views, rollback, and query gain explicit identities and receipts.
 
-This decision does not implement an authoritative writer, select RocksDB or any
-other long-term fleet backend, define distributed consensus, qualify physical
-power-loss durability, or make a projection authoritative.
+This decision does not select RocksDB or any other long-term fleet backend,
+define distributed consensus, qualify physical power-loss durability or
+cross-platform portability, or make a projection authoritative.
