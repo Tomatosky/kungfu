@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import {
   cacheAppliedArgs,
@@ -125,9 +127,9 @@ test('quotes a Windows shim payload and rejects expansion syntax', () => {
   );
 });
 
-test('enters a Windows batch shim through call with an exact argument vector', () => {
+test('enters a Windows batch shim with one fully quoted cmd payload', () => {
   assert.deepEqual(
-    windowsCmdArgs('shifu.cmd', [
+    windowsCmdArgs('C:\\repo path\\shifu.cmd', [
       'cache',
       'apply',
       '--',
@@ -137,21 +139,7 @@ test('enters a Windows batch shim through call with an exact argument vector', (
       '/d',
       '/s',
       '/c',
-      'call shifu.cmd cache apply -- "C:\\Program Files\\node.exe"',
-    ],
-  );
-  assert.deepEqual(
-    windowsCmdArgs('shifu.cmd', [
-      'gate',
-      'run',
-      '--execution-context',
-      '{"executionProfile":"alpha"}',
-    ]),
-    [
-      '/d',
-      '/s',
-      '/c',
-      'call shifu.cmd gate run --execution-context "{""executionProfile"":""alpha""}"',
+      '""C:\\repo path\\shifu.cmd" "cache" "apply" "--" "C:\\Program Files\\node.exe""',
     ],
   );
   assert.throws(
@@ -159,3 +147,28 @@ test('enters a Windows batch shim through call with an exact argument vector', (
     /unsafe cmd syntax/,
   );
 });
+
+test(
+  'Windows preserves a multi-argument Shifu batch invocation',
+  { skip: process.platform !== 'win32' },
+  () => {
+    const lifecycle = fileURLToPath(
+      new URL('./run-shifu-lifecycle.mjs', import.meta.url),
+    );
+    const result = spawnSync(
+      process.execPath,
+      [lifecycle, 'direct', 'cache', 'schema', 'profile'],
+      {
+        cwd: process.cwd(),
+        encoding: 'utf8',
+        env: process.env,
+        windowsHide: true,
+      },
+    );
+    assert.equal(result.status, 0, result.stderr || result.error?.message);
+    assert.equal(
+      JSON.parse(result.stdout).$id,
+      'https://libkungfu.dev/schemas/shifu/cache-profile-v1.schema.json',
+    );
+  },
+);

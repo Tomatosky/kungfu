@@ -187,7 +187,6 @@ export async function runSuite(suite, outputDir, options = {}) {
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
     windowsVerbatimArguments: invocation.windowsVerbatimArguments === true,
-    ...(invocation.shell ? { shell: invocation.shell } : {}),
   });
   child.stdout?.on('data', (chunk) => append(stdout, chunk));
   child.stderr?.on('data', (chunk) => append(stderr, chunk));

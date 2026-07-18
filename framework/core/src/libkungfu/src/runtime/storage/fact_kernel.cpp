@@ -98,14 +98,19 @@ uint64_t uint64_or(const nlohmann::json &value, const char *field, uint64_t fall
   if (!value.is_object() || !value.contains(field)) {
     return fallback;
   }
-  const auto &number = value.at(field);
-  if (number.is_number_unsigned()) {
-    return number.get<uint64_t>();
+  const auto &candidate = value.at(field);
+  if (candidate.is_number_unsigned()) {
+    return candidate.get<uint64_t>();
   }
-  if (number.is_number_integer() && number.get<int64_t>() >= 0) {
-    return static_cast<uint64_t>(number.get<int64_t>());
+  if (candidate.is_number_integer()) {
+    const auto signed_value = candidate.get<int64_t>();
+    return signed_value >= 0 ? static_cast<uint64_t>(signed_value) : fallback;
   }
   return fallback;
+}
+
+bool is_nonnegative_integer(const nlohmann::json &value) {
+  return value.is_number_unsigned() || (value.is_number_integer() && value.get<int64_t>() >= 0);
 }
 
 nlohmann::json array_or_empty(const nlohmann::json &value, const char *field) {
@@ -643,6 +648,7 @@ nlohmann::json capabilities_document() {
 
 nlohmann::json query_kernel(const std::string &runtime_dir, const kernel_state &state, const nlohmann::json &request) {
   const auto ref_name = text_or(request, "ref_name");
+  const auto include_bodies = request.value("include_bodies", false);
   auto cut_root = text_or(request, "cut_root");
   nlohmann::json resolution = nullptr;
   if (!ref_name.empty()) {
@@ -701,20 +707,25 @@ nlohmann::json query_kernel(const std::string &runtime_dir, const kernel_state &
   for (const auto &member : cut.at("objectVersions")) {
     const auto version_root = member.at(1).get<std::string>();
     const auto version = state.versions.find(version_root);
-    auto row = nlohmann::json{{"member", member},
-                              {"version", version == state.versions.end() ? nlohmann::json(nullptr) : version->second}};
-    if (include_bodies && version != state.versions.end()) {
-      const auto body_root = version->second.value("bodyRoot", std::string{});
-      try {
-        row["body"] = content_store_get(runtime_dir, BODY_NAMESPACE, body_root);
-        row["body_status"] = "available";
-      } catch (const std::exception &error) {
-        row["body"] = nullptr;
-        row["body_status"] = "missing";
-        row["body_error"] = error.what();
+    auto projected = nlohmann::json{
+        {"member", member}, {"version", version == state.versions.end() ? nlohmann::json(nullptr) : version->second}};
+    if (include_bodies) {
+      if (version == state.versions.end()) {
+        projected["body"] = nullptr;
+        projected["body_status"] = "version-missing";
+      } else {
+        try {
+          projected["body"] =
+              content_store_get(runtime_dir, BODY_NAMESPACE, version->second.at("bodyRoot").get<std::string>());
+          projected["body_status"] = "present";
+        } catch (const std::exception &error) {
+          projected["body"] = nullptr;
+          projected["body_status"] = "unavailable";
+          projected["body_error"] = error.what();
+        }
       }
     }
-    objects.push_back(std::move(row));
+    objects.push_back(std::move(projected));
   }
   auto relations = nlohmann::json::array();
   for (const auto &root : cut.at("activeRelationRoots")) {
@@ -1065,9 +1076,7 @@ nlohmann::json run_fact_kernel_operation(const std::string &runtime_dir, const n
           input.contains("expected_old_cut_root") &&
           (input.at("expected_old_cut_root").is_null() || input.at("expected_old_cut_root").is_string());
       const auto has_expected_revision =
-          input.contains("expected_old_revision") && (input.at("expected_old_revision").is_number_unsigned() ||
-                                                      (input.at("expected_old_revision").is_number_integer() &&
-                                                       input.at("expected_old_revision").get<int64_t>() >= 0));
+          input.contains("expected_old_revision") && is_nonnegative_integer(input.at("expected_old_revision"));
       const auto expected_old = text_or(input, "expected_old_cut_root");
       validate_root(expected_old, "expected_old_cut_root", true);
       const auto expected_revision = uint64_or(input, "expected_old_revision");

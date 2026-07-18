@@ -912,6 +912,23 @@ test(
 );
 
 test(
+  'runtime-independent query metadata does not require a storage root',
+  {
+    skip:
+      nativeAvailable || process.env.KUNGFU_REQUIRE_NATIVE === '1'
+        ? false
+        : 'built kungfu_node binding is unavailable',
+  },
+  () => {
+    const examples = kungfu.runStorageServiceOperation('query_plan', '', {
+      action: 'examples',
+    });
+    assert.equal(examples.schema, 'kungfu.query.examples/v1');
+    assert.equal(examples.examples.length > 0, true);
+  },
+);
+
+test(
   'saved query catalog is journal-backed and shared across the Node edge',
   {
     skip:
@@ -1148,6 +1165,14 @@ test(
         version.result.version_root,
       ]);
       assert.equal(projected.ref_resolution.revision, 1);
+      assert.equal('body' in projected.objects[0], false);
+
+      const projectedWithBodies = run('query', {
+        ref_name: 'heads/main',
+        include_bodies: true,
+      });
+      assert.equal(projectedWithBodies.objects[0].body_status, 'present');
+      assert.equal(projectedWithBodies.objects[0].body, 'opaque-body');
     } finally {
       fs.rmSync(runtimeDir, { recursive: true, force: true });
     }

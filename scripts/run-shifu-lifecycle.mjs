@@ -47,7 +47,9 @@ export function windowsCmdArgs(shim, args) {
     throw new Error(
       'Windows Shifu lifecycle arguments contain unsafe cmd syntax',
     );
-  return ['/d', '/s', '/c', `call ${cmdCommand(shim, args)}`];
+  const quote = (value) => `"${String(value).replaceAll('"', '""')}"`;
+  const payload = [shim, ...args].map(quote).join(' ');
+  return ['/d', '/s', '/c', `"${payload}"`];
 }
 
 /** Run the canonical repository shim without assuming bash exists on Windows. */
@@ -58,15 +60,20 @@ export function runShifu(args, options = {}) {
   let result;
   if (platform === 'win32') {
     const command = options.comspec || env.ComSpec || env.COMSPEC || 'cmd.exe';
-    // A batch wrapper must be entered through `call` so its argument vector
-    // survives both cmd.exe and the shim's own dispatch boundary.
-    result = spawnSync(command, windowsCmdArgs('shifu.cmd', args), {
-      cwd: root,
-      env,
-      stdio: options.stdio || 'inherit',
-      shell: false,
-      windowsVerbatimArguments: true,
-    });
+    // Match the native launcher's proven cmd.exe raw-argument protocol. The
+    // complete /s /c payload needs one outer quote pair in addition to the
+    // quotes around each token.
+    result = spawnSync(
+      command,
+      windowsCmdArgs(path.join(root, 'shifu.cmd'), args),
+      {
+        cwd: root,
+        env,
+        stdio: options.stdio || 'inherit',
+        shell: false,
+        windowsVerbatimArguments: true,
+      },
+    );
   } else {
     result = spawnSync(path.join(root, 'shifu'), args, {
       cwd: root,

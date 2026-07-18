@@ -94,9 +94,28 @@ the installed product rather than relying on this summary:
 
 ```sh
 kungfu agent work-model --json
+kungfu agent work capabilities --json
+kungfu agent work inspect --ref profiles/work/main --json
 kungfu contract show agent-work-state --json
 kungfu agent capabilities --json
 ```
+
+The provisional KFD-7 Product Profile adds an independently queryable Fact
+mapping beside Pursuit, Atlas, Warrant, and Episode. Every mutation uses
+`kungfu.kfd7.profile-action/v1` and returns
+`kungfu.kfd7.profile-action-receipt/v1`; the same installed CLI path is used
+by Python, Node, Agent, and GUI adapters. Product transition names remain an
+outer-ring vocabulary and map to KFD-7's closed action geometry in
+[`kungfu-kfd-7-action-contract.json`](../../framework/agent-work/kungfu-kfd-7-action-contract.json).
+The declaration is provisional and non-qualifying until dogfood, migration,
+artifact, and independent-review evidence close.
+
+Projection rebuild is supported from the native Fact journal plus verified
+body bytes. A clean home without a qualified Fact export reports
+`profile-authority-unavailable`; export/import remains explicit loss until a
+Fact bundle that preserves the journal, body namespace, refs, and exact Cuts
+is qualified. Backend switching is delegated to the existing storage service
+and must conserve those identities.
 
 The generic contract query is the KFD-1 route to the welded fact. The
 agent-specific work-model and capabilities commands are KFD-3 collaboration
@@ -114,6 +133,14 @@ clean-runtime continuation. `FO3` and `FO7` are partial; fresh-product
 progressive disclosure, GUI/TUI parity, sustained multi-work-item dogfood,
 generic Warrant maturity, and release binding remain explicit debt. Inspect the
 machine contract and retained report rather than inferring P17 from this prose.
+
+The retained KFD-7 release-gate declaration is
+[`kungfu-kfd-7-release-gate.json`](../../framework/agent-work/kungfu-kfd-7-release-gate.json).
+Buildchain verifies its frozen action contract, positive and negative runtime
+reports, packaged contract surface, and required experiment inventory. The
+current result is deliberately `warning`: export/import, backend migration,
+clean-home continuation, and independent activation review remain explicit
+qualification debt even though the retained evidence is internally closed.
 
 Kungfu does not currently claim that the four names are permanent, that every
 workflow must display all four roles, that the model is universal for every

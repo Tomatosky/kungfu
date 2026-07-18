@@ -2,7 +2,9 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { EventEmitter } from 'node:events';
 import path from 'node:path';
+import { PassThrough } from 'node:stream';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
@@ -23,6 +25,35 @@ function createHost(overrides = {}) {
     initializeTimeoutMs: 2_000,
     ...overrides,
   });
+}
+
+function stdoutEndingChild() {
+  const child = new EventEmitter();
+  child.pid = 4242;
+  child.stdin = new PassThrough();
+  child.stdout = new PassThrough();
+  child.stderr = new PassThrough();
+  let pending = '';
+  child.stdin.on('data', (chunk) => {
+    pending += chunk.toString();
+    while (pending.includes('\n')) {
+      const newline = pending.indexOf('\n');
+      const message = JSON.parse(pending.slice(0, newline));
+      pending = pending.slice(newline + 1);
+      if (message.method === 'initialize') {
+        child.stdout.write(
+          `${JSON.stringify({ id: message.id, result: { userAgent: 'synthetic-redacted' } })}\n`,
+        );
+      } else if (message.method === 'initialized') {
+        child.stdout.end();
+      }
+    }
+  });
+  child.kill = (signal) => {
+    queueMicrotask(() => child.emit('close', null, signal));
+    return true;
+  };
+  return child;
 }
 
 async function start(mode, overrides = {}) {
@@ -286,8 +317,10 @@ test('stderr content is never retained or surfaced', async (t) => {
   assert.equal(host.status().stderr.retainedContent, false);
 });
 
-test('stdout pipe loss terminates the provider with an unknown attempt boundary', async () => {
-  const host = await start('stdout-end');
+test('stdout pipe loss terminates the provider with an unknown attempt boundary', async (t) => {
+  const child = stdoutEndingChild();
+  const host = await start('stdout-end', { spawn: () => child });
+  t.after(() => stop(host));
   await waitUntil(
     () => host.status().failure?.code === 'stdout-ended',
     'stdout loss did not fail visibly',

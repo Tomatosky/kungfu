@@ -68,6 +68,17 @@ async function waitFor(check, message, timeout = 5000) {
   throw new Error(message);
 }
 
+async function endpointReady(endpoint) {
+  return new Promise((resolve) => {
+    const socket = net.createConnection(endpoint);
+    socket.once('connect', () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.once('error', () => resolve(false));
+  });
+}
+
 async function connect(endpoint) {
   const socket = net.createConnection(endpoint);
   socket.setEncoding('utf8');
@@ -103,9 +114,37 @@ async function connect(endpoint) {
   };
 }
 
+function syntheticProviderEnvironment(temp) {
+  const environment = { HOME: temp, TERM: 'xterm-256color' };
+  if (process.platform !== 'win32') {
+    environment.PATH = process.env.PATH ?? '';
+    return environment;
+  }
+  for (const requested of [
+    'path',
+    'systemroot',
+    'windir',
+    'comspec',
+    'pathext',
+    'temp',
+    'tmp',
+  ]) {
+    const actual = Object.keys(process.env).find(
+      (name) => name.toLowerCase() === requested,
+    );
+    if (actual && typeof process.env[actual] === 'string') {
+      environment[actual] = process.env[actual];
+    }
+  }
+  return environment;
+}
+
 test('detached Capsule worker survives client loss and reattaches to the same PTY', async (t) => {
   const temp = fs.mkdtempSync(path.join(socketTempRoot, 'kungfu-capsule-'));
-  const endpoint = path.join(temp, 'capsule.sock');
+  const endpoint =
+    process.platform === 'win32'
+      ? `\\\\.\\pipe\\kungfu-capsule-${process.pid}-${path.basename(temp)}`
+      : path.join(temp, 'capsule.sock');
   const ptyModule = preparedNodePty(temp);
   const child = spawn(
     process.execPath,
@@ -132,7 +171,7 @@ test('detached Capsule worker survives client loss and reattaches to the same PT
     fs.rmSync(temp, { force: true, recursive: true });
   });
   await waitFor(
-    () => fs.existsSync(endpoint),
+    () => endpointReady(endpoint),
     'Capsule endpoint did not appear',
     process.platform === 'win32' ? 20_000 : 5_000,
   );
@@ -152,7 +191,7 @@ test('detached Capsule worker survives client loss and reattaches to the same PT
     executable: process.execPath,
     argv: [providerScript],
     cwd: temp,
-    env: { PATH: process.env.PATH, HOME: temp, TERM: 'xterm-256color' },
+    env: syntheticProviderEnvironment(temp),
     cols: 40,
     rows: 8,
   });

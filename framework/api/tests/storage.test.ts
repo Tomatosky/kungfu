@@ -91,6 +91,40 @@ test('Episode Admission API is a thin projection over the native destination ope
   ]);
 });
 
+test('Fact kernel API preserves the generic action request without product vocabulary', () => {
+  const calls: unknown[][] = [];
+  const binding = {
+    runStorageServiceOperation: (
+      operation: string,
+      runtimeDir: string,
+      options: Record<string, unknown> = {},
+    ) => {
+      calls.push([operation, runtimeDir, options]);
+      return { ok: true, schema: 'kungfu.fact-kernel.state/v1' };
+    },
+  } as unknown as KfNativeBinding;
+  const storage = openStorage({ binding, locator: { runtimeDir: '/runtime' } });
+
+  assert.deepEqual(
+    storage.factKernel('query', {
+      ref_name: 'profiles/work',
+      include_bodies: true,
+    }),
+    { ok: true, schema: 'kungfu.fact-kernel.state/v1' },
+  );
+  assert.deepEqual(calls, [
+    [
+      'fact_kernel',
+      '/runtime',
+      {
+        action: 'query',
+        ref_name: 'profiles/work',
+        include_bodies: true,
+      },
+    ],
+  ]);
+});
+
 test('GUI and Agent storage edge preserve the published Buildchain KFX projection and Core report root', () => {
   const fixture = JSON.parse(
     fs.readFileSync(

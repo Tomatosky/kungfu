@@ -652,6 +652,9 @@ backend_authority_cut_guard::backend_authority_cut_guard(const std::string &runt
 backend_authority_cut_guard::~backend_authority_cut_guard() = default;
 
 provider_selection select_provider_for_runtime(const std::string &runtime_dir, std::string provider) {
+  if (runtime_dir.empty()) {
+    return select_provider(std::move(provider));
+  }
   const auto configured = select_provider(std::move(provider));
   const auto binding = parse_binding(load_json(binding_path(runtime_dir)));
   if (binding.present) {

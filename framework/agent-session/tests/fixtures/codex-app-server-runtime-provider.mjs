@@ -53,8 +53,6 @@ lines.on('line', (line) => {
       });
     } else if (mode === 'stderr-redaction') {
       process.stderr.write('synthetic-secret-must-not-be-retained');
-    } else if (mode === 'stdout-end') {
-      process.stdout.end();
     } else if (mode === 'unexpected-exit') {
       setTimeout(() => process.exit(23), 5);
     }

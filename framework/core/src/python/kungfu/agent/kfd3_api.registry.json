@@ -63,6 +63,46 @@
       "projections": ["commands.json", "capabilities-json", "agent-pack-doc", "provider-skill"]
     },
     {
+      "id": "kungfu.agent.work",
+      "surface": "cli-api-gui",
+      "name": "kungfu agent work",
+      "purpose": "Use the KFD-7 Kungfu Product Profile without replacing Fact or Episode authority.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "runtime-click", "symbol": "work" },
+      "projections": ["capabilities-json", "provider-skill"]
+    },
+    {
+      "id": "kungfu.agent.work.capabilities",
+      "surface": "cli-api-gui",
+      "name": "kungfu agent work capabilities --json",
+      "purpose": "Discover five responsibility roles, Product Profile transitions, typed denials, and authority boundaries.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "runtime-click", "symbol": "work_capabilities" },
+      "projections": ["commands.json", "capabilities-json", "provider-skill"]
+    },
+    {
+      "id": "kungfu.agent.work.inspect",
+      "surface": "cli-api-gui",
+      "name": "kungfu agent work inspect --ref <ref> --json",
+      "purpose": "Resolve one exact Fact ref and report all five Profile role identities, states, relations, and typed gaps.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "runtime-click", "symbol": "work_inspect" },
+      "projections": ["commands.json", "capabilities-json", "provider-skill"]
+    },
+    {
+      "id": "kungfu.agent.work.action",
+      "surface": "cli-api-gui",
+      "name": "kungfu agent work action --file <request.json> [--execute] --json",
+      "purpose": "Plan or execute one Profile transition through the shared action/receipt contract and native Fact ref CAS.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "runtime-click", "symbol": "work_action" },
+      "projections": ["commands.json", "capabilities-json", "provider-skill"]
+    },
+    {
       "id": "kungfu.agent.choose-mode",
       "surface": "cli",
       "name": "kungfu agent choose-mode --json",

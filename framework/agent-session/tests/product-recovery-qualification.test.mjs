@@ -59,6 +59,30 @@ function sessionRef(suffix) {
   };
 }
 
+function qualificationEnvironment() {
+  const environment = {
+    KUNGFU_QUALIFICATION_PRIVATE: PRIVATE_VALUE,
+  };
+  if (process.platform !== 'win32') return environment;
+  for (const requested of [
+    'path',
+    'systemroot',
+    'windir',
+    'comspec',
+    'pathext',
+    'temp',
+    'tmp',
+  ]) {
+    const actual = Object.keys(process.env).find(
+      (name) => name.toLowerCase() === requested,
+    );
+    if (actual && typeof process.env[actual] === 'string') {
+      environment[actual] = process.env[actual];
+    }
+  }
+  return environment;
+}
+
 function startInput(root, suffix) {
   return {
     ...sessionRef(suffix),
@@ -68,7 +92,7 @@ function startInput(root, suffix) {
     executable: process.execPath,
     argv: [PROVIDER, 'codex'],
     cwd: root,
-    env: { KUNGFU_QUALIFICATION_PRIVATE: PRIVATE_VALUE },
+    env: qualificationEnvironment(),
   };
 }
 
@@ -88,7 +112,7 @@ async function startSession(host, root, suffix) {
       presentation: 'qualification-headless',
     },
     execution: {
-      env: { KUNGFU_QUALIFICATION_PRIVATE: PRIVATE_VALUE },
+      env: qualificationEnvironment(),
       cols: 100,
       rows: 30,
     },

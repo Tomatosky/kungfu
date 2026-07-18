@@ -135,6 +135,22 @@ containment hierarchy.
 The stable kernel should be small enough that every product surface can use the
 same semantics. Product convenience belongs above it.
 
+The first executable outer-ring slice is the KFD-7 Work Profile:
+
+- the generic Fact kernel remains the sole owner of object ids, immutable
+  versions, typed relations, Cuts, ref CAS, and kernel receipts;
+- `kungfu agent work action` validates the five responsibility bindings and
+  the Pursuit, Atlas, Warrant, Episode, or Fact transition before issuing
+  generic kernel writes;
+- one final native ref CAS is the public commit point, while a denied CAS
+  reports any immutable prerequisite records that were already appended; and
+- `kungfu agent work inspect` requests immutable bodies explicitly, so the
+  default generic query stays metadata-only and product-neutral.
+
+The matching action and receipt schemas live under `framework/agent-work/`.
+They are a Kungfu Product Profile, not a second storage stack or a KFD
+normative definition.
+
 ## Semantic identity
 
 Every first-class object requires an identity independent of:

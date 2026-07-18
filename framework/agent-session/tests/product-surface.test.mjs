@@ -680,7 +680,10 @@ test('the local product RPC preserves the same action and error envelopes', asyn
       'kungfu-agent-session-product-rpc-',
     ),
   );
-  const endpoint = path.join(directory, 'surface.sock');
+  const endpoint =
+    process.platform === 'win32'
+      ? `\\\\.\\pipe\\kungfu-agent-session-product-rpc-${process.pid}-${path.basename(directory)}`
+      : path.join(directory, 'surface.sock');
   const { surface } = fixture();
   const rpc = bindAgentSessionSurfaceRpc({
     endpoint,
