@@ -298,7 +298,7 @@ async function exactQualification(options, fixture) {
     const cliMemory = await runMeasured(
       kungfuBin,
       ['-H', smoke.home, 'agent', 'brief'],
-      { cwd: installRoot, env },
+      { cwd: installRoot, env, shell: process.platform === 'win32' },
     );
 
     const desktopInstall = installDesktopArtifact(

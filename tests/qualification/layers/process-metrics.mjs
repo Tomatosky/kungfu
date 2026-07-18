@@ -36,6 +36,7 @@ export function runMeasured(command, args, options = {}) {
       cwd: options.cwd,
       env: options.env,
       stdio: ['ignore', 'pipe', 'pipe'],
+      shell: options.shell ?? false,
       windowsHide: true,
     });
     let stdout = '';
@@ -58,7 +59,12 @@ export function runMeasured(command, args, options = {}) {
     const timer = setInterval(sample, options.sampleIntervalMs || 10);
     child.once('error', (error) => {
       clearInterval(timer);
-      reject(error);
+      reject(
+        new Error(
+          `${command} ${args.join(' ')} could not start: ${error.message}`,
+          { cause: error },
+        ),
+      );
     });
     child.once('close', (status, signal) => {
       clearInterval(timer);
