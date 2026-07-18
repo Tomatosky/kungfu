@@ -147,10 +147,17 @@ test(
     assert.deepEqual(
       first.parityGroups.map((group) => group.id),
       [
+        'kungfu-buildchain-release',
         'kungfu-core-development',
         'kungfu-documentation',
         'kungfu-documentation-control',
+        'kungfu-episode',
+        'kungfu-gui',
         'kungfu-kfx-development',
+        'kungfu-mission-agent',
+        'kungfu-operations',
+        'kungfu-sdk',
+        'kungfu-storage-journal',
         'kungfu-user-guide',
       ],
     );
