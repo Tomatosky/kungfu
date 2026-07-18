@@ -1,8 +1,9 @@
 # Fact, Episode, and Action Primitive Runtime
 
-Status: proposed implementation design. This document organizes existing
-Kungfu decisions into one delivery basis; it does not replace their authority
-or claim that the design is qualified.
+Status: staged implementation design. ADR-0112 now owns the accepted generic
+Fact identity, relation, Cut, ref, CAS, and receipt contract. This document
+organizes that contract with the wider action model; it does not replace its
+authority or claim that the native kernel is qualified.
 
 ## Authority and scope
 
@@ -11,6 +12,10 @@ The sources of authority remain:
 - [ADR-0109](../adr/ADR-0109-four-object-agent-work-state-contract.md) for the
   accepted product rule that Pursuit, Atlas, Warrant, and Episode remain
   independently addressable roles;
+- [ADR-0112](../adr/ADR-0112-backend-neutral-fact-cut-kernel.md) and
+  [`kungfu-fact-cut-kernel.contract.json`](../../framework/fact/kungfu-fact-cut-kernel.contract.json)
+  for the accepted domain-neutral Fact object, version, relation, Cut, ref,
+  CAS, receipt, ownership, and failure contract;
 - [`kungfu-agent-work-state.contract.json`](../../framework/agent-work/kungfu-agent-work-state.contract.json)
   for current machine definitions, implementation mappings, invalid
   inferences, and qualification status;
@@ -127,7 +132,9 @@ The minimum generic record families are:
 - projection head and rebuild provenance; and
 - import/export acceptance receipts.
 
-The exact record layout requires its own accepted ADR before implementation.
+ADR-0112 freezes the logical record families and ownership boundary. Its
+machine contract is the implementation input; no authoritative writer is
+claimed until the native qualification gates pass.
 
 ## What Kungfu should learn from Git
 
@@ -252,8 +259,8 @@ qualification plan.
 ## Initial delivery sequence
 
 1. Preserve ADR-0109 and the current machine contract as the public baseline.
-2. Specify generic identity, relation, cut, and authority record families in an
-   ADR before changing storage.
+2. Implement the accepted ADR-0112 machine contract over the existing journal
+   and content-store substrate without changing its identity or ownership.
 3. Project existing Mission/Go, Xinfa Atlas, authorization, and Episode
    implementations into the generic model without destructive renaming.
 4. Add read-only inspection and divergence reporting before any authority

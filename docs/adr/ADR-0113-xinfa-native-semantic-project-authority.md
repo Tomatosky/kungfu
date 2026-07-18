@@ -1,7 +1,7 @@
 ---
 metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
-adr_id: ADR-0112
+adr_id: ADR-0113
 decision_status: accepted
 implementation_status: implemented
 implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1054]
@@ -17,7 +17,7 @@ evidence_grade: A
 last_reviewed: 2026-07-18
 ---
 
-# ADR-0112: Xinfa owns semantic project materialization
+# ADR-0113: Xinfa owns semantic project materialization
 
 - Status: accepted; implementation implemented
 - Date: 2026-07-18

@@ -42,8 +42,8 @@
           "mixed"
         ],
         "compileMilliseconds": [
-          60.83725,
-          62.221208
+          81.427667,
+          61.79325
         ],
         "human": {
           "route": "small.human",
@@ -75,8 +75,8 @@
           "non-claim"
         ],
         "compileMilliseconds": [
-          67.930958,
-          55.795125
+          75.423334,
+          78.16275
         ],
         "human": {
           "route": "medium.human.public",

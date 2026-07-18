@@ -7,8 +7,10 @@ implementation_status: implemented
 implementation_commits: [90dbc34f4ade3fbc6801f7e5c5f222d4901f0fd0, 2acbe59faac7cbd02708427acf4a594d1875398f, 93ea338e77452356b322929d7adcd4559f2cbe30, e94e5e9cde1f24464dae2b35abc2528f103588d0]
 implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/459]
 closure_commit: e431253ce7c91ac89668d0852026fdc8ccba6e7c
-review_state: legacy-unreviewed
+qualification_refs: [framework/core/tests/python/test_atlas_storage.py, framework/core/tests/python/test_content_store_facade.py, framework/core/tests/storage-node-binding.test.js]
+review_state: self-reviewed
 sensitivity: public
+last_reviewed: 2026-07-18
 ---
 
 # ADR-0037: ADR-0018 storage-service records are Hana-core kernel metadata; JSON is an edge projection, not the contract
