@@ -29,7 +29,7 @@
           "pointer": {
             "kind": "file",
             "path": "framework/core/src/python/kungfu/agent/commands.json",
-            "sha256": "ad4d41202861a9cec404c2ee78575b505e2b390584876520a45e62496ebf39ed"
+            "sha256": "583295901ceaddc4a36920bed6a39a710458c124347af40f6ccc30c4ac55efbb"
           },
           "description": "Machine-readable command catalog and mode maturity metadata."
         },
@@ -194,7 +194,7 @@
           "pointer": {
             "kind": "file",
             "path": "framework/core/src/python/kungfu/agent/commands.json",
-            "sha256": "ad4d41202861a9cec404c2ee78575b505e2b390584876520a45e62496ebf39ed"
+            "sha256": "583295901ceaddc4a36920bed6a39a710458c124347af40f6ccc30c4ac55efbb"
           },
           "description": "Remote add/sync command declarations and mode metadata."
         },
@@ -203,7 +203,7 @@
           "pointer": {
             "kind": "file",
             "path": "framework/core/src/python/kungfu/cli/commands/agent.py",
-            "sha256": "cc860b5fdc9a473fef9788f398edb24e9a3aa82e10138f0b071de178201f83f4"
+            "sha256": "bee8cabb2b0840785e2b67cff0c9c9f4643fdb35ded7bb816e0261ce1700d83a"
           },
           "description": "Agent command surface including mode selection and bootstrap status."
         }
@@ -265,7 +265,7 @@
           "pointer": {
             "kind": "file",
             "path": "framework/core/tests/python/test_agent_work_state_contract.py",
-            "sha256": "3ba06e7fc72e0f14d7111c0c50a428b7b4cab3c7c82414b2f0c3f6283fc88ea5"
+            "sha256": "5fcd822eb4658dcf2faaaffbe5c651697b160fed27417630fd7b84a4d8e875f8"
           },
           "description": "Runtime CLI parity and fail-closed contract-schema checks."
         },
@@ -274,7 +274,7 @@
           "pointer": {
             "kind": "file",
             "path": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
-            "sha256": "f65df3186341c40d8a3c29934dccb60ba3db4e7612416d9a3d7bb3b45f612111"
+            "sha256": "91294bb5d359299e2deda1a12d5629b599aaf20d2147816bab9f92098b5c813b"
           },
           "description": "Agent collaboration-interface registration for the work-model query."
         }

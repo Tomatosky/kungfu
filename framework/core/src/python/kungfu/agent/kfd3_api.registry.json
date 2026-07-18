@@ -83,6 +83,16 @@
       "projections": ["commands.json", "capabilities-json", "provider-skill"]
     },
     {
+      "id": "kungfu.agent.work.session",
+      "surface": "cli-api-gui",
+      "name": "kungfu agent work session --operation <compressibility|expand|project> --file <session.json> --json",
+      "purpose": "Round-trip a simple work session through the five KFD-7 Profile roles or expose the exact role at a complexity breakpoint.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "runtime-click", "symbol": "work_session" },
+      "projections": ["commands.json", "capabilities-json", "provider-skill"]
+    },
+    {
       "id": "kungfu.agent.work.inspect",
       "surface": "cli-api-gui",
       "name": "kungfu agent work inspect --ref <ref> --json",

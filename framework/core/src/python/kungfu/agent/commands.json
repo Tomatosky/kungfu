@@ -38,6 +38,12 @@
       "purpose": "Discover five responsibility roles, Product Profile transitions, typed denials, and authority boundaries."
     },
     {
+      "apiId": "kungfu.agent.work.session",
+      "name": "kungfu agent work session --operation <compressibility|expand|project> --file <session.json> --json",
+      "maturity": "experimental",
+      "purpose": "Round-trip a simple work session through the five KFD-7 Profile roles or expose the exact role at a complexity breakpoint."
+    },
+    {
       "apiId": "kungfu.agent.work.inspect",
       "name": "kungfu agent work inspect --ref <ref> --json",
       "maturity": "experimental",

@@ -467,6 +467,49 @@ def _profile_request():
     }
 
 
+def _session_fixture():
+    return {
+        "schema": work_profile.SESSION_SCHEMA,
+        "sessionId": "session:release-check",
+        "goal": {
+            "pursuitId": "pursuit:release-check",
+            "state": "active",
+            "summary": "qualify the exact release cut",
+            "operations": ["fact:successor", "episode:seal"],
+            "alternatives": [],
+        },
+        "context": {
+            "atlasId": "atlas:release-check",
+            "state": "current",
+            "perspective": "release-reviewer",
+            "perspectives": ["release-reviewer"],
+            "basisRevision": 4,
+            "validThroughRevision": 4,
+            "lossRoots": [],
+        },
+        "permissions": {
+            "warrantId": "warrant:release-check",
+            "state": "issued",
+            "allowedOperations": ["fact:successor", "episode:seal"],
+            "validThroughRevision": 4,
+            "delegated": False,
+        },
+        "run": {
+            "episodeId": "episode:release-check",
+            "episodeIds": ["episode:release-check"],
+            "state": "open",
+            "causalRoot": "sha256:" + "a" * 64,
+        },
+        "facts": {
+            "factId": "fact:release-check",
+            "state": "declared",
+            "inputRoot": "sha256:" + "b" * 64,
+            "resultRoots": ["sha256:" + "c" * 64],
+            "branchRoots": [],
+        },
+    }
+
+
 def _successor_request(previous, *, action_id="continue-1"):
     request = _profile_request()
     request["actionId"] = action_id
@@ -552,6 +595,114 @@ def test_kfd7_profile_capabilities_and_typed_responsibility_gap():
     assert denied["status"] == "denied"
     assert denied["failureCode"] == "responsibility-gap"
     assert denied["writeOccurred"] is False
+
+
+def test_kfd7_simple_session_round_trips_all_five_decision_observations():
+    session = _session_fixture()
+    expanded = work_profile.expand_session(session)
+
+    assert expanded["compressibility"] == {
+        "schema": work_profile.SESSION_COMPRESSIBILITY_SCHEMA,
+        "sessionId": session["sessionId"],
+        "compressible": True,
+        "breakpoints": [],
+        "revealedRoles": [],
+    }
+    assert set(expanded["observations"]) == {
+        "direction",
+        "perspective-boundary",
+        "effective-authority",
+        "causal-process",
+        "admitted-result",
+    }
+    assert work_profile.project_session(expanded) == session
+
+
+def test_kfd7_session_cli_and_python_api_share_the_same_projection(tmp_path):
+    session = _session_fixture()
+    encoded = base64.b64encode(json.dumps(session).encode()).decode()
+    result = CliRunner().invoke(
+        kfc,
+        [
+            "--home",
+            str(tmp_path / "home"),
+            "agent",
+            "work",
+            "session",
+            "--operation",
+            "expand",
+            "--input-base64",
+            encoded,
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output) == work_profile.expand_session(session)
+
+
+@pytest.mark.parametrize(
+    ("role", "mutate"),
+    [
+        (
+            "pursuit",
+            lambda value: value["goal"].update({"alternatives": ["pursuit:other"]}),
+        ),
+        (
+            "atlas",
+            lambda value: value["context"].update(
+                {"state": "stale", "lossRoots": ["sha256:" + "d" * 64]}
+            ),
+        ),
+        (
+            "warrant",
+            lambda value: value["permissions"].update({"state": "revoked"}),
+        ),
+        (
+            "episode",
+            lambda value: value["run"].update(
+                {"episodeIds": ["episode:release-check", "episode:retry"]}
+            ),
+        ),
+        (
+            "fact",
+            lambda value: value["facts"].update(
+                {"branchRoots": ["sha256:" + "e" * 64]}
+            ),
+        ),
+    ],
+)
+def test_kfd7_session_complexity_breakpoints_reveal_the_independent_role(role, mutate):
+    session = _session_fixture()
+    mutate(session)
+    expanded = work_profile.expand_session(session)
+
+    assert expanded["compressibility"]["compressible"] is False
+    assert role in expanded["compressibility"]["revealedRoles"]
+    with pytest.raises(ValueError, match="session-complexity-breakpoint"):
+        work_profile.project_session(expanded)
+
+
+def test_kfd7_same_payload_has_different_actions_without_direction_authority_or_freshness():
+    baseline = _session_fixture()
+    payload = copy.deepcopy(baseline["facts"])
+    assert work_profile.session_valid_actions(baseline) == [
+        "episode:seal",
+        "fact:successor",
+    ]
+
+    different_direction = copy.deepcopy(baseline)
+    different_direction["goal"]["operations"] = ["episode:seal"]
+    weaker_authority = copy.deepcopy(baseline)
+    weaker_authority["permissions"]["allowedOperations"] = ["fact:successor"]
+    stale_context = copy.deepcopy(baseline)
+    stale_context["context"]["validThroughRevision"] = 3
+
+    for candidate in (different_direction, weaker_authority, stale_context):
+        assert candidate["facts"] == payload
+    assert work_profile.session_valid_actions(different_direction) == ["episode:seal"]
+    assert work_profile.session_valid_actions(weaker_authority) == ["fact:successor"]
+    assert work_profile.session_valid_actions(stale_context) == []
 
 
 @pytest.mark.parametrize("role", work_profile.ROLES)

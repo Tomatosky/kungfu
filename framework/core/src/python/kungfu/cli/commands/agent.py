@@ -326,6 +326,51 @@ def work_capabilities(ctx, as_json):
         click.echo(f"- {role}")
 
 
+@work.command(name="session", help=api_help("kungfu.agent.work.session"))
+@click.option(
+    "--operation",
+    type=click.Choice(["compressibility", "expand", "project"]),
+    required=True,
+)
+@click.option("--file", "file_path", help="session or expansion JSON path or -")
+@click.option(
+    "--input-base64",
+    help="base64-encoded session or expansion JSON for SDK and GUI adapters",
+)
+@click.option("--json", "as_json", is_flag=True, help="machine-readable output")
+@kfd3_api("kungfu.agent.work.session")
+@agent_command_context
+def work_session(ctx, operation, file_path, input_base64, as_json):
+    """Expand, project, or test the complexity boundary of one session."""
+
+    try:
+        if bool(file_path) == bool(input_base64):
+            raise ValueError("exactly one of --file or --input-base64 is required")
+        if input_base64:
+            raw = base64.b64decode(input_base64, validate=True).decode("utf-8")
+        else:
+            raw = (
+                sys.stdin.read()
+                if file_path == "-"
+                else Path(file_path).read_text(encoding="utf-8")
+            )
+        value = json.loads(raw)
+        if not isinstance(value, dict):
+            raise ValueError("session input must be a JSON object")
+        handlers = {
+            "compressibility": work_profile.session_compressibility,
+            "expand": work_profile.expand_session,
+            "project": work_profile.project_session,
+        }
+        payload = handlers[operation](value)
+    except (OSError, UnicodeError, ValueError, json.JSONDecodeError) as error:
+        raise click.ClickException(str(error)) from error
+    if as_json:
+        _json(payload)
+    else:
+        click.echo(json.dumps(payload, indent=2, sort_keys=True))
+
+
 @work.command(name="inspect", help=api_help("kungfu.agent.work.inspect"))
 @click.option("--ref", "ref_name", required=True, help="exact Fact ref name")
 @click.option("--json", "as_json", is_flag=True, help="machine-readable output")

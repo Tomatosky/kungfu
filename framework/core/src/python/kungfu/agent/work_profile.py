@@ -24,6 +24,9 @@ ROLE_BODY_SCHEMA = "kungfu.kfd7.profile-role/v1"
 CAPABILITIES_SCHEMA = "kungfu.kfd7.profile-capabilities/v1"
 INSPECTION_SCHEMA = "kungfu.kfd7.profile-inspection/v1"
 AUTHORITY_BUNDLE_SCHEMA = "kungfu.fact-authority-bundle/v1"
+SESSION_SCHEMA = "kungfu.kfd7.session/v1"
+SESSION_EXPANSION_SCHEMA = "kungfu.kfd7.session-expansion/v1"
+SESSION_COMPRESSIBILITY_SCHEMA = "kungfu.kfd7.session-compressibility/v1"
 
 ROLES = ("fact", "episode", "pursuit", "atlas", "warrant")
 INITIAL_STATES = {
@@ -153,11 +156,219 @@ def capabilities() -> dict[str, Any]:
                 "lossCode": "profile-authority-unavailable",
             },
         },
+        "sessionProjection": {
+            "schema": SESSION_SCHEMA,
+            "expand": "kungfu.agent.work_profile.expand_session",
+            "project": "kungfu.agent.work_profile.project_session",
+            "compressibilityPredicate": (
+                "kungfu.agent.work_profile.session_compressibility"
+            ),
+            "semanticDimensions": [
+                "direction",
+                "perspective-boundary",
+                "effective-authority",
+                "causal-process",
+                "admitted-result",
+            ],
+        },
         "nonClaims": [
             "A Profile receipt does not adopt KFD-7 or replace KFD authority.",
             "An accepted action does not prove Pursuit completion or complete reality.",
         ],
     }
+
+
+def _require_session_component(
+    session: dict[str, Any], field: str, identity_field: str
+) -> dict[str, Any]:
+    value = session.get(field)
+    if not isinstance(value, dict):
+        raise ValueError(f"{field} must be an object")
+    identity = value.get(identity_field)
+    if not isinstance(identity, str) or not identity:
+        raise ValueError(f"{field}.{identity_field} is required")
+    return value
+
+
+def _validate_session(session: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    if not isinstance(session, dict) or session.get("schema") != SESSION_SCHEMA:
+        raise ValueError(f"schema must be {SESSION_SCHEMA}")
+    if not isinstance(session.get("sessionId"), str) or not session["sessionId"]:
+        raise ValueError("sessionId is required")
+    components = {
+        "pursuit": _require_session_component(session, "goal", "pursuitId"),
+        "atlas": _require_session_component(session, "context", "atlasId"),
+        "warrant": _require_session_component(session, "permissions", "warrantId"),
+        "episode": _require_session_component(session, "run", "episodeId"),
+        "fact": _require_session_component(session, "facts", "factId"),
+    }
+    identities = [
+        components["fact"]["factId"],
+        components["episode"]["episodeId"],
+        components["pursuit"]["pursuitId"],
+        components["atlas"]["atlasId"],
+        components["warrant"]["warrantId"],
+    ]
+    if len(identities) != len(set(identities)):
+        raise ValueError("session responsibilities require distinct identities")
+    for field in ("basisRevision", "validThroughRevision"):
+        value = components["atlas"].get(field)
+        if not isinstance(value, int) or value < 0:
+            raise ValueError(f"context.{field} must be a non-negative integer")
+    valid_through = components["warrant"].get("validThroughRevision")
+    if not isinstance(valid_through, int) or valid_through < 0:
+        raise ValueError(
+            "permissions.validThroughRevision must be a non-negative integer"
+        )
+    for field, component in (
+        ("goal.operations", components["pursuit"]),
+        ("permissions.allowedOperations", components["warrant"]),
+    ):
+        key = field.rsplit(".", 1)[1]
+        value = component.get(key)
+        if (
+            not isinstance(value, list)
+            or not value
+            or any(not isinstance(item, str) or not item for item in value)
+        ):
+            raise ValueError(f"{field} must be a non-empty string array")
+    return components
+
+
+def session_compressibility(session: dict[str, Any]) -> dict[str, Any]:
+    """Return the exact roles that make a familiar session projection lossy."""
+
+    components = _validate_session(session)
+    reasons: list[dict[str, str]] = []
+
+    goal = components["pursuit"]
+    if goal.get("state") != "active" or goal.get("alternatives"):
+        reasons.append(
+            {
+                "role": "pursuit",
+                "code": "multiple-or-terminal-direction",
+            }
+        )
+
+    context = components["atlas"]
+    if (
+        context.get("state") != "current"
+        or context["validThroughRevision"] < context["basisRevision"]
+        or context.get("lossRoots")
+        or len(context.get("perspectives", [])) > 1
+    ):
+        reasons.append({"role": "atlas", "code": "perspective-or-freshness-boundary"})
+
+    permissions = components["warrant"]
+    if (
+        permissions.get("state") != "issued"
+        or permissions["validThroughRevision"] < context["basisRevision"]
+        or permissions.get("delegated") is True
+    ):
+        reasons.append({"role": "warrant", "code": "authority-boundary"})
+
+    run = components["episode"]
+    if (
+        run.get("state") not in {"open", "sealed"}
+        or len(run.get("episodeIds", [run["episodeId"]])) != 1
+    ):
+        reasons.append({"role": "episode", "code": "causal-branch"})
+
+    facts = components["fact"]
+    if facts.get("branchRoots") or len(facts.get("resultRoots", [])) > 1:
+        reasons.append({"role": "fact", "code": "fact-branch"})
+
+    return {
+        "schema": SESSION_COMPRESSIBILITY_SCHEMA,
+        "sessionId": session["sessionId"],
+        "compressible": not reasons,
+        "breakpoints": reasons,
+        "revealedRoles": sorted({reason["role"] for reason in reasons}),
+    }
+
+
+def session_valid_actions(session: dict[str, Any]) -> list[str]:
+    """Derive actions only from direction, current context, and authority."""
+
+    components = _validate_session(session)
+    context = components["atlas"]
+    warrant = components["warrant"]
+    pursuit = components["pursuit"]
+    if (
+        pursuit.get("state") != "active"
+        or context.get("state") != "current"
+        or context["validThroughRevision"] < context["basisRevision"]
+        or warrant.get("state") != "issued"
+        or warrant["validThroughRevision"] < context["basisRevision"]
+    ):
+        return []
+    return sorted(set(pursuit["operations"]).intersection(warrant["allowedOperations"]))
+
+
+def expand_session(session: dict[str, Any]) -> dict[str, Any]:
+    """Expand one product session into the existing five Profile role bodies."""
+
+    components = _validate_session(session)
+    compressibility = session_compressibility(session)
+    roles = {
+        role: {
+            "schema": ROLE_BODY_SCHEMA,
+            "role": role,
+            "state": components[role]["state"],
+            "details": json.loads(json.dumps(components[role], sort_keys=True)),
+        }
+        for role in ROLES
+    }
+    return {
+        "schema": SESSION_EXPANSION_SCHEMA,
+        "sessionId": session["sessionId"],
+        "compressibility": compressibility,
+        "roles": roles,
+        "observations": {
+            "direction": roles["pursuit"]["details"],
+            "perspective-boundary": roles["atlas"]["details"],
+            "effective-authority": roles["warrant"]["details"],
+            "causal-process": roles["episode"]["details"],
+            "admitted-result": roles["fact"]["details"],
+        },
+        "validActions": session_valid_actions(session),
+    }
+
+
+def project_session(expansion: dict[str, Any]) -> dict[str, Any]:
+    """Project a compressible five-role expansion back to one session."""
+
+    if (
+        not isinstance(expansion, dict)
+        or expansion.get("schema") != SESSION_EXPANSION_SCHEMA
+    ):
+        raise ValueError(f"schema must be {SESSION_EXPANSION_SCHEMA}")
+    compressibility = expansion.get("compressibility")
+    if not isinstance(compressibility, dict) or not compressibility.get("compressible"):
+        raise ValueError("session-complexity-breakpoint")
+    roles = expansion.get("roles")
+    if not isinstance(roles, dict) or set(roles) != set(ROLES):
+        raise ValueError("all five expanded roles are required exactly once")
+    for role in ROLES:
+        body = roles[role]
+        if (
+            not isinstance(body, dict)
+            or body.get("schema") != ROLE_BODY_SCHEMA
+            or body.get("role") != role
+            or not isinstance(body.get("details"), dict)
+        ):
+            raise ValueError(f"expanded {role} role is invalid")
+    projected = {
+        "schema": SESSION_SCHEMA,
+        "sessionId": expansion.get("sessionId"),
+        "goal": roles["pursuit"]["details"],
+        "context": roles["atlas"]["details"],
+        "permissions": roles["warrant"]["details"],
+        "run": roles["episode"]["details"],
+        "facts": roles["fact"]["details"],
+    }
+    _validate_session(projected)
+    return projected
 
 
 def _kernel(
