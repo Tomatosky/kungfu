@@ -4,9 +4,9 @@ doc_type: architecture-decision
 adr_id: SHIFU-ADR-0004
 decision_status: accepted
 implementation_status: implemented
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/762, https://github.com/kungfu-systems/kungfu/pull/765, https://github.com/kungfu-systems/kungfu/pull/767, https://github.com/kungfu-systems/kungfu/pull/769, https://github.com/kungfu-systems/kungfu/pull/773, https://github.com/kungfu-systems/kungfu/pull/781, https://github.com/kungfu-systems/kungfu/pull/786, https://github.com/kungfu-systems/kungfu/pull/1004, https://github.com/kungfu-systems/kungfu/pull/1014, https://github.com/kungfu-systems/kungfu/pull/1020]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/762, https://github.com/kungfu-systems/kungfu/pull/765, https://github.com/kungfu-systems/kungfu/pull/767, https://github.com/kungfu-systems/kungfu/pull/769, https://github.com/kungfu-systems/kungfu/pull/773, https://github.com/kungfu-systems/kungfu/pull/781, https://github.com/kungfu-systems/kungfu/pull/786, https://github.com/kungfu-systems/kungfu/pull/1004, https://github.com/kungfu-systems/kungfu/pull/1014, https://github.com/kungfu-systems/kungfu/pull/1020, https://github.com/kungfu-systems/kungfu/pull/1095]
 closure_pr: https://github.com/kungfu-systems/kungfu/pull/781
-qualification_refs: [scripts/shifu-gate-runtime.test.mjs, scripts/check-kungfu-gate-catalog.test.mjs, scripts/shifu-cache-runtime.test.mjs, scripts/measure-dev-required-latency.test.mjs, scripts/write-affected-native-cache-manifests.test.mjs, .github/workflows/affected-native-pr.yml, .github/workflows/core-build-profiles.yml, .github/workflows/dev-verify-patrol.yml]
+qualification_refs: [scripts/shifu-gate-runtime.test.mjs, scripts/check-kungfu-gate-catalog.test.mjs, scripts/shifu-cache-runtime.test.mjs, scripts/measure-dev-required-latency.test.mjs, scripts/run-core-affected-native.mjs, scripts/write-affected-native-cache-manifests.test.mjs, .github/workflows/affected-native-pr.yml, .github/workflows/core-build-profiles.yml, .github/workflows/dev-verify-patrol.yml]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -14,7 +14,7 @@ period: ongoing
 theme: shifu-gate-control-plane
 confidence: high
 evidence_grade: B
-last_reviewed: 2026-07-17
+last_reviewed: 2026-07-18
 ---
 
 # SHIFU-ADR-0004: Gate control plane contract
@@ -167,6 +167,15 @@ expired, malformed, source-mismatched, or fallback-incomplete artifacts remain
 unknown; elapsed time is never used to infer a hit. A latency window therefore
 cannot qualify until every native sample carries authoritative cache evidence,
 in addition to satisfying the sample floor and queue-inclusive P50/P95 target.
+
+PR 1095 adds phase attribution without changing the Gate matrix or test scope.
+Affected-native runs now retain source- and plan-bound Buildchain spans for
+install, configure, build, and test, plus compact process-concurrency and cache
+diagnostics. The collector validates the diagnostics digest and Gate binding,
+reports phase P50/P95 and warm/cold cohorts, and treats older or drifted
+artifacts as unknown attribution. Required-context timing ends at the first
+successful pre-merge admission, retaining failed retries while excluding later
+post-merge reruns. The resulting observation still does not qualify the SLO.
 
 ## Consequences
 
