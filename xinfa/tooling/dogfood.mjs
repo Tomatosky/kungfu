@@ -16,7 +16,7 @@ const XINFA_ROOT = path.resolve(
   '..',
 );
 const ROOT = path.resolve(XINFA_ROOT, '..');
-const PROJECT_PATH = path.join(ROOT, '.xinfa', 'project.json');
+const PROJECT_PATH = path.join(ROOT, '.xinfa', 'dogfood-project.json');
 const PREFIX = 'xinfa-shifu-kungfu-dogfood-';
 
 /** @param {Buffer|string} value */
@@ -83,7 +83,7 @@ function xinfa(binary, args, options = {}) {
 /** @param {string} root */
 function readProject(root) {
   return JSON.parse(
-    fs.readFileSync(path.join(root, '.xinfa', 'project.json'), 'utf8'),
+    fs.readFileSync(path.join(root, '.xinfa', 'dogfood-project.json'), 'utf8'),
   );
 }
 
@@ -135,13 +135,16 @@ function copyDogfoodWorkspace(target) {
     fs.copyFileSync(source, destination);
   }
   fs.mkdirSync(path.join(target, '.xinfa'), { recursive: true });
-  fs.copyFileSync(PROJECT_PATH, path.join(target, '.xinfa', 'project.json'));
+  fs.copyFileSync(
+    PROJECT_PATH,
+    path.join(target, '.xinfa', 'dogfood-project.json'),
+  );
 }
 
 /** @param {string} root @param {Record<string, any>} project */
 function writeProject(root, project) {
   fs.writeFileSync(
-    path.join(root, '.xinfa', 'project.json'),
+    path.join(root, '.xinfa', 'dogfood-project.json'),
     `${JSON.stringify(project, null, 2)}\n`,
   );
 }
@@ -181,7 +184,7 @@ function compile(binary, root, output, env = process.env) {
       'atlas',
       'compile',
       '--project',
-      path.join(root, '.xinfa', 'project.json'),
+      path.join(root, '.xinfa', 'dogfood-project.json'),
       '--output',
       output,
       '--root',
@@ -265,7 +268,7 @@ function main() {
     );
     if (JSON.stringify(trackedProject) !== JSON.stringify(expectedProject))
       throw new Error(
-        'tracked .xinfa/project.json revisions do not match the dogfood source cut',
+        'tracked .xinfa/dogfood-project.json revisions do not match the dogfood source cut',
       );
 
     const directOutput = path.join(temporary, 'direct-atlas');
@@ -288,7 +291,7 @@ function main() {
       'xinfa',
       'compile',
       '--project',
-      '.xinfa/project.json',
+      '.xinfa/dogfood-project.json',
       '--root',
       ROOT,
       '--output',
@@ -371,7 +374,7 @@ function main() {
       '--since',
       directOutput,
       '--project',
-      path.join(driftRoot, '.xinfa', 'project.json'),
+      path.join(driftRoot, '.xinfa', 'dogfood-project.json'),
       '--root',
       driftRoot,
       '--visibility',
@@ -400,7 +403,7 @@ function main() {
       '--since',
       directOutput,
       '--project',
-      path.join(narrativeRoot, '.xinfa', 'project.json'),
+      path.join(narrativeRoot, '.xinfa', 'dogfood-project.json'),
       '--root',
       narrativeRoot,
       '--visibility',
@@ -432,7 +435,7 @@ function main() {
         'atlas',
         'compile',
         '--project',
-        path.join(feedbackRoot, '.xinfa', 'project.json'),
+        path.join(feedbackRoot, '.xinfa', 'dogfood-project.json'),
         '--output',
         path.join(temporary, 'feedback-atlas'),
         '--root',

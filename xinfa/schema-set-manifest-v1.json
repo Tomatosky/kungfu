@@ -4,7 +4,7 @@
   "hashAlgorithm": "sha256",
   "memberDigestAlgorithm": "sha256-file-bytes/v1",
   "canonicalization": "utf8-json-object-keys-byte-sorted-no-insignificant-whitespace-lf/v1",
-  "schemaSetRoot": "sha256:a9af2e7c20c3fca66c926e6c46c47fa3a0ec3e3cd079d31b793c046b05d30096",
+  "schemaSetRoot": "sha256:980bbe92d63c95748bbdd8dcdee2a928518cc6709044a8ad276d6df1b641d4eb",
   "members": [
     {
       "path": "schema/atlas-manifest-v1.schema.json",
@@ -85,6 +85,11 @@
       "path": "schema/schema-set-manifest-v1.schema.json",
       "uri": "https://xinfa.dev/schema/schema-set-manifest-v1.schema.json",
       "sha256": "sha256:1ecf2f813006b2d055e0ffd448c6224d794a712dd6c3420f48f4d87eff286fe9"
+    },
+    {
+      "path": "schema/semantic-project-v1.schema.json",
+      "uri": "https://xinfa.dev/schema/semantic-project-v1.schema.json",
+      "sha256": "sha256:f61bd88943d9f15ef96a9bd05201c8eedfc516baef3907cae40784eaf3534083"
     },
     {
       "path": "schema/task-chart-v1.schema.json",

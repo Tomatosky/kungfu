@@ -9,6 +9,7 @@ mod episode;
 mod pack;
 mod projection;
 mod resolver;
+mod semantic_project;
 
 pub use atlas::{
     compile_repository_atlas_bytes, diff_atlases, impact_from_atlas, import_context_pack,
@@ -36,6 +37,7 @@ pub use resolver::{
     resolve_route, resolve_route_bytes, resolve_route_value, RouteResolution,
     ROUTE_RESOLUTION_VERSION, TASK_ENVELOPE_VERSION,
 };
+pub use semantic_project::{materialize_surface_inventory_bytes, SURFACE_INVENTORY_VERSION};
 
 pub const PROJECT_SCHEMA_ID: &str = "https://xinfa.dev/schema/project-v1.schema.json";
 pub const PROJECT_VERSION: &str = "xinfa.project/v1";

@@ -7,8 +7,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const POLICY_SCHEMA =
-  'https://libkungfu.dev/schemas/shifu/documentation-surface-policy-v1.schema.json';
-const PROJECT_SCHEMA = 'https://xinfa.dev/schema/project-v1.schema.json';
+  'https://xinfa.dev/schema/semantic-project-v1.schema.json';
+const DEFAULT_SEMANTIC_PROJECT = '.xinfa/project.json';
 const LIFECYCLES = new Set([
   'generated',
   'managed-block',
@@ -157,21 +157,6 @@ function readSurface(root, relative) {
   };
 }
 
-/** @param {string} id @returns {string} */
-function nodeIdentity(id) {
-  return `surface.${crypto.createHash('sha256').update(id).digest('hex').slice(0, 24)}`;
-}
-
-/** @param {string} lifecycle */
-function verification(lifecycle) {
-  if (lifecycle === 'generated')
-    return { mode: 'machine', status: 'machine-proved' };
-  if (lifecycle === 'managed-block') return { mode: 'mixed', status: 'mixed' };
-  if (lifecycle === 'non-claim')
-    return { mode: 'non-claim', status: 'non-claim' };
-  return { mode: 'human', status: 'human-reviewed' };
-}
-
 /** @param {any} policy @returns {Map<string, any>} */
 function validatePolicy(policy) {
   exactKeys(
@@ -186,13 +171,14 @@ function validatePolicy(policy) {
       'bindings',
       'routes',
       'compatibilityGates',
+      'authority',
     ],
     [],
     'policy',
   );
   if (
     policy.$schema !== POLICY_SCHEMA ||
-    policy.schema !== 'shifu.documentation-surface-policy/v1'
+    policy.schema !== 'xinfa.semantic-project/v1'
   )
     throw new Error('unsupported documentation surface policy');
   exactKeys(
@@ -243,7 +229,6 @@ function validatePolicy(policy) {
     if (!Object.values(item.selectors).some((values) => values?.length))
       throw new Error(`classification ${item.id} has no selectors`);
   }
-  const routeIds = new Set();
   for (const [index, route] of policy.routes.entries()) {
     exactKeys(
       route,
@@ -259,82 +244,6 @@ function validatePolicy(policy) {
       [],
       `policy.routes[${index}]`,
     );
-    if (routeIds.has(route.id)) throw new Error(`duplicate route: ${route.id}`);
-    routeIds.add(route.id);
-    if (!['human', 'agent'].includes(route.audience))
-      throw new Error(`unsupported route audience: ${route.audience}`);
-    exactKeys(
-      route.resolution,
-      [
-        'subjects',
-        'capabilities',
-        'owners',
-        'roles',
-        'mission_tracks',
-        'terms',
-      ],
-      [],
-      `route ${route.id} resolution`,
-    );
-    for (const [field, values] of Object.entries(route.resolution)) {
-      if (
-        !Array.isArray(values) ||
-        !values.length ||
-        values.some((value) => typeof value !== 'string' || !value) ||
-        new Set(values.map((value) => value.toLowerCase())).size !==
-          values.length
-      )
-        throw new Error(
-          `route ${route.id} resolution.${field} requires unique non-empty strings`,
-        );
-    }
-    exactKeys(
-      route.selection,
-      ['mode'],
-      ['paths'],
-      `route ${route.id} selection`,
-    );
-    if (!['all', 'exact'].includes(route.selection.mode))
-      throw new Error(`route ${route.id} has an unsupported selection mode`);
-    if (route.selection.mode === 'exact' && !route.selection.paths?.length)
-      throw new Error(`route ${route.id} exact selection requires paths`);
-    if (route.selection.mode === 'all' && route.selection.paths !== undefined)
-      throw new Error(`route ${route.id} all selection cannot declare paths`);
-    const capabilities = [...route.capabilities].sort();
-    if (
-      JSON.stringify(capabilities) !==
-      JSON.stringify([...ROUTE_CAPABILITIES].sort())
-    )
-      throw new Error(
-        `route ${route.id} does not declare the complete dual-first capability set`,
-      );
-  }
-  const groups = new Map();
-  for (const route of policy.routes) {
-    const routes = groups.get(route.parityGroup) || [];
-    routes.push(route);
-    groups.set(route.parityGroup, routes);
-  }
-  for (const [group, routes] of groups) {
-    const audiences = new Set(
-      routes.map((/** @type {any} */ route) => route.audience),
-    );
-    if (!audiences.has('human') || !audiences.has('agent'))
-      throw new Error(`parity group ${group} requires human and agent routes`);
-    if (
-      new Set(
-        routes.map((/** @type {any} */ route) => stableJson(route.selection)),
-      ).size !== 1
-    )
-      throw new Error(`parity group ${group} must use one shared selection`);
-    if (
-      new Set(
-        routes.map((/** @type {any} */ route) => stableJson(route.resolution)),
-      ).size !== 1
-    )
-      throw new Error(
-        `parity group ${group} must use one shared route resolution intent`,
-      );
   }
   const compatibilityIds = new Set();
   for (const [index, gate] of policy.compatibilityGates.entries()) {
@@ -368,7 +277,7 @@ function validatePolicy(policy) {
 /** @param {{root: string, policyRef?: string, files?: string[] | null}} options */
 export function buildHumanSurfaceInventory({
   root,
-  policyRef = 'shifu.documentation.surfaces.json',
+  policyRef = DEFAULT_SEMANTIC_PROJECT,
   files = null,
 }) {
   const policyPath = path.resolve(root, policyRef);
@@ -390,7 +299,6 @@ export function buildHumanSurfaceInventory({
     }
     entries.push({
       id: `file:${relative}`,
-      node: nodeIdentity(`file:${relative}`),
       path: relative,
       kind: 'document-file',
       classification: classification.id,
@@ -421,7 +329,6 @@ export function buildHumanSurfaceInventory({
       );
     entries.push({
       id: `explicit:${surface.id}`,
-      node: nodeIdentity(`explicit:${surface.id}`),
       path: relative,
       kind: surface.kind,
       classification: classification.id,
@@ -434,7 +341,9 @@ export function buildHumanSurfaceInventory({
       ...readSurface(root, relative),
     });
   }
-  entries.sort((left, right) => left.id.localeCompare(right.id, 'en'));
+  entries.sort((left, right) =>
+    left.id < right.id ? -1 : left.id > right.id ? 1 : 0,
+  );
   const entryIds = new Set();
   for (const entry of entries) {
     if (entryIds.has(entry.id))
@@ -510,6 +419,9 @@ export function buildHumanSurfaceInventory({
       throw new Error(`duplicate binding: ${binding.id}`);
     bindingIds.add(binding.id);
   }
+  bindings.sort((/** @type {any} */ left, /** @type {any} */ right) =>
+    left.id < right.id ? -1 : left.id > right.id ? 1 : 0,
+  );
   const providerPaths = new Set([
     ...entries.map((entry) => entry.path),
     ...bindings.map((/** @type {any} */ binding) => binding.targetPath),
@@ -519,7 +431,6 @@ export function buildHumanSurfaceInventory({
     entries: entries.map(
       ({
         id,
-        node,
         path: source,
         kind,
         classification,
@@ -531,7 +442,6 @@ export function buildHumanSurfaceInventory({
         size,
       }) => ({
         id,
-        node,
         path: source,
         kind,
         classification,
@@ -599,7 +509,7 @@ function gitBytes(root, args) {
 export function documentationAuthoringImpact({
   root,
   since,
-  policyRef = 'shifu.documentation.surfaces.json',
+  policyRef = DEFAULT_SEMANTIC_PROJECT,
   inventory = null,
 }) {
   if (!since) throw new Error('documentation authoring impact requires since');
@@ -735,142 +645,6 @@ export function documentationAuthoringImpact({
     },
   };
   return { ...receipt, impactRoot: digest(receipt) };
-}
-
-/** @param {any} inventory */
-export function humanSurfaceXinfaProject(inventory) {
-  const paths = [
-    ...new Set([
-      ...inventory.entries.map((/** @type {any} */ entry) => entry.path),
-      ...inventory.bindings.map(
-        (/** @type {any} */ binding) => binding.targetPath,
-      ),
-    ]),
-  ].sort();
-  const providerEntries = paths.map((relative) => {
-    const entry = inventory.entries.find(
-      (/** @type {any} */ candidate) => candidate.path === relative,
-    );
-    const binding = inventory.bindings.find(
-      (/** @type {any} */ candidate) => candidate.targetPath === relative,
-    );
-    return {
-      path: relative,
-      contentRoot: entry?.contentRoot || binding.observedRevision,
-      size: entry?.size || binding.size,
-    };
-  });
-  const providerRevision = digest(providerEntries);
-  const nodes = inventory.entries.map((/** @type {any} */ entry) => {
-    const state = verification(entry.lifecycle);
-    const dependencies = inventory.bindings
-      .filter(
-        (/** @type {any} */ binding) => binding.documentPath === entry.path,
-      )
-      .map((/** @type {any} */ binding) => ({
-        node: binding.targetId,
-        expectedRevision: binding.expectedRevision,
-      }));
-    return {
-      id: entry.node,
-      kind: 'document',
-      visibility: entry.visibility,
-      revision: entry.contentRoot,
-      provenance: { kind: 'project-source', authority: inventory.project },
-      source: { provider: 'human-surfaces', path: entry.path },
-      verification: {
-        ...state,
-        dependencies,
-        waiver: null,
-      },
-    };
-  });
-  for (const binding of inventory.bindings) {
-    if (nodes.some((/** @type {any} */ node) => node.id === binding.targetId))
-      continue;
-    nodes.push({
-      id: binding.targetId,
-      kind: binding.targetKind,
-      visibility: 'public',
-      revision: binding.observedRevision,
-      provenance: { kind: 'project-source', authority: inventory.project },
-      source: { provider: 'human-surfaces', path: binding.targetPath },
-      verification: {
-        mode: 'machine',
-        status: 'machine-proved',
-        dependencies: [],
-        waiver: null,
-      },
-    });
-  }
-  const edges = inventory.bindings.map((/** @type {any} */ binding) => {
-    const document = inventory.entries.find(
-      (/** @type {any} */ entry) =>
-        entry.path === binding.documentPath && entry.kind === 'document-file',
-    );
-    if (!document)
-      throw new Error(`binding ${binding.id} has no file document node`);
-    return {
-      from: document.node,
-      relation: binding.relation,
-      to: binding.targetId,
-    };
-  });
-  const nodeIds = nodes.map((/** @type {any} */ node) => node.id).sort();
-  return {
-    $schema: PROJECT_SCHEMA,
-    schema: 'xinfa.project/v1',
-    project: { id: inventory.project, title: 'Kungfu Human Surfaces' },
-    cut: { id: 'human-surface-cut', revision: inventory.inventoryRoot },
-    roots: [{ id: 'repository', path: '.', visibility: 'public' }],
-    providers: [
-      {
-        id: 'human-surfaces',
-        kind: 'exact-file-manifest',
-        authority: 'project',
-        visibility: 'public',
-        root: 'repository',
-        paths,
-        revision: providerRevision,
-      },
-    ],
-    nodes,
-    edges,
-    routes: inventory.routes.map((/** @type {any} */ route) => {
-      const selectedPaths = new Set(route.selection.paths || []);
-      const selectedNodes =
-        route.selection.mode === 'all'
-          ? nodeIds
-          : [
-              ...inventory.entries
-                .filter((/** @type {any} */ entry) =>
-                  selectedPaths.has(entry.path),
-                )
-                .map((/** @type {any} */ entry) => entry.node),
-              ...inventory.bindings
-                .filter((/** @type {any} */ binding) =>
-                  selectedPaths.has(binding.documentPath),
-                )
-                .map((/** @type {any} */ binding) => binding.targetId),
-            ].sort();
-      return {
-        id: route.id,
-        audience: route.audience,
-        parityGroup: route.parityGroup,
-        entrypoints: route.entrypoints,
-        visibility: 'public',
-        nodes: [...new Set(selectedNodes)],
-        resolution: route.resolution,
-      };
-    }),
-    policies: {
-      unknownFields: 'reject',
-      pathSemantics: 'repository-relative-posix',
-      visibility: 'fail-closed',
-      dualFirstParity: 'required',
-      verification: 'declared-dependencies',
-    },
-  };
 }
 
 export { POLICY_SCHEMA };
