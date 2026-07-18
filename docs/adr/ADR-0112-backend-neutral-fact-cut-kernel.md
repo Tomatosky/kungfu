@@ -5,7 +5,7 @@ adr_id: ADR-0112
 decision_status: accepted
 implementation_status: staged
 implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1058, https://github.com/kungfu-systems/kungfu/pull/1062, https://github.com/kungfu-systems/kungfu/pull/1073]
-qualification_refs: [framework/fact/kungfu-fact-cut-kernel.contract.json, framework/core/src/libkungfu/src/runtime/storage/fact_kernel.cpp, framework/core/tests/storage-node-binding.test.js, framework/core/tests/python/test_query_cli.py, scripts/check-fact-cut-kernel-contract.test.mjs, tests/fixtures/fact-cut-kernel-contract/cases.json]
+qualification_refs: [framework/fact/kungfu-fact-cut-kernel.contract.json, framework/core/src/libkungfu/src/runtime/storage/fact_kernel.cpp, framework/core/src/python/kungfu/storage/fact_profile_shadow.py, framework/core/tests/storage-node-binding.test.js, framework/core/tests/python/test_query_cli.py, framework/core/tests/python/test_fact_profile_shadow.py, scripts/check-fact-cut-kernel-contract.test.mjs, scripts/run-fact-profile-shadow-tests.mjs, tests/fixtures/fact-cut-kernel-contract/cases.json]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -19,9 +19,9 @@ ai_provenance: GPT-5 via Codex on 2026-07-18; based on repository sources and us
 
 # ADR-0112: Fact identity, versions, relations, Cuts, refs, CAS, and receipts form one backend-neutral kernel
 
-- Status: accepted; the machine contract, falsification fixtures, and bounded
-  native authority stage are implemented; portability and release qualification
-  remain open
+- Status: accepted; the machine contract, falsification fixtures, bounded
+  native authority, and read-only Profile shadow stages are implemented;
+  portability and release qualification remain open
 - Date: 2026-07-18
 - Category: storage / fact identity / historical cuts / integrity
 - Related: [ADR-0018](ADR-0018-runtime-storage-service-architecture.md),
@@ -147,6 +147,23 @@ Episode frontier, and policy versions. `head` is only syntax for that explicit
 resolution. Authority-scan semantics remain the reference; projections must
 prove equivalent roots and visible gaps.
 
+### 8. Profile material enters through an explicit shadow projection
+
+The first bounded consumer projects Mission / Go, Xinfa Atlas, and authority
+receipt source material into the native kernel without transferring source
+authority. Each source keeps a stable logical object id derived only from its
+declared Profile kind and source id; runtime paths and projection coordinates
+remain excluded. Its immutable version body binds the exact source Cut, last
+accepted head, authority receipt, declaration, admission, payload, and an
+explicit loss manifest.
+
+Relations between projected objects are explicit many-to-many relation roots
+and remain non-inheriting. Inspection opts into immutable body retrieval from
+the content store. Comparison reports missing, extra, mismatched, stale, and
+divergent material while deliberately refusing to select authority or mutate
+the source systems. The CLI and Python service are thin edges over the native
+kernel; the projection module owns only normalization and diagnostics.
+
 ## Falsification and acceptance gates
 
 The contract is false if any implementation:
@@ -162,12 +179,14 @@ The contract is false if any implementation:
 - implements rollback by deleting or rewriting history; or
 - changes query results or receipts when only the physical backend changes.
 
-The checked positive and negative cases live in
+The checked positive and negative kernel cases live in
 `tests/fixtures/fact-cut-kernel-contract/cases.json`. They qualify the contract
 shape and falsifiers. The native stage additionally exercises the authoritative
-append and thin Node/Python edges. Concurrency qualification, rebuild, fsck,
-export/import, and cross-platform exact-candidate evidence remain required
-before a release qualification claim.
+append and thin Node/Python edges. The Profile shadow stage exercises three
+source roles in one Cut, explicit cross-profile relations, path-independent
+identity, immutable body inspection, and typed gap diagnostics. Concurrency
+qualification, rebuild, fsck, export/import, and cross-platform exact-candidate
+evidence remain required before a release qualification claim.
 
 ## Consequences
 
@@ -178,4 +197,5 @@ merge views, rollback, and query gain explicit identities and receipts.
 
 This decision does not select RocksDB or any other long-term fleet backend,
 define distributed consensus, qualify physical power-loss durability or
-cross-platform portability, or make a projection authoritative.
+cross-platform portability, or make a projection or Profile source
+authoritative.

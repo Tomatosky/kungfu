@@ -625,6 +625,7 @@ nlohmann::json capabilities_document() {
       {"actions",
        {"capabilities", "object-put", "version-put", "relation-add", "relation-revoke", "cut-put", "ref-cas", "query"}},
       {"cas", {{"mode", "exact-expected-old-and-revision"}, {"stale_write", "no-journal-append"}}},
+      {"query", {{"include_bodies", "opt-in-immutable-content"}}},
       {"projection_role", "rebuildable-edge-only"},
       {"clock_free_identity", true},
       {"product_vocabulary", false}};
@@ -661,12 +662,25 @@ nlohmann::json query_kernel(const std::string &runtime_dir, const kernel_state &
     return failure("query", "unknown-cut", "Fact cut does not exist", {{"cut_root", cut_root}});
   }
   const auto &cut = found->second;
+  const auto include_bodies = request.value("include_bodies", false);
   auto objects = nlohmann::json::array();
   for (const auto &member : cut.at("objectVersions")) {
     const auto version_root = member.at(1).get<std::string>();
     const auto version = state.versions.find(version_root);
-    objects.push_back(
-        {{"member", member}, {"version", version == state.versions.end() ? nlohmann::json(nullptr) : version->second}});
+    auto row = nlohmann::json{{"member", member},
+                              {"version", version == state.versions.end() ? nlohmann::json(nullptr) : version->second}};
+    if (include_bodies && version != state.versions.end()) {
+      const auto body_root = version->second.value("bodyRoot", std::string{});
+      try {
+        row["body"] = content_store_get(runtime_dir, BODY_NAMESPACE, body_root);
+        row["body_status"] = "available";
+      } catch (const std::exception &error) {
+        row["body"] = nullptr;
+        row["body_status"] = "missing";
+        row["body_error"] = error.what();
+      }
+    }
+    objects.push_back(std::move(row));
   }
   auto relations = nlohmann::json::array();
   for (const auto &root : cut.at("activeRelationRoots")) {

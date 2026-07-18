@@ -84,6 +84,56 @@ def fact_kernel(ctx: click.Context, action: str, file_path: str) -> None:
     _emit(service.fact_kernel(_runtime_dir(ctx), action, request))
 
 
+@facts.group("shadow", help="project and compare read-only Profile Fact views")
+@click.help_option("-h", "--help")
+def fact_shadow() -> None:
+    pass
+
+
+@fact_shadow.command("project", help="project Profile sources into one shadow Cut")
+@click.option(
+    "--file", "file_path", required=True, help="projection request JSON path or -"
+)
+@facts_command_context
+def project_fact_shadow(ctx: click.Context, file_path: str) -> None:
+    from kungfu.storage import service
+
+    _emit(
+        service.fact_profile_shadow_project(_runtime_dir(ctx), _load_object(file_path))
+    )
+
+
+@fact_shadow.command("inspect", help="inspect a shadow Cut with immutable bodies")
+@click.option("--cut-root", default="", help="exact Fact Cut root")
+@click.option("--ref", "ref_name", default="", help="named Fact ref")
+@facts_command_context
+def inspect_fact_shadow(ctx: click.Context, cut_root: str, ref_name: str) -> None:
+    from kungfu.storage import service
+
+    if bool(cut_root) == bool(ref_name):
+        raise click.UsageError("provide exactly one of --cut-root or --ref")
+    _emit(
+        service.fact_profile_shadow_inspect(
+            _runtime_dir(ctx), cut_root=cut_root, ref_name=ref_name
+        )
+    )
+
+
+@fact_shadow.command(
+    "compare", help="compare authoritative source JSON with one shadow Cut"
+)
+@click.option(
+    "--file", "file_path", required=True, help="authoritative source JSON path or -"
+)
+@click.option("--cut-root", required=True, help="exact shadow Fact Cut root")
+@facts_command_context
+def compare_fact_shadow(ctx: click.Context, file_path: str, cut_root: str) -> None:
+    from kungfu.storage import service
+
+    actual = service.fact_profile_shadow_inspect(_runtime_dir(ctx), cut_root=cut_root)
+    _emit(service.fact_profile_shadow_compare(_load_object(file_path), actual))
+
+
 @facts.command(help="show the managed Fact Library contract and fixed semantic profile")
 @facts_command_context
 def library(ctx: click.Context) -> None:

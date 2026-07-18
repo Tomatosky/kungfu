@@ -881,6 +881,38 @@ def fact_kernel(
     )
 
 
+def fact_profile_shadow_project(
+    runtime_dir: str | Path, document: dict[str, Any]
+) -> dict[str, Any]:
+    """Project Profile source material through the native Fact kernel."""
+
+    from kungfu.storage import fact_profile_shadow
+
+    return fact_profile_shadow.project(runtime_dir, document)
+
+
+def fact_profile_shadow_inspect(
+    runtime_dir: str | Path, *, cut_root: str = "", ref_name: str = ""
+) -> dict[str, Any]:
+    """Inspect one shadow Cut without selecting it as authority."""
+
+    from kungfu.storage import fact_profile_shadow
+
+    return fact_profile_shadow.inspect(
+        runtime_dir, cut_root=cut_root, ref_name=ref_name
+    )
+
+
+def fact_profile_shadow_compare(
+    expected: dict[str, Any], actual: dict[str, Any]
+) -> dict[str, Any]:
+    """Compare an authoritative source view with a shadow projection."""
+
+    from kungfu.storage import fact_profile_shadow
+
+    return fact_profile_shadow.compare(expected, actual)
+
+
 def fact_declare_contract_world(
     runtime_dir: str | Path,
     declaration: dict[str, Any],
