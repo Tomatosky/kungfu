@@ -1,6 +1,6 @@
 {
   "schema": "shifu.documentation-consumer-witness/v1",
-  "evidenceRoot": "sha256:89010e26ea05daeb4fcb2ca2365111a57031ba53ea3f47d853496565a45bb380",
+  "evidenceRoot": "sha256:3a7d04e43342a1e5103fb2386c4629e46e2231f84317e13f0d12d312ee96a1dd",
   "inputs": {
     "contractRoot": "sha256:1938385bb996a34d8ff3c3ca4ce69a804f73381d31cb9768512db1c94a154b9e",
     "compiler": [
@@ -18,11 +18,11 @@
       },
       {
         "path": "xinfa/src/lib.rs",
-        "sha256": "sha256:9f86705a2cf2c3efeea19a655625f787dbbd979de493b90d3a67a06e2607a28a"
+        "sha256": "sha256:7af450e453135248b1f7e4a5ff78a64fdb3a3771991d52c714609c488077e33a"
       },
       {
         "path": "xinfa/src/main.rs",
-        "sha256": "sha256:54a235fa3951e876e744d4ce3681f132ae4e6f6f6f57b6a66041eca7d138d532"
+        "sha256": "sha256:53f6e614472c6d27c5997cb0f01bc0f361311d742ae15850b15c159b06174562"
       },
       {
         "path": "xinfa/src/pack.rs",
@@ -35,6 +35,10 @@
       {
         "path": "xinfa/src/resolver.rs",
         "sha256": "sha256:e265855517e4a2baaa1cb44e6523a4a7183de4143df1c99a83d6e5d5e890882e"
+      },
+      {
+        "path": "xinfa/src/semantic_project.rs",
+        "sha256": "sha256:08a98646db39a1b77f3cdbe2642abdf9e678165a974680e881c6246bfde6b1f2"
       }
     ],
     "fixtures": [
@@ -125,7 +129,7 @@
         ]
       }
     ],
-    "evidenceRoot": "sha256:89010e26ea05daeb4fcb2ca2365111a57031ba53ea3f47d853496565a45bb380"
+    "evidenceRoot": "sha256:3a7d04e43342a1e5103fb2386c4629e46e2231f84317e13f0d12d312ee96a1dd"
   },
   "result": {
     "schema": "shifu.documentation-consumer-qualification/v1",
@@ -154,8 +158,8 @@
           "mixed"
         ],
         "compileMilliseconds": [
-          995.733625,
-          53.630791
+          896.652542,
+          55.428333
         ],
         "human": {
           "route": "small.human",
@@ -187,8 +191,8 @@
           "non-claim"
         ],
         "compileMilliseconds": [
-          55.539917,
-          62.3815
+          69.672833,
+          59.617958
         ],
         "human": {
           "route": "medium.human.public",
@@ -204,7 +208,7 @@
         }
       }
     ],
-    "evidenceRoot": "sha256:89010e26ea05daeb4fcb2ca2365111a57031ba53ea3f47d853496565a45bb380",
+    "evidenceRoot": "sha256:3a7d04e43342a1e5103fb2386c4629e46e2231f84317e13f0d12d312ee96a1dd",
     "evidenceMode": "live-xinfa",
     "negativeFixtures": [
       "xinfa/fixtures/negative/private-leak.json",

@@ -309,7 +309,7 @@ pub fn materialize_surface_inventory_bytes(bytes: &[u8], source: &str) -> Result
 
     let project = json!({
         "$schema": "https://xinfa.dev/schema/project-v1.schema.json", "schema": "xinfa.project/v1",
-        "project": {"id": project_id, "title": "Kungfu Human Surfaces"},
+        "project": {"id": project_id, "title": "Human Surfaces"},
         "cut": {"id": "human-surface-cut", "revision": inventory_root},
         "roots": [{"id": "repository", "path": ".", "visibility": "public"}],
         "providers": [{"id": "human-surfaces", "kind": "exact-file-manifest", "authority": "project", "visibility": "public", "root": "repository", "paths": paths.into_iter().collect::<Vec<_>>(), "revision": digest(&Value::Array(provider_entries))}],
