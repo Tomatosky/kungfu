@@ -11,11 +11,27 @@ import { fileURLToPath } from 'node:url';
 import {
   buildHumanSurfaceInventory,
   documentationAuthoringImpact,
-  humanSurfaceXinfaProject,
 } from './shifu-documentation-surfaces.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SHIFU_MJS = path.join(ROOT, 'shifu.mjs');
+const XINFA = path.join(
+  ROOT,
+  'xinfa',
+  'target',
+  'debug',
+  process.platform === 'win32' ? 'xinfa.exe' : 'xinfa',
+);
+
+function materialize(inventory) {
+  const result = spawnSync(
+    XINFA,
+    ['project', 'materialize', '--inventory', '-', '--json'],
+    { cwd: ROOT, input: JSON.stringify(inventory), encoding: 'utf8' },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  return JSON.parse(result.stdout).project;
+}
 const FIXTURE_COMPATIBILITY = [
   {
     id: 'fixture-check',
@@ -47,7 +63,7 @@ test('human surface inventory and Xinfa submission are deterministic', () => {
     new Set(first.entries.map((entry) => entry.path)).size,
   );
 
-  const project = humanSurfaceXinfaProject(first);
+  const project = materialize(first);
   assert.equal(
     project.providers[0].paths.length,
     first.closure.exactProviderPaths,
@@ -123,7 +139,7 @@ test('Xinfa Agent discovery closes repository, installed-pack, and dual-first ro
     'installed Agent pack must list xinfa-context.md',
   );
 
-  const policy = json('shifu.documentation.surfaces.json');
+  const policy = json('.xinfa/project.json');
   const human = policy.routes.find(
     (route) => route.id === 'kungfu-documentation-control-human',
   );
@@ -155,10 +171,14 @@ test('a one-sided dual-first parity group fails closed', () => {
     fs.writeFileSync(
       path.join(temporary, 'policy.json'),
       JSON.stringify({
-        $schema:
-          'https://libkungfu.dev/schemas/shifu/documentation-surface-policy-v1.schema.json',
-        schema: 'shifu.documentation-surface-policy/v1',
+        $schema: 'https://xinfa.dev/schema/semantic-project-v1.schema.json',
+        schema: 'xinfa.semantic-project/v1',
         project: 'fixture',
+        authority: {
+          declarations: 'project',
+          materialization: 'xinfa',
+          discoveryAdapter: 'shifu',
+        },
         discovery: { trackedOnly: true, extensions: ['.md'] },
         classifications: [
           {
@@ -196,13 +216,19 @@ test('a one-sided dual-first parity group fails closed', () => {
         ],
       }),
     );
-    assert.throws(
-      () =>
-        buildHumanSurfaceInventory({
-          root: temporary,
-          policyRef: 'policy.json',
-          files: ['known.md'],
-        }),
+    const inventory = buildHumanSurfaceInventory({
+      root: temporary,
+      policyRef: 'policy.json',
+      files: ['known.md'],
+    });
+    const result = spawnSync(
+      XINFA,
+      ['project', 'materialize', '--inventory', '-', '--json'],
+      { cwd: ROOT, input: JSON.stringify(inventory), encoding: 'utf8' },
+    );
+    assert.notEqual(result.status, 0);
+    assert.match(
+      result.stderr,
       /parity group fixture requires human and agent routes/,
     );
   } finally {
@@ -220,9 +246,13 @@ test('documentation context stays a thin Xinfa delegation with the declared pari
       binary,
       `#!/usr/bin/env node
 const fs = require('node:fs');
+const cp = require('node:child_process');
 const args = process.argv.slice(2);
 const value = (flag) => args[args.indexOf(flag) + 1];
-if (args[0] === 'atlas' && args[1] === 'compile') {
+if (args[0] === 'project' && args[1] === 'materialize') {
+  const native = cp.spawnSync(${JSON.stringify(XINFA)}, args, { encoding: 'utf8' });
+  fs.writeSync(1, native.stdout || ''); fs.writeSync(2, native.stderr || ''); process.exit(native.status);
+} else if (args[0] === 'atlas' && args[1] === 'compile') {
   fs.mkdirSync(value('--output'), { recursive: true });
   process.stdout.write(JSON.stringify({ verdict: 'pass', atlas_root: 'sha256:${'1'.repeat(64)}', context_pack_root: 'sha256:${'2'.repeat(64)}' }));
 } else if (args[0] === 'atlas' && args[1] === 'verify') {
@@ -299,10 +329,14 @@ test('documentation final-ready binds KFD-1 impact and dual-first projections', 
       binary,
       `#!/usr/bin/env node
 const fs = require('node:fs');
+const cp = require('node:child_process');
 const args = process.argv.slice(2);
 const value = (flag) => args[args.indexOf(flag) + 1];
 const root = (digit) => 'sha256:' + digit.repeat(64);
-if (args[0] === 'atlas' && args[1] === 'compile') {
+if (args[0] === 'project' && args[1] === 'materialize') {
+  const native = cp.spawnSync(${JSON.stringify(XINFA)}, args, { encoding: 'utf8' });
+  fs.writeSync(1, native.stdout || ''); fs.writeSync(2, native.stderr || ''); process.exit(native.status);
+} else if (args[0] === 'atlas' && args[1] === 'compile') {
   fs.mkdirSync(value('--output'), { recursive: true });
   process.stdout.write(JSON.stringify({ verdict: 'pass', atlas_root: root('1'), context_pack_root: root('2') }));
 } else if (args[0] === 'atlas' && args[1] === 'verify') {
@@ -372,7 +406,7 @@ test('implementation revision drift is preserved as a Xinfa document dependency 
         : candidate,
     ),
   };
-  const project = humanSurfaceXinfaProject(drifted);
+  const project = materialize(drifted);
   const document = inventory.entries.find(
     (entry) =>
       entry.path === binding.documentPath && entry.kind === 'document-file',
@@ -412,10 +446,14 @@ test('authoring impact classifies review obligations and blocks historical delet
     fs.writeFileSync(
       path.join(temporary, 'policy.json'),
       JSON.stringify({
-        $schema:
-          'https://libkungfu.dev/schemas/shifu/documentation-surface-policy-v1.schema.json',
-        schema: 'shifu.documentation-surface-policy/v1',
+        $schema: 'https://xinfa.dev/schema/semantic-project-v1.schema.json',
+        schema: 'xinfa.semantic-project/v1',
         project: 'fixture',
+        authority: {
+          declarations: 'project',
+          materialization: 'xinfa',
+          discoveryAdapter: 'shifu',
+        },
         discovery: { trackedOnly: true, extensions: ['.md'] },
         classifications: [
           {
@@ -542,10 +580,14 @@ test('an eligible surface without a classification fails closed', () => {
     fs.writeFileSync(
       path.join(temporary, 'policy.json'),
       JSON.stringify({
-        $schema:
-          'https://libkungfu.dev/schemas/shifu/documentation-surface-policy-v1.schema.json',
-        schema: 'shifu.documentation-surface-policy/v1',
+        $schema: 'https://xinfa.dev/schema/semantic-project-v1.schema.json',
+        schema: 'xinfa.semantic-project/v1',
         project: 'fixture',
+        authority: {
+          declarations: 'project',
+          materialization: 'xinfa',
+          discoveryAdapter: 'shifu',
+        },
         discovery: { trackedOnly: true, extensions: ['.md'] },
         classifications: [
           {
