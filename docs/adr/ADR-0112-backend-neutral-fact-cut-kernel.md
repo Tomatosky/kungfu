@@ -3,7 +3,9 @@ metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
 adr_id: ADR-0112
 decision_status: accepted
-implementation_status: not-started
+implementation_status: staged
+implementation_commits: [66d2cb74ffdc5c24059d0595a0c1ec8584fdd39b]
+qualification_refs: [framework/fact/kungfu-fact-cut-kernel.contract.json, scripts/check-fact-cut-kernel-contract.test.mjs, tests/fixtures/fact-cut-kernel-contract/cases.json]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -17,8 +19,8 @@ ai_provenance: GPT-5 via Codex on 2026-07-18; based on repository sources and us
 
 # ADR-0112: Fact identity, versions, relations, Cuts, refs, CAS, and receipts form one backend-neutral kernel
 
-- Status: accepted; machine contract and falsification fixtures landed; no
-  authoritative writer is implemented by this decision
+- Status: accepted; the machine-contract stage and falsification fixtures are
+  implemented; no authoritative writer is implemented by this decision
 - Date: 2026-07-18
 - Category: storage / fact identity / historical cuts / integrity
 - Related: [ADR-0018](ADR-0018-runtime-storage-service-architecture.md),
