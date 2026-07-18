@@ -23,6 +23,10 @@ RECEIPT_SCHEMA = "kungfu.kfd7.profile-action-receipt/v1"
 ROLE_BODY_SCHEMA = "kungfu.kfd7.profile-role/v1"
 CAPABILITIES_SCHEMA = "kungfu.kfd7.profile-capabilities/v1"
 INSPECTION_SCHEMA = "kungfu.kfd7.profile-inspection/v1"
+AUTHORITY_BUNDLE_SCHEMA = "kungfu.fact-authority-bundle/v1"
+SESSION_SCHEMA = "kungfu.kfd7.session/v1"
+SESSION_EXPANSION_SCHEMA = "kungfu.kfd7.session-expansion/v1"
+SESSION_COMPRESSIBILITY_SCHEMA = "kungfu.kfd7.session-compressibility/v1"
 
 ROLES = ("fact", "episode", "pursuit", "atlas", "warrant")
 INITIAL_STATES = {
@@ -48,6 +52,7 @@ TRANSITIONS = {
     },
     "pursuit": {
         ("create", "absent", "active"),
+        ("branch", "active", "active"),
         ("continue", "active", "active"),
         ("continue", "paused", "active"),
         ("pause", "active", "paused"),
@@ -130,22 +135,41 @@ def capabilities() -> dict[str, Any]:
                 "identity": "preserved",
             },
             "exportImport": {
-                "status": "explicit-loss-until-fact-bundle-qualified",
-                "required": [
-                    "Fact journal",
-                    "body namespace",
-                    "exact ref and Cut roots",
+                "status": "supported",
+                "bundleSchema": AUTHORITY_BUNDLE_SCHEMA,
+                "authority": "native Fact journal replay through the existing kernel",
+                "preserves": [
+                    "logical object ids",
+                    "version and body roots",
+                    "relation and Cut roots",
+                    "named ref roots and revisions",
                 ],
-                "lossCode": "profile-authority-not-exported",
             },
             "backendMigration": {
-                "status": "delegated-to-storage-backend-switch",
-                "identity": "content roots and journal identities must remain exact",
+                "status": "supported-by-storage-backend-switch",
+                "identity": "five-role object, version, Cut, ref, and authority roots remain exact",
+                "rollback": "reverse-sync-and-atomic-binding",
             },
             "cleanHome": {
-                "status": "explicit-loss-without-qualified-export",
+                "status": "supported-from-qualified-authority-bundle",
+                "requires": AUTHORITY_BUNDLE_SCHEMA,
                 "lossCode": "profile-authority-unavailable",
             },
+        },
+        "sessionProjection": {
+            "schema": SESSION_SCHEMA,
+            "expand": "kungfu.agent.work_profile.expand_session",
+            "project": "kungfu.agent.work_profile.project_session",
+            "compressibilityPredicate": (
+                "kungfu.agent.work_profile.session_compressibility"
+            ),
+            "semanticDimensions": [
+                "direction",
+                "perspective-boundary",
+                "effective-authority",
+                "causal-process",
+                "admitted-result",
+            ],
         },
         "nonClaims": [
             "A Profile receipt does not adopt KFD-7 or replace KFD authority.",
@@ -154,12 +178,231 @@ def capabilities() -> dict[str, Any]:
     }
 
 
+def _require_session_component(
+    session: dict[str, Any], field: str, identity_field: str
+) -> dict[str, Any]:
+    value = session.get(field)
+    if not isinstance(value, dict):
+        raise ValueError(f"{field} must be an object")
+    identity = value.get(identity_field)
+    if not isinstance(identity, str) or not identity:
+        raise ValueError(f"{field}.{identity_field} is required")
+    return value
+
+
+def _validate_session(session: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    if not isinstance(session, dict) or session.get("schema") != SESSION_SCHEMA:
+        raise ValueError(f"schema must be {SESSION_SCHEMA}")
+    if not isinstance(session.get("sessionId"), str) or not session["sessionId"]:
+        raise ValueError("sessionId is required")
+    components = {
+        "pursuit": _require_session_component(session, "goal", "pursuitId"),
+        "atlas": _require_session_component(session, "context", "atlasId"),
+        "warrant": _require_session_component(session, "permissions", "warrantId"),
+        "episode": _require_session_component(session, "run", "episodeId"),
+        "fact": _require_session_component(session, "facts", "factId"),
+    }
+    identities = [
+        components["fact"]["factId"],
+        components["episode"]["episodeId"],
+        components["pursuit"]["pursuitId"],
+        components["atlas"]["atlasId"],
+        components["warrant"]["warrantId"],
+    ]
+    if len(identities) != len(set(identities)):
+        raise ValueError("session responsibilities require distinct identities")
+    for field in ("basisRevision", "validThroughRevision"):
+        value = components["atlas"].get(field)
+        if not isinstance(value, int) or value < 0:
+            raise ValueError(f"context.{field} must be a non-negative integer")
+    valid_through = components["warrant"].get("validThroughRevision")
+    if not isinstance(valid_through, int) or valid_through < 0:
+        raise ValueError(
+            "permissions.validThroughRevision must be a non-negative integer"
+        )
+    for field, component in (
+        ("goal.operations", components["pursuit"]),
+        ("permissions.allowedOperations", components["warrant"]),
+    ):
+        key = field.rsplit(".", 1)[1]
+        value = component.get(key)
+        if (
+            not isinstance(value, list)
+            or not value
+            or any(not isinstance(item, str) or not item for item in value)
+        ):
+            raise ValueError(f"{field} must be a non-empty string array")
+    return components
+
+
+def session_compressibility(session: dict[str, Any]) -> dict[str, Any]:
+    """Return the exact roles that make a familiar session projection lossy."""
+
+    components = _validate_session(session)
+    reasons: list[dict[str, str]] = []
+
+    goal = components["pursuit"]
+    if goal.get("state") != "active" or goal.get("alternatives"):
+        reasons.append(
+            {
+                "role": "pursuit",
+                "code": "multiple-or-terminal-direction",
+            }
+        )
+
+    context = components["atlas"]
+    if (
+        context.get("state") != "current"
+        or context["validThroughRevision"] < context["basisRevision"]
+        or context.get("lossRoots")
+        or len(context.get("perspectives", [])) > 1
+    ):
+        reasons.append({"role": "atlas", "code": "perspective-or-freshness-boundary"})
+
+    permissions = components["warrant"]
+    if (
+        permissions.get("state") != "issued"
+        or permissions["validThroughRevision"] < context["basisRevision"]
+        or permissions.get("delegated") is True
+    ):
+        reasons.append({"role": "warrant", "code": "authority-boundary"})
+
+    run = components["episode"]
+    if (
+        run.get("state") not in {"open", "sealed"}
+        or len(run.get("episodeIds", [run["episodeId"]])) != 1
+    ):
+        reasons.append({"role": "episode", "code": "causal-branch"})
+
+    facts = components["fact"]
+    if facts.get("branchRoots") or len(facts.get("resultRoots", [])) > 1:
+        reasons.append({"role": "fact", "code": "fact-branch"})
+
+    return {
+        "schema": SESSION_COMPRESSIBILITY_SCHEMA,
+        "sessionId": session["sessionId"],
+        "compressible": not reasons,
+        "breakpoints": reasons,
+        "revealedRoles": sorted({reason["role"] for reason in reasons}),
+    }
+
+
+def session_valid_actions(session: dict[str, Any]) -> list[str]:
+    """Derive actions only from direction, current context, and authority."""
+
+    components = _validate_session(session)
+    context = components["atlas"]
+    warrant = components["warrant"]
+    pursuit = components["pursuit"]
+    if (
+        pursuit.get("state") != "active"
+        or context.get("state") != "current"
+        or context["validThroughRevision"] < context["basisRevision"]
+        or warrant.get("state") != "issued"
+        or warrant["validThroughRevision"] < context["basisRevision"]
+    ):
+        return []
+    return sorted(set(pursuit["operations"]).intersection(warrant["allowedOperations"]))
+
+
+def expand_session(session: dict[str, Any]) -> dict[str, Any]:
+    """Expand one product session into the existing five Profile role bodies."""
+
+    components = _validate_session(session)
+    compressibility = session_compressibility(session)
+    roles = {
+        role: {
+            "schema": ROLE_BODY_SCHEMA,
+            "role": role,
+            "state": components[role]["state"],
+            "details": json.loads(json.dumps(components[role], sort_keys=True)),
+        }
+        for role in ROLES
+    }
+    return {
+        "schema": SESSION_EXPANSION_SCHEMA,
+        "sessionId": session["sessionId"],
+        "compressibility": compressibility,
+        "roles": roles,
+        "observations": {
+            "direction": roles["pursuit"]["details"],
+            "perspective-boundary": roles["atlas"]["details"],
+            "effective-authority": roles["warrant"]["details"],
+            "causal-process": roles["episode"]["details"],
+            "admitted-result": roles["fact"]["details"],
+        },
+        "validActions": session_valid_actions(session),
+    }
+
+
+def project_session(expansion: dict[str, Any]) -> dict[str, Any]:
+    """Project a compressible five-role expansion back to one session."""
+
+    if (
+        not isinstance(expansion, dict)
+        or expansion.get("schema") != SESSION_EXPANSION_SCHEMA
+    ):
+        raise ValueError(f"schema must be {SESSION_EXPANSION_SCHEMA}")
+    compressibility = expansion.get("compressibility")
+    if not isinstance(compressibility, dict) or not compressibility.get("compressible"):
+        raise ValueError("session-complexity-breakpoint")
+    roles = expansion.get("roles")
+    if not isinstance(roles, dict) or set(roles) != set(ROLES):
+        raise ValueError("all five expanded roles are required exactly once")
+    for role in ROLES:
+        body = roles[role]
+        if (
+            not isinstance(body, dict)
+            or body.get("schema") != ROLE_BODY_SCHEMA
+            or body.get("role") != role
+            or not isinstance(body.get("details"), dict)
+        ):
+            raise ValueError(f"expanded {role} role is invalid")
+    projected = {
+        "schema": SESSION_SCHEMA,
+        "sessionId": expansion.get("sessionId"),
+        "goal": roles["pursuit"]["details"],
+        "context": roles["atlas"]["details"],
+        "permissions": roles["warrant"]["details"],
+        "run": roles["episode"]["details"],
+        "facts": roles["fact"]["details"],
+    }
+    _validate_session(projected)
+    return projected
+
+
 def _kernel(
     runtime_dir: str | Path,
     action: str,
     request: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return storage_service.fact_kernel(runtime_dir, action, request)
+
+
+def export_authority(
+    runtime_dir: str | Path,
+    *,
+    kernel: Kernel | None = None,
+) -> dict[str, Any]:
+    """Export the native Fact authority required to continue this Profile."""
+
+    return (kernel or _kernel)(runtime_dir, "authority-export", {})
+
+
+def import_authority(
+    runtime_dir: str | Path,
+    bundle: dict[str, Any],
+    *,
+    execute: bool = False,
+    kernel: Kernel | None = None,
+) -> dict[str, Any]:
+    """Validate or replay one qualified Fact authority bundle."""
+
+    return (kernel or _kernel)(
+        runtime_dir,
+        "authority-import",
+        {"bundle": bundle, "execute": execute},
+    )
 
 
 def _denied(
@@ -357,6 +600,11 @@ def _validate_request(request: dict[str, Any]) -> None:
             f"responsibilities.{role}.expectedVersionRoot",
             nullable=True,
         )
+    object_ids = [responsibilities[role]["objectId"] for role in ROLES]
+    if len(set(object_ids)) != len(ROLES):
+        raise ValueError(
+            "all five responsibilities require distinct logical object identities"
+        )
     support = request.get("support")
     if not isinstance(support, dict):
         raise ValueError("support is required")
@@ -364,6 +612,176 @@ def _validate_request(request: dict[str, Any]) -> None:
         _require_root(support.get(field), f"support.{field}")
     _require_root_list(support.get("declarationRoots"), "support.declarationRoots")
     _require_root_list(support.get("admissionRoots"), "support.admissionRoots")
+
+
+def _validate_lifecycle_payload(
+    subject_role: str,
+    subject: dict[str, Any],
+    current_roles: dict[str, dict[str, Any]],
+    payload: dict[str, Any],
+    basis: dict[str, Any],
+    ref: dict[str, Any],
+) -> tuple[str, str, dict[str, Any]] | None:
+    operation = subject["operation"]
+    current_body = current_roles.get(subject_role, {}).get("body") or {}
+    current_details = current_body.get("details") or {}
+    if not isinstance(current_details, dict):
+        return ("invalid-request", f"{subject_role} details must be an object", {})
+
+    try:
+        if subject_role == "episode" and operation == "seal":
+            episode_id = payload.get("episodeId")
+            if episode_id != current_details.get("episodeId"):
+                return (
+                    "replay-mismatch",
+                    "Episode seal identity differs from the open Episode",
+                    {
+                        "expected": current_details.get("episodeId"),
+                        "actual": episode_id,
+                    },
+                )
+            for field in (
+                "beforeCutRoot",
+                "afterCutRoot",
+                "causalRoot",
+                "sealedContentRoot",
+            ):
+                _require_root(payload.get(field), f"payload.{field}")
+
+        if subject_role == "episode" and operation == "reconcile":
+            replay = payload.get("replay")
+            if not isinstance(replay, dict):
+                return (
+                    "invalid-request",
+                    "Episode reconciliation requires replay evidence",
+                    {},
+                )
+            expected = {
+                field: current_details.get(field)
+                for field in (
+                    "episodeId",
+                    "beforeCutRoot",
+                    "afterCutRoot",
+                    "causalRoot",
+                    "sealedContentRoot",
+                )
+            }
+            actual = {field: replay.get(field) for field in expected}
+            for field in (
+                "beforeCutRoot",
+                "afterCutRoot",
+                "causalRoot",
+                "sealedContentRoot",
+            ):
+                _require_root(actual[field], f"payload.replay.{field}")
+            if actual != expected:
+                return (
+                    "replay-mismatch",
+                    "Episode replay evidence differs from the sealed causal record",
+                    {"expected": expected, "actual": actual},
+                )
+
+        if subject_role == "pursuit" and operation == "branch":
+            if ref.get("cutRoot") is not None or ref.get("revision") != 0:
+                return (
+                    "invalid-transition",
+                    "Pursuit branch requires a new destination ref at revision zero",
+                    {},
+                )
+            _require_root(payload.get("branchReasonRoot"), "payload.branchReasonRoot")
+            payload_branch = payload.get("branchOfCutRoot")
+            if payload_branch != basis.get("cutRoot"):
+                return (
+                    "profile-state-mismatch",
+                    "Pursuit branch must bind the exact source Cut",
+                    {"expected": basis.get("cutRoot"), "actual": payload_branch},
+                )
+
+        if subject_role == "pursuit" and operation in {"complete", "abandon"}:
+            _require_root(payload.get("settlementRoot"), "payload.settlementRoot")
+            if not isinstance(payload.get("outcome"), str) or not payload["outcome"]:
+                return (
+                    "invalid-request",
+                    "Pursuit settlement requires a non-empty outcome",
+                    {},
+                )
+
+        if subject_role == "atlas" and operation == "mark-stale":
+            _require_root_list(payload.get("lossRoots"), "payload.lossRoots")
+            if (
+                not isinstance(payload.get("lossReason"), str)
+                or not payload["lossReason"]
+            ):
+                return (
+                    "invalid-request",
+                    "Atlas staleness requires an explicit loss reason",
+                    {},
+                )
+
+        if subject_role == "atlas" and operation == "refresh":
+            _require_root_list(payload.get("sourceRoots"), "payload.sourceRoots")
+            _require_root_list(payload.get("lossRoots"), "payload.lossRoots")
+            valid_through = payload.get("validThroughRevision")
+            if not isinstance(valid_through, int) or valid_through < basis["revision"]:
+                return (
+                    "atlas-stale",
+                    "refreshed Atlas does not cover the declared basis revision",
+                    {
+                        "basisRevision": basis["revision"],
+                        "validThroughRevision": valid_through,
+                    },
+                )
+
+        if subject_role == "warrant" and operation == "attenuate":
+            old_allowed = current_details.get("allowedOperations")
+            new_allowed = payload.get("allowedOperations")
+            if not isinstance(old_allowed, list) or not isinstance(new_allowed, list):
+                return (
+                    "invalid-request",
+                    "Warrant attenuation requires explicit old and new operation scopes",
+                    {},
+                )
+            if not new_allowed or "*" in new_allowed:
+                return (
+                    "invalid-transition",
+                    "attenuated Warrant scope must be a non-empty strict subset",
+                    {},
+                )
+            old_scope = set(old_allowed)
+            new_scope = set(new_allowed)
+            if "*" not in old_scope and not new_scope < old_scope:
+                return (
+                    "unauthorized",
+                    "Warrant attenuation cannot widen or preserve the old scope",
+                    {"old": sorted(old_scope), "new": sorted(new_scope)},
+                )
+            old_valid_through = current_details.get("validThroughRevision")
+            new_valid_through = payload.get("validThroughRevision")
+            if (
+                not isinstance(old_valid_through, int)
+                or not isinstance(new_valid_through, int)
+                or new_valid_through > old_valid_through
+            ):
+                return (
+                    "unauthorized",
+                    "Warrant attenuation cannot extend its validity revision",
+                    {
+                        "old": old_valid_through,
+                        "new": new_valid_through,
+                    },
+                )
+
+        if subject_role == "warrant" and operation in {"expire", "revoke", "deny"}:
+            _require_root(payload.get("reasonRoot"), "payload.reasonRoot")
+            if not isinstance(payload.get("reason"), str) or not payload["reason"]:
+                return (
+                    "invalid-request",
+                    f"Warrant {operation} requires an explicit reason",
+                    {},
+                )
+    except ValueError as error:
+        return ("invalid-request", str(error), {})
+    return None
 
 
 def _kernel_failure(
@@ -552,6 +970,21 @@ def apply_action(
             details={"operation": operation_key, "allowedOperations": allowed or []},
         )
 
+    payload = request.get("payload") or {}
+    if not isinstance(payload, dict):
+        return _denied(action_id, "invalid-request", "payload must be an object")
+    lifecycle_denial = _validate_lifecycle_payload(
+        subject_role,
+        subject,
+        current_roles,
+        payload,
+        basis,
+        request["ref"],
+    )
+    if lifecycle_denial is not None:
+        code, message, details = lifecycle_denial
+        return _denied(action_id, code, message, details=details)
+
     changed_roles = list(ROLES) if basis["cutRoot"] is None else [subject_role]
     plan = {
         "schema": RECEIPT_SCHEMA,
@@ -614,14 +1047,6 @@ def apply_action(
             details = dict(body["details"])
         if role == subject_role:
             body["state"] = subject["toState"]
-            payload = request.get("payload") or {}
-            if not isinstance(payload, dict):
-                return _denied(
-                    action_id,
-                    "invalid-request",
-                    "payload must be an object",
-                    steps=steps,
-                )
             details.update(payload)
             body["details"] = details
         body["lastActionId"] = action_id
@@ -723,7 +1148,7 @@ def apply_action(
 
     ref_kind = (
         "fork"
-        if subject["operation"] == "fork"
+        if subject["operation"] in {"fork", "branch"}
         else "create"
         if request["ref"]["cutRoot"] is None
         else "advance"
