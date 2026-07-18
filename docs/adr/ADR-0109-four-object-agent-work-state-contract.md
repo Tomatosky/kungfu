@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0109
 decision_status: accepted
 implementation_status: staged
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1026]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1026, https://github.com/kungfu-systems/kungfu/pull/1079]
 qualification_refs: [framework/agent-work/kungfu-agent-work-state.contract.json, scripts/check-agent-work-state-contract.test.mjs, framework/core/tests/python/test_agent_work_state_contract.py, framework/core/src/python/kungfu/agent/kfd3_api.registry.json]
 review_state: self-reviewed
 sensitivity: public
@@ -13,12 +13,12 @@ period: 2026-07-17
 theme: four-object-agent-work-state-contract
 confidence: high
 evidence_grade: B
-last_reviewed: 2026-07-17
+last_reviewed: 2026-07-18
 ---
 
 # ADR-0109: Real-world agent work preserves four independently addressable roles
 
-- Status: accepted; contract and discovery staged, P17 not qualified
+- Status: accepted; provisional runtime Profile staged, P17 not qualified
 - Date: 2026-07-17
 - Category: Agent Work Profile / product contract / KFD-3
 - Related: [ADR-0033](ADR-0033-episode-causal-segment-object.md),
