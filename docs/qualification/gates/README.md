@@ -83,9 +83,10 @@ one-shot observation runner is not rendered as a Gate's standing policy source.
 `scripts/measure-dev-required-latency.mjs` is the read-only measurement surface
 for the protected development branch. It discovers the required context set
 from live branch protection, then measures each merged PR revision from the
-earliest matching Actions workflow `created_at` through the last required
-context's terminal success. This includes workflow/job queueing and retries;
-runner execution time alone is not the metric.
+earliest matching Actions workflow `created_at` through the first successful
+result for every required context no later than the PR merge. This includes
+workflow/job queueing and pre-admission retries while excluding post-merge
+reruns; runner execution time alone is not the metric.
 
 The report uses the current source planner to classify samples as `native`,
 `non-native`, or `unknown`, and reports nearest-rank P50/P95 for every stratum.
@@ -99,6 +100,15 @@ duration is never used to infer a hit. Non-native samples are explicitly
 a window with unknown native cache evidence cannot qualify. Missing or
 non-success required contexts are retained as explicit exclusions with their
 reason and are never silently removed from the dataset.
+
+New native artifacts also carry Buildchain toolkit observability. The Gate
+records source- and plan-bound spans for dependency install, configure, build,
+and test, plus a summarized process-tree sample for the compile step and compact
+runner/tool/compiler-cache diagnostics. The collector verifies the diagnostics
+digest and Gate binding, then reports per-phase P50/P95, warm/cold cohorts, and
+requested-versus-observed build concurrency. Older artifacts without this
+additive evidence remain visible as unknown attribution; they do not fabricate
+phase timings and do not invalidate otherwise complete portable-cache facts.
 
 The current dev objective is queue-inclusive P50 at most 300 seconds and P95 at
 most 600 seconds. A report is an observation, not a release credential, and a
