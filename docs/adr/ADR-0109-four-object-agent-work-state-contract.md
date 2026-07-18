@@ -19,7 +19,7 @@ last_reviewed: 2026-07-18
 # ADR-0109: Real-world agent work preserves four independently addressable roles
 
 - Status: accepted; four-role contract v2 staged; KFD-7 Product Profile
-  qualifying against KFD alpha.35, independent activation review pending
+  qualified and activated against KFD alpha.35 at the retained review cut
 - Date: 2026-07-17
 - Category: Agent Work Profile / product contract / KFD-3
 - Related: [ADR-0033](ADR-0033-episode-causal-segment-object.md),
@@ -167,15 +167,17 @@ qualification boundaries. The v2 contract closes the in-repository object
 schema and negative semantic fixtures while continuing to report its own P17
 status and remaining `FO1`-`FO8` debt.
 
-The provisional Kungfu KFD-7 Product Profile is now bound to KFD alpha.35 and
-an exact implementation/evidence cut. Twelve retained categories cover
+The Kungfu KFD-7 Product Profile is bound to KFD alpha.35 and an exact
+implementation/evidence cut. Twelve retained categories cover
 positive and negative transitions, export/import and backend recovery, role
 deletion or fusion, Warrant decay, Atlas staleness, Pursuit and Episode
 lifecycle, concurrency, session round-trip refinement, complexity breakpoints,
-and context-insufficiency. The release declaration remains `qualifying` and
-its activation decision remains `pending` until an independent review cites
-this exact cut. Those facts do not prove universal minimality, provider-wide
-correctness, or completion of the wider P17 program.
+and context-insufficiency. The release declaration is `qualified` and its
+activation decision is `activate`, bound to
+[independent review 4728705815](https://github.com/kungfu-systems/kungfu/pull/1091#pullrequestreview-4728705815)
+at exact qualification commit `8f6eff198751af109ddbeead8db4390d35303880`.
+Those facts do not prove universal minimality, provider-wide correctness, or
+completion of the wider P17 program.
 
 ## Consequences
 

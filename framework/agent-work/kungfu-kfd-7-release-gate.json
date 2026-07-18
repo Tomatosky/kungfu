@@ -8,7 +8,7 @@
     "stateMachineVersion": "0.1.0",
     "actionContract": {
       "path": "framework/agent-work/kungfu-kfd-7-action-contract.json",
-      "sha256": "4231e81151b7cb2e0719a9760ca278813f658c8c317e7eca9b7fba2a23b83f1c"
+      "sha256": "b3d788344e93518bb4fecac6fea05a6fea87707c6325e50bcf01980492309ce0"
     },
     "verifierReport": {
       "path": "framework/agent-work/evidence/kfd-7/kfd-verifier.json",
@@ -128,18 +128,7 @@
       "sha256": "5b84f5eedaa926f0a0767125612f01f7ee6fed738a4d8e736ceba7c621725e06"
     }
   ],
-  "residualRisk": [
-    {
-      "id": "kfd-7-runtime-qualification-pending",
-      "definedBy": "https://kfd.libkungfu.dev/schemas/kfd-2/trust-taxonomy.schema.json#/$defs/residualRisk",
-      "riskType": "natural-language-semantic-risk",
-      "trustImpact": "downgrade-warning",
-      "machineProvability": "not-machine-verifiable",
-      "agentAction": "semantic-review-required",
-      "reason": "The Profile retains all twelve required experiment categories against the exact session implementation and installed KFD alpha.35; independent activation review remains incomplete.",
-      "owner": "kungfu-systems/kungfu"
-    }
-  ],
+  "residualRisk": [],
   "responsibility": {
     "profileOwner": "kungfu-systems/kungfu",
     "evidenceOwner": "Kungfu runtime and product test suites",
@@ -147,6 +136,6 @@
   },
   "nonClaims": [
     "A passing evidence-closure check does not prove real-world work quality.",
-    "This qualifying declaration does not activate KFD-7 before independent review."
+    "Activation is bounded to the declared Kungfu Product Profile and does not establish universal KFD-7 minimality."
   ]
 }

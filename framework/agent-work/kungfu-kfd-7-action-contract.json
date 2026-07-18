@@ -8,7 +8,7 @@
     "version": "0.1.0",
     "product": "kungfu",
     "implementation": "git+https://github.com/kungfu-systems/kungfu.git@91a7a2b6f406e996b0b1d69421af260d69be3878#framework/core/src/python/kungfu/agent/work_profile.py",
-    "qualificationStatus": "qualifying"
+    "qualificationStatus": "qualified"
   },
   "roles": [
     {
@@ -430,20 +430,20 @@
     }
   ],
   "nonClaims": [
-    "This qualifying Kungfu Product Profile does not activate KFD-7 before independent review.",
+    "This activation is bounded to the declared Kungfu Product Profile and does not establish universal KFD-7 minimality.",
     "Profile states are product vocabulary rather than universal KFD enums.",
-    "Runtime unit evidence is not a release qualification or authority cutover."
+    "Runtime unit evidence alone is not a release qualification or authority cutover."
   ],
   "extensions": [],
   "activation": {
-    "decision": "pending",
-    "evidenceCut": "git:91a7a2b6f406e996b0b1d69421af260d69be3878+npm:@kungfu-tech/kfd@1.0.0-alpha.35",
-    "independentReview": "required-after-cross-repository-validation",
+    "decision": "activate",
+    "evidenceCut": "git:implementation@91a7a2b6f406e996b0b1d69421af260d69be3878+qualification@8f6eff198751af109ddbeead8db4390d35303880+buildchain@f5a591fc79b84ba1b5809f2523060bcc4fd4739e+npm:@kungfu-tech/kfd@1.0.0-alpha.35",
+    "independentReview": "https://github.com/kungfu-systems/kungfu/pull/1091#pullrequestreview-4728705815",
     "productWitnesses": [
       "framework/agent-work/kungfu-kfd-7-profile-action.schema.json",
       "framework/agent-work/kungfu-kfd-7-profile-receipt.schema.json",
       "framework/core/tests/python/test_agent_work_state_contract.py"
     ],
-    "residualRisk": "Independent cross-repository review and merged product witnesses remain before activation."
+    "residualRisk": "Activation is product-scoped; universal minimality, provider-wide correctness, and completion of the wider P17 program remain unclaimed."
   }
 }
