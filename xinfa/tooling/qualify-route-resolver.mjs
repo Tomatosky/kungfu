@@ -46,7 +46,11 @@ function resolve(binary, atlasDir, task) {
   const result = spawnSync(
     binary,
     ['route', 'resolve', '--atlas', atlasDir, '--task', '-', '--json'],
-    { input: `${JSON.stringify(task)}\n`, encoding: 'utf8' },
+    {
+      input: `${JSON.stringify(task)}\n`,
+      encoding: 'utf8',
+      shell: process.platform === 'win32' && /\.(?:cmd|bat)$/i.test(binary),
+    },
   );
   if (result.error || ![0, 1].includes(result.status ?? -1))
     throw new Error(

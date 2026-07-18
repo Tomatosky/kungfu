@@ -55,6 +55,7 @@ function invoke(binary, args, input) {
   const result = spawnSync(binary, args, {
     input: input === undefined ? undefined : `${JSON.stringify(input)}\n`,
     encoding: 'utf8',
+    shell: process.platform === 'win32' && /\.(?:cmd|bat)$/i.test(binary),
   });
   if (result.error || ![0, 1].includes(result.status ?? -1))
     throw new Error(
@@ -74,6 +75,7 @@ function invokeBindingFault(binary, args, input) {
   const result = spawnSync(binary, args, {
     input: `${JSON.stringify(input)}\n`,
     encoding: 'utf8',
+    shell: process.platform === 'win32' && /\.(?:cmd|bat)$/i.test(binary),
   });
   if ([0, 1].includes(result.status ?? -1)) return JSON.parse(result.stdout);
   const diagnostic = (result.stderr || '').trim();

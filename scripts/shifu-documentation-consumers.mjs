@@ -28,9 +28,8 @@ const WITNESS = path.join(
 const DEFAULT_XINFA = path.join(
   ROOT,
   'xinfa',
-  'target',
-  'debug',
-  process.platform === 'win32' ? 'xinfa.exe' : 'xinfa',
+  'tooling',
+  process.platform === 'win32' ? 'source-xinfa.cmd' : 'source-xinfa',
 );
 
 function ordered(value) {
@@ -95,7 +94,11 @@ function evidence(contract) {
 
 /** @param {string[]} args @param {string} cwd */
 function run(xinfa, args, cwd = ROOT) {
-  const result = spawnSync(xinfa, args, { cwd, encoding: 'utf8' });
+  const result = spawnSync(xinfa, args, {
+    cwd,
+    encoding: 'utf8',
+    shell: process.platform === 'win32' && /\.(?:cmd|bat)$/i.test(xinfa),
+  });
   let value = null;
   try {
     value = JSON.parse(result.stdout || '{}');
