@@ -15,7 +15,6 @@ const DIST_ENVIRONMENT = {
   KF_DESKTOP_ARTIFACT_SIGNATURE: `${UPGRADE_EVIDENCE}#desktop`,
   KF_CLI_ARTIFACT_SIGNATURE: `${UPGRADE_EVIDENCE}#cli`,
 };
-export const WINDOWS_SHIFU_ARGV_ENV = 'KUNGFU_SHIFU_LIFECYCLE_ARGS';
 
 export function lifecycleEnvironment(env = process.env, task = '') {
   const result = { ...env };
@@ -43,17 +42,14 @@ export function cmdCommand(shim, args) {
   return [command, ...args.map(quote)].join(' ');
 }
 
-export function windowsCmdEnvironment(args, env = process.env) {
-  if (args.some((value) => /[\r\n%!&|<>^]/.test(String(value))))
+export function windowsCmdArgs(shim, args) {
+  if ([shim, ...args].some((value) => /[\r\n%!&|<>^]/.test(String(value))))
     throw new Error(
       'Windows Shifu lifecycle arguments contain unsafe cmd syntax',
     );
-  return {
-    ...env,
-    [WINDOWS_SHIFU_ARGV_ENV]: args
-      .map((value) => `"${String(value).replaceAll('"', '""')}"`)
-      .join(' '),
-  };
+  const quote = (value) => `"${String(value).replaceAll('"', '""')}"`;
+  const payload = [shim, ...args].map(quote).join(' ');
+  return ['/d', '/s', '/c', `"${payload}"`];
 }
 
 /** Run the canonical repository shim without assuming bash exists on Windows. */
@@ -64,15 +60,20 @@ export function runShifu(args, options = {}) {
   let result;
   if (platform === 'win32') {
     const command = options.comspec || env.ComSpec || env.COMSPEC || 'cmd.exe';
-    // Cross the Node -> cmd boundary with no business argv. The welded shim
-    // restores the validated vector inside batch semantics, where %1..%n are
-    // stable on both hosted and self-hosted Windows runners.
-    result = spawnSync('shifu.cmd', [], {
-      cwd: root,
-      env: windowsCmdEnvironment(args, env),
-      stdio: options.stdio || 'inherit',
-      shell: command,
-    });
+    // Match the native launcher's proven cmd.exe raw-argument protocol. The
+    // complete /s /c payload needs one outer quote pair in addition to the
+    // quotes around each token.
+    result = spawnSync(
+      command,
+      windowsCmdArgs(path.join(root, 'shifu.cmd'), args),
+      {
+        cwd: root,
+        env,
+        stdio: options.stdio || 'inherit',
+        shell: false,
+        windowsVerbatimArguments: true,
+      },
+    );
   } else {
     result = spawnSync(path.join(root, 'shifu'), args, {
       cwd: root,

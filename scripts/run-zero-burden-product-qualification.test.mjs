@@ -134,13 +134,14 @@ test('Windows suites invoke the repository Shifu shim through ComSpec', () => {
       env: {},
     },
   );
-  assert.equal(invocation.command, 'shifu.cmd');
-  assert.deepEqual(invocation.args, []);
-  assert.equal(invocation.shell, 'C:\\Windows\\System32\\cmd.exe');
-  assert.equal(
-    invocation.env.KUNGFU_SHIFU_LIFECYCLE_ARGS,
-    '"--filter" "workspace with spaces" "test"',
-  );
+  assert.equal(invocation.command, 'C:\\Windows\\System32\\cmd.exe');
+  assert.equal(invocation.windowsVerbatimArguments, true);
+  assert.deepEqual(invocation.args, [
+    '/d',
+    '/s',
+    '/c',
+    '""C:\\kungfu checkout\\shifu.cmd" "--filter" "workspace with spaces" "test""',
+  ]);
 });
 
 test('Windows suite invocation rejects cmd expansion syntax', () => {

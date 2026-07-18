@@ -42,18 +42,6 @@ rem This .cmd parses that file with pure cmd to load mirror env; optional repo .
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
-rem Node cannot portably preserve a batch argv vector through cmd.exe /s /c
-rem on every supported runner. The lifecycle adapter therefore enters this
-rem welded shim with no positional arguments and carries one validated,
-rem cmd-quoted vector in the environment. Clear it before the single recursive
-rem call so children cannot re-enter this transport boundary.
-if defined KUNGFU_SHIFU_LIFECYCLE_ARGS (
-  set "_KFC_LIFECYCLE_ARGS=!KUNGFU_SHIFU_LIFECYCLE_ARGS!"
-  set "KUNGFU_SHIFU_LIFECYCLE_ARGS="
-  call "%~f0" !_KFC_LIFECYCLE_ARGS!
-  exit /b !errorlevel!
-)
-
 rem Load local cache proxy config: user-global first, then optional in-repo override (set propagates to children).
 rem Explicit Buildchain/runner cache projection wins over local development config.
 set "_KFC_EXPLICIT_CACHE_REF=%SHIFU_CACHE_PROFILE_REF%"

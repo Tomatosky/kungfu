@@ -10,7 +10,7 @@ import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { gzipSync } from 'node:zlib';
 
-import { windowsCmdEnvironment } from './run-shifu-lifecycle.mjs';
+import { windowsCmdArgs } from './run-shifu-lifecycle.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const LAUNCHER = process.platform === 'win32' ? 'shifu.cmd' : './shifu';
@@ -58,14 +58,14 @@ export function qualificationSuiteEnvironment(inherited = process.env) {
 
 export function qualificationSuiteInvocation(suite, options = {}) {
   const platform = options.platform || process.platform;
+  const root = options.root || ROOT;
   const [command, ...args] = suite.command;
   if (platform !== 'win32' || command !== 'shifu.cmd') return { command, args };
   const env = options.env || process.env;
   return {
-    command: 'shifu.cmd',
-    args: [],
-    shell: options.comspec || env.ComSpec || env.COMSPEC || 'cmd.exe',
-    env: windowsCmdEnvironment(args, env),
+    command: options.comspec || env.ComSpec || env.COMSPEC || 'cmd.exe',
+    args: windowsCmdArgs(path.win32.join(root, 'shifu.cmd'), args),
+    windowsVerbatimArguments: true,
   };
 }
 
@@ -182,11 +182,11 @@ export async function runSuite(suite, outputDir, options = {}) {
   );
   const child = (options.spawn || spawn)(invocation.command, invocation.args, {
     cwd: options.root || ROOT,
-    env: invocation.env || qualificationSuiteEnvironment(environment),
+    env: qualificationSuiteEnvironment(environment),
     detached: platform !== 'win32',
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
-    ...(invocation.shell ? { shell: invocation.shell } : {}),
+    windowsVerbatimArguments: invocation.windowsVerbatimArguments === true,
   });
   child.stdout?.on('data', (chunk) => append(stdout, chunk));
   child.stderr?.on('data', (chunk) => append(stderr, chunk));
