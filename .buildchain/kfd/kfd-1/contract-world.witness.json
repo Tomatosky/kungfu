@@ -85,9 +85,9 @@
     {
       "name": "kungfu-diagnostics",
       "sourcePath": "framework/runtime/kungfu-diagnostics.contract.json",
-      "sourceSha256": "19bb153fd0e1695e013ab11fa0f55914918a8d2a10d1952b1010c8b9c1a7e7f8",
+      "sourceSha256": "5367d9a3f02c338d7d56874f016f1cbebe1550aebdf6b8fe0e4c6f2a6067b745",
       "artifactPath": "config/kungfu-diagnostics.contract.json",
-      "expectedSha256": "19bb153fd0e1695e013ab11fa0f55914918a8d2a10d1952b1010c8b9c1a7e7f8",
+      "expectedSha256": "5367d9a3f02c338d7d56874f016f1cbebe1550aebdf6b8fe0e4c6f2a6067b745",
       "byteForByte": true
     },
     {
