@@ -10,7 +10,7 @@
     "runtime": ["kungfu-read-only"]
   },
   "acceptance": [
-    { "id": "all-surfaces-classified", "state": "proved", "evidence": ["shifu.documentation.surfaces.json", "scripts/shifu-documentation-surfaces.test.mjs"] },
+    { "id": "all-surfaces-classified", "state": "proved", "evidence": [".xinfa/project.json", "scripts/shifu-documentation-surfaces.test.mjs"] },
     { "id": "kfd-1-impact-fail-closed", "state": "proved", "evidence": ["scripts/shifu-documentation-surfaces.test.mjs", "scripts/shifu-documentation-cli.mjs"] },
     { "id": "kfd-3-dual-first", "state": "proved", "evidence": ["scripts/shifu-documentation-surfaces.test.mjs", "scripts/shifu-documentation-consumers.test.mjs"] },
     { "id": "deterministic-public-pack", "state": "proved", "evidence": [".xinfa/product-documentation-pack.json", "scripts/documentation-product-pack.test.mjs"] },

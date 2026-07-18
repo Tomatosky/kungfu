@@ -14,7 +14,6 @@ import {
   buildHumanSurfaceInventory,
   documentationAuthoringImpact,
   documentationSurfaceDigest,
-  humanSurfaceXinfaProject,
 } from './shifu-documentation-surfaces.mjs';
 
 const DEFAULT_SUBMISSION = 'shifu.documentation.json';
@@ -108,7 +107,7 @@ a Shifu Gate registry; this command never executes them.`;
 function parseReaderOptions(args, operation) {
   /** @type {ReaderOptions} */
   const options = {
-    policy: 'shifu.documentation.surfaces.json',
+    policy: '.xinfa/project.json',
     xinfa: '',
     route: '',
     task: '',
@@ -157,7 +156,7 @@ function parseReaderOptions(args, operation) {
 /** @param {string[]} args @param {'inventory'|'graph'|'pack'|'impact'} operation @returns {SurfaceOptions} */
 function parseSurfaceOptions(args, operation) {
   const options = {
-    policy: 'shifu.documentation.surfaces.json',
+    policy: '.xinfa/project.json',
     format: 'inventory',
     output: '',
     since: '',
@@ -191,7 +190,7 @@ function parseSurfaceOptions(args, operation) {
 /** @param {string[]} args */
 function parseAuthoringOptions(args) {
   const options = {
-    policy: 'shifu.documentation.surfaces.json',
+    policy: '.xinfa/project.json',
     since: '',
     json: false,
   };
@@ -213,7 +212,7 @@ function parseAuthoringOptions(args) {
 function parseFinalReadyOptions(args) {
   /** @type {FinalReadyOptions} */
   const options = {
-    policy: 'shifu.documentation.surfaces.json',
+    policy: '.xinfa/project.json',
     since: '',
     xinfa: '',
     parityGroup: 'kungfu-documentation-control',
@@ -287,6 +286,38 @@ function withSurfaceProject(project, callback) {
   try {
     fs.writeFileSync(reference, `${JSON.stringify(project, null, 2)}\n`);
     return callback(reference);
+  } finally {
+    fs.rmSync(temporary, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Submit Shifu's exact filesystem inventory to Xinfa. Xinfa is the only owner
+ * of project nodes, edges, provider roots, route selection, and project roots.
+ * @param {string} root
+ * @param {any} inventory
+ * @param {string} requestedBinary
+ */
+function materializeSurfaceProject(root, inventory, requestedBinary) {
+  const binary = surfaceXinfaBinary(root, requestedBinary);
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'shifu-inventory-'));
+  const reference = path.join(temporary, 'inventory.json');
+  try {
+    fs.writeFileSync(reference, `${JSON.stringify(inventory)}\n`);
+    const result = spawnSync(
+      binary,
+      ['project', 'materialize', '--inventory', reference, '--json'],
+      { cwd: root, encoding: 'utf8' },
+    );
+    const receipt = parseJsonOutput(
+      result,
+      'Xinfa semantic project materialization',
+    );
+    if (result.status !== 0 || receipt.valid !== true || !receipt.project)
+      throw new Error(
+        `Xinfa semantic project materialization failed: ${result.stderr || JSON.stringify(receipt)}`,
+      );
+    return receipt.project;
   } finally {
     fs.rmSync(temporary, { recursive: true, force: true });
   }
@@ -1019,10 +1050,15 @@ export async function runDocumentationCommand(
       root,
       policyRef: options.policy,
     });
-    const project = humanSurfaceXinfaProject(inventory);
+    if (sub === 'inventory' && options.format !== 'xinfa-project') {
+      stdout.write(
+        `${JSON.stringify(inventory, null, options.json ? 2 : 0)}\n`,
+      );
+      return 0;
+    }
+    const project = materializeSurfaceProject(root, inventory, options.xinfa);
     if (sub === 'inventory') {
-      const value = options.format === 'xinfa-project' ? project : inventory;
-      stdout.write(`${JSON.stringify(value, null, options.json ? 2 : 0)}\n`);
+      stdout.write(`${JSON.stringify(project, null, options.json ? 2 : 0)}\n`);
       return 0;
     }
     const result =
@@ -1052,7 +1088,7 @@ export async function runDocumentationCommand(
       root,
       policyRef: options.policy,
     });
-    const project = humanSurfaceXinfaProject(inventory);
+    const project = materializeSurfaceProject(root, inventory, options.xinfa);
     const result = runDocumentationFinalReady(
       root,
       inventory,
@@ -1071,7 +1107,7 @@ export async function runDocumentationCommand(
       root,
       policyRef: options.policy,
     });
-    const project = humanSurfaceXinfaProject(inventory);
+    const project = materializeSurfaceProject(root, inventory, options.xinfa);
     const result = runSurfaceReader(
       root,
       inventory,

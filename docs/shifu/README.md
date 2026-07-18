@@ -27,7 +27,7 @@ execution; Shifu owns how the task is executed after source checkout.
   subject/claim/probe/artifact providers, and computes deterministic contract,
   content, and submission roots. Kungfu's compatibility submission is
   [`../../shifu.documentation.json`](../../shifu.documentation.json).
-- [`../../shifu.documentation.surfaces.json`](../../shifu.documentation.surfaces.json)
+- [`.xinfa/project.json`](../../.xinfa/project.json) is the project-owned semantic declaration consumed by Xinfa. [`shifu.documentation.surfaces.json`](../../shifu.documentation.surfaces.json) is only a compatibility alias and carries no independent policy.
   classifies every tracked human-readable surface plus explicit product and
   Agent surfaces. Shifu closes the exact-path inventory; Xinfa remains the sole
   graph, impact, stale-propagation, and dual-first projection authority.
@@ -75,7 +75,8 @@ package:
 ./shifu docs final-ready --since HEAD~1 --json
 ./shifu docs read --intent "understand documentation control" --route kungfu-documentation-control-human --json
 ./shifu docs context --task "change documentation control safely" --budget 66560 --route kungfu-documentation-control-agent --json
-./shifu docs xinfa compile --project .xinfa/project.json --root . --output /tmp/xinfa-atlas --json
+./shifu docs inventory --format xinfa-project --json
+./shifu docs xinfa compile --project .xinfa/dogfood-project.json --root . --output /tmp/xinfa-atlas --json
 KUNGFU_DOCUMENTATION_ATLAS=/tmp/kungfu-product-documentation kungfu agent docs --verify --json
 KUNGFU_DOCUMENTATION_ATLAS=/tmp/kungfu-product-documentation kungfu agent docs --catalog --json
 KUNGFU_DOCUMENTATION_ATLAS=/tmp/kungfu-product-documentation kungfu agent docs --read docs/MAP.md

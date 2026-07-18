@@ -138,7 +138,13 @@ The standalone qualification copies only the files listed in
 product environment variables, builds and tests the copied crate, and verifies
 the stable CLI contract. The first retained receipt is
 [`qualification/standalone-smoke-v1.json`](qualification/standalone-smoke-v1.json).
-`xinfa:dogfood` exercises the tracked [project submission](../.xinfa/project.json)
+`xinfa:dogfood` exercises the tracked [dogfood project submission](../.xinfa/dogfood-project.json).
+The repository-wide [semantic project declaration](../.xinfa/project.json) is
+materialized from Shifu's exact filesystem inventory by the public
+`xinfa project materialize --inventory FILE|- --json` command. Project files
+declare discovery, classifications, bindings, and routes; Xinfa alone derives
+nodes, edges, provider revision, route node sets, and the materialized project
+root.
 through three independent entry paths: the extracted standalone binary, the
 Shifu Documentation Protocol adapter, and Kungfu's read-only Human/Agent/GUI
 consumer. Shifu validates its named submission before delegating compilation

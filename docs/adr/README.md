@@ -183,6 +183,7 @@ implemented and qualified or explicitly waived for that release.
 | [0111](ADR-0111-fenced-unified-recovery-entry.md) | accepted | Unified recovery is a plan-first fenced orchestrator over existing runtime, Peer, storage, and Episode authorities |
 | [0112](ADR-0112-backend-neutral-fact-cut-kernel.md) | accepted | Stable Fact identity, immutable versions, typed non-inheriting relations, clock-free Cuts, named refs, expected-old CAS, and receipts form one backend-neutral kernel |
 | [0113](ADR-0113-authority-atomic-storage-backend-switch.md) | accepted | Storage backend changes are authority-atomic, resumable operations |
+| [0114](ADR-0114-xinfa-native-semantic-project-authority.md) | accepted | Project declarations and Shifu exact discovery feed one Xinfa-owned semantic project materializer with no duplicate graph authority |
 | [SHIFU-0001](SHIFU-ADR-0001-cache-profile-contract-and-ownership.md) | accepted | Cache profiles are Shifu-owned contracts; inventories project instances and Buildchain owns process |
 | [SHIFU-0002](SHIFU-ADR-0002-local-artifact-catalog-and-safe-promotion.md) | accepted | Shifu and Kungfu product artifacts share provenance-aware, Git-safe local promotion semantics |
 | [SHIFU-0003](SHIFU-ADR-0003-uv-effective-lock-cache-enforcement.md) | accepted | Strict uv cache execution uses a disposable effective lock while canonical locks stay public |

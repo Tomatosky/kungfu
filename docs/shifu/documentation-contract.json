@@ -4,15 +4,17 @@
   "decision": "docs/adr/SHIFU-ADR-0006-documentation-protocol-and-provider-boundary.md",
   "authority": {
     "submissionSchema": "docs/shifu/schema/documentation-project-v1.schema.json",
-    "surfacePolicySchema": "docs/shifu/schema/documentation-surface-policy-v1.schema.json",
+    "surfacePolicySchema": "xinfa/schema/semantic-project-v1.schema.json",
     "receiptSchema": "docs/shifu/schema/documentation-validation-receipt-v1.schema.json",
     "runtime": "scripts/shifu-documentation-runtime.mjs",
     "defaultSubmission": "shifu.documentation.json",
-    "defaultSurfacePolicy": "shifu.documentation.surfaces.json"
+    "defaultSurfacePolicy": ".xinfa/project.json",
+    "surfacePolicyAlias": "shifu.documentation.surfaces.json",
+    "semanticMaterializer": "xinfa project materialize"
   },
   "schemaIds": {
     "submission": "https://libkungfu.dev/schemas/shifu/documentation-project-v1.schema.json",
-    "surfacePolicy": "https://libkungfu.dev/schemas/shifu/documentation-surface-policy-v1.schema.json",
+    "surfacePolicy": "https://xinfa.dev/schema/semantic-project-v1.schema.json",
     "receipt": "https://libkungfu.dev/schemas/shifu/documentation-validation-receipt-v1.schema.json"
   },
   "commands": {
@@ -40,7 +42,8 @@
   },
   "authorityBoundaries": {
     "project": "domain documents, profiles, provider instances, routes, and policy selection",
-    "shifu": "protocol, canonicalization, diagnostics, root computation, and validation receipt",
+    "shifu": "safe exact filesystem discovery, project conformance diagnostics, product Gates, and validation receipts; no semantic graph or project-root authority",
+    "xinfa": "semantic project materialization, nodes, edges, route selection, canonicalization, validation, and content-addressed roots",
     "productRuntime": "read-only verification and exact consumption of the selected Xinfa Atlas, catalog, content, and precompiled projections",
     "buildchain": "exact source, artifact, Atlas, pack, cut, claim-graph, and qualification attestation without redefining documentation semantics",
     "humanReview": "clarity, purpose, and contested semantic review without rewriting machine results"

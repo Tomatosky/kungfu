@@ -9,13 +9,15 @@ use xinfa::{
     compile_human_view, compile_project_bytes_with_validity, compile_repository_atlas_bytes,
     compile_repository_pack_bytes, compile_task_chart, diff_atlases, expand_projection,
     impact_between, impact_from_atlas, import_context_pack, inspect_atlas, inspect_pack,
-    inspect_projection, pack_value, resolve_route_bytes, validate_project_bytes_with_validity,
-    verify_atlas, verify_pack, verify_projection, write_atlas_directory, write_pack_directory,
+    inspect_projection, materialize_surface_inventory_bytes, pack_value, resolve_route_bytes,
+    validate_project_bytes_with_validity, verify_atlas, verify_pack, verify_projection,
+    write_atlas_directory, write_pack_directory,
 };
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const PRODUCT_CONTRACT: &str = include_str!("../contract/xinfa-product-v1.json");
 const PROJECT_SCHEMA: &str = include_str!("../schema/project-v1.schema.json");
+const SEMANTIC_PROJECT_SCHEMA: &str = include_str!("../schema/semantic-project-v1.schema.json");
 const CONTEXT_IR_SCHEMA: &str = include_str!("../schema/context-ir-v1.schema.json");
 const CONTEXT_PACK_SCHEMA: &str = include_str!("../schema/context-pack-v1.schema.json");
 const PACK_MANIFEST_SCHEMA: &str = include_str!("../schema/context-pack-manifest-v1.schema.json");
@@ -80,7 +82,7 @@ fn diagnose() -> Result<String, String> {
     ))
 }
 fn usage() -> &'static str {
-    "Usage:\n  xinfa --version\n  xinfa contract --json\n  xinfa schema project|context-ir|context-pack|pack-manifest|pack-receipt|atlas|atlas-view|atlas-manifest|atlas-receipt|human-view|task-envelope|route-resolution|task-chart|gui-view|projection-recipe|episode-provider-submission|review-chart\n  xinfa validate --project FILE|- --json\n  xinfa canonicalize --project FILE|- --json\n  xinfa compile --project FILE|- --json\n  xinfa compile --project FILE --output DIR [--root DIR] [--visibility public|internal|private] --json\n  xinfa inspect --pack FILE|DIR --json\n  xinfa verify --pack FILE|DIR --json\n  xinfa impact --since FILE|DIR --project FILE [--root DIR] [--visibility public|internal|private] --json\n  xinfa atlas compile --project FILE --output DIR [--root DIR] [--visibility public|internal|private] --json\n  xinfa atlas compile --pack DIR --output DIR --json\n  xinfa atlas inspect --atlas FILE|DIR --json\n  xinfa atlas verify --atlas FILE|DIR --json\n  xinfa atlas diff --before DIR --after DIR --json\n  xinfa atlas impact --since DIR --project FILE [--root DIR] [--visibility public|internal|private] --json\n  xinfa route resolve --atlas DIR --task FILE|- --json\n  xinfa episode compile --before DIR --project FILE --submission RELATIVE_FILE --output DIR [--root DIR] --json\n  xinfa read --atlas DIR --route ID --intent TEXT --surface human|gui --max-hops N --json\n  xinfa chart create --atlas DIR --route ID --task TEXT --role ROLE --budget TOKENS --json\n  xinfa chart inspect --chart FILE --json\n  xinfa chart verify --chart FILE --atlas DIR --json\n  xinfa context --atlas DIR --route ID --task TEXT --role ROLE --budget TOKENS --json\n  xinfa expand --atlas DIR --view FILE --handle ID --budget TOKENS --json\n  xinfa diagnose --json"
+    "Usage:\n  xinfa --version\n  xinfa contract --json\n  xinfa schema project|semantic-project|context-ir|context-pack|pack-manifest|pack-receipt|atlas|atlas-view|atlas-manifest|atlas-receipt|human-view|task-envelope|route-resolution|task-chart|gui-view|projection-recipe|episode-provider-submission|review-chart\n  xinfa project materialize --inventory FILE|- --json\n  xinfa validate --project FILE|- --json\n  xinfa canonicalize --project FILE|- --json\n  xinfa compile --project FILE|- --json\n  xinfa compile --project FILE --output DIR [--root DIR] [--visibility public|internal|private] --json\n  xinfa inspect --pack FILE|DIR --json\n  xinfa verify --pack FILE|DIR --json\n  xinfa impact --since FILE|DIR --project FILE [--root DIR] [--visibility public|internal|private] --json\n  xinfa atlas compile --project FILE --output DIR [--root DIR] [--visibility public|internal|private] --json\n  xinfa atlas compile --pack DIR --output DIR --json\n  xinfa atlas inspect --atlas FILE|DIR --json\n  xinfa atlas verify --atlas FILE|DIR --json\n  xinfa atlas diff --before DIR --after DIR --json\n  xinfa atlas impact --since DIR --project FILE [--root DIR] [--visibility public|internal|private] --json\n  xinfa route resolve --atlas DIR --task FILE|- --json\n  xinfa episode compile --before DIR --project FILE --submission RELATIVE_FILE --output DIR [--root DIR] --json\n  xinfa read --atlas DIR --route ID --intent TEXT --surface human|gui --max-hops N --json\n  xinfa chart create --atlas DIR --route ID --task TEXT --role ROLE --budget TOKENS --json\n  xinfa chart inspect --chart FILE --json\n  xinfa chart verify --chart FILE --atlas DIR --json\n  xinfa context --atlas DIR --route ID --task TEXT --role ROLE --budget TOKENS --json\n  xinfa expand --atlas DIR --view FILE --handle ID --budget TOKENS --json\n  xinfa diagnose --json"
 }
 
 fn project_argument(arguments: &[String]) -> Result<&str, String> {
@@ -173,8 +175,24 @@ fn run() -> Result<ExitCode, String> {
             print!("{PRODUCT_CONTRACT}");
             Ok(ExitCode::SUCCESS)
         }
+        [namespace, operation, rest @ ..]
+            if namespace == "project" && operation == "materialize" =>
+        {
+            let arguments = keyed_arguments(rest, &["--inventory"])?;
+            let reference = required(&arguments, "--inventory")?;
+            let bytes = read_project(reference)?;
+            print!(
+                "{}",
+                materialize_surface_inventory_bytes(&bytes, reference)?
+            );
+            Ok(ExitCode::SUCCESS)
+        }
         [command, name] if command == "schema" && name == "project" => {
             print!("{PROJECT_SCHEMA}");
+            Ok(ExitCode::SUCCESS)
+        }
+        [command, name] if command == "schema" && name == "semantic-project" => {
+            print!("{SEMANTIC_PROJECT_SCHEMA}");
             Ok(ExitCode::SUCCESS)
         }
         [command, name] if command == "schema" && name == "context-ir" => {
