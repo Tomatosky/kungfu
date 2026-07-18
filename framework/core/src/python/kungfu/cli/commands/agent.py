@@ -14,6 +14,7 @@ from kungfu import contract as contract_runtime
 from kungfu import durability as durability_contract
 from kungfu.agent import runtime_profiles
 from kungfu.agent import session_surface
+from kungfu.agent import work_profile
 from kungfu.agent import documentation as documentation_pack
 from kungfu.agent.kfd3 import (
     api_help,
@@ -301,6 +302,71 @@ def work_model(ctx, as_json):
     for role in payload["roles"]:
         click.echo(f"- {role['name']}: {role['owns']}")
     click.echo(f"qualification: {payload['qualification']['status']}")
+
+
+@agent.group(name="work", help=api_help("kungfu.agent.work"))
+@kfd3_api("kungfu.agent.work")
+@agent_command_context
+def work(ctx):
+    """Inspect and apply the KFD-7 Kungfu Product Profile."""
+
+
+@work.command(name="capabilities", help=api_help("kungfu.agent.work.capabilities"))
+@click.option("--json", "as_json", is_flag=True, help="machine-readable output")
+@kfd3_api("kungfu.agent.work.capabilities")
+@agent_command_context
+def work_capabilities(ctx, as_json):
+    payload = work_profile.capabilities()
+    if as_json:
+        _json(payload)
+        return
+    click.echo("Kungfu KFD-7 Profile capabilities")
+    for role in payload["roles"]:
+        click.echo(f"- {role}")
+
+
+@work.command(name="inspect", help=api_help("kungfu.agent.work.inspect"))
+@click.option("--ref", "ref_name", required=True, help="exact Fact ref name")
+@click.option("--json", "as_json", is_flag=True, help="machine-readable output")
+@kfd3_api("kungfu.agent.work.inspect")
+@agent_command_context
+def work_inspect(ctx, ref_name, as_json):
+    payload = work_profile.inspect(ctx.runtime_dir, ref_name)
+    if as_json:
+        _json(payload)
+    else:
+        click.echo(json.dumps(payload, indent=2, sort_keys=True))
+    if payload.get("status") == "denied":
+        ctx.exit(2)
+
+
+@work.command(name="action", help=api_help("kungfu.agent.work.action"))
+@click.option(
+    "--file", "file_path", required=True, help="Profile action request JSON path or -"
+)
+@click.option("--execute", is_flag=True, help="append and CAS the action")
+@click.option("--json", "as_json", is_flag=True, help="machine-readable output")
+@kfd3_api("kungfu.agent.work.action")
+@agent_command_context
+def work_action(ctx, file_path, execute, as_json):
+    try:
+        raw = (
+            sys.stdin.read()
+            if file_path == "-"
+            else Path(file_path).read_text(encoding="utf-8")
+        )
+        request = json.loads(raw)
+        if not isinstance(request, dict):
+            raise ValueError("Profile action request must be a JSON object")
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        raise click.ClickException(str(error)) from error
+    payload = work_profile.apply_action(ctx.runtime_dir, request, execute=execute)
+    if as_json:
+        _json(payload)
+    else:
+        click.echo(json.dumps(payload, indent=2, sort_keys=True))
+    if payload.get("status") == "denied":
+        ctx.exit(2)
 
 
 def _runtime_config_homes(ctx):

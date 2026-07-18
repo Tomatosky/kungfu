@@ -632,6 +632,7 @@ nlohmann::json capabilities_document() {
 
 nlohmann::json query_kernel(const std::string &runtime_dir, const kernel_state &state, const nlohmann::json &request) {
   const auto ref_name = text_or(request, "ref_name");
+  const auto include_bodies = request.value("include_bodies", false);
   auto cut_root = text_or(request, "cut_root");
   nlohmann::json resolution = nullptr;
   if (!ref_name.empty()) {
@@ -665,8 +666,25 @@ nlohmann::json query_kernel(const std::string &runtime_dir, const kernel_state &
   for (const auto &member : cut.at("objectVersions")) {
     const auto version_root = member.at(1).get<std::string>();
     const auto version = state.versions.find(version_root);
-    objects.push_back(
-        {{"member", member}, {"version", version == state.versions.end() ? nlohmann::json(nullptr) : version->second}});
+    auto projected = nlohmann::json{
+        {"member", member}, {"version", version == state.versions.end() ? nlohmann::json(nullptr) : version->second}};
+    if (include_bodies) {
+      if (version == state.versions.end()) {
+        projected["body"] = nullptr;
+        projected["body_status"] = "version-missing";
+      } else {
+        try {
+          projected["body"] =
+              content_store_get(runtime_dir, BODY_NAMESPACE, version->second.at("bodyRoot").get<std::string>());
+          projected["body_status"] = "present";
+        } catch (const std::exception &error) {
+          projected["body"] = nullptr;
+          projected["body_status"] = "unavailable";
+          projected["body_error"] = error.what();
+        }
+      }
+    }
+    objects.push_back(std::move(projected));
   }
   auto relations = nlohmann::json::array();
   for (const auto &root : cut.at("activeRelationRoots")) {

@@ -32,6 +32,24 @@
       "purpose": "Read the public Pursuit, Atlas, Warrant, and Episode contract, current implementation mappings, invalid inferences, and P17 qualification debt."
     },
     {
+      "apiId": "kungfu.agent.work.capabilities",
+      "name": "kungfu agent work capabilities --json",
+      "maturity": "experimental",
+      "purpose": "Discover five responsibility roles, Product Profile transitions, typed denials, and authority boundaries."
+    },
+    {
+      "apiId": "kungfu.agent.work.inspect",
+      "name": "kungfu agent work inspect --ref <ref> --json",
+      "maturity": "experimental",
+      "purpose": "Resolve one exact Fact ref and report all five Profile role identities, states, relations, and typed gaps."
+    },
+    {
+      "apiId": "kungfu.agent.work.action",
+      "name": "kungfu agent work action --file <request.json> [--execute] --json",
+      "maturity": "experimental",
+      "purpose": "Plan or execute one Profile transition through the shared action/receipt contract and native Fact ref CAS."
+    },
+    {
       "apiId": "kungfu.agent.choose-mode",
       "name": "kungfu agent choose-mode --json",
       "maturity": "stable",

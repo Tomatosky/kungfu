@@ -1148,6 +1148,14 @@ test(
         version.result.version_root,
       ]);
       assert.equal(projected.ref_resolution.revision, 1);
+      assert.equal('body' in projected.objects[0], false);
+
+      const projectedWithBodies = run('query', {
+        ref_name: 'heads/main',
+        include_bodies: true,
+      });
+      assert.equal(projectedWithBodies.objects[0].body_status, 'present');
+      assert.equal(projectedWithBodies.objects[0].body, 'opaque-body');
     } finally {
       fs.rmSync(runtimeDir, { recursive: true, force: true });
     }
