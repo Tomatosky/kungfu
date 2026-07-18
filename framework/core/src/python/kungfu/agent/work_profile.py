@@ -49,6 +49,7 @@ TRANSITIONS = {
     },
     "pursuit": {
         ("create", "absent", "active"),
+        ("branch", "active", "active"),
         ("continue", "active", "active"),
         ("continue", "paused", "active"),
         ("pause", "active", "paused"),
@@ -388,6 +389,11 @@ def _validate_request(request: dict[str, Any]) -> None:
             f"responsibilities.{role}.expectedVersionRoot",
             nullable=True,
         )
+    object_ids = [responsibilities[role]["objectId"] for role in ROLES]
+    if len(set(object_ids)) != len(ROLES):
+        raise ValueError(
+            "all five responsibilities require distinct logical object identities"
+        )
     support = request.get("support")
     if not isinstance(support, dict):
         raise ValueError("support is required")
@@ -395,6 +401,176 @@ def _validate_request(request: dict[str, Any]) -> None:
         _require_root(support.get(field), f"support.{field}")
     _require_root_list(support.get("declarationRoots"), "support.declarationRoots")
     _require_root_list(support.get("admissionRoots"), "support.admissionRoots")
+
+
+def _validate_lifecycle_payload(
+    subject_role: str,
+    subject: dict[str, Any],
+    current_roles: dict[str, dict[str, Any]],
+    payload: dict[str, Any],
+    basis: dict[str, Any],
+    ref: dict[str, Any],
+) -> tuple[str, str, dict[str, Any]] | None:
+    operation = subject["operation"]
+    current_body = current_roles.get(subject_role, {}).get("body") or {}
+    current_details = current_body.get("details") or {}
+    if not isinstance(current_details, dict):
+        return ("invalid-request", f"{subject_role} details must be an object", {})
+
+    try:
+        if subject_role == "episode" and operation == "seal":
+            episode_id = payload.get("episodeId")
+            if episode_id != current_details.get("episodeId"):
+                return (
+                    "replay-mismatch",
+                    "Episode seal identity differs from the open Episode",
+                    {
+                        "expected": current_details.get("episodeId"),
+                        "actual": episode_id,
+                    },
+                )
+            for field in (
+                "beforeCutRoot",
+                "afterCutRoot",
+                "causalRoot",
+                "sealedContentRoot",
+            ):
+                _require_root(payload.get(field), f"payload.{field}")
+
+        if subject_role == "episode" and operation == "reconcile":
+            replay = payload.get("replay")
+            if not isinstance(replay, dict):
+                return (
+                    "invalid-request",
+                    "Episode reconciliation requires replay evidence",
+                    {},
+                )
+            expected = {
+                field: current_details.get(field)
+                for field in (
+                    "episodeId",
+                    "beforeCutRoot",
+                    "afterCutRoot",
+                    "causalRoot",
+                    "sealedContentRoot",
+                )
+            }
+            actual = {field: replay.get(field) for field in expected}
+            for field in (
+                "beforeCutRoot",
+                "afterCutRoot",
+                "causalRoot",
+                "sealedContentRoot",
+            ):
+                _require_root(actual[field], f"payload.replay.{field}")
+            if actual != expected:
+                return (
+                    "replay-mismatch",
+                    "Episode replay evidence differs from the sealed causal record",
+                    {"expected": expected, "actual": actual},
+                )
+
+        if subject_role == "pursuit" and operation == "branch":
+            if ref.get("cutRoot") is not None or ref.get("revision") != 0:
+                return (
+                    "invalid-transition",
+                    "Pursuit branch requires a new destination ref at revision zero",
+                    {},
+                )
+            _require_root(payload.get("branchReasonRoot"), "payload.branchReasonRoot")
+            payload_branch = payload.get("branchOfCutRoot")
+            if payload_branch != basis.get("cutRoot"):
+                return (
+                    "profile-state-mismatch",
+                    "Pursuit branch must bind the exact source Cut",
+                    {"expected": basis.get("cutRoot"), "actual": payload_branch},
+                )
+
+        if subject_role == "pursuit" and operation in {"complete", "abandon"}:
+            _require_root(payload.get("settlementRoot"), "payload.settlementRoot")
+            if not isinstance(payload.get("outcome"), str) or not payload["outcome"]:
+                return (
+                    "invalid-request",
+                    "Pursuit settlement requires a non-empty outcome",
+                    {},
+                )
+
+        if subject_role == "atlas" and operation == "mark-stale":
+            _require_root_list(payload.get("lossRoots"), "payload.lossRoots")
+            if (
+                not isinstance(payload.get("lossReason"), str)
+                or not payload["lossReason"]
+            ):
+                return (
+                    "invalid-request",
+                    "Atlas staleness requires an explicit loss reason",
+                    {},
+                )
+
+        if subject_role == "atlas" and operation == "refresh":
+            _require_root_list(payload.get("sourceRoots"), "payload.sourceRoots")
+            _require_root_list(payload.get("lossRoots"), "payload.lossRoots")
+            valid_through = payload.get("validThroughRevision")
+            if not isinstance(valid_through, int) or valid_through < basis["revision"]:
+                return (
+                    "atlas-stale",
+                    "refreshed Atlas does not cover the declared basis revision",
+                    {
+                        "basisRevision": basis["revision"],
+                        "validThroughRevision": valid_through,
+                    },
+                )
+
+        if subject_role == "warrant" and operation == "attenuate":
+            old_allowed = current_details.get("allowedOperations")
+            new_allowed = payload.get("allowedOperations")
+            if not isinstance(old_allowed, list) or not isinstance(new_allowed, list):
+                return (
+                    "invalid-request",
+                    "Warrant attenuation requires explicit old and new operation scopes",
+                    {},
+                )
+            if not new_allowed or "*" in new_allowed:
+                return (
+                    "invalid-transition",
+                    "attenuated Warrant scope must be a non-empty strict subset",
+                    {},
+                )
+            old_scope = set(old_allowed)
+            new_scope = set(new_allowed)
+            if "*" not in old_scope and not new_scope < old_scope:
+                return (
+                    "unauthorized",
+                    "Warrant attenuation cannot widen or preserve the old scope",
+                    {"old": sorted(old_scope), "new": sorted(new_scope)},
+                )
+            old_valid_through = current_details.get("validThroughRevision")
+            new_valid_through = payload.get("validThroughRevision")
+            if (
+                not isinstance(old_valid_through, int)
+                or not isinstance(new_valid_through, int)
+                or new_valid_through > old_valid_through
+            ):
+                return (
+                    "unauthorized",
+                    "Warrant attenuation cannot extend its validity revision",
+                    {
+                        "old": old_valid_through,
+                        "new": new_valid_through,
+                    },
+                )
+
+        if subject_role == "warrant" and operation in {"expire", "revoke", "deny"}:
+            _require_root(payload.get("reasonRoot"), "payload.reasonRoot")
+            if not isinstance(payload.get("reason"), str) or not payload["reason"]:
+                return (
+                    "invalid-request",
+                    f"Warrant {operation} requires an explicit reason",
+                    {},
+                )
+    except ValueError as error:
+        return ("invalid-request", str(error), {})
+    return None
 
 
 def _kernel_failure(
@@ -583,6 +759,21 @@ def apply_action(
             details={"operation": operation_key, "allowedOperations": allowed or []},
         )
 
+    payload = request.get("payload") or {}
+    if not isinstance(payload, dict):
+        return _denied(action_id, "invalid-request", "payload must be an object")
+    lifecycle_denial = _validate_lifecycle_payload(
+        subject_role,
+        subject,
+        current_roles,
+        payload,
+        basis,
+        request["ref"],
+    )
+    if lifecycle_denial is not None:
+        code, message, details = lifecycle_denial
+        return _denied(action_id, code, message, details=details)
+
     changed_roles = list(ROLES) if basis["cutRoot"] is None else [subject_role]
     plan = {
         "schema": RECEIPT_SCHEMA,
@@ -645,14 +836,6 @@ def apply_action(
             details = dict(body["details"])
         if role == subject_role:
             body["state"] = subject["toState"]
-            payload = request.get("payload") or {}
-            if not isinstance(payload, dict):
-                return _denied(
-                    action_id,
-                    "invalid-request",
-                    "payload must be an object",
-                    steps=steps,
-                )
             details.update(payload)
             body["details"] = details
         body["lastActionId"] = action_id
@@ -754,7 +937,7 @@ def apply_action(
 
     ref_kind = (
         "fork"
-        if subject["operation"] == "fork"
+        if subject["operation"] in {"fork", "branch"}
         else "create"
         if request["ref"]["cutRoot"] is None
         else "advance"

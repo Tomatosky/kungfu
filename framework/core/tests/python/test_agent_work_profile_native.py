@@ -97,6 +97,47 @@ def _successor_request(previous, *, action_id: str):
     return request
 
 
+def _role_transition_request(
+    previous,
+    *,
+    action_id,
+    role,
+    operation,
+    from_state,
+    to_state,
+    payload,
+    ref_name=None,
+    new_ref=False,
+):
+    request = _request()
+    request["actionId"] = action_id
+    request["refName"] = ref_name or request["refName"]
+    request["basis"] = {
+        "cutRoot": previous["result"]["cutRoot"],
+        "revision": previous["result"]["revision"],
+    }
+    request["ref"] = (
+        {"cutRoot": None, "revision": 0} if new_ref else copy.deepcopy(request["basis"])
+    )
+    request["subject"] = {
+        "role": role,
+        "operation": operation,
+        "fromState": from_state,
+        "toState": to_state,
+    }
+    request["responsibilities"] = {
+        current_role: {
+            "objectId": request["responsibilities"][current_role]["objectId"],
+            "expectedVersionRoot": previous["result"]["roleVersions"][current_role],
+        }
+        for current_role in work_profile.ROLES
+    }
+    request.pop("roleInputs")
+    request["relations"] = []
+    request["payload"] = copy.deepcopy(payload)
+    return request
+
+
 def test_native_profile_bootstrap_accepts_python_revision_zero(tmp_path):
     runtime_dir = tmp_path / "runtime"
     request = _request()
@@ -209,3 +250,205 @@ def test_native_profile_backend_switch_and_rollback_preserve_five_role_identity(
         == before_rollback_bundle
     )
     assert continued["result"]["revision"] == 2
+
+
+def test_native_profile_retains_authority_freshness_direction_and_causality(tmp_path):
+    runtime_dir = tmp_path / "runtime"
+    created = work_profile.apply_action(runtime_dir, _request(), execute=True)
+
+    attenuated = work_profile.apply_action(
+        runtime_dir,
+        _role_transition_request(
+            created,
+            action_id="native-attenuate-warrant",
+            role="warrant",
+            operation="attenuate",
+            from_state="issued",
+            to_state="attenuated",
+            payload={
+                "allowedOperations": [
+                    "atlas:mark-stale",
+                    "atlas:refresh",
+                    "episode:seal",
+                    "episode:reconcile",
+                    "pursuit:branch",
+                    "pursuit:abandon",
+                    "warrant:revoke",
+                ],
+                "validThroughRevision": 10,
+            },
+        ),
+        execute=True,
+    )
+    assert attenuated["status"] == "accepted", attenuated
+
+    stale = work_profile.apply_action(
+        runtime_dir,
+        _role_transition_request(
+            attenuated,
+            action_id="native-atlas-stale",
+            role="atlas",
+            operation="mark-stale",
+            from_state="current",
+            to_state="stale",
+            payload={
+                "lossRoots": [_root("6")],
+                "lossReason": "retained source invalidation",
+            },
+        ),
+        execute=True,
+    )
+    assert stale["status"] == "accepted", stale
+    blocked = work_profile.apply_action(
+        runtime_dir,
+        _role_transition_request(
+            stale,
+            action_id="native-stale-atlas-blocks-action",
+            role="pursuit",
+            operation="continue",
+            from_state="active",
+            to_state="active",
+            payload={"continuation": "must be rejected"},
+        ),
+        execute=True,
+    )
+    assert blocked["failureCode"] == "atlas-stale"
+    assert blocked["writeOccurred"] is False
+
+    refreshed = work_profile.apply_action(
+        runtime_dir,
+        _role_transition_request(
+            stale,
+            action_id="native-atlas-refresh",
+            role="atlas",
+            operation="refresh",
+            from_state="stale",
+            to_state="current",
+            payload={
+                "sourceRoots": [_root("7")],
+                "lossRoots": [_root("6")],
+                "validThroughRevision": 10,
+            },
+        ),
+        execute=True,
+    )
+    assert refreshed["status"] == "accepted", refreshed
+
+    branch = work_profile.apply_action(
+        runtime_dir,
+        _role_transition_request(
+            refreshed,
+            action_id="native-pursuit-branch",
+            role="pursuit",
+            operation="branch",
+            from_state="active",
+            to_state="active",
+            payload={
+                "branchOfCutRoot": refreshed["result"]["cutRoot"],
+                "branchReasonRoot": _root("8"),
+            },
+            ref_name="profiles/kfd-7/native-branch",
+            new_ref=True,
+        ),
+        execute=True,
+    )
+    assert branch["status"] == "accepted", branch
+    abandoned = work_profile.apply_action(
+        runtime_dir,
+        _role_transition_request(
+            branch,
+            action_id="native-pursuit-abandon",
+            role="pursuit",
+            operation="abandon",
+            from_state="active",
+            to_state="abandoned",
+            payload={"settlementRoot": _root("9"), "outcome": "branch terminated"},
+            ref_name="profiles/kfd-7/native-branch",
+        ),
+        execute=True,
+    )
+    assert abandoned["status"] == "accepted", abandoned
+
+    endpoint = _root("a")
+    sealed_payload = {
+        "episodeId": "episode:native-test",
+        "beforeCutRoot": endpoint,
+        "afterCutRoot": endpoint,
+        "causalRoot": _root("b"),
+        "sealedContentRoot": _root("c"),
+    }
+    sealed = work_profile.apply_action(
+        runtime_dir,
+        _role_transition_request(
+            refreshed,
+            action_id="native-episode-seal",
+            role="episode",
+            operation="seal",
+            from_state="open",
+            to_state="sealed",
+            payload=sealed_payload,
+        ),
+        execute=True,
+    )
+    assert sealed["status"] == "accepted", sealed
+    mismatch = copy.deepcopy(sealed_payload)
+    mismatch["causalRoot"] = _root("d")
+    rejected_replay = work_profile.apply_action(
+        runtime_dir,
+        _role_transition_request(
+            sealed,
+            action_id="native-episode-replay-mismatch",
+            role="episode",
+            operation="reconcile",
+            from_state="sealed",
+            to_state="reconciled",
+            payload={"replay": mismatch},
+        ),
+        execute=True,
+    )
+    assert rejected_replay["failureCode"] == "replay-mismatch"
+    assert rejected_replay["writeOccurred"] is False
+    replayed = work_profile.apply_action(
+        runtime_dir,
+        _role_transition_request(
+            sealed,
+            action_id="native-episode-replay-exact",
+            role="episode",
+            operation="reconcile",
+            from_state="sealed",
+            to_state="reconciled",
+            payload={"replay": sealed_payload},
+        ),
+        execute=True,
+    )
+    assert replayed["status"] == "accepted", replayed
+
+    revoked = work_profile.apply_action(
+        runtime_dir,
+        _role_transition_request(
+            replayed,
+            action_id="native-warrant-revoke",
+            role="warrant",
+            operation="revoke",
+            from_state="attenuated",
+            to_state="revoked",
+            payload={"reason": "qualification end", "reasonRoot": _root("e")},
+        ),
+        execute=True,
+    )
+    assert revoked["status"] == "accepted", revoked
+    denied_after_revoke = work_profile.apply_action(
+        runtime_dir,
+        _role_transition_request(
+            revoked,
+            action_id="native-after-revoke",
+            role="pursuit",
+            operation="continue",
+            from_state="active",
+            to_state="active",
+            payload={"continuation": "must fail"},
+        ),
+        execute=True,
+    )
+    assert denied_after_revoke["failureCode"] == "warrant-revoked"
+    assert denied_after_revoke["writeOccurred"] is False
