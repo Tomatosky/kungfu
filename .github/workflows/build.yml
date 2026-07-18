@@ -151,8 +151,8 @@ jobs:
             --output-dir phase-b-package-output \
             --expected-source-sha "${EXPECTED_SOURCE_SHA}" \
             --expected-version "${expected_version}" \
-            --build-images-ref "v1.2.4-alpha.29" \
-            --build-images-sha "7cf672d83323fdd139ad90b6e8165a56e431cc6c"
+            --build-images-ref "v1.2.4-alpha.30" \
+            --build-images-sha "3056c23e70b83f5bb63062f04027a93e79039e4b"
 
       - name: Resolve retained artifact name
         id: artifact
@@ -173,11 +173,11 @@ jobs:
     permissions:
       actions: read
       contents: read
-    uses: kungfu-systems/build-images/.github/workflows/comparator-kungfu-package-smoke.yml@7cf672d83323fdd139ad90b6e8165a56e431cc6c # v1.2.4-alpha.29
+    uses: kungfu-systems/build-images/.github/workflows/comparator-kungfu-package-smoke.yml@3056c23e70b83f5bb63062f04027a93e79039e4b # v1.2.4-alpha.30
     with:
       package_artifact_name: ${{ needs.phase-b-package.outputs.artifact-name }}
       package_sha256: ${{ needs.phase-b-package.outputs.package-sha256 }}
       package_version: ${{ needs.phase-b-package.outputs.package-version }}
       source_sha: ${{ needs.phase-b-package.outputs.source-sha }}
-      build_images_ref: v1.2.4-alpha.29
-      build_images_sha: 7cf672d83323fdd139ad90b6e8165a56e431cc6c
+      build_images_ref: v1.2.4-alpha.30
+      build_images_sha: 3056c23e70b83f5bb63062f04027a93e79039e4b

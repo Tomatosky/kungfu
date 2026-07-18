@@ -424,11 +424,11 @@ test('manual package build is welded to the reviewed Phase B consumer', () => {
   assert.match(workflow, /run-kungfu-phase-b:\n\s+description:/);
   assert.match(
     workflow,
-    /prepare_kungfu_phase_b_package\.py[\s\S]+--build-images-ref "v1\.2\.4-alpha\.29"[\s\S]+--build-images-sha "7cf672d83323fdd139ad90b6e8165a56e431cc6c"/,
+    /prepare_kungfu_phase_b_package\.py[\s\S]+--build-images-ref "v1\.2\.4-alpha\.30"[\s\S]+--build-images-sha "3056c23e70b83f5bb63062f04027a93e79039e4b"/,
   );
   assert.match(
     workflow,
-    /uses: kungfu-systems\/build-images\/\.github\/workflows\/comparator-kungfu-package-smoke\.yml@7cf672d83323fdd139ad90b6e8165a56e431cc6c # v1\.2\.4-alpha\.29/,
+    /uses: kungfu-systems\/build-images\/\.github\/workflows\/comparator-kungfu-package-smoke\.yml@3056c23e70b83f5bb63062f04027a93e79039e4b # v1\.2\.4-alpha\.30/,
   );
   assert.match(
     workflow,
