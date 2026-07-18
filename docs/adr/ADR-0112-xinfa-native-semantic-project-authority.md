@@ -4,8 +4,8 @@ doc_type: architecture-decision
 adr_id: ADR-0112
 decision_status: accepted
 implementation_status: implemented
-implementation_commits: [a396c18d020a161f3c7ee4fc139bef3b8795469c]
-closure_commit: a396c18d020a161f3c7ee4fc139bef3b8795469c
+implementation_commits: [a396c18d020a161f3c7ee4fc139bef3b8795469c, 45dc1d1f6edde3ac195661d43a2e47ab96cb5bbf]
+closure_commit: 45dc1d1f6edde3ac195661d43a2e47ab96cb5bbf
 qualification_refs: [.xinfa/project.json, xinfa/src/semantic_project.rs, scripts/shifu-documentation-surfaces.test.mjs]
 review_state: self-reviewed
 sensitivity: public
