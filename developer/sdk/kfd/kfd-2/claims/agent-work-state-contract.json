@@ -16,7 +16,7 @@
       "pointer": {
         "kind": "file",
         "path": "docs/adr/ADR-0109-four-object-agent-work-state-contract.md",
-        "sha256": "c4fc13930268ad149a0d179cb0944c8a3236c24e3e03038dac5da3b91c219188"
+        "sha256": "6f30305eed2d1d9f4cc55508fd7014e81aa6846a0608015ea410175dc8fec981"
       },
       "description": "Accepted role-separation decision and bounded P17 qualification boundary."
     },
@@ -34,7 +34,7 @@
       "pointer": {
         "kind": "file",
         "path": "framework/core/tests/python/test_agent_work_state_contract.py",
-        "sha256": "2b1c013a49533d7a6c240b1f05d94c74dba45da0e6d439592ed8885aad7178ac"
+        "sha256": "af68539d3c968e192f5fcbcd9a2d27d2107d5a97c3d8af80ef5f13622de0649c"
       },
       "description": "Runtime CLI parity and fail-closed contract-schema checks."
     },
@@ -43,7 +43,7 @@
       "pointer": {
         "kind": "file",
         "path": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
-        "sha256": "c9f35d1a267181532952a9603de56d5b6342372ec1848a6ca5afcf841ad0b0b1"
+        "sha256": "91294bb5d359299e2deda1a12d5629b599aaf20d2147816bab9f92098b5c813b"
       },
       "description": "Agent collaboration-interface registration for the work-model query."
     }
@@ -54,7 +54,7 @@
     "evidenceSha256": [
       {
         "path": "docs/adr/ADR-0109-four-object-agent-work-state-contract.md",
-        "sha256": "c4fc13930268ad149a0d179cb0944c8a3236c24e3e03038dac5da3b91c219188"
+        "sha256": "6f30305eed2d1d9f4cc55508fd7014e81aa6846a0608015ea410175dc8fec981"
       },
       {
         "path": "scripts/check-agent-work-state-contract.test.mjs",
@@ -62,11 +62,11 @@
       },
       {
         "path": "framework/core/tests/python/test_agent_work_state_contract.py",
-        "sha256": "2b1c013a49533d7a6c240b1f05d94c74dba45da0e6d439592ed8885aad7178ac"
+        "sha256": "af68539d3c968e192f5fcbcd9a2d27d2107d5a97c3d8af80ef5f13622de0649c"
       },
       {
         "path": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
-        "sha256": "c9f35d1a267181532952a9603de56d5b6342372ec1848a6ca5afcf841ad0b0b1"
+        "sha256": "91294bb5d359299e2deda1a12d5629b599aaf20d2147816bab9f92098b5c813b"
       }
     ],
     "artifactSha256": [
