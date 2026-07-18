@@ -59,7 +59,7 @@
   },
   "contractWorld": {
     "schemaId": "https://kfd.libkungfu.dev/schemas/kfd-1/contract-world.schema.json",
-    "digest": "sha256:48df3f0158b04e34f7c7fc9eac5ceddb8d62a81be1aad8a8dac02bcf10806ae3",
+    "digest": "sha256:3a1fd2f9f6d72bd7f2cf9dcf9a77f3288d5d614de10bee7c99f55ca3dcca8c18",
     "value": {
       "schemaVersion": 1,
       "contract": "kfd-1-contract-world",
@@ -110,6 +110,11 @@
           "id": "kungfu-agent-work-state",
           "class": "integration-time",
           "description": "agent-work-state contract source framework/agent-work/kungfu-agent-work-state.contract.json is copied byte-for-byte to config/kungfu-agent-work-state.contract.json."
+        },
+        {
+          "id": "kungfu-fact-cut-kernel",
+          "class": "integration-time",
+          "description": "fact-cut-kernel contract source framework/fact/kungfu-fact-cut-kernel.contract.json is copied byte-for-byte to config/kungfu-fact-cut-kernel.contract.json."
         }
       ]
     }
@@ -284,6 +289,25 @@
       "artifact": {
         "path": "config/kungfu-agent-work-state.contract.json",
         "expectedSha256": "sha256:e1b813a4057a437e8998e5bca3f1f21fcf002d3509a035d13345ceefedbb706d"
+      }
+    },
+    {
+      "surface": "fact-cut-kernel",
+      "id": "kungfu-fact-cut-kernel",
+      "recipe": {
+        "path": "framework/fact/kungfu-fact-cut-kernel.contract.json",
+        "generator": "kungfu sdk contract render",
+        "evidence": "kungfu sdk contract evidence"
+      },
+      "source": {
+        "path": "framework/fact/kungfu-fact-cut-kernel.contract.json",
+        "sha256": "sha256:f2f8132041b296708b178bc297acef8099a6405ef62a428160f6199ef953cf51",
+        "renderedSha256": "sha256:f2f8132041b296708b178bc297acef8099a6405ef62a428160f6199ef953cf51",
+        "byteForByte": true
+      },
+      "artifact": {
+        "path": "config/kungfu-fact-cut-kernel.contract.json",
+        "expectedSha256": "sha256:f2f8132041b296708b178bc297acef8099a6405ef62a428160f6199ef953cf51"
       }
     }
   ]

@@ -208,6 +208,11 @@ test('source plan covers representative source-only checks', () => {
     contractTests.args.includes('scripts/check-project-cut-contract.test.mjs'),
   );
   assert.ok(
+    contractTests.args.includes(
+      'scripts/check-fact-cut-kernel-contract.test.mjs',
+    ),
+  );
+  assert.ok(
     contractTests.args.includes('scripts/check-git-episode-provider.test.mjs'),
   );
   assert.ok(

@@ -164,6 +164,22 @@
         "contract": ["agent", "work-model", "--json"],
         "schema": ["contract", "show", "agent-work-state", "--json"]
       }
+    },
+    {
+      "surface": "fact-cut-kernel",
+      "id": "kungfu-fact-cut-kernel",
+      "schema": "kungfu.fact-cut-kernel.contract/v1",
+      "contractSchemaRoot": "sha256:b7bfdbd495616c747aa033edf61fec99e375893ee59c9a983a18a5c30b8c0f99",
+      "weldedSurface": "fact-cut-kernel-contract",
+      "env": "KUNGFU_FACT_CUT_KERNEL_CONTRACT",
+      "file": "kungfu-fact-cut-kernel.contract.json",
+      "source": "framework/fact/kungfu-fact-cut-kernel.contract.json",
+      "artifact": "config/kungfu-fact-cut-kernel.contract.json",
+      "probeFixture": "tests/fixtures/fact-cut-kernel-contract/cases.json",
+      "cli": {
+        "contract": ["contract", "show", "fact-cut-kernel", "--json"],
+        "schema": ["contract", "show", "fact-cut-kernel", "--json"]
+      }
     }
   ]
 }
