@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -536,32 +536,95 @@ function writePlan(plan, output) {
   return absolute;
 }
 
-function runStep(id, command, args, cwd, env, logRoot) {
+async function loadBuildchainToolkit() {
+  const [diagnostics, logging] = await Promise.all([
+    import('@kungfu-tech/buildchain/diagnostics'),
+    import('@kungfu-tech/buildchain/logging'),
+  ]);
+  return { ...diagnostics, ...logging };
+}
+
+async function runStep(
+  id,
+  command,
+  args,
+  cwd,
+  env,
+  logRoot,
+  logger,
+  toolkit,
+  { phase, sampleProcess = false, requestedParallelism = 0 } = {},
+) {
   const started = Date.now();
-  const result = spawnSync(command, args, {
-    cwd,
-    env,
-    encoding: 'utf8',
-    maxBuffer: 256 * 1024 * 1024,
-  });
-  const output = `${result.stdout || ''}${result.stderr || ''}`;
   fs.mkdirSync(logRoot, { recursive: true });
   const log = path.join(logRoot, `${id}.log`);
-  fs.writeFileSync(log, output);
-  process.stdout.write(output);
-  const step = {
-    id,
-    command: [command, ...args],
-    durationMs: Date.now() - started,
-    exitCode: result.status ?? 1,
-    log: path.relative(root, log).split(path.sep).join('/'),
+  const details = {
+    phase,
+    attributes: {
+      stepId: id,
+      requestedParallelism,
+    },
   };
-  if (step.exitCode !== 0) {
-    throw Object.assign(new Error(`${id} failed with exit ${step.exitCode}`), {
-      step,
+  return logger.span(`affected-native.${id}`, details, async () => {
+    const child = spawn(command, args, {
+      cwd,
+      env,
+      stdio: ['inherit', 'pipe', 'pipe'],
     });
-  }
-  return step;
+    const logStream = fs.createWriteStream(log, { flags: 'w' });
+    child.stdout.on('data', (chunk) => {
+      logStream.write(chunk);
+      process.stdout.write(chunk);
+    });
+    child.stderr.on('data', (chunk) => {
+      logStream.write(chunk);
+      process.stderr.write(chunk);
+    });
+    const sampler = sampleProcess
+      ? toolkit.startProcessSampler({
+          rootPid: child.pid,
+          intervalMs: 15000,
+          label: id,
+          command,
+          args,
+          env,
+          requestedParallelism,
+          cwd,
+        })
+      : null;
+    const result = await new Promise((resolve) => {
+      child.once('error', (error) =>
+        resolve({ exitCode: 1, signal: null, error }),
+      );
+      child.once('close', (exitCode, signal) => resolve({ exitCode, signal }));
+    });
+    await new Promise((resolve) => logStream.end(resolve));
+    const processSummary = sampler
+      ? toolkit.summarizeProcessSamples({
+          command,
+          args,
+          env,
+          requestedParallelism,
+          samples: sampler.stop(),
+        })
+      : null;
+    const step = {
+      id,
+      command: [command, ...args],
+      durationMs: Date.now() - started,
+      exitCode: result.exitCode ?? 1,
+      signal: result.signal || null,
+      log: path.relative(root, log).split(path.sep).join('/'),
+      ...(processSummary ? { process: processSummary } : {}),
+    };
+    if (step.exitCode !== 0) {
+      throw Object.assign(
+        result.error || new Error(`${id} failed with exit ${step.exitCode}`),
+        { step },
+      );
+    }
+    return step;
+  });
 }
 
 function toolFact(command, args = ['--version']) {
@@ -572,7 +635,7 @@ function toolFact(command, args = ['--version']) {
   );
 }
 
-function execute(plan, receiptPath) {
+async function execute(plan, receiptPath) {
   const baseline = readJson(baselinePath);
   const receiptFile =
     receiptPath ||
@@ -584,7 +647,28 @@ function execute(plan, receiptPath) {
       'receipt.json',
     );
   const absoluteReceipt = path.resolve(root, receiptFile);
+  const diagnosticsPath = path.join(
+    path.dirname(absoluteReceipt),
+    'diagnostics.json',
+  );
+  const eventsPath = path.join(path.dirname(absoluteReceipt), 'events.jsonl');
   const logRoot = path.join(path.dirname(absoluteReceipt), 'logs');
+  const toolkit = plan.targets.length ? await loadBuildchainToolkit() : null;
+  const logger = toolkit
+    ? toolkit.createBuildchainLogger({
+        cwd: root,
+        path: eventsPath,
+        console: false,
+        strict: true,
+        source: 'user',
+        component: 'affected-native',
+        attributes: {
+          gateId: 'source.changed-scope',
+          planDigest: plan.planDigest,
+          sourceSha: plan.head,
+        },
+      })
+    : null;
   const steps = [];
   const env = {
     ...process.env,
@@ -596,21 +680,36 @@ function execute(plan, receiptPath) {
   const started = Date.now();
   let status = 'passed';
   let failure = null;
+  const requestedParallelism = Math.min(
+    os.availableParallelism(),
+    baseline.maxParallelism,
+  );
+  logger?.mark('affected-native.plan.admitted', {
+    phase: 'plan',
+    attributes: {
+      profile: plan.profile || 'none',
+      targetCount: plan.targets.length,
+      testCount: plan.tests.length,
+    },
+  });
   try {
     if (plan.targets.length) {
       steps.push(
-        runStep(
+        await runStep(
           'conan-install',
           path.join(root, 'shifu'),
           ['core:affected:configure'],
           root,
           env,
           logRoot,
+          logger,
+          toolkit,
+          { phase: 'install' },
         ),
       );
       const buildRoot = path.join(coreRoot, 'build', 'affected-native');
       steps.push(
-        runStep(
+        await runStep(
           'cmake-configure',
           'cmake',
           [
@@ -628,10 +727,13 @@ function execute(plan, receiptPath) {
           root,
           env,
           logRoot,
+          logger,
+          toolkit,
+          { phase: 'configure' },
         ),
       );
       steps.push(
-        runStep(
+        await runStep(
           'cmake-build',
           'cmake',
           [
@@ -640,25 +742,33 @@ function execute(plan, receiptPath) {
             '--target',
             ...plan.targets,
             '--parallel',
-            String(
-              Math.min(os.availableParallelism(), baseline.maxParallelism),
-            ),
+            String(requestedParallelism),
           ],
           root,
           env,
           logRoot,
+          logger,
+          toolkit,
+          {
+            phase: 'build',
+            sampleProcess: true,
+            requestedParallelism,
+          },
         ),
       );
       if (plan.tests.length) {
         const expression = `^(${plan.tests.map((test) => test.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})$`;
         steps.push(
-          runStep(
+          await runStep(
             'ctest',
             'ctest',
             ['--test-dir', buildRoot, '-R', expression, '--output-on-failure'],
             root,
             env,
             logRoot,
+            logger,
+            toolkit,
+            { phase: 'test' },
           ),
         );
       }
@@ -667,6 +777,49 @@ function execute(plan, receiptPath) {
     status = 'failed';
     if (error.step) steps.push(error.step);
     failure = error.message;
+  }
+  logger?.mark('affected-native.complete', {
+    phase: 'receipt',
+    attributes: {
+      status,
+      durationMs: Date.now() - started,
+    },
+  });
+  const lifecycleObservability = toolkit
+    ? toolkit.summarizeLifecycleObservability({ logPath: eventsPath })
+    : null;
+  const processSummary =
+    steps.find(({ id }) => id === 'cmake-build')?.process || null;
+  let diagnosticsReceipt = null;
+  if (toolkit) {
+    const diagnostics = toolkit.createDiagnosticsArtifact({
+      cwd: root,
+      logPath: eventsPath,
+      lifecycleObservability,
+      processSummary: processSummary || undefined,
+      links: {
+        receipt: path.relative(root, absoluteReceipt).split(path.sep).join('/'),
+        events: path.relative(root, eventsPath).split(path.sep).join('/'),
+      },
+    });
+    diagnostics.consumer = {
+      contract: 'kungfu.affected-native-diagnostics/v1',
+      gateId: 'source.changed-scope',
+      source: { base: plan.base, head: plan.head },
+      planDigest: plan.planDigest,
+      profile: plan.profile,
+      status,
+    };
+    toolkit.writeDiagnosticsArtifact(diagnosticsPath, diagnostics);
+    diagnosticsReceipt = {
+      contract: diagnostics.contract,
+      consumerContract: diagnostics.consumer.contract,
+      file: path.relative(root, diagnosticsPath).split(path.sep).join('/'),
+      digest: digest(fs.readFileSync(diagnosticsPath, 'utf8')),
+      events: path.relative(root, eventsPath).split(path.sep).join('/'),
+      lifecycleObservability,
+      process: processSummary,
+    };
   }
   const receipt = {
     schema: 'kungfu.core-affected-native-receipt/v1',
@@ -695,6 +848,7 @@ function execute(plan, receiptPath) {
     durationMs: Date.now() - started,
     budgetMs: baseline.requiredBudgetSeconds * 1000,
     steps,
+    diagnostics: diagnosticsReceipt,
     failure,
   };
   fs.mkdirSync(path.dirname(absoluteReceipt), { recursive: true });
@@ -1081,7 +1235,7 @@ function selfTest(authority, buildAuthority) {
   console.log(`[core-affected] ${passed} negative/determinism fixtures passed`);
 }
 
-function main() {
+async function main() {
   const options = parseArgs(process.argv.slice(2));
   const authority = readJson(architecturePath);
   const buildAuthority = readJson(buildPath);
@@ -1129,7 +1283,7 @@ function main() {
     console.log(`[core-affected] targets=${plan.targets.join(', ') || 'none'}`);
     console.log(`[core-affected] tests=${plan.tests.join(', ') || 'none'}`);
   }
-  if (options.execute) execute(plan, options.receipt);
+  if (options.execute) await execute(plan, options.receipt);
 }
 
 if (
@@ -1137,7 +1291,7 @@ if (
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
   try {
-    main();
+    await main();
   } catch (error) {
     console.error(`[core-affected] ${error.message}`);
     process.exitCode = 1;
