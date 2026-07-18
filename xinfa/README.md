@@ -121,6 +121,42 @@ missing-node rejection, duplicate rejection, and fail-closed conflicting
 authority. This fixture and the reference implementation run in
 `./shifu xinfa:check` and the standalone extraction.
 
+## Context-quality qualification
+
+[`context-quality-corpus-v1.json`](fixtures/golden/context-quality-corpus-v1.json)
+is the versioned gold corpus for bounded Agent context. It currently covers 31
+tasks, eleven non-isomorphic route families, and six scenario families. Every case
+declares structured route intent, critical and optional source oracles, a token
+budget, and a maximum expansion bound. The corpus checker freezes the breadth
+and quality ratchets; it rejects all-surface fallback routes and any silent
+threshold weakening.
+
+The deterministic qualifier resolves the task envelope and compiles a bounded
+context through the public Xinfa CLI. It measures critical-source recall,
+required omissions, irrelevant-context token ratio, ambiguity, degradation,
+stale-root detection, human correction, fallback, token cost, and expansion
+hops. It also injects a stale Atlas root, unknown required authority, and a
+one-token budget for every case. No LLM or embedding judge decides correctness.
+
+To reproduce the retained
+[`context-quality-v1.json`](qualification/context-quality-v1.json) receipt
+against an already verified Atlas:
+
+```sh
+node xinfa/tooling/check-context-quality-corpus.mjs
+node xinfa/tooling/qualify-context-quality.mjs \
+  --xinfa xinfa/target/debug/xinfa \
+  --atlas <verified-atlas> \
+  --corpus xinfa/fixtures/golden/context-quality-corpus-v1.json \
+  --actor context-quality-v1 \
+  --output xinfa/qualification/context-quality-v1.json
+```
+
+The repository CI runs the same end-to-end proof from a clean checkout with
+`node scripts/qualify-xinfa-context-quality.mjs --check`; it first compiles the
+current tracked Documentation Atlas and then requires the newly generated
+receipt bytes to equal the retained receipt.
+
 ## Development and standalone proof
 
 Use the repository entrypoint while Xinfa is incubated here:

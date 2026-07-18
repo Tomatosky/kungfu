@@ -13,6 +13,7 @@
     "schema-set-manifest-v1.json",
     "fixtures/golden/projection-scenarios-v1.json",
     "fixtures/golden/go-route-corpus-v1.json",
+    "fixtures/golden/context-quality-corpus-v1.json",
     "fixtures/golden/repository-small-atlas-v1.json",
     "fixtures/golden/repository-small-pack-v1.json",
     "fixtures/golden/route-root-authority-v1.json",
@@ -56,6 +57,7 @@
     "fixtures/repository-small/src/runtime.rs",
     "fixtures/terminology/atlas-project-and-primitive-v1.json",
     "qualification/go-route-resolution-v1.json",
+    "qualification/context-quality-v1.json",
     "schema/atlas-manifest-v1.schema.json",
     "schema/atlas-receipt-v1.schema.json",
     "schema/atlas-v1.schema.json",
@@ -85,6 +87,8 @@
     "src/semantic_project.rs",
     "tooling/check-schema-set.mjs",
     "tooling/check-schema-set.test.mjs",
+    "tooling/check-context-quality-corpus.mjs",
+    "tooling/qualify-context-quality.mjs",
     "tooling/qualify-route-resolver.mjs"
   ]
 }

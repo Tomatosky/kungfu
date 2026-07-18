@@ -120,9 +120,10 @@ test('emits KFD-1 contract evidence for registered surfaces', () => {
     'upgrade',
     'agent-session',
     'agent-work-state',
+    'fact-cut-kernel',
   ]);
-  assert.equal(data.summary.count, 9);
-  assert.equal(data.contracts.length, 9);
+  assert.equal(data.summary.count, 10);
+  assert.equal(data.contracts.length, 10);
   for (const contract of data.contracts) {
     assert.match(contract.contract.sourceHash, /^sha256:[0-9a-f]{64}$/);
     assert.match(contract.contract.renderedHash, /^sha256:[0-9a-f]{64}$/);
@@ -160,6 +161,7 @@ test('prints the agent-first canonical policy from upstream KFD and Buildchain m
       'upgrade',
       'agent-session',
       'agent-work-state',
+      'fact-cut-kernel',
     ],
   );
   for (const surface of data.surfaces) {
@@ -191,6 +193,7 @@ test('emits a Buildchain KFD-1 contract-world witness for registered surfaces', 
       'kungfu-product-upgrade',
       'kungfu-agent-session',
       'kungfu-agent-work-state',
+      'kungfu-fact-cut-kernel',
     ],
   );
 });
@@ -210,6 +213,7 @@ test('audits the contract world as current and Buildchain-release-gate compatibl
   assert.deepEqual(
     data.contracts.map((contract) => contract.status),
     [
+      'current',
       'current',
       'current',
       'current',

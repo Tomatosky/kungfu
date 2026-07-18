@@ -1398,14 +1398,14 @@
     {
       "path": ".github/workflows/shifu-ci.yml",
       "authority": "qualification",
-      "definitionDigest": "sha256:1baad0888703e46697805886f3e35f5e858bb5766aaa918a204019d723f28ec1",
+      "definitionDigest": "sha256:8df8f9355414f885fde3da84dc7b07023445ee7a0a7dd9b1d32bef5d159cbccf",
       "jobs": [
         {
           "id": "check",
           "authority": "qualification",
           "publication": "none",
           "receipt": "diagnostic",
-          "definitionDigest": "sha256:9561978feacb91127ec30a66241dfa7abbb3c51daaf62482322763d1e7344e87",
+          "definitionDigest": "sha256:f618105235ca8b4a7c8e9329c3c98436a818bf559de32025e718e1432dcafac8",
           "credentials": {
             "githubToken": "read",
             "oidc": false,
@@ -1453,6 +1453,18 @@
               "label": "name:Verify Xinfa producer contracts (Windows)",
               "authority": "qualification",
               "definitionDigest": "sha256:cf18195970fdb8eb168be74c0c3affcd71b0951a12e6b901f3573e1e9cd2b566"
+            },
+            {
+              "index": 7,
+              "label": "name:Qualify repository context quality (POSIX)",
+              "authority": "qualification",
+              "definitionDigest": "sha256:c374ee36eff61fa55741ed99fdb994ff3dc78fdee52c0bdd9b3f7a3500718507"
+            },
+            {
+              "index": 8,
+              "label": "name:Qualify repository context quality (Windows)",
+              "authority": "qualification",
+              "definitionDigest": "sha256:80f3c187a20ae685904dea5732bf0bce3f43779e40eb59d4d7a19855df31bb58"
             }
           ]
         }
