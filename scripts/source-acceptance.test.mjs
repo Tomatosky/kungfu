@@ -159,6 +159,14 @@ test('source plan covers representative source-only checks', () => {
   assert.ok(labels.includes('Project Cut contract'));
   assert.ok(labels.includes('Project Cut settlement contract'));
   assert.ok(labels.includes('durability production-candidate admission'));
+  assert.ok(labels.includes('Buildchain KFD release evidence'));
+  const kfdEvidence = plan.find(
+    (step) => step.label === 'Buildchain KFD release evidence',
+  );
+  assert.deepEqual(kfdEvidence.args, [
+    'scripts/buildchain-kfd-evidence.mjs',
+    '--check',
+  ]);
   const typeBaseline = plan.find(
     (step) => step.label === 'Python type baseline',
   );

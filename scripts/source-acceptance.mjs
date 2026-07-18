@@ -235,6 +235,11 @@ export function sourceAcceptancePlan(files) {
       'durability production-candidate admission',
       'scripts/check-durability-production-candidate.mjs',
     ],
+    [
+      'Buildchain KFD release evidence',
+      'scripts/buildchain-kfd-evidence.mjs',
+      '--check',
+    ],
     ['Shifu version sync', 'scripts/sync-shifu-version.mjs', '--check'],
     ['documentation contracts', 'scripts/run-docs-source-check.mjs'],
   ];
