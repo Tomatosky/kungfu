@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -31,6 +32,61 @@ function materialize(inventory) {
   );
   assert.equal(result.status, 0, result.stderr);
   return JSON.parse(result.stdout).project;
+}
+
+function materializeFailure(inventory) {
+  const result = spawnSync(
+    XINFA,
+    ['project', 'materialize', '--inventory', '-', '--json'],
+    { cwd: ROOT, input: JSON.stringify(inventory), encoding: 'utf8' },
+  );
+  assert.notEqual(result.status, 0, 'tampered inventory must be rejected');
+  return result.stderr;
+}
+
+function canonical(value) {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(
+    Object.keys(value)
+      .sort()
+      .map((key) => [key, canonical(value[key])]),
+  );
+}
+
+function inventoryRoot(inventory) {
+  const entries = inventory.entries.map(
+    ({
+      id,
+      path,
+      kind,
+      classification,
+      lifecycle,
+      visibility,
+      owner,
+      waiver,
+      contentRoot,
+      size,
+    }) => ({
+      id,
+      path,
+      kind,
+      classification,
+      lifecycle,
+      visibility,
+      owner,
+      waiver,
+      contentRoot,
+      size,
+    }),
+  );
+  const value = {
+    policyRoot: inventory.policy.root,
+    entries,
+    bindings: inventory.bindings,
+  };
+  const bytes = `${JSON.stringify(canonical(value))}\n`;
+  return `sha256:${crypto.createHash('sha256').update(bytes).digest('hex')}`;
 }
 const FIXTURE_COMPATIBILITY = [
   {
@@ -73,7 +129,15 @@ test('human surface inventory and Xinfa submission are deterministic', () => {
     first.entries.length +
       new Set(first.bindings.map((binding) => binding.targetId)).size,
   );
-  assert.deepEqual(project.routes[0].nodes, project.routes[1].nodes);
+  for (const parityGroup of new Set(
+    project.routes.map((route) => route.parityGroup),
+  )) {
+    const paired = project.routes.filter(
+      (route) => route.parityGroup === parityGroup,
+    );
+    assert.equal(paired.length, 2);
+    assert.deepEqual(paired[0].nodes, paired[1].nodes);
+  }
   assert.deepEqual(
     first.parityGroups.map((group) => group.id),
     [
@@ -94,6 +158,31 @@ test('human surface inventory and Xinfa submission are deterministic', () => {
     ),
   );
   assert.match(project.providers[0].revision, /^sha256:[0-9a-f]{64}$/);
+});
+
+test('Xinfa derives semantic nodes and rejects an unverified inventory root', () => {
+  const inventory = buildHumanSurfaceInventory({ root: ROOT });
+  assert.ok(
+    inventory.entries.every((entry) => !Object.hasOwn(entry, 'node')),
+    'the exact inventory adapter must not construct semantic node identities',
+  );
+  const project = materialize(inventory);
+  const first = inventory.entries[0];
+  const node = project.nodes.find(
+    (candidate) => candidate.source?.path === first.path,
+  );
+  assert.match(node.id, /^surface\.[0-9a-f]{24}$/);
+
+  const tampered = structuredClone(inventory);
+  tampered.inventoryRoot = `sha256:${'0'.repeat(64)}`;
+  assert.match(materializeFailure(tampered), /inventory root mismatch/);
+
+  const injected = structuredClone(inventory);
+  injected.entries[0].node = 'surface.reviewer-controlled-node';
+  assert.match(
+    materializeFailure(injected),
+    /must not submit a semantic node identity/,
+  );
 });
 
 test('Xinfa Agent discovery closes repository, installed-pack, and dual-first routes', () => {
@@ -406,21 +495,25 @@ test('implementation revision drift is preserved as a Xinfa document dependency 
         : candidate,
     ),
   };
+  drifted.inventoryRoot = inventoryRoot(drifted);
   const project = materialize(drifted);
   const document = inventory.entries.find(
     (entry) =>
       entry.path === binding.documentPath && entry.kind === 'document-file',
   );
+  const documentNode = project.nodes.find(
+    (node) => node.source?.path === document.path,
+  );
   const target = project.nodes.find((node) => node.id === binding.targetId);
   const dependency = project.nodes
-    .find((node) => node.id === document.node)
+    .find((node) => node.id === documentNode.id)
     .verification.dependencies.find((item) => item.node === binding.targetId);
 
   assert.equal(target.revision, `sha256:${'0'.repeat(64)}`);
   assert.equal(dependency.expectedRevision, binding.expectedRevision);
   assert.notEqual(dependency.expectedRevision, target.revision);
   const affectedRoutes = project.routes.filter((route) =>
-    route.nodes.includes(document.node),
+    route.nodes.includes(documentNode.id),
   );
   assert.ok(affectedRoutes.length >= 2);
   assert.ok(

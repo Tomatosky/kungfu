@@ -157,11 +157,6 @@ function readSurface(root, relative) {
   };
 }
 
-/** @param {string} id @returns {string} */
-function nodeIdentity(id) {
-  return `surface.${crypto.createHash('sha256').update(id).digest('hex').slice(0, 24)}`;
-}
-
 /** @param {any} policy @returns {Map<string, any>} */
 function validatePolicy(policy) {
   exactKeys(
@@ -304,7 +299,6 @@ export function buildHumanSurfaceInventory({
     }
     entries.push({
       id: `file:${relative}`,
-      node: nodeIdentity(`file:${relative}`),
       path: relative,
       kind: 'document-file',
       classification: classification.id,
@@ -335,7 +329,6 @@ export function buildHumanSurfaceInventory({
       );
     entries.push({
       id: `explicit:${surface.id}`,
-      node: nodeIdentity(`explicit:${surface.id}`),
       path: relative,
       kind: surface.kind,
       classification: classification.id,
@@ -348,7 +341,9 @@ export function buildHumanSurfaceInventory({
       ...readSurface(root, relative),
     });
   }
-  entries.sort((left, right) => left.id.localeCompare(right.id, 'en'));
+  entries.sort((left, right) =>
+    left.id < right.id ? -1 : left.id > right.id ? 1 : 0,
+  );
   const entryIds = new Set();
   for (const entry of entries) {
     if (entryIds.has(entry.id))
@@ -424,6 +419,9 @@ export function buildHumanSurfaceInventory({
       throw new Error(`duplicate binding: ${binding.id}`);
     bindingIds.add(binding.id);
   }
+  bindings.sort((left, right) =>
+    left.id < right.id ? -1 : left.id > right.id ? 1 : 0,
+  );
   const providerPaths = new Set([
     ...entries.map((entry) => entry.path),
     ...bindings.map((/** @type {any} */ binding) => binding.targetPath),
@@ -433,7 +431,6 @@ export function buildHumanSurfaceInventory({
     entries: entries.map(
       ({
         id,
-        node,
         path: source,
         kind,
         classification,
@@ -445,7 +442,6 @@ export function buildHumanSurfaceInventory({
         size,
       }) => ({
         id,
-        node,
         path: source,
         kind,
         classification,

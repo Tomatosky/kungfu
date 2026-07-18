@@ -1,11 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{digest, validate_project_bytes_with_validity};
 
 pub const SURFACE_INVENTORY_VERSION: &str = "shifu.documentation-surface-inventory/v1";
+
+fn node_identity(id: &str) -> String {
+    let digest = format!("{:x}", Sha256::digest(id.as_bytes()));
+    format!("surface.{}", &digest[..24])
+}
 
 fn array<'a>(value: &'a Value, key: &str) -> Result<&'a Vec<Value>, String> {
     value
@@ -155,15 +161,70 @@ pub fn materialize_surface_inventory_bytes(bytes: &[u8], source: &str) -> Result
         ));
     }
     let project_id = text(&inventory, "project")?;
-    let inventory_root = text(&inventory, "inventoryRoot")?;
-    let entries = array(&inventory, "entries")?;
-    let bindings = array(&inventory, "bindings")?;
-    let routes = array(&inventory, "routes")?;
-    validate_route_declarations(routes)?;
+    let declared_inventory_root = text(&inventory, "inventoryRoot")?;
+    let mut entries = array(&inventory, "entries")?.clone();
+    entries.sort_by(|left, right| {
+        left.get("id")
+            .and_then(Value::as_str)
+            .cmp(&right.get("id").and_then(Value::as_str))
+    });
+    let mut bindings = array(&inventory, "bindings")?.clone();
+    bindings.sort_by(|left, right| {
+        left.get("id")
+            .and_then(Value::as_str)
+            .cmp(&right.get("id").and_then(Value::as_str))
+    });
+    let mut routes = array(&inventory, "routes")?.clone();
+    routes.sort_by(|left, right| {
+        left.get("id")
+            .and_then(Value::as_str)
+            .cmp(&right.get("id").and_then(Value::as_str))
+    });
+    validate_route_declarations(&routes)?;
+
+    let policy_root = text(
+        inventory
+            .get("policy")
+            .ok_or_else(|| "semantic project inventory requires policy".to_owned())?,
+        "root",
+    )?;
+    let inventory_entries = entries
+        .iter()
+        .map(|entry| {
+            let id = text(entry, "id")?;
+            if entry.get("node").is_some() {
+                return Err(format!(
+                    "surface {id} must not submit a semantic node identity"
+                ));
+            }
+            Ok(json!({
+                "id": id,
+                "path": text(entry, "path")?,
+                "kind": text(entry, "kind")?,
+                "classification": text(entry, "classification")?,
+                "lifecycle": text(entry, "lifecycle")?,
+                "visibility": text(entry, "visibility")?,
+                "owner": text(entry, "owner")?,
+                "waiver": entry.get("waiver").cloned().ok_or_else(|| format!("surface {id} requires waiver"))?,
+                "contentRoot": text(entry, "contentRoot")?,
+                "size": entry.get("size").cloned().ok_or_else(|| format!("surface {id} requires size"))?
+            }))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    let inventory_root = digest(&json!({
+        "policyRoot": policy_root,
+        "entries": inventory_entries,
+        "bindings": &bindings
+    }));
+    if declared_inventory_root != inventory_root {
+        return Err(format!(
+            "semantic project inventory root mismatch: declared {declared_inventory_root}, computed {inventory_root}"
+        ));
+    }
 
     let mut paths = BTreeSet::new();
     let mut entry_by_path = BTreeMap::new();
-    for entry in entries {
+    for entry in &entries {
         let path = text(entry, "path")?;
         if entry_by_path.insert(path, entry).is_some() {
             return Err(format!("duplicate semantic project surface path: {path}"));
@@ -171,7 +232,7 @@ pub fn materialize_surface_inventory_bytes(bytes: &[u8], source: &str) -> Result
         paths.insert(path);
     }
     let mut binding_by_path = BTreeMap::new();
-    for binding in bindings {
+    for binding in &bindings {
         let target = text(binding, "targetPath")?;
         binding_by_path.entry(target).or_insert(binding);
         paths.insert(target);
@@ -187,8 +248,8 @@ pub fn materialize_surface_inventory_bytes(bytes: &[u8], source: &str) -> Result
 
     let mut nodes = Vec::new();
     let mut node_ids = BTreeSet::new();
-    for entry in entries {
-        let node = text(entry, "node")?;
+    for entry in &entries {
+        let node = node_identity(text(entry, "id")?);
         if !node_ids.insert(node.to_owned()) {
             return Err(format!("duplicate semantic project node: {node}"));
         }
@@ -204,7 +265,7 @@ pub fn materialize_surface_inventory_bytes(bytes: &[u8], source: &str) -> Result
             "verification": {"mode": mode, "status": status, "dependencies": dependencies, "waiver": null}
         }));
     }
-    for binding in bindings {
+    for binding in &bindings {
         let target = text(binding, "targetId")?;
         if node_ids.insert(target.to_owned()) {
             nodes.push(json!({
@@ -220,7 +281,7 @@ pub fn materialize_surface_inventory_bytes(bytes: &[u8], source: &str) -> Result
         let binding_id = text(binding, "id")?;
         let document = entry_by_path.get(document_path).filter(|entry| entry.get("kind").and_then(Value::as_str) == Some("document-file"))
             .ok_or_else(|| format!("binding {binding_id} has no file document node"))?;
-        Ok(json!({"from": text(document, "node")?, "relation": text(binding, "relation")?, "to": text(binding, "targetId")?}))
+        Ok(json!({"from": node_identity(text(document, "id")?), "relation": text(binding, "relation")?, "to": text(binding, "targetId")?}))
     }).collect::<Result<Vec<_>, String>>()?;
 
     let all_nodes: Vec<String> = node_ids.into_iter().collect();
@@ -232,8 +293,8 @@ pub fn materialize_surface_inventory_bytes(bytes: &[u8], source: &str) -> Result
             "exact" => {
                 let selected_paths: BTreeSet<&str> = array(selection, "paths")?.iter().map(|value| value.as_str().ok_or_else(|| "route selection path must be a string".to_owned())).collect::<Result<_, _>>()?;
                 let mut selected = BTreeSet::new();
-                for entry in entries { if selected_paths.contains(text(entry, "path")?) { selected.insert(text(entry, "node")?.to_owned()); } }
-                for binding in bindings { if selected_paths.contains(text(binding, "documentPath")?) { selected.insert(text(binding, "targetId")?.to_owned()); } }
+                for entry in &entries { if selected_paths.contains(text(entry, "path")?) { selected.insert(node_identity(text(entry, "id")?)); } }
+                for binding in &bindings { if selected_paths.contains(text(binding, "documentPath")?) { selected.insert(text(binding, "targetId")?.to_owned()); } }
                 selected.into_iter().collect()
             }
             mode => return Err(format!("unsupported route selection mode: {mode}")),

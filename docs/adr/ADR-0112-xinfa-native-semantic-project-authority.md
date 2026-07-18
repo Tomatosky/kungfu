@@ -28,7 +28,7 @@ last_reviewed: 2026-07-18
 
 The project owns discovery, classification, binding, route intent, and compatibility declarations in `.xinfa/project.json`. Xinfa owns the deterministic conversion of an exact inventory into `xinfa.project/v1`, including node and edge construction, provider revision, route selection, parity validation through the project compiler, and project roots.
 
-Shifu is a thin host adapter. It may enumerate tracked files, reject unsafe paths, read exact bytes, and submit the resulting inventory through the public `xinfa project materialize` command. It must not independently construct a Xinfa graph or calculate a semantic project root.
+Shifu is a thin host adapter. It may enumerate tracked files, reject unsafe paths, read exact bytes, and submit the resulting inventory through the public `xinfa project materialize` command. Its inventory may carry a claimed exact-inventory root for transport integrity, but it carries no semantic node identity: Xinfa derives every node and independently recomputes the inventory root before using it. A node injection or root mismatch fails closed. Shifu must not independently construct a Xinfa graph or calculate a semantic project root.
 
 The former `shifu.documentation.surfaces.json` surface remains only as an explicit compatibility alias. The previous small dogfood project is retained separately as `.xinfa/dogfood-project.json` so standalone qualification does not compete with the repository semantic declaration.
 
@@ -44,4 +44,4 @@ The former `shifu.documentation.surfaces.json` surface remains only as an explic
 
 ## Compatibility and falsification
 
-The migration is invalid if the native materializer differs from the retained pre-migration transformation for the same exact inventory, if Shifu regains graph-building logic, if the compatibility alias contains independent declarations, or if standalone/direct/Shifu Atlas roots diverge.
+The migration is invalid if Shifu submits node identities, if Xinfa accepts a mismatched inventory root, if Shifu regains graph-building logic, if the compatibility alias contains independent declarations, or if standalone/direct/Shifu Atlas roots diverge. The retained compatibility oracle compares the semantic result after Xinfa-native node derivation; exact-inventory transport fields are not themselves semantic authority.
