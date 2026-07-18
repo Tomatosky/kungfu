@@ -137,14 +137,34 @@ echo shifu: xinfa tasks need node -- install fnm or any system node 1>&2
 exit /b 127
 
 :xinfaquality
-shift
+set "_XINFA_QUALITY_MODE=--check"
+if "%~2"=="" goto xinfaqualityrun
+if /i "%~2"=="--check" goto xinfaqualityargs
+if /i "%~2"=="--write" (
+  set "_XINFA_QUALITY_MODE=--write"
+  goto xinfaqualityargs
+)
+echo shifu: usage: shifu.cmd xinfa:quality [--check^|--write] 1>&2
+exit /b 1
+
+:xinfaqualityargs
+if not "%~3"=="" (
+  echo shifu: usage: shifu.cmd xinfa:quality [--check^|--write] 1>&2
+  exit /b 1
+)
+
+:xinfaqualityrun
 where fnm >nul 2>nul && (
   fnm install >nul 2>nul
-  fnm exec --using-file -- node "%~dp0scripts\qualify-xinfa-context-quality.mjs" %*
+  fnm exec --using-file -- node "%~dp0xinfa\tooling\task.mjs" build
+  if errorlevel 1 exit /b !errorlevel!
+  fnm exec --using-file -- node "%~dp0scripts\qualify-xinfa-context-quality.mjs" "%_XINFA_QUALITY_MODE%"
   exit /b !errorlevel!
 )
 where node >nul 2>nul && (
-  node "%~dp0scripts\qualify-xinfa-context-quality.mjs" %*
+  node "%~dp0xinfa\tooling\task.mjs" build
+  if errorlevel 1 exit /b !errorlevel!
+  node "%~dp0scripts\qualify-xinfa-context-quality.mjs" "%_XINFA_QUALITY_MODE%"
   exit /b !errorlevel!
 )
 echo shifu: xinfa quality qualification needs node 1>&2

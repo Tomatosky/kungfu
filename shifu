@@ -256,8 +256,10 @@ case "${1:-}" in
     shift
     if command -v fnm >/dev/null 2>&1; then
       fnm install >/dev/null 2>&1 || true
+      fnm exec --using-file -- node ./xinfa/tooling/task.mjs build
       exec fnm exec --using-file -- node ./scripts/qualify-xinfa-context-quality.mjs "$@"
     elif command -v node >/dev/null 2>&1; then
+      node ./xinfa/tooling/task.mjs build
       exec node ./scripts/qualify-xinfa-context-quality.mjs "$@"
     else
       echo "shifu: xinfa quality qualification needs node" >&2
