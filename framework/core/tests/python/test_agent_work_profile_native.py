@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import importlib.util
+import json
 
 import pytest
 
@@ -21,6 +23,13 @@ ROCKS = "rocksdb"
 
 def _root(digit: str) -> str:
     return "sha256:" + digit * 64
+
+
+def _reroot_bundle(bundle):
+    material = copy.deepcopy(bundle)
+    material.pop("bundleRoot", None)
+    raw = json.dumps(material, sort_keys=True, separators=(",", ":"))
+    bundle["bundleRoot"] = "sha256:" + hashlib.sha256(raw.encode()).hexdigest()
 
 
 def _request():
@@ -203,6 +212,33 @@ def test_native_profile_authority_bundle_restores_clean_home_exactly(tmp_path):
     )
     assert resumed["status"] == "accepted", resumed
     assert resumed["result"]["revision"] == 3
+
+
+def test_native_profile_authority_import_preflights_all_operations_before_writing(
+    tmp_path,
+):
+    source = tmp_path / "source"
+    destination = tmp_path / "destination"
+    request = _request()
+    created = work_profile.apply_action(source, request, execute=True)
+    work_profile.apply_action(
+        source,
+        _successor_request(created, action_id="source-continuation"),
+        execute=True,
+    )
+    bundle = copy.deepcopy(work_profile.export_authority(source)["result"]["bundle"])
+
+    # The outer bundle root is valid, but a later operation is not executable.
+    # Earlier implementations discovered this only after prior records landed.
+    bundle["operations"][1]["action"] = "unsupported-import-operation"
+    bundle["operations"][1]["request"]["action"] = "unsupported-import-operation"
+    _reroot_bundle(bundle)
+
+    rejected = work_profile.import_authority(destination, bundle, execute=True)
+    assert rejected["ok"] is False
+    assert rejected["failure_code"] == "import-preflight-operation-mismatch"
+    assert rejected["write_occurred"] is False
+    assert work_profile.inspect(destination, request["refName"])["status"] == "absent"
 
 
 def test_native_profile_backend_switch_and_rollback_preserve_five_role_identity(
