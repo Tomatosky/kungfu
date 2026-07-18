@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0109
 decision_status: accepted
 implementation_status: staged
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1026, https://github.com/kungfu-systems/kungfu/pull/1079]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1026, https://github.com/kungfu-systems/kungfu/pull/1079, https://github.com/kungfu-systems/kungfu/pull/1081]
 qualification_refs: [framework/agent-work/kungfu-agent-work-state.contract.json, scripts/check-agent-work-state-contract.test.mjs, framework/core/tests/python/test_agent_work_state_contract.py, framework/core/src/python/kungfu/agent/kfd3_api.registry.json]
 review_state: self-reviewed
 sensitivity: public

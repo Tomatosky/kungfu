@@ -16,7 +16,7 @@
       "pointer": {
         "kind": "file",
         "path": "docs/adr/ADR-0109-four-object-agent-work-state-contract.md",
-        "sha256": "3a64520e737261ecf31ddccfd29d915d45dabec72237b562892bc8f7613cc1b4"
+        "sha256": "f14305861d5b7a697fbb7acb380a2849569cbef42d26eb6a9953a649b724d26f"
       },
       "description": "Accepted role-separation decision and bounded P17 qualification boundary."
     },
@@ -54,7 +54,7 @@
     "evidenceSha256": [
       {
         "path": "docs/adr/ADR-0109-four-object-agent-work-state-contract.md",
-        "sha256": "3a64520e737261ecf31ddccfd29d915d45dabec72237b562892bc8f7613cc1b4"
+        "sha256": "f14305861d5b7a697fbb7acb380a2849569cbef42d26eb6a9953a649b724d26f"
       },
       {
         "path": "scripts/check-agent-work-state-contract.test.mjs",
