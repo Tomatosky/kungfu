@@ -7,6 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { sourceCommandArguments } from '../xinfa/tooling/source-command-arguments.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SHIFU = path.join(ROOT, 'shifu');
@@ -18,6 +19,17 @@ test('Windows source resolver tail-delegates without CALL re-expansion', () => {
   );
   assert.doesNotMatch(source, /\bcall\b/i);
   assert.match(source, /"%~dp0\.\.\\\.\.\\shifu\.cmd" xinfa %\*/i);
+});
+
+test('Windows source consumers preserve paths and task text as argv items', () => {
+  assert.deepEqual(
+    sourceCommandArguments(
+      'C:\\repo\\xinfa\\tooling\\source-xinfa.cmd',
+      ['context', '--task', 'deterministic source action', '--json'],
+      'win32',
+    ),
+    ['"context"', '"--task"', '"deterministic source action"', '"--json"'],
+  );
 });
 
 function fixture(body) {
