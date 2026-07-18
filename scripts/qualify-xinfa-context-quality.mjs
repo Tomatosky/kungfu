@@ -3,6 +3,7 @@
 // @ts-check
 
 import { spawnSync } from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -35,6 +36,49 @@ const RETAINED = path.join(
   'qualification',
   'context-quality-v1.json',
 );
+
+/** @param {unknown} value */
+function canonical(value) {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(
+    Object.keys(value)
+      .sort()
+      .map((key) => [key, canonical(value[key])]),
+  );
+}
+
+/** @param {unknown} value */
+function digest(value) {
+  return `sha256:${crypto
+    .createHash('sha256')
+    .update(`${JSON.stringify(canonical(value))}\n`)
+    .digest('hex')}`;
+}
+
+/** @param {any} retained @param {any} current */
+export function verifyRetainedReceipt(retained, current) {
+  if (retained.schema !== 'xinfa.context-quality-qualification/v1')
+    throw new Error('retained context-quality receipt schema is invalid');
+  const { qualification_root: claimedRoot, ...content } = retained;
+  if (claimedRoot !== digest(content))
+    throw new Error('retained context-quality receipt root is invalid');
+  if (retained.verdict !== 'pass')
+    throw new Error('retained context-quality receipt is not passing');
+  if (retained.actor !== current.actor)
+    throw new Error('retained context-quality actor drifted');
+  if (retained.corpus_root !== current.corpus_root)
+    throw new Error(
+      'retained context-quality corpus drifted; run with --write',
+    );
+  if (
+    JSON.stringify(canonical(retained.thresholds)) !==
+    JSON.stringify(canonical(current.thresholds))
+  )
+    throw new Error(
+      'retained context-quality thresholds drifted; run with --write',
+    );
+}
 
 /** @param {string} command @param {string[]} args */
 function runJson(command, args) {
@@ -104,13 +148,20 @@ function main() {
       throw new Error('context-quality qualification failed');
     const expected = fs.readFileSync(generated);
     if (write) fs.writeFileSync(RETAINED, expected);
-    if (
-      check &&
-      (!fs.existsSync(RETAINED) || !fs.readFileSync(RETAINED).equals(expected))
-    )
-      throw new Error(
-        'retained context-quality receipt drifted; run with --write',
-      );
+    if (check) {
+      if (!fs.existsSync(RETAINED))
+        throw new Error('retained context-quality receipt is missing');
+      const retainedBytes = fs.readFileSync(RETAINED);
+      const retained = JSON.parse(retainedBytes.toString('utf8'));
+      verifyRetainedReceipt(retained, receipt);
+      if (
+        retained.atlas_root === receipt.atlas_root &&
+        !retainedBytes.equals(expected)
+      )
+        throw new Error(
+          'retained context-quality receipt drifted for the same Atlas root; run with --write',
+        );
+    }
     process.stdout.write(
       `[xinfa-quality] cases=${receipt.metrics.cases} routes=${receipt.metrics.route_families} atlas=${receipt.atlas_root} root=${receipt.qualification_root}\n`,
     );
@@ -119,11 +170,13 @@ function main() {
   }
 }
 
-try {
-  main();
-} catch (error) {
-  console.error(
-    `[xinfa-quality] ${error instanceof Error ? error.message : String(error)}`,
-  );
-  process.exitCode = 1;
+if (path.resolve(process.argv[1] || '') === fileURLToPath(import.meta.url)) {
+  try {
+    main();
+  } catch (error) {
+    console.error(
+      `[xinfa-quality] ${error instanceof Error ? error.message : String(error)}`,
+    );
+    process.exitCode = 1;
+  }
 }
