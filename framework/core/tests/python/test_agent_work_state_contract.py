@@ -442,6 +442,11 @@ def test_kfd7_profile_capabilities_and_typed_responsibility_gap():
     capabilities = work_profile.capabilities()
     assert capabilities["roles"] == ["fact", "episode", "pursuit", "atlas", "warrant"]
     assert "stale-ref" in capabilities["denials"]
+    assert capabilities["recovery"]["projectionRebuild"]["identity"] == "preserved"
+    assert (
+        capabilities["recovery"]["cleanHome"]["lossCode"]
+        == "profile-authority-unavailable"
+    )
     request = _profile_request()
     del request["responsibilities"]["warrant"]
 

@@ -94,9 +94,28 @@ the installed product rather than relying on this summary:
 
 ```sh
 kungfu agent work-model --json
+kungfu agent work capabilities --json
+kungfu agent work inspect --ref profiles/work/main --json
 kungfu contract show agent-work-state --json
 kungfu agent capabilities --json
 ```
+
+The provisional KFD-7 Product Profile adds an independently queryable Fact
+mapping beside Pursuit, Atlas, Warrant, and Episode. Every mutation uses
+`kungfu.kfd7.profile-action/v1` and returns
+`kungfu.kfd7.profile-action-receipt/v1`; the same installed CLI path is used
+by Python, Node, Agent, and GUI adapters. Product transition names remain an
+outer-ring vocabulary and map to KFD-7's closed action geometry in
+[`kungfu-kfd-7-action-contract.json`](../../framework/agent-work/kungfu-kfd-7-action-contract.json).
+The declaration is provisional and non-qualifying until dogfood, migration,
+artifact, and independent-review evidence close.
+
+Projection rebuild is supported from the native Fact journal plus verified
+body bytes. A clean home without a qualified Fact export reports
+`profile-authority-unavailable`; export/import remains explicit loss until a
+Fact bundle that preserves the journal, body namespace, refs, and exact Cuts
+is qualified. Backend switching is delegated to the existing storage service
+and must conserve those identities.
 
 The generic contract query is the KFD-1 route to the welded fact. The
 agent-specific work-model and capabilities commands are KFD-3 collaboration

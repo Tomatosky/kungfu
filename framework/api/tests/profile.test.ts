@@ -32,6 +32,49 @@ test('Profile capability uses the installed Agent Profile CLI path', async () =>
   ]);
 });
 
+test('Work Profile parity uses the same installed action contract', async () => {
+  const calls: string[][] = [];
+  const profile = openProfile({
+    runtimeDir: '/runtime',
+    execFileSync: (_file, args) => {
+      calls.push(args);
+      return JSON.stringify({
+        schema: 'kungfu.kfd7.profile-action-receipt/v1',
+        actionId: 'continue-1',
+        status: 'planned',
+        failureCode: null,
+      });
+    },
+  });
+  const request = {
+    schema: 'kungfu.kfd7.profile-action/v1',
+    actionId: 'continue-1',
+  };
+  const encoded = Buffer.from(JSON.stringify(request), 'utf8').toString(
+    'base64',
+  );
+
+  profile.workCapabilities();
+  profile.workInspect('profiles/work/main');
+  profile.workAction(request);
+  profile.workAction(request, true);
+
+  assert.deepEqual(calls, [
+    ['agent', 'work', 'capabilities', '--json'],
+    ['agent', 'work', 'inspect', '--ref', 'profiles/work/main', '--json'],
+    ['agent', 'work', 'action', '--input-base64', encoded, '--json'],
+    [
+      'agent',
+      'work',
+      'action',
+      '--input-base64',
+      encoded,
+      '--execute',
+      '--json',
+    ],
+  ]);
+});
+
 test('Profile plans preserve source and exact active-root intent', () => {
   const calls: string[][] = [];
   const profile = openProfile({
