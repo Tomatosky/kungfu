@@ -861,10 +861,8 @@ nlohmann::json episode_fsck_impl(const storage_service_options &options) {
   return render_storage_fsck_result(default_storage_service().fsck(parse_storage_fsck_request(options)));
 }
 
-// ADR-0053: collect the bytes the Episode owns — whole frames from the
-// claimed event journals, payload bytes from the content store — so the
-// bundle is a migration/recovery unit, not a receipt listing. Material the
-// source itself no longer has is counted, never invented.
+// ADR-0053: collect whole Episode frames and content-store payload bytes as one migration/recovery unit.
+// Missing source material is counted, never invented.
 void collect_episode_bundle_material(const storage_service_options &options, storage_episode_bundle_result &bundle) {
   namespace yjj = kungfu::yijinjing;
   bundle.self_contained = true;
@@ -1526,8 +1524,7 @@ nlohmann::json render_storage_episode_bundle_result(const storage_episode_bundle
   if (!result.self_contained) {
     return rendered;
   }
-  // ADR-0053: the owned bytes travel with the bundle; binary material is
-  // base64 at this JSON edge only.
+  // ADR-0053: bundle-owned bytes use base64 only at the JSON edge.
   rendered["self_contained"] = true;
   nlohmann::json journals = nlohmann::json::array();
   for (const auto &journal : result.journals) {
@@ -2633,7 +2630,6 @@ nlohmann::json content_result_json(const yy_storage::content_store_result &resul
 
 namespace {
 
-// Accept "<algo>:<hex>" or bare hex, mirroring the kernel's ref resolution.
 bool parse_content_hash_text(const std::string &text, yy_storage::content_hash &hash, std::string &message) {
   try {
     hash = text.find(':') != std::string::npos ? yy_storage::parse_content_hash(text)
@@ -2654,9 +2650,7 @@ nlohmann::json invalid_content_hash_json(const std::string &message) {
 
 } // namespace
 
-// ADR-0040 content-store facade: one immutable contract routed through the
-// provider selected for this runtime dir, so file and engine-backed profiles
-// serve Python/Node through the same vocabulary as C++.
+// ADR-0040 routes one immutable content-store contract through the runtime-selected provider.
 nlohmann::json content_store_put_if_absent(const std::string &runtime_dir, const std::string &content_namespace,
                                            const std::string &raw, const std::string &expected_hash) {
   yy_storage::content_hash expected{};
