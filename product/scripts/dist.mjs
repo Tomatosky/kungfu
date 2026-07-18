@@ -1429,6 +1429,16 @@ function runInstalledKungfuActionSmoke({
     if (fs.existsSync(marker)) {
       throw new Error('installed kungfu action used PATH node fallback');
     }
+    if (!(result.stdout || '').trim()) {
+      throw new Error(
+        [
+          'installed kungfu action produced no stdout',
+          result.stderr?.trim() ? `stderr:\n${result.stderr.trim()}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n'),
+      );
+    }
     const data = parseJsonOutput(result.stdout || '', 'kungfu action contract');
     if (
       data.schema !== 'kungfu.action.response/v1' ||

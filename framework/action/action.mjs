@@ -291,7 +291,7 @@ export function parseSingleJsonDocument(text) {
 export function main(argv = process.argv.slice(2), env = process.env) {
   try {
     const response = contractResponse(argv, env);
-    process.stdout.write(`${canonicalJson(response)}\n`);
+    fs.writeSync(process.stdout.fd, `${canonicalJson(response)}\n`);
     return response.exitCode;
   } catch (error) {
     const known = error instanceof ActionKernelError;
@@ -301,7 +301,7 @@ export function main(argv = process.argv.slice(2), env = process.env) {
       code: known ? error.code : 'internal-error',
       message: error instanceof Error ? error.message : String(error),
     };
-    process.stderr.write(`${canonicalJson(failure)}\n`);
+    fs.writeSync(process.stderr.fd, `${canonicalJson(failure)}\n`);
     return known ? error.exitCode : 70;
   }
 }
