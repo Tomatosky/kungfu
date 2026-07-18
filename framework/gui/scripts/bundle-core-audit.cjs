@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Audit/prune the packaged Electron app so the frozen kungfu runtime is shipped
+// Audit/prune the packaged Electron app so the assembled kungfu runtime is shipped
 // exactly once: Contents/Resources/kungfu. Workspace/package-manager layouts can
 // otherwise copy @kungfu-tech/core through nested app dependencies.
 const fs = require('node:fs');

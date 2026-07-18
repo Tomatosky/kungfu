@@ -4,14 +4,25 @@ doc_type: architecture-decision
 adr_id: ADR-0046
 decision_status: accepted
 implementation_status: staged
-review_state: legacy-unreviewed
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/517, https://github.com/kungfu-systems/kungfu/pull/526, https://github.com/kungfu-systems/kungfu/pull/558, https://github.com/kungfu-systems/kungfu/pull/580, https://github.com/kungfu-systems/kungfu/pull/606, https://github.com/kungfu-systems/kungfu/pull/619, https://github.com/kungfu-systems/kungfu/pull/669, https://github.com/kungfu-systems/kungfu/pull/699]
+qualification_refs: [crates/trunk/src/main.rs, crates/trunk/src/help.rs, framework/core/src/python/kungfu/cli/help_manifest.py, framework/core/tests/python/test_cli_help_manifest.py, framework/core/.gyp/run-freeze.js, scripts/verify.mjs]
+review_state: self-reviewed
 sensitivity: public
+sources: [local-files, user-decision]
+period: 2026-07-10
+theme: rust-host-trunk-and-assembled-runtime
+confidence: high
+evidence_grade: B
+last_reviewed: 2026-07-18
 ---
 
 # ADR-0046: Rust host trunk, layered CLI, and the assembled runtime distribution
 
-- Status: accepted (target architecture; adoption is staged — see "Adoption
-  path". Stage boundaries that carry their own decisions get their own ADRs.)
+- Status: accepted; stages 1–3 are integrated on `dev/v4/v4.0`, including the
+  assembled cross-platform runtime, Rust `main()`, native Node/diagnostic paths,
+  and the generated root/help contract. The ADR remains `staged` until an alpha
+  promotion binds full product qualification; development integration alone is
+  not an `implemented` settlement under ADR-0073.
 - Date: 2026-07-10
 - Category: architecture — process host topology, CLI layering law, runtime
   distribution contract
@@ -242,25 +253,33 @@ It is feasibility evidence only and does not authorize or begin Stage 3.
 
 ## Adoption path (each stage independently shippable)
 
-1. **Stage 1 — package capability on the current form.** Land the
+1. **Stage 1 — package capability on the current form (landed: PR #517).** Land the
    launcher-lineage bootstrap in the product (lazy pinned uv, and through it
    the pinned satellite CPython), publish a pykungfu wheel, land the
    kungfu-owned install surface and the wrong-runtime guard, define the
    offline pre-warm installer variant. The frozen host is untouched; users
    get "pip anything into kungfu's exact runtime" via satellite
    environments, and the default installer stays small.
-2. **Stage 2 — assembly replaces freezing.** The host itself runs the
+2. **Stage 2 — assembly replaces freezing (landed: PRs #526, #558, #580).** The host itself runs the
    assembled tree (stdlib pruning policy decided here, in its own record);
    freeze leaves the product path platform by platform (macOS → Linux →
    Windows); verify gates move off the freeze step.
-3. **Stage 3 — the Rust trunk takes `main()`.** Trunk commands migrate per
+3. **Stage 3 — the Rust trunk takes `main()` (landed: PRs #606, #619, #669,
+   #699).** Trunk commands migrate per
    the placement criteria; variant dispatch moves to the trunk (a node-only
    invocation never initializes Python); the embedding export surface lands.
 
-Stages 2 and 3 briefly coexist as dual host forms; that window is bounded and
-each stage ships alone. If later evidence stalls the line between stages, the
-completed stages stand on their own value and this ADR's remaining stages are
-re-decided rather than silently assumed.
+The former dual-host transition is closed: the shipped `kungfu` entry is the
+Rust trunk and domain commands enter the complete assembled CPython tree only
+after root routing. The generated manifest is mandatory during assembly and is
+one contract for human root help plus machine root-option routing. The trunk
+consumes only the root prefix and its own command subtrees; it still forwards a
+domain subtree verbatim.
+
+The implementation lifecycle remains distinct from that source state. The
+development evidence above proves a bounded, testable candidate. Alpha
+promotion must still execute and bind the normal product qualification before
+this record can move from `staged` to `implemented`.
 
 ## Consequences
 
