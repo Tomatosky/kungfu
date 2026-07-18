@@ -8,7 +8,7 @@
     "stateMachineVersion": "0.1.0",
     "actionContract": {
       "path": "framework/agent-work/kungfu-kfd-7-action-contract.json",
-      "sha256": "bff2b4f60846ed6358948976ad0b9f3305c2706bdee54486d9896d9b535402fb"
+      "sha256": "4231e81151b7cb2e0719a9760ca278813f658c8c317e7eca9b7fba2a23b83f1c"
     },
     "verifierReport": {
       "path": "framework/agent-work/evidence/kfd-7/kfd-verifier.json",
@@ -16,14 +16,14 @@
     }
   },
   "source": {
-    "sha": "90417f01568fdb51880b92a53d0f2b38cd1860ce"
+    "sha": "91a7a2b6f406e996b0b1d69421af260d69be3878"
   },
   "surfaces": [
     {
       "id": "agent-work-state-contract",
       "sourcePath": "framework/agent-work/kungfu-agent-work-state.contract.json",
       "artifactPath": "config/kungfu-agent-work-state.contract.json",
-      "sha256": "e1b813a4057a437e8998e5bca3f1f21fcf002d3509a035d13345ceefedbb706d"
+      "sha256": "e89bdbeef7b3015869e27b7a5fb010fd2a697a925f4690cc8dadafd55cf83b20"
     }
   ],
   "testEvidence": [
@@ -32,14 +32,14 @@
       "kind": "positive",
       "expectedOutcome": "pass",
       "path": "framework/agent-work/evidence/kfd-7/positive-native-bootstrap.json",
-      "sha256": "31571b2091317c56e5db9f771bfce9764c66057c93a249e3e337803d5a9ff046"
+      "sha256": "d9b2b2b53a522a153d26b8970476f8585b2d6496e08ed77c0f124c1c18070152"
     },
     {
       "id": "invalid-transition",
       "kind": "negative",
       "expectedOutcome": "fail",
       "path": "framework/agent-work/evidence/kfd-7/negative-invalid-transition.json",
-      "sha256": "0aac2f5e3316f63eb2d8e33f44b9d8462cb6fe6c9de9dba64b8e00b922ec67bf"
+      "sha256": "462246bd0724e4bc965bf51baae3a8b98398eaaed059fbd672c52d4269b80283"
     }
   ],
   "experiments": [
@@ -48,84 +48,84 @@
       "category": "export-import-rebuild",
       "expectedOutcome": "pass",
       "path": "framework/agent-work/evidence/kfd-7/export-import-rebuild.json",
-      "sha256": "27cacf2622d060aaa872090abf5dee5cf349822abc7d59def1b6ccff44142d2c"
+      "sha256": "aca5911ae2d8dd4e552c278195dff5fbbc72832dd904808fa11df62bdf3ac19e"
     },
     {
       "id": "backend-migration",
       "category": "backend-migration",
       "expectedOutcome": "pass",
       "path": "framework/agent-work/evidence/kfd-7/backend-migration.json",
-      "sha256": "f1ea57f27f383a1358daaa47fe088102916229f45c495edc1c01032d748c19d5"
+      "sha256": "b86e6639df2312b74c0d76b63c98e09dd21b28e2a24d065eb49fc5d3ef40dd80"
     },
     {
       "id": "cold-start-continuation",
       "category": "cold-start-continuation",
       "expectedOutcome": "pass",
       "path": "framework/agent-work/evidence/kfd-7/cold-start-continuation.json",
-      "sha256": "711dfd44e21ccd464344928d34d434e41d84b0ad709552ce1c4b92bb9bccb18e"
+      "sha256": "0bfa131c66264269f31350ddbbe98088a6f44242d2a5e0b34d33b7925b7b9d93"
     },
     {
       "id": "role-deletion-or-fusion",
       "category": "role-deletion-or-fusion",
       "expectedOutcome": "pass",
       "path": "framework/agent-work/evidence/kfd-7/role-deletion-or-fusion.json",
-      "sha256": "8aee1a98b8fe53b37e18a80a4076c8cd946924db48653869fef94eabb89e90b7"
+      "sha256": "cf0e8d3b86893ce8f8dd4fc767f9e3b2d836b53427d62f07b5d30b40f3d05b8a"
     },
     {
       "id": "warrant-decay-revocation",
       "category": "warrant-decay-revocation",
       "expectedOutcome": "pass",
       "path": "framework/agent-work/evidence/kfd-7/warrant-decay-revocation.json",
-      "sha256": "aa2c2060a02957d9cb9e1ca5c90805d89c84a262cdfbd88aaf364d8fd4360eea"
+      "sha256": "0af2b521111d6ce905f8bc72663eee34ad15a0b5255a6577ecd2bc11333f2ce4"
     },
     {
       "id": "atlas-staleness-loss",
       "category": "atlas-staleness-loss",
       "expectedOutcome": "pass",
       "path": "framework/agent-work/evidence/kfd-7/atlas-staleness-loss.json",
-      "sha256": "2e73a078c3ff8eb52a74169fc542c6e77a684a918b3b88c429aaea828fdbac9b"
+      "sha256": "dee2962750bfd9620a23799b3710476eaf95c5040caf15a2ca9edf0ef2944341"
     },
     {
       "id": "pursuit-continuity-settlement",
       "category": "pursuit-continuity-settlement",
       "expectedOutcome": "pass",
       "path": "framework/agent-work/evidence/kfd-7/pursuit-continuity-settlement.json",
-      "sha256": "3eb6b8600a2a62c424b451dc47e175f0a6630e6b406e820537468ab8c3b6de81"
+      "sha256": "1c5c9753f23000362c0f64adc9fe45d37f7cb7e1ef5f596d84c9b3d636d46c98"
     },
     {
       "id": "episode-replay-contraction",
       "category": "episode-replay-contraction",
       "expectedOutcome": "pass",
       "path": "framework/agent-work/evidence/kfd-7/episode-replay-contraction.json",
-      "sha256": "114097a5c34c7d61b9656edc3b730bd9ed07bf32c7d935dc3193dc820ff3339b"
+      "sha256": "c9aadf59dc91654ddf8376455e3346efc6c16fd6d9f65f15aa395a505ca7d2a4"
     },
     {
       "id": "concurrency-retry-compensation",
       "category": "concurrency-retry-compensation",
       "expectedOutcome": "pass",
       "path": "framework/agent-work/evidence/kfd-7/concurrency-retry-compensation.json",
-      "sha256": "009b0a0f02b37aafc2f809e5501ebb55cc727bf342e639ab6198bd97afd4a2d0"
+      "sha256": "27ae67f3878dede97f4b4ca049684d0179a5981606897384f2c2322117bc14fe"
     },
     {
       "id": "session-round-trip-refinement",
       "category": "session-round-trip-refinement",
       "expectedOutcome": "pass",
       "path": "framework/agent-work/evidence/kfd-7/session-round-trip-refinement.json",
-      "sha256": "f0c99d639d433935ea46b0fe7894be7471a97f9558bf710571bc98d8a2118d2c"
+      "sha256": "08cf2160a6358a64a7490838da92b5ec7978a46a5e38afd847b511bd71836db6"
     },
     {
       "id": "session-complexity-breakpoint",
       "category": "session-complexity-breakpoint",
       "expectedOutcome": "pass",
       "path": "framework/agent-work/evidence/kfd-7/session-complexity-breakpoint.json",
-      "sha256": "842677ad10544ef19bb8ad7d6024d6d917954ca3eb89aecfc7440cb8ae5c10b3"
+      "sha256": "6f7e2e62c3c1e496c07fe237c178cfbea9cd6dc0a630608d6a505a303c737add"
     },
     {
       "id": "context-insufficiency-counterexample",
       "category": "context-insufficiency-counterexample",
       "expectedOutcome": "pass",
       "path": "framework/agent-work/evidence/kfd-7/context-insufficiency-counterexample.json",
-      "sha256": "0cee80ddf7bac6b982bbc1cbf60d060d13885e205628cb64463238577f84afd4"
+      "sha256": "5b84f5eedaa926f0a0767125612f01f7ee6fed738a4d8e736ceba7c621725e06"
     }
   ],
   "residualRisk": [

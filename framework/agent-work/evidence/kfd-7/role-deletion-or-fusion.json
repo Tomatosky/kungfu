@@ -4,7 +4,7 @@
   "profileId": "kungfu-kfd-7-action-profile",
   "profileVersion": "0.1.0",
   "stateMachineVersion": "0.1.0",
-  "sourceSha": "90417f01568fdb51880b92a53d0f2b38cd1860ce",
+  "sourceSha": "91a7a2b6f406e996b0b1d69421af260d69be3878",
   "category": "role-deletion-or-fusion",
   "outcome": "pass",
   "matchedExpectation": true,
