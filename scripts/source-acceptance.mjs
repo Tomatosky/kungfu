@@ -320,6 +320,11 @@ export function sourceAcceptancePlan(files) {
       ],
     },
     {
+      label: 'Phase B package identity contract tests',
+      command: 'python3',
+      args: ['-m', 'unittest', 'scripts.test_prepare_kungfu_phase_b_package'],
+    },
+    {
       label: 'agent work state contract and CLI parity',
       command: process.execPath,
       args: ['scripts/run-agent-work-state-tests.mjs'],
