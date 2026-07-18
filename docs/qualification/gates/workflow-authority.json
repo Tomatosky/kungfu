@@ -224,7 +224,7 @@
           "authority": "qualification",
           "publication": "none",
           "receipt": "qualifying",
-          "definitionDigest": "sha256:d623d5f0b87fc99c6960d2773418c0df106dbb5c417599d3ceaeff5a3e0168b8",
+          "definitionDigest": "sha256:d43a3754259fa0acc5c37903f33f5c3494a336d76b785634eb8eaa10a0af8f5f",
           "credentials": {
             "githubToken": "read",
             "oidc": false,
@@ -233,7 +233,7 @@
             "environment": null
           },
           "externalActions": [
-            "kungfu-systems/build-images/.github/workflows/comparator-kungfu-package-smoke.yml@df6056fd2eb1e69a3349e827ede13ba95b6ae6b7"
+            "kungfu-systems/build-images/.github/workflows/comparator-kungfu-package-smoke.yml@7cf672d83323fdd139ad90b6e8165a56e431cc6c"
           ],
           "steps": []
         },
@@ -242,7 +242,7 @@
           "authority": "qualification",
           "publication": "none",
           "receipt": "diagnostic",
-          "definitionDigest": "sha256:a915ace29fd809a86895e074cd39a14f92def3f9ca7c9cb246fddd3107b1c736",
+          "definitionDigest": "sha256:9d031c722707dafa45e2ecc33a92a2a9a1c6a2d3860ccf9a14c289d5be643c4d",
           "credentials": {
             "githubToken": "read",
             "oidc": false,
@@ -272,7 +272,7 @@
               "index": 3,
               "label": "id:identity",
               "authority": "qualification",
-              "definitionDigest": "sha256:c74ae568b0db6dca70e3d2a67f55ba34935e47a9a4cfb29fae4032609f12c617"
+              "definitionDigest": "sha256:2eea487a24dfcc311a4261342a4ab92471d726fc164e47566b6bc3ac222338f3"
             },
             {
               "index": 4,
