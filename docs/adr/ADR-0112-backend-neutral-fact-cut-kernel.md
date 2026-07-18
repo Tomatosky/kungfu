@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0112
 decision_status: accepted
 implementation_status: staged
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1058]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1058, https://github.com/kungfu-systems/kungfu/pull/1062]
 qualification_refs: [framework/fact/kungfu-fact-cut-kernel.contract.json, scripts/check-fact-cut-kernel-contract.test.mjs, tests/fixtures/fact-cut-kernel-contract/cases.json]
 review_state: self-reviewed
 sensitivity: public
