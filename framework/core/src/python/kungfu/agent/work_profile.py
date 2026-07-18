@@ -23,6 +23,7 @@ RECEIPT_SCHEMA = "kungfu.kfd7.profile-action-receipt/v1"
 ROLE_BODY_SCHEMA = "kungfu.kfd7.profile-role/v1"
 CAPABILITIES_SCHEMA = "kungfu.kfd7.profile-capabilities/v1"
 INSPECTION_SCHEMA = "kungfu.kfd7.profile-inspection/v1"
+AUTHORITY_BUNDLE_SCHEMA = "kungfu.fact-authority-bundle/v1"
 
 ROLES = ("fact", "episode", "pursuit", "atlas", "warrant")
 INITIAL_STATES = {
@@ -130,20 +131,24 @@ def capabilities() -> dict[str, Any]:
                 "identity": "preserved",
             },
             "exportImport": {
-                "status": "explicit-loss-until-fact-bundle-qualified",
-                "required": [
-                    "Fact journal",
-                    "body namespace",
-                    "exact ref and Cut roots",
+                "status": "supported",
+                "bundleSchema": AUTHORITY_BUNDLE_SCHEMA,
+                "authority": "native Fact journal replay through the existing kernel",
+                "preserves": [
+                    "logical object ids",
+                    "version and body roots",
+                    "relation and Cut roots",
+                    "named ref roots and revisions",
                 ],
-                "lossCode": "profile-authority-not-exported",
             },
             "backendMigration": {
-                "status": "delegated-to-storage-backend-switch",
-                "identity": "content roots and journal identities must remain exact",
+                "status": "supported-by-storage-backend-switch",
+                "identity": "five-role object, version, Cut, ref, and authority roots remain exact",
+                "rollback": "reverse-sync-and-atomic-binding",
             },
             "cleanHome": {
-                "status": "explicit-loss-without-qualified-export",
+                "status": "supported-from-qualified-authority-bundle",
+                "requires": AUTHORITY_BUNDLE_SCHEMA,
                 "lossCode": "profile-authority-unavailable",
             },
         },
@@ -160,6 +165,32 @@ def _kernel(
     request: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return storage_service.fact_kernel(runtime_dir, action, request)
+
+
+def export_authority(
+    runtime_dir: str | Path,
+    *,
+    kernel: Kernel | None = None,
+) -> dict[str, Any]:
+    """Export the native Fact authority required to continue this Profile."""
+
+    return (kernel or _kernel)(runtime_dir, "authority-export", {})
+
+
+def import_authority(
+    runtime_dir: str | Path,
+    bundle: dict[str, Any],
+    *,
+    execute: bool = False,
+    kernel: Kernel | None = None,
+) -> dict[str, Any]:
+    """Validate or replay one qualified Fact authority bundle."""
+
+    return (kernel or _kernel)(
+        runtime_dir,
+        "authority-import",
+        {"bundle": bundle, "execute": execute},
+    )
 
 
 def _denied(

@@ -34,7 +34,7 @@
       "pointer": {
         "kind": "file",
         "path": "framework/core/tests/python/test_agent_work_state_contract.py",
-        "sha256": "f56fbaf7caa54c86bc4e61df74e72bd8e6398d8879b52328b5138d0657f811b5"
+        "sha256": "a4b5c87f352f6cfed871269ee28096eb1c228a9ae543695798c6308c72b563ed"
       },
       "description": "Runtime CLI parity and fail-closed contract-schema checks."
     },
@@ -43,7 +43,7 @@
       "pointer": {
         "kind": "file",
         "path": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
-        "sha256": "c9f35d1a267181532952a9603de56d5b6342372ec1848a6ca5afcf841ad0b0b1"
+        "sha256": "f65df3186341c40d8a3c29934dccb60ba3db4e7612416d9a3d7bb3b45f612111"
       },
       "description": "Agent collaboration-interface registration for the work-model query."
     }
@@ -62,11 +62,11 @@
       },
       {
         "path": "framework/core/tests/python/test_agent_work_state_contract.py",
-        "sha256": "f56fbaf7caa54c86bc4e61df74e72bd8e6398d8879b52328b5138d0657f811b5"
+        "sha256": "a4b5c87f352f6cfed871269ee28096eb1c228a9ae543695798c6308c72b563ed"
       },
       {
         "path": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
-        "sha256": "c9f35d1a267181532952a9603de56d5b6342372ec1848a6ca5afcf841ad0b0b1"
+        "sha256": "f65df3186341c40d8a3c29934dccb60ba3db4e7612416d9a3d7bb3b45f612111"
       }
     ],
     "artifactSha256": [

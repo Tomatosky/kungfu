@@ -377,6 +377,64 @@ def work_action(ctx, file_path, input_base64, execute, as_json):
         ctx.exit(2)
 
 
+@work.command(
+    name="export-authority", help=api_help("kungfu.agent.work.export-authority")
+)
+@click.option("--json", "as_json", is_flag=True, help="machine-readable output")
+@kfd3_api("kungfu.agent.work.export-authority")
+@agent_command_context
+def work_export_authority(ctx, as_json):
+    """Export the native Fact authority required for exact continuation."""
+
+    payload = work_profile.export_authority(ctx.runtime_dir)
+    if as_json:
+        _json(payload)
+    else:
+        click.echo(json.dumps(payload, indent=2, sort_keys=True))
+    if payload.get("ok") is not True:
+        ctx.exit(2)
+
+
+@work.command(
+    name="import-authority", help=api_help("kungfu.agent.work.import-authority")
+)
+@click.option("--file", "file_path", help="authority bundle JSON path or -")
+@click.option(
+    "--input-base64",
+    help="base64-encoded authority bundle JSON for SDK and GUI adapters",
+)
+@click.option("--execute", is_flag=True, help="replay the validated bundle")
+@click.option("--json", "as_json", is_flag=True, help="machine-readable output")
+@kfd3_api("kungfu.agent.work.import-authority")
+@agent_command_context
+def work_import_authority(ctx, file_path, input_base64, execute, as_json):
+    """Validate or replay one qualified Fact authority bundle."""
+
+    try:
+        if bool(file_path) == bool(input_base64):
+            raise ValueError("exactly one of --file or --input-base64 is required")
+        if input_base64:
+            raw = base64.b64decode(input_base64, validate=True).decode("utf-8")
+        else:
+            raw = (
+                sys.stdin.read()
+                if file_path == "-"
+                else Path(file_path).read_text(encoding="utf-8")
+            )
+        bundle = json.loads(raw)
+        if not isinstance(bundle, dict):
+            raise ValueError("authority bundle must be a JSON object")
+    except (OSError, UnicodeError, ValueError, json.JSONDecodeError) as error:
+        raise click.ClickException(str(error)) from error
+    payload = work_profile.import_authority(ctx.runtime_dir, bundle, execute=execute)
+    if as_json:
+        _json(payload)
+    else:
+        click.echo(json.dumps(payload, indent=2, sort_keys=True))
+    if payload.get("ok") is not True:
+        ctx.exit(2)
+
+
 def _runtime_config_homes(ctx):
     resolved = resolve_config(runtime_home=ctx.home)
     return resolved["configHome"], resolved["runtimeHome"]

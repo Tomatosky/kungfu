@@ -50,6 +50,18 @@
       "purpose": "Plan or execute one Profile transition through the shared action/receipt contract and native Fact ref CAS."
     },
     {
+      "apiId": "kungfu.agent.work.export-authority",
+      "name": "kungfu agent work export-authority --json",
+      "maturity": "experimental",
+      "purpose": "Export a content-bound native Fact authority bundle that preserves exact Profile object, version, Cut, and ref roots."
+    },
+    {
+      "apiId": "kungfu.agent.work.import-authority",
+      "name": "kungfu agent work import-authority --file <bundle.json> [--execute] --json",
+      "maturity": "experimental",
+      "purpose": "Validate or replay one qualified Fact authority bundle into a clean runtime home without changing logical Profile roots."
+    },
+    {
       "apiId": "kungfu.agent.choose-mode",
       "name": "kungfu agent choose-mode --json",
       "maturity": "stable",

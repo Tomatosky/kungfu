@@ -370,6 +370,15 @@ std::string writer_lock_path(const std::string &runtime_dir) {
   return (fs::path(target->locator->layout_dir(target, layout::JOURNAL, true)) / "writer.lock").string();
 }
 
+struct kernel_authority_record {
+  uint32_t tag = 0;
+  uint64_t sequence = 0;
+  std::string key;
+  std::string record_root;
+  nlohmann::json document = nlohmann::json::object();
+  nlohmann::json receipt = nlohmann::json::object();
+};
+
 struct kernel_state {
   uint64_t next_sequence = 1;
   size_t unknown_records = 0;
@@ -377,10 +386,12 @@ struct kernel_state {
   std::map<std::string, nlohmann::json> versions;
   std::map<std::string, nlohmann::json> relations;
   std::set<std::string> revoked_relations;
+  std::map<std::string, nlohmann::json> revocations;
   std::map<std::string, nlohmann::json> cuts;
   std::map<std::string, nlohmann::json> refs;
   std::map<std::string, nlohmann::json> transitions;
   std::map<std::string, nlohmann::json> receipts;
+  std::vector<kernel_authority_record> authority_records;
 };
 
 template <typename T> bool decode_record(const frame_ptr &frame, T &value) {
@@ -392,15 +403,8 @@ template <typename T> bool decode_record(const frame_ptr &frame, T &value) {
 }
 
 kernel_state fold_kernel(const std::string &runtime_dir) {
-  struct pending_record {
-    uint32_t tag;
-    uint64_t sequence;
-    std::string key;
-    std::string record_root;
-    nlohmann::json document;
-  };
   kernel_state state;
-  std::vector<pending_record> pending;
+  std::vector<kernel_authority_record> pending;
   std::set<uint64_t> accepted_sequences;
   const auto target = kernel_location(runtime_dir);
   if (target->locator->list_page_id(target, location::PUBLIC).empty()) {
@@ -511,6 +515,7 @@ kernel_state fold_kernel(const std::string &runtime_dir) {
           break;
         }
         accepted_sequences.insert(pending.back().sequence);
+        pending.back().receipt = receipt;
         state.receipts[fixed_string(record.operation_id)] = std::move(receipt);
         break;
       }
@@ -533,6 +538,7 @@ kernel_state fold_kernel(const std::string &runtime_dir) {
       ++state.unknown_records;
       continue;
     }
+    state.authority_records.push_back(record);
     switch (record.tag) {
     case FactObjectRecorded::tag:
       state.objects[record.key] = record.document;
@@ -545,6 +551,7 @@ kernel_state fold_kernel(const std::string &runtime_dir) {
       break;
     case FactRelationRevoked::tag:
       state.revoked_relations.insert(record.key);
+      state.revocations[record.record_root] = record.document;
       break;
     case FactCutCommitted::tag:
       state.cuts[record.key] = record.document;
@@ -629,18 +636,18 @@ nlohmann::json append_record_with_receipt(const std::string &runtime_dir, kernel
 }
 
 nlohmann::json capabilities_document() {
-  return {
-      {"schema", "kungfu.fact-kernel.capabilities/v1"},
-      {"owner", "libkungfu"},
-      {"authority", "yijinjing-hana-pod-journal"},
-      {"root_protocol", ROOT_PROTOCOL},
-      {"content_namespaces", {{"metadata", METADATA_NAMESPACE}, {"bodies", BODY_NAMESPACE}}},
-      {"actions",
-       {"capabilities", "object-put", "version-put", "relation-add", "relation-revoke", "cut-put", "ref-cas", "query"}},
-      {"cas", {{"mode", "exact-expected-old-and-revision"}, {"stale_write", "no-journal-append"}}},
-      {"projection_role", "rebuildable-edge-only"},
-      {"clock_free_identity", true},
-      {"product_vocabulary", false}};
+  return {{"schema", "kungfu.fact-kernel.capabilities/v1"},
+          {"owner", "libkungfu"},
+          {"authority", "yijinjing-hana-pod-journal"},
+          {"root_protocol", ROOT_PROTOCOL},
+          {"content_namespaces", {{"metadata", METADATA_NAMESPACE}, {"bodies", BODY_NAMESPACE}}},
+          {"actions",
+           {"capabilities", "object-put", "version-put", "relation-add", "relation-revoke", "cut-put", "ref-cas",
+            "query", "authority-export", "authority-import"}},
+          {"cas", {{"mode", "exact-expected-old-and-revision"}, {"stale_write", "no-journal-append"}}},
+          {"projection_role", "rebuildable-edge-only"},
+          {"clock_free_identity", true},
+          {"product_vocabulary", false}};
 }
 
 nlohmann::json query_kernel(const std::string &runtime_dir, const kernel_state &state, const nlohmann::json &request) {
@@ -715,6 +722,145 @@ nlohmann::json query_kernel(const std::string &runtime_dir, const kernel_state &
           {"ref_resolution", resolution}};
 }
 
+nlohmann::json object_version_requests(const nlohmann::json &members) {
+  auto result = nlohmann::json::array();
+  for (const auto &member : members) {
+    if (!member.is_array() || member.size() != 2) {
+      throw std::runtime_error("fact authority bundle contains a malformed Cut member");
+    }
+    result.push_back({{"object_id", member.at(0)}, {"version_root", member.at(1)}});
+  }
+  return result;
+}
+
+nlohmann::json episode_frontier_requests(const nlohmann::json &frontier) {
+  auto result = nlohmann::json::array();
+  for (const auto &entry : frontier) {
+    if (!entry.is_array() || entry.size() != 3) {
+      throw std::runtime_error("fact authority bundle contains a malformed Episode frontier");
+    }
+    result.push_back({{"episode_id", entry.at(0)},
+                      {"sealed_content_root", entry.at(1)},
+                      {"accepted_manifest_frame_uid", entry.at(2)}});
+  }
+  return result;
+}
+
+nlohmann::json authority_operation_request(const std::string &runtime_dir, const kernel_authority_record &record) {
+  const auto &document = record.document;
+  if (record.tag == FactObjectRecorded::tag) {
+    return {{"action", "object-put"},
+            {"object_id", document.at("objectId")},
+            {"object_type", document.at("objectType")},
+            {"created_by_receipt_root", document.at("createdByReceiptRoot")}};
+  }
+  if (record.tag == FactVersionRecorded::tag) {
+    return {{"action", "version-put"},
+            {"object_id", document.at("objectId")},
+            {"body", content_store_get(runtime_dir, BODY_NAMESPACE, document.at("bodyRoot").get<std::string>())},
+            {"schema_root", document.at("schemaRoot")},
+            {"parent_version_roots", document.at("parentVersionRoots")},
+            {"declaration_roots", document.at("declarationRoots")},
+            {"admission_roots", document.at("admissionRoots")}};
+  }
+  if (record.tag == FactRelationAdded::tag) {
+    return {{"action", "relation-add"},
+            {"relation_id", document.at("relationId")},
+            {"relation_type", document.at("relationType")},
+            {"source", document.at("source")},
+            {"target", document.at("target")},
+            {"attributes_root", document.at("attributesRoot")},
+            {"admission_roots", document.at("admissionRoots")}};
+  }
+  if (record.tag == FactRelationRevoked::tag) {
+    return {{"action", "relation-revoke"},
+            {"relation_root", document.at("relationRoot")},
+            {"reason_root", document.at("reasonRoot")}};
+  }
+  if (record.tag == FactCutCommitted::tag) {
+    return {{"action", "cut-put"},
+            {"parent_cut_roots", document.at("parentCutRoots")},
+            {"object_versions", object_version_requests(document.at("objectVersions"))},
+            {"active_relation_roots", document.at("activeRelationRoots")},
+            {"declaration_roots", document.at("declarationRoots")},
+            {"admission_roots", document.at("admissionRoots")},
+            {"episode_frontier", episode_frontier_requests(document.at("episodeFrontier"))},
+            {"omission_roots", document.at("omissionRoots")},
+            {"conflict_roots", document.at("conflictRoots")}};
+  }
+  if (record.tag == FactRefTransition::tag) {
+    const auto transition = load_metadata(runtime_dir, record.record_root, "kungfu.fact.ref-transition/v1");
+    const auto expected_old = transition.at("expectedOldCutRoot").get<std::string>();
+    return {{"action", "ref-cas"},
+            {"transition_id", transition.at("transitionId")},
+            {"ref_name", transition.at("refName")},
+            {"expected_old_cut_root", expected_old.empty() ? nlohmann::json(nullptr) : nlohmann::json(expected_old)},
+            {"expected_old_revision", transition.at("expectedOldRevision")},
+            {"new_cut_root", transition.at("newCutRoot")},
+            {"kind", transition.at("kind")},
+            {"reason_root", transition.at("reasonRoot")}};
+  }
+  throw std::runtime_error("fact authority bundle encountered an unsupported journal record");
+}
+
+std::set<std::string> authority_record_roots(const kernel_state &state) {
+  std::set<std::string> result;
+  for (const auto &record : state.authority_records) {
+    result.insert(record.record_root);
+  }
+  return result;
+}
+
+nlohmann::json authority_bundle(const std::string &runtime_dir, const kernel_state &state) {
+  if (state.unknown_records != 0) {
+    throw std::runtime_error("fact_authority_export_unknown_records");
+  }
+  if (state.authority_records.empty()) {
+    throw std::runtime_error("fact_authority_export_empty");
+  }
+  auto operations = nlohmann::json::array();
+  auto roots = nlohmann::json::array();
+  for (const auto &record : state.authority_records) {
+    if (!record.receipt.is_object() || record.receipt.value("recordRoot", std::string{}) != record.record_root) {
+      throw std::runtime_error("fact_authority_export_receipt_mismatch");
+    }
+    operations.push_back({{"sequence", record.sequence},
+                          {"action", record.receipt.at("operation")},
+                          {"request", authority_operation_request(runtime_dir, record)},
+                          {"recordRoot", record.record_root},
+                          {"sourceReceiptRoot", record.receipt.at("receiptRoot")}});
+    roots.push_back(record.record_root);
+  }
+  auto bundle = nlohmann::json{{"schema", "kungfu.fact-authority-bundle/v1"},
+                               {"authority", "yijinjing-hana-pod-journal"},
+                               {"rootProtocol", ROOT_PROTOCOL},
+                               {"operations", std::move(operations)},
+                               {"recordRoots", std::move(roots)},
+                               {"finalState",
+                                {{"refs", state.refs},
+                                 {"counts",
+                                  {{"objects", state.objects.size()},
+                                   {"versions", state.versions.size()},
+                                   {"relations", state.relations.size()},
+                                   {"revocations", state.revocations.size()},
+                                   {"cuts", state.cuts.size()},
+                                   {"transitions", state.transitions.size()}}}}}};
+  bundle["bundleRoot"] = content_root(canonical_json(bundle));
+  return bundle;
+}
+
+std::string response_record_root(const std::string &action, const nlohmann::json &response) {
+  if (!response.is_object() || !response.value("ok", false)) {
+    return {};
+  }
+  const auto result = response.value("result", nlohmann::json::object());
+  static const std::map<std::string, std::string> fields = {
+      {"object-put", "object_root"},      {"version-put", "version_root"}, {"relation-add", "relation_root"},
+      {"relation-revoke", "revoke_root"}, {"cut-put", "cut_root"},         {"ref-cas", "transition_root"}};
+  const auto field = fields.find(action);
+  return field == fields.end() ? std::string{} : result.value(field->second, std::string{});
+}
+
 } // namespace
 
 nlohmann::json fact_kernel_capabilities() { return capabilities_document(); }
@@ -728,6 +874,149 @@ nlohmann::json run_fact_kernel_operation(const std::string &runtime_dir, const n
     }
     if (action == "query") {
       return query_kernel(runtime_dir, fold_kernel(runtime_dir), input);
+    }
+    if (action == "authority-export") {
+      const auto bundle = authority_bundle(runtime_dir, fold_kernel(runtime_dir));
+      return {{"schema", FACT_KERNEL_SCHEMA_V1},
+              {"ok", true},
+              {"action", action},
+              {"status", "exported"},
+              {"write_occurred", false},
+              {"result", {{"bundle", bundle}, {"bundle_root", bundle.at("bundleRoot")}}},
+              {"receipt", nullptr}};
+    }
+    if (action == "authority-import") {
+      if (!input.contains("bundle") || !input.at("bundle").is_object()) {
+        return failure(action, "bundle-invalid", "Fact authority bundle is required");
+      }
+      const auto &bundle = input.at("bundle");
+      if (text_or(bundle, "schema") != "kungfu.fact-authority-bundle/v1" ||
+          text_or(bundle, "authority") != "yijinjing-hana-pod-journal" ||
+          text_or(bundle, "rootProtocol") != ROOT_PROTOCOL) {
+        return failure(action, "bundle-invalid", "Fact authority bundle contract is unsupported");
+      }
+      const auto declared_bundle_root = required_text(bundle, "bundleRoot");
+      validate_root(declared_bundle_root, "bundleRoot");
+      auto root_material = bundle;
+      root_material.erase("bundleRoot");
+      const auto computed_bundle_root = content_root(canonical_json(root_material));
+      if (computed_bundle_root != declared_bundle_root) {
+        return failure(action, "bundle-root-mismatch", "Fact authority bundle root does not match its content",
+                       {{"declared", declared_bundle_root}, {"computed", computed_bundle_root}});
+      }
+      const auto operations = array_or_empty(bundle, "operations");
+      const auto record_roots = array_or_empty(bundle, "recordRoots");
+      if (operations.empty() || operations.size() != record_roots.size()) {
+        return failure(action, "bundle-invalid",
+                       "Fact authority bundle operations and roots must be non-empty and aligned");
+      }
+      std::set<std::string> expected_roots;
+      for (size_t index = 0; index < operations.size(); ++index) {
+        const auto &operation = operations.at(index);
+        if (!operation.is_object() || !operation.contains("request") || !operation.at("request").is_object()) {
+          return failure(action, "bundle-invalid", "Fact authority bundle operation request is missing",
+                         {{"index", index}});
+        }
+        const auto operation_action = required_text(operation, "action");
+        const auto request_action = text_or(operation.at("request"), "action");
+        const auto record_root = required_text(operation, "recordRoot");
+        validate_root(record_root, "recordRoot");
+        if (operation_action != request_action || record_roots.at(index) != record_root ||
+            operation_action == "authority-import" || operation_action == "authority-export" ||
+            operation_action == "query" || operation_action == "capabilities" ||
+            !expected_roots.insert(record_root).second) {
+          return failure(action, "bundle-invalid", "Fact authority bundle operation is inconsistent",
+                         {{"index", index}, {"operation", operation_action}});
+        }
+      }
+      auto before = fold_kernel(runtime_dir);
+      if (before.unknown_records != 0) {
+        return failure(action, "destination-diverged", "Destination Fact journal contains unknown records",
+                       {{"unknown_records", before.unknown_records}});
+      }
+      auto current_roots = authority_record_roots(before);
+      if (!std::includes(expected_roots.begin(), expected_roots.end(), current_roots.begin(), current_roots.end())) {
+        return failure(action, "destination-diverged", "Destination Fact authority is not a subset of the bundle");
+      }
+      if (!input.value("execute", false)) {
+        return {{"schema", FACT_KERNEL_SCHEMA_V1},
+                {"ok", true},
+                {"action", action},
+                {"status", "planned"},
+                {"write_occurred", false},
+                {"result",
+                 {{"bundle_root", declared_bundle_root},
+                  {"operation_count", operations.size()},
+                  {"already_present", current_roots.size()},
+                  {"remaining", expected_roots.size() - current_roots.size()}}},
+                {"receipt", nullptr}};
+      }
+
+      bool write_occurred = false;
+      auto mappings = nlohmann::json::array();
+      for (size_t index = 0; index < operations.size(); ++index) {
+        const auto &operation = operations.at(index);
+        const auto record_root = operation.at("recordRoot").get<std::string>();
+        if (current_roots.count(record_root) != 0) {
+          mappings.push_back({{"recordRoot", record_root},
+                              {"sourceReceiptRoot", operation.at("sourceReceiptRoot")},
+                              {"destinationReceiptRoot", nullptr},
+                              {"status", "already-present"}});
+          continue;
+        }
+        const auto operation_action = operation.at("action").get<std::string>();
+        const auto response = run_fact_kernel_operation(runtime_dir, operation.at("request"));
+        write_occurred = write_occurred || response.value("write_occurred", false);
+        const auto actual_root = response_record_root(operation_action, response);
+        if (!response.value("ok", false) || actual_root != record_root) {
+          return {{"schema", FACT_KERNEL_SCHEMA_V1},
+                  {"ok", false},
+                  {"action", action},
+                  {"status", "rejected"},
+                  {"failure_code", "import-operation-mismatch"},
+                  {"message", "Fact authority import did not reproduce the declared record root"},
+                  {"details",
+                   {{"index", index},
+                    {"operation", operation_action},
+                    {"expected_record_root", record_root},
+                    {"actual_record_root", actual_root},
+                    {"kernel_response", response}}},
+                  {"write_occurred", write_occurred},
+                  {"receipt", nullptr}};
+        }
+        current_roots.insert(record_root);
+        mappings.push_back({{"recordRoot", record_root},
+                            {"sourceReceiptRoot", operation.at("sourceReceiptRoot")},
+                            {"destinationReceiptRoot", response.value("receipt_root", nlohmann::json(nullptr))},
+                            {"status", response.at("status")}});
+      }
+      const auto after = fold_kernel(runtime_dir);
+      const auto final_roots = authority_record_roots(after);
+      const auto final_state = bundle.value("finalState", nlohmann::json::object());
+      if (final_roots != expected_roots ||
+          nlohmann::json(after.refs) != final_state.value("refs", nlohmann::json::object())) {
+        return {{"schema", FACT_KERNEL_SCHEMA_V1},
+                {"ok", false},
+                {"action", action},
+                {"status", "rejected"},
+                {"failure_code", "import-final-state-mismatch"},
+                {"message", "Fact authority import did not reproduce the declared final refs and record roots"},
+                {"details",
+                 {{"expected_refs", final_state.value("refs", nlohmann::json::object())}, {"actual_refs", after.refs}}},
+                {"write_occurred", write_occurred},
+                {"receipt", nullptr}};
+      }
+      return {{"schema", FACT_KERNEL_SCHEMA_V1},
+              {"ok", true},
+              {"action", action},
+              {"status", "imported"},
+              {"write_occurred", write_occurred},
+              {"result",
+               {{"bundle_root", declared_bundle_root},
+                {"record_roots_preserved", true},
+                {"refs_preserved", true},
+                {"receipt_mappings", std::move(mappings)}}},
+              {"receipt", nullptr}};
     }
 
     const auto guard = writer_guard(writer_lock_path(runtime_dir));

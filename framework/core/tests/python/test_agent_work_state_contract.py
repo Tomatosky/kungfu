@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import copy
+import base64
 import hashlib
 import json
 import sys
@@ -178,6 +179,61 @@ def test_agent_work_model_closes_the_kfd3_runtime_interface(tmp_path):
     assert payload["runtimeAnchors"]["missingRuntimeAnchors"] == []
     assert payload["commandCatalog"]["missingRegistryEntries"] == []
     assert payload["commandCatalog"]["missingCatalogEntries"] == []
+
+
+def test_kfd7_authority_bundle_cli_exports_and_imports_the_same_public_shape(
+    tmp_path, monkeypatch
+):
+    bundle = {
+        "schema": work_profile.AUTHORITY_BUNDLE_SCHEMA,
+        "bundleRoot": "sha256:" + "a" * 64,
+    }
+    exported = {
+        "ok": True,
+        "status": "exported",
+        "result": {"bundle": bundle},
+    }
+    observed = {}
+    monkeypatch.setattr(work_profile, "export_authority", lambda runtime_dir: exported)
+
+    def import_authority(runtime_dir, candidate, *, execute=False):
+        observed.update(
+            {"runtimeDir": str(runtime_dir), "bundle": candidate, "execute": execute}
+        )
+        return {"ok": True, "status": "imported" if execute else "planned"}
+
+    monkeypatch.setattr(work_profile, "import_authority", import_authority)
+    runner = CliRunner()
+    home = tmp_path / "home"
+    export_result = runner.invoke(
+        kfc,
+        ["--home", str(home), "agent", "work", "export-authority", "--json"],
+    )
+    encoded = base64.b64encode(json.dumps(bundle).encode()).decode()
+    import_result = runner.invoke(
+        kfc,
+        [
+            "--home",
+            str(home),
+            "agent",
+            "work",
+            "import-authority",
+            "--input-base64",
+            encoded,
+            "--execute",
+            "--json",
+        ],
+    )
+
+    assert export_result.exit_code == 0, export_result.output
+    assert json.loads(export_result.output) == exported
+    assert import_result.exit_code == 0, import_result.output
+    assert json.loads(import_result.output)["status"] == "imported"
+    assert observed == {
+        "runtimeDir": str(home / "runtime"),
+        "bundle": bundle,
+        "execute": True,
+    }
 
 
 def _root(value):
