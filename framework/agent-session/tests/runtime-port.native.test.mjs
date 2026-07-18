@@ -84,7 +84,7 @@ function spawnPeer(role, runtimeDir) {
   return child;
 }
 
-export function windowsTreeKillInvocation(pid) {
+function windowsTreeKillInvocation(pid) {
   if (!Number.isSafeInteger(pid) || pid <= 0)
     throw new Error(`invalid test-owned Windows process id: ${pid}`);
   return {
@@ -93,12 +93,13 @@ export function windowsTreeKillInvocation(pid) {
   };
 }
 
-function posixProcessGroupAlive(pid) {
+function posixProcessGroupAlive(pid, kill = process.kill) {
   try {
-    process.kill(-pid, 0);
+    kill(-pid, 0);
     return true;
   } catch (error) {
     if (error?.code === 'ESRCH') return false;
+    if (error?.code === 'EPERM') return true;
     throw error;
   }
 }
@@ -146,6 +147,40 @@ async function stopChild(child) {
     );
   }
 }
+
+test('POSIX process-group probe reports ESRCH as exited', () => {
+  const missing = Object.assign(new Error('missing'), { code: 'ESRCH' });
+  assert.equal(
+    posixProcessGroupAlive(123, () => {
+      throw missing;
+    }),
+    false,
+  );
+});
+
+test('POSIX process-group probe keeps waiting after EPERM', () => {
+  const denied = Object.assign(new Error('denied'), { code: 'EPERM' });
+  let invocation;
+  assert.equal(
+    posixProcessGroupAlive(123, (...args) => {
+      invocation = args;
+      throw denied;
+    }),
+    true,
+  );
+  assert.deepEqual(invocation, [-123, 0]);
+});
+
+test('POSIX process-group probe preserves unexpected failures', () => {
+  const failure = Object.assign(new Error('unexpected'), { code: 'EINVAL' });
+  assert.throws(
+    () =>
+      posixProcessGroupAlive(123, () => {
+        throw failure;
+      }),
+    failure,
+  );
+});
 
 test(
   'POSIX native fixture cleanup escalates when a child ignores SIGTERM',
