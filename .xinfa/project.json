@@ -551,8 +551,12 @@
         "mode": "exact",
         "paths": [
           "docs/architecture/README.md",
+          "docs/adr/ADR-0018-runtime-storage-service-architecture.md",
           "docs/adr/ADR-0026-runtime-greenfield-core-surface.md",
+          "docs/adr/ADR-0047-authoritative-facts-hana-pod-or-flatbuffers.md",
           "docs/adr/ADR-0078-minimal-generic-core-closure-and-membrane-decode-checksum.md",
+          "docs/adr/ADR-0112-backend-neutral-fact-cut-kernel.md",
+          "docs/adr/ADR-0113-authority-atomic-storage-backend-switch.md",
           "framework/core/slices/shared-embedding-membrane/README.md"
         ]
       }
@@ -610,8 +614,12 @@
         "mode": "exact",
         "paths": [
           "docs/architecture/README.md",
+          "docs/adr/ADR-0018-runtime-storage-service-architecture.md",
           "docs/adr/ADR-0026-runtime-greenfield-core-surface.md",
+          "docs/adr/ADR-0047-authoritative-facts-hana-pod-or-flatbuffers.md",
           "docs/adr/ADR-0078-minimal-generic-core-closure-and-membrane-decode-checksum.md",
+          "docs/adr/ADR-0112-backend-neutral-fact-cut-kernel.md",
+          "docs/adr/ADR-0113-authority-atomic-storage-backend-switch.md",
           "framework/core/slices/shared-embedding-membrane/README.md"
         ]
       }
