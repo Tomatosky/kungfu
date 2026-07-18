@@ -1,7 +1,7 @@
 #  SPDX-License-Identifier: Apache-2.0
 
 from . import engage
-from . import journal
+from . import env
 from . import cockpit
 from . import trace
 from . import managed_run
@@ -14,15 +14,26 @@ from . import rewind
 from . import schema
 from . import work
 from . import atlas
+from . import storage
+from . import query
+from . import facts
+from . import source
 from . import kfx
 from . import skill
-from . import agent
 from . import codex
 from . import sdk
+from . import kfd
+from . import runtime
+from . import update
+from . import workspace
+from . import profile
+from . import lock
+from . import health
+from . import recover
 
 __all__ = [
     "engage",
-    "journal",
+    "env",
     "cockpit",
     "trace",
     "managed_run",
@@ -35,9 +46,20 @@ __all__ = [
     "schema",
     "work",
     "atlas",
+    "storage",
+    "query",
+    "facts",
+    "source",
     "kfx",
     "skill",
-    "agent",
     "codex",
     "sdk",
+    "kfd",
+    "runtime",
+    "update",
+    "workspace",
+    "profile",
+    "lock",
+    "health",
+    "recover",
 ]

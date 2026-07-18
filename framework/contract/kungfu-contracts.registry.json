@@ -77,6 +77,109 @@
           "artifact": "config/skill/schema/skill-manager.schema.json"
         }
       ]
+    },
+    {
+      "surface": "runtime",
+      "id": "kungfu-runtime",
+      "schema": "kungfu.runtime.contract/v1",
+      "weldedSurface": "runtime-activation-contract",
+      "env": "KUNGFU_RUNTIME_CONTRACT",
+      "file": "kungfu-runtime.contract.json",
+      "source": "framework/runtime/kungfu-runtime.contract.json",
+      "artifact": "config/kungfu-runtime.contract.json",
+      "probeFixture": "tests/fixtures/runtime-contract-topology-neutral/valid-cases.json",
+      "cli": {
+        "contract": ["contract", "show", "runtime", "--json"],
+        "schema": ["contract", "show", "runtime", "--json"]
+      }
+    },
+    {
+      "surface": "peer-lifecycle",
+      "id": "kungfu-peer-lifecycle",
+      "schema": "kungfu.runtime.peer-lifecycle-contract/v1",
+      "weldedSurface": "peer-process-lifecycle-control-plane",
+      "env": "KUNGFU_PEER_LIFECYCLE_CONTRACT",
+      "file": "kungfu-peer-lifecycle.contract.json",
+      "source": "framework/runtime/kungfu-peer-lifecycle.contract.json",
+      "artifact": "config/kungfu-peer-lifecycle.contract.json",
+      "cli": {
+        "contract": ["runtime", "peer", "contract", "--json"],
+        "schema": ["runtime", "peer", "contract", "--json"]
+      }
+    },
+    {
+      "surface": "diagnostics",
+      "id": "kungfu-diagnostics",
+      "schema": "kungfu.diagnostics.contract/v1",
+      "weldedSurface": "product-diagnostics-contract",
+      "env": "KUNGFU_DIAGNOSTICS_CONTRACT",
+      "file": "kungfu-diagnostics.contract.json",
+      "source": "framework/runtime/kungfu-diagnostics.contract.json",
+      "artifact": "config/kungfu-diagnostics.contract.json",
+      "cli": {
+        "contract": ["health", "--contract", "--json"],
+        "schema": ["contract", "show", "diagnostics", "--json"]
+      }
+    },
+    {
+      "surface": "upgrade",
+      "id": "kungfu-product-upgrade",
+      "schema": "kungfu.product-upgrade.contract/v1",
+      "weldedSurface": "product-upgrade-control-plane",
+      "env": "KUNGFU_UPGRADE_CONTRACT",
+      "file": "kungfu-upgrade.contract.json",
+      "source": "framework/upgrade/kungfu-upgrade.contract.json",
+      "artifact": "config/kungfu-upgrade.contract.json",
+      "cli": {
+        "contract": ["contract", "show", "upgrade", "--json"],
+        "schema": ["contract", "show", "upgrade", "--json"]
+      }
+    },
+    {
+      "surface": "agent-session",
+      "id": "kungfu-agent-session",
+      "schema": "kungfu.agent-session.contract/v1",
+      "weldedSurface": "agent-session-control-plane-contract",
+      "env": "KUNGFU_AGENT_SESSION_CONTRACT",
+      "file": "kungfu-agent-session.contract.json",
+      "source": "framework/agent-session/kungfu-agent-session.contract.json",
+      "artifact": "config/kungfu-agent-session.contract.json",
+      "probeFixture": "tests/fixtures/agent-session-capsule-contract/valid-cases.json",
+      "cli": {
+        "contract": ["contract", "show", "agent-session", "--json"],
+        "schema": ["contract", "show", "agent-session", "--json"]
+      }
+    },
+    {
+      "surface": "agent-work-state",
+      "id": "kungfu-agent-work-state",
+      "schema": "kungfu.agent-work-state.contract/v2",
+      "contractSchemaRoot": "sha256:4c556e0e16f980b2ec2b1233f6b693e3da76dcd01151d27547b28747b666a78a",
+      "weldedSurface": "agent-work-state-contract",
+      "env": "KUNGFU_AGENT_WORK_STATE_CONTRACT",
+      "file": "kungfu-agent-work-state.contract.json",
+      "source": "framework/agent-work/kungfu-agent-work-state.contract.json",
+      "artifact": "config/kungfu-agent-work-state.contract.json",
+      "cli": {
+        "contract": ["agent", "work-model", "--json"],
+        "schema": ["contract", "show", "agent-work-state", "--json"]
+      }
+    },
+    {
+      "surface": "fact-cut-kernel",
+      "id": "kungfu-fact-cut-kernel",
+      "schema": "kungfu.fact-cut-kernel.contract/v1",
+      "contractSchemaRoot": "sha256:b7bfdbd495616c747aa033edf61fec99e375893ee59c9a983a18a5c30b8c0f99",
+      "weldedSurface": "fact-cut-kernel-contract",
+      "env": "KUNGFU_FACT_CUT_KERNEL_CONTRACT",
+      "file": "kungfu-fact-cut-kernel.contract.json",
+      "source": "framework/fact/kungfu-fact-cut-kernel.contract.json",
+      "artifact": "config/kungfu-fact-cut-kernel.contract.json",
+      "probeFixture": "tests/fixtures/fact-cut-kernel-contract/cases.json",
+      "cli": {
+        "contract": ["contract", "show", "fact-cut-kernel", "--json"],
+        "schema": ["contract", "show", "fact-cut-kernel", "--json"]
+      }
     }
   ]
 }

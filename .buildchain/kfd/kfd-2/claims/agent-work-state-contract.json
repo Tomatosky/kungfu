@@ -1,0 +1,111 @@
+{
+  "id": "agent-work-state-contract",
+  "public": true,
+  "claim": "Kungfu releases publish one welded four-role Agent Work contract whose current release state is explicitly not-qualified for P17 and whose FO1-FO8 evidence debt and residual non-claims remain machine-readable.",
+  "sourceBindings": [
+    {
+      "role": "claim-source",
+      "kind": "file",
+      "path": "framework/agent-work/kungfu-agent-work-state.contract.json",
+      "sha256": "e89bdbeef7b3015869e27b7a5fb010fd2a697a925f4690cc8dadafd55cf83b20"
+    }
+  ],
+  "machineEvidence": [
+    {
+      "type": "file",
+      "pointer": {
+        "kind": "file",
+        "path": "docs/adr/ADR-0109-four-object-agent-work-state-contract.md",
+        "sha256": "c4fc13930268ad149a0d179cb0944c8a3236c24e3e03038dac5da3b91c219188"
+      },
+      "description": "Accepted role-separation decision and bounded P17 qualification boundary."
+    },
+    {
+      "type": "file",
+      "pointer": {
+        "kind": "file",
+        "path": "scripts/check-agent-work-state-contract.test.mjs",
+        "sha256": "9e1cc36c91b22c051e44848b3f1811c975027f15806ee12eac0fe85c5051c436"
+      },
+      "description": "Source, package, KFD-2, and KFD-3 projection checks."
+    },
+    {
+      "type": "file",
+      "pointer": {
+        "kind": "file",
+        "path": "framework/core/tests/python/test_agent_work_state_contract.py",
+        "sha256": "2b1c013a49533d7a6c240b1f05d94c74dba45da0e6d439592ed8885aad7178ac"
+      },
+      "description": "Runtime CLI parity and fail-closed contract-schema checks."
+    },
+    {
+      "type": "file",
+      "pointer": {
+        "kind": "file",
+        "path": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
+        "sha256": "c9f35d1a267181532952a9603de56d5b6342372ec1848a6ca5afcf841ad0b0b1"
+      },
+      "description": "Agent collaboration-interface registration for the work-model query."
+    }
+  ],
+  "hashes": {
+    "registrySha256": "9d1f607e4e9973a8c0ac1fb60105e65b5fbaa56f4cd9e2eb51633b4091188fe4",
+    "sourceSha256": "e89bdbeef7b3015869e27b7a5fb010fd2a697a925f4690cc8dadafd55cf83b20",
+    "evidenceSha256": [
+      {
+        "path": "docs/adr/ADR-0109-four-object-agent-work-state-contract.md",
+        "sha256": "c4fc13930268ad149a0d179cb0944c8a3236c24e3e03038dac5da3b91c219188"
+      },
+      {
+        "path": "scripts/check-agent-work-state-contract.test.mjs",
+        "sha256": "9e1cc36c91b22c051e44848b3f1811c975027f15806ee12eac0fe85c5051c436"
+      },
+      {
+        "path": "framework/core/tests/python/test_agent_work_state_contract.py",
+        "sha256": "2b1c013a49533d7a6c240b1f05d94c74dba45da0e6d439592ed8885aad7178ac"
+      },
+      {
+        "path": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
+        "sha256": "c9f35d1a267181532952a9603de56d5b6342372ec1848a6ca5afcf841ad0b0b1"
+      }
+    ],
+    "artifactSha256": [
+      {
+        "path": "framework/agent-work/kungfu-agent-work-state.contract.json",
+        "sha256": "e89bdbeef7b3015869e27b7a5fb010fd2a697a925f4690cc8dadafd55cf83b20"
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "name": "agent-work-state-contract",
+      "path": "framework/agent-work/kungfu-agent-work-state.contract.json",
+      "sha256": "e89bdbeef7b3015869e27b7a5fb010fd2a697a925f4690cc8dadafd55cf83b20",
+      "expectedPackagePath": "config/kungfu-agent-work-state.contract.json"
+    }
+  ],
+  "verification": {
+    "result": "passed-with-residual-risk",
+    "command": "./shifu check:agent-work-state-contract && ./shifu kfd:buildchain:check",
+    "expectedResult": "pass"
+  },
+  "auditBoundary": {
+    "scope": "The committed four-role contract, its exact packaged projection, the generic KFD-1 query route, the KFD-3 agent route, and the tests listed in this claim.",
+    "enumerability": "closed-world",
+    "exclusions": [
+      "Runtime P17 fixtures not yet retained by FO1-FO8",
+      "GUI, TUI, Python SDK, and Node SDK conformance not yet complete",
+      "Universal applicability to every organization or workflow"
+    ]
+  },
+  "responsibility": {
+    "sourceOwner": "kungfu",
+    "verificationOwner": "kungfu verify",
+    "releaseDecisionOwner": "kungfu release maintainer",
+    "escalation": "Reject qualification or downgrade the claim if the contract, packaged artifact, KFD-1 query, KFD-3 route, or declared P17 debt diverges."
+  },
+  "residualRisk": [
+    "P17 remains not-qualified until every FO1-FO8 obligation passes and exact release evidence is bound into the Release Passport."
+  ],
+  "canonicalStatus": "audited"
+}

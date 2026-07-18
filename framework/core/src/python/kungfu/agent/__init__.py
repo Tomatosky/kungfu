@@ -6,8 +6,12 @@ from .resources import (
     document_text,
     index,
     pack_root,
+    profile_sdk_contract,
+    registry,
+    registry_schema,
     skill_path,
 )
+from . import documentation
 
 __all__ = [
     "choose_mode",
@@ -15,5 +19,9 @@ __all__ = [
     "document_text",
     "index",
     "pack_root",
+    "profile_sdk_contract",
+    "registry",
+    "registry_schema",
     "skill_path",
+    "documentation",
 ]
