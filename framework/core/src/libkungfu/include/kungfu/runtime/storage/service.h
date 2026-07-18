@@ -734,6 +734,92 @@ struct storage_verify_sync_result {
   std::string imported_runtime_dir = {};
 };
 
+struct storage_backend_inventory_view {
+  uint64_t object_count = 0;
+  uint64_t byte_count = 0;
+  std::string semantic_root = {};
+};
+
+struct storage_backend_binding_view {
+  bool present = false;
+  std::string provider = {};
+  std::string previous_provider = {};
+  uint64_t generation = 0;
+  std::string operation_id = {};
+  int64_t committed_at = 0;
+  storage_backend_inventory_view inventory = {};
+};
+
+struct storage_backend_migration_view {
+  bool present = false;
+  std::string operation_id = {};
+  std::string action = {};
+  std::string phase = {};
+  std::string source_provider = {};
+  std::string target_provider = {};
+  uint64_t source_generation = 0;
+  uint64_t target_generation = 0;
+  uint64_t copied_objects = 0;
+  uint64_t copied_bytes = 0;
+  int64_t started_at = 0;
+  int64_t updated_at = 0;
+};
+
+struct storage_backend_status_request {
+  std::string runtime_dir = {};
+  std::string requested_provider = {};
+};
+
+struct storage_backend_status_result {
+  bool ok = true;
+  std::string schema = "kungfu.storage.backend-status/v1";
+  std::string runtime_dir = {};
+  std::string provider = {};
+  std::string provider_config_source = {};
+  storage_backend_binding_view binding = {};
+  storage_backend_migration_view migration = {};
+  storage_backend_inventory_view inventory = {};
+  std::vector<std::string> warnings = {};
+};
+
+struct storage_backend_change_request {
+  std::string runtime_dir = {};
+  std::string target_provider = {};
+  std::optional<uint64_t> expected_generation = {};
+  // Qualification-only deterministic fault injection. Production callers
+  // leave this empty; fixtures use it only under temporary runtime roots.
+  std::optional<uint64_t> fail_after_copied_objects = {};
+};
+
+struct storage_backend_change_result {
+  bool ok = true;
+  std::string schema = "kungfu.storage.backend-switch-receipt/v1";
+  std::string operation_id = {};
+  std::string action = {};
+  std::string phase = {};
+  std::string source_provider = {};
+  std::string target_provider = {};
+  std::string source_profile = {};
+  std::string target_profile = {};
+  uint64_t source_generation = 0;
+  uint64_t target_generation = 0;
+  storage_backend_inventory_view pre_cut = {};
+  storage_backend_inventory_view post_cut = {};
+  uint64_t copied_objects = 0;
+  uint64_t copied_bytes = 0;
+  uint64_t target_extra_objects = 0;
+  bool target_fsck_ok = false;
+  bool binding_committed = false;
+  bool old_backend_retained_readonly = false;
+  std::vector<std::string> residual_risks = {};
+};
+
+[[nodiscard]] storage_backend_status_result storage_backend_status(const storage_backend_status_request &request);
+
+[[nodiscard]] storage_backend_change_result storage_backend_switch(const storage_backend_change_request &request);
+
+[[nodiscard]] storage_backend_change_result storage_backend_rollback(const storage_backend_change_request &request);
+
 struct storage_episode_begin_request {
   std::string runtime_dir = {};
   yijinjing::storage::episode_begin_options options = {};

@@ -102,20 +102,24 @@ The first `libkungfu` provider slice exposes
 `kungfu::runtime::storage_service_api::storage_service` and the
 `kungfu.runtime.storage-service/v1` operation surface for `status`, `fsck`,
 `repair_plan`, `repair_fetch`, `export_bundle`, `import_bundle`, `rebuild_index`, `gc_plan`,
-`compact_plan`, `verify_sync`, and read-only `query`. The current default backend is a content-addressed file
-provider implemented in C++ under the runtime service. A second C++ provider
+`compact_plan`, `verify_sync`, `backend_status`, `backend_switch`,
+`backend_rollback`, and read-only `query`. The current default backend is a
+content-addressed file provider implemented in C++ under the runtime service. A second C++ provider
 stores the same source registry, manifests, and payload bodies in RocksDB behind
 the identical service operations. Python storage commands are now compatibility
 shims over that service instead of a second implementation of the provider
 semantics.
 
 Provider selection is runtime configuration, not product vocabulary. The
-default provider remains `content-addressed-file`; explicit storage service
-options win over environment defaults, and `KUNGFU_STORAGE_PROVIDER=rocksdb`
-selects RocksDB only when the request does not pass `{"provider":"..."}`. The
-returned request/status/capabilities include `provider_config_source` for
-observability, but commands and SDKs should continue to model storage in terms
-of manifests, payload references, bundles, projections, and verification.
+default provider remains `content-addressed-file` for an empty runtime. Once a
+runtime contains content, [`ADR-0112`](../adr/ADR-0112-authority-atomic-storage-backend-switch.md)
+makes `storage/backend-binding.json` the provider authority. An explicit option
+or `KUNGFU_STORAGE_PROVIDER` value may select the first provider, but it cannot
+override an existing binding or unambiguous legacy population. A mismatch fails
+closed; operators use the explicit backend switch or rollback operation instead
+of changing configuration in place. Status and capabilities expose the binding,
+provider availability, configuration source, migration phase, and cutover
+contract for observability.
 
 Provider lifecycle is also owned by `libkungfu`, not the bindings. The
 content-addressed file provider is stateless filesystem access. The RocksDB
@@ -226,11 +230,20 @@ kungfu storage import
 kungfu storage rebuild-index
 kungfu storage gc
 kungfu storage compact
+kungfu storage backend status
+kungfu storage backend switch --to rocksdb
+kungfu storage backend rollback
 ```
 
 All commands intended for agents should support `--json`. Any command that
 deletes, rewrites, or archives local facts should support a dry-run or preview
 mode before execution.
+
+Backend changes are non-destructive but stateful. `switch` and `rollback` copy
+and verify all immutable content namespaces, briefly fence old-provider writes,
+atomically publish one new binding generation, retain the old provider
+read-only, and emit a receipt. They never migrate journals or derived SQLite
+projections because those have provider-neutral authority and rebuild rules.
 
 ## Integrity: `storage fsck`
 

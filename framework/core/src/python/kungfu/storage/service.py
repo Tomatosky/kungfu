@@ -170,6 +170,58 @@ def status(
     return dict(_runtime().storage_status_typed(str(runtime_dir), source_id))
 
 
+def backend_status(
+    runtime_dir: str | Path, *, provider: str | None = None
+) -> dict[str, Any]:
+    """Inspect the authoritative provider binding and any resumable cut."""
+
+    return dict(
+        _runtime().run_storage_service_operation(
+            "backend_status",
+            str(runtime_dir),
+            {"provider": provider} if provider else {},
+        )
+    )
+
+
+def backend_switch(
+    runtime_dir: str | Path,
+    *,
+    target_provider: str,
+    expected_generation: int | None = None,
+    qualification_fail_after_copied_objects: int | None = None,
+) -> dict[str, Any]:
+    """Copy, verify, and atomically bind a different embedded provider."""
+
+    options: dict[str, Any] = {"target_provider": target_provider}
+    if expected_generation is not None:
+        options["expected_generation"] = _u64(expected_generation)
+    if qualification_fail_after_copied_objects is not None:
+        options["qualification_fail_after_copied_objects"] = _u64(
+            qualification_fail_after_copied_objects
+        )
+    return dict(
+        _runtime().run_storage_service_operation(
+            "backend_switch", str(runtime_dir), options
+        )
+    )
+
+
+def backend_rollback(
+    runtime_dir: str | Path, *, expected_generation: int | None = None
+) -> dict[str, Any]:
+    """Reverse-sync to the retained provider and publish a new generation."""
+
+    options: dict[str, Any] = {}
+    if expected_generation is not None:
+        options["expected_generation"] = _u64(expected_generation)
+    return dict(
+        _runtime().run_storage_service_operation(
+            "backend_rollback", str(runtime_dir), options
+        )
+    )
+
+
 def layout(
     runtime_dir: str | Path,
     *,

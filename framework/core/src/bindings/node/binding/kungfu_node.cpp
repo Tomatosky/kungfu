@@ -72,6 +72,16 @@ using namespace kungfu::yijinjing::data;
 using namespace kungfu::node;
 
 namespace kungfu::node {
+template <typename Fn> Napi::Value StorageEdgeCall(const Napi::CallbackInfo &info, Fn &&fn) {
+  try {
+    return fn();
+  } catch (const Napi::Error &) {
+    throw;
+  } catch (const std::exception &error) {
+    throw Napi::Error::New(info.Env(), error.what());
+  }
+}
+
 std::string ToHex(const std::string &bytes) {
   std::string hex;
   hex.reserve(bytes.size() * 2);
@@ -747,18 +757,22 @@ Napi::Value MakeStorageServiceRequest(const Napi::CallbackInfo &info) {
   if (!IsValid(info, 0, &Napi::Value::IsString) || !IsValid(info, 1, &Napi::Value::IsString)) {
     throw Napi::TypeError::New(info.Env(), "makeStorageServiceRequest(operation, runtimeDir, options?)");
   }
-  return JsonToValue(info.Env(), runtime::storage_service_api::make_storage_service_request(
-                                     info[0].As<Napi::String>().Utf8Value(), info[1].As<Napi::String>().Utf8Value(),
-                                     OptionalObjectArg(info, 2, "options")));
+  return StorageEdgeCall(info, [&] {
+    return JsonToValue(info.Env(), runtime::storage_service_api::make_storage_service_request(
+                                       info[0].As<Napi::String>().Utf8Value(), info[1].As<Napi::String>().Utf8Value(),
+                                       OptionalObjectArg(info, 2, "options")));
+  });
 }
 
 Napi::Value RunStorageServiceOperation(const Napi::CallbackInfo &info) {
   if (!IsValid(info, 0, &Napi::Value::IsString) || !IsValid(info, 1, &Napi::Value::IsString)) {
     throw Napi::TypeError::New(info.Env(), "runStorageServiceOperation(operation, runtimeDir, options?)");
   }
-  return JsonToValue(info.Env(), runtime::storage_service_api::run_storage_service_operation(
-                                     info[0].As<Napi::String>().Utf8Value(), info[1].As<Napi::String>().Utf8Value(),
-                                     OptionalObjectArg(info, 2, "options")));
+  return StorageEdgeCall(info, [&] {
+    return JsonToValue(info.Env(), runtime::storage_service_api::run_storage_service_operation(
+                                       info[0].As<Napi::String>().Utf8Value(), info[1].As<Napi::String>().Utf8Value(),
+                                       OptionalObjectArg(info, 2, "options")));
+  });
 }
 
 Napi::Value AcceptStorageManifest(const Napi::CallbackInfo &info) {
@@ -801,9 +815,11 @@ Napi::Value ContentStorePutIfAbsent(const Napi::CallbackInfo &info) {
   }
   const auto expected =
       IsValid(info, 3, &Napi::Value::IsString) ? info[3].As<Napi::String>().Utf8Value() : std::string();
-  return JsonToValue(info.Env(), runtime::storage_service_api::content_store_put_if_absent(
-                                     info[0].As<Napi::String>().Utf8Value(), info[1].As<Napi::String>().Utf8Value(),
-                                     ContentBytes(info, 2), expected));
+  return StorageEdgeCall(info, [&] {
+    return JsonToValue(info.Env(), runtime::storage_service_api::content_store_put_if_absent(
+                                       info[0].As<Napi::String>().Utf8Value(), info[1].As<Napi::String>().Utf8Value(),
+                                       ContentBytes(info, 2), expected));
+  });
 }
 
 Napi::Value ContentStoreHas(const Napi::CallbackInfo &info) {
@@ -811,10 +827,12 @@ Napi::Value ContentStoreHas(const Napi::CallbackInfo &info) {
       !IsValid(info, 2, &Napi::Value::IsString)) {
     throw Napi::TypeError::New(info.Env(), "contentStoreHas(runtimeDir, namespace, contentHash)");
   }
-  return Napi::Boolean::New(info.Env(),
-                            runtime::storage_service_api::content_store_has(info[0].As<Napi::String>().Utf8Value(),
-                                                                            info[1].As<Napi::String>().Utf8Value(),
-                                                                            info[2].As<Napi::String>().Utf8Value()));
+  return StorageEdgeCall(info, [&] {
+    return Napi::Boolean::New(info.Env(),
+                              runtime::storage_service_api::content_store_has(info[0].As<Napi::String>().Utf8Value(),
+                                                                              info[1].As<Napi::String>().Utf8Value(),
+                                                                              info[2].As<Napi::String>().Utf8Value()));
+  });
 }
 
 Napi::Value ContentStoreVerify(const Napi::CallbackInfo &info) {
@@ -822,9 +840,11 @@ Napi::Value ContentStoreVerify(const Napi::CallbackInfo &info) {
       !IsValid(info, 2, &Napi::Value::IsString)) {
     throw Napi::TypeError::New(info.Env(), "contentStoreVerify(runtimeDir, namespace, contentHash)");
   }
-  return JsonToValue(info.Env(), runtime::storage_service_api::content_store_verify(
-                                     info[0].As<Napi::String>().Utf8Value(), info[1].As<Napi::String>().Utf8Value(),
-                                     info[2].As<Napi::String>().Utf8Value()));
+  return StorageEdgeCall(info, [&] {
+    return JsonToValue(info.Env(), runtime::storage_service_api::content_store_verify(
+                                       info[0].As<Napi::String>().Utf8Value(), info[1].As<Napi::String>().Utf8Value(),
+                                       info[2].As<Napi::String>().Utf8Value()));
+  });
 }
 
 Napi::Value ContentStoreGet(const Napi::CallbackInfo &info) {
@@ -832,18 +852,22 @@ Napi::Value ContentStoreGet(const Napi::CallbackInfo &info) {
       !IsValid(info, 2, &Napi::Value::IsString)) {
     throw Napi::TypeError::New(info.Env(), "contentStoreGet(runtimeDir, namespace, contentHash)");
   }
-  const auto bytes = runtime::storage_service_api::content_store_get(info[0].As<Napi::String>().Utf8Value(),
-                                                                     info[1].As<Napi::String>().Utf8Value(),
-                                                                     info[2].As<Napi::String>().Utf8Value());
-  return Napi::Buffer<uint8_t>::Copy(info.Env(), reinterpret_cast<const uint8_t *>(bytes.data()), bytes.size());
+  return StorageEdgeCall(info, [&] {
+    const auto bytes = runtime::storage_service_api::content_store_get(info[0].As<Napi::String>().Utf8Value(),
+                                                                       info[1].As<Napi::String>().Utf8Value(),
+                                                                       info[2].As<Napi::String>().Utf8Value());
+    return Napi::Buffer<uint8_t>::Copy(info.Env(), reinterpret_cast<const uint8_t *>(bytes.data()), bytes.size());
+  });
 }
 
 Napi::Value ContentStoreCapabilities(const Napi::CallbackInfo &info) {
   if (!IsValid(info, 0, &Napi::Value::IsString)) {
     throw Napi::TypeError::New(info.Env(), "contentStoreCapabilities(runtimeDir)");
   }
-  return JsonToValue(info.Env(),
-                     runtime::storage_service_api::content_store_capabilities(info[0].As<Napi::String>().Utf8Value()));
+  return StorageEdgeCall(info, [&] {
+    return JsonToValue(
+        info.Env(), runtime::storage_service_api::content_store_capabilities(info[0].As<Napi::String>().Utf8Value()));
+  });
 }
 
 Napi::Value VerifyContentHash(const Napi::CallbackInfo &info) {

@@ -120,7 +120,7 @@ function writeNodeFixture(runtimeDir) {
   });
 }
 
-function selectedNodeResults(runtimeDir) {
+function selectedNodeResults(runtimeDir, provider) {
   const bundle = kungfu.runStorageServiceOperation(
     'export_bundle',
     runtimeDir,
@@ -132,7 +132,7 @@ function selectedNodeResults(runtimeDir) {
   return {
     capabilities: kungfu.storageServiceCapabilities(),
     optionRequest: kungfu.makeStorageServiceRequest('status', runtimeDir, {
-      provider: 'content-addressed-file',
+      provider,
       scope: 'all',
     }),
     request: kungfu.makeStorageServiceRequest('fsck', runtimeDir, {
@@ -560,7 +560,7 @@ test(
   },
 );
 
-function selectedPythonResults(runtimeDir) {
+function selectedPythonResults(runtimeDir, provider) {
   const script = String.raw`
 import json
 import os
@@ -569,6 +569,7 @@ from pathlib import Path
 
 core_dir = Path(sys.argv[1])
 runtime_dir = sys.argv[2]
+provider = sys.argv[3]
 sys.path.insert(0, str(core_dir / "src" / "python"))
 sys.path.insert(0, os.environ["KUNGFU_DIR"])
 
@@ -580,7 +581,7 @@ out = {
     "optionRequest": service._runtime().make_storage_service_request(
         "status",
         runtime_dir,
-        {"provider": "content-addressed-file", "scope": "all"},
+        {"provider": provider, "scope": "all"},
     ),
     "request": service._runtime().make_storage_service_request(
         "fsck",
@@ -632,7 +633,7 @@ print(json.dumps(node_safe(out), sort_keys=True, separators=(",", ":")))
   fs.writeFileSync(scriptPath, script, 'utf8');
   const result = spawnSync(
     'uv',
-    ['run', '--frozen', 'python', scriptPath, coreDir, runtimeDir],
+    ['run', '--frozen', 'python', scriptPath, coreDir, runtimeDir, provider],
     {
       cwd: coreDir,
       encoding: 'utf8',
@@ -693,9 +694,12 @@ for (const providerCase of providerCases) {
           assert.equal(rebuilt.ok, true);
 
           const nodeResults = normalizeTypedIntegers(
-            selectedNodeResults(runtimeDir),
+            selectedNodeResults(runtimeDir, providerCase.expectedProvider),
           );
-          const pythonResults = selectedPythonResults(runtimeDir);
+          const pythonResults = selectedPythonResults(
+            runtimeDir,
+            providerCase.expectedProvider,
+          );
           // the provider cache and its live handle state are process-local
           // observability (each runtime is its own process with its own
           // cache), so they are asserted per-process and excluded from the
@@ -713,22 +717,32 @@ for (const providerCase of providerCases) {
               provider_cache: _cache,
               ...rest
             }) => rest;
-            const stripExportCount = (fsck) => ({
-              ...fsck,
-              manifest_catalog: fsck.manifest_catalog
-                ? { ...fsck.manifest_catalog, exports: 0 }
-                : null,
-            });
-            return {
+            const stripExportCount = (value) => {
+              if (Array.isArray(value)) {
+                return value.map(stripExportCount);
+              }
+              if (value === null || typeof value !== 'object') {
+                return value;
+              }
+              const normalized = Object.fromEntries(
+                Object.entries(value).map(([key, item]) => [
+                  key,
+                  key === 'export_bundle_recorded' ? 0 : stripExportCount(item),
+                ]),
+              );
+              if (normalized.table === 'export_bundle_recorded') {
+                normalized.count = 0;
+              }
+              if (normalized.manifest_catalog) {
+                normalized.manifest_catalog.exports = 0;
+              }
+              return normalized;
+            };
+            return stripExportCount({
               ...results,
               status: strip(results.status),
               layout: strip(results.layout),
-              fsck: stripExportCount(results.fsck),
-              repair: {
-                ...results.repair,
-                fsck: stripExportCount(results.repair.fsck),
-              },
-            };
+            });
           };
           assert.deepEqual(
             stripProcessLocal(nodeResults),
@@ -764,11 +778,11 @@ for (const providerCase of providerCases) {
           );
           assert.equal(
             nodeResults.optionRequest.provider,
-            'content-addressed-file',
+            providerCase.expectedProvider,
           );
           assert.equal(
             nodeResults.optionRequest.provider_config_source,
-            'option',
+            'binding:generation-1',
           );
           assert.equal(
             nodeResults.status.provider_runtime.lifecycle,
@@ -1191,3 +1205,97 @@ for (const provider of ['content-addressed-file', 'rocksdb']) {
       }),
   );
 }
+
+test(
+  'Node observes the authority-atomic switch and rollback receipt',
+  {
+    skip:
+      nativeAvailable || process.env.KUNGFU_REQUIRE_NATIVE === '1'
+        ? false
+        : 'built kungfu_node binding is unavailable',
+  },
+  () =>
+    withStorageProvider(null, () => {
+      const runtimeDir = fs.mkdtempSync(
+        path.join(os.tmpdir(), 'kf-backend-switch-'),
+      );
+      try {
+        const before = Buffer.from('node object before switch');
+        assert.equal(
+          kungfu.contentStorePutIfAbsent(runtimeDir, 'payloads', before).ok,
+          true,
+        );
+
+        const switched = kungfu.runStorageServiceOperation(
+          'backend_switch',
+          runtimeDir,
+          {
+            target_provider: 'rocksdb',
+            expected_generation: '1',
+          },
+        );
+        assert.equal(
+          switched.schema,
+          'kungfu.storage.backend-switch-receipt/v1',
+        );
+        assert.equal(switched.source_provider, 'content-addressed-file');
+        assert.equal(switched.target_provider, 'rocksdb');
+        assert.equal(switched.target_generation, 2);
+        assert.equal(switched.target_fsck.ok, true);
+
+        withStorageProvider('content-addressed-file', () => {
+          const mismatch = kungfu.runStorageServiceOperation(
+            'backend_status',
+            runtimeDir,
+            {},
+          );
+          assert.equal(mismatch.ok, false);
+          assert.match(mismatch.warnings[0], /provider_binding_mismatch/);
+          assert.throws(
+            () =>
+              kungfu.contentStorePutIfAbsent(
+                runtimeDir,
+                'payloads',
+                Buffer.from('must not reach retained file provider'),
+              ),
+            /provider_binding_mismatch/,
+          );
+        });
+
+        const after = Buffer.from('node object after switch');
+        const stored = kungfu.contentStorePutIfAbsent(
+          runtimeDir,
+          'schemas',
+          after,
+        );
+        assert.equal(stored.ok, true);
+
+        const rolledBack = kungfu.runStorageServiceOperation(
+          'backend_rollback',
+          runtimeDir,
+          { expected_generation: '2' },
+        );
+        assert.equal(rolledBack.action, 'rollback');
+        assert.equal(rolledBack.source_provider, 'rocksdb');
+        assert.equal(rolledBack.target_provider, 'content-addressed-file');
+        assert.equal(rolledBack.target_generation, 3);
+        assert.deepEqual(
+          Buffer.from(
+            kungfu.contentStoreGet(runtimeDir, 'schemas', stored.hash.value),
+          ),
+          after,
+        );
+
+        const status = kungfu.runStorageServiceOperation(
+          'backend_status',
+          runtimeDir,
+          {},
+        );
+        assert.equal(status.provider, 'content-addressed-file');
+        assert.equal(status.binding.generation, 3);
+        assert.equal(status.binding.operation_id, rolledBack.operation_id);
+      } finally {
+        removeRuntimeDir(runtimeDir, 'rocksdb');
+      }
+    }),
+);

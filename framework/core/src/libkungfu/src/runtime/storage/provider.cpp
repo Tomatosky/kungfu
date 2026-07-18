@@ -8,6 +8,7 @@
 #include <functional>
 #include <optional>
 #include <stdexcept>
+#include <tuple>
 #include <utility>
 
 #if KUNGFU_HAS_ROCKSDB
@@ -162,7 +163,8 @@ public:
   // across a concurrent readonly-to-readwrite upgrade in the provider.
   using engine_opener = std::function<std::shared_ptr<rocksdb::DB>(bool write)>;
 
-  explicit rocksdb_content_store(engine_opener open) : open_(std::move(open)) {}
+  explicit rocksdb_content_store(std::string runtime_dir, engine_opener open)
+      : runtime_dir_(std::move(runtime_dir)), open_(std::move(open)) {}
 
   [[nodiscard]] yy_storage::content_store_capabilities capabilities() const override {
     yy_storage::content_store_capabilities caps{};
@@ -205,6 +207,7 @@ public:
     }
     result.hash = digest;
     result.byte_length = size;
+    backend_authority_write_guard authority_guard(runtime_dir_, PROVIDER_ROCKSDB);
     auto db = open_(true);
     if (!db) {
       result.error = yy_storage::content_store_error::IoError;
@@ -326,6 +329,7 @@ private:
     return yy_storage::content_store_error::Ok;
   }
 
+  std::string runtime_dir_;
   engine_opener open_;
   rocksdb::ReadOptions read_options_ = [] {
     rocksdb::ReadOptions options;
@@ -338,7 +342,8 @@ private:
 class rocksdb_storage_provider : public storage_provider {
 public:
   explicit rocksdb_storage_provider(std::string runtime_dir)
-      : runtime_dir_(std::move(runtime_dir)), content_store_([this](bool write) { return open(write); }) {}
+      : runtime_dir_(std::move(runtime_dir)), content_store_(runtime_dir_, [this](bool write) { return open(write); }) {
+  }
 
   [[nodiscard]] std::string name() const override { return PROVIDER_ROCKSDB; }
 
@@ -389,6 +394,35 @@ public:
     });
     std::sort(result.begin(), result.end(),
               [](const stored_payload &lhs, const stored_payload &rhs) { return lhs.digest < rhs.digest; });
+    return result;
+  }
+
+  [[nodiscard]] std::vector<stored_content_object> all_content_objects() const override {
+    std::vector<stored_content_object> result;
+    for_each("", [&](const std::string &key, const std::string &raw) {
+      const auto separator = key.find('/');
+      if (separator == std::string::npos) {
+        return;
+      }
+      const auto content_namespace = key.substr(0, separator);
+      const auto digest = key.substr(separator + 1);
+      if (!yy_storage::is_valid_content_namespace(content_namespace)) {
+        return;
+      }
+      try {
+        const auto hash = yy_storage::make_content_hash(digest);
+        const auto verified = content_store_.verify(content_namespace, hash);
+        if (!verified.ok()) {
+          throw std::runtime_error("content_object_corrupt: " + key);
+        }
+        result.push_back({content_namespace, digest, uri_for(key), raw.size()});
+      } catch (const std::invalid_argument &) {
+        return;
+      }
+    });
+    std::sort(result.begin(), result.end(), [](const stored_content_object &lhs, const stored_content_object &rhs) {
+      return std::tie(lhs.content_namespace, lhs.digest) < std::tie(rhs.content_namespace, rhs.digest);
+    });
     return result;
   }
 
@@ -602,6 +636,23 @@ provider_cache &provider_cache::instance() {
 }
 
 std::shared_ptr<storage_provider> provider_cache::acquire(const std::string &runtime, const std::string &provider) {
+  const auto selection = select_provider_for_runtime(runtime, provider);
+  const auto runtime_dir = absolute_normalized(runtime).string();
+  const auto key = selection.name + "|" + runtime_dir;
+  std::lock_guard<std::mutex> lock(mutex_);
+  if (const auto it = providers_.find(key); it != providers_.end()) {
+    hits_.fetch_add(1, std::memory_order_relaxed);
+    return it->second;
+  }
+  misses_.fetch_add(1, std::memory_order_relaxed);
+  return providers_.emplace(key, make_provider(selection.name, runtime_dir)).first->second;
+}
+
+std::shared_ptr<storage_provider> provider_cache::acquire_migration(const std::string &runtime,
+                                                                    const std::string &provider) {
+  if (provider.empty()) {
+    throw std::invalid_argument("migration provider is required");
+  }
   const auto selection = select_provider(provider);
   const auto runtime_dir = absolute_normalized(runtime).string();
   const auto key = selection.name + "|" + runtime_dir;
@@ -639,11 +690,32 @@ storage_provider_cache_view provider_cache::stats() const {
 }
 
 storage_provider_layout_view provider_layout_for(const std::string &provider) {
-  return make_provider(provider, "")->layout();
+  if (provider == PROVIDER_ROCKSDB) {
+    return {"storage/rocksdb", "journal/system/storage/manifest-catalog/live/*.journal", "manifests/<sha256>",
+            "payloads/<sha256>"};
+  }
+  return {{},
+          "journal/system/storage/manifest-catalog/live/*.journal",
+          "storage/manifests/<hash-prefix>/<sha256>",
+          "storage/payloads/<hash-prefix>/<sha256>"};
 }
 
 storage_provider_runtime_view provider_runtime_for(const std::string &provider) {
-  return make_provider(provider, "")->runtime();
+  if (provider == PROVIDER_ROCKSDB) {
+    return {"provider-instance-owned", "process-cached", "closed", false, true, false, false};
+  }
+  return {"stateless-filesystem", "process-cached", "per filesystem operation", false, true};
+}
+
+bool provider_available(const std::string &provider) {
+  if (provider != PROVIDER_ROCKSDB) {
+    return true;
+  }
+#if KUNGFU_HAS_ROCKSDB
+  return true;
+#else
+  return false;
+#endif
 }
 
 } // namespace kungfu::runtime::storage_service_api::detail

@@ -2140,6 +2140,9 @@ std::vector<std::string> storage_operation_names() {
       storage_operation_name(storage_operation::GcPlan),
       storage_operation_name(storage_operation::CompactPlan),
       storage_operation_name(storage_operation::VerifySync),
+      storage_operation_name(storage_operation::BackendStatus),
+      storage_operation_name(storage_operation::BackendSwitch),
+      storage_operation_name(storage_operation::BackendRollback),
       storage_operation_name(storage_operation::Query),
       storage_operation_name(storage_operation::QueryPlan),
       storage_operation_name(storage_operation::FactQuery),
@@ -2213,6 +2216,10 @@ std::string storage_operation_name(storage_operation operation) {
     return "compact_plan";
   case storage_operation::VerifySync:
     return "verify_sync";
+  case storage_operation::BackendStatus:
+  case storage_operation::BackendSwitch:
+  case storage_operation::BackendRollback:
+    return backend_operation_name(operation);
   case storage_operation::Query:
     return "query";
   case storage_operation::QueryPlan:
@@ -2342,6 +2349,8 @@ storage_operation parse_storage_operation(const std::string &operation) {
   if (operation == "verify_sync") {
     return storage_operation::VerifySync;
   }
+  if (const auto backend_operation = parse_backend_operation(operation); backend_operation.has_value())
+    return *backend_operation;
   if (operation == "query") {
     return storage_operation::Query;
   }
@@ -2480,7 +2489,7 @@ storage_operation parse_storage_operation(const std::string &operation) {
 storage_service_options parse_storage_service_options(const std::string &runtime_dir, const nlohmann::json &options) {
   storage_service_options parsed;
   parsed.runtime_dir = runtime_dir;
-  const auto selected_provider = select_provider(text_or(options, "provider"));
+  const auto selected_provider = select_provider_for_runtime(runtime_dir, text_or(options, "provider"));
   parsed.provider = selected_provider.name;
   parsed.provider_config_source = selected_provider.source;
   parsed.scope = text_or(options, "scope", "all");
@@ -2535,8 +2544,15 @@ nlohmann::json make_storage_service_request(const std::string &operation, const 
 
 nlohmann::json run_storage_service_operation(const std::string &operation, const std::string &runtime_dir,
                                              const nlohmann::json &options) {
-  return detail::dispatch_json_edge_operation(parse_storage_operation(operation),
-                                              parse_storage_service_options(runtime_dir, options));
+  const auto parsed_operation = parse_storage_operation(operation);
+  if (parsed_operation == storage_operation::BackendStatus || parsed_operation == storage_operation::BackendSwitch ||
+      parsed_operation == storage_operation::BackendRollback) {
+    storage_service_options backend_options{};
+    backend_options.runtime_dir = runtime_dir;
+    backend_options.operation_options = options;
+    return dispatch_backend_operation(parsed_operation, backend_options);
+  }
+  return detail::dispatch_json_edge_operation(parsed_operation, parse_storage_service_options(runtime_dir, options));
 }
 
 nlohmann::json accept_storage_manifest(const std::string &runtime_dir, const nlohmann::json &manifest) {
@@ -2712,16 +2728,19 @@ nlohmann::json storage_service_capabilities() {
       {"provider_config_source", provider.source},
       {"providers", nlohmann::json::array({
                         {{"name", PROVIDER_FILE},
+                         {"available", provider_available(PROVIDER_FILE)},
                          {"default", provider.name == PROVIDER_FILE},
                          {"selected", provider.name == PROVIDER_FILE},
                          {"layout", provider_layout_json(provider_layout_for(PROVIDER_FILE))},
                          {"runtime", provider_runtime_json(provider_runtime_for(PROVIDER_FILE))}},
                         {{"name", PROVIDER_ROCKSDB},
+                         {"available", provider_available(PROVIDER_ROCKSDB)},
                          {"default", provider.name == PROVIDER_ROCKSDB},
                          {"selected", provider.name == PROVIDER_ROCKSDB},
                          {"layout", provider_layout_json(provider_layout_for(PROVIDER_ROCKSDB))},
                          {"runtime", provider_runtime_json(provider_runtime_for(PROVIDER_ROCKSDB))}},
                     })},
+      {"backend_authority", backend_authority_capability_json()},
       {"projections",
        nlohmann::json::array(
            {{{"name", "source-registry"},

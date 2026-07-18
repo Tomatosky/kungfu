@@ -60,6 +60,31 @@ caller may rely on. The implementation lives in
 - The file provider is stateless per operation (atomic tmp+rename publishes);
   caching it unifies lifecycle observability without changing its semantics.
 
+## Authority binding and backend changes
+
+The process cache does not choose provider authority. For a populated runtime,
+`storage/backend-binding.json` does. Every normal cache acquisition resolves the
+binding before it forms the `(provider, canonical runtime dir)` key. A manual
+provider setting that conflicts with the binding fails closed rather than
+opening a second writable authority.
+
+Backend migration may temporarily acquire both cached provider instances. The
+source remains authoritative and writable during bulk copy. Every content-store
+write holds the in-process cut mutex plus a shared
+`storage/backend-authority.lock` from authority check through publication. The
+final cut takes the authority lock exclusively before changing phase, waits for
+already-admitted local-process writes, performs the final incremental copy and
+verification, and atomically publishes the new binding before releasing new
+writers. After commit, the retained provider instance may remain open in the
+cache but its write guard rejects publication. Keeping an engine handle alive
+therefore does not keep that provider authoritative.
+
+One non-blocking `storage/backend-switch.lock` serializes switch or rollback
+state machines across local processes; the separate shared/exclusive authority
+lock closes the local write/cut race. This is a single-host coordination
+contract, not distributed consensus. The binding generation and operation id,
+not either lock file or the process cache, are the durable recovery facts.
+
 ## Not the same database as the location metadata engine
 
 `reactor`'s coordinator/app RocksDB (location metadata) lives under the locator's
@@ -81,3 +106,7 @@ process is a defect, not a tuning choice.
   genuinely exercise the shared handle; the concurrency fixtures in
   `tests/python/test_content_store_facade.py` prove the dedup guarantee
   through both providers.
+- `backend_status` reports the committed binding, current inventory, resumable
+  migration phase, and configuration mismatch warnings. Service capabilities
+  declare each provider's `available` state and the authority-atomic cutover
+  contract without trying to instantiate an unavailable optional engine.
