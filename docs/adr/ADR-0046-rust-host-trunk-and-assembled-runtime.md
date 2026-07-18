@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0046
 decision_status: accepted
 implementation_status: staged
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/517, https://github.com/kungfu-systems/kungfu/pull/526, https://github.com/kungfu-systems/kungfu/pull/558, https://github.com/kungfu-systems/kungfu/pull/580, https://github.com/kungfu-systems/kungfu/pull/606, https://github.com/kungfu-systems/kungfu/pull/619, https://github.com/kungfu-systems/kungfu/pull/669, https://github.com/kungfu-systems/kungfu/pull/699]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/517, https://github.com/kungfu-systems/kungfu/pull/526, https://github.com/kungfu-systems/kungfu/pull/558, https://github.com/kungfu-systems/kungfu/pull/580, https://github.com/kungfu-systems/kungfu/pull/606, https://github.com/kungfu-systems/kungfu/pull/619, https://github.com/kungfu-systems/kungfu/pull/669, https://github.com/kungfu-systems/kungfu/pull/699, https://github.com/kungfu-systems/kungfu/pull/1097]
 qualification_refs: [crates/trunk/src/main.rs, crates/trunk/src/help.rs, framework/core/src/python/kungfu/cli/help_manifest.py, framework/core/tests/python/test_cli_help_manifest.py, framework/core/.gyp/run-freeze.js, scripts/verify.mjs]
 review_state: self-reviewed
 sensitivity: public

@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0071
 decision_status: accepted
 implementation_status: partial
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/735]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/735, https://github.com/kungfu-systems/kungfu/pull/1097]
 qualification_refs: [crates/trunk/src/fsck.rs, crates/trunk/src/plans.rs, crates/trunk/src/main.rs, crates/trunk/src/help.rs, crates/kungfu-embedding/src/lib.rs, framework/core/src/libkungfu/include/kungfu/embedding.h, framework/core/src/libkungfu/src/runtime/embedding.cpp, framework/core/slices/shared-embedding-membrane/host.cpp, framework/core/slices/shared-embedding-membrane/run.mjs, framework/core/src/python/kungfu/cli/help_manifest.py, framework/core/tests/python/test_cli_help_manifest.py]
 review_state: self-reviewed
 sensitivity: public
