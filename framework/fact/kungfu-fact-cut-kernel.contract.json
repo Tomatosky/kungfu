@@ -682,6 +682,7 @@
     "output": [
       "logical object ids",
       "immutable version roots",
+      "immutable bodies and explicit availability when requested",
       "active relation roots",
       "omissions",
       "conflicts",

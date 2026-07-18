@@ -79,6 +79,10 @@ export type Storage = {
     request: StorageValue,
   ) => StorageValue;
   factLibraryContract: () => StorageValue;
+  factKernel: (
+    action: string,
+    request?: Record<string, unknown>,
+  ) => StorageValue;
   factTypes: () => StorageValue;
   createFactType: (
     definition: FactTypeDefinition,
@@ -176,6 +180,8 @@ export function openStorage(options: OpenStorageOptions): Storage {
       run('kfx_runtime', { action: 'validate', kind, document }),
     kfxRegistry: (action, request) => run('kfx_runtime', { action, request }),
     factLibraryContract: () => run('fact_library_contract'),
+    factKernel: (action, request = {}) =>
+      run('fact_kernel', { action, ...request }),
     factTypes: () => run('fact_type_list'),
     createFactType: (definition, systemTime = 0) =>
       run('fact_type_create', { definition, system_time: systemTime }),
