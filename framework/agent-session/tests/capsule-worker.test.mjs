@@ -68,6 +68,17 @@ async function waitFor(check, message, timeout = 5000) {
   throw new Error(message);
 }
 
+async function endpointReady(endpoint) {
+  return new Promise((resolve) => {
+    const socket = net.createConnection(endpoint);
+    socket.once('connect', () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.once('error', () => resolve(false));
+  });
+}
+
 async function connect(endpoint) {
   const socket = net.createConnection(endpoint);
   socket.setEncoding('utf8');
@@ -135,7 +146,7 @@ test('detached Capsule worker survives client loss and reattaches to the same PT
     fs.rmSync(temp, { force: true, recursive: true });
   });
   await waitFor(
-    () => fs.existsSync(endpoint),
+    () => endpointReady(endpoint),
     'Capsule endpoint did not appear',
     process.platform === 'win32' ? 20_000 : 5_000,
   );
