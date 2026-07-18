@@ -4,8 +4,8 @@ doc_type: architecture-decision
 adr_id: ADR-0114
 decision_status: accepted
 implementation_status: implemented
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1054]
-closure_pr: https://github.com/kungfu-systems/kungfu/pull/1054
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1071]
+closure_pr: https://github.com/kungfu-systems/kungfu/pull/1071
 qualification_refs: [.xinfa/project.json, xinfa/src/semantic_project.rs, scripts/shifu-documentation-surfaces.test.mjs]
 review_state: self-reviewed
 sensitivity: public

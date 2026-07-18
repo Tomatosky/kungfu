@@ -51,6 +51,7 @@
     "check:shifu-workspace": "node scripts/require-shifu.mjs check:shifu-workspace && node scripts/check-shifu-workspace.mjs",
     "xinfa:build": "node scripts/require-shifu.mjs xinfa:build && node xinfa/tooling/task.mjs build",
     "xinfa:check": "node scripts/require-shifu.mjs xinfa:check && node xinfa/tooling/task.mjs check",
+    "xinfa:quality": "node scripts/require-shifu.mjs xinfa:quality && node scripts/qualify-xinfa-context-quality.mjs --check",
     "xinfa:fix": "node scripts/require-shifu.mjs xinfa:fix && node xinfa/tooling/task.mjs fix",
     "xinfa:schema-set:check": "node scripts/require-shifu.mjs xinfa:schema-set:check && node xinfa/tooling/check-schema-set.mjs",
     "xinfa:schema-set:write": "node scripts/require-shifu.mjs xinfa:schema-set:write && node xinfa/tooling/check-schema-set.mjs --write",
