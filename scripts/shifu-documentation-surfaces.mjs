@@ -419,7 +419,7 @@ export function buildHumanSurfaceInventory({
       throw new Error(`duplicate binding: ${binding.id}`);
     bindingIds.add(binding.id);
   }
-  bindings.sort((left, right) =>
+  bindings.sort((/** @type {any} */ left, /** @type {any} */ right) =>
     left.id < right.id ? -1 : left.id > right.id ? 1 : 0,
   );
   const providerPaths = new Set([
