@@ -109,7 +109,7 @@ implemented and qualified or explicitly waived for that release.
 | [0037](ADR-0037-storage-records-hana-core-kernel-metadata.md) | accepted | ADR-0018 storage-service records are Hana-core kernel metadata; JSON is an edge projection, not the contract |
 | [0038](ADR-0038-location-namespace-terminology.md) | accepted | Location middle identity segment is namespace |
 | [0039](ADR-0039-unified-view-interface-encapsulates-flatbuffers.md) | accepted | a single kungfu view interface is the sole FlatBuffers access point; raw FB is not called elsewhere |
-| [0040](ADR-0040-runtime-fact-ledger-content-addressed-kv.md) | proposed | a first-class content-addressed store is a runtime fact-ledger primitive, with mutable KV and fleet topology kept as separate capabilities |
+| [0040](ADR-0040-runtime-fact-ledger-content-addressed-kv.md) | accepted | a first-class content-addressed store is a runtime fact-ledger primitive, with mutable KV and fleet topology kept as separate capabilities |
 | [0041](ADR-0041-episode-manifest-first-class-journal-structure.md) | accepted | the Episode manifest is the object's trust boundary — POD journal records, one typed fold, and JSON at the edge |
 | [0042](ADR-0042-episode-atomic-safety-and-qualification.md) | proposed | Episode is the atomic safety and fault-containment unit, qualified by evidence under load |
 | [0043](ADR-0043-episode-identity-sealed-content-root.md) | proposed | Episode identity is two layers — a local coordinate plus a sealed content root committed in the manifest |

@@ -568,6 +568,30 @@
       "review_state": "unreviewed",
       "sensitivity": "public"
     },
+    "docs/qualification/fact-storage-authority.md": {
+      "metadata_schema": "kungfu.document-metadata/v1",
+      "document_status": "active",
+      "doc_type": "qualification-evidence",
+      "review_state": "self-reviewed",
+      "sensitivity": "public",
+      "sources": [
+        "architecture-decisions",
+        "executable-probe",
+        "local-files",
+        "official-upstream"
+      ],
+      "period": "2026-07-18",
+      "theme": "fact-storage-authority",
+      "confidence": "high",
+      "evidence_grade": "B",
+      "last_reviewed": "2026-07-18",
+      "ai_provenance": {
+        "model_family": "OpenAI GPT-5",
+        "product": "Codex",
+        "generated_at": "2026-07-18",
+        "invisible_context_boundary": "exact internal checkpoint, hidden system state, and private production evidence are not claimed"
+      }
+    },
     "docs/qualification/gui-capability-boundary.md": {
       "metadata_schema": "kungfu.document-metadata/v1",
       "document_status": "active",
