@@ -46,6 +46,16 @@ if (process.platform === 'darwin' && process.arch !== 'arm64') {
   );
 }
 
+const buildTargets = [
+  'shared_embedding_host',
+  'shared_embedding_native_kfx',
+  'native_storage_closure_host',
+  'libwasm_shared_membrane_host',
+  'kungfu_libwasm_self_test',
+  'kungfu_embedding_generic_codec_tests',
+];
+if (process.platform === 'win32') buildTargets.push('kungfu_embedding');
+
 run('cmake', [
   '-S',
   core,
@@ -68,12 +78,7 @@ run('cmake', [
   '--parallel',
   '2',
   '--target',
-  'shared_embedding_host',
-  'shared_embedding_native_kfx',
-  'native_storage_closure_host',
-  'libwasm_shared_membrane_host',
-  'kungfu_libwasm_self_test',
-  'kungfu_embedding_generic_codec_tests',
+  ...buildTargets,
 ]);
 
 // The generic-codec contract (ADR-0078: integer enums + the object_name table

@@ -13,6 +13,7 @@ mod fsck;
 mod help;
 mod launch;
 mod pins;
+mod plans;
 mod variant;
 
 use std::env;
@@ -37,6 +38,11 @@ usage:
   kungfu-trunk fsck [--runtime-dir <dir>] [--source <id>] [--episode <id>]
                                                read-only storage integrity check via the
                                                embedding membrane (product build)
+  kungfu-trunk verify --source <id> --episode <id>
+                                               deep episode frame verification
+  kungfu-trunk gc-plan [--source <id>]          plan unreachable payload collection
+  kungfu-trunk repair-plan [--source <id>] [--episode <id>]
+                                               plan storage repair (never writes)
   kungfu-trunk --version | --help
 
 envs live under <KF_HOME>/envs; the default env is named 'default'.
@@ -50,6 +56,9 @@ enum NativeCommand {
     Prewarm,
     Doctor,
     Fsck,
+    Verify,
+    GcPlan,
+    RepairPlan,
 }
 
 struct NativeCommandSpec {
@@ -81,6 +90,21 @@ const NATIVE_COMMANDS: &[NativeCommandSpec] = &[
         command: NativeCommand::Fsck,
         name: "fsck",
         summary: "read-only storage integrity check via the embedding membrane",
+    },
+    NativeCommandSpec {
+        command: NativeCommand::Verify,
+        name: "verify",
+        summary: "deep episode frame verification via the embedding membrane",
+    },
+    NativeCommandSpec {
+        command: NativeCommand::GcPlan,
+        name: "gc-plan",
+        summary: "plan unreachable payload collection without deleting",
+    },
+    NativeCommandSpec {
+        command: NativeCommand::RepairPlan,
+        name: "repair-plan",
+        summary: "plan storage repair without writing",
     },
 ];
 
@@ -163,6 +187,9 @@ fn main() {
         Some("prewarm") => envs::prewarm(),
         Some("doctor") => doctor::run(&args[1..]),
         Some("fsck") => fsck::run(&args[1..]),
+        Some("verify") => fsck::run_verify(&args[1..]),
+        Some("gc-plan") => plans::run_gc(&args[1..]),
+        Some("repair-plan") => plans::run_repair(&args[1..]),
         Some("--version" | "-V" | "version") => {
             println!("kungfu-trunk {}", env!("CARGO_PKG_VERSION"));
             Ok(())
@@ -205,6 +232,9 @@ fn run_native(command: NativeCommand, args: &[String]) -> Result<(), String> {
         NativeCommand::Prewarm => envs::prewarm(),
         NativeCommand::Doctor => doctor::run(args),
         NativeCommand::Fsck => fsck::run(args),
+        NativeCommand::Verify => fsck::run_verify(args),
+        NativeCommand::GcPlan => plans::run_gc(args),
+        NativeCommand::RepairPlan => plans::run_repair(args),
     }
 }
 
@@ -483,6 +513,28 @@ mod tests {
     }
 
     #[test]
+    fn every_stage_two_diagnostic_routes_from_the_native_table() {
+        for (name, command) in [
+            ("verify", NativeCommand::Verify),
+            ("gc-plan", NativeCommand::GcPlan),
+            ("repair-plan", NativeCommand::RepairPlan),
+        ] {
+            assert_eq!(
+                route_product(&s(&["--home", "/tmp/kf", name, "--json"]), &root_options()).unwrap(),
+                ProductRoute::Native {
+                    command,
+                    args_at: 3,
+                    globals: vec![RootAssignment {
+                        name: "home".to_string(),
+                        envvar: "KF_HOME".to_string(),
+                        value: "/tmp/kf".to_string(),
+                    }],
+                }
+            );
+        }
+    }
+
+    #[test]
     fn domain_subtrees_remain_opaque() {
         assert_eq!(
             route_product(
@@ -531,6 +583,17 @@ mod tests {
         names.sort_unstable();
         names.dedup();
         assert_eq!(names.len(), NATIVE_COMMANDS.len());
-        assert_eq!(names, vec!["doctor", "env", "fsck", "prewarm"]);
+        assert_eq!(
+            names,
+            vec![
+                "doctor",
+                "env",
+                "fsck",
+                "gc-plan",
+                "prewarm",
+                "repair-plan",
+                "verify"
+            ]
+        );
     }
 }

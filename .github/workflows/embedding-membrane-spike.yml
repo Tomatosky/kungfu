@@ -142,6 +142,11 @@ jobs:
         shell: bash
         run: |
           git init "$SOURCE_ROOT"
+          # The catalog compares generated Markdown byte-for-byte. Keep the
+          # verified source tree on LF even when the Windows runner inherits
+          # core.autocrlf=true from its global Git configuration.
+          git -C "$SOURCE_ROOT" config core.autocrlf false
+          git -C "$SOURCE_ROOT" config core.eol lf
           if [ "$SOURCE_MODE" = "github" ] || \
             ! git -C "$SOURCE_ROOT" cat-file -e \
               "${MIRROR_BASE_SHA}^{commit}" 2>/dev/null; then
@@ -156,6 +161,17 @@ jobs:
           expected_tree="$(tr -d '\r\n' \
             < "${RUNNER_TEMP}/embedding-source-delta/source-tree-sha")"
           test "$(git -C "$SOURCE_ROOT" write-tree)" = "$expected_tree"
+          # Shifu gates use the committed tree as their authority boundary. The
+          # verified patch would otherwise leave HEAD at the channel base and
+          # make exact PR content look like an untrusted dirty override. Commit
+          # only after the tree-id check, then prove the materialized source is
+          # still the same immutable tree and is clean before executing it.
+          git -C "$SOURCE_ROOT" \
+            -c user.name="Kungfu Qualification" \
+            -c user.email="qualification@kungfu.invalid" \
+            commit --no-verify --no-gpg-sign -m "ci: materialize verified source tree"
+          test "$(git -C "$SOURCE_ROOT" rev-parse 'HEAD^{tree}')" = "$expected_tree"
+          test -z "$(git -C "$SOURCE_ROOT" status --porcelain)"
           test -f "$SOURCE_ROOT/shifu"
 
       - name: Verify pinned spike Rust toolchain

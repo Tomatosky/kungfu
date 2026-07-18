@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0046
 decision_status: accepted
 implementation_status: staged
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/517, https://github.com/kungfu-systems/kungfu/pull/526, https://github.com/kungfu-systems/kungfu/pull/558, https://github.com/kungfu-systems/kungfu/pull/580, https://github.com/kungfu-systems/kungfu/pull/606, https://github.com/kungfu-systems/kungfu/pull/619, https://github.com/kungfu-systems/kungfu/pull/669, https://github.com/kungfu-systems/kungfu/pull/699]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/517, https://github.com/kungfu-systems/kungfu/pull/526, https://github.com/kungfu-systems/kungfu/pull/558, https://github.com/kungfu-systems/kungfu/pull/580, https://github.com/kungfu-systems/kungfu/pull/606, https://github.com/kungfu-systems/kungfu/pull/619, https://github.com/kungfu-systems/kungfu/pull/669, https://github.com/kungfu-systems/kungfu/pull/699, https://github.com/kungfu-systems/kungfu/pull/1097]
 qualification_refs: [crates/trunk/src/main.rs, crates/trunk/src/help.rs, framework/core/src/python/kungfu/cli/help_manifest.py, framework/core/tests/python/test_cli_help_manifest.py, framework/core/.gyp/run-freeze.js, scripts/verify.mjs]
 review_state: self-reviewed
 sensitivity: public
@@ -40,7 +40,9 @@ last_reviewed: 2026-07-18
   execution profiles; both ADRs draw on the same Rust line, at different
   layers: 0045 places extensions, this ADR places the host);
   [ADR-0050](ADR-0050-assembled-runtime-stdlib-pruning-policy.md) (the
-  stage-2 stdlib pruning policy, the own record stage 2 calls for).
+  stage-2 stdlib pruning policy, the own record stage 2 calls for);
+  [ADR-0071](ADR-0071-cli-language-split-and-membrane-diagnostic-surface.md)
+  (the command-by-command placement refinement and diagnostic-membrane roadmap).
 
 ## Question
 
@@ -83,11 +85,20 @@ for all three, from first principles rather than from the current form.
 
 ### 1. A Rust host trunk owns `main()`
 
-The product's entry binary is a Rust program (the trunk). It owns process
-lifecycle, runtime bootstrap, environment and package management, service
-supervision, diagnostics, and physical-layer inspection through the libkungfu
-FFI seam. Python and Node are satellites the trunk starts on demand; a
-command path that does not need a runtime never initializes it.
+The product's entry binary is a Rust program (the trunk). It owns the **host
+lifecycle authority**: process entry/exit, root routing, runtime bootstrap,
+environment and package management, native variant launch, and the ability to
+host service supervision and physical-layer diagnostics through the libkungfu
+FFI seam. Python and Node are satellites the trunk starts on demand; a command
+path that does not need a runtime never initializes it.
+
+This authority is not a claim that every command whose noun is “runtime”,
+“service”, “config”, or “storage” is already or should immediately be rewritten
+in Rust. Command placement is decided by the layered law below and refined
+command-by-command in ADR-0071. A current Python orchestration command can remain
+the semantic owner while the trunk remains the process/lifecycle owner; moving
+that command requires an admitted membrane primitive or measured rewrite case,
+not a noun match.
 
 ### 2. Layered CLI — whoever implements the semantics parses the arguments
 
@@ -139,7 +150,7 @@ The resulting allocation:
 | layer | owns | examples |
 |---|---|---|
 | C++ core | the bytes | journal/storage semantics, mmap fabric, integrity |
-| Rust trunk | the machine | env/package management (uv, pnpm orchestration), doctor, config/contract, self-update, service lifecycle and supervision, managed runs, journal/storage physical inspection via FFI |
+| Rust trunk | the machine and host lifecycle | root routing/help/version, env/package management, native variants, doctor-class physical inspection and admitted maintenance plans via the versioned membrane; future resident supervision only when its lifecycle is trunk-owned |
 | Python domain | the meaning | rewind, trace, work/report, agent/skill context, engage, the py-kfx execution contract, the `import kungfu` API |
 | Node domain | the presentation and the JS ecosystem | TUI/cockpit, sdk/kfx build, GUI side, the js-kfx execution contract |
 
@@ -147,6 +158,12 @@ The resulting allocation:
 valid is trunk; what a session's activity *means* is Python. The test:
 if the output's meaning changes as product understanding evolves, it is
 domain.
+
+ADR-0071 is the current command-placement ledger for this table. In particular,
+it keeps high-churn Python orchestration surfaces (`config`, `contract`,
+`workspace`, current runtime/service-management commands) in Python even though
+the trunk owns the outer process lifecycle. That is refinement, not an exception
+to this ADR.
 
 ### 4. Assembled runtime distribution — the freezer retires at end state
 

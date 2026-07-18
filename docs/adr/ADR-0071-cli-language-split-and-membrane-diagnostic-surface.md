@@ -4,8 +4,8 @@ doc_type: architecture-decision
 adr_id: ADR-0071
 decision_status: accepted
 implementation_status: partial
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/735]
-qualification_refs: [crates/trunk/src/fsck.rs, crates/trunk/src/main.rs, crates/trunk/src/help.rs, framework/core/src/python/kungfu/cli/help_manifest.py, framework/core/tests/python/test_cli_help_manifest.py]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/735, https://github.com/kungfu-systems/kungfu/pull/1097]
+qualification_refs: [crates/trunk/src/fsck.rs, crates/trunk/src/plans.rs, crates/trunk/src/main.rs, crates/trunk/src/help.rs, crates/kungfu-embedding/src/lib.rs, framework/core/src/libkungfu/include/kungfu/embedding.h, framework/core/src/libkungfu/src/runtime/embedding.cpp, framework/core/slices/shared-embedding-membrane/host.cpp, framework/core/slices/shared-embedding-membrane/run.mjs, framework/core/src/python/kungfu/cli/help_manifest.py, framework/core/tests/python/test_cli_help_manifest.py]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-decision]
@@ -18,9 +18,10 @@ last_reviewed: 2026-07-18
 
 # ADR-0071: CLI implementation split — Rust trunk vs Python, and growing the embedding membrane's diagnostic surface
 
-- Status: accepted; the first bounded Bucket A stage (`fsck`) and the root
-  routing/help closure are delivered. The wider diagnostic/maintenance surface
-  remains partial as enumerated under Follow-up.
+- Status: accepted; two bounded Bucket A stages are delivered: `fsck` plus root
+  routing/help closure, then native `verify` / `gc-plan` / `repair-plan` over the
+  versioned membrane with a real Windows DLL smoke. The wider Bucket A surface
+  remains partial as enumerated under Completion boundary.
 - Date: 2026-07-13
 - Category: CLI architecture / host boundary / embedding membrane
 - Related: [ADR-0046](ADR-0046-rust-host-trunk-and-assembled-runtime.md)
@@ -33,8 +34,9 @@ last_reviewed: 2026-07-18
 After ADR-0046 stage 3 the `kungfu` CLI is split by a layering law — *whoever
 implements the semantics parses the argv*:
 
-- **Rust trunk** (`crates/trunk`) owns `env`, `prewarm`, `doctor`, `fsck`, the
-  root option/routing contract, root `--version`/`--help`, and the
+- **Rust trunk** (`crates/trunk`) owns `env`, `prewarm`, `doctor`, `fsck`,
+  `verify`, `gc-plan`, `repair-plan`, the root option/routing contract, root
+  `--version`/`--help`, and the
   `KUNGFU_AS_VARIANT=node` native variant. Root help and routing records are
   generated from the live Click root tree; these paths never boot CPython.
 - **Python** (`framework/core/src/python/kungfu/cli/commands/*.py`, click) owns
@@ -44,6 +46,12 @@ implements the semantics parses the argv*:
 A recurring question is which further commands should move to Rust. The naive
 framing — "clap is nicer than click" — is not the deciding factor; parser
 ergonomics are marginal. The real axes, grounded in what each command does, are:
+
+ADR-0046 defines the outer host authority; this ADR refines concrete command
+placement. Therefore “the trunk owns service/process lifecycle” does not imply
+that today's high-churn Python `runtime` command tree is mechanically Rust-owned.
+The trunk owns root routing and process launch now; a subtree moves only when the
+criteria below admit its semantics and contract face.
 
 1. **Runtime dependency** — does it need CPython + the fat pybind binding
    (`kungfu.__binding__.runtime`) + the Python ecosystem (extension/plugin
@@ -136,6 +144,21 @@ schema-compile as read-only entries), then putting thin Rust CLIs over it. That:
 
 `fsck` is `doctor`'s natural sibling and the right first target after `doctor`.
 
+The next bounded stage keeps that face narrow:
+
+- `verify` is not a new core operation. It is the Rust command contract for one
+  source Episode and calls the existing v2 `storage_fsck` entry with
+  `verify_frames=true`; requiring `--source` + `--episode` prevents a shallow
+  scan from masquerading as deep verification.
+- ABI v4 preserves the complete v3 prefix and appends only `storage_gc_plan` and
+  `storage_repair_plan`. Neither surface has a mutating switch: gc requires
+  `dry_run=1`, repair is constructed as `dry_run=true`, and both return the
+  native C++ JSON report through the existing owned-report lifecycle.
+- The top-level names are intentionally `verify`, `gc-plan`, and `repair-plan`:
+  they are recovery/front-door tools that must remain discoverable when CPython
+  is broken. The Python `storage` subtree remains its compatibility and broader
+  operational surface; the trunk does not parse or mirror that subtree.
+
 ## Consequences
 
 - **Positive**: substrate diagnostics/repair gain the must-work-when-broken
@@ -173,9 +196,14 @@ schema-compile as read-only entries), then putting thin Rust CLIs over it. That:
   table exposing a read-only `storage_fsck` diagnostic entry (reusing the native
   C++ `storage_service::fsck` verbatim, no CPython on the path), and a Rust
   `kungfu fsck` consumer landed over it, behind the `embedding` feature with a
-  graceful coreless fallback — `doctor`'s sibling. This is a bounded stage:
-  `verify` / `gc-plan` / `repair-plan` diagnostic entries and the Windows DLL
-  runtime smoke remain follow-ups, so the ADR is `partial`, not `implemented`.
+  graceful coreless fallback — `doctor`'s sibling.
+- Bucket A second stage delivered: native top-level `verify`, `gc-plan`, and
+  `repair-plan` share the trunk's root routing/help table; ABI v4 appends the two
+  plan-only operations while verify reuses v2 deep fsck. The shared membrane
+  qualification loads `kungfu_embedding.dll` with `LoadLibrary`, resolves the
+  sole bootstrap export with `GetProcAddress`, negotiates v4, and executes both
+  native plans against a temporary runtime. This is runtime evidence on Windows,
+  not a source/export-list assertion.
 - Root ownership is now mechanically closed rather than asserted in prose:
   `help_manifest.py` projects every live Click root option into both human help
   and a machine `ROOTOPT` record; the trunk consumes only that root prefix when
@@ -186,3 +214,24 @@ schema-compile as read-only entries), then putting thin Rust CLIs over it. That:
   from the shipped product-version record without starting CPython.
 - Bucket B is measurement-gated; open a separate item only if a real workload
   shows the CPython fold is felt.
+
+## Completion boundary
+
+This ADR stays `partial` after the second stage. “Second stage complete” means:
+the three native commands route and appear in unified help, their C++ authority
+is reached through byte-prefix-compatible ABI tables, mutating modes are absent,
+temporary-root tests prove the reports, and Windows executes the actual
+single-export DLL path. It does **not** mean all Bucket A candidates have moved.
+
+Remaining ADR work is explicit:
+
+1. evaluate and admit the rest of Bucket A one bounded primitive at a time
+   (`compact`/`verify-sync`/`rebuild-index`/`layout`/`status`, then schema/facts),
+   without turning the membrane into a generic command dispatcher;
+2. retain Bucket C in Python unless its placement criteria change;
+3. perform the real-workload measurement before opening any Bucket B rewrite.
+
+`implementation_status: implemented` is allowed only when those admitted Bucket
+A decisions are either delivered or explicitly rejected/deferred by a superseding
+ADR, and Bucket B's measurement judgment is recorded. Shipping this stage alone
+must not silently close those decisions.

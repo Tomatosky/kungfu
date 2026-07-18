@@ -39,13 +39,40 @@ full JSON report. Scope: --episode implies one episode (needs --source),
 
 Exit status is 0 when the runtime passes, non-zero when checks fail.";
 
+const VERIFY_USAGE: &str = "\
+usage: kungfu verify [--runtime-dir <dir>] [--provider <name>]
+                     [--provider-config-source <src>] --source <id>
+                     --episode <id> [--json]
+
+Deeply verify one episode's attached journal frames through the native storage
+fsck authority. This is a read-only, no-CPython operation; --source and
+--episode are required so 'verify' cannot silently degrade to a shallow scan.";
+
 pub fn run(args: &[String]) -> Result<(), String> {
     if args.iter().any(|a| a == "--help" || a == "-h") {
         println!("{USAGE}");
         return Ok(());
     }
     let parsed = parse_args(args)?;
-    inspect(parsed)
+    inspect(parsed, "fsck")
+}
+
+pub fn run_verify(args: &[String]) -> Result<(), String> {
+    if args.iter().any(|a| a == "--help" || a == "-h") {
+        println!("{VERIFY_USAGE}");
+        return Ok(());
+    }
+    let parsed = parse_verify_args(args)?;
+    inspect(parsed, "verify")
+}
+
+fn parse_verify_args(args: &[String]) -> Result<FsckArgs, String> {
+    let mut parsed = parse_args(args).map_err(|error| error.replacen("fsck", "verify", 1))?;
+    if parsed.source.is_none() || parsed.episode.is_none() {
+        return Err("verify needs --source <id> and --episode <id>".to_string());
+    }
+    parsed.verify_frames = true;
+    Ok(parsed)
 }
 
 fn parse_args(args: &[String]) -> Result<FsckArgs, String> {
@@ -85,7 +112,7 @@ fn parse_args(args: &[String]) -> Result<FsckArgs, String> {
 }
 
 #[cfg(feature = "embedding")]
-fn inspect(args: FsckArgs) -> Result<(), String> {
+fn inspect(args: FsckArgs, command: &str) -> Result<(), String> {
     use crate::envs;
     use kungfu_embedding::{Context, ContextConfig, StorageFsckRequest, StorageFsckScope, ABI_V2};
 
@@ -98,7 +125,7 @@ fn inspect(args: FsckArgs) -> Result<(), String> {
             .to_string(),
     };
 
-    let context = Context::open(&ContextConfig::new(&runtime_dir, "kungfu-trunk", "fsck"))
+    let context = Context::open(&ContextConfig::new(&runtime_dir, "kungfu-trunk", command))
         .map_err(|e| e.to_string())?;
 
     let scope = if args.episode.is_some() {
@@ -121,7 +148,7 @@ fn inspect(args: FsckArgs) -> Result<(), String> {
 
     if !args.json {
         println!(
-            "kungfu fsck — embedding membrane (ABI v{ABI_V2})\n  runtime: {runtime_dir}\n  verdict: ok={} degraded={}",
+            "kungfu {command} — embedding membrane (ABI v{ABI_V2})\n  runtime: {runtime_dir}\n  verdict: ok={} degraded={}",
             report.ok(),
             report.degraded(),
         );
@@ -129,25 +156,26 @@ fn inspect(args: FsckArgs) -> Result<(), String> {
     // The report blob is JSON produced by the native core; emit it verbatim.
     match report.as_str() {
         Ok(json) => println!("{json}"),
-        Err(_) => return Err("fsck: report blob was not valid UTF-8".to_string()),
+        Err(_) => return Err(format!("{command}: report blob was not valid UTF-8")),
     }
     if report.degraded() && report.ok() {
-        eprintln!("kungfu: fsck: runtime is degraded (see report)");
+        eprintln!("kungfu: {command}: runtime is degraded (see report)");
     }
     if !report.ok() {
-        return Err("fsck: storage integrity checks failed (see report above)".to_string());
+        return Err(format!(
+            "{command}: storage integrity checks failed (see report above)"
+        ));
     }
     Ok(())
 }
 
 #[cfg(not(feature = "embedding"))]
-fn inspect(_args: FsckArgs) -> Result<(), String> {
-    Err(
-        "fsck: substrate inspection needs the assembled product build — a \
+fn inspect(_args: FsckArgs, command: &str) -> Result<(), String> {
+    Err(format!(
+        "{command}: substrate inspection needs the assembled product build — a \
          kungfu-trunk compiled with --features embedding next to libkungfu. The \
          shipped product enables it; a bare dev build does not."
-            .to_string(),
-    )
+    ))
 }
 
 #[cfg(test)]
@@ -219,5 +247,17 @@ mod tests {
     fn help_exits_success() {
         assert!(run(&s(&["--help"])).is_ok());
         assert!(run(&s(&["-h"])).is_ok());
+    }
+
+    #[test]
+    fn verify_requires_one_episode_and_forces_deep_check() {
+        assert!(parse_verify_args(&s(&["--source", "s"])).is_err());
+        assert!(parse_verify_args(&s(&["--episode", "1"])).is_err());
+        let parsed = parse_verify_args(&s(&["--source", "s", "--episode", "1"])).unwrap();
+        assert!(parsed.verify_frames);
+        // A coreless test build reaches the expected assembled-product error only
+        // after the verify-specific scope contract has passed.
+        let error = run_verify(&s(&["--source", "s", "--episode", "1"])).unwrap_err();
+        assert!(error.contains("verify: substrate inspection"));
     }
 }

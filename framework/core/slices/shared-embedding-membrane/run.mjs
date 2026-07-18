@@ -41,6 +41,24 @@ for (const base of bases) {
 if (!nativeKfx) fail('shared_embedding_native_kfx module not found');
 assertNoExtraDylibs(nativeKfx);
 
+let embeddingDll = null;
+if (process.platform === 'win32') {
+  for (const candidate of [
+    path.join(buildDir, 'Release', 'kungfu_embedding.dll'),
+    path.join(buildDir, 'kungfu_embedding.dll'),
+    path.join(
+      buildDir,
+      'src',
+      'libembedding',
+      'Release',
+      'kungfu_embedding.dll',
+    ),
+  ]) {
+    if (fs.existsSync(candidate)) embeddingDll = candidate;
+  }
+  if (!embeddingDll) fail('kungfu_embedding.dll not found for real DLL smoke');
+}
+
 // Keep every raw trial visible. The gate is the noise-free p50 code-path
 // budget: a genuine latency regression raises p50, so it still fails. The p99
 // tail on a shared CI runner is scheduler-dominated -- observed p99 rides the
@@ -51,7 +69,11 @@ const TRIALS = 5;
 const trialReports = [];
 for (let trial = 0; trial < TRIALS; trial += 1) {
   const work = tmpDir(`shared-embedding-membrane-${trial}-`);
-  const result = run(host, [work, nativeKfx]);
+  const result = run(host, [
+    work,
+    nativeKfx,
+    ...(embeddingDll ? [embeddingDll] : []),
+  ]);
   process.stdout.write(result.stdout);
   const report = JSON.parse(result.stdout.trim().split('\n').at(-1));
   if (report.abi_version !== 1) fail('unexpected ABI version');
