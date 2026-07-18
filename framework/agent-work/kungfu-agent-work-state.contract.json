@@ -1037,18 +1037,18 @@
     "checks": [
       {
         "id": "FO1",
-        "status": "contract-defined",
-        "evidenceRequired": "Persisted independently queryable identities and relations for all four roles."
+        "status": "qualified",
+        "evidenceRequired": "Retained generic Fact dogfood persists independently queryable identities and non-inheriting relations for all four roles."
       },
       {
         "id": "FO2",
-        "status": "pending",
-        "evidenceRequired": "One sealed end-to-end real work loop."
+        "status": "qualified",
+        "evidenceRequired": "Retained generic Fact dogfood binds the real qualification work item from source Cut through a sealed Episode to one successor Cut."
       },
       {
         "id": "FO3",
-        "status": "contract-defined",
-        "evidenceRequired": "Runtime negative tests for deletion, expiry, revocation, substitution, and descendant scope."
+        "status": "partial",
+        "evidenceRequired": "Missing Atlas, expired and revoked Warrant, role substitution, descendant scope, sealed Episode, and stale ref are retained; fresh-product deletion UX remains."
       },
       {
         "id": "FO4",
@@ -1062,13 +1062,13 @@
       },
       {
         "id": "FO6",
-        "status": "partial",
-        "evidenceRequired": "No-chat handoff, restart recovery, and export or import verification."
+        "status": "qualified",
+        "evidenceRequired": "Three independent processes complete no-chat review and clean-runtime continuation from two exact-root retained inputs with export/import, fsck, projection replay, and backend reopen."
       },
       {
         "id": "FO7",
-        "status": "pending",
-        "evidenceRequired": "Sustained reality-pressure dogfood including rival-model and deletion witnesses."
+        "status": "partial",
+        "evidenceRequired": "One real qualification work item includes rival-model and independent-deletion witnesses; sustained multi-work-item dogfood remains."
       },
       {
         "id": "FO8",

@@ -74,6 +74,23 @@ def _root_list(value: Any) -> list[str]:
     return [item for item in value if isinstance(item, str)]
 
 
+def _episode_frontier_requests(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        raise ValueError("episodeFrontier must be an array")
+    result: list[dict[str, Any]] = []
+    for item in value:
+        if not isinstance(item, list) or len(item) != 3:
+            raise ValueError("episodeFrontier entries must be folded triples")
+        result.append(
+            {
+                "episode_id": item[0],
+                "sealed_content_root": item[1],
+                "accepted_manifest_frame_uid": item[2],
+            }
+        )
+    return result
+
+
 def fsck(runtime_dir: str | Path, *, cut_root: str = "") -> dict[str, Any]:
     """Verify the folded authority and every closed root reference, read-only."""
 
@@ -181,11 +198,17 @@ def fsck(runtime_dir: str | Path, *, cut_root: str = "") -> dict[str, Any]:
         if not _root_list(cut.get("admissionRoots")):
             issue("cut-admission-root-missing", current_root)
         for frontier in cut.get("episodeFrontier", []):
-            if not isinstance(frontier, Mapping) or not any(
-                _ROOT.fullmatch(value)
-                for value in frontier.values()
-                if isinstance(value, str)
-            ):
+            valid_frontier = (
+                isinstance(frontier, list)
+                and len(frontier) == 3
+                and isinstance(frontier[0], int)
+                and frontier[0] >= 0
+                and isinstance(frontier[1], str)
+                and bool(_ROOT.fullmatch(frontier[1]))
+                and isinstance(frontier[2], str)
+                and bool(frontier[2])
+            )
+            if not valid_frontier:
                 issue("episode-frontier-invalid", current_root, frontier=frontier)
 
     for ref_name, ref in refs.items():
@@ -440,7 +463,9 @@ def import_bundle(
                     "active_relation_roots": document["activeRelationRoots"],
                     "declaration_roots": document["declarationRoots"],
                     "admission_roots": document["admissionRoots"],
-                    "episode_frontier": document["episodeFrontier"],
+                    "episode_frontier": _episode_frontier_requests(
+                        document["episodeFrontier"]
+                    ),
                     "omission_roots": document["omissionRoots"],
                     "conflict_roots": document["conflictRoots"],
                 },

@@ -239,7 +239,7 @@
       "source": {
         "kind": "file",
         "path": "framework/agent-work/kungfu-agent-work-state.contract.json",
-        "sha256": "e1b813a4057a437e8998e5bca3f1f21fcf002d3509a035d13345ceefedbb706d"
+        "sha256": "015c21050befa95a1bbdf8d8771c84222d2ccbc16f2ab4a6404a608217a1a6c3"
       },
       "evidence": [
         {
@@ -247,7 +247,7 @@
           "pointer": {
             "kind": "file",
             "path": "docs/adr/ADR-0109-four-object-agent-work-state-contract.md",
-            "sha256": "6cb5a8615cc600b1830672a51c2d29100d9570025bbfec8bf6495535c999c418"
+            "sha256": "1ab4e823a92b7913c95950d8da633ea8f54ac5efdc000267ce618b38cd15a71b"
           },
           "description": "Accepted role-separation decision and bounded P17 qualification boundary."
         },

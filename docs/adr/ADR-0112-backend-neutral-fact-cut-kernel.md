@@ -5,7 +5,7 @@ adr_id: ADR-0112
 decision_status: accepted
 implementation_status: staged
 implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1058, https://github.com/kungfu-systems/kungfu/pull/1062, https://github.com/kungfu-systems/kungfu/pull/1073]
-qualification_refs: [framework/fact/kungfu-fact-cut-kernel.contract.json, framework/core/src/libkungfu/src/runtime/storage/fact_kernel.cpp, framework/core/src/python/kungfu/storage/fact_profile_shadow.py, framework/core/tests/storage-node-binding.test.js, framework/core/tests/python/test_query_cli.py, framework/core/tests/python/test_fact_profile_shadow.py, scripts/check-fact-cut-kernel-contract.test.mjs, scripts/run-fact-profile-shadow-tests.mjs, tests/fixtures/fact-cut-kernel-contract/cases.json]
+qualification_refs: [framework/fact/kungfu-fact-cut-kernel.contract.json, framework/core/src/libkungfu/src/runtime/storage/fact_kernel.cpp, framework/core/src/python/kungfu/storage/fact_profile_shadow.py, framework/core/src/python/kungfu/storage/fact_kernel_integrity.py, framework/core/tests/storage-node-binding.test.js, framework/core/tests/python/test_query_cli.py, framework/core/tests/python/test_fact_profile_shadow.py, framework/core/tests/python/test_fact_kernel_integrity.py, framework/core/tests/python/test_fact_kernel_dogfood.py, docs/qualification/evidence/fact-kernel-dogfood/generic-fact-kernel-v1/report.json, scripts/check-fact-cut-kernel-contract.test.mjs, scripts/run-fact-profile-shadow-tests.mjs, scripts/run-fact-kernel-integrity-tests.mjs, scripts/run-fact-kernel-dogfood-tests.mjs, tests/fixtures/fact-cut-kernel-contract/cases.json]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -19,9 +19,10 @@ ai_provenance: GPT-5 via Codex on 2026-07-18; based on repository sources and us
 
 # ADR-0112: Fact identity, versions, relations, Cuts, refs, CAS, and receipts form one backend-neutral kernel
 
-- Status: accepted; the machine contract, falsification fixtures, bounded
-  native authority, and read-only Profile shadow stages are implemented;
-  portability and release qualification remain open
+- Status: accepted; the machine contract, bounded native authority, read-only
+  Profile shadow, integrity/portability, and one exact-root three-process
+  dogfood are implemented; authority cutover and release qualification remain
+  open
 - Date: 2026-07-18
 - Category: storage / fact identity / historical cuts / integrity
 - Related: [ADR-0018](ADR-0018-runtime-storage-service-architecture.md),

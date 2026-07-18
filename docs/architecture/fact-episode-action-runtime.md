@@ -1,9 +1,11 @@
 # Fact, Episode, and Action Primitive Runtime
 
-Status: staged implementation design. ADR-0112 now owns the accepted generic
-Fact identity, relation, Cut, ref, CAS, and receipt contract. This document
+Status: qualified shadow implementation. ADR-0112 owns the accepted generic
+Fact identity, relation, Cut, ref, CAS, and receipt contract. One retained
+three-process dogfood now proves independent role identities, a sealed
+successor Cut, no-chat review, and clean-runtime continuation. This document
 organizes that contract with the wider action model; it does not replace its
-authority or claim that the native kernel is qualified.
+authority or claim authority cutover or P17 release qualification.
 
 ## Authority and scope
 
