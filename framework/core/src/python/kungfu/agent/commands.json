@@ -38,6 +38,12 @@
       "purpose": "Discover five responsibility roles, Product Profile transitions, typed denials, and authority boundaries."
     },
     {
+      "apiId": "kungfu.agent.work.session",
+      "name": "kungfu agent work session --operation <compressibility|expand|project> --file <session.json> --json",
+      "maturity": "experimental",
+      "purpose": "Round-trip a simple work session through the five KFD-7 Profile roles or expose the exact role at a complexity breakpoint."
+    },
+    {
       "apiId": "kungfu.agent.work.inspect",
       "name": "kungfu agent work inspect --ref <ref> --json",
       "maturity": "experimental",
@@ -48,6 +54,18 @@
       "name": "kungfu agent work action --file <request.json> [--execute] --json",
       "maturity": "experimental",
       "purpose": "Plan or execute one Profile transition through the shared action/receipt contract and native Fact ref CAS."
+    },
+    {
+      "apiId": "kungfu.agent.work.export-authority",
+      "name": "kungfu agent work export-authority --json",
+      "maturity": "experimental",
+      "purpose": "Export a content-bound native Fact authority bundle that preserves exact Profile object, version, Cut, and ref roots."
+    },
+    {
+      "apiId": "kungfu.agent.work.import-authority",
+      "name": "kungfu agent work import-authority --file <bundle.json> [--execute] --json",
+      "maturity": "experimental",
+      "purpose": "Validate or replay one qualified Fact authority bundle into a clean runtime home without changing logical Profile roots."
     },
     {
       "apiId": "kungfu.agent.choose-mode",
