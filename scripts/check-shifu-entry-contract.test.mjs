@@ -79,6 +79,22 @@ test('Xinfa product tasks bypass unrelated Kungfu dependency caches', () => {
   }
 });
 
+test('Xinfa quality builds its exact compiler and forwards one Windows mode', () => {
+  const posix = fs.readFileSync(path.join(ROOT, 'shifu'), 'utf8');
+  const windows = fs.readFileSync(path.join(ROOT, 'shifu.cmd'), 'utf8');
+  const posixBlock = posix.match(/xinfa:quality\)[\s\S]*?;;/u)?.[0];
+  const windowsBlock = windows.match(
+    /:xinfaquality[\s\S]*?:docsreadonly/u,
+  )?.[0];
+  assert.ok(posixBlock, 'POSIX Xinfa quality block is missing');
+  assert.ok(windowsBlock, 'Windows Xinfa quality block is missing');
+  assert.match(posixBlock, /xinfa\/tooling\/task\.mjs build/u);
+  assert.match(windowsBlock, /xinfa\\tooling\\task\.mjs" build/u);
+  assert.match(windowsBlock, /%~2/u);
+  assert.match(windowsBlock, /"%_XINFA_QUALITY_MODE%"/u);
+  assert.doesNotMatch(windowsBlock, /\s%\*/u);
+});
+
 test('Windows source-fresh launcher retries one transient build failure', () => {
   const windows = fs.readFileSync(path.join(ROOT, 'shifu.cmd'), 'utf8');
   const sourceBuild = windows.match(

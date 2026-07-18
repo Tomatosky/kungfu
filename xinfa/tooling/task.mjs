@@ -54,6 +54,9 @@ function main() {
     '--test',
     path.join(ROOT, 'tooling', 'check-schema-set.test.mjs'),
   ]);
+  run('context quality corpus ratchet', process.execPath, [
+    path.join(ROOT, 'tooling', 'check-context-quality-corpus.mjs'),
+  ]);
   run('Rust format', 'cargo', [
     'fmt',
     '--manifest-path',

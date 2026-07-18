@@ -14,8 +14,12 @@ on:
       - alpha/v*/v*
       - release/v*/v*
     paths:
+      - "**/*.md"
+      - ".xinfa/project.json"
       - "crates/**"
       - "xinfa/**"
+      - "scripts/qualify-xinfa-context-quality.mjs"
+      - "scripts/shifu-documentation-*.mjs"
       - "scripts/check-shifu-workspace.mjs"
       - "scripts/shifu-gate-*.mjs"
       - "package.json"
@@ -52,3 +56,9 @@ jobs:
       - name: Verify Xinfa producer contracts (Windows)
         if: runner.os == 'Windows'
         run: .\shifu.cmd xinfa:check
+      - name: Qualify repository context quality (POSIX)
+        if: runner.os != 'Windows'
+        run: ./shifu xinfa:quality --check
+      - name: Qualify repository context quality (Windows)
+        if: runner.os == 'Windows'
+        run: .\shifu.cmd xinfa:quality --check
