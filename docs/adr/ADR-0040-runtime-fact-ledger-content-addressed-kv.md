@@ -2,15 +2,27 @@
 metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
 adr_id: ADR-0040
-decision_status: proposed
-implementation_status: not-started
-review_state: legacy-unreviewed
+decision_status: accepted
+implementation_status: implemented
+implementation_commits: [fb4465b569a24bdf9f970f7d10cb6f3db328d9ab, 82fb27adb43b89c22ce69060ea843320c23eff4a, 1820a136925498ec5d8f7bb94204abef7cd2d791]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/476, https://github.com/kungfu-systems/kungfu/pull/480, https://github.com/kungfu-systems/kungfu/pull/485]
+closure_commit: 1820a136925498ec5d8f7bb94204abef7cd2d791
+qualification_refs: [framework/core/slices/content-store/run.mjs, framework/core/src/libyijinjing/check-deps.mjs, framework/core/tests/python/test_content_store_facade.py, framework/core/tests/storage-node-binding.test.js]
+review_state: self-reviewed
 sensitivity: public
+sources: [local-files, executable-probe, official-upstream]
+period: 2026-07-10
+theme: runtime-content-addressed-store
+confidence: high
+evidence_grade: B
+last_reviewed: 2026-07-18
 ---
 
 # ADR-0040: a first-class content-addressed store is a runtime fact-ledger primitive, with mutable KV and fleet topology kept as separate capabilities
 
-- Status: proposed
+- Status: accepted; the embedded content-store kernel and provider lifecycle
+  are implemented and released; fleet-scale service, sharding, cold tiering,
+  mutable KV, and retention remain separate future capabilities
 - Date: 2026-07-10
 - Category: (architecture) storage substrate — the runtime fact ledger's
   immutable content-addressed object capability, the semantic boundary between
@@ -45,7 +57,7 @@ consistency model. This ADR makes the immutable content store first-class and
 keeps a general mutable KV as a separate capability rather than hiding both
 behind one ambiguous interface.
 
-The current state is partial and does not meet this bar:
+At proposal time the current state was partial and did not meet this bar:
 
 - Payload bodies are already opaque content-addressed bytes (ADR-0037 point 6),
   but there is no first-class content-store surface over them. The Python facade is
@@ -55,6 +67,12 @@ The current state is partial and does not meet this bar:
   and closes a fresh backend handle **per operation**. This is adequate for a
   single agent doing one thing at a time but is not a concurrency or lifecycle
   model.
+
+Those two concrete gaps have since landed. The authoritative interface and
+dependency-free file backend live in `libyijinjing`; the RocksDB implementation
+and process-cached provider lifecycle live in `libkungfu`; Python and Node call
+the same C++ surface. The fleet-scale topology and retention questions below
+remain planning and validation scope, not shipped guarantees.
 
 The decisive requirement is the target deployment: **kungfu as the runtime fact
 ledger for agent work at industrial scale — hundreds, thousands, or tens of
@@ -235,7 +253,7 @@ This is the single most confusable point; read it before writing code.
   (ADR-0018 deferred destructive gc); this ADR sets the scale context that policy
   must serve but does not define it.
 
-## First delivery (staged)
+## First delivery (implemented)
 
 - Define the first-class immutable `content_store` interface
   (`put-if-absent` / `get` / `has` / `verify`, hash algorithm,
@@ -254,6 +272,29 @@ This is the single most confusable point; read it before writing code.
   the single-node level.
 - Then, as separate work: content-hash sharding, the object-store cold tier, the
   fleet storage service, a mutable KV contract, and the retention/gc policy.
+
+## Implementation and qualification boundary
+
+The embedded first delivery is closed by three merged changes:
+
+- [PR #476](https://github.com/kungfu-systems/kungfu/pull/476) adds the
+  `libyijinjing` `content_store` contract, the dependency-free file backend,
+  the dependency-direction gate, and the standalone concurrency/integrity
+  slice.
+- [PR #480](https://github.com/kungfu-systems/kungfu/pull/480) adds the
+  RocksDB-backed runtime provider and symmetric Python/Node facades.
+- [PR #485](https://github.com/kungfu-systems/kungfu/pull/485) replaces
+  per-operation provider construction with one process-cached provider per
+  canonical runtime directory and provider profile.
+
+All three commits are ancestors of the published
+[`shifu-v4.0.0-alpha.0`](https://github.com/kungfu-systems/kungfu/releases/tag/shifu-v4.0.0-alpha.0)
+tag. The retained tests prove the embedded contract obligations, dependency
+direction, provider symmetry, verified reads, and single-node concurrent dedup.
+That release inclusion is not evidence of fleet-scale throughput, a distributed
+service, multi-process RocksDB ownership, PB retention, physical-power-loss
+durability, or production eligibility. Those claims remain outside this ADR's
+implemented status until their own contracts and qualification evidence exist.
 
 ## Explicitly out of scope
 

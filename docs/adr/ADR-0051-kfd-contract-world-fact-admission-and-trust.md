@@ -7,8 +7,10 @@ implementation_status: implemented
 implementation_commits: [716a6c2f16990de852f7fd553aa6fc20f4671559, 355a7c1c702ba7cabfc56a135f21553b56a34649]
 implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/571]
 closure_commit: 355a7c1c702ba7cabfc56a135f21553b56a34649
-review_state: legacy-unreviewed
+qualification_refs: [framework/core/tests/python/test_atlas_storage.py]
+review_state: self-reviewed
 sensitivity: public
+last_reviewed: 2026-07-18
 ---
 
 # ADR-0051: KFD contract worlds govern fact admission, historical interpretation, and trust assessment

@@ -109,7 +109,7 @@ implemented and qualified or explicitly waived for that release.
 | [0037](ADR-0037-storage-records-hana-core-kernel-metadata.md) | accepted | ADR-0018 storage-service records are Hana-core kernel metadata; JSON is an edge projection, not the contract |
 | [0038](ADR-0038-location-namespace-terminology.md) | accepted | Location middle identity segment is namespace |
 | [0039](ADR-0039-unified-view-interface-encapsulates-flatbuffers.md) | accepted | a single kungfu view interface is the sole FlatBuffers access point; raw FB is not called elsewhere |
-| [0040](ADR-0040-runtime-fact-ledger-content-addressed-kv.md) | proposed | a first-class content-addressed store is a runtime fact-ledger primitive, with mutable KV and fleet topology kept as separate capabilities |
+| [0040](ADR-0040-runtime-fact-ledger-content-addressed-kv.md) | accepted | a first-class content-addressed store is a runtime fact-ledger primitive, with mutable KV and fleet topology kept as separate capabilities |
 | [0041](ADR-0041-episode-manifest-first-class-journal-structure.md) | accepted | the Episode manifest is the object's trust boundary — POD journal records, one typed fold, and JSON at the edge |
 | [0042](ADR-0042-episode-atomic-safety-and-qualification.md) | proposed | Episode is the atomic safety and fault-containment unit, qualified by evidence under load |
 | [0043](ADR-0043-episode-identity-sealed-content-root.md) | proposed | Episode identity is two layers — a local coordinate plus a sealed content root committed in the manifest |
@@ -181,6 +181,7 @@ implemented and qualified or explicitly waived for that release.
 | [0109](ADR-0109-four-object-agent-work-state-contract.md) | accepted | Real-world agent work preserves Pursuit, Atlas, Warrant, and Episode as independently addressable roles with no silent semantic inheritance |
 | [0110](ADR-0110-structured-go-route-resolution.md) | accepted | Automatic go context resolves project-declared structured task intent against one verified Xinfa Atlas and fails visibly on ambiguity or omitted authority |
 | [0111](ADR-0111-fenced-unified-recovery-entry.md) | accepted | Unified recovery is a plan-first fenced orchestrator over existing runtime, Peer, storage, and Episode authorities |
+| [0112](ADR-0112-backend-neutral-fact-cut-kernel.md) | accepted | Stable Fact identity, immutable versions, typed non-inheriting relations, clock-free Cuts, named refs, expected-old CAS, and receipts form one backend-neutral kernel |
 | [SHIFU-0001](SHIFU-ADR-0001-cache-profile-contract-and-ownership.md) | accepted | Cache profiles are Shifu-owned contracts; inventories project instances and Buildchain owns process |
 | [SHIFU-0002](SHIFU-ADR-0002-local-artifact-catalog-and-safe-promotion.md) | accepted | Shifu and Kungfu product artifacts share provenance-aware, Git-safe local promotion semantics |
 | [SHIFU-0003](SHIFU-ADR-0003-uv-effective-lock-cache-enforcement.md) | accepted | Strict uv cache execution uses a disposable effective lock while canonical locks stay public |

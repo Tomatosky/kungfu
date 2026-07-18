@@ -235,6 +235,11 @@ export function sourceAcceptancePlan(files) {
       'durability production-candidate admission',
       'scripts/check-durability-production-candidate.mjs',
     ],
+    [
+      'Buildchain KFD release evidence',
+      'scripts/buildchain-kfd-evidence.mjs',
+      '--check',
+    ],
     ['Shifu version sync', 'scripts/sync-shifu-version.mjs', '--check'],
     ['documentation contracts', 'scripts/run-docs-source-check.mjs'],
   ];
@@ -279,6 +284,7 @@ export function sourceAcceptancePlan(files) {
         'scripts/check-upgrade-qualification.test.mjs',
         'scripts/upgrade-publication-admission.test.mjs',
         'scripts/check-agent-session-contract.test.mjs',
+        'scripts/check-fact-cut-kernel-contract.test.mjs',
         'scripts/check-project-cut-contract.test.mjs',
         'scripts/check-git-episode-provider.test.mjs',
         'scripts/check-project-cut-settlement.test.mjs',
@@ -318,6 +324,11 @@ export function sourceAcceptancePlan(files) {
         'scripts/run-durability-offhost-restore.test.mjs',
         'scripts/run-durability-clean-host-restart.test.mjs',
       ],
+    },
+    {
+      label: 'Phase B package identity contract tests',
+      command: 'python3',
+      args: ['-m', 'unittest', 'scripts.test_prepare_kungfu_phase_b_package'],
     },
     {
       label: 'agent work state contract and CLI parity',

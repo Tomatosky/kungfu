@@ -159,6 +159,14 @@ test('source plan covers representative source-only checks', () => {
   assert.ok(labels.includes('Project Cut contract'));
   assert.ok(labels.includes('Project Cut settlement contract'));
   assert.ok(labels.includes('durability production-candidate admission'));
+  assert.ok(labels.includes('Buildchain KFD release evidence'));
+  const kfdEvidence = plan.find(
+    (step) => step.label === 'Buildchain KFD release evidence',
+  );
+  assert.deepEqual(kfdEvidence.args, [
+    'scripts/buildchain-kfd-evidence.mjs',
+    '--check',
+  ]);
   const typeBaseline = plan.find(
     (step) => step.label === 'Python type baseline',
   );
@@ -208,6 +216,11 @@ test('source plan covers representative source-only checks', () => {
     contractTests.args.includes('scripts/check-project-cut-contract.test.mjs'),
   );
   assert.ok(
+    contractTests.args.includes(
+      'scripts/check-fact-cut-kernel-contract.test.mjs',
+    ),
+  );
+  assert.ok(
     contractTests.args.includes('scripts/check-git-episode-provider.test.mjs'),
   );
   assert.ok(
@@ -225,6 +238,14 @@ test('source plan covers representative source-only checks', () => {
       'scripts/check-episode-admission-contract.test.mjs',
     ),
   );
+  const phaseBPackageTests = plan.find(
+    (step) => step.label === 'Phase B package identity contract tests',
+  );
+  assert.deepEqual(phaseBPackageTests.args, [
+    '-m',
+    'unittest',
+    'scripts.test_prepare_kungfu_phase_b_package',
+  ]);
   const upgradeTests = plan.find(
     (step) => step.label === 'runtime upgrade control-plane tests',
   );
@@ -393,6 +414,27 @@ test('reusable workflow is bound to source mode and the pinned stable runtime', 
   assert.match(workflow, /check\.yml@ec48c0b311212c5f3a591e0284da6e85a9fdded5/);
   assert.match(workflow, /buildchain-ref: v2/);
   assert.doesNotMatch(workflow, /self-hosted/);
+});
+
+test('manual package build is welded to the reviewed Phase B consumer', () => {
+  const workflow = fs.readFileSync(
+    path.join(ROOT, '.github/workflows/build.yml'),
+    'utf8',
+  );
+  assert.match(workflow, /run-kungfu-phase-b:\n\s+description:/);
+  assert.match(
+    workflow,
+    /prepare_kungfu_phase_b_package\.py[\s\S]+--build-images-ref "v1\.2\.4-alpha\.29"[\s\S]+--build-images-sha "7cf672d83323fdd139ad90b6e8165a56e431cc6c"/,
+  );
+  assert.match(
+    workflow,
+    /uses: kungfu-systems\/build-images\/\.github\/workflows\/comparator-kungfu-package-smoke\.yml@7cf672d83323fdd139ad90b6e8165a56e431cc6c # v1\.2\.4-alpha\.29/,
+  );
+  assert.match(
+    workflow,
+    /package_artifact_name: \$\{\{ needs\.phase-b-package\.outputs\.artifact-name \}\}/,
+  );
+  assert.match(workflow, /retention-days: 30/);
 });
 
 test('the native membrane matrix is a promotion gate, not a dev PR gate', () => {

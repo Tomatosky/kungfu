@@ -1,0 +1,179 @@
+---
+metadata_schema: kungfu.document-metadata/v1
+doc_type: architecture-decision
+adr_id: ADR-0112
+decision_status: accepted
+implementation_status: staged
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1058, https://github.com/kungfu-systems/kungfu/pull/1062]
+qualification_refs: [framework/fact/kungfu-fact-cut-kernel.contract.json, scripts/check-fact-cut-kernel-contract.test.mjs, tests/fixtures/fact-cut-kernel-contract/cases.json]
+review_state: self-reviewed
+sensitivity: public
+sources: [local-files, user-consensus]
+period: 2026-07-18
+theme: backend-neutral-fact-cut-kernel
+confidence: high
+evidence_grade: B
+last_reviewed: 2026-07-18
+ai_provenance: GPT-5 via Codex on 2026-07-18; based on repository sources and user-authorized design constraints; no claim about unobserved runtime behavior or unpublished implementation evidence
+---
+
+# ADR-0112: Fact identity, versions, relations, Cuts, refs, CAS, and receipts form one backend-neutral kernel
+
+- Status: accepted; the machine-contract stage and falsification fixtures are
+  implemented; no authoritative writer is implemented by this decision
+- Date: 2026-07-18
+- Category: storage / fact identity / historical cuts / integrity
+- Related: [ADR-0018](ADR-0018-runtime-storage-service-architecture.md),
+  [ADR-0037](ADR-0037-storage-records-hana-core-kernel-metadata.md),
+  [ADR-0040](ADR-0040-runtime-fact-ledger-content-addressed-kv.md),
+  [ADR-0047](ADR-0047-authoritative-facts-hana-pod-or-flatbuffers.md),
+  [ADR-0048](ADR-0048-runtime-fact-query-semantics-and-changelog.md),
+  [ADR-0051](ADR-0051-kfd-contract-world-fact-admission-and-trust.md), and
+  [ADR-0072](ADR-0072-frame-identity-layering-journal-local-vs-ledger-global.md)
+
+## Context
+
+Kungfu already has authoritative observation and admission journals, immutable
+content storage, Episode identity and sealing, proof-carrying historical query,
+and rebuildable projections. It does not yet have one accepted, backend-neutral
+contract for the state object between those mechanisms: stable Fact identity,
+immutable Fact versions, typed relations, reproducible Fact Cuts, discoverable
+named refs, atomic ref transitions, and receipts.
+
+Without that contract, a file path, SQLite row, RocksDB key, Git ref, process,
+or GUI route can accidentally become identity. A mutable `head` can be mistaken
+for a historical state. A relation can silently inherit meaning. A recorded
+observation can be mistaken for an admitted version. Backend replacement then
+changes semantics instead of only changing storage.
+
+The normative machine source for this decision is
+[`kungfu-fact-cut-kernel.contract.json`](../../framework/fact/kungfu-fact-cut-kernel.contract.json).
+
+## Decision
+
+### 1. Stable logical identity and immutable content identity are separate
+
+A Fact object has an opaque `fact:<128-bit>` logical id minted independently
+from storage, Git, process, product, and projection coordinates. It preserves
+continuity across immutable versions. External identities are attached through
+explicit mapping receipts rather than reused as the object id.
+
+A Fact version is immutable. Its root binds the logical object id, body root,
+schema root, parent version roots, declaration roots, and admission roots. The
+body is exact content-addressed bytes; changing any bound input creates a new
+version root. Logical id and version root never substitute for one another.
+
+### 2. Boundary objects remain non-interchangeable
+
+- An **observation** is a durable source claim. Recording does not admit it.
+- An **admission record** binds an observation to exact declarations, policy,
+  outcome, and evidence. Admission is not universal external truth.
+- A **Fact object** is stable logical continuity.
+- A **Fact version** is one immutable admitted state of that object.
+- A **Fact Cut** is one immutable state boundary over admitted versions and
+  relations under explicit declarations, admissions, Episode frontier,
+  omissions, and conflicts.
+- An **Episode** is separately identified bounded causal experience. A Cut may
+  pin its sealed frontier; the Episode does not become a Cut or state diff.
+- A **projection** is rebuildable. JSON, SQLite, indexes, language objects, Git,
+  CLI, and GUI representations never become record authority.
+
+### 3. Relations are typed, append-only, and non-inheriting
+
+A relation-add record has its own stable relation id and immutable root, a type,
+explicit endpoints, optional pinned versions, an attributes root, and exact
+admission roots. A revoke appends a separate record against the add root; it
+does not delete or rewrite history.
+
+Relations are many-to-many and have no semantic inheritance. They do not copy
+identity, state, admission, trust, authority, completion, or another relation
+to either endpoint. A Cut lists the exact active add roots after applying
+accepted revocations.
+
+### 4. A Fact Cut root has a closed, clock-free preimage
+
+The Cut root binds exactly these normalized, sorted, duplicate-free inputs:
+
+1. parent Cut roots;
+2. logical-object-id / immutable-version-root tuples;
+3. active relation-add roots;
+4. declaration roots;
+5. admission roots;
+6. Episode identity / sealed-root / accepted-frontier tuples;
+7. omission descriptor roots; and
+8. unresolved-conflict descriptor roots.
+
+The root uses the contract's length-framed byte encoding and SHA-256. Wall
+clock, writer process, storage path, database key, Git ref, GUI route, backend
+sequence, and projection head are excluded. A root Cut has no parents; ordinary
+succession has one; a merge-view Cut has two or more. A Cut is immutable after
+admission.
+
+### 5. Named refs move only through exact expected-old CAS
+
+A named ref is a discoverability name for an immutable Cut root. It is not Cut
+identity. Every move appends a transition request and receipt with a unique
+transition id, exact expected-old Cut root and revision, new Cut root, kind, and
+reason root. Creation alone expects null and revision zero.
+
+A stale caller fails without a write. Replaying byte-identical input with the
+same transition id returns the original receipt; reusing the id with different
+input fails. Fork creates another ref without moving the source. Merge first
+creates a multi-parent Cut, then moves a ref. Rollback is a new CAS transition
+to a known earlier Cut and preserves all intervening history.
+
+The receipt proves the kernel decision and observed transition. It does not
+prove universal truth, work completion, undeclared durability, or distributed
+consensus.
+
+### 6. Existing schema and storage ownership rules remain authoritative
+
+Closed, fixed, replay-critical identity, membership, CAS, and receipt metadata
+is Hana POD journal authority. Open or evolving domain bodies and typed
+relation attributes keep one registered FlatBuffers schema owner. Immutable
+opaque bytes live in the content store under SHA-256 roots. JSON is an edge
+projection; SQLite and other indexes are rebuildable accelerators.
+
+Unknown record majors, root encodings, or schema owners fail closed. Changing a
+root preimage requires a new protocol tag and schema version. Import produces
+mapping and acceptance receipts; it never reinterprets old roots.
+
+### 7. Public query begins at an exact Cut
+
+A query accepts an exact Cut root, or resolves a named ref to an exact root and
+revision receipt. Its basis reports the Cut, declaration and admission roots,
+Episode frontier, and policy versions. `head` is only syntax for that explicit
+resolution. Authority-scan semantics remain the reference; projections must
+prove equivalent roots and visible gaps.
+
+## Falsification and acceptance gates
+
+The contract is false if any implementation:
+
+- accepts a path, Git coordinate, database key, process, or GUI route as object,
+  version, Cut, or ref authority;
+- includes wall clock in Cut identity;
+- treats an observation, Episode, or projection as an admitted Fact version or
+  Cut;
+- inherits relation meaning without an explicit relation root;
+- moves an existing ref without exact expected-old root and revision;
+- lets a stale caller write;
+- implements rollback by deleting or rewriting history; or
+- changes query results or receipts when only the physical backend changes.
+
+The checked positive and negative cases live in
+`tests/fixtures/fact-cut-kernel-contract/cases.json`. They qualify the contract
+shape and falsifiers only. Native append, concurrency, rebuild, fsck,
+export/import, and cross-platform exact-candidate evidence remain required
+before implementation or release qualification claims.
+
+## Consequences
+
+The next native slice can implement one small semantic kernel over the existing
+journal and content-store substrate without importing product workflow
+vocabulary or selecting a fleet backend. Historical state, branching views,
+merge views, rollback, and query gain explicit identities and receipts.
+
+This decision does not implement an authoritative writer, select RocksDB or any
+other long-term fleet backend, define distributed consensus, qualify physical
+power-loss durability, or make a projection authoritative.

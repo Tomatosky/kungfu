@@ -3,14 +3,19 @@ metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
 adr_id: ADR-0018
 decision_status: accepted
-implementation_status: unknown
-review_state: legacy-unreviewed
+implementation_status: staged
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/459, https://github.com/kungfu-systems/kungfu/pull/476, https://github.com/kungfu-systems/kungfu/pull/480, https://github.com/kungfu-systems/kungfu/pull/485]
+qualification_refs: [framework/core/tests/python/test_atlas_storage.py, framework/core/tests/python/test_content_store_facade.py, framework/core/tests/storage-node-binding.test.js]
+review_state: self-reviewed
 sensitivity: public
+last_reviewed: 2026-07-18
 ---
 
 # ADR-0018: Runtime storage service as the persistence contract above journal, payloads, and projections
 
-- Status: accepted
+- Status: accepted; staged service, provider, catalog, query, fsck, bundle, and
+  dry-run maintenance slices are implemented; destructive maintenance and
+  cross-machine range/hash sync remain incomplete
 - Date: 2026-07-08
 - Category: (architecture) persistence contract — how Kungfu stores user facts
   without exposing storage-engine choices as product semantics
