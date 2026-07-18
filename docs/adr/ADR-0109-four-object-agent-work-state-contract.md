@@ -5,7 +5,7 @@ adr_id: ADR-0109
 decision_status: accepted
 implementation_status: staged
 implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1026, https://github.com/kungfu-systems/kungfu/pull/1079, https://github.com/kungfu-systems/kungfu/pull/1081]
-qualification_refs: [framework/agent-work/kungfu-agent-work-state.contract.json, scripts/check-agent-work-state-contract.test.mjs, framework/core/tests/python/test_agent_work_state_contract.py, framework/core/src/python/kungfu/agent/kfd3_api.registry.json]
+qualification_refs: [framework/agent-work/kungfu-agent-work-state.contract.json, scripts/check-agent-work-state-contract.test.mjs, framework/core/tests/python/test_agent_work_state_contract.py, framework/core/tests/python/test_fact_kernel_dogfood.py, docs/qualification/evidence/fact-kernel-dogfood/generic-fact-kernel-v1/report.json, framework/core/src/python/kungfu/agent/kfd3_api.registry.json]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -18,7 +18,8 @@ last_reviewed: 2026-07-18
 
 # ADR-0109: Real-world agent work preserves four independently addressable roles
 
-- Status: accepted; provisional runtime Profile staged, P17 not qualified
+- Status: accepted; provisional runtime Profile staged; FO1, FO2, and FO6 have
+  retained exact-root qualification; P17 remains not qualified
 - Date: 2026-07-17
 - Category: Agent Work Profile / product contract / KFD-3
 - Related: [ADR-0033](ADR-0033-episode-causal-segment-object.md),
@@ -128,11 +129,14 @@ projection into qualification.
 ## Qualification boundary
 
 The contract establishes the public vocabulary, current implementation
-mappings, forbidden inferences, and P17 evidence plan. It does not pass P17.
-The contract reports every `FO1`-`FO8` state and residual evidence requirement;
-release qualification still needs persisted cross-role fixtures, an end-to-end
-dogfood loop, negative authority tests, progressive-disclosure usability,
-cross-surface parity, recovery and handoff, and Release Passport evidence.
+mappings, forbidden inferences, and P17 evidence plan. The retained generic
+Fact kernel dogfood now qualifies `FO1`, `FO2`, and `FO6`: four distinct role
+identities and relations survive a sealed successor Cut, independent no-chat
+review, and clean-runtime export/import continuation. Negative authority and
+substitution cases make `FO3` partial, and one rival-model witness makes `FO7`
+partial. It still does not pass P17: fresh-product progressive-disclosure UX,
+GUI/TUI parity, sustained multi-work-item dogfood, generic Warrant maturity,
+and Release Passport binding remain open.
 
 The KFD Independent Action State work remains a non-normative candidate. This
 decision neither reserves a KFD number nor claims universal organizational

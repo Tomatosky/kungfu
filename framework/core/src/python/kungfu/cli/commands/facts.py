@@ -84,6 +84,133 @@ def fact_kernel(ctx: click.Context, action: str, file_path: str) -> None:
     _emit(service.fact_kernel(_runtime_dir(ctx), action, request))
 
 
+@facts.group("shadow", help="project and compare read-only Profile Fact views")
+@click.help_option("-h", "--help")
+def fact_shadow() -> None:
+    pass
+
+
+@fact_shadow.command("project", help="project Profile sources into one shadow Cut")
+@click.option(
+    "--file", "file_path", required=True, help="projection request JSON path or -"
+)
+@facts_command_context
+def project_fact_shadow(ctx: click.Context, file_path: str) -> None:
+    from kungfu.storage import service
+
+    _emit(
+        service.fact_profile_shadow_project(_runtime_dir(ctx), _load_object(file_path))
+    )
+
+
+@fact_shadow.command("inspect", help="inspect a shadow Cut with immutable bodies")
+@click.option("--cut-root", default="", help="exact Fact Cut root")
+@click.option("--ref", "ref_name", default="", help="named Fact ref")
+@facts_command_context
+def inspect_fact_shadow(ctx: click.Context, cut_root: str, ref_name: str) -> None:
+    from kungfu.storage import service
+
+    if bool(cut_root) == bool(ref_name):
+        raise click.UsageError("provide exactly one of --cut-root or --ref")
+    _emit(
+        service.fact_profile_shadow_inspect(
+            _runtime_dir(ctx), cut_root=cut_root, ref_name=ref_name
+        )
+    )
+
+
+@fact_shadow.command(
+    "compare", help="compare authoritative source JSON with one shadow Cut"
+)
+@click.option(
+    "--file", "file_path", required=True, help="authoritative source JSON path or -"
+)
+@click.option("--cut-root", required=True, help="exact shadow Fact Cut root")
+@facts_command_context
+def compare_fact_shadow(ctx: click.Context, file_path: str, cut_root: str) -> None:
+    from kungfu.storage import service
+
+    actual = service.fact_profile_shadow_inspect(_runtime_dir(ctx), cut_root=cut_root)
+    _emit(service.fact_profile_shadow_compare(_load_object(file_path), actual))
+
+
+@facts.group("integrity", help="verify and port native Fact Cut authority")
+@click.help_option("-h", "--help")
+def fact_integrity() -> None:
+    pass
+
+
+@fact_integrity.command(
+    "fsck", help="verify native objects, relations, Cuts, refs, and bodies"
+)
+@click.option("--cut-root", default="", help="optional exact Cut root")
+@facts_command_context
+def fsck_fact_kernel(ctx: click.Context, cut_root: str) -> None:
+    from kungfu.storage import service
+
+    _emit(service.fact_kernel_fsck(_runtime_dir(ctx), cut_root=cut_root))
+
+
+@fact_integrity.command("export", help="export one exact portable Fact Cut closure")
+@click.option("--out", "out_path", required=True, help="output JSON bundle path")
+@click.option("--cut-root", default="", help="exact Fact Cut root")
+@click.option("--ref", "ref_name", default="", help="named Fact ref")
+@facts_command_context
+def export_fact_kernel(
+    ctx: click.Context, out_path: str, cut_root: str, ref_name: str
+) -> None:
+    from kungfu.storage import service
+
+    if bool(cut_root) == bool(ref_name):
+        raise click.UsageError("provide exactly one of --cut-root or --ref")
+    bundle = service.fact_kernel_export(
+        _runtime_dir(ctx), cut_root=cut_root, ref_name=ref_name
+    )
+    Path(out_path).write_text(
+        json.dumps(bundle, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    _emit({"ok": True, "bundle_root": bundle["bundle_root"], "artifact": out_path})
+
+
+@fact_integrity.command("import", help="verify or import one portable Fact Cut bundle")
+@click.option("--file", "file_path", required=True, help="bundle JSON path or -")
+@click.option("--execute", is_flag=True, help="append the verified closure")
+@facts_command_context
+def import_fact_kernel(ctx: click.Context, file_path: str, execute: bool) -> None:
+    from kungfu.storage import service
+
+    _emit(
+        service.fact_kernel_import(
+            _runtime_dir(ctx), _load_object(file_path), dry_run=not execute
+        )
+    )
+
+
+@fact_integrity.command(
+    "retention-plan", help="compute reachability without deleting data"
+)
+@click.option("--cut-root", "cut_roots", multiple=True, help="retained Cut root")
+@facts_command_context
+def plan_fact_retention(ctx: click.Context, cut_roots: tuple[str, ...]) -> None:
+    from kungfu.storage import service
+
+    _emit(
+        service.fact_kernel_retention_plan(
+            _runtime_dir(ctx), cut_roots=list(cut_roots) or None
+        )
+    )
+
+
+@fact_integrity.command(
+    "rebuild", help="replay the authority scan and prove stable roots"
+)
+@facts_command_context
+def rebuild_fact_projections(ctx: click.Context) -> None:
+    from kungfu.storage import service
+
+    _emit(service.fact_kernel_rebuild_projections(_runtime_dir(ctx)))
+
+
 @facts.command(help="show the managed Fact Library contract and fixed semantic profile")
 @facts_command_context
 def library(ctx: click.Context) -> None:
