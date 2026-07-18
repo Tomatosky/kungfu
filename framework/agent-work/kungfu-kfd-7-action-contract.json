@@ -124,6 +124,19 @@
       "residualRisks": ["compensation may not reverse every external consequence"]
     },
     {
+      "id": "replay-episode",
+      "subjectRole": "episode",
+      "operation": "reconcile",
+      "from": "sealed",
+      "to": "reconciled",
+      "preconditions": ["Episode identity, before and after Cuts, causal root, and sealed content root remain exact"],
+      "effect": "reconcile only an exact replay and reject equal-endpoint causal substitutions",
+      "receipt": "kungfu.kfd7.profile-action-receipt/v1",
+      "evidence": ["sealed Episode roots and replay comparison receipt"],
+      "denialReasons": ["replay-mismatch", "invalid-request"],
+      "residualRisks": ["external side effects remain outside the retained causal record"]
+    },
+    {
       "id": "continue-pursuit",
       "subjectRole": "pursuit",
       "operation": "advance",
@@ -135,6 +148,19 @@
       "evidence": ["Pursuit version ancestry and exact basis Cut"],
       "denialReasons": ["atlas-stale", "warrant-expired", "unauthorized"],
       "residualRisks": ["continuation does not imply eventual completion"]
+    },
+    {
+      "id": "branch-pursuit",
+      "subjectRole": "pursuit",
+      "operation": "profile-extension",
+      "from": "active",
+      "to": "active",
+      "preconditions": ["the source Cut is exact and the destination ref is absent at revision zero"],
+      "effect": "append a Pursuit successor on an independent ref without moving the source ref",
+      "receipt": "kungfu.kfd7.profile-action-receipt/v1",
+      "evidence": ["source Cut, branch reason root, destination ref receipt, and unchanged source ref"],
+      "denialReasons": ["profile-state-mismatch", "invalid-transition", "stale-ref"],
+      "residualRisks": ["branch reconciliation remains an explicit later decision"]
     },
     {
       "id": "complete-pursuit",
@@ -255,8 +281,11 @@
     {
       "category": "role-deletion-or-fusion",
       "status": "passed",
-      "artifactRefs": ["framework/core/tests/python/test_agent_work_state_contract.py"],
-      "residualRisk": "long-period role deletion dogfood remains for final qualification"
+      "artifactRefs": [
+        "framework/core/tests/python/test_agent_work_state_contract.py",
+        "framework/agent-work/evidence/kfd-7/role-deletion-or-fusion.json"
+      ],
+      "residualRisk": "cross-domain minimality remains a KFD activation gate; this evidence is bounded to the Kungfu Profile"
     },
     {
       "category": "invalid-transition",
@@ -291,26 +320,42 @@
     {
       "category": "warrant-decay-revocation",
       "status": "passed",
-      "artifactRefs": ["framework/core/tests/python/test_agent_work_state_contract.py"],
+      "artifactRefs": [
+        "framework/core/tests/python/test_agent_work_state_contract.py",
+        "framework/core/tests/python/test_agent_work_profile_native.py",
+        "framework/agent-work/evidence/kfd-7/warrant-decay-revocation.json"
+      ],
       "residualRisk": "issuer diversity and remote enforcement are outside this witness"
     },
     {
       "category": "atlas-staleness-loss",
       "status": "passed",
-      "artifactRefs": ["framework/core/tests/python/test_agent_work_state_contract.py"],
-      "residualRisk": "lossy export evidence remains pending"
+      "artifactRefs": [
+        "framework/core/tests/python/test_agent_work_state_contract.py",
+        "framework/core/tests/python/test_agent_work_profile_native.py",
+        "framework/agent-work/evidence/kfd-7/atlas-staleness-loss.json"
+      ],
+      "residualRisk": "conflict and supersession remain separate from the retained stale-loss-refresh path"
     },
     {
       "category": "pursuit-continuity-settlement",
       "status": "passed",
-      "artifactRefs": ["framework/core/tests/python/test_agent_work_state_contract.py"],
+      "artifactRefs": [
+        "framework/core/tests/python/test_agent_work_state_contract.py",
+        "framework/core/tests/python/test_agent_work_profile_native.py",
+        "framework/agent-work/evidence/kfd-7/pursuit-continuity-settlement.json"
+      ],
       "residualRisk": "independent completion review remains a final qualification gate"
     },
     {
       "category": "episode-replay-contraction",
-      "status": "planned",
-      "artifactRefs": [],
-      "residualRisk": "real Episode replay and contraction evidence is pending"
+      "status": "passed",
+      "artifactRefs": [
+        "framework/core/tests/python/test_agent_work_state_contract.py",
+        "framework/core/tests/python/test_agent_work_profile_native.py",
+        "framework/agent-work/evidence/kfd-7/episode-replay-contraction.json"
+      ],
+      "residualRisk": "the retained Profile mapping does not replace full Episode subsystem qualification"
     },
     {
       "category": "cold-start-continuation",
@@ -337,6 +382,6 @@
       "framework/agent-work/kungfu-kfd-7-profile-receipt.schema.json",
       "framework/core/tests/python/test_agent_work_state_contract.py"
     ],
-    "residualRisk": "Episode replay, lifecycle breadth, role-minimality, independent product adoption, installed-artifact parity, and independent review are not yet complete."
+    "residualRisk": "Cross-domain minimality, independent product adoption, installed-artifact parity, and independent review are not yet complete."
   }
 }

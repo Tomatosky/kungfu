@@ -939,3 +939,103 @@ def test_kfd7_profile_episode_replay_distinguishes_equal_endpoint_causality():
         kernel=kernel,
     )
     assert replayed["status"] == "accepted"
+
+
+def test_kfd7_context_only_rival_loses_each_decision_relevant_role():
+    baseline_kernel = _MemoryFactKernel()
+    created = work_profile.apply_action(
+        "/baseline", _profile_request(), execute=True, kernel=baseline_kernel
+    )
+    candidate = _successor_request(created, action_id="same-visible-task")
+    visible_task = {
+        "subject": copy.deepcopy(candidate["subject"]),
+        "payload": copy.deepcopy(candidate["payload"]),
+    }
+    baseline_plan = work_profile.apply_action(
+        "/baseline", candidate, kernel=baseline_kernel
+    )
+    assert baseline_plan["status"] == "planned"
+    assert baseline_plan["changedRoles"] == ["pursuit"]
+
+    fact_variant = copy.deepcopy(candidate)
+    fact_variant["responsibilities"]["fact"]["expectedVersionRoot"] = (
+        "sha256:" + "7" * 64
+    )
+    assert {
+        "subject": fact_variant["subject"],
+        "payload": fact_variant["payload"],
+    } == visible_task
+    assert (
+        work_profile.apply_action("/baseline", fact_variant, kernel=baseline_kernel)[
+            "failureCode"
+        ]
+        == "profile-state-mismatch"
+    )
+
+    pursuit_kernel = _MemoryFactKernel()
+    pursuit_created = work_profile.apply_action(
+        "/pursuit", _profile_request(), execute=True, kernel=pursuit_kernel
+    )
+    pursuit_root = pursuit_created["result"]["roleVersions"]["pursuit"]
+    pursuit_body = json.loads(pursuit_kernel.versions[pursuit_root]["body"])
+    pursuit_body["state"] = "completed"
+    pursuit_kernel.versions[pursuit_root]["body"] = json.dumps(
+        pursuit_body, sort_keys=True
+    )
+    pursuit_variant = _successor_request(pursuit_created, action_id="same-visible-task")
+    assert {
+        "subject": pursuit_variant["subject"],
+        "payload": pursuit_variant["payload"],
+    } == visible_task
+    assert (
+        work_profile.apply_action("/pursuit", pursuit_variant, kernel=pursuit_kernel)[
+            "failureCode"
+        ]
+        == "profile-state-mismatch"
+    )
+
+    atlas_kernel = _MemoryFactKernel()
+    atlas_created = work_profile.apply_action(
+        "/atlas", _profile_request(), execute=True, kernel=atlas_kernel
+    )
+    atlas_root = atlas_created["result"]["roleVersions"]["atlas"]
+    atlas_body = json.loads(atlas_kernel.versions[atlas_root]["body"])
+    atlas_body["state"] = "stale"
+    atlas_kernel.versions[atlas_root]["body"] = json.dumps(atlas_body, sort_keys=True)
+    atlas_variant = _successor_request(atlas_created, action_id="same-visible-task")
+    assert {
+        "subject": atlas_variant["subject"],
+        "payload": atlas_variant["payload"],
+    } == visible_task
+    assert (
+        work_profile.apply_action("/atlas", atlas_variant, kernel=atlas_kernel)[
+            "failureCode"
+        ]
+        == "atlas-stale"
+    )
+
+    warrant_kernel = _MemoryFactKernel()
+    warrant_created = work_profile.apply_action(
+        "/warrant", _profile_request(), execute=True, kernel=warrant_kernel
+    )
+    warrant_root = warrant_created["result"]["roleVersions"]["warrant"]
+    warrant_body = json.loads(warrant_kernel.versions[warrant_root]["body"])
+    warrant_body["details"]["allowedOperations"] = ["atlas:refresh"]
+    warrant_kernel.versions[warrant_root]["body"] = json.dumps(
+        warrant_body, sort_keys=True
+    )
+    warrant_variant = _successor_request(warrant_created, action_id="same-visible-task")
+    assert {
+        "subject": warrant_variant["subject"],
+        "payload": warrant_variant["payload"],
+    } == visible_task
+    assert (
+        work_profile.apply_action("/warrant", warrant_variant, kernel=warrant_kernel)[
+            "failureCode"
+        ]
+        == "unauthorized"
+    )
+
+    # A context-only rival also treats equal endpoints as equal. The Profile's
+    # Episode replay fixture above rejects a different causal root, preserving
+    # the fifth role even when beforeCutRoot == afterCutRoot.
