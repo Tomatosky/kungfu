@@ -42,6 +42,49 @@ def test_facts_cli_exposes_the_libkungfu_owned_contract(tmp_path):
     ]
 
 
+def test_facts_kernel_cli_is_a_thin_native_schema_edge(tmp_path, monkeypatch):
+    calls = []
+
+    class Runtime:
+        @staticmethod
+        def run_storage_service_operation(operation, runtime_dir, request):
+            calls.append((operation, runtime_dir, request))
+            return {
+                "schema": "kungfu.fact-kernel.operation-result/v1",
+                "ok": True,
+                "action": request["action"],
+            }
+
+    monkeypatch.setattr(storage_service, "_runtime", lambda: Runtime())
+    request_path = tmp_path / "request.json"
+    request_path.write_text('{"ref_name":"heads/main"}', encoding="utf-8")
+    home = tmp_path / "home"
+
+    result = CliRunner().invoke(
+        kfc,
+        [
+            "--home",
+            str(home),
+            "facts",
+            "kernel",
+            "--action",
+            "query",
+            "--file",
+            str(request_path),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["action"] == "query"
+    assert calls == [
+        (
+            "fact_kernel",
+            str(home / "runtime"),
+            {"action": "query", "ref_name": "heads/main"},
+        )
+    ]
+
+
 def test_offline_agent_discovers_and_proves_query_in_three_commands(tmp_path):
     home = tmp_path / "home"
     runtime_dir = home / "runtime"

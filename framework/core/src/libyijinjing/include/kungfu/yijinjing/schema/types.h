@@ -447,6 +447,104 @@ KF_DEFINE_PACK_TYPE(                                                            
     (array<char, 72>, sync_root_value)                                                 //
 );
 
+// ADR-0112 generic Fact kernel records. Replay-critical metadata stays in one
+// append-only Hana POD journal. Variable-size canonical preimages and opaque
+// bodies are immutable content-store objects pinned by the roots below; JSON
+// remains an edge projection only.
+KF_DEFINE_PACK_TYPE(                                      //
+    FactObjectRecorded, 11001, PK(sequence), PERPETUAL(), //
+    (uint32_t, schema_version),                           //
+    (uint64_t, sequence),                                 //
+    (array<char, 40>, object_id),                         //
+    (array<char, 64>, object_type),                       //
+    (array<char, 72>, created_by_receipt_root),           //
+    (array<char, 72>, object_root)                        //
+);
+
+KF_DEFINE_PACK_TYPE(                                       //
+    FactVersionRecorded, 11002, PK(sequence), PERPETUAL(), //
+    (uint32_t, schema_version),                            //
+    (uint64_t, sequence),                                  //
+    (array<char, 40>, object_id),                          //
+    (array<char, 72>, version_root),                       //
+    (array<char, 72>, body_root),                          //
+    (array<char, 72>, schema_root),                        //
+    (array<char, 72>, parent_versions_root),               //
+    (array<char, 72>, declaration_roots_root),             //
+    (array<char, 72>, admission_roots_root)                //
+);
+
+KF_DEFINE_PACK_TYPE(                                     //
+    FactRelationAdded, 11003, PK(sequence), PERPETUAL(), //
+    (uint32_t, schema_version),                          //
+    (uint64_t, sequence),                                //
+    (array<char, 40>, relation_id),                      //
+    (array<char, 64>, relation_type),                    //
+    (array<char, 32>, source_kind),                      //
+    (array<char, 128>, source_id),                       //
+    (array<char, 32>, target_kind),                      //
+    (array<char, 128>, target_id),                       //
+    (array<char, 72>, attributes_root),                  //
+    (array<char, 72>, admission_roots_root),             //
+    (array<char, 72>, relation_root)                     //
+);
+
+KF_DEFINE_PACK_TYPE(                                       //
+    FactRelationRevoked, 11004, PK(sequence), PERPETUAL(), //
+    (uint32_t, schema_version),                            //
+    (uint64_t, sequence),                                  //
+    (array<char, 72>, relation_root),                      //
+    (array<char, 72>, reason_root),                        //
+    (array<char, 72>, revoke_root)                         //
+);
+
+KF_DEFINE_PACK_TYPE(                                    //
+    FactCutCommitted, 11005, PK(sequence), PERPETUAL(), //
+    (uint32_t, schema_version),                         //
+    (uint64_t, sequence),                               //
+    (array<char, 72>, cut_root),                        //
+    (array<char, 72>, parent_cuts_root),                //
+    (array<char, 72>, object_versions_root),            //
+    (array<char, 72>, active_relations_root),           //
+    (array<char, 72>, declaration_roots_root),          //
+    (array<char, 72>, admission_roots_root),            //
+    (array<char, 72>, episode_frontier_root),           //
+    (array<char, 72>, omission_roots_root),             //
+    (array<char, 72>, conflict_roots_root)              //
+);
+
+KF_DEFINE_PACK_TYPE(                                     //
+    FactRefTransition, 11006, PK(sequence), PERPETUAL(), //
+    (uint32_t, schema_version),                          //
+    (uint64_t, sequence),                                //
+    (uint64_t, expected_old_revision),                   //
+    (array<char, 128>, transition_id),                   //
+    (array<char, 128>, ref_name),                        //
+    (array<char, 72>, expected_old_cut_root),            //
+    (array<char, 72>, new_cut_root),                     //
+    (array<char, 24>, transition_kind),                  //
+    (array<char, 72>, reason_root),                      //
+    (array<char, 72>, transition_root)                   //
+);
+
+KF_DEFINE_PACK_TYPE(                                        //
+    FactOperationReceipt, 11007, PK(sequence), PERPETUAL(), //
+    (uint32_t, schema_version),                             //
+    (uint64_t, sequence),                                   //
+    (uint64_t, prior_revision),                             //
+    (uint64_t, current_revision),                           //
+    (uint8_t, write_occurred),                              //
+    (array<char, 128>, operation_id),                       //
+    (array<char, 32>, operation),                           //
+    (array<char, 16>, status),                              //
+    (array<char, 32>, failure_code),                        //
+    (array<char, 72>, record_root),                         //
+    (array<char, 72>, prior_cut_root),                      //
+    (array<char, 72>, current_cut_root),                    //
+    (array<char, 72>, request_root),                        //
+    (array<char, 72>, receipt_root)                         //
+);
+
 KF_DEFINE_PACK_TYPE(                                                   //
     RequestReadFromOthers, 10309, PK(source_id, dest_id), PERPETUAL(), //
     (uint32_t, source_id),                                             //

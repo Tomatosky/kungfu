@@ -108,6 +108,13 @@
   ],
   "json_edges": [
     {
+      "path": "framework/core/src/libkungfu/include/kungfu/runtime/storage/fact_kernel.h",
+      "surface": "public-edge",
+      "direction": "foreign-ingress-and-rendered-egress",
+      "reason": "Versioned generic Fact operations cross one JSON edge before fixed Hana POD records and content roots become authority.",
+      "remove_when": "All supported language and C ABI clients share one generated typed Fact operation protocol."
+    },
+    {
       "path": "framework/core/src/libkungfu/include/kungfu/runtime/storage/json_edge.h",
       "surface": "public-edge",
       "direction": "foreign-ingress-and-rendered-egress",
