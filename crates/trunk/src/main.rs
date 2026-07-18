@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 //
-// kungfu-trunk — the product trunk at stage-1 size: the kungfu-owned
-// env/package surface plus the lazy pinned-toolchain bootstrap (ADR-0046).
+// kungfu-trunk — the assembled product's Rust front door: root routing,
+// native diagnostics, and the kungfu-owned env/package surface (ADR-0046).
 //
-// Layering law: this binary owns the `env` semantics, so it parses the `env`
-// arguments; the frozen front door forwards the subtree here untouched.
-// Failures are named and self-diagnosing (exact URL, expected checksum, the
-// mirror override to set) — the wrong-runtime spirit applied to downloads.
+// Layering law: this binary parses only the root contract plus commands whose
+// semantics it owns. Domain subtrees remain argv-transparent and are parsed by
+// their satellite. Failures are named and self-diagnosing.
 
 mod doctor;
 mod envs;
@@ -45,6 +44,65 @@ envs live under <KF_HOME>/envs; the default env is named 'default'.
 
 const DEFAULT_ENV: &str = "default";
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum NativeCommand {
+    Env,
+    Prewarm,
+    Doctor,
+    Fsck,
+}
+
+struct NativeCommandSpec {
+    command: NativeCommand,
+    name: &'static str,
+    summary: &'static str,
+}
+
+/// The one source of truth for native top-level command routing and discovery.
+/// The unified help renderer consumes this same table and de-duplicates `env`,
+/// which remains in Click as a compatibility forwarding surface.
+const NATIVE_COMMANDS: &[NativeCommandSpec] = &[
+    NativeCommandSpec {
+        command: NativeCommand::Env,
+        name: "env",
+        summary: "manage runtime environments",
+    },
+    NativeCommandSpec {
+        command: NativeCommand::Prewarm,
+        name: "prewarm",
+        summary: "pre-fetch the pinned uv + satellite CPython",
+    },
+    NativeCommandSpec {
+        command: NativeCommand::Doctor,
+        name: "doctor",
+        summary: "read-only runtime inspection via the embedding membrane",
+    },
+    NativeCommandSpec {
+        command: NativeCommand::Fsck,
+        name: "fsck",
+        summary: "read-only storage integrity check via the embedding membrane",
+    },
+];
+
+#[derive(Debug, PartialEq, Eq)]
+struct RootAssignment {
+    name: String,
+    envvar: String,
+    value: String,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum ProductRoute {
+    Help,
+    Version,
+    Native {
+        command: NativeCommand,
+        args_at: usize,
+        globals: Vec<RootAssignment>,
+    },
+    Launch,
+}
+
 fn main() {
     // KUNGFU_AS_VARIANT asks this process to *be* a runtime variant (e.g. node),
     // so it is decided before any subcommand interpretation. When the trunk can
@@ -57,32 +115,42 @@ fn main() {
 
     let args: Vec<String> = env::args().skip(1).collect();
     // Installed as `kungfu`, this binary is the assembled product's front
-    // door: the trunk keeps only the subtrees it implements (env, prewarm)
-    // and execs the assembled interpreter for everything else, verbatim —
-    // argv-transparent per the layering law (ADR-0046 stage 2).
+    // door. It parses the generated root contract for routing only, keeps the
+    // subtrees it implements, and execs the assembled interpreter for every
+    // domain subtree verbatim (ADR-0046 layered CLI law).
     if launch::invoked_as_kungfu() {
-        // Root help renders the unified command surface from the shipped manifest
-        // without waking a satellite (ADR-0046 stage 4). Only the root form is
-        // intercepted — `kungfu <command> --help` stays the command's own help,
-        // routed to the satellite. If the manifest is absent (a dev build), fall
-        // through to the launch path, where the Python CLI prints its own help.
-        let first = args.first().map(String::as_str);
-        if matches!(first, None | Some("--help" | "-h" | "help")) {
-            if let Some(text) = help::render() {
-                print!("{text}");
+        let root_options = help::root_options().unwrap_or_default();
+        let route = match route_product(&args, &root_options) {
+            Ok(route) => route,
+            Err(msg) => {
+                eprintln!("kungfu: {msg}");
+                exit(2);
+            }
+        };
+        let result = match route {
+            ProductRoute::Help => {
+                if let Some(text) = help::render(&native_command_help()) {
+                    print!("{text}");
+                    return;
+                }
+                launch::launch(&args)
+            }
+            ProductRoute::Version => {
+                println!(
+                    "{}",
+                    help::version().unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string())
+                );
                 return;
             }
-        }
-
-        // doctor is owned by the trunk at the front door on purpose: it is the
-        // diagnostic that must run even when the domain runtime is broken, so it
-        // never forwards to the assembled interpreter (ADR-0046 driver 1).
-        let result = match first {
-            Some("env") => dispatch_env(&args[1..]),
-            Some("prewarm") => envs::prewarm(),
-            Some("doctor") => doctor::run(&args[1..]),
-            Some("fsck") => fsck::run(&args[1..]),
-            _ => launch::launch(&args),
+            ProductRoute::Native {
+                command,
+                args_at,
+                globals,
+            } => {
+                apply_root_globals(&globals);
+                run_native(command, &args[args_at..])
+            }
+            ProductRoute::Launch => launch::launch(&args),
         };
         if let Err(msg) = result {
             eprintln!("kungfu: {msg}");
@@ -111,6 +179,147 @@ fn main() {
     if let Err(msg) = result {
         eprintln!("kungfu: {msg}");
         exit(1);
+    }
+}
+
+fn native_command_help() -> Vec<help::NativeCommandHelp> {
+    NATIVE_COMMANDS
+        .iter()
+        .map(|spec| help::NativeCommandHelp {
+            name: spec.name,
+            summary: spec.summary,
+        })
+        .collect()
+}
+
+fn find_native(name: &str) -> Option<NativeCommand> {
+    NATIVE_COMMANDS
+        .iter()
+        .find(|spec| spec.name == name)
+        .map(|spec| spec.command)
+}
+
+fn run_native(command: NativeCommand, args: &[String]) -> Result<(), String> {
+    match command {
+        NativeCommand::Env => dispatch_env(args),
+        NativeCommand::Prewarm => envs::prewarm(),
+        NativeCommand::Doctor => doctor::run(args),
+        NativeCommand::Fsck => fsck::run(args),
+    }
+}
+
+/// Classify only the generated root option prefix. Once a command token is
+/// reached, domain argv is never inspected. Unknown root options deliberately
+/// route to Click, which remains the authority for its own diagnostics.
+fn route_product(
+    args: &[String],
+    root_options: &[help::RootOption],
+) -> Result<ProductRoute, String> {
+    if args.is_empty() {
+        return Ok(ProductRoute::Help);
+    }
+
+    let mut globals = Vec::new();
+    let mut index = 0;
+    while index < args.len() {
+        let arg = &args[index];
+        if matches!(arg.as_str(), "--help" | "-h" | "help") {
+            return Ok(ProductRoute::Help);
+        }
+        if arg == "--version" {
+            return Ok(ProductRoute::Version);
+        }
+        if arg == "--" {
+            return Ok(ProductRoute::Launch);
+        }
+        if let Some(command) = find_native(arg) {
+            return Ok(ProductRoute::Native {
+                command,
+                args_at: index + 1,
+                globals,
+            });
+        }
+
+        let Some((option, inline_value)) = match_root_option(arg, root_options) else {
+            return Ok(ProductRoute::Launch);
+        };
+        if option.name == "help" {
+            return Ok(ProductRoute::Help);
+        }
+        if option.name == "version" {
+            return Ok(ProductRoute::Version);
+        }
+        if option.arity > 1 {
+            return Err(format!(
+                "root option '{}' has unsupported arity {}; rebuild the trunk contract",
+                option.name, option.arity
+            ));
+        }
+
+        let value = if option.arity == 0 {
+            option.envvar.clone().unwrap_or_else(|| "1".to_string())
+        } else if let Some(value) = inline_value {
+            value
+        } else {
+            index += 1;
+            args.get(index)
+                .cloned()
+                .ok_or_else(|| format!("root option '{arg}' needs a value"))?
+        };
+        if !option.choices.is_empty() && !option.choices.iter().any(|choice| choice == &value) {
+            return Err(format!(
+                "invalid value '{value}' for root option '{arg}'; expected one of: {}",
+                option.choices.join(", ")
+            ));
+        }
+        if let Some(envvar) = &option.envvar {
+            globals.push(RootAssignment {
+                name: option.name.clone(),
+                envvar: envvar.clone(),
+                value,
+            });
+        }
+        index += 1;
+    }
+
+    Ok(ProductRoute::Help)
+}
+
+fn match_root_option<'a>(
+    arg: &str,
+    root_options: &'a [help::RootOption],
+) -> Option<(&'a help::RootOption, Option<String>)> {
+    for option in root_options {
+        for flag in &option.flags {
+            if arg == flag {
+                return Some((option, None));
+            }
+            if option.arity == 1 && flag.starts_with("--") {
+                if let Some(value) = arg.strip_prefix(&format!("{flag}=")) {
+                    return Some((option, Some(value.to_string())));
+                }
+            }
+            if option.arity == 1
+                && flag.starts_with('-')
+                && !flag.starts_with("--")
+                && arg.starts_with(flag)
+                && arg.len() > flag.len()
+            {
+                return Some((option, Some(arg[flag.len()..].to_string())));
+            }
+        }
+    }
+    None
+}
+
+fn apply_root_globals(globals: &[RootAssignment]) {
+    for assignment in globals {
+        // Click gives an explicit --home precedence over an inherited
+        // KF_RUNTIME_DIR. Preserve that exact root contract for native tools.
+        if assignment.name == "home" {
+            env::remove_var("KF_RUNTIME_DIR");
+        }
+        env::set_var(&assignment.envvar, &assignment.value);
     }
 }
 
@@ -172,7 +381,7 @@ fn split_env_flag(args: &[String]) -> Result<(String, Vec<String>), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::split_env_flag;
+    use super::*;
 
     fn s(v: &[&str]) -> Vec<String> {
         v.iter().map(|x| x.to_string()).collect()
@@ -199,5 +408,129 @@ mod tests {
     #[test]
     fn missing_env_value_is_named() {
         assert!(split_env_flag(&s(&["--env"])).is_err());
+    }
+
+    fn root_options() -> Vec<help::RootOption> {
+        vec![
+            help::RootOption {
+                name: "home".to_string(),
+                arity: 1,
+                envvar: Some("KF_HOME".to_string()),
+                flags: vec!["-H".to_string(), "--home".to_string()],
+                choices: vec![],
+            },
+            help::RootOption {
+                name: "log_level".to_string(),
+                arity: 1,
+                envvar: Some("KF_LOG_LEVEL".to_string()),
+                flags: vec!["-l".to_string(), "--log_level".to_string()],
+                choices: vec![
+                    "trace".to_string(),
+                    "debug".to_string(),
+                    "info".to_string(),
+                    "warning".to_string(),
+                    "error".to_string(),
+                    "critical".to_string(),
+                ],
+            },
+            help::RootOption {
+                name: "env_verify_location".to_string(),
+                arity: 0,
+                envvar: Some("KF_VERIFY_LOCATION".to_string()),
+                flags: vec!["-ENV-verify-location".to_string()],
+                choices: vec![],
+            },
+        ]
+    }
+
+    #[test]
+    fn native_commands_route_after_generated_root_options() {
+        let route = route_product(
+            &s(&[
+                "--home=/tmp/kf",
+                "-ldebug",
+                "-ENV-verify-location",
+                "fsck",
+                "--json",
+            ]),
+            &root_options(),
+        )
+        .unwrap();
+        assert_eq!(
+            route,
+            ProductRoute::Native {
+                command: NativeCommand::Fsck,
+                args_at: 4,
+                globals: vec![
+                    RootAssignment {
+                        name: "home".to_string(),
+                        envvar: "KF_HOME".to_string(),
+                        value: "/tmp/kf".to_string(),
+                    },
+                    RootAssignment {
+                        name: "log_level".to_string(),
+                        envvar: "KF_LOG_LEVEL".to_string(),
+                        value: "debug".to_string(),
+                    },
+                    RootAssignment {
+                        name: "env_verify_location".to_string(),
+                        envvar: "KF_VERIFY_LOCATION".to_string(),
+                        value: "KF_VERIFY_LOCATION".to_string(),
+                    },
+                ],
+            }
+        );
+    }
+
+    #[test]
+    fn domain_subtrees_remain_opaque() {
+        assert_eq!(
+            route_product(
+                &s(&["-H", "/tmp/kf", "trace", "--home", "domain"]),
+                &root_options()
+            )
+            .unwrap(),
+            ProductRoute::Launch
+        );
+        assert_eq!(
+            route_product(&s(&["--unknown", "fsck"]), &root_options()).unwrap(),
+            ProductRoute::Launch
+        );
+    }
+
+    #[test]
+    fn root_help_and_version_are_trunk_owned() {
+        assert_eq!(
+            route_product(&s(&["-H", "/tmp/kf", "--version"]), &root_options()).unwrap(),
+            ProductRoute::Version
+        );
+        assert_eq!(
+            route_product(&s(&["-H", "/tmp/kf", "--help"]), &root_options()).unwrap(),
+            ProductRoute::Help
+        );
+    }
+
+    #[test]
+    fn missing_root_value_is_named() {
+        let error = route_product(&s(&["--home"]), &root_options()).unwrap_err();
+        assert!(error.contains("--home"));
+        assert!(error.contains("needs a value"));
+    }
+
+    #[test]
+    fn generated_root_choice_is_enforced() {
+        let error =
+            route_product(&s(&["--log_level", "loud", "fsck"]), &root_options()).unwrap_err();
+        assert!(error.contains("invalid value 'loud'"));
+        assert!(error.contains("trace, debug, info, warning, error, critical"));
+    }
+
+    #[test]
+    fn native_command_table_is_unique_and_complete() {
+        let mut names: Vec<_> = NATIVE_COMMANDS.iter().map(|spec| spec.name).collect();
+        names.sort_unstable();
+        names.dedup();
+        assert_eq!(names.len(), NATIVE_COMMANDS.len());
+        assert_eq!(names, vec!["doctor", "env", "fsck", "prewarm"]);
     }
 }

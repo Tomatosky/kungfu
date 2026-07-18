@@ -13,6 +13,7 @@
 #   VERSION <version>
 #   OPT     <flags>   <summary>
 #   CMD     <name>    <summary>   <priority>
+#   ROOTOPT <name>    <arity>     <envvar> <flags> <choices>
 
 import click
 
@@ -29,6 +30,21 @@ def _option_flags(option):
     return flags
 
 
+def _root_envvar(option):
+    """Project Click's root option into the native routing environment.
+
+    The Python callback already uses ``KF_*`` as its root context contract.
+    ``ENV_``-prefixed option names deliberately drop that marker, matching
+    ``PrioritizedCommandGroup.pass_context`` and the root callback's
+    ``KF_VERIFY_LOCATION`` behavior. Help/version are terminal root actions,
+    not context values, so they carry no environment projection.
+    """
+    if option.name in {"help", "version"}:
+        return ""
+    name = option.name[4:] if option.name.startswith("env_") else option.name
+    return f"KF_{name.upper()}"
+
+
 def build(group, version):
     """Render the manifest for a click ``group`` (the root command tree).
 
@@ -43,6 +59,17 @@ def build(group, version):
     for param in group.params:
         if isinstance(param, click.Option) and not param.hidden:
             lines.append(f"OPT\t{_option_flags(param)}\t{_clean(param.help)}")
+            arity = 0 if param.is_flag or param.count else param.nargs
+            flags = ",".join(param.opts + param.secondary_opts)
+            choices = (
+                ",".join(str(choice) for choice in param.type.choices)
+                if isinstance(param.type, click.Choice)
+                else ""
+            )
+            lines.append(
+                f"ROOTOPT\t{param.name}\t{arity}\t{_root_envvar(param)}"
+                f"\t{flags}\t{choices}"
+            )
 
     priorities = getattr(group, "help_priorities", {})
     for name, command in sorted(group.commands.items()):
