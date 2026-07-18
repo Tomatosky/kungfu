@@ -152,9 +152,8 @@ export function consumeXinfaAtlas(options, root = ROOT) {
     options.xinfa ||
       path.join(
         'xinfa',
-        'target',
-        'debug',
-        process.platform === 'win32' ? 'xinfa.exe' : 'xinfa',
+        'tooling',
+        process.platform === 'win32' ? 'source-xinfa.cmd' : 'source-xinfa',
       ),
   );
   const atlas = path.resolve(root, options.atlas);

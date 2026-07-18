@@ -13,9 +13,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const XINFA = path.join(
   ROOT,
   'xinfa',
-  'target',
-  'debug',
-  process.platform === 'win32' ? 'xinfa.exe' : 'xinfa',
+  'tooling',
+  process.platform === 'win32' ? 'source-xinfa.cmd' : 'source-xinfa',
 );
 const QUALIFIER = path.join(
   ROOT,
@@ -109,7 +108,7 @@ function main() {
     );
   if (!fs.existsSync(XINFA))
     throw new Error(
-      `Xinfa executable is required: ${path.relative(ROOT, XINFA)}`,
+      `Xinfa source resolver is missing: ${path.relative(ROOT, XINFA)}`,
     );
 
   const temporary = fs.mkdtempSync(

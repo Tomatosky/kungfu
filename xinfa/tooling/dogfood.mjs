@@ -52,6 +52,7 @@ function run(command, args, options = {}) {
     cwd: options.cwd || ROOT,
     env: options.env || process.env,
     encoding: 'utf8',
+    shell: process.platform === 'win32' && /\.(?:cmd|bat)$/i.test(command),
   });
   const elapsedMs = Math.round((performance.now() - started) * 100) / 100;
   const expected = options.expected || [0];
@@ -246,13 +247,12 @@ function main() {
   try {
     const binary = path.join(
       XINFA_ROOT,
-      'target',
-      'debug',
-      process.platform === 'win32' ? 'xinfa.exe' : 'xinfa',
+      'tooling',
+      process.platform === 'win32' ? 'source-xinfa.cmd' : 'source-xinfa',
     );
     if (!fs.existsSync(binary))
       throw new Error(
-        'Xinfa binary is missing; run through ./shifu xinfa:dogfood',
+        'Xinfa source resolver is missing; run through ./shifu xinfa:dogfood',
       );
 
     const trackedBefore = run('git', [

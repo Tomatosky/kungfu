@@ -252,14 +252,23 @@ fi
 # Xinfa is an independently extractable product. Its build/check/smoke tasks use
 # only Node plus Cargo and must not contend for Kungfu's managed Conan storage.
 case "${1:-}" in
+  xinfa)
+    # shifu-xinfa-source-entry: cargo-freshness-authority
+    shift
+    if ! command -v cargo >/dev/null 2>&1; then
+      echo "shifu: xinfa source execution needs cargo" >&2
+      exit 127
+    fi
+    _xinfa_target_root="${XINFA_CARGO_TARGET_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/kungfu/xinfa/cargo-target/$(printf %s "$PWD" | cksum | cut -d' ' -f1)}"
+    export CARGO_TARGET_DIR="$_xinfa_target_root"
+    exec cargo run --locked --quiet --manifest-path xinfa/Cargo.toml -- "$@"
+    ;;
   xinfa:quality)
     shift
     if command -v fnm >/dev/null 2>&1; then
       fnm install >/dev/null 2>&1 || true
-      fnm exec --using-file -- node ./xinfa/tooling/task.mjs build
       exec fnm exec --using-file -- node ./scripts/qualify-xinfa-context-quality.mjs "$@"
     elif command -v node >/dev/null 2>&1; then
-      node ./xinfa/tooling/task.mjs build
       exec node ./scripts/qualify-xinfa-context-quality.mjs "$@"
     else
       echo "shifu: xinfa quality qualification needs node" >&2

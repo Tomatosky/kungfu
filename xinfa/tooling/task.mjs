@@ -57,6 +57,13 @@ function main() {
   run('context quality corpus ratchet', process.execPath, [
     path.join(ROOT, 'tooling', 'check-context-quality-corpus.mjs'),
   ]);
+  run('source-bound entry contract', process.execPath, [
+    path.join(ROOT, 'tooling', 'check-source-entry.mjs'),
+  ]);
+  run('source-bound entry negative fixtures', process.execPath, [
+    '--test',
+    path.join(ROOT, 'tooling', 'check-source-entry.test.mjs'),
+  ]);
   run('Rust format', 'cargo', [
     'fmt',
     '--manifest-path',

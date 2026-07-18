@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import test from 'node:test';
 
 import {
   cacheEvidenceFromMembers,
+  nativeEvidenceFromMembers,
   nearestRank,
   report,
   selectedContext,
   summarize,
+  summarizeNativeAttribution,
   validateBaseline,
 } from './measure-dev-required-latency.mjs';
 
@@ -25,6 +28,52 @@ function cacheReceipt(layer, outcome, overrides = {}) {
     receiptDigest: `sha256:${layer}`,
     ...overrides,
   });
+}
+
+function nativeMembers() {
+  const diagnostics = `${JSON.stringify(
+    {
+      contract: 'kungfu-buildchain-diagnostics',
+      consumer: {
+        contract: 'kungfu.affected-native-diagnostics/v1',
+        gateId: 'source.changed-scope',
+        planDigest: 'sha256:plan',
+      },
+      lifecycleObservability: {
+        stages: { build: { durationMs: 200000 } },
+      },
+      process: {
+        sampleCount: 3,
+        requestedParallelism: 4,
+        observedConcurrency: { max: 3, ratioToRequestedMax: 0.75 },
+      },
+      compilerCaches: { ccache: { available: true } },
+    },
+    null,
+    2,
+  )}\n`;
+  const diagnosticsDigest = `sha256:${crypto
+    .createHash('sha256')
+    .update(diagnostics)
+    .digest('hex')}`;
+  return {
+    'diagnostics.json': diagnostics,
+    'receipt.json': JSON.stringify({
+      schema: 'kungfu.core-affected-native-receipt/v1',
+      status: 'passed',
+      source: { base: 'base', head: 'head' },
+      planDigest: 'sha256:plan',
+      durationMs: 240000,
+      steps: [
+        { id: 'cmake-configure', durationMs: 40000, exitCode: 0 },
+        { id: 'cmake-build', durationMs: 200000, exitCode: 0 },
+      ],
+      diagnostics: {
+        digest: diagnosticsDigest,
+        consumerContract: 'kungfu.affected-native-diagnostics/v1',
+      },
+    }),
+  };
 }
 
 test('nearest-rank percentiles preserve the observed tail', () => {
@@ -103,6 +152,54 @@ test('non-native samples explicitly have no portable cache work', () => {
   assert.equal(value.authority, 'source-planner');
 });
 
+test('native evidence binds the receipt to Buildchain diagnostics', () => {
+  const value = nativeEvidenceFromMembers(nativeMembers(), { kind: 'native' });
+  assert.equal(value.outcome, 'observed');
+  assert.equal(value.steps[1].id, 'cmake-build');
+  assert.equal(value.process.observedConcurrency.max, 3);
+
+  const drifted = nativeMembers();
+  drifted['diagnostics.json'] = drifted['diagnostics.json'].replace(
+    '200000',
+    '200001',
+  );
+  assert.equal(
+    nativeEvidenceFromMembers(drifted, { kind: 'native' }).outcome,
+    'unknown',
+  );
+});
+
+test('native attribution separates warm and cold phase distributions', () => {
+  const nativeEvidence = nativeEvidenceFromMembers(nativeMembers(), {
+    kind: 'native',
+  });
+  const value = summarizeNativeAttribution([
+    {
+      durationMs: 250000,
+      classification: { kind: 'native' },
+      cache: { warm: true, cold: false },
+      nativeEvidence,
+    },
+    {
+      durationMs: 500000,
+      classification: { kind: 'native' },
+      cache: { warm: false, cold: true },
+      nativeEvidence: {
+        ...nativeEvidence,
+        steps: nativeEvidence.steps.map((step) => ({
+          ...step,
+          durationMs: step.durationMs * 2,
+        })),
+      },
+    },
+  ]);
+  assert.equal(value.observedCount, 2);
+  assert.equal(value.steps['cmake-build'].p95Ms, 400000);
+  assert.equal(value.cohorts.warm.latency.p50Ms, 250000);
+  assert.equal(value.cohorts.cold.latency.p50Ms, 500000);
+  assert.equal(value.process.maxActiveProcesses.p95, 3);
+});
+
 test('a passing latency window still requires complete native cache evidence', () => {
   const records = Array.from({ length: 20 }, (_, index) => ({
     excluded: false,
@@ -156,6 +253,41 @@ test('context duration starts at the workflow run creation time', () => {
   assert.equal(context.queueMs, 180000);
 });
 
+test('context admission ignores successful post-merge reruns', () => {
+  const context = selectedContext(
+    [
+      {
+        id: 7,
+        name: 'required',
+        status: 'completed',
+        conclusion: 'success',
+        started_at: '2026-07-17T00:03:00Z',
+        completed_at: '2026-07-17T00:05:00Z',
+        details_url: 'https://github.com/owner/repo/actions/runs/42/job/7',
+      },
+      {
+        id: 8,
+        name: 'required',
+        status: 'completed',
+        conclusion: 'success',
+        started_at: '2026-07-17T02:00:00Z',
+        completed_at: '2026-07-17T04:00:00Z',
+        details_url: 'https://github.com/owner/repo/actions/runs/43/job/8',
+      },
+    ],
+    [
+      { id: 42, created_at: '2026-07-17T00:00:00Z' },
+      { id: 43, created_at: '2026-07-17T02:00:00Z' },
+    ],
+    'required',
+    '2026-07-17T00:06:00Z',
+  );
+  assert.equal(context.checkRunId, 7);
+  assert.equal(context.durationMs, 300000);
+  assert.deepEqual(context.workflowRunIds, [42]);
+  assert.equal(context.endAuthority, 'first-success-no-later-than-pull-merge');
+});
+
 test('live required contexts must match the retained baseline authority', () => {
   const baseline = {
     $schema: 'kungfu.dev-required-latency-baseline/v1',
@@ -166,4 +298,38 @@ test('live required contexts must match the retained baseline authority', () => 
     () => validateBaseline(baseline, ['a', 'c']),
     /live required contexts drifted/,
   );
+});
+
+test('context admission retains failed attempts before the first success', () => {
+  const context = selectedContext(
+    [
+      {
+        id: 6,
+        name: 'required',
+        status: 'completed',
+        conclusion: 'failure',
+        started_at: '2026-07-17T00:01:00Z',
+        completed_at: '2026-07-17T00:02:00Z',
+        details_url: 'https://github.com/owner/repo/actions/runs/41/job/6',
+      },
+      {
+        id: 7,
+        name: 'required',
+        status: 'completed',
+        conclusion: 'success',
+        started_at: '2026-07-17T00:04:00Z',
+        completed_at: '2026-07-17T00:05:00Z',
+        details_url: 'https://github.com/owner/repo/actions/runs/42/job/7',
+      },
+    ],
+    [
+      { id: 41, created_at: '2026-07-17T00:00:00Z' },
+      { id: 42, created_at: '2026-07-17T00:03:00Z' },
+    ],
+    'required',
+    '2026-07-17T00:06:00Z',
+  );
+  assert.equal(context.retryCount, 1);
+  assert.equal(context.durationMs, 300000);
+  assert.deepEqual(context.workflowRunIds, [41, 42]);
 });

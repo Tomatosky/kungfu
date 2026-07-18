@@ -79,7 +79,23 @@ test('Xinfa product tasks bypass unrelated Kungfu dependency caches', () => {
   }
 });
 
-test('Xinfa quality builds its exact compiler and forwards one Windows mode', () => {
+test('Xinfa source entry delegates freshness to locked quiet Cargo Run', () => {
+  const posix = fs.readFileSync(path.join(ROOT, 'shifu'), 'utf8');
+  const windows = fs.readFileSync(path.join(ROOT, 'shifu.cmd'), 'utf8');
+  for (const entrypoint of [posix, windows]) {
+    assert.match(
+      entrypoint,
+      /shifu-xinfa-source-entry: cargo-freshness-authority/,
+    );
+    assert.match(
+      entrypoint,
+      /cargo run --locked --quiet --manifest-path xinfa[\\/]Cargo\.toml --/,
+    );
+    assert.match(entrypoint, /XINFA_CARGO_TARGET_DIR/);
+  }
+});
+
+test('Xinfa quality uses the source resolver and forwards one Windows mode', () => {
   const posix = fs.readFileSync(path.join(ROOT, 'shifu'), 'utf8');
   const windows = fs.readFileSync(path.join(ROOT, 'shifu.cmd'), 'utf8');
   const posixBlock = posix.match(/xinfa:quality\)[\s\S]*?;;/u)?.[0];
@@ -88,8 +104,8 @@ test('Xinfa quality builds its exact compiler and forwards one Windows mode', ()
   )?.[0];
   assert.ok(posixBlock, 'POSIX Xinfa quality block is missing');
   assert.ok(windowsBlock, 'Windows Xinfa quality block is missing');
-  assert.match(posixBlock, /xinfa\/tooling\/task\.mjs build/u);
-  assert.match(windowsBlock, /xinfa\\tooling\\task\.mjs" build/u);
+  assert.doesNotMatch(posixBlock, /xinfa\/tooling\/task\.mjs build/u);
+  assert.doesNotMatch(windowsBlock, /xinfa\\tooling\\task\.mjs" build/u);
   assert.match(windowsBlock, /%~2/u);
   assert.match(windowsBlock, /"%_XINFA_QUALITY_MODE%"/u);
   assert.doesNotMatch(windowsBlock, /\s%\*/u);

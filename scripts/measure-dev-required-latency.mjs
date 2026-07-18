@@ -3,6 +3,7 @@
 // @ts-check
 
 import { spawnSync } from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -171,7 +172,12 @@ export function validateBaseline(baseline, requiredContexts) {
   return true;
 }
 
-export function selectedContext(checkRuns, actionsRuns, context) {
+export function selectedContext(
+  checkRuns,
+  actionsRuns,
+  context,
+  admittedBefore = '',
+) {
   const candidates = checkRuns
     .filter((check) => check.name === context && check.status === 'completed')
     .sort(
@@ -179,11 +185,30 @@ export function selectedContext(checkRuns, actionsRuns, context) {
         new Date(left.completed_at) - new Date(right.completed_at),
     );
   if (!candidates.length) return { status: 'missing', context };
-  const latest = candidates.at(-1);
-  if (latest.conclusion !== 'success') {
+  const cutoff = admittedBefore ? new Date(admittedBefore).getTime() : null;
+  const eligible = cutoff
+    ? candidates.filter(
+        ({ completed_at: completedAt }) =>
+          new Date(completedAt).getTime() <= cutoff,
+      )
+    : candidates;
+  if (!eligible.length) {
+    return {
+      status: 'missing',
+      context,
+      reason: 'no completed check no later than pull merge',
+    };
+  }
+  const successIndex = eligible.findIndex(
+    ({ conclusion }) => conclusion === 'success',
+  );
+  if (successIndex < 0) {
+    const latest = eligible.at(-1);
     return { status: 'non-success', context, conclusion: latest.conclusion };
   }
-  const candidateRunIds = candidates
+  const admitted = eligible[successIndex];
+  const admittedCandidates = eligible.slice(0, successIndex + 1);
+  const candidateRunIds = admittedCandidates
     .map(
       ({ details_url: detailsUrl }) =>
         detailsUrl?.match(/\/actions\/runs\/(\d+)/)?.[1],
@@ -198,7 +223,7 @@ export function selectedContext(checkRuns, actionsRuns, context) {
     .sort();
   const start =
     created[0] ||
-    candidates
+    admittedCandidates
       .map(({ started_at: value }) => value)
       .filter(Boolean)
       .sort()[0];
@@ -206,21 +231,28 @@ export function selectedContext(checkRuns, actionsRuns, context) {
     status: 'success',
     context,
     startedAt: start,
-    completedAt: latest.completed_at,
-    durationMs: milliseconds(start, latest.completed_at),
-    queueMs: milliseconds(start, latest.started_at),
-    retryCount: Math.max(0, candidates.indexOf(latest)),
+    completedAt: admitted.completed_at,
+    durationMs: milliseconds(start, admitted.completed_at),
+    queueMs: milliseconds(start, admitted.started_at),
+    retryCount: successIndex,
     startAuthority: created.length
       ? 'workflow.created_at'
       : 'check.started_at-fallback',
-    checkRunId: latest.id,
+    endAuthority: admittedBefore
+      ? 'first-success-no-later-than-pull-merge'
+      : 'first-success',
+    checkRunId: admitted.id,
     finalWorkflowRunId: Number(
-      latest.details_url?.match(/\/actions\/runs\/(\d+)/)?.[1] || 0,
+      admitted.details_url?.match(/\/actions\/runs\/(\d+)/)?.[1] || 0,
     ),
     workflowRunIds: [...new Set(candidateRunIds.map(Number))].sort(
       (a, b) => a - b,
     ),
   };
+}
+
+function digest(value) {
+  return `sha256:${crypto.createHash('sha256').update(value).digest('hex')}`;
 }
 
 function readZipMembers(archive, names) {
@@ -371,14 +403,97 @@ export function cacheEvidenceFromMembers(members, classification) {
   }
 }
 
-async function collectCacheEvidence(repository, runId, classification, token) {
+export function nativeEvidenceFromMembers(members, classification) {
   if (classification.kind === 'non-native') {
-    return cacheEvidenceFromMembers({}, classification);
+    return {
+      outcome: 'not-applicable',
+      authority: 'source-planner',
+      steps: [],
+    };
+  }
+  if (classification.kind !== 'native') {
+    return {
+      outcome: 'unknown',
+      authority: 'classification-unknown',
+      steps: [],
+    };
+  }
+  try {
+    if (!members['receipt.json']) throw new Error('missing native receipt');
+    if (!members['diagnostics.json']) {
+      throw new Error('missing Buildchain diagnostics');
+    }
+    const receipt = JSON.parse(members['receipt.json']);
+    const diagnostics = JSON.parse(members['diagnostics.json']);
+    if (
+      receipt.schema !== 'kungfu.core-affected-native-receipt/v1' ||
+      receipt.status !== 'passed' ||
+      !Array.isArray(receipt.steps)
+    ) {
+      throw new Error('invalid native receipt');
+    }
+    if (
+      diagnostics.contract !== 'kungfu-buildchain-diagnostics' ||
+      diagnostics.consumer?.contract !==
+        'kungfu.affected-native-diagnostics/v1' ||
+      diagnostics.consumer?.gateId !== 'source.changed-scope'
+    ) {
+      throw new Error('invalid Buildchain diagnostics binding');
+    }
+    if (
+      receipt.diagnostics?.digest !== digest(members['diagnostics.json']) ||
+      receipt.diagnostics?.consumerContract !== diagnostics.consumer.contract ||
+      receipt.planDigest !== diagnostics.consumer.planDigest
+    ) {
+      throw new Error('native diagnostics digest or plan binding drift');
+    }
+    return {
+      outcome: 'observed',
+      authority: 'affected-native-receipt-and-buildchain-diagnostics',
+      source: receipt.source,
+      planDigest: receipt.planDigest,
+      durationMs: receipt.durationMs,
+      steps: receipt.steps.map(({ id, durationMs, exitCode }) => ({
+        id,
+        durationMs,
+        exitCode,
+      })),
+      lifecycle: diagnostics.lifecycleObservability || null,
+      process: diagnostics.process || null,
+      compilerCaches: diagnostics.compilerCaches || {},
+    };
+  } catch (error) {
+    return {
+      outcome: 'unknown',
+      authority: 'artifact-invalid-or-incomplete',
+      reason: error.message,
+      steps: [],
+    };
+  }
+}
+
+async function collectAffectedNativeEvidence(
+  repository,
+  runId,
+  classification,
+  token,
+) {
+  if (classification.kind === 'non-native') {
+    return {
+      cache: cacheEvidenceFromMembers({}, classification),
+      native: nativeEvidenceFromMembers({}, classification),
+    };
   }
   if (!runId) {
     return {
-      ...cacheEvidenceFromMembers({}, { kind: 'unknown' }),
-      authority: 'affected-native-workflow-run-missing',
+      cache: {
+        ...cacheEvidenceFromMembers({}, { kind: 'unknown' }),
+        authority: 'affected-native-workflow-run-missing',
+      },
+      native: {
+        ...nativeEvidenceFromMembers({}, { kind: 'unknown' }),
+        authority: 'affected-native-workflow-run-missing',
+      },
     };
   }
   try {
@@ -401,34 +516,57 @@ async function collectCacheEvidence(repository, runId, classification, token) {
       'cache/dependency.receipt.json',
       'cache/compiler.receipt.json',
       'cache/compiler-stats.txt',
+      'receipt.json',
+      'diagnostics.json',
     ]);
-    const evidence = cacheEvidenceFromMembers(members, classification);
+    const cache = cacheEvidenceFromMembers(members, classification);
+    const native = nativeEvidenceFromMembers(members, classification);
     const artifactSourceSha = artifact.name.slice(
       'core-affected-native-'.length,
     );
     if (
-      evidence.layers.some(
+      cache.layers.some(
         ({ sourceSha }) => !sourceSha || sourceSha !== artifactSourceSha,
-      )
+      ) ||
+      (native.outcome === 'observed' &&
+        (native.source?.head !== artifactSourceSha ||
+          native.planDigest !== classification.planDigest))
     ) {
-      throw new Error('portable cache receipt source does not match artifact');
+      throw new Error('affected-native evidence does not match source or plan');
     }
     return {
-      ...evidence,
-      artifactId: artifact.id,
-      artifactName: artifact.name,
-      workflowRunId: runId,
+      cache: {
+        ...cache,
+        artifactId: artifact.id,
+        artifactName: artifact.name,
+        workflowRunId: runId,
+      },
+      native: {
+        ...native,
+        artifactId: artifact.id,
+        artifactName: artifact.name,
+        workflowRunId: runId,
+      },
     };
   } catch (error) {
     return {
-      outcome: 'unknown',
-      authority: 'artifact-unavailable',
-      reason: error.message,
-      warm: false,
-      cold: false,
-      layers: [],
-      compilerStats: null,
-      workflowRunId: runId,
+      cache: {
+        outcome: 'unknown',
+        authority: 'artifact-unavailable',
+        reason: error.message,
+        warm: false,
+        cold: false,
+        layers: [],
+        compilerStats: null,
+        workflowRunId: runId,
+      },
+      native: {
+        outcome: 'unknown',
+        authority: 'artifact-unavailable',
+        reason: error.message,
+        steps: [],
+        workflowRunId: runId,
+      },
     };
   }
 }
@@ -462,7 +600,7 @@ async function collectSample(repository, pull, requiredContexts, token) {
     ),
   );
   const checks = requiredContexts.map((context) =>
-    selectedContext(checkRuns, actionsRuns, context),
+    selectedContext(checkRuns, actionsRuns, context, pull.merged_at),
   );
   const incomplete = checks.filter(({ status }) => status !== 'success');
   const changedPaths = [
@@ -504,7 +642,7 @@ async function collectSample(repository, pull, requiredContexts, token) {
   const affectedNative = checks.find(
     ({ context }) => context === 'affected-native / linux',
   );
-  const cache = await collectCacheEvidence(
+  const evidence = await collectAffectedNativeEvidence(
     repository,
     affectedNative?.finalWorkflowRunId,
     classification,
@@ -522,11 +660,91 @@ async function collectSample(repository, pull, requiredContexts, token) {
     sourceSha: sha,
     baseSha: pull.base.sha,
     classification,
-    cache,
+    cache: evidence.cache,
+    nativeEvidence: evidence.native,
     startedAt,
     completedAt,
     durationMs: milliseconds(startedAt, completedAt),
     checks,
+  };
+}
+
+function summarizeNumbers(values) {
+  return {
+    sampleCount: values.length,
+    p50: nearestRank(values, 0.5),
+    p95: nearestRank(values, 0.95),
+    max: values.length ? Math.max(...values) : null,
+  };
+}
+
+function summarizeSteps(samples) {
+  const ids = [
+    ...new Set(
+      samples.flatMap(({ nativeEvidence }) =>
+        (nativeEvidence?.steps || []).map(({ id }) => id),
+      ),
+    ),
+  ].sort();
+  return Object.fromEntries(
+    ids.map((id) => [
+      id,
+      summarize(
+        samples
+          .map(({ nativeEvidence }) =>
+            nativeEvidence.steps.find((step) => step.id === id),
+          )
+          .filter(Boolean),
+      ),
+    ]),
+  );
+}
+
+export function summarizeNativeAttribution(samples) {
+  const native = samples.filter(
+    ({ classification }) => classification.kind === 'native',
+  );
+  const observed = native.filter(
+    ({ nativeEvidence }) => nativeEvidence?.outcome === 'observed',
+  );
+  const processObserved = observed.filter(
+    ({ nativeEvidence }) => nativeEvidence.process?.sampleCount > 0,
+  );
+  const cohort = (predicate) => {
+    const selected = observed.filter(predicate);
+    return {
+      latency: summarize(selected),
+      steps: summarizeSteps(selected),
+    };
+  };
+  return {
+    observedCount: observed.length,
+    unknownCount: native.length - observed.length,
+    steps: summarizeSteps(observed),
+    cohorts: {
+      warm: cohort(({ cache }) => cache?.warm === true),
+      cold: cohort(({ cache }) => cache?.cold === true),
+    },
+    process: {
+      observedCount: processObserved.length,
+      requestedParallelism: summarizeNumbers(
+        processObserved.map(
+          ({ nativeEvidence }) => nativeEvidence.process.requestedParallelism,
+        ),
+      ),
+      maxActiveProcesses: summarizeNumbers(
+        processObserved.map(
+          ({ nativeEvidence }) =>
+            nativeEvidence.process.observedConcurrency.max,
+        ),
+      ),
+      activeToRequestedRatio: summarizeNumbers(
+        processObserved.map(
+          ({ nativeEvidence }) =>
+            nativeEvidence.process.observedConcurrency.ratioToRequestedMax,
+        ),
+      ),
+    },
   };
 }
 
@@ -569,9 +787,9 @@ export function report(repository, branch, requiredContexts, records) {
     metric: {
       start:
         'earliest workflow.created_at among required contexts for the final PR source revision',
-      end: 'latest terminal success among all branch-protection required contexts',
+      end: 'latest first-success timestamp among required contexts no later than PR merge',
       retries:
-        'included from the first matching workflow run through the latest successful check',
+        'included from the first matching workflow run through the first pre-merge success; post-merge reruns are excluded',
       percentile: 'nearest-rank',
       target: { p50Ms: 300000, p95Ms: 600000 },
       minimumSamples: {
@@ -582,6 +800,7 @@ export function report(repository, branch, requiredContexts, records) {
     branchProtection: { requiredContexts },
     statistics,
     cache,
+    nativeAttribution: summarizeNativeAttribution(samples),
     verdict: {
       qualified: enoughSamples && meetsTarget && nativeCacheEvidenceComplete,
       reason:

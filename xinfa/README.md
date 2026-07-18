@@ -140,20 +140,14 @@ one-token budget for every case. No LLM or embedding judge decides correctness.
 
 To reproduce the retained
 [`context-quality-v1.json`](qualification/context-quality-v1.json) receipt
-against an already verified Atlas:
+from the current checkout:
 
 ```sh
-node xinfa/tooling/check-context-quality-corpus.mjs
-node xinfa/tooling/qualify-context-quality.mjs \
-  --xinfa xinfa/target/debug/xinfa \
-  --atlas <verified-atlas> \
-  --corpus xinfa/fixtures/golden/context-quality-corpus-v1.json \
-  --actor context-quality-v1 \
-  --output xinfa/qualification/context-quality-v1.json
+./shifu xinfa:quality --write
 ```
 
 The repository CI runs the same end-to-end proof from a clean checkout with
-`node scripts/qualify-xinfa-context-quality.mjs --check`; it first compiles the
+`./shifu xinfa:quality --check`; it first compiles the
 current tracked Documentation Atlas and then requires the newly generated
 receipt bytes to equal the retained receipt.
 
@@ -162,12 +156,21 @@ receipt bytes to equal the retained receipt.
 Use the repository entrypoint while Xinfa is incubated here:
 
 ```sh
+./shifu xinfa --version
+./shifu xinfa contract --json
 ./shifu xinfa:build
 ./shifu xinfa:check
 ./shifu xinfa:fix
 ./shifu xinfa:standalone
 ./shifu xinfa:dogfood
 ```
+
+`./shifu xinfa <args>` is the source-development authority. It runs locked,
+quiet Cargo against this checkout and keeps Cargo's target directory in the
+per-checkout user cache, so JSON stdout belongs only to Xinfa and every call
+uses Cargo's own freshness decision. `xinfa:build` remains a migration oracle
+for standalone and differential fixtures; production callers must not trust
+its physical `target/debug/xinfa` output as the current source entry.
 
 The standalone qualification copies only the files listed in
 `extraction-manifest.json` into a clean temporary directory, removes host
@@ -194,7 +197,8 @@ The dogfood fault campaign changes implementation evidence and expressive
 models explicit acceptance as a new managed source cut plus successor Atlas.
 Its retained result is
 [`qualification/shifu-kungfu-dogfood-v1.json`](qualification/shifu-kungfu-dogfood-v1.json).
-The extraction itself builds with ordinary Cargo:
+The extraction itself deliberately builds and invokes its copied physical
+binary. This is the standalone boundary proof, not a repository source entry:
 
 ```sh
 cargo build --locked --manifest-path Cargo.toml
