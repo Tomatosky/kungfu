@@ -912,6 +912,23 @@ test(
 );
 
 test(
+  'runtime-independent query metadata does not require a storage root',
+  {
+    skip:
+      nativeAvailable || process.env.KUNGFU_REQUIRE_NATIVE === '1'
+        ? false
+        : 'built kungfu_node binding is unavailable',
+  },
+  () => {
+    const examples = kungfu.runStorageServiceOperation('query_plan', '', {
+      action: 'examples',
+    });
+    assert.equal(examples.schema, 'kungfu.query.examples/v1');
+    assert.equal(examples.examples.length > 0, true);
+  },
+);
+
+test(
   'saved query catalog is journal-backed and shared across the Node edge',
   {
     skip:
