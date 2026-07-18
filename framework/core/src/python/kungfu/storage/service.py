@@ -867,6 +867,20 @@ def fact_contract(runtime_dir: str | Path = "") -> dict[str, Any]:
     )
 
 
+def fact_kernel(
+    runtime_dir: str | Path,
+    action: str,
+    request: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Forward one generic Fact operation to the Core-owned native kernel."""
+
+    return dict(
+        _runtime().run_storage_service_operation(
+            "fact_kernel", str(runtime_dir), {"action": action, **(request or {})}
+        )
+    )
+
+
 def fact_declare_contract_world(
     runtime_dir: str | Path,
     declaration: dict[str, Any],

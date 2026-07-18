@@ -47,6 +47,7 @@ typedef enum kf_native_storage_status {
 #define KF_NATIVE_STORAGE_CAP_EXPORT (UINT64_C(1) << 3)
 #define KF_NATIVE_STORAGE_CAP_DOMAIN_FACT_ADMISSION (UINT64_C(1) << 4)
 #define KF_NATIVE_STORAGE_CAP_TRUST_ASSESSMENT (UINT64_C(1) << 5)
+#define KF_NATIVE_STORAGE_CAP_FACT_CUT_KERNEL (UINT64_C(1) << 6)
 
 typedef struct kf_native_storage_context_config_v1 {
   uint32_t struct_size;
@@ -72,7 +73,8 @@ typedef struct kf_native_storage_result_v1 {
 /*
  * v1 execute operations: episode_begin, episode_end, fact_query, fsck,
  * export_bundle, and the fact_contract / fact_declare_world /
- * fact_declare_surface / fact_observe / fact_state family. Request fields and
+ * fact_declare_surface / fact_observe / fact_state family, plus fact_kernel.
+ * Request fields and
  * response schemas are the corresponding kungfu.runtime.storage-service/v1
  * JSON contracts. Every other operation is explicitly unsupported by this ABI
  * version.

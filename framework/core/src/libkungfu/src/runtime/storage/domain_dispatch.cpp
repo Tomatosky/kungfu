@@ -14,6 +14,7 @@
 #include <kungfu/runtime/query/fact_query.h>
 #include <kungfu/runtime/query/saved_query_catalog.h>
 #include <kungfu/runtime/storage/episode_manifest_projection.h>
+#include <kungfu/runtime/storage/fact_kernel.h>
 #include <kungfu/runtime/storage/source_registry_projection.h>
 #include <kungfu/runtime/trust/assessment_runtime.h>
 #include <kungfu/yijinjing/time.h>
@@ -262,6 +263,10 @@ public:
       return kfx::query_native_kfx_registry(action, object_or_empty(options.operation_options, "request"));
     }
     throw std::invalid_argument("unsupported native KFX runtime action: " + action);
+  }
+
+  [[nodiscard]] nlohmann::json fact_kernel(const storage_service_options &options) const {
+    return run_fact_kernel_operation(options.runtime_dir, options.operation_options);
   }
 
   [[nodiscard]] nlohmann::json fact_contract(const storage_service_options &options) const {
@@ -837,6 +842,8 @@ nlohmann::json dispatch_json_edge_operation(storage_operation operation, const s
     return storage_json_edge_service_instance().profile_lifecycle(parsed_options);
   case storage_operation::KfxRuntime:
     return storage_json_edge_service_instance().kfx_runtime(parsed_options);
+  case storage_operation::FactKernel:
+    return storage_json_edge_service_instance().fact_kernel(parsed_options);
   case storage_operation::FactContract:
     return storage_json_edge_service_instance().fact_contract(parsed_options);
   case storage_operation::FactDeclareWorld:

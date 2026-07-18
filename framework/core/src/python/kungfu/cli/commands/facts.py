@@ -57,6 +57,33 @@ def capabilities(ctx: click.Context) -> None:
     _emit(service.fact_contract(_runtime_dir(ctx)))
 
 
+@facts.command("kernel", help="invoke the Core-owned generic Fact/Cut/ref kernel")
+@click.option(
+    "--action",
+    type=click.Choice(
+        [
+            "capabilities",
+            "object-put",
+            "version-put",
+            "relation-add",
+            "relation-revoke",
+            "cut-put",
+            "ref-cas",
+            "query",
+        ]
+    ),
+    default="capabilities",
+    show_default=True,
+)
+@click.option("--file", "file_path", default="", help="request JSON path or -")
+@facts_command_context
+def fact_kernel(ctx: click.Context, action: str, file_path: str) -> None:
+    from kungfu.storage import service
+
+    request = _load_object(file_path) if file_path else {}
+    _emit(service.fact_kernel(_runtime_dir(ctx), action, request))
+
+
 @facts.command(help="show the managed Fact Library contract and fixed semantic profile")
 @facts_command_context
 def library(ctx: click.Context) -> None:
