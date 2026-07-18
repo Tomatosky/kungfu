@@ -98,7 +98,11 @@ Each section is bound to the registry id by the catalog meta gate.
   architecture digests, toolchain, targets/tests, duration and honest cache
   facts. The retained `kungfu.core-affected-native-plan/v1` is created before
   dependency bootstrap; execution rejects a different source HEAD, authority
-  digest, or plan digest.
+  digest, or plan digest. Native runs additionally retain Buildchain JSONL spans
+  for install/configure/build/test, compact runner/tool/compiler-cache
+  diagnostics, and a summarized compile process-tree sample. The receipt binds
+  the diagnostics digest and `source.changed-scope` consumer contract; raw
+  process snapshots and environment dumps are not retained.
 - **Portable cache:** native plans produce separate Buildchain
   `buildchain.portable-dev-cache-manifest/v1` dependency and compiler layers.
   Pinned Actions cache restore/save only transports the declared roots;
