@@ -122,6 +122,15 @@ public:
     return reinterpret_cast<kf_native_probe_run_v1_fn>(dlsym(handle_, "kf_native_probe_run_v1"));
 #endif
   }
+  using embedding_get_api_fn = int32_t(KF_EMBEDDING_CALL *)(uint32_t, uint32_t, void *);
+  [[nodiscard]] embedding_get_api_fn embedding_entry() const {
+#if defined(_WIN32)
+    return reinterpret_cast<embedding_get_api_fn>(
+        GetProcAddress(static_cast<HMODULE>(handle_), "kungfu_embedding_get_api"));
+#else
+    return reinterpret_cast<embedding_get_api_fn>(dlsym(handle_, "kungfu_embedding_get_api"));
+#endif
+  }
 
 private:
 #if defined(_WIN32)
@@ -131,13 +140,78 @@ private:
 #endif
 };
 
+#if defined(_WIN32)
+bool check_windows_dll_diagnostics(const char *root, const char *dll_path) {
+  dynamic_module dll(dll_path);
+  const auto get_api = dll.embedding_entry();
+  if (!dll.loaded() || get_api == nullptr) {
+    std::fprintf(stderr, "Windows embedding DLL load/export failed: %s\n", dll_path);
+    return false;
+  }
+  kf_embedding_api_v4 api{};
+  if (get_api(KF_EMBEDDING_ABI_V4, sizeof(api), &api) != KF_EMBEDDING_OK || api.abi_version != KF_EMBEDDING_ABI_V4 ||
+      (api.capabilities & KF_EMBEDDING_CAP_STORAGE_MAINTENANCE_PLANS) == 0 || api.storage_gc_plan == nullptr ||
+      api.storage_repair_plan == nullptr) {
+    std::fprintf(stderr, "Windows embedding DLL ABI v4 negotiation failed\n");
+    return false;
+  }
+  kf_embedding_context_config_v1 config{};
+  config.struct_size = sizeof(config);
+  config.root = root;
+  config.host_namespace = "windows_dll_smoke";
+  config.host_name = "diagnostics";
+  config.mode = KF_EMBEDDING_MODE_LIVE;
+  kf_embedding_context *context = nullptr;
+  if (api.context_open(&config, &context) != KF_EMBEDDING_OK) {
+    return false;
+  }
+
+  auto release_ok_json = [&](kf_embedding_report_v1 &report, const char *needle) {
+    const std::string json(reinterpret_cast<const char *>(report.data), static_cast<size_t>(report.data_size));
+    const bool ok =
+        report.ok == 1 && report.format == KF_EMBEDDING_REPORT_FORMAT_JSON && json.find(needle) != std::string::npos;
+    return api.report_release(&report) == KF_EMBEDDING_OK && ok;
+  };
+
+  kf_embedding_storage_gc_plan_request_v1 gc{};
+  gc.struct_size = sizeof(gc);
+  gc.runtime_dir = root;
+  gc.dry_run = 1;
+  kf_embedding_report_v1 gc_report{};
+  gc_report.struct_size = sizeof(gc_report);
+  const bool gc_ok = api.storage_gc_plan(context, &gc, &gc_report) == KF_EMBEDDING_OK &&
+                     release_ok_json(gc_report, "\"dry_run\":true");
+
+  kf_embedding_storage_fsck_request_v1 repair{};
+  repair.struct_size = sizeof(repair);
+  repair.runtime_dir = root;
+  repair.scope = KF_EMBEDDING_FSCK_SCOPE_ALL;
+  kf_embedding_report_v1 repair_report{};
+  repair_report.struct_size = sizeof(repair_report);
+  const bool repair_ok = api.storage_repair_plan(context, &repair, &repair_report) == KF_EMBEDDING_OK &&
+                         release_ok_json(repair_report, "\"plan_only\":true");
+  const bool close_ok = api.context_close(context) == KF_EMBEDDING_OK;
+  if (gc_ok && repair_ok && close_ok) {
+    std::printf("{\"consumer\":\"windows-embedding-dll\",\"abi_version\":4,\"plans\":2}\n");
+  }
+  return gc_ok && repair_ok && close_ok;
+}
+#endif
+
 } // namespace
 
 int main(int argc, char **argv) {
+#if defined(_WIN32)
+  if (argc != 4) {
+    std::fprintf(stderr, "usage: shared_embedding_host JOURNAL_ROOT NATIVE_KFX_MODULE EMBEDDING_DLL\n");
+    return 2;
+  }
+#else
   if (argc != 3) {
     std::fprintf(stderr, "usage: shared_embedding_host JOURNAL_ROOT NATIVE_KFX_MODULE\n");
     return 2;
   }
+#endif
   if (!seed(argv[1])) {
     return 3;
   }
@@ -145,7 +219,7 @@ int main(int argc, char **argv) {
   kf_embedding_api_v1 api{};
   // A version above the highest supported table is UNSUPPORTED_VERSION; an
   // undersized buffer for a supported version is INVALID_ARGUMENT.
-  if (kungfu_embedding_get_api(KF_EMBEDDING_ABI_V3 + 1, sizeof(api), &api) != KF_EMBEDDING_UNSUPPORTED_VERSION ||
+  if (kungfu_embedding_get_api(KF_EMBEDDING_ABI_V4 + 1, sizeof(api), &api) != KF_EMBEDDING_UNSUPPORTED_VERSION ||
       kungfu_embedding_get_api(KF_EMBEDDING_ABI_V1, sizeof(api) - 1, &api) != KF_EMBEDDING_INVALID_ARGUMENT) {
     std::fprintf(stderr, "ABI version/size negotiation failed\n");
     return 4;
@@ -188,10 +262,31 @@ int main(int argc, char **argv) {
     std::fprintf(stderr, "ABI v3 negotiation failed: %d\n", v3_status);
     return 5;
   }
+  // v4 preserves the v3 prefix and admits only plan-only maintenance. Verify is
+  // deliberately the existing storage_fsck pointer with verify_frames=1.
+  kf_embedding_api_v4 api_v4{};
+  if (kungfu_embedding_get_api(KF_EMBEDDING_ABI_V4, sizeof(kf_embedding_api_v3), &api_v4) !=
+      KF_EMBEDDING_INVALID_ARGUMENT) {
+    std::fprintf(stderr, "ABI v4 size negotiation failed\n");
+    return 4;
+  }
+  const auto v4_status = kungfu_embedding_get_api(KF_EMBEDDING_ABI_V4, sizeof(api_v4), &api_v4);
+  if (v4_status != KF_EMBEDDING_OK || api_v4.abi_version != KF_EMBEDDING_ABI_V4 ||
+      (api_v4.capabilities & KF_EMBEDDING_CAP_STORAGE_MAINTENANCE_PLANS) == 0 || api_v4.storage_gc_plan == nullptr ||
+      api_v4.storage_repair_plan == nullptr) {
+    std::fprintf(stderr, "ABI v4 negotiation failed: %d\n", v4_status);
+    return 5;
+  }
   if (!check_error_paths(api, argv[1])) {
     std::fprintf(stderr, "ABI negative lifecycle checks failed\n");
     return 6;
   }
+#if defined(_WIN32)
+  if (!check_windows_dll_diagnostics(argv[1], argv[3])) {
+    std::fprintf(stderr, "Windows embedding DLL diagnostic smoke failed\n");
+    return 10;
+  }
+#endif
 
   dynamic_module native_kfx(argv[2]);
   if (!native_kfx.loaded() || native_kfx.entry() == nullptr) {
