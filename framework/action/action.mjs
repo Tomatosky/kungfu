@@ -308,7 +308,8 @@ export function main(argv = process.argv.slice(2), env = process.env) {
 
 if (
   process.argv[1] &&
-  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+  fs.realpathSync(path.resolve(process.argv[1])) ===
+    fs.realpathSync(fileURLToPath(import.meta.url))
 ) {
   process.exitCode = main();
 }

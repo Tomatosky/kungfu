@@ -12,19 +12,19 @@ from kungfu.cli.commands import kfc
 def _resolve_action_entry():
     override = os.environ.get("KUNGFU_ACTION_ENTRY")
     if override:
-        return os.path.abspath(override) if os.path.isfile(override) else None
+        return os.path.realpath(override) if os.path.isfile(override) else None
     binding_dir = os.path.dirname(kungfu.__binding__.__file__)
     for candidate in (
         os.path.join(binding_dir, "..", "action", "action.mjs"),
         os.path.join(binding_dir, "action", "action.mjs"),
     ):
         if os.path.isfile(candidate):
-            return os.path.abspath(candidate)
+            return os.path.realpath(candidate)
     directory = binding_dir
     for _ in range(8):
         candidate = os.path.join(directory, "framework", "action", "action.mjs")
         if os.path.isfile(candidate):
-            return os.path.abspath(candidate)
+            return os.path.realpath(candidate)
         parent = os.path.dirname(directory)
         if parent == directory:
             break

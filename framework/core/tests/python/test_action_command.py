@@ -63,6 +63,23 @@ def test_installed_action_uses_embedded_libnode(tmp_path, monkeypatch):
     assert os.environ["KUNGFU_ACTION_LAYOUT"] == "installed"
 
 
+def test_action_override_is_canonicalized_to_real_path(tmp_path, monkeypatch):
+    module, libnode = load_action_module(tmp_path, monkeypatch)
+    entry = tmp_path / "action.mjs"
+    entry.write_text("// fixture\n", encoding="utf-8")
+    monkeypatch.setenv("KUNGFU_ACTION_ENTRY", str(entry))
+    seen = []
+
+    def fake_realpath(value):
+        seen.append(value)
+        return f"canonical:{value}"
+
+    monkeypatch.setattr(module.os.path, "realpath", fake_realpath)
+    module._run_action(("contract", "--json"))
+    assert seen == [str(entry)]
+    assert libnode.argv[1] == f"canonical:{entry}"
+
+
 def test_action_rejects_missing_override_without_fallback(tmp_path, monkeypatch):
     module, libnode = load_action_module(tmp_path, monkeypatch)
     monkeypatch.setenv("KUNGFU_ACTION_ENTRY", str(tmp_path / "missing.mjs"))

@@ -4,7 +4,7 @@
   "files": [
     {
       "path": "action.mjs",
-      "sha256": "sha256:89406b2f421169bf34d6e48cc7c130a3efc9a5872985d129ae39287a9e81c62f"
+      "sha256": "sha256:d1e77677520a782d4fd6f42ea2a90d0c3a3a8a740ce698ff272ac639287e95ec"
     },
     {
       "path": "action.contract.json",
