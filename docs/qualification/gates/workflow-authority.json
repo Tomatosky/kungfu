@@ -677,7 +677,7 @@
           "authority": "qualification",
           "publication": "none",
           "receipt": "diagnostic",
-          "definitionDigest": "sha256:6dfe5d85e7a1a7654640b421c59ca9ab2f8ce09764e972aa666692a2fc71ae68",
+          "definitionDigest": "sha256:c7cbf9c679a8a8eeae13028be638e8bc32dfcb90ac9839350b187eef4cbd8c2a",
           "credentials": {
             "githubToken": "read",
             "oidc": false,
@@ -718,7 +718,7 @@
               "index": 5,
               "label": "name:Reconstruct and verify immutable PR head",
               "authority": "qualification",
-              "definitionDigest": "sha256:9ffe26bd45197416676a5e9764d564e80261a2505ca1d6b8b781ab3720fc535e"
+              "definitionDigest": "sha256:9060256d99e4405cc1e1824e7324aee3a8fec2b2b7506babe3fb06feeb45f861"
             },
             {
               "index": 6,
