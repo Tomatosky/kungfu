@@ -6,15 +6,15 @@
   "supportLevel": "release",
   "source": {
     "cwd": ".",
-    "sourceSha": "b5b07414c2ceee7a24dbaf7ee6d0e94be9ebf865",
+    "sourceSha": "e163ff825eecfd00237da8fc68d7bbff12a47ee0",
     "registryPath": ".buildchain/kfd/kfd-3/surfaces.json",
-    "registryDigest": "sha256:0bc86eb4935b112e181469ac9ba35ceb429f3d064ef0733cac2c3ce97ecfa924"
+    "registryDigest": "sha256:4ce30572ec2c0a3fe8b6ca7432bb2911ea310de7b38571ca6ec22952df62ff77"
   },
   "sourceRegistry": {
     "id": "kungfu",
     "path": ".buildchain/kfd/kfd-3/surfaces.json",
-    "sha256": "8989944f20532b225aaf67fe967408c957fa55c41ccbf7a82ea27108e25c5790",
-    "digest": "sha256:0bc86eb4935b112e181469ac9ba35ceb429f3d064ef0733cac2c3ce97ecfa924"
+    "sha256": "57f4eb51c818438bf9eba49995a71fa439797009c7852db7b41a145c264092aa",
+    "digest": "sha256:4ce30572ec2c0a3fe8b6ca7432bb2911ea310de7b38571ca6ec22952df62ff77"
   },
   "upstreamKfd": {
     "aggregatePath": "developer/sdk/kfd/upstream-aggregate.json",
@@ -29,12 +29,12 @@
       "libnode": "22.22.3-kf.3-alpha.16",
       "buildchain": "2.11.14-alpha.0"
     },
-    "digest": "sha256:551d3662f019c21091315857f72832f53601e5244ceb95aefad37d95ca74a1e9"
+    "digest": "sha256:a9e8488f2319ecf9f36ea3e2ab5e6e0fe4c426c74dca07176e1df5988860c103"
   },
   "expectedArtifactVerification": {
     "command": "node scripts/buildchain-kfd-evidence.mjs --artifact-witness --json"
   },
-  "collaborationInterfaceDigest": "sha256:6a5824e5c7cde11be68a7357aa26a85a2d6c59f9a5c4837cacc2379de6b5af40",
+  "collaborationInterfaceDigest": "sha256:c98bc1ba54069f523eb964fcd7ea7d7f372706bd5aa730bba6738f3bc62d7565",
   "collaborationInterface": {
     "schemaVersion": 1,
     "contract": "kungfu-buildchain-kfd-3-surface-registry",
@@ -57,7 +57,7 @@
         "libnode": "22.22.3-kf.3-alpha.16",
         "buildchain": "2.11.14-alpha.0"
       },
-      "digest": "sha256:551d3662f019c21091315857f72832f53601e5244ceb95aefad37d95ca74a1e9"
+      "digest": "sha256:a9e8488f2319ecf9f36ea3e2ab5e6e0fe4c426c74dca07176e1df5988860c103"
     },
     "surfaces": [
       {

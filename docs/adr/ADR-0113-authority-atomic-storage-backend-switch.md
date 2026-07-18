@@ -1,7 +1,7 @@
 ---
 metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
-adr_id: ADR-0112
+adr_id: ADR-0113
 decision_status: accepted
 implementation_status: staged
 implementation_prs: []
@@ -16,7 +16,7 @@ evidence_grade: B
 last_reviewed: 2026-07-18
 ---
 
-# ADR-0112: Storage backend changes are authority-atomic, resumable operations
+# ADR-0113: Storage backend changes are authority-atomic, resumable operations
 
 - Status: accepted; staged for the embedded file and optional RocksDB providers
 - Date: 2026-07-18

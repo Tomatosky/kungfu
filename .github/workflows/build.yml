@@ -20,8 +20,14 @@ on:
         description: "Optional custom platform matrix for isolated qualification reruns"
         required: false
         default: ""
+      run-kungfu-phase-b:
+        description: "Qualify the Linux CLI package with the reviewed build-images Phase B consumer"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
+  actions: read
   contents: read
   pull-requests: read
   issues: write
@@ -103,3 +109,75 @@ jobs:
       buildchain-contract-lock-path: .buildchain/contract-lock.json
       buildchain-contract-compatibility-policy: major-compatible
       buildchain-contract-drift-issue-mode: compatible-and-breaking
+
+  phase-b-package:
+    name: Prepare Kungfu Phase B package
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run-kungfu-phase-b }}
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      artifact-name: ${{ steps.artifact.outputs.name }}
+      package-sha256: ${{ steps.identity.outputs.package_sha256 }}
+      package-version: ${{ steps.identity.outputs.package_version }}
+      source-sha: ${{ steps.identity.outputs.source_sha }}
+    steps:
+      - name: Check out the exact package source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Download the Linux package build
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: kungfu-linux-x64-*
+          path: phase-b-build-input
+          merge-multiple: true
+
+      - name: Resolve package identity
+        id: identity
+        env:
+          EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          # shifu-entry-contract: allow read-only package version resolution before the package identity gate
+          expected_version=$(node -p "require('./lerna.json').version")
+          python3 scripts/prepare_kungfu_phase_b_package.py \
+            --input-root phase-b-build-input \
+            --output-dir phase-b-package-output \
+            --expected-source-sha "${EXPECTED_SOURCE_SHA}" \
+            --expected-version "${expected_version}" \
+            --build-images-ref "v1.2.4-alpha.29" \
+            --build-images-sha "7cf672d83323fdd139ad90b6e8165a56e431cc6c"
+
+      - name: Resolve retained artifact name
+        id: artifact
+        run: echo "name=kungfu-phase-b-package-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "${GITHUB_OUTPUT}"
+
+      - name: Retain the exact package input
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: phase-b-package-output
+          if-no-files-found: error
+          retention-days: 30
+
+  kungfu-phase-b:
+    name: Qualify Kungfu package with build-images
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run-kungfu-phase-b }}
+    needs: [build, phase-b-package]
+    permissions:
+      actions: read
+      contents: read
+    uses: kungfu-systems/build-images/.github/workflows/comparator-kungfu-package-smoke.yml@7cf672d83323fdd139ad90b6e8165a56e431cc6c # v1.2.4-alpha.29
+    with:
+      package_artifact_name: ${{ needs.phase-b-package.outputs.artifact-name }}
+      package_sha256: ${{ needs.phase-b-package.outputs.package-sha256 }}
+      package_version: ${{ needs.phase-b-package.outputs.package-version }}
+      source_sha: ${{ needs.phase-b-package.outputs.source-sha }}
+      build_images_ref: v1.2.4-alpha.29
+      build_images_sha: 7cf672d83323fdd139ad90b6e8165a56e431cc6c

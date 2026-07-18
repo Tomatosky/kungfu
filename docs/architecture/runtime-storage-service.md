@@ -112,7 +112,7 @@ semantics.
 
 Provider selection is runtime configuration, not product vocabulary. The
 default provider remains `content-addressed-file` for an empty runtime. Once a
-runtime contains content, [`ADR-0112`](../adr/ADR-0112-authority-atomic-storage-backend-switch.md)
+runtime contains content, [`ADR-0113`](../adr/ADR-0113-authority-atomic-storage-backend-switch.md)
 makes `storage/backend-binding.json` the provider authority. An explicit option
 or `KUNGFU_STORAGE_PROVIDER` value may select the first provider, but it cannot
 override an existing binding or unambiguous legacy population. A mismatch fails

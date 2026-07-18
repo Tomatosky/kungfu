@@ -195,7 +195,7 @@
     {
       "path": ".github/workflows/build.yml",
       "authority": "qualification",
-      "definitionDigest": "sha256:b65b60b8963ae416588ea7d494e7f96a3a70d0c82d07fbbdd2a0ccabc2327839",
+      "definitionDigest": "sha256:bf6d66665c4d5a14fe9a41ec0eb4b10d1689ed9c84f0b61cedaad279bad0670a",
       "jobs": [
         {
           "id": "build",
@@ -218,6 +218,75 @@
             "kungfu-systems/buildchain/.github/workflows/.build.yml@ec48c0b311212c5f3a591e0284da6e85a9fdded5"
           ],
           "steps": []
+        },
+        {
+          "id": "kungfu-phase-b",
+          "authority": "qualification",
+          "publication": "none",
+          "receipt": "qualifying",
+          "definitionDigest": "sha256:d43a3754259fa0acc5c37903f33f5c3494a336d76b785634eb8eaa10a0af8f5f",
+          "credentials": {
+            "githubToken": "read",
+            "oidc": false,
+            "repositorySecrets": [],
+            "inheritedSecrets": false,
+            "environment": null
+          },
+          "externalActions": [
+            "kungfu-systems/build-images/.github/workflows/comparator-kungfu-package-smoke.yml@7cf672d83323fdd139ad90b6e8165a56e431cc6c"
+          ],
+          "steps": []
+        },
+        {
+          "id": "phase-b-package",
+          "authority": "qualification",
+          "publication": "none",
+          "receipt": "diagnostic",
+          "definitionDigest": "sha256:9d031c722707dafa45e2ecc33a92a2a9a1c6a2d3860ccf9a14c289d5be643c4d",
+          "credentials": {
+            "githubToken": "read",
+            "oidc": false,
+            "repositorySecrets": [],
+            "inheritedSecrets": false,
+            "environment": null
+          },
+          "externalActions": [
+            "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
+            "actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093",
+            "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02"
+          ],
+          "steps": [
+            {
+              "index": 1,
+              "label": "name:Check out the exact package source",
+              "authority": "qualification",
+              "definitionDigest": "sha256:d55d5be1b362cde988ec4232a766b2d4c0ce59ab75de5edd124697e1ec3663b7"
+            },
+            {
+              "index": 2,
+              "label": "name:Download the Linux package build",
+              "authority": "evidence-publication",
+              "definitionDigest": "sha256:87a4e956ac2f9c395f64f86ca1c48d4e33de9c94db1774620d452f82a9cb3ced"
+            },
+            {
+              "index": 3,
+              "label": "id:identity",
+              "authority": "qualification",
+              "definitionDigest": "sha256:2eea487a24dfcc311a4261342a4ab92471d726fc164e47566b6bc3ac222338f3"
+            },
+            {
+              "index": 4,
+              "label": "id:artifact",
+              "authority": "qualification",
+              "definitionDigest": "sha256:fe1b7f26f2caccf537acc4a5850dc82b5f90acc9b180c98f42fa275bef1aaac1"
+            },
+            {
+              "index": 5,
+              "label": "name:Retain the exact package input",
+              "authority": "evidence-publication",
+              "definitionDigest": "sha256:8f578d5beb3702dec261bdea8d8777645ebef7e1134510cf0972c2046731122c"
+            }
+          ]
         }
       ]
     },
