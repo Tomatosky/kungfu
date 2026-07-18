@@ -123,6 +123,30 @@ def capabilities() -> dict[str, Any]:
             "kernel": "identity, immutable versions, relations, Cuts, CAS, receipts",
             "episode": "causal occurrence and sealed evidence",
         },
+        "recovery": {
+            "projectionRebuild": {
+                "status": "supported",
+                "source": "native Fact journal and content-addressed bodies",
+                "identity": "preserved",
+            },
+            "exportImport": {
+                "status": "explicit-loss-until-fact-bundle-qualified",
+                "required": [
+                    "Fact journal",
+                    "body namespace",
+                    "exact ref and Cut roots",
+                ],
+                "lossCode": "profile-authority-not-exported",
+            },
+            "backendMigration": {
+                "status": "delegated-to-storage-backend-switch",
+                "identity": "content roots and journal identities must remain exact",
+            },
+            "cleanHome": {
+                "status": "explicit-loss-without-qualified-export",
+                "lossCode": "profile-authority-unavailable",
+            },
+        },
         "nonClaims": [
             "A Profile receipt does not adopt KFD-7 or replace KFD authority.",
             "An accepted action does not prove Pursuit completion or complete reality.",
@@ -495,7 +519,11 @@ def apply_action(
     warrant_state = warrant_body.get("state")
     warrant_details = warrant_body.get("details") or {}
     if warrant_state in {"expired", "revoked", "denied"}:
-        code = "warrant-revoked" if warrant_state == "revoked" else "warrant-expired"
+        code = {
+            "expired": "warrant-expired",
+            "revoked": "warrant-revoked",
+            "denied": "unauthorized",
+        }[warrant_state]
         return _denied(
             action_id,
             code,

@@ -329,8 +329,42 @@ export type ProfileContractPlan = {
   decisionCard: Record<string, unknown>;
 };
 
+export type WorkProfileCapabilities = {
+  schema: 'kungfu.kfd7.profile-capabilities/v1';
+  profile: 'kungfu-kfd-7-action-profile';
+  roles: string[];
+  actionSchema: string;
+  receiptSchema: string;
+  [key: string]: unknown;
+};
+
+export type WorkProfileInspection = {
+  schema: 'kungfu.kfd7.profile-inspection/v1';
+  status: 'absent' | 'current' | 'degraded';
+  refName: string;
+  cutRoot: string | null;
+  [key: string]: unknown;
+};
+
+export type WorkProfileReceipt = {
+  schema: 'kungfu.kfd7.profile-action-receipt/v1';
+  actionId: string;
+  status: 'planned' | 'accepted' | 'idempotent-replay' | 'denied';
+  failureCode: string | null;
+  [key: string]: unknown;
+};
+
 export type Profile = {
   runtimeDir: string;
+  workCapabilities: () => WorkProfileCapabilities;
+  workCapabilitiesAsync: () => Promise<WorkProfileCapabilities>;
+  workInspect: (refName: string) => WorkProfileInspection;
+  workInspectAsync: (refName: string) => Promise<WorkProfileInspection>;
+  workAction: (request: unknown, execute?: boolean) => WorkProfileReceipt;
+  workActionAsync: (
+    request: unknown,
+    execute?: boolean,
+  ) => Promise<WorkProfileReceipt>;
   discover: (profileId: string) => ProfileSourceDiscovery;
   discoverAsync: (profileId: string) => Promise<ProfileSourceDiscovery>;
   manager: () => ProfileManagerProjection;
@@ -485,6 +519,27 @@ export function openProfile(options: OpenProfileOptions): Profile {
     });
     return JSON.parse(text) as T;
   };
+  const runWork = <T>(args: string[]): T =>
+    JSON.parse(
+      options.execFileSync(bin, ['agent', 'work', ...args, '--json'], {
+        encoding: 'utf8',
+        env,
+        maxBuffer: 64 * 1024 * 1024,
+      }),
+    ) as T;
+  const runWorkAsync = async <T>(args: string[]): Promise<T> => {
+    if (!options.execFile) return runWork<T>(args);
+    const text = await options.execFile(
+      bin,
+      ['agent', 'work', ...args, '--json'],
+      {
+        encoding: 'utf8',
+        env,
+        maxBuffer: 64 * 1024 * 1024,
+      },
+    );
+    return JSON.parse(text) as T;
+  };
   const catalogArgs = (source: string, requireActive: boolean) => [
     'catalog',
     source,
@@ -522,6 +577,27 @@ export function openProfile(options: OpenProfileOptions): Profile {
   ];
   return {
     runtimeDir: options.runtimeDir,
+    workCapabilities: () => runWork<WorkProfileCapabilities>(['capabilities']),
+    workCapabilitiesAsync: () =>
+      runWorkAsync<WorkProfileCapabilities>(['capabilities']),
+    workInspect: (refName) =>
+      runWork<WorkProfileInspection>(['inspect', '--ref', refName]),
+    workInspectAsync: (refName) =>
+      runWorkAsync<WorkProfileInspection>(['inspect', '--ref', refName]),
+    workAction: (request, execute = false) =>
+      runWork<WorkProfileReceipt>([
+        'action',
+        '--input-base64',
+        encoded(request),
+        ...(execute ? ['--execute'] : []),
+      ]),
+    workActionAsync: (request, execute = false) =>
+      runWorkAsync<WorkProfileReceipt>([
+        'action',
+        '--input-base64',
+        encoded(request),
+        ...(execute ? ['--execute'] : []),
+      ]),
     discover: (profileId) =>
       run<ProfileSourceDiscovery>(['discover', profileId]),
     discoverAsync: (profileId) =>

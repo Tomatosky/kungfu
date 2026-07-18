@@ -95,9 +95,22 @@ std::string text_or(const nlohmann::json &value, const char *field, const std::s
 }
 
 uint64_t uint64_or(const nlohmann::json &value, const char *field, uint64_t fallback = 0) {
-  return value.is_object() && value.contains(field) && value.at(field).is_number_unsigned()
-             ? value.at(field).get<uint64_t>()
-             : fallback;
+  if (!value.is_object() || !value.contains(field)) {
+    return fallback;
+  }
+  const auto &candidate = value.at(field);
+  if (candidate.is_number_unsigned()) {
+    return candidate.get<uint64_t>();
+  }
+  if (candidate.is_number_integer()) {
+    const auto signed_value = candidate.get<int64_t>();
+    return signed_value >= 0 ? static_cast<uint64_t>(signed_value) : fallback;
+  }
+  return fallback;
+}
+
+bool is_nonnegative_integer(const nlohmann::json &value) {
+  return value.is_number_unsigned() || (value.is_number_integer() && value.get<int64_t>() >= 0);
 }
 
 nlohmann::json array_or_empty(const nlohmann::json &value, const char *field) {
@@ -1035,7 +1048,7 @@ nlohmann::json run_fact_kernel_operation(const std::string &runtime_dir, const n
           input.contains("expected_old_cut_root") &&
           (input.at("expected_old_cut_root").is_null() || input.at("expected_old_cut_root").is_string());
       const auto has_expected_revision =
-          input.contains("expected_old_revision") && input.at("expected_old_revision").is_number_unsigned();
+          input.contains("expected_old_revision") && is_nonnegative_integer(input.at("expected_old_revision"));
       const auto expected_old = text_or(input, "expected_old_cut_root");
       validate_root(expected_old, "expected_old_cut_root", true);
       const auto expected_revision = uint64_or(input, "expected_old_revision");

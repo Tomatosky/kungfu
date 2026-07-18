@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
+import base64
 import json
 import os
 import sys
@@ -341,24 +342,31 @@ def work_inspect(ctx, ref_name, as_json):
 
 
 @work.command(name="action", help=api_help("kungfu.agent.work.action"))
+@click.option("--file", "file_path", help="Profile action request JSON path or -")
 @click.option(
-    "--file", "file_path", required=True, help="Profile action request JSON path or -"
+    "--input-base64",
+    help="base64-encoded Profile action JSON for SDK and GUI adapters",
 )
 @click.option("--execute", is_flag=True, help="append and CAS the action")
 @click.option("--json", "as_json", is_flag=True, help="machine-readable output")
 @kfd3_api("kungfu.agent.work.action")
 @agent_command_context
-def work_action(ctx, file_path, execute, as_json):
+def work_action(ctx, file_path, input_base64, execute, as_json):
     try:
-        raw = (
-            sys.stdin.read()
-            if file_path == "-"
-            else Path(file_path).read_text(encoding="utf-8")
-        )
+        if bool(file_path) == bool(input_base64):
+            raise ValueError("exactly one of --file or --input-base64 is required")
+        if input_base64:
+            raw = base64.b64decode(input_base64, validate=True).decode("utf-8")
+        else:
+            raw = (
+                sys.stdin.read()
+                if file_path == "-"
+                else Path(file_path).read_text(encoding="utf-8")
+            )
         request = json.loads(raw)
         if not isinstance(request, dict):
             raise ValueError("Profile action request must be a JSON object")
-    except (OSError, ValueError, json.JSONDecodeError) as error:
+    except (OSError, UnicodeError, ValueError, json.JSONDecodeError) as error:
         raise click.ClickException(str(error)) from error
     payload = work_profile.apply_action(ctx.runtime_dir, request, execute=execute)
     if as_json:
