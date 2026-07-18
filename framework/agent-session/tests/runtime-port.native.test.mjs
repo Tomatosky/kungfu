@@ -19,19 +19,34 @@ function sleep(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
-function coordinatorEnvironment() {
-  const environment = { ...process.env };
+function coordinatorEnvironment(
+  inherited = process.env,
+  platform = process.platform,
+) {
+  const environment = { ...inherited };
   const loaderVariable =
-    process.platform === 'darwin'
+    platform === 'darwin'
       ? 'DYLD_FALLBACK_LIBRARY_PATH'
-      : process.platform === 'win32'
-        ? 'PATH'
+      : platform === 'win32'
+        ? Object.keys(environment).find(
+            (name) => name.toLowerCase() === 'path',
+          ) || 'Path'
         : 'LD_LIBRARY_PATH';
+  const delimiter = platform === 'win32' ? ';' : path.delimiter;
   environment[loaderVariable] = environment[loaderVariable]
-    ? `${CORE_DIST}${path.delimiter}${environment[loaderVariable]}`
+    ? `${CORE_DIST}${delimiter}${environment[loaderVariable]}`
     : CORE_DIST;
   return environment;
 }
+
+test('Windows coordinator launch preserves the inherited Path key', () => {
+  const environment = coordinatorEnvironment(
+    { Path: 'C:\\host-tools', HOME: 'C:\\home' },
+    'win32',
+  );
+  assert.equal(environment.Path, `${CORE_DIST};C:\\host-tools`);
+  assert.equal(environment.PATH, undefined);
+});
 
 function waitForJsonLine(child, type, timeout = 20_000) {
   return new Promise((resolve, reject) => {
@@ -84,7 +99,7 @@ function spawnPeer(role, runtimeDir) {
   return child;
 }
 
-export function windowsTreeKillInvocation(pid) {
+function windowsTreeKillInvocation(pid) {
   if (!Number.isSafeInteger(pid) || pid <= 0)
     throw new Error(`invalid test-owned Windows process id: ${pid}`);
   return {
@@ -98,7 +113,10 @@ function posixProcessGroupAlive(pid) {
     process.kill(-pid, 0);
     return true;
   } catch (error) {
-    if (error?.code === 'ESRCH') return false;
+    // ESRCH means the group is gone. EPERM means the numeric group id now
+    // belongs to another principal (for example after rapid pid reuse), so it
+    // is no longer test-owned and must never receive a cleanup signal.
+    if (error?.code === 'ESRCH' || error?.code === 'EPERM') return false;
     throw error;
   }
 }
@@ -110,6 +128,21 @@ async function waitForPosixProcessGroupExit(pid, timeout = 2_000) {
     await sleep(50);
   }
   return !posixProcessGroupAlive(pid);
+}
+
+async function waitForChildExit(child, timeout = 2_000) {
+  if (child.exitCode !== null || child.signalCode !== null) return true;
+  return await new Promise((resolve) => {
+    const onExit = () => {
+      clearTimeout(timer);
+      resolve(true);
+    };
+    const timer = setTimeout(() => {
+      child.off('exit', onExit);
+      resolve(child.exitCode !== null || child.signalCode !== null);
+    }, timeout);
+    child.once('exit', onExit);
+  });
 }
 
 async function stopChild(child) {
@@ -125,9 +158,17 @@ async function stopChild(child) {
   } else {
     if (!child.pid || !posixProcessGroupAlive(child.pid)) return;
     process.kill(-child.pid, 'SIGTERM');
-    if (!(await waitForPosixProcessGroupExit(child.pid))) {
+    const [, groupExited] = await Promise.all([
+      waitForChildExit(child),
+      waitForPosixProcessGroupExit(child.pid),
+    ]);
+    if (!groupExited) {
       process.kill(-child.pid, 'SIGKILL');
-      if (!(await waitForPosixProcessGroupExit(child.pid)))
+      const [, killedGroupExited] = await Promise.all([
+        waitForChildExit(child),
+        waitForPosixProcessGroupExit(child.pid),
+      ]);
+      if (!killedGroupExited)
         throw new Error(
           `test-owned POSIX process group ${child.pid} did not exit after SIGKILL`,
         );
@@ -164,6 +205,7 @@ test(
     await stopChild(child);
 
     assert.equal(posixProcessGroupAlive(child.pid), false);
+    assert.ok(child.exitCode !== null || child.signalCode !== null);
     assert.ok(Number.isSafeInteger(ready.descendantPid));
   },
 );

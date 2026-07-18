@@ -286,8 +286,9 @@ test('stderr content is never retained or surfaced', async (t) => {
   assert.equal(host.status().stderr.retainedContent, false);
 });
 
-test('stdout pipe loss terminates the provider with an unknown attempt boundary', async () => {
+test('stdout pipe loss terminates the provider with an unknown attempt boundary', async (t) => {
   const host = await start('stdout-end');
+  t.after(() => stop(host));
   await waitUntil(
     () => host.status().failure?.code === 'stdout-ended',
     'stdout loss did not fail visibly',

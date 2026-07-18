@@ -15,6 +15,7 @@ const DIST_ENVIRONMENT = {
   KF_DESKTOP_ARTIFACT_SIGNATURE: `${UPGRADE_EVIDENCE}#desktop`,
   KF_CLI_ARTIFACT_SIGNATURE: `${UPGRADE_EVIDENCE}#cli`,
 };
+export const WINDOWS_SHIFU_ARGV_ENV = 'KUNGFU_SHIFU_LIFECYCLE_ARGS';
 
 export function lifecycleEnvironment(env = process.env, task = '') {
   const result = { ...env };
@@ -42,12 +43,17 @@ export function cmdCommand(shim, args) {
   return [command, ...args.map(quote)].join(' ');
 }
 
-export function windowsCmdArgs(shim, args) {
-  if ([shim, ...args].some((value) => /[\r\n%!&|<>^]/.test(String(value))))
+export function windowsCmdEnvironment(args, env = process.env) {
+  if (args.some((value) => /[\r\n%!&|<>^]/.test(String(value))))
     throw new Error(
       'Windows Shifu lifecycle arguments contain unsafe cmd syntax',
     );
-  return ['/d', '/s', '/c', `call ${cmdCommand(shim, args)}`];
+  return {
+    ...env,
+    [WINDOWS_SHIFU_ARGV_ENV]: args
+      .map((value) => `"${String(value).replaceAll('"', '""')}"`)
+      .join(' '),
+  };
 }
 
 /** Run the canonical repository shim without assuming bash exists on Windows. */
@@ -58,14 +64,14 @@ export function runShifu(args, options = {}) {
   let result;
   if (platform === 'win32') {
     const command = options.comspec || env.ComSpec || env.COMSPEC || 'cmd.exe';
-    // A batch wrapper must be entered through `call` so its argument vector
-    // survives both cmd.exe and the shim's own dispatch boundary.
-    result = spawnSync(command, windowsCmdArgs('shifu.cmd', args), {
+    // Cross the Node -> cmd boundary with no business argv. The welded shim
+    // restores the validated vector inside batch semantics, where %1..%n are
+    // stable on both hosted and self-hosted Windows runners.
+    result = spawnSync('shifu.cmd', [], {
       cwd: root,
-      env,
+      env: windowsCmdEnvironment(args, env),
       stdio: options.stdio || 'inherit',
-      shell: false,
-      windowsVerbatimArguments: true,
+      shell: command,
     });
   } else {
     result = spawnSync(path.join(root, 'shifu'), args, {

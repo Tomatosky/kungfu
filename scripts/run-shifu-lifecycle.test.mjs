@@ -1,16 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { test } from 'node:test';
 
 import {
+  WINDOWS_SHIFU_ARGV_ENV,
   cacheAppliedArgs,
   cacheAppliedCommandArgs,
   cacheAwareArgs,
   cmdCommand,
   lifecycleEnvironment,
   runShifu,
-  windowsCmdArgs,
+  windowsCmdEnvironment,
 } from './run-shifu-lifecycle.mjs';
 
 test('wraps an arbitrary child command in one cache projection', () => {
@@ -125,37 +127,42 @@ test('quotes a Windows shim payload and rejects expansion syntax', () => {
   );
 });
 
-test('enters a Windows batch shim through call with an exact argument vector', () => {
-  assert.deepEqual(
-    windowsCmdArgs('shifu.cmd', [
-      'cache',
-      'apply',
-      '--',
-      'C:\\Program Files\\node.exe',
-    ]),
-    [
-      '/d',
-      '/s',
-      '/c',
-      'call shifu.cmd cache apply -- "C:\\Program Files\\node.exe"',
-    ],
+test('enters a Windows batch shim with one environment-owned argv payload', () => {
+  assert.equal(
+    windowsCmdEnvironment(
+      ['cache', 'apply', '--', 'C:\\Program Files\\node.exe'],
+      {},
+    ).KUNGFU_SHIFU_LIFECYCLE_ARGS,
+    '"cache" "apply" "--" "C:\\Program Files\\node.exe"',
   );
-  assert.deepEqual(
-    windowsCmdArgs('shifu.cmd', [
-      'gate',
-      'run',
-      '--execution-context',
-      '{"executionProfile":"alpha"}',
-    ]),
-    [
-      '/d',
-      '/s',
-      '/c',
-      'call shifu.cmd gate run --execution-context "{""executionProfile"":""alpha""}"',
-    ],
+  assert.equal(
+    windowsCmdEnvironment(
+      ['gate', 'run', '--execution-context', '{"executionProfile":"alpha"}'],
+      {},
+    )[WINDOWS_SHIFU_ARGV_ENV],
+    '"gate" "run" "--execution-context" "{""executionProfile"":""alpha""}"',
   );
   assert.throws(
-    () => windowsCmdArgs('shifu.cmd', ['task&whoami']),
+    () => windowsCmdEnvironment(['task&whoami']),
     /unsafe cmd syntax/,
   );
 });
+
+test(
+  'Windows preserves a multi-argument Shifu batch invocation',
+  { skip: process.platform !== 'win32' },
+  () => {
+    const result = spawnSync('shifu.cmd', [], {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      env: windowsCmdEnvironment(['cache', 'schema', 'profile'], process.env),
+      windowsHide: true,
+      shell: process.env.ComSpec || process.env.COMSPEC || 'cmd.exe',
+    });
+    assert.equal(result.status, 0, result.stderr || result.error?.message);
+    assert.equal(
+      JSON.parse(result.stdout).$id,
+      'https://libkungfu.dev/schemas/shifu/cache-profile-v1.schema.json',
+    );
+  },
+);

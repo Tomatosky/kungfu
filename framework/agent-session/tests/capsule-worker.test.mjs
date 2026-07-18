@@ -105,7 +105,10 @@ async function connect(endpoint) {
 
 test('detached Capsule worker survives client loss and reattaches to the same PTY', async (t) => {
   const temp = fs.mkdtempSync(path.join(socketTempRoot, 'kungfu-capsule-'));
-  const endpoint = path.join(temp, 'capsule.sock');
+  const endpoint =
+    process.platform === 'win32'
+      ? `\\\\.\\pipe\\kungfu-capsule-${process.pid}-${path.basename(temp)}`
+      : path.join(temp, 'capsule.sock');
   const ptyModule = preparedNodePty(temp);
   const child = spawn(
     process.execPath,
