@@ -702,7 +702,6 @@ nlohmann::json query_kernel(const std::string &runtime_dir, const kernel_state &
     return failure("query", "unknown-cut", "Fact cut does not exist", {{"cut_root", cut_root}});
   }
   const auto &cut = found->second;
-  const auto include_bodies = request.value("include_bodies", false);
   auto objects = nlohmann::json::array();
   for (const auto &member : cut.at("objectVersions")) {
     const auto version_root = member.at(1).get<std::string>();
