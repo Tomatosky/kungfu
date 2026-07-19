@@ -91,7 +91,8 @@
     },
     "roleBindingRule": "Every role identity and root is explicit; no role is inferred from another role, current chat, current process, or current workspace.",
     "episodeRootRule": "episodeRoot is null only before Episode seal; sealed and later states require an exact root.",
-    "projectionRule": "The envelope is a rebuildable projection over accepted authority receipts, not an authority record."
+    "projectionRule": "The envelope is a rebuildable projection over accepted authority receipts, not an authority record.",
+    "nativeAuthorityRule": "A native agent entry records one aggregate root over the loaded binding identity and active Mission Control Profile exact root; resume and settle fail closed if either changes."
   },
   "checkpoint": {
     "schema": "kungfu.action-loop.checkpoint/v0",
@@ -328,6 +329,11 @@
       "code": "state-receipt-mismatch",
       "class": "recovery-required",
       "effect": "rebuild the projection from accepted receipts"
+    },
+    {
+      "code": "native-authority-drift",
+      "class": "recovery-required",
+      "effect": "reselect one native binding and reconcile its Profile exact root before resuming; no write occurred"
     }
   ],
   "faultMatrix": [

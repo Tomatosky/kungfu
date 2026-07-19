@@ -360,6 +360,51 @@ test('same loopRef resumes without reopening roles or Episode', async () => {
   assert.equal(second.nextStep, 'seal-episode');
 });
 
+test('resume fails closed when the recorded native binding or Profile root drifts', async () => {
+  const fixture = adapters();
+  const nativeAuthority = {
+    schema: 'kungfu.action-loop.native-authority/v0',
+    id: 'native:binding-one',
+    root: root('native-authority'),
+    state: 'current',
+    binding: { path: '/opt/kungfu/binding', root: root('binding') },
+    profile: { id: 'kungfu.mission-control', root: root('profile') },
+  };
+  fixture.ports.nativeAuthority = {
+    async resolve() {
+      return { status: 'resolved', binding: nativeAuthority };
+    },
+    async observe() {
+      return {
+        status: 'denied',
+        code: 'native-authority-drift',
+        message: 'the active native binding or Profile root changed',
+        current: {
+          ...nativeAuthority,
+          root: root('different-native-authority'),
+        },
+      };
+    },
+  };
+
+  const begun = await beginActionLoop(
+    contract,
+    request({ nativeAuthority }),
+    fixture.ports,
+  );
+  assert.equal(begun.ok, true, JSON.stringify(begun));
+  assert.equal(begun.envelope.nativeAuthority.root, nativeAuthority.root);
+
+  const resumed = await resumeActionLoop(
+    contract,
+    request().loopRef,
+    fixture.ports,
+  );
+  assert.equal(resumed.ok, false);
+  assert.equal(resumed.code, 'native-authority-drift');
+  assert.equal(resumed.writeOccurred, false);
+});
+
 test(
   'Core public adapters open a real Episode and recover the native Fact ref in a fresh process',
   {

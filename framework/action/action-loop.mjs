@@ -78,6 +78,25 @@ export function validateEnvelope(contract, envelope) {
     return fail('invalid-envelope', 'acceptedSteps must be an array');
   if (!Array.isArray(envelope.residualRisk))
     return fail('invalid-envelope', 'residualRisk must be an array');
+  if (envelope.nativeAuthority !== undefined) {
+    const authority = envelope.nativeAuthority;
+    if (
+      !authority ||
+      authority.schema !== 'kungfu.action-loop.native-authority/v0' ||
+      !validIdentity(authority.id) ||
+      !validRoot(authority.root) ||
+      authority.state !== 'current' ||
+      typeof authority.binding?.path !== 'string' ||
+      !validRoot(authority.binding?.root) ||
+      !validIdentity(authority.profile?.id) ||
+      !validRoot(authority.profile?.root)
+    ) {
+      return fail(
+        'invalid-native-authority',
+        'nativeAuthority must bind one native binary and Profile exact root',
+      );
+    }
+  }
   return result(true, 'valid-envelope');
 }
 

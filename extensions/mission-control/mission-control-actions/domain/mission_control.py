@@ -773,16 +773,23 @@ def _put_native_fact(
 ) -> dict[str, Any]:
     observation_id = _native_observation_id(kind, subject_key, source_id, payload)
     state = storage_service.fact_state(runtime_dir)
-    if observation_id in {
-        str(row.get("observation_id") or "")
-        for row in state.get("observation_history", [])
-    }:
+    existing = next(
+        (
+            row
+            for row in state.get("observation_history", [])
+            if str(row.get("observation_id") or "") == observation_id
+        ),
+        None,
+    )
+    if existing is not None:
         return {
             "schema": "kungfu.mission-control.native-write/v1",
             "status": "already-present",
             "reused": True,
             "observation_id": observation_id,
             "subject_key": subject_key,
+            "episode_id": str(existing.get("episode_id") or ""),
+            "payload_hash": str(existing.get("payload_hash") or ""),
         }
     written = storage_service.fact_material_put(
         runtime_dir,

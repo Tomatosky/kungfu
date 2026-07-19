@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Qualification-only source harness. This is not a frozen public CLI surface.
+// Internal source/agent entry. Public CLI naming remains intentionally unfrozen.
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -52,6 +52,156 @@ function required(args, key) {
   return value;
 }
 
+function exactRoot(value, field) {
+  if (typeof value !== 'string' || !/^sha256:[0-9a-f]{64}$/.test(value))
+    throw new Error(`${field} must be an exact sha256 root`);
+  return value;
+}
+
+export function resolveProjectCutAuthority(state, { missionId, goalId }) {
+  const activeProjectCutPhases = new Set([
+    'native-go',
+    'episode-sealed',
+    'cut-prepared',
+    'cut-bound',
+    'cut-observed',
+    'claimed',
+    'reviewed',
+    'continuation-decided',
+  ]);
+  if (!state || !activeProjectCutPhases.has(state.phase))
+    throw new Error('Project Cut state is not an active native Go context');
+  if (state.goal_id !== goalId || state.native?.go_id !== goalId)
+    throw new Error('Project Cut goal coordinate does not match --goal-id');
+  if (state.native?.mission_id !== missionId)
+    throw new Error(
+      'Project Cut Mission coordinate does not match --mission-id',
+    );
+  const goReceipt = state.native?.go_receipt;
+  const atlasVerification = state.context?.receipts?.atlas_verify;
+  const pursuitRoot = exactRoot(
+    goReceipt?.receipt?.payload_hash,
+    'native Go receipt payload root',
+  );
+  const atlasRoot = exactRoot(
+    state.roots?.input_atlas_root,
+    'input Atlas root',
+  );
+  if (
+    atlasVerification?.valid !== true ||
+    atlasVerification.atlas_root !== atlasRoot ||
+    (atlasVerification.diagnostics ?? []).length !== 0
+  ) {
+    throw new Error('Project Cut Atlas verification is not exact and clean');
+  }
+  const acceptanceRoot = exactRoot(
+    state.roots?.acceptance_root,
+    'Go acceptance root',
+  );
+  const externalRepoPath = state.coordinates?.external_repo_path;
+  const sourceBuildBinding = externalRepoPath
+    ? path.join(externalRepoPath, 'framework/core/build/python')
+    : '';
+  const hasSourceBuildBinding =
+    sourceBuildBinding !== '' &&
+    fs.existsSync(sourceBuildBinding) &&
+    fs
+      .readdirSync(sourceBuildBinding)
+      .some(
+        (name) =>
+          name.startsWith('pykungfu.') &&
+          (name.endsWith('.so') || name.endsWith('.pyd')),
+      );
+  return {
+    schema: 'kungfu.action-loop.project-cut-authority/v0',
+    missionId,
+    goalId,
+    bindingDir: hasSourceBuildBinding
+      ? sourceBuildBinding
+      : required(state.coordinates ?? {}, 'binding_dir'),
+    contextBindingRoot: exactRoot(
+      state.roots?.context_binding_root,
+      'context binding root',
+    ),
+    pursuit: {
+      id: required(goReceipt ?? {}, 'go_subject'),
+      root: pursuitRoot,
+    },
+    atlas: {
+      id: `xinfa:${state.roots.context_binding_root.slice(7, 31)}`,
+      root: atlasRoot,
+      verification: atlasVerification,
+    },
+    warrant: {
+      id: `project-cut-warrant:${goalId}`,
+      root: acceptanceRoot,
+    },
+  };
+}
+
+export function beginNativeRequest(args, authority, nativeAuthority) {
+  const goalId = authority.goalId;
+  const loopRef = args['loop-ref'] || `action-loop/${goalId}`;
+  return {
+    schema: 'kungfu.action-loop.begin-request/v0',
+    loopId: args['loop-id'] || `loop:${goalId}`,
+    loopRoot: authority.warrant.root,
+    loopRef,
+    idempotencyKey:
+      args['idempotency-key'] ||
+      `action-loop:${goalId}:${authority.contextBindingRoot.slice(7, 23)}`,
+    factRef: { name: loopRef, cutRoot: null, revision: 0 },
+    pursuit: {
+      explicit: true,
+      binding: { ...authority.pursuit, state: 'active' },
+    },
+    atlas: {
+      binding: {
+        id: authority.atlas.id,
+        root: authority.atlas.root,
+        state: 'current',
+      },
+      verification: {
+        valid: true,
+        atlasRoot: authority.atlas.root,
+        diagnostics: [],
+      },
+    },
+    warrant: {
+      explicit: true,
+      binding: { ...authority.warrant, state: 'issued' },
+    },
+    episode: {
+      id: args['episode-id'] || `episode:${goalId}`,
+      source: args['episode-source'] || `action-loop:${goalId}`,
+      title: args['episode-title'],
+      actor: args.actor,
+    },
+    fact: {
+      id: args['fact-id'] || `fact:${goalId}`,
+      root: authority.warrant.root,
+      state: 'declared',
+    },
+    nativeAuthority,
+  };
+}
+
+function readProjectCutAuthority(args) {
+  const statePath = path.resolve(required(args, 'project-cut-state'));
+  const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+  return resolveProjectCutAuthority(state, {
+    missionId: required(args, 'mission-id'),
+    goalId: required(args, 'goal-id'),
+  });
+}
+
+export function pythonSearchPath(
+  bindingDir,
+  inherited = process.env.PYTHONPATH,
+) {
+  return [SOURCE, bindingDir, inherited].filter(Boolean).join(path.delimiter);
+}
+
 export function qualificationExecutorProfile(value) {
   const profile = value ?? 'inline';
   if (!['inline', 'thread', 'process'].includes(profile))
@@ -59,7 +209,7 @@ export function qualificationExecutorProfile(value) {
   return profile;
 }
 
-function invoke(runtime, operation, payload) {
+function invoke(runtime, bindingDir, operation, payload) {
   const child = spawnSync(
     'uv',
     [
@@ -79,9 +229,7 @@ function invoke(runtime, operation, payload) {
       encoding: 'utf8',
       env: {
         ...process.env,
-        PYTHONPATH: [BINDING, SOURCE, process.env.PYTHONPATH]
-          .filter(Boolean)
-          .join(path.delimiter),
+        PYTHONPATH: pythonSearchPath(bindingDir),
       },
       input: JSON.stringify(payload),
     },
@@ -91,8 +239,9 @@ function invoke(runtime, operation, payload) {
   return JSON.parse(child.stdout);
 }
 
-function ports(runtime) {
-  const call = (operation, payload) => invoke(runtime, operation, payload);
+function ports(runtime, bindingDir) {
+  const call = (operation, payload) =>
+    invoke(runtime, bindingDir, operation, payload);
   const begin = createCorePublicAdapters(call);
   const settle = createSettlementCoreAdapters(call);
   return {
@@ -200,6 +349,8 @@ export function projectQualificationResult(result) {
     schema: 'kungfu.action-loop.qualification-projection/v0',
     ok: result.ok === true,
     code: result.code,
+    message: result.message ?? null,
+    current: result.current ?? null,
     status: envelope.state || result.state || 'unknown',
     identities: Object.fromEntries(
       Object.entries(roles).map(([role, binding]) => [role, binding.id]),
@@ -207,6 +358,7 @@ export function projectQualificationResult(result) {
     authority: Object.fromEntries(
       Object.entries(roles).map(([role, binding]) => [role, binding.root]),
     ),
+    nativeAuthority: envelope.nativeAuthority ?? null,
     factRef: envelope.factRef || null,
     residualRisk: envelope.residualRisk || [],
     nextStep: result.nextStep ?? null,
@@ -227,7 +379,9 @@ export function renderQualificationResult(projected) {
     );
   return [
     `status: ${projected.status} (${projected.code})`,
+    ...(projected.message ? [`message: ${projected.message}`] : []),
     ...roleLines,
+    `nativeAuthority: ${projected.nativeAuthority?.id || '-'} @ ${projected.nativeAuthority?.root || '-'}`,
     `factRef: ${projected.factRef?.name || '-'} @ ${projected.factRef?.cutRoot || '-'}#${projected.factRef?.revision ?? '-'}`,
     `residualRisk: ${projected.residualRisk.join(' | ') || 'none'}`,
     `nextStep: ${projected.nextStep || 'none'}`,
@@ -237,17 +391,36 @@ export function renderQualificationResult(projected) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const runtime = path.resolve(required(args, 'runtime'));
-  const adapters = ports(runtime);
+  const nativeCommand = args.command?.endsWith('-native');
+  const authority = nativeCommand ? readProjectCutAuthority(args) : null;
+  const bindingDir =
+    authority?.bindingDir || path.resolve(args['binding-dir'] || BINDING);
+  const adapters = ports(runtime, bindingDir);
   let result;
-  if (args.command === 'begin') {
+  if (args.command === 'begin-native') {
+    const inspected = invoke(runtime, bindingDir, 'authority-inspect', null);
+    if (inspected.status !== 'current') {
+      result = inspected;
+    } else {
+      result = await beginActionLoop(
+        contract,
+        beginNativeRequest(args, authority, inspected.binding),
+        adapters,
+      );
+    }
+  } else if (args.command === 'begin') {
     result = await beginActionLoop(contract, beginRequest(args), adapters);
-  } else if (args.command === 'resume' || args.command === 'surface') {
+  } else if (
+    ['resume', 'surface', 'resume-native', 'surface-native'].includes(
+      args.command,
+    )
+  ) {
     result = await resumeActionLoop(
       contract,
-      required(args, 'loop-ref'),
+      args['loop-ref'] || `action-loop/${authority?.goalId}`,
       adapters,
     );
-  } else if (args.command === 'settle') {
+  } else if (args.command === 'settle' || args.command === 'settle-native') {
     const pauseBeforeAtlas = args['pause-before-atlas'] === true;
     if (pauseBeforeAtlas) {
       adapters.atlasRefresher = {
@@ -294,7 +467,9 @@ async function main() {
       adapters,
     );
   } else {
-    throw new Error('command must be begin, resume, surface, or settle');
+    throw new Error(
+      'command must be begin, resume, surface, settle, or a -native variant',
+    );
   }
   const projected = projectQualificationResult(result);
   if (args.format === 'human')

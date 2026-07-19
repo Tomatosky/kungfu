@@ -35,6 +35,16 @@ function requirePort(adapters, group, operation) {
 
 function validateReceipt(envelope, receipt, stepId) {
   if (
+    isObject(receipt) &&
+    receipt.status === 'denied' &&
+    receipt.code?.startsWith('native-authority-')
+  ) {
+    return failure(receipt.code, receipt.message, {
+      writeOccurred: false,
+      current: receipt.current ?? null,
+    });
+  }
+  if (
     !isObject(receipt) ||
     receipt.schema !== 'kungfu.action-loop.step-receipt/v0' ||
     receipt.loopId !== envelope.loopId ||

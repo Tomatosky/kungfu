@@ -16,19 +16,19 @@
     },
     {
       "path": "action-loop.mjs",
-      "sha256": "sha256:7122112f6c60892547afde0a14eafd50d55f9237885aca509d34dd5aafe63708"
+      "sha256": "sha256:500030663bd3696bf5cbac965f90bda456b20d53892e56e435551f19dec526da"
     },
     {
       "path": "action-loop-begin.mjs",
-      "sha256": "sha256:9ed4967fdc2f13fc91a7ad54358615dd6e65641f6999c6599b1f88af3c743834"
+      "sha256": "sha256:48d0d4c83bb1393dde61d24c2584f6e443de1429da7fddd46b50044547e4b628"
     },
     {
       "path": "action-loop-settle.mjs",
-      "sha256": "sha256:c85459add6f3944b0ce237baf3f3e15ca5c57a03aa162eab40cf4d12f5251748"
+      "sha256": "sha256:bf6e93c050f2c097f692d03afd1be835bda122cc6db8d8c598aa6faeba798c31"
     },
     {
       "path": "action-loop.contract.json",
-      "sha256": "sha256:74fbd1c654bce062050561f23d070f1e6a098445130b5932ec844322ea852dee"
+      "sha256": "sha256:279abe91d7aca1fc095f8e169f4ba727112aadabc54a82f4894b579b68d717cd"
     },
     {
       "path": "action-loop-fixtures.json",
