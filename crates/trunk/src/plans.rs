@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 //
-// ADR-0071 v4 plan-only maintenance commands. No mutating switch exists here:
-// the Rust surface and C ABI both make gc-plan / repair-plan structurally dry-run.
+// ADR-0071 plan-only maintenance commands. No mutating switch exists here:
+// the Rust surface and C ABI make gc-plan / repair-plan / compact-plan
+// structurally dry-run.
 
 #[derive(Debug, Default, PartialEq, Eq)]
 struct PlanArgs {
@@ -29,6 +30,13 @@ usage: kungfu repair-plan [--runtime-dir <dir>] [--provider <name>]
 Produce a read-only repair plan from the native storage authority. Episode scope
 requires --source; no fetch, apply, execute, or write mode crosses this command.";
 
+const COMPACT_USAGE: &str = "\
+usage: kungfu compact-plan [--runtime-dir <dir>] [--provider <name>]
+                           [--source <id>] [--json]
+
+Produce a read-only native compaction plan. No compact, rebuild, vacuum,
+delete, execute, or other write mode crosses this command.";
+
 pub fn run_gc(args: &[String]) -> Result<(), String> {
     if wants_help(args) {
         println!("{GC_USAGE}");
@@ -47,6 +55,20 @@ pub fn run_repair(args: &[String]) -> Result<(), String> {
         return Ok(());
     }
     inspect_repair(parse(args, "repair-plan", true)?)
+}
+
+pub fn run_compact(args: &[String]) -> Result<(), String> {
+    if wants_help(args) {
+        println!("{COMPACT_USAGE}");
+        return Ok(());
+    }
+    let parsed = parse(args, "compact-plan", false)?;
+    if parsed.episode.is_some() || parsed.provider_config_source.is_some() || parsed.verify_frames {
+        return Err(format!(
+            "compact-plan: unsupported scope option\n\n{COMPACT_USAGE}"
+        ));
+    }
+    inspect_compact(parsed)
 }
 
 fn wants_help(args: &[String]) -> bool {
@@ -147,6 +169,27 @@ fn inspect_repair(args: PlanArgs) -> Result<(), String> {
     emit("repair-plan", ABI_V4, &root, args.json, &report)
 }
 
+#[cfg(feature = "embedding")]
+fn inspect_compact(args: PlanArgs) -> Result<(), String> {
+    use kungfu_embedding::{Context, ContextConfig, StorageCompactPlanRequest, ABI_V6};
+
+    let root = runtime_dir(&args)?;
+    let context = Context::open(&ContextConfig::new(&root, "kungfu-trunk", "compact-plan"))
+        .map_err(|error| error.to_string())?;
+    let mut request = StorageCompactPlanRequest::new(&root);
+    request.provider = args.provider.as_deref();
+    request.source_id = args.source.as_deref();
+    let report = context
+        .storage_compact_plan(&request)
+        .map_err(|error| error.to_string())?;
+    emit("compact-plan", ABI_V6, &root, args.json, &report)
+}
+
+#[cfg(not(feature = "embedding"))]
+fn inspect_compact(_args: PlanArgs) -> Result<(), String> {
+    coreless("compact-plan")
+}
+
 #[cfg(not(feature = "embedding"))]
 fn inspect_repair(_args: PlanArgs) -> Result<(), String> {
     coreless("repair-plan")
@@ -210,6 +253,21 @@ mod tests {
     }
 
     #[test]
+    fn compact_parser_is_plan_only() {
+        let parsed = parse(
+            &s(&["--source", "s", "--provider", "rocksdb"]),
+            "compact-plan",
+            false,
+        )
+        .unwrap();
+        assert_eq!(parsed.source.as_deref(), Some("s"));
+        assert_eq!(parsed.provider.as_deref(), Some("rocksdb"));
+        assert!(run_compact(&s(&["--execute"])).is_err());
+        assert!(run_compact(&s(&["--rebuild-index"])).is_err());
+        assert!(run_compact(&s(&["--delete"])).is_err());
+    }
+
+    #[test]
     fn repair_episode_and_verify_require_their_parent_scope() {
         assert!(parse(&s(&["--episode", "1"]), "repair-plan", true).is_err());
         assert!(parse(&s(&["--verify-frames"]), "repair-plan", true).is_err());
@@ -225,5 +283,6 @@ mod tests {
     fn help_is_available_without_the_core() {
         assert!(run_gc(&s(&["--help"])).is_ok());
         assert!(run_repair(&s(&["-h"])).is_ok());
+        assert!(run_compact(&s(&["--help"])).is_ok());
     }
 }

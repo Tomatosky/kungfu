@@ -23,3 +23,17 @@ target_include_directories(shared_embedding_host PRIVATE ../../src/libkungfu/inc
 target_compile_options(shared_embedding_host PRIVATE
   $<$<CONFIG:Release>:${COMPILER_OPTIMIZE_ON_OPTIONS}>)
 target_link_libraries(shared_embedding_host PRIVATE ${LIBKUNGFU_NAME} ${CMAKE_DL_LIBS})
+
+if(WIN32)
+  add_executable(shared_embedding_windows_dll_host windows_dll_host.cpp)
+  target_include_directories(shared_embedding_windows_dll_host PRIVATE ../../src/libkungfu/include)
+  target_compile_options(shared_embedding_windows_dll_host PRIVATE
+    $<$<CONFIG:Release>:${COMPILER_OPTIMIZE_ON_OPTIONS}>)
+  # A real outer-ring DLL consumer must not also pull the static core or the
+  # repository-wide Conan closure into its process.
+  set_property(TARGET shared_embedding_windows_dll_host PROPERTY LINK_LIBRARIES "")
+  get_target_property(_shared_embedding_windows_dll_host_links shared_embedding_windows_dll_host LINK_LIBRARIES)
+  if(_shared_embedding_windows_dll_host_links)
+    message(FATAL_ERROR "shared_embedding_windows_dll_host must not link core or Conan libraries")
+  endif()
+endif()

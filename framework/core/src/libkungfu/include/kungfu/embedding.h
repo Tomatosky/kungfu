@@ -32,6 +32,7 @@ extern "C" {
 #define KF_EMBEDDING_ABI_V3 UINT32_C(3)
 #define KF_EMBEDDING_ABI_V4 UINT32_C(4)
 #define KF_EMBEDDING_ABI_V5 UINT32_C(5)
+#define KF_EMBEDDING_ABI_V6 UINT32_C(6)
 #define KF_EMBEDDING_MAX_BATCH_FRAMES UINT32_C(4096)
 #define KF_EMBEDDING_CONTEXT_LOW_LATENCY UINT32_C(1)
 
@@ -60,6 +61,8 @@ typedef enum kf_embedding_status {
 #define KF_EMBEDDING_CAP_STORAGE_MAINTENANCE_PLANS (UINT64_C(1) << 4)
 /* v5 (ADR-0071): read-only native storage status reachable without CPython. */
 #define KF_EMBEDDING_CAP_STORAGE_STATUS (UINT64_C(1) << 5)
+/* v6 (ADR-0071): read-only native compaction planning reachable without CPython. */
+#define KF_EMBEDDING_CAP_STORAGE_COMPACT_PLAN (UINT64_C(1) << 6)
 
 typedef enum kf_embedding_mode {
   KF_EMBEDDING_MODE_LIVE = 0,
@@ -177,6 +180,18 @@ typedef struct kf_embedding_storage_status_request_v1 {
   const char *source_id;              /* nullable; null means all-scope */
 } kf_embedding_storage_status_request_v1;
 
+/* v6: compaction planning is always dry-run; no compact/rebuild/delete switch
+ * crosses this membrane. */
+typedef struct kf_embedding_storage_compact_plan_request_v1 {
+  uint32_t struct_size;
+  uint32_t reserved0;
+  const char *runtime_dir;
+  const char *provider;  /* nullable */
+  const char *source_id; /* nullable; null means all-scope */
+  uint32_t dry_run;      /* must be 1 */
+  uint32_t reserved1;
+} kf_embedding_storage_compact_plan_request_v1;
+
 #define KF_EMBEDDING_REPORT_FORMAT_JSON UINT32_C(1)
 
 typedef struct kf_embedding_report_v1 {
@@ -216,6 +231,9 @@ typedef int32_t(KF_EMBEDDING_CALL *kf_embedding_storage_repair_plan_v1_fn)(
     kf_embedding_report_v1 *out_report);
 typedef int32_t(KF_EMBEDDING_CALL *kf_embedding_storage_status_v1_fn)(
     kf_embedding_context *context, const kf_embedding_storage_status_request_v1 *request,
+    kf_embedding_report_v1 *out_report);
+typedef int32_t(KF_EMBEDDING_CALL *kf_embedding_storage_compact_plan_v1_fn)(
+    kf_embedding_context *context, const kf_embedding_storage_compact_plan_request_v1 *request,
     kf_embedding_report_v1 *out_report);
 /*
  * v3 (ADR-0078) generic self-describing primitives. `decode_frame_json` decodes a
@@ -341,6 +359,32 @@ typedef struct kf_embedding_api_v5 {
   kf_embedding_storage_repair_plan_v1_fn storage_repair_plan;
   kf_embedding_storage_status_v1_fn storage_status;
 } kf_embedding_api_v5;
+
+/*
+ * v6 appends one read-only compact-plan pointer after a byte-identical v5
+ * prefix (ADR-0071). The request must carry dry_run=1; no compact, rebuild,
+ * vacuum, delete, or generic command-dispatch control is representable.
+ */
+typedef struct kf_embedding_api_v6 {
+  uint32_t abi_version;
+  uint32_t struct_size;
+  uint64_t capabilities;
+  kf_embedding_context_open_v1_fn context_open;
+  kf_embedding_context_capabilities_v1_fn context_capabilities;
+  kf_embedding_context_close_v1_fn context_close;
+  kf_embedding_reader_open_v1_fn reader_open;
+  kf_embedding_reader_read_batch_v1_fn reader_read_batch;
+  kf_embedding_reader_release_batch_v1_fn reader_release_batch;
+  kf_embedding_reader_close_v1_fn reader_close;
+  kf_embedding_storage_fsck_v1_fn storage_fsck;
+  kf_embedding_report_release_v1_fn report_release;
+  kf_embedding_decode_frame_json_v1_fn decode_frame_json;
+  kf_embedding_frame_checksum_v1_fn frame_checksum;
+  kf_embedding_storage_gc_plan_v1_fn storage_gc_plan;
+  kf_embedding_storage_repair_plan_v1_fn storage_repair_plan;
+  kf_embedding_storage_status_v1_fn storage_status;
+  kf_embedding_storage_compact_plan_v1_fn storage_compact_plan;
+} kf_embedding_api_v6;
 
 /*
  * The only link-visible bootstrap. All versioned operations live in the table.

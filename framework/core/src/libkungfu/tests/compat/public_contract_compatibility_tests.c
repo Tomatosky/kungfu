@@ -2,7 +2,7 @@
 
 /*
  * Frozen old-consumer declarations. This translation unit deliberately does
- * not include current Kungfu headers: it proves that the v1/v2/v3/v4/v5 table
+ * not include current Kungfu headers: it proves that the v1/v2/v3/v4/v5/v6 table
  * prefixes and bootstrap negotiation still work for independently compiled C.
  */
 #include <stdint.h>
@@ -59,6 +59,11 @@ typedef struct kf_embedding_api_v5_old {
   kf_old_slot storage_status;
 } kf_embedding_api_v5_old;
 
+typedef struct kf_embedding_api_v6_old {
+  kf_embedding_api_v5_old v5;
+  kf_old_slot storage_compact_plan;
+} kf_embedding_api_v6_old;
+
 typedef struct kf_native_storage_api_v1_old {
   uint32_t abi_version;
   uint32_t struct_size;
@@ -90,12 +95,14 @@ int main(void) {
   kf_embedding_api_v3_old embedding_v3;
   kf_embedding_api_v4_old embedding_v4;
   kf_embedding_api_v5_old embedding_v5;
+  kf_embedding_api_v6_old embedding_v6;
   kf_native_storage_api_v1_old storage_v1;
   memset(&embedding_v1, 0, sizeof(embedding_v1));
   memset(&embedding_v2, 0, sizeof(embedding_v2));
   memset(&embedding_v3, 0, sizeof(embedding_v3));
   memset(&embedding_v4, 0, sizeof(embedding_v4));
   memset(&embedding_v5, 0, sizeof(embedding_v5));
+  memset(&embedding_v6, 0, sizeof(embedding_v6));
   memset(&storage_v1, 0, sizeof(storage_v1));
 
   if (!require(kungfu_embedding_get_api(1, sizeof(embedding_v1), &embedding_v1) == KF_OLD_OK,
@@ -128,6 +135,13 @@ int main(void) {
                "embedding v5 prefix changed") ||
       !require((embedding_v5.v4.v3.v2.v1.capabilities & UINT64_C(63)) == UINT64_C(63),
                "embedding v5 capability increment regressed") ||
+      !require(kungfu_embedding_get_api(6, sizeof(embedding_v6), &embedding_v6) == KF_OLD_OK,
+               "old embedding v6 consumer rejected") ||
+      !require(embedding_v6.v5.v4.v3.v2.v1.abi_version == 6 &&
+                   embedding_v6.v5.v4.v3.v2.v1.struct_size == sizeof(embedding_v6),
+               "embedding v6 prefix changed") ||
+      !require((embedding_v6.v5.v4.v3.v2.v1.capabilities & UINT64_C(127)) == UINT64_C(127),
+               "embedding v6 capability increment regressed") ||
       !require(kungfu_embedding_get_api(1, sizeof(embedding_v1) - 1, &embedding_v1) == KF_OLD_INVALID_ARGUMENT,
                "embedding undersized caller accepted") ||
       !require(kungfu_embedding_get_api(99, sizeof(embedding_v3), &embedding_v3) == KF_OLD_UNSUPPORTED_VERSION,

@@ -18,8 +18,9 @@
 //! byte-identical v2 prefix, so a non-Python consumer can decode/verify a
 //! `.kungfu` frame without re-implementing FlatBuffers reflection or the
 //! checksum; v4 (ADR-0071) appends plan-only storage maintenance entries; v5
-//! appends the read-only native storage-status authority.
-//! [`Context::open`] negotiates v5 first and falls back through v4/v3/v2/v1,
+//! appends the read-only native storage-status authority; v6 appends the
+//! read-only native compact-plan authority.
+//! [`Context::open`] negotiates v6 first and falls back through v5/v4/v3/v2/v1,
 //! so an older core still yields a working journal-read context.
 //!
 //! # ABI fidelity
@@ -76,6 +77,9 @@ pub const ABI_V4: u32 = 4;
 /// The v5 ABI version (ADR-0071): v4 plus read-only native storage status.
 pub const ABI_V5: u32 = 5;
 
+/// The v6 ABI version (ADR-0071): v5 plus read-only native compact planning.
+pub const ABI_V6: u32 = 6;
+
 /// Maximum frames a single `read_batch` call may return (`KF_EMBEDDING_MAX_BATCH_FRAMES`).
 pub const MAX_BATCH_FRAMES: u32 = 4096;
 
@@ -102,6 +106,9 @@ pub const CAP_STORAGE_MAINTENANCE_PLANS: u64 = 1 << 4;
 
 /// Capability bit: read-only native storage status is reachable without CPython.
 pub const CAP_STORAGE_STATUS: u64 = 1 << 5;
+
+/// Capability bit: read-only native storage compact planning is reachable.
+pub const CAP_STORAGE_COMPACT_PLAN: u64 = 1 << 6;
 
 /// Report blob format tag: UTF-8 JSON (`KF_EMBEDDING_REPORT_FORMAT_JSON`).
 pub const REPORT_FORMAT_JSON: u32 = 1;
@@ -204,6 +211,19 @@ struct StorageStatusRequestV1 {
     source_id: *const c_char,
 }
 
+/// v6: a plan-only storage compaction request.
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct StorageCompactPlanRequestV1 {
+    struct_size: u32,
+    reserved0: u32,
+    runtime_dir: *const c_char,
+    provider: *const c_char,
+    source_id: *const c_char,
+    dry_run: u32,
+    reserved1: u32,
+}
+
 /// v2: an owned diagnostic report blob (mirrors `kf_embedding_report_v1`). The
 /// `data` bytes and their backing `owner` are freed by `report_release`.
 #[repr(C)]
@@ -235,6 +255,8 @@ type StorageRepairPlan =
     unsafe extern "C" fn(*mut c_void, *const StorageFsckRequestV1, *mut ReportV1) -> i32;
 type StorageStatus =
     unsafe extern "C" fn(*mut c_void, *const StorageStatusRequestV1, *mut ReportV1) -> i32;
+type StorageCompactPlan =
+    unsafe extern "C" fn(*mut c_void, *const StorageCompactPlanRequestV1, *mut ReportV1) -> i32;
 /// v3: decode a `.bfbs`-schema'd frame into structured JSON (owned report blob,
 /// freed with `report_release`). `object_name` is a nullable C string selecting the
 /// table to decode (null = the `.bfbs` root_type).
@@ -381,6 +403,84 @@ struct ApiV5 {
     storage_gc_plan: StorageGcPlan,
     storage_repair_plan: StorageRepairPlan,
     storage_status: StorageStatus,
+}
+
+/// The v6 table: a byte-identical v5 prefix followed by read-only compact planning.
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct ApiV6 {
+    abi_version: u32,
+    struct_size: u32,
+    capabilities: u64,
+    context_open: ContextOpen,
+    context_capabilities: ContextCapabilities,
+    context_close: ContextClose,
+    reader_open: ReaderOpen,
+    reader_read_batch: ReaderReadBatch,
+    reader_release_batch: ReaderReleaseBatch,
+    reader_close: ReaderClose,
+    storage_fsck: StorageFsck,
+    report_release: ReportRelease,
+    decode_frame_json: DecodeFrameJson,
+    frame_checksum: FrameChecksum,
+    storage_gc_plan: StorageGcPlan,
+    storage_repair_plan: StorageRepairPlan,
+    storage_status: StorageStatus,
+    storage_compact_plan: StorageCompactPlan,
+}
+
+impl ApiV6 {
+    fn as_v1(&self) -> ApiV1 {
+        ApiV1 {
+            abi_version: self.abi_version,
+            struct_size: self.struct_size,
+            capabilities: self.capabilities,
+            context_open: self.context_open,
+            context_capabilities: self.context_capabilities,
+            context_close: self.context_close,
+            reader_open: self.reader_open,
+            reader_read_batch: self.reader_read_batch,
+            reader_release_batch: self.reader_release_batch,
+            reader_close: self.reader_close,
+        }
+    }
+
+    fn diagnostics(&self) -> Diagnostics {
+        Diagnostics {
+            storage_fsck: self.storage_fsck,
+            report_release: self.report_release,
+        }
+    }
+
+    fn generic_codec(&self) -> GenericCodec {
+        GenericCodec {
+            decode_frame_json: self.decode_frame_json,
+            frame_checksum: self.frame_checksum,
+            report_release: self.report_release,
+        }
+    }
+
+    fn maintenance_plans(&self) -> MaintenancePlans {
+        MaintenancePlans {
+            storage_gc_plan: self.storage_gc_plan,
+            storage_repair_plan: self.storage_repair_plan,
+            report_release: self.report_release,
+        }
+    }
+
+    fn storage_status(&self) -> StorageStatusSurface {
+        StorageStatusSurface {
+            storage_status: self.storage_status,
+            report_release: self.report_release,
+        }
+    }
+
+    fn compact_plan(&self) -> CompactPlanSurface {
+        CompactPlanSurface {
+            storage_compact_plan: self.storage_compact_plan,
+            report_release: self.report_release,
+        }
+    }
 }
 
 impl ApiV5 {
@@ -679,46 +779,81 @@ fn api_v5() -> Result<ApiV5, EmbeddingError> {
     Ok(api)
 }
 
+fn api_v6() -> Result<ApiV6, EmbeddingError> {
+    let mut api = std::mem::MaybeUninit::<ApiV6>::uninit();
+    // SAFETY: the negotiator fills `out_api` only on OK; a pre-v6 core rejects
+    // this request and negotiation falls back without reading the buffer.
+    let result = unsafe {
+        kungfu_embedding_get_api(
+            ABI_V6,
+            std::mem::size_of::<ApiV6>() as u32,
+            api.as_mut_ptr().cast(),
+        )
+    };
+    status(result)?;
+    // SAFETY: OK from the negotiator means the table is initialized.
+    let api = unsafe { api.assume_init() };
+    if api.abi_version != ABI_V6 || api.struct_size < std::mem::size_of::<ApiV6>() as u32 {
+        return Err(EmbeddingError::IncompatibleTable);
+    }
+    Ok(api)
+}
+
 type Negotiated = (
     ApiV1,
     Option<Diagnostics>,
     Option<GenericCodec>,
     Option<MaintenancePlans>,
     Option<StorageStatusSurface>,
+    Option<CompactPlanSurface>,
 );
 
 /// Negotiate the richest table the core offers, falling back one version only
 /// on `UnsupportedVersion`; all other contract errors surface immediately.
 fn negotiate() -> Result<Negotiated, EmbeddingError> {
-    match api_v5() {
-        Ok(v5) => Ok((
-            v5.as_v1(),
-            Some(v5.diagnostics()),
-            Some(v5.generic_codec()),
-            Some(v5.maintenance_plans()),
-            Some(v5.storage_status()),
+    match api_v6() {
+        Ok(v6) => Ok((
+            v6.as_v1(),
+            Some(v6.diagnostics()),
+            Some(v6.generic_codec()),
+            Some(v6.maintenance_plans()),
+            Some(v6.storage_status()),
+            Some(v6.compact_plan()),
         )),
-        Err(EmbeddingError::UnsupportedVersion) => match api_v4() {
-            Ok(v4) => Ok((
-                v4.as_v1(),
-                Some(v4.diagnostics()),
-                Some(v4.generic_codec()),
-                Some(v4.maintenance_plans()),
+        Err(EmbeddingError::UnsupportedVersion) => match api_v5() {
+            Ok(v5) => Ok((
+                v5.as_v1(),
+                Some(v5.diagnostics()),
+                Some(v5.generic_codec()),
+                Some(v5.maintenance_plans()),
+                Some(v5.storage_status()),
                 None,
             )),
-            Err(EmbeddingError::UnsupportedVersion) => match api_v3() {
-                Ok(v3) => Ok((
-                    v3.as_v1(),
-                    Some(v3.diagnostics()),
-                    Some(v3.generic_codec()),
+            Err(EmbeddingError::UnsupportedVersion) => match api_v4() {
+                Ok(v4) => Ok((
+                    v4.as_v1(),
+                    Some(v4.diagnostics()),
+                    Some(v4.generic_codec()),
+                    Some(v4.maintenance_plans()),
                     None,
                     None,
                 )),
-                Err(EmbeddingError::UnsupportedVersion) => match api_v2() {
-                    Ok(v2) => Ok((v2.as_v1(), Some(v2.diagnostics()), None, None, None)),
-                    Err(EmbeddingError::UnsupportedVersion) => {
-                        Ok((api_v1()?, None, None, None, None))
-                    }
+                Err(EmbeddingError::UnsupportedVersion) => match api_v3() {
+                    Ok(v3) => Ok((
+                        v3.as_v1(),
+                        Some(v3.diagnostics()),
+                        Some(v3.generic_codec()),
+                        None,
+                        None,
+                        None,
+                    )),
+                    Err(EmbeddingError::UnsupportedVersion) => match api_v2() {
+                        Ok(v2) => Ok((v2.as_v1(), Some(v2.diagnostics()), None, None, None, None)),
+                        Err(EmbeddingError::UnsupportedVersion) => {
+                            Ok((api_v1()?, None, None, None, None, None))
+                        }
+                        Err(other) => Err(other),
+                    },
                     Err(other) => Err(other),
                 },
                 Err(other) => Err(other),
@@ -757,6 +892,13 @@ struct MaintenancePlans {
 #[derive(Clone, Copy)]
 struct StorageStatusSurface {
     storage_status: StorageStatus,
+    report_release: ReportRelease,
+}
+
+/// The v6 read-only compact-plan pointer.
+#[derive(Clone, Copy)]
+struct CompactPlanSurface {
+    storage_compact_plan: StorageCompactPlan,
     report_release: ReportRelease,
 }
 
@@ -854,6 +996,11 @@ impl Capabilities {
     /// Whether read-only native storage status is reachable.
     pub fn storage_status(self) -> bool {
         self.0 & CAP_STORAGE_STATUS != 0
+    }
+
+    /// Whether read-only native compact planning is reachable.
+    pub fn storage_compact_plan(self) -> bool {
+        self.0 & CAP_STORAGE_COMPACT_PLAN != 0
     }
 }
 
@@ -1025,6 +1172,29 @@ impl<'a> StorageStatusRequest<'a> {
     }
 }
 
+/// A plan-only native compaction request. The C ABI rejects any request that
+/// is not explicitly dry-run; this wrapper exposes no mutating mode.
+#[derive(Clone, Copy, Debug)]
+pub struct StorageCompactPlanRequest<'a> {
+    /// Runtime root to inspect.
+    pub runtime_dir: &'a str,
+    /// Storage provider name (`None` for the runtime default).
+    pub provider: Option<&'a str>,
+    /// Optional source scope; `None` means the whole runtime.
+    pub source_id: Option<&'a str>,
+}
+
+impl<'a> StorageCompactPlanRequest<'a> {
+    /// An all-scope compaction plan using runtime provider defaults.
+    pub fn new(runtime_dir: &'a str) -> Self {
+        Self {
+            runtime_dir,
+            provider: None,
+            source_id: None,
+        }
+    }
+}
+
 fn empty_report() -> ReportV1 {
     ReportV1 {
         struct_size: std::mem::size_of::<ReportV1>() as u32,
@@ -1047,14 +1217,16 @@ pub struct Context {
     generic_codec: Option<GenericCodec>,
     maintenance_plans: Option<MaintenancePlans>,
     storage_status: Option<StorageStatusSurface>,
+    compact_plan: Option<CompactPlanSurface>,
     raw: *mut c_void,
 }
 
 impl Context {
-    /// Negotiate the richest table the core offers (v5 through v1) and open a
+    /// Negotiate the richest table the core offers (v6 through v1) and open a
     /// context for `config`.
     pub fn open(config: &ContextConfig) -> Result<Self, EmbeddingError> {
-        let (api, diagnostics, generic_codec, maintenance_plans, storage_status) = negotiate()?;
+        let (api, diagnostics, generic_codec, maintenance_plans, storage_status, compact_plan) =
+            negotiate()?;
         let root = cstr(config.root, "root")?;
         let namespace = cstr(config.host_namespace, "host_namespace")?;
         let name = cstr(config.host_name, "host_name")?;
@@ -1080,6 +1252,7 @@ impl Context {
             generic_codec,
             maintenance_plans,
             storage_status,
+            compact_plan,
             raw,
         })
     }
@@ -1109,6 +1282,36 @@ impl Context {
         let mut raw_report = empty_report();
         // SAFETY: CStrings outlive the call and the context/report are live.
         status(unsafe { (surface.storage_status)(self.raw, &raw_request, &mut raw_report) })?;
+        Ok(FsckReport {
+            release: surface.report_release,
+            raw: raw_report,
+        })
+    }
+
+    /// Produce the existing C++ storage authority's non-mutating compaction
+    /// plan through the v6 membrane. No compact/rebuild/delete mode is exposed.
+    pub fn storage_compact_plan(
+        &self,
+        request: &StorageCompactPlanRequest,
+    ) -> Result<FsckReport, EmbeddingError> {
+        let surface = self
+            .compact_plan
+            .ok_or(EmbeddingError::UnsupportedVersion)?;
+        let runtime_dir = cstr(request.runtime_dir, "runtime_dir")?;
+        let provider = opt_cstr(request.provider, "provider")?;
+        let source_id = opt_cstr(request.source_id, "source_id")?;
+        let raw_request = StorageCompactPlanRequestV1 {
+            struct_size: std::mem::size_of::<StorageCompactPlanRequestV1>() as u32,
+            reserved0: 0,
+            runtime_dir: runtime_dir.as_ptr(),
+            provider: opt_ptr(&provider),
+            source_id: opt_ptr(&source_id),
+            dry_run: 1,
+            reserved1: 0,
+        };
+        let mut raw_report = empty_report();
+        // SAFETY: CStrings outlive the call and the context/report are live.
+        status(unsafe { (surface.storage_compact_plan)(self.raw, &raw_request, &mut raw_report) })?;
         Ok(FsckReport {
             release: surface.report_release,
             raw: raw_report,
@@ -1618,6 +1821,8 @@ mod layout_guards {
     const _: () = assert!(align_of::<StorageGcPlanRequestV1>() == 8);
     const _: () = assert!(size_of::<StorageStatusRequestV1>() == 40);
     const _: () = assert!(align_of::<StorageStatusRequestV1>() == 8);
+    const _: () = assert!(size_of::<StorageCompactPlanRequestV1>() == 40);
+    const _: () = assert!(align_of::<StorageCompactPlanRequestV1>() == 8);
     const _: () = assert!(size_of::<ReportV1>() == 40);
     const _: () = assert!(align_of::<ReportV1>() == 8);
     const _: () = assert!(size_of::<ApiV2>() == 88);
@@ -1631,6 +1836,9 @@ mod layout_guards {
     // v5 = v4 (120) + storage-status (8) = 128.
     const _: () = assert!(size_of::<ApiV5>() == 128);
     const _: () = assert!(align_of::<ApiV5>() == 8);
+    // v6 = v5 (128) + compact-plan (8) = 136.
+    const _: () = assert!(size_of::<ApiV6>() == 136);
+    const _: () = assert!(align_of::<ApiV6>() == 8);
 }
 
 #[cfg(test)]
@@ -1684,6 +1892,9 @@ mod tests {
         assert!(!caps.storage_status());
         assert!(Capabilities(CAP_STORAGE_STATUS).storage_status());
         assert_eq!(CAP_STORAGE_STATUS, 1 << 5);
+        assert!(!caps.storage_compact_plan());
+        assert!(Capabilities(CAP_STORAGE_COMPACT_PLAN).storage_compact_plan());
+        assert_eq!(CAP_STORAGE_COMPACT_PLAN, 1 << 6);
     }
 
     #[test]
@@ -1718,6 +1929,14 @@ mod tests {
         assert_eq!(req.runtime_dir, "/rt");
         assert!(req.provider.is_none());
         assert!(req.provider_config_source.is_none());
+        assert!(req.source_id.is_none());
+    }
+
+    #[test]
+    fn compact_plan_request_defaults_to_all_scope() {
+        let req = StorageCompactPlanRequest::new("/rt");
+        assert_eq!(req.runtime_dir, "/rt");
+        assert!(req.provider.is_none());
         assert!(req.source_id.is_none());
     }
 
@@ -1758,5 +1977,6 @@ mod tests {
         assert_eq!(ABI_V3, 3);
         assert_eq!(ABI_V4, 4);
         assert_eq!(ABI_V5, 5);
+        assert_eq!(ABI_V6, 6);
     }
 }
