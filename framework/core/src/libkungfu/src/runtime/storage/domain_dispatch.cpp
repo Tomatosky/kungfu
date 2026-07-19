@@ -2,6 +2,7 @@
 
 #include "service_internal.h"
 
+#include <algorithm>
 #include <stdexcept>
 #include <unordered_set>
 #include <utility>
@@ -600,9 +601,16 @@ public:
       throw std::invalid_argument("fact_library_bundle_invalid");
     }
     const auto dry_run = bool_or(options.operation_options, "dry_run", true);
+    auto episodes = array_or_empty(bundle, "episodes");
+    std::sort(episodes.begin(), episodes.end(), [](const auto &left, const auto &right) {
+      const auto left_manifest = object_or_empty(left, "manifest");
+      const auto right_manifest = object_or_empty(right, "manifest");
+      return std::pair{int64_or(left_manifest, "begin_time"), uint64_or(left_manifest, "episode_id")} <
+             std::pair{int64_or(right_manifest, "begin_time"), uint64_or(right_manifest, "episode_id")};
+    });
     nlohmann::json preflight_receipts = nlohmann::json::array();
     bool ok = true;
-    for (const auto &episode : array_or_empty(bundle, "episodes")) {
+    for (const auto &episode : episodes) {
       auto import_options = options;
       import_options.scope = "episode";
       import_options.bundle = episode;
@@ -620,7 +628,7 @@ public:
               {"receipts", preflight_receipts}};
     }
     nlohmann::json receipts = nlohmann::json::array();
-    for (const auto &episode : array_or_empty(bundle, "episodes")) {
+    for (const auto &episode : episodes) {
       auto import_options = options;
       import_options.scope = "episode";
       import_options.bundle = episode;
@@ -676,36 +684,6 @@ public:
                                 text_or(options.operation_options, "purpose"));
   }
 
-  [[nodiscard]] nlohmann::json episode_begin(const storage_service_options &options) const {
-    return episode_record_body_json(
-        episode_store(options).begin(parse_episode_begin_options(options.operation_options)));
-  }
-
-  [[nodiscard]] nlohmann::json episode_heartbeat(const storage_service_options &options) const {
-    return episode_record_body_json(
-        episode_store(options).heartbeat(parse_episode_heartbeat_options(options.operation_options)));
-  }
-
-  [[nodiscard]] nlohmann::json episode_end(const storage_service_options &options) const {
-    return render_episode_close_write_result(episode_store(options).end(
-        parse_episode_close_options(options.operation_options, yy_enums::EpisodeStatus::Ended)));
-  }
-
-  [[nodiscard]] nlohmann::json episode_abort(const storage_service_options &options) const {
-    return render_episode_close_write_result(episode_store(options).abort(
-        parse_episode_close_options(options.operation_options, yy_enums::EpisodeStatus::Aborted)));
-  }
-
-  [[nodiscard]] nlohmann::json episode_attach_frame(const storage_service_options &options) const {
-    return episode_record_body_json(
-        episode_store(options).attach_frame(parse_episode_frame_attach_options(options.operation_options)));
-  }
-
-  [[nodiscard]] nlohmann::json episode_attach_ref(const storage_service_options &options) const {
-    return episode_record_body_json(
-        episode_store(options).attach_ref(parse_episode_ref_attach_options(options.operation_options)));
-  }
-
   [[nodiscard]] nlohmann::json episode_list(const storage_service_options &options) const {
     return episode_store(options).list(uint64_or(options.operation_options, "location_uid"), options.limit);
   }
@@ -718,11 +696,6 @@ public:
     if (fsck.qualification.has_value())
       inspected["qualification"] = episode_qualification_json(*fsck.qualification);
     return inspected;
-  }
-
-  [[nodiscard]] nlohmann::json episode_recover(const storage_service_options &options) const {
-    return render_episode_recover_result(
-        episode_store(options).recover(parse_episode_recover_options(options.operation_options)));
   }
 
   [[nodiscard]] nlohmann::json episode_projection_rebuild(const storage_service_options &options) const {
@@ -885,23 +858,19 @@ nlohmann::json dispatch_json_edge_operation(storage_operation operation, const s
   case storage_operation::Layout:
     return storage_json_edge_service_instance().layout(parsed_options);
   case storage_operation::EpisodeBegin:
-    return storage_json_edge_service_instance().episode_begin(parsed_options);
   case storage_operation::EpisodeHeartbeat:
-    return storage_json_edge_service_instance().episode_heartbeat(parsed_options);
   case storage_operation::EpisodeEnd:
-    return storage_json_edge_service_instance().episode_end(parsed_options);
   case storage_operation::EpisodeAbort:
-    return storage_json_edge_service_instance().episode_abort(parsed_options);
   case storage_operation::EpisodeAttachFrame:
-    return storage_json_edge_service_instance().episode_attach_frame(parsed_options);
   case storage_operation::EpisodeAttachRef:
-    return storage_json_edge_service_instance().episode_attach_ref(parsed_options);
+  case storage_operation::EpisodeRecover:
+  case storage_operation::EpisodeRecoveryPlan:
+  case storage_operation::EpisodeRecoveryExecute:
+    return dispatch_episode_control_operation(operation, parsed_options);
   case storage_operation::EpisodeList:
     return storage_json_edge_service_instance().episode_list(parsed_options);
   case storage_operation::EpisodeInspect:
     return storage_json_edge_service_instance().episode_inspect(parsed_options);
-  case storage_operation::EpisodeRecover:
-    return storage_json_edge_service_instance().episode_recover(parsed_options);
   case storage_operation::EpisodeProjectionRebuild:
     return storage_json_edge_service_instance().episode_projection_rebuild(parsed_options);
   case storage_operation::SourceRegister:

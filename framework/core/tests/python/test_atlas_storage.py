@@ -2121,7 +2121,7 @@ def test_storage_core_binding_owns_sync_root_and_payload_checks(tmp_path):
     )
 
 
-def test_typed_storage_status_binding_bypasses_json_transport(tmp_path):
+def test_typed_storage_read_bindings_bypass_json_transport(tmp_path):
     runtime = kungfu.__binding__.runtime
     runtime_dir = tmp_path / "runtime"
     storage_service.episode_begin(
@@ -2131,6 +2131,7 @@ def test_typed_storage_status_binding_bypasses_json_transport(tmp_path):
         title="typed-query",
         actor="binding-test",
     )
+    storage_service.episode_end(runtime_dir, episode_id=701, end_time=1000)
     original_loads = json.loads
 
     def reject_json_transport(*_args, **_kwargs):
@@ -2150,30 +2151,8 @@ def test_typed_storage_status_binding_bypasses_json_transport(tmp_path):
         compact = storage_service.compact_plan(runtime_dir)
         fsck = storage_service.fsck(runtime_dir, episode_id=701)
         repair = storage_service.repair_plan(runtime_dir, episode_id=701)
-        episode = storage_service.episode_begin(
-            runtime_dir,
-            episode_id=702,
-            begin_time=1000,
-            title="typed-writer",
-        )
-        heartbeat = storage_service.episode_heartbeat(
-            runtime_dir, episode_id=702, update_time=1100
-        )
-        attached_ref = storage_service.episode_attach_ref(
-            runtime_dir, episode_id=702, ref_kind="input_frame", ref_uid=9
-        )
-        attached_frame = storage_service.episode_attach_frame(
-            runtime_dir, episode_id=702, frame_uid=10, gen_time=1200
-        )
-        closed = storage_service.episode_end(
-            runtime_dir, episode_id=702, end_time=1300, frame_count=1
-        )
         listed = storage_service.episode_list(runtime_dir)
-        inspected = storage_service.episode_inspect(runtime_dir, episode_id=702)
-        storage_service.episode_begin(runtime_dir, episode_id=703, begin_time=1400)
-        recovered = storage_service.episode_recover(
-            runtime_dir, episode_id=703, end_time=1500
-        )
+        inspected = storage_service.episode_inspect(runtime_dir, episode_id=701)
         projection = storage_service.episode_projection_rebuild(runtime_dir)
         registered_source = storage_service.source_register(
             runtime_dir,
@@ -2230,14 +2209,8 @@ def test_typed_storage_status_binding_bypasses_json_transport(tmp_path):
     assert repair["scope"] == 2
     assert repair["episode_id"] == 701
     assert repair["dry_run"] is True
-    assert episode["episode_id"] == 702
-    assert heartbeat["update_time"] == 1100
-    assert attached_ref["ref_kind"] == 1
-    assert attached_frame["frame_uid"] == 10
-    assert closed["close"]["status"] == 2
-    assert listed["episodes"][0]["episode_id"] == 702
+    assert listed["episodes"][0]["episode_id"] == 701
     assert inspected["content_root"]["status"] == 4
-    assert recovered["recovered"][0]["close"]["status"] == 3
     assert projection["authority"] == "yijinjing-journal"
     assert registered_source["kind"] == 4
     assert updated_source["head"] == "head-1"
@@ -2278,11 +2251,18 @@ def test_runtime_storage_service_surface_is_bound_from_libkungfu(tmp_path):
         "gc_plan",
         "compact_plan",
         "verify_sync",
+        "episode_admission",
+        "backend_status",
+        "backend_switch",
+        "backend_rollback",
         "query",
         "query_plan",
         "fact_query",
         "fact_changelog",
         "saved_query_catalog",
+        "profile_lifecycle",
+        "kfx_runtime",
+        "fact_kernel",
         "fact_contract",
         "fact_declare_world",
         "fact_declare_surface",
@@ -2310,6 +2290,8 @@ def test_runtime_storage_service_surface_is_bound_from_libkungfu(tmp_path):
         "episode_attach_frame",
         "episode_attach_ref",
         "episode_recover",
+        "episode_recovery_plan",
+        "episode_recovery_execute",
         "episode_list",
         "episode_inspect",
         "episode_projection_rebuild",
@@ -2593,32 +2575,24 @@ def test_python_storage_operations_enter_runtime_service_surface(tmp_path, monke
     ]
 
 
-def test_python_episode_writer_and_recovery_use_typed_bindings(tmp_path, monkeypatch):
+def test_python_episode_writes_use_native_retry_edge(tmp_path, monkeypatch):
     runtime = kungfu.__binding__.runtime
     runtime_dir = tmp_path / "runtime"
-    typed_names = [
-        "storage_episode_begin_typed",
-        "storage_episode_heartbeat_typed",
-        "storage_episode_attach_frame_typed",
-        "storage_episode_attach_ref_typed",
-        "storage_episode_close_typed",
-        "storage_episode_list_typed",
-        "storage_episode_inspect_typed",
-        "storage_episode_recover_typed",
-        "storage_episode_projection_rebuild_typed",
-    ]
-    originals = {name: getattr(runtime, name) for name in typed_names}
+    original_edge = runtime.run_storage_service_operation
     calls = []
 
-    for name, original in originals.items():
+    def edge_spy(operation, *args, **kwargs):
+        calls.append(operation)
+        return original_edge(operation, *args, **kwargs)
 
-        def spy(*args, _name=name, _original=original, **kwargs):
-            calls.append((_name, args, kwargs))
-            return _original(*args, **kwargs)
+    monkeypatch.setattr(runtime, "run_storage_service_operation", edge_spy)
 
-        monkeypatch.setattr(runtime, name, spy)
-
-    storage_service.episode_begin(runtime_dir, episode_id=801, begin_time=1000)
+    assert (
+        storage_service.episode_begin(runtime_dir, episode_id=801, begin_time=1000)[
+            "write_retry"
+        ]["attempts"]
+        == 1
+    )
     storage_service.episode_heartbeat(runtime_dir, episode_id=801, update_time=1100)
     storage_service.episode_attach_frame(
         runtime_dir, episode_id=801, frame_uid=1, gen_time=1200
@@ -2627,13 +2601,18 @@ def test_python_episode_writer_and_recovery_use_typed_bindings(tmp_path, monkeyp
         runtime_dir, episode_id=801, ref_kind="input_frame", ref_uid=2
     )
     storage_service.episode_end(runtime_dir, episode_id=801, end_time=1300)
-    storage_service.episode_list(runtime_dir)
-    storage_service.episode_inspect(runtime_dir, episode_id=801)
     storage_service.episode_begin(runtime_dir, episode_id=802, begin_time=1400)
     storage_service.episode_recover(runtime_dir, episode_id=802, end_time=1500)
-    storage_service.episode_projection_rebuild(runtime_dir)
 
-    assert {name for name, _, _ in calls} == set(typed_names)
+    assert calls == [
+        "episode_begin",
+        "episode_heartbeat",
+        "episode_attach_frame",
+        "episode_attach_ref",
+        "episode_end",
+        "episode_begin",
+        "episode_recover",
+    ]
 
 
 def test_storage_query_edge_renders_typed_source_manifest_and_entry_rows(tmp_path):
@@ -3931,6 +3910,7 @@ def test_sql_frontend_and_sqlite_projection_conform_at_head_and_exact_cut(tmp_pa
     assert capabilities["execution_engines"] == [
         "episode-authority-scan/v1",
         "episode-sqlite-projection/v1",
+        "fact-authority-scan/v1",
     ]
 
 
@@ -4588,9 +4568,7 @@ def test_storage_maintenance_rebuild_gc_compact_and_sync_check(tmp_path):
     with sqlite3.connect(sqlite_path) as db:
         tables = {
             row[0]
-            for row in db.execute(
-                "select name from sqlite_coordinator where type = 'table'"
-            )
+            for row in db.execute("select name from sqlite_master where type = 'table'")
         }
         assert {
             "ImportManifestAccepted",
@@ -5321,7 +5299,7 @@ def test_source_registry_projection_fsck_does_not_create_missing_schema(tmp_path
     with sqlite3.connect(projection_db) as conn:
         assert (
             conn.execute(
-                "SELECT name FROM sqlite_coordinator WHERE type = 'table'"
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
             ).fetchall()
             == []
         )

@@ -48,6 +48,10 @@ typedef enum kf_native_storage_status {
 #define KF_NATIVE_STORAGE_CAP_DOMAIN_FACT_ADMISSION (UINT64_C(1) << 4)
 #define KF_NATIVE_STORAGE_CAP_TRUST_ASSESSMENT (UINT64_C(1) << 5)
 #define KF_NATIVE_STORAGE_CAP_FACT_CUT_KERNEL (UINT64_C(1) << 6)
+#define KF_NATIVE_STORAGE_CAP_EPISODE_RECOVERY (UINT64_C(1) << 7)
+#define KF_NATIVE_STORAGE_CAP_IMPORT_AND_REBUILD (UINT64_C(1) << 8)
+#define KF_NATIVE_STORAGE_CAP_BACKEND_LIFECYCLE (UINT64_C(1) << 9)
+#define KF_NATIVE_STORAGE_CAP_FACT_LIBRARY (UINT64_C(1) << 10)
 
 typedef struct kf_native_storage_context_config_v1 {
   uint32_t struct_size;
@@ -71,13 +75,15 @@ typedef struct kf_native_storage_result_v1 {
 } kf_native_storage_result_v1;
 
 /*
- * v1 execute operations: episode_begin, episode_end, fact_query, fsck,
- * export_bundle, and the fact_contract / fact_declare_world /
- * fact_declare_surface / fact_observe / fact_state family, plus fact_kernel.
- * Request fields and
+ * v1 execute operations cover the bounded language-host-free storage closure:
+ * Episode lifecycle, inspection, recovery and projection rebuild; Fact query,
+ * admission, Cut-kernel and Fact Library operations; fsck, export/import and
+ * index rebuild; and backend status/switch/rollback. Request fields and
  * response schemas are the corresponding kungfu.runtime.storage-service/v1
- * JSON contracts. Every other operation is explicitly unsupported by this ABI
- * version.
+ * named JSON compatibility contracts. This table remains a compatibility ABI;
+ * it does not make JSON canonical Root currency or replace the responsibility-
+ * scoped successor ABI described by ADR-0120. Unlisted operations are
+ * explicitly unsupported by this ABI version.
  */
 
 typedef int32_t(KF_NATIVE_STORAGE_CALL *kf_native_storage_context_open_v1_fn)(

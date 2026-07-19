@@ -17,7 +17,7 @@ def _problem_text(report) -> str:
     )
 
 
-def run_command_preflight(ctx, profile_id: str) -> dict:
+def run_command_preflight(ctx, profile_id: str, *, render_warning: bool = True) -> dict:
     """Run one fresh profile and render only non-ready outcomes."""
 
     report = diagnostics.collect_preflight(
@@ -31,10 +31,11 @@ def run_command_preflight(ctx, profile_id: str) -> dict:
         return report
     detail = _problem_text(report)
     if report["decision"] == "warn":
-        click.echo(
-            f"Warning: {profile_id} preflight is {report['status']}.\n{detail}",
-            err=True,
-        )
+        if render_warning:
+            click.echo(
+                f"Warning: {profile_id} preflight is {report['status']}.\n{detail}",
+                err=True,
+            )
         return report
     error = click.ClickException(
         f"{profile_id} preflight blocked this command.\n\n{detail}"
@@ -49,7 +50,11 @@ def command_preflight(profile_id: str):
     def decorate(function):
         @wraps(function)
         def wrapped(ctx, *args, **kwargs):
-            run_command_preflight(ctx, profile_id)
+            run_command_preflight(
+                ctx,
+                profile_id,
+                render_warning=not bool(kwargs.get("as_json", False)),
+            )
             return function(ctx, *args, **kwargs)
 
         return wrapped

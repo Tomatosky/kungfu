@@ -550,7 +550,6 @@ def test_episode_write_fence_still_rejects_after_preflight(
     tmp_path, monkeypatch, capsys
 ):
     from kungfu.cli.commands import storage as storage_cli
-    from kungfu.storage import episode_control
 
     order = []
     monkeypatch.setattr(
@@ -559,16 +558,11 @@ def test_episode_write_fence_still_rejects_after_preflight(
         lambda *_: order.append("preflight"),
     )
 
-    def reject_at_write(*_args, **_kwargs):
+    def reject_at_write():
         order.append("authoritative-fence")
-        raise episode_control.EpisodeWriterBusyError(
-            operation="episode_begin",
-            attempts=2,
-            busy_retries=2,
-            elapsed_ms=1000,
+        raise RuntimeError(
+            "episode_writer_busy_timeout: episode_begin exhausted manifest_writer_busy"
         )
-
-    monkeypatch.setattr(episode_control, "retry_episode_write", reject_at_write)
 
     class _Context:
         def exit(self, code):
@@ -576,7 +570,7 @@ def test_episode_write_fence_still_rejects_after_preflight(
 
     with pytest.raises(click.exceptions.Exit) as raised:
         storage_cli._run_episode_write(
-            _Context(), False, "episode_begin", lambda: {"episode_id": 41}
+            _Context(), False, "episode_begin", reject_at_write
         )
 
     assert raised.value.exit_code == 1

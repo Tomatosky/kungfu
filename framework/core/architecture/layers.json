@@ -161,9 +161,16 @@
     {
       "file": "src/libkungfu/src/runtime/storage/service.cpp",
       "responsibility": "Public storage facade and shared application-service composition",
-      "max_lines": 3000,
+      "max_lines": 3020,
       "required_text": ["class file_storage_service : public storage_service"],
       "forbidden_text": ["#include <rocksdb/", "rocksdb::", "class file_storage_json_edge_service", "storage_status_result status_typed_impl", "storage_export_bundle_result export_bundle_typed_impl", "storage_repair_subject repair_subject", "storage_query_result query_journal_projection", "std::string base64_encode"]
+    },
+    {
+      "file": "src/libkungfu/src/runtime/storage/episode_control.cpp",
+      "responsibility": "Native Episode write retry and stale-writer recovery orchestration",
+      "max_lines": 420,
+      "required_text": ["retry_episode_manifest_write", "episode_recovery_plan_impl", "episode_recovery_execute_impl"],
+      "forbidden_text": ["#include <rocksdb/", "class file_storage_service", "dispatch_json_edge_operation"]
     },
     {
       "file": "src/libkungfu/src/runtime/storage/episode_repair.cpp",

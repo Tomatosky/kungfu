@@ -16,7 +16,6 @@ from kungfu.storage.episode_control import (
     DEFAULT_WRITE_RETRY_POLICY,
     SIGNAL_ABORT_RETRY_POLICY,
     EpisodeWriteRetryPolicy,
-    retry_episode_write,
 )
 
 lf = kungfu.__binding__.yijinjing
@@ -78,13 +77,14 @@ class RuntimeEpisodeLifecycle:
         if self.begin:
             begun = self._write(
                 "episode_begin",
-                lambda: service.episode_begin(
+                lambda write_retry: service.episode_begin(
                     self.runtime_dir,
                     episode_id=self.episode_id,
                     title=self.title,
                     actor=self.actor,
                     source=self.source,
                     location_uid=self.location_uid,
+                    write_retry=write_retry,
                 ),
             )
             self.episode_id = int(begun["episode_id"])
@@ -106,9 +106,13 @@ class RuntimeEpisodeLifecycle:
         *,
         policy: EpisodeWriteRetryPolicy | None = None,
     ):
-        result, retry = retry_episode_write(
-            operation, action, policy=policy or self.retry_policy
-        )
+        retry_policy = policy or self.retry_policy
+        result = action(retry_policy.to_native_options())
+        retry = dict(result.get("write_retry") or {})
+        if not retry:
+            raise RuntimeError(
+                f"{operation}: native Episode write did not return a retry receipt"
+            )
         self.write_retries.append(retry)
         return result
 
@@ -141,7 +145,7 @@ class RuntimeEpisodeLifecycle:
         self.frame_count += 1
         self._write(
             "episode_attach_frame",
-            lambda: service.episode_attach_frame(
+            lambda write_retry: service.episode_attach_frame(
                 self.runtime_dir,
                 episode_id=self.episode_id,
                 location_uid=self.location_uid,
@@ -157,6 +161,7 @@ class RuntimeEpisodeLifecycle:
                 integrity_version=int(receipt.integrity_version),
                 payload_checksum=int(receipt.payload_checksum),
                 frame_checksum=int(receipt.frame_checksum),
+                write_retry=write_retry,
             ),
         )
         return receipt
@@ -196,13 +201,14 @@ class RuntimeEpisodeLifecycle:
             )
         self._write(
             "episode_attach_ref",
-            lambda: service.episode_attach_ref(
+            lambda write_retry: service.episode_attach_ref(
                 self.runtime_dir,
                 episode_id=self.episode_id,
                 location_uid=self.location_uid,
                 ref_kind="payload",
                 ref_id=ref_id or _relative_ref(self.runtime_dir, path),
                 ref_hash=f"sha256:{digest}",
+                write_retry=write_retry,
             ),
         )
 
@@ -218,13 +224,14 @@ class RuntimeEpisodeLifecycle:
         close = service.episode_end if ok else service.episode_abort
         self._write(
             "episode_end" if ok else "episode_abort",
-            lambda: close(
+            lambda write_retry: close(
                 self.runtime_dir,
                 episode_id=self.episode_id,
                 location_uid=self.location_uid,
                 last_frame_uid=int(self.recorder.last_frame_uid),
                 frame_count=self.frame_count,
                 reason=reason,
+                write_retry=write_retry,
             ),
             policy=retry_policy,
         )

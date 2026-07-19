@@ -16,13 +16,50 @@ namespace {
 constexpr uint64_t CAPABILITIES = KF_NATIVE_STORAGE_CAP_EPISODE_LIFECYCLE |
                                   KF_NATIVE_STORAGE_CAP_HEAD_AND_HISTORICAL_QUERY | KF_NATIVE_STORAGE_CAP_FSCK |
                                   KF_NATIVE_STORAGE_CAP_EXPORT | KF_NATIVE_STORAGE_CAP_DOMAIN_FACT_ADMISSION |
-                                  KF_NATIVE_STORAGE_CAP_TRUST_ASSESSMENT | KF_NATIVE_STORAGE_CAP_FACT_CUT_KERNEL;
-constexpr std::array<std::string_view, 18> SUPPORTED_OPERATIONS = {
-    "episode_begin",         "episode_end",       "fact_query",          "fsck",
-    "export_bundle",         "fact_contract",     "fact_declare_world",  "fact_declare_surface",
-    "fact_observe",          "fact_state",        "assessment_contract", "assessment_request",
-    "assessment_execute",    "assessment_status", "trust_require",       "assessment_list",
-    "assessment_invalidate", "fact_kernel",
+                                  KF_NATIVE_STORAGE_CAP_TRUST_ASSESSMENT | KF_NATIVE_STORAGE_CAP_FACT_CUT_KERNEL |
+                                  KF_NATIVE_STORAGE_CAP_EPISODE_RECOVERY | KF_NATIVE_STORAGE_CAP_IMPORT_AND_REBUILD |
+                                  KF_NATIVE_STORAGE_CAP_BACKEND_LIFECYCLE | KF_NATIVE_STORAGE_CAP_FACT_LIBRARY;
+constexpr std::array<std::string_view, 40> SUPPORTED_OPERATIONS = {
+    "episode_begin",
+    "episode_heartbeat",
+    "episode_end",
+    "episode_abort",
+    "episode_attach_frame",
+    "episode_attach_ref",
+    "episode_list",
+    "episode_inspect",
+    "episode_recover",
+    "episode_recovery_plan",
+    "episode_recovery_execute",
+    "episode_projection_rebuild",
+    "fact_query",
+    "fsck",
+    "export_bundle",
+    "import_bundle",
+    "rebuild_index",
+    "backend_status",
+    "backend_switch",
+    "backend_rollback",
+    "fact_contract",
+    "fact_declare_world",
+    "fact_declare_surface",
+    "fact_observe",
+    "fact_state",
+    "fact_kernel",
+    "fact_library_contract",
+    "fact_type_create",
+    "fact_type_list",
+    "fact_material_put",
+    "fact_material_list",
+    "fact_library_export",
+    "fact_library_import",
+    "assessment_contract",
+    "assessment_request",
+    "assessment_execute",
+    "assessment_status",
+    "trust_require",
+    "assessment_list",
+    "assessment_invalidate",
 };
 
 bool supported_operation(const char *operation) {

@@ -6,6 +6,7 @@
 #include <atomic>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -223,6 +224,13 @@ episode_repair_descriptor_for_issue(const episode_qualification_issue &issue);
 [[nodiscard]] nlohmann::json
 render_episode_close_write_result(const yijinjing::storage::episode_close_write_result &result);
 [[nodiscard]] nlohmann::json render_episode_recover_result(const yijinjing::storage::episode_recover_result &result);
+[[nodiscard]] nlohmann::json retry_episode_manifest_write(const std::string &operation,
+                                                          const nlohmann::json &operation_options,
+                                                          const std::function<nlohmann::json()> &action);
+[[nodiscard]] nlohmann::json episode_recovery_plan_impl(const storage_service_options &options);
+[[nodiscard]] nlohmann::json episode_recovery_execute_impl(const storage_service_options &options);
+[[nodiscard]] nlohmann::json dispatch_episode_control_operation(storage_operation operation,
+                                                                const storage_service_options &options);
 [[nodiscard]] nlohmann::json render_storage_episode_bundle_result(const storage_episode_bundle_result &result);
 [[nodiscard]] nlohmann::json render_manifest_entry_view(const yijinjing::storage::manifest_entry_view &entry);
 [[nodiscard]] nlohmann::json render_manifest_document(const yijinjing::storage::manifest_document_view &manifest);
