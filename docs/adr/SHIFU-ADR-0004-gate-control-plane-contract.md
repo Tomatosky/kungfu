@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: SHIFU-ADR-0004
 decision_status: accepted
 implementation_status: implemented
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/762, https://github.com/kungfu-systems/kungfu/pull/765, https://github.com/kungfu-systems/kungfu/pull/767, https://github.com/kungfu-systems/kungfu/pull/769, https://github.com/kungfu-systems/kungfu/pull/773, https://github.com/kungfu-systems/kungfu/pull/781, https://github.com/kungfu-systems/kungfu/pull/786, https://github.com/kungfu-systems/kungfu/pull/1004, https://github.com/kungfu-systems/kungfu/pull/1014, https://github.com/kungfu-systems/kungfu/pull/1020, https://github.com/kungfu-systems/kungfu/pull/1095]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/762, https://github.com/kungfu-systems/kungfu/pull/765, https://github.com/kungfu-systems/kungfu/pull/767, https://github.com/kungfu-systems/kungfu/pull/769, https://github.com/kungfu-systems/kungfu/pull/773, https://github.com/kungfu-systems/kungfu/pull/781, https://github.com/kungfu-systems/kungfu/pull/786, https://github.com/kungfu-systems/kungfu/pull/1004, https://github.com/kungfu-systems/kungfu/pull/1014, https://github.com/kungfu-systems/kungfu/pull/1020, https://github.com/kungfu-systems/kungfu/pull/1095, https://github.com/kungfu-systems/kungfu/pull/1128]
 closure_pr: https://github.com/kungfu-systems/kungfu/pull/781
 qualification_refs: [scripts/shifu-gate-runtime.test.mjs, scripts/check-kungfu-gate-catalog.test.mjs, scripts/shifu-cache-runtime.test.mjs, scripts/measure-dev-required-latency.test.mjs, scripts/run-core-affected-native.mjs, scripts/write-affected-native-cache-manifests.test.mjs, .github/workflows/affected-native-pr.yml, .github/workflows/core-build-profiles.yml, .github/workflows/dev-verify-patrol.yml]
 review_state: self-reviewed
@@ -14,7 +14,7 @@ period: ongoing
 theme: shifu-gate-control-plane
 confidence: high
 evidence_grade: B
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-19
 ---
 
 # SHIFU-ADR-0004: Gate control plane contract
@@ -176,6 +176,18 @@ reports phase P50/P95 and warm/cold cohorts, and treats older or drifted
 artifacts as unknown attribution. Required-context timing ends at the first
 successful pre-merge admission, retaining failed retries while excluding later
 post-merge reruns. The resulting observation still does not qualify the SLO.
+
+PR 1128 partitions the affected-native plan into two deterministic,
+source-bound GitHub-hosted Linux workers behind the existing stable aggregate.
+Each worker retains a disjoint target and test partition, while the aggregator
+rejects incomplete, overlapping, source-drifted, or coverage-drifted evidence.
+An explicit diagnostic Gate run may omit a declared dependency only when the
+project's closed-world workflow authority proves that dependency remains
+required and has a distinct workflow binding for the same profile; qualifying
+profile runs cannot omit dependencies. Kungfu uses that rule to avoid repeating
+`source.acceptance` inside each native shard while preserving the independent
+required Source Acceptance workflow. The first compiler-cold cohort completed
+the queue-inclusive aggregate in 480 seconds with both cold fallbacks qualified.
 
 ## Consequences
 
