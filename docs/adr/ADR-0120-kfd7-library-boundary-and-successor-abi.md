@@ -3,7 +3,8 @@ metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
 adr_id: ADR-0120
 decision_status: accepted
-implementation_status: not-started
+implementation_status: staged
+implementation_prs: []
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -17,7 +18,8 @@ ai_provenance: GPT-5 via Codex on 2026-07-19; based on repository sources, KFD-7
 
 # ADR-0120: KFD-7 fixes the reality-kernel boundary and one successor libkungfu ABI
 
-- Status: accepted boundary; implementation not started
+- Status: accepted boundary; boundary-contract stage delivered; successor ABI
+  implementation not started
 - Date: 2026-07-19
 - Category: library ownership / native ABI / consumer readiness
 - Related: [ADR-0018](ADR-0018-runtime-storage-service-architecture.md),
