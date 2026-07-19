@@ -60,6 +60,29 @@ function validateRoleBinding(binding, role, { rootMayBeNull = false } = {}) {
   return null;
 }
 
+function validateNativeAuthority(binding) {
+  if (
+    !isObject(binding) ||
+    binding.schema !== 'kungfu.action-loop.native-authority/v0' ||
+    !validIdentity(binding.id) ||
+    !validRoot(binding.root) ||
+    binding.state !== 'current' ||
+    !isObject(binding.binding) ||
+    typeof binding.binding.path !== 'string' ||
+    binding.binding.path.length === 0 ||
+    !validRoot(binding.binding.root) ||
+    !isObject(binding.profile) ||
+    !validIdentity(binding.profile.id) ||
+    !validRoot(binding.profile.root)
+  ) {
+    return failure(
+      'invalid-native-authority',
+      'native binding and Profile exact roots are required',
+    );
+  }
+  return null;
+}
+
 function validateFactRef(factRef) {
   return (
     isObject(factRef) &&
@@ -71,6 +94,16 @@ function validateFactRef(factRef) {
 }
 
 function validateStepReceipt(receipt, request, stepId) {
+  if (
+    isObject(receipt) &&
+    receipt.status === 'denied' &&
+    receipt.code?.startsWith('native-authority-')
+  ) {
+    return failure(receipt.code, receipt.message, {
+      writeOccurred: false,
+      current: receipt.current ?? null,
+    });
+  }
   if (
     !isObject(receipt) ||
     receipt.schema !== 'kungfu.action-loop.step-receipt/v0' ||
@@ -120,11 +153,15 @@ function validateBeginRequest(request) {
       return failure('missing-role', `${role} input is required`, { role });
     }
   }
+  if (request.nativeAuthority !== undefined) {
+    const invalidAuthority = validateNativeAuthority(request.nativeAuthority);
+    if (invalidAuthority) return invalidAuthority;
+  }
   return null;
 }
 
 function envelopeFrom(request, state, roles, factRef, acceptedSteps) {
-  return {
+  const envelope = {
     schema: ENVELOPE_SCHEMA,
     loopId: request.loopId,
     loopRoot: request.loopRoot,
@@ -135,6 +172,10 @@ function envelopeFrom(request, state, roles, factRef, acceptedSteps) {
     acceptedSteps,
     residualRisk: [],
   };
+  if (request.nativeAuthority !== undefined) {
+    envelope.nativeAuthority = request.nativeAuthority;
+  }
+  return envelope;
 }
 
 function deniedResolution(result, role) {
@@ -173,6 +214,33 @@ function deniedResolution(result, role) {
 }
 
 async function resolveBeginRoles(request, adapters) {
+  let nativeAuthority = request.nativeAuthority;
+  if (nativeAuthority !== undefined) {
+    const resolvedAuthority = await requirePort(
+      adapters,
+      'nativeAuthority',
+      'resolve',
+    )(nativeAuthority, request);
+    const authorityFailure = deniedResolution(
+      resolvedAuthority,
+      'native-authority',
+    );
+    if (authorityFailure) return authorityFailure;
+    const invalidAuthority = validateNativeAuthority(resolvedAuthority.binding);
+    if (invalidAuthority) return invalidAuthority;
+    if (
+      resolvedAuthority.binding.id !== nativeAuthority.id ||
+      resolvedAuthority.binding.root !== nativeAuthority.root
+    ) {
+      return failure(
+        'native-authority-drift',
+        'the selected native binding or Profile root changed before begin',
+        { writeOccurred: false, current: resolvedAuthority.binding },
+      );
+    }
+    nativeAuthority = resolvedAuthority.binding;
+  }
+
   const pursuit = await requirePort(
     adapters,
     'pursuitSource',
@@ -218,7 +286,7 @@ async function resolveBeginRoles(request, adapters) {
     });
     if (invalid) return invalid;
   }
-  return { ok: true, bindings };
+  return { ok: true, bindings, nativeAuthority };
 }
 
 async function saveCheckpoint(contract, request, envelope, receipts, adapters) {
@@ -306,6 +374,7 @@ export async function beginActionLoop(contract, request, adapters) {
     loopRef: request.loopRef,
     roles: resolved.bindings,
     factRef: request.factRef,
+    nativeAuthority: resolved.nativeAuthority,
   });
   const bindReceiptFailure = validateStepReceipt(
     bind?.receipt,
@@ -321,7 +390,7 @@ export async function beginActionLoop(contract, request, adapters) {
   }
   const boundRoles = { ...resolved.bindings, ...(bind.roles ?? {}) };
   const boundEnvelope = envelopeFrom(
-    request,
+    { ...request, nativeAuthority: resolved.nativeAuthority },
     'bound',
     boundRoles,
     bind.factRef,
@@ -457,6 +526,40 @@ export async function resumeActionLoop(contract, loopRef, adapters) {
   }
   const recovery = classifyRecovery(contract, loaded.envelope, loaded.receipts);
   if (!recovery.ok) return recovery;
+
+  if (loaded.envelope.nativeAuthority !== undefined) {
+    const observedAuthority = await requirePort(
+      adapters,
+      'nativeAuthority',
+      'observe',
+    )(loaded.envelope.nativeAuthority);
+    if (
+      observedAuthority?.status !== 'current' &&
+      observedAuthority?.status !== 'resolved'
+    ) {
+      return failure(
+        observedAuthority?.code || 'native-authority-drift',
+        observedAuthority?.message ||
+          'the recorded native binding or Profile root is not current',
+        {
+          writeOccurred: false,
+          current: observedAuthority?.current ?? null,
+        },
+      );
+    }
+    const currentAuthority = observedAuthority.binding;
+    if (
+      validateNativeAuthority(currentAuthority) ||
+      currentAuthority.id !== loaded.envelope.nativeAuthority.id ||
+      currentAuthority.root !== loaded.envelope.nativeAuthority.root
+    ) {
+      return failure(
+        'native-authority-drift',
+        'the recorded native binding or Profile root changed',
+        { writeOccurred: false, current: currentAuthority ?? null },
+      );
+    }
+  }
 
   if (recovery.code === 'already-settled') {
     const factRef = await requirePort(
@@ -598,6 +701,17 @@ export function createCorePublicAdapters(invoke) {
     throw new TypeError('Core public adapter invoke function is required');
   }
   return {
+    nativeAuthority: {
+      async resolve(expected) {
+        const inspected = await invoke('authority-inspect', expected);
+        return inspected?.status === 'current'
+          ? { ...inspected, status: 'resolved' }
+          : inspected;
+      },
+      observe(expected) {
+        return invoke('authority-inspect', expected);
+      },
+    },
     workProfileBinder: {
       bind(input) {
         return invoke('work-profile-bind', input);

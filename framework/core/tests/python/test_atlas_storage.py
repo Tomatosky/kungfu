@@ -1029,7 +1029,12 @@ def test_mission_control_native_go_completion_claim_fails_closed_then_passes(
         env=cli_env,
     )
     assert create_cli.exit_code == 0, create_cli.output
-    assert json.loads(create_cli.output)["receipt"]["reused"] is True
+    repeated_create = json.loads(create_cli.output)
+    assert repeated_create["receipt"]["reused"] is True
+    assert (
+        repeated_create["receipt"]["payload_hash"] == created["receipt"]["payload_hash"]
+    )
+    assert repeated_create["receipt"]["episode_id"] == created["receipt"]["episode_id"]
 
     claim_cli = runner.invoke(
         kfc,
@@ -1049,7 +1054,12 @@ def test_mission_control_native_go_completion_claim_fails_closed_then_passes(
         env=cli_env,
     )
     assert claim_cli.exit_code == 0, claim_cli.output
-    assert json.loads(claim_cli.output)["receipt"]["reused"] is True
+    repeated_claim = json.loads(claim_cli.output)
+    assert repeated_claim["receipt"]["reused"] is True
+    assert (
+        repeated_claim["receipt"]["payload_hash"] == claimed["receipt"]["payload_hash"]
+    )
+    assert repeated_claim["receipt"]["episode_id"] == claimed["receipt"]["episode_id"]
 
     cli = runner.invoke(
         kfc,

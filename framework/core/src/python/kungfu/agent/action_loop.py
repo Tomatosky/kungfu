@@ -18,6 +18,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+import kungfu
+from kungfu import profile_sdk
 from kungfu.agent import work_profile
 from kungfu.storage import service
 from kungfu.storage.episode_lifecycle import (
@@ -37,6 +39,67 @@ def _canonical(value: Any) -> str:
 def _root(value: Any) -> str:
     raw = value if isinstance(value, str) else _canonical(value)
     return "sha256:" + hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _file_root(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return "sha256:" + digest.hexdigest()
+
+
+def inspect_native_authority(
+    runtime_dir: str | Path, expected: Mapping[str, Any] | None = None
+) -> dict[str, Any]:
+    """Bind one process to its loaded native binary and active Profile root."""
+
+    binding_path = Path(kungfu.__binding__.__file__).resolve()
+    binding_root = _file_root(binding_path)
+    discovered = profile_sdk.discover_source("kungfu.mission-control", runtime_dir)
+    application = profile_sdk.application(
+        discovered["source"], runtime_dir, include_qualification=False
+    )
+    profile_root = str(application["profileSuiteRoot"])
+    identity = {
+        "bindingPath": str(binding_path),
+        "bindingRoot": binding_root,
+        "profileId": str(application["profileId"]),
+        "profileRoot": profile_root,
+    }
+    current = {
+        "schema": "kungfu.action-loop.native-authority/v0",
+        "id": f"native:{_root(identity)[7:31]}",
+        "root": _root(identity),
+        "state": "current" if application["activeExactRoot"] else "inactive",
+        "binding": {"path": str(binding_path), "root": binding_root},
+        "profile": {
+            "id": str(application["profileId"]),
+            "root": profile_root,
+        },
+    }
+    if current["state"] != "current":
+        return {
+            "status": "denied",
+            "code": "native-authority-inactive",
+            "message": "Mission Control Profile is not active at this exact root",
+            "current": current,
+            "writeOccurred": False,
+        }
+    if expected is not None and (
+        expected.get("id") != current["id"]
+        or expected.get("root") != current["root"]
+        or expected.get("binding") != current["binding"]
+        or expected.get("profile") != current["profile"]
+    ):
+        return {
+            "status": "denied",
+            "code": "native-authority-drift",
+            "message": "the active native binding or Profile exact root changed",
+            "current": current,
+            "writeOccurred": False,
+        }
+    return {"status": "current", "binding": current, "writeOccurred": False}
 
 
 def _object_id(loop_id: str, role: str) -> str:
@@ -493,8 +556,9 @@ def refresh_atlas(runtime_dir: str | Path, payload: dict[str, Any]) -> dict[str,
     current = _current_profile(runtime_dir, ref_name)
     details = current["roles"]["atlas"]["body"].get("details") or {}
     accepted: dict[str, Any]
-    if details.get("root") == binding.get("root"):
-        if details.get("actionLoopStepReceipt") != step_receipt:
+    existing_step_receipt = details.get("actionLoopStepReceipt")
+    if details.get("root") == binding.get("root") and existing_step_receipt is not None:
+        if existing_step_receipt != step_receipt:
             return {
                 "status": "denied",
                 "code": "replay-mismatch",
@@ -967,6 +1031,18 @@ def resolve_fact_ref(runtime_dir: str | Path, loop_ref: str) -> dict[str, Any] |
 
 
 def dispatch(runtime_dir: str | Path, operation: str, payload: Any) -> Any:
+    if operation == "authority-inspect":
+        expected = payload if isinstance(payload, Mapping) else None
+        return inspect_native_authority(runtime_dir, expected)
+    if isinstance(payload, Mapping):
+        expected_authority = payload.get("nativeAuthority")
+        envelope = payload.get("envelope")
+        if expected_authority is None and isinstance(envelope, Mapping):
+            expected_authority = envelope.get("nativeAuthority")
+        if isinstance(expected_authority, Mapping):
+            authority = inspect_native_authority(runtime_dir, expected_authority)
+            if authority.get("status") != "current":
+                return authority
     if operation == "work-profile-bind":
         return bind_work_profile(runtime_dir, payload)
     if operation == "episode-resume-or-begin":

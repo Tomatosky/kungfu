@@ -4,8 +4,8 @@ doc_type: architecture-decision
 adr_id: ADR-0104
 decision_status: accepted
 implementation_status: staged
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/978, https://github.com/kungfu-systems/kungfu/pull/997]
-qualification_refs: [framework/core/tests/python/test_atlas_storage.py, extensions/mission-control/migrations/registry.json, framework/core/src/python/kungfu/agent/kfd3_api.registry.json]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/978, https://github.com/kungfu-systems/kungfu/pull/997, https://github.com/kungfu-systems/kungfu/pull/1134]
+qualification_refs: [framework/core/tests/python/test_atlas_storage.py, framework/core/tests/python/test_action_loop_adapter.py, framework/action/action-loop-source-dogfood.mjs, scripts/run-action-loop-native-authority-tests.mjs, extensions/mission-control/migrations/registry.json, framework/core/src/python/kungfu/agent/kfd3_api.registry.json]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -13,7 +13,7 @@ period: 2026-07-16
 theme: native-mission-go-authority-cutover
 confidence: high
 evidence_grade: A
-last_reviewed: 2026-07-16
+last_reviewed: 2026-07-19
 ---
 
 # ADR-0104: Mission and Go authority cuts over once at an exact parity root
@@ -116,3 +116,10 @@ count. The Profile action now uses the storage-only Episode append boundary and
 the query receipt binds all 586 canonical facts seen by the independent
 assessment. `test_agent_profile_sdk.py` and `test_atlas_storage.py` keep both
 failures in the stage-ready gate.
+
+The successor Action Loop qualification resolves the Project Cut Mission/Go
+coordinates, exact source-built native binding, and active Mission Control
+Profile root before mutation. Resume and settlement fail without writes when
+that authority drifts; Mission Control reuse receipts retain their payload and
+Episode roots; and a same-root initial Atlas refresh is accepted while an exact
+later replay remains idempotent.

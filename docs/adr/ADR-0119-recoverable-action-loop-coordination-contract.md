@@ -4,8 +4,8 @@ doc_type: architecture-decision
 adr_id: ADR-0119
 decision_status: accepted
 implementation_status: staged
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1114, https://github.com/kungfu-systems/kungfu/pull/1118, https://github.com/kungfu-systems/kungfu/pull/1120]
-qualification_refs: [framework/action/action-loop.contract.json, framework/action/action-loop.mjs, framework/action/action-loop-begin.mjs, framework/action/action-loop-settle.mjs, framework/core/src/python/kungfu/agent/action_loop.py, framework/action/action-loop-source-dogfood.mjs, framework/action/action-loop-fixtures.json, framework/action/action-loop-contract.test.mjs, framework/action/action-loop-begin.test.mjs, framework/action/action-loop-settle.test.mjs]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1114, https://github.com/kungfu-systems/kungfu/pull/1118, https://github.com/kungfu-systems/kungfu/pull/1120, https://github.com/kungfu-systems/kungfu/pull/1124, https://github.com/kungfu-systems/kungfu/pull/1134]
+qualification_refs: [framework/action/action-loop.contract.json, framework/action/action-loop.mjs, framework/action/action-loop-begin.mjs, framework/action/action-loop-settle.mjs, framework/core/src/python/kungfu/agent/action_loop.py, framework/core/tests/python/test_action_loop_adapter.py, framework/action/action-loop-source-dogfood.mjs, framework/action/action-loop-fixtures.json, framework/action/action-loop-contract.test.mjs, framework/action/action-loop-begin.test.mjs, framework/action/action-loop-settle.test.mjs, scripts/run-action-loop-native-authority-tests.mjs]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -19,7 +19,7 @@ ai_provenance: GPT-5 via Codex on 2026-07-19; based on repository contracts, nat
 
 # ADR-0119: Action Loop coordination is receipt-driven and recoverable
 
-- Status: accepted; internal v0 contract plus recoverable begin and settlement coordination staged
+- Status: accepted; source-native authority and recoverable settlement staged
 - Date: 2026-07-19
 - Category: Action / Agent Work Profile / recovery
 - Related: [ADR-0101](ADR-0101-project-cut-agent-first-settlement.md),
@@ -120,6 +120,14 @@ Episode outcome, pending review, and stale final CAS remain typed recovery
 states. A terminal envelope is recoverable from the final KFD-7 role details
 after the begin-time Warrant has expired.
 
+The source dogfood entry now resolves the exact loaded source-build native
+extension and active Mission Control Profile into one `nativeAuthority`
+binding. It loads the checked-out source adapter ahead of a generated build
+copy, refuses resume or settlement without mutation when either root drifts,
+and roots reused Mission Control receipts in their original payload and Episode.
+The first same-root Atlas refresh creates its receipt; only a later exact replay
+is idempotent, while a conflicting replay is rejected.
+
 ## Falsification and acceptance
 
 - Removing any role identity or required root produces a typed refusal rather
@@ -135,13 +143,16 @@ after the begin-time Warrant has expired.
 - Tests exercise deterministic recovery, decision-required and stale-authority
   paths, adapter replacement, partial Episode uncertainty, stale Fact CAS, and
   cross-process loop-ref recovery without touching a real user home.
+- The native-authority gate exercises extension/Profile drift, rooted reused
+  receipts, same-root first refresh, exact replay, and a real source settlement.
 
 ## Non-claims
 
-This decision does not yet run or qualify a real source dogfood loop, qualify
-P17/FO9/FO10, or freeze a public product surface. The staged coordinators still
-depend on public authority ports; they do not make Action MJS an authority or
-replace any receipt source.
+The staged source dogfood proves one real loop and idempotent settlement under
+the checked-out source/native binding. It does not qualify P17/FO9/FO10,
+installed artifacts, multi-day operation, or freeze a public product surface.
+The staged coordinators still depend on public authority ports; they do not
+make Action MJS an authority or replace any receipt source.
 
 ## Consequences
 

@@ -337,6 +337,48 @@ test('settlement closes every ordered step and is idempotent', async () => {
   assert.equal(repeated.writeOccurred, false);
 });
 
+test('settlement and duplicate settlement preserve one native authority root', async () => {
+  const fixture = adapters();
+  const nativeAuthority = {
+    schema: 'kungfu.action-loop.native-authority/v0',
+    id: 'native:binding-one',
+    root: root('native-authority'),
+    state: 'current',
+    binding: { path: '/opt/kungfu/binding', root: root('binding') },
+    profile: { id: 'kungfu.mission-control', root: root('profile') },
+  };
+  fixture.ports.nativeAuthority = {
+    async resolve() {
+      return { status: 'resolved', binding: nativeAuthority };
+    },
+    async observe() {
+      return { status: 'current', binding: nativeAuthority };
+    },
+  };
+  const request = beginRequest();
+  request.nativeAuthority = nativeAuthority;
+  const begun = await beginActionLoop(contract, request, fixture.ports);
+  assert.equal(begun.ok, true, JSON.stringify(begun));
+
+  const settled = await settleActionLoop(
+    contract,
+    settlementRequest(),
+    fixture.ports,
+  );
+  assert.equal(settled.ok, true, JSON.stringify(settled));
+  assert.equal(settled.envelope.nativeAuthority.root, nativeAuthority.root);
+
+  const repeated = await settleActionLoop(
+    contract,
+    settlementRequest(),
+    fixture.ports,
+  );
+  assert.equal(repeated.ok, true, JSON.stringify(repeated));
+  assert.equal(repeated.code, 'already-settled');
+  assert.equal(repeated.envelope.nativeAuthority.root, nativeAuthority.root);
+  assert.equal(repeated.writeOccurred, false);
+});
+
 test('unknown Episode outcome fails closed at the durable running checkpoint', async () => {
   const fixture = await begunPorts({ failSeal: true });
   const failed = await settleActionLoop(
