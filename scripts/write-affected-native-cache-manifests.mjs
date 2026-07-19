@@ -9,6 +9,8 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { partitionAffectedNativePlan } from './run-core-affected-native.mjs';
+
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const IDENTITY_FILES = [
   '.buildchain-version',
@@ -62,6 +64,8 @@ export function createAffectedNativeCacheManifests({
   plan,
   env = process.env,
   toolFacts = null,
+  partitionCount = Number(env.KUNGFU_AFFECTED_NATIVE_PARTITION_COUNT || 1),
+  partitionIndex = Number(env.KUNGFU_AFFECTED_NATIVE_PARTITION_INDEX || 0),
 }) {
   if (plan?.schema !== 'kungfu.core-affected-native-plan/v1') {
     throw new Error('unsupported affected-native plan schema');
@@ -76,7 +80,12 @@ export function createAffectedNativeCacheManifests({
     tool('ccache'),
     tool('node'),
   ];
-  const identity = {
+  const executionPartition = partitionAffectedNativePlan(
+    plan,
+    partitionCount,
+    partitionIndex,
+  );
+  const commonIdentity = {
     platform: (env.RUNNER_OS || process.platform).toLowerCase(),
     arch: (env.RUNNER_ARCH || process.arch).toLowerCase(),
     runnerImage: env.ImageOS || env.RUNNER_IMAGE || 'ubuntu-24.04',
@@ -90,17 +99,36 @@ export function createAffectedNativeCacheManifests({
     sourceSha: plan.head,
     planDigest: plan.planDigest,
   };
-  const manifest = (layer, roots) => ({
+  const manifest = (layer, roots, identity) => ({
     schema: 'buildchain.portable-dev-cache-manifest/v1',
     layer,
     roots,
     identity,
   });
   return {
-    dependency: manifest('dependency', [
-      { id: 'conan-packages', path: '~/.conan2/p' },
-    ]),
-    compiler: manifest('compiler', [{ id: 'ccache', path: '~/.cache/ccache' }]),
+    dependency: manifest(
+      'dependency',
+      [{ id: 'conan-packages', path: '~/.conan2/p' }],
+      commonIdentity,
+    ),
+    compiler: manifest(
+      'compiler',
+      [{ id: 'ccache', path: '~/.cache/ccache' }],
+      executionPartition.count === 1
+        ? commonIdentity
+        : {
+            ...commonIdentity,
+            profileDigest: digest({
+              profileDigest: commonIdentity.profileDigest,
+              executionPartition: {
+                count: executionPartition.count,
+                index: executionPartition.index,
+                coverageDigest: executionPartition.coverageDigest,
+                partitionDigest: executionPartition.partitionDigest,
+              },
+            }),
+          },
+    ),
   };
 }
 

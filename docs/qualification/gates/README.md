@@ -92,8 +92,11 @@ The report uses the current source planner to classify samples as `native`,
 `non-native`, or `unknown`, and reports nearest-rank P50/P95 for every stratum.
 Planner failures remain unknown instead of becoming non-native. For each native
 sample, the collector reads the final successful affected-native workflow's
-retained artifact and validates the Buildchain dependency/compiler portable
-cache receipts. It reports exact/compatible warm reuse, miss/corrupt cold
+retained partition artifacts and validates every Buildchain
+dependency/compiler portable cache receipt. It rejects an incomplete or
+overlapping partition index set, inconsistent source/plan/coverage digests, or
+any target/CTest union that differs from the authoritative plan. It reports
+exact/compatible warm reuse, miss/corrupt cold
 fallback, unknown evidence, ccache hits, and the aggregate warm/cold ratio;
 duration is never used to infer a hit. Non-native samples are explicitly
 `not-applicable`. Missing, expired, or malformed artifacts remain `unknown`, and

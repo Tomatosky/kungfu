@@ -217,6 +217,12 @@ export function selectedContext(
   const matchingRuns = actionsRuns.filter((run) =>
     candidateRunIds.includes(String(run.id)),
   );
+  const finalWorkflowRunId = Number(
+    admitted.details_url?.match(/\/actions\/runs\/(\d+)/)?.[1] || 0,
+  );
+  const finalWorkflowRun = actionsRuns.find(
+    ({ id }) => Number(id) === finalWorkflowRunId,
+  );
   const created = matchingRuns
     .map(({ created_at: value }) => value)
     .filter(Boolean)
@@ -242,9 +248,8 @@ export function selectedContext(
       ? 'first-success-no-later-than-pull-merge'
       : 'first-success',
     checkRunId: admitted.id,
-    finalWorkflowRunId: Number(
-      admitted.details_url?.match(/\/actions\/runs\/(\d+)/)?.[1] || 0,
-    ),
+    finalWorkflowRunId,
+    finalWorkflowHeadSha: finalWorkflowRun?.head_sha || null,
     workflowRunIds: [...new Set(candidateRunIds.map(Number))].sort(
       (a, b) => a - b,
     ),
@@ -253,6 +258,21 @@ export function selectedContext(
 
 function digest(value) {
   return `sha256:${crypto.createHash('sha256').update(value).digest('hex')}`;
+}
+
+function structuredDigest(value) {
+  const ordered = (item) => {
+    if (Array.isArray(item)) return item.map(ordered);
+    if (item && typeof item === 'object') {
+      return Object.fromEntries(
+        Object.keys(item)
+          .sort()
+          .map((key) => [key, ordered(item[key])]),
+      );
+    }
+    return item;
+  };
+  return digest(JSON.stringify(ordered(value)));
 }
 
 function readZipMembers(archive, names) {
@@ -432,6 +452,15 @@ export function nativeEvidenceFromMembers(members, classification) {
     ) {
       throw new Error('invalid native receipt');
     }
+    if (receipt.plan?.planDigest) {
+      const { planDigest, ...planWithoutDigest } = receipt.plan;
+      if (
+        planDigest !== structuredDigest(planWithoutDigest) ||
+        receipt.planDigest !== planDigest
+      ) {
+        throw new Error('native receipt plan digest drift');
+      }
+    }
     if (
       diagnostics.contract !== 'kungfu-buildchain-diagnostics' ||
       diagnostics.consumer?.contract !==
@@ -447,11 +476,35 @@ export function nativeEvidenceFromMembers(members, classification) {
     ) {
       throw new Error('native diagnostics digest or plan binding drift');
     }
+    const partition = receipt.executionPartition || null;
+    if (partition) {
+      if (
+        partition.schema !== 'kungfu.core-affected-native-partition/v1' ||
+        !Number.isInteger(partition.index) ||
+        !Number.isInteger(partition.count) ||
+        partition.count < 1 ||
+        partition.index < 0 ||
+        partition.index >= partition.count ||
+        !Array.isArray(partition.targets) ||
+        !Array.isArray(partition.tests) ||
+        diagnostics.consumer?.executionPartition?.partitionDigest !==
+          partition.partitionDigest ||
+        diagnostics.consumer?.executionPartition?.coverageDigest !==
+          partition.coverageDigest
+      ) {
+        throw new Error('invalid native execution partition binding');
+      }
+    }
     return {
       outcome: 'observed',
       authority: 'affected-native-receipt-and-buildchain-diagnostics',
       source: receipt.source,
       planDigest: receipt.planDigest,
+      planTargets: receipt.plan?.targets || [],
+      planTests: receipt.plan?.tests || [],
+      planChangedPaths: receipt.plan?.changedPaths || [],
+      planAuthority: receipt.plan?.authority || null,
+      executionPartition: partition,
       durationMs: receipt.durationMs,
       steps: receipt.steps.map(({ id, durationMs, exitCode }) => ({
         id,
@@ -472,11 +525,160 @@ export function nativeEvidenceFromMembers(members, classification) {
   }
 }
 
+function aggregateCompilerStats(values) {
+  if (values.some((value) => !value)) return null;
+  const cacheableCalls = values.reduce(
+    (total, value) => total + value.cacheableCalls,
+    0,
+  );
+  const hits = values.reduce((total, value) => total + value.hits, 0);
+  const misses = values.reduce((total, value) => total + value.misses, 0);
+  return {
+    cacheableCalls,
+    hits,
+    misses,
+    hitRatio: cacheableCalls ? hits / cacheableCalls : null,
+  };
+}
+
+export function aggregatePartitionEvidence(entries, classification) {
+  if (entries.length === 1 && !entries[0].native.executionPartition) {
+    return entries[0];
+  }
+  if (classification.kind !== 'native') return entries[0];
+  if (!entries.length)
+    throw new Error('affected-native partition set is empty');
+  if (
+    entries.some(
+      ({ cache, native }) =>
+        cache.outcome === 'unknown' ||
+        native.outcome !== 'observed' ||
+        !native.executionPartition,
+    )
+  ) {
+    throw new Error('affected-native partition evidence is incomplete');
+  }
+  const orderedEntries = [...entries].sort(
+    (left, right) =>
+      left.native.executionPartition.index -
+      right.native.executionPartition.index,
+  );
+  const first = orderedEntries[0].native;
+  const count = first.executionPartition.count;
+  const indices = orderedEntries.map(
+    ({ native }) => native.executionPartition.index,
+  );
+  if (
+    orderedEntries.length !== count ||
+    indices.some((index, position) => index !== position)
+  ) {
+    throw new Error('affected-native partition index set is incomplete');
+  }
+  if (
+    orderedEntries.some(
+      ({ native }) =>
+        native.planDigest !== first.planDigest ||
+        native.source?.head !== first.source?.head ||
+        native.executionPartition.count !== count ||
+        native.executionPartition.coverageDigest !==
+          first.executionPartition.coverageDigest,
+    )
+  ) {
+    throw new Error('affected-native partition source or coverage drift');
+  }
+  const lanes = orderedEntries.map(({ native }) => ({
+    index: native.executionPartition.index,
+    targets: native.executionPartition.targets,
+    tests: native.executionPartition.tests,
+  }));
+  const expectedCoverageDigest = structuredDigest({
+    planDigest: first.planDigest,
+    count,
+    lanes,
+  });
+  if (expectedCoverageDigest !== first.executionPartition.coverageDigest) {
+    throw new Error('affected-native partition coverage digest drift');
+  }
+  const targets = lanes.flatMap(({ targets: values }) => values);
+  const tests = lanes.flatMap(({ tests: values }) => values);
+  const uniqueSorted = (values) => [...new Set(values)].sort();
+  if (
+    targets.length !== new Set(targets).size ||
+    tests.length !== new Set(tests).size ||
+    JSON.stringify(uniqueSorted(targets)) !==
+      JSON.stringify(uniqueSorted(first.planTargets)) ||
+    JSON.stringify(uniqueSorted(tests)) !==
+      JSON.stringify(uniqueSorted(first.planTests))
+  ) {
+    throw new Error('affected-native partition target or test coverage drift');
+  }
+
+  const caches = orderedEntries.map(({ cache }) => cache);
+  const cacheOutcomes = caches.map(({ outcome }) => outcome);
+  const warm = caches.every(({ warm }) => warm);
+  const cold = caches.some(({ cold }) => cold);
+  const cacheOutcome = warm
+    ? cacheOutcomes.every((outcome) => outcome === 'exact')
+      ? 'exact'
+      : 'compatible'
+    : cold
+      ? cacheOutcomes.includes('corrupt')
+        ? 'corrupt'
+        : 'miss'
+      : 'unknown';
+  const stepIds = uniqueSorted(
+    orderedEntries.flatMap(({ native }) => native.steps.map(({ id }) => id)),
+  );
+  const steps = stepIds.map((id) => {
+    const matching = orderedEntries
+      .map(({ native }) => native.steps.find((step) => step.id === id))
+      .filter(Boolean);
+    return {
+      id,
+      durationMs: Math.max(...matching.map(({ durationMs }) => durationMs)),
+      exitCode: Math.max(...matching.map(({ exitCode }) => exitCode)),
+    };
+  });
+  return {
+    cache: {
+      outcome: cacheOutcome,
+      authority: 'buildchain-portable-cache-partition-receipts',
+      warm,
+      cold,
+      layers: orderedEntries.flatMap(({ cache, native }) =>
+        cache.layers.map((layer) => ({
+          ...layer,
+          partitionIndex: native.executionPartition.index,
+        })),
+      ),
+      compilerStats: aggregateCompilerStats(
+        caches.map(({ compilerStats }) => compilerStats),
+      ),
+    },
+    native: {
+      outcome: 'observed',
+      authority:
+        'affected-native-partition-receipts-and-buildchain-diagnostics',
+      source: first.source,
+      planDigest: first.planDigest,
+      durationMs: Math.max(
+        ...orderedEntries.map(({ native }) => native.durationMs),
+      ),
+      steps,
+      lifecycle: null,
+      process: null,
+      compilerCaches: {},
+      executionPartitions: lanes,
+    },
+  };
+}
+
 async function collectAffectedNativeEvidence(
   repository,
   runId,
   classification,
   token,
+  expectedSourceSha,
 ) {
   if (classification.kind === 'non-native') {
     return {
@@ -501,50 +703,65 @@ async function collectAffectedNativeEvidence(
       `/repos/${repository}/actions/runs/${runId}/artifacts?per_page=100`,
       token,
     );
-    const artifact = (payload.artifacts || []).find(
-      ({ name, expired }) =>
-        !expired && name.startsWith('core-affected-native-'),
+    const artifactPrefix = `core-affected-native-${expectedSourceSha}`;
+    const partitionPattern = new RegExp(
+      `^${artifactPrefix}-partition-(\\d+)-of-(\\d+)$`,
     );
-    if (!artifact) {
+    const artifacts = (payload.artifacts || [])
+      .filter(
+        ({ name, expired }) =>
+          !expired && (name === artifactPrefix || partitionPattern.test(name)),
+      )
+      .sort((left, right) => left.name.localeCompare(right.name));
+    if (!artifacts.length) {
       throw new Error('affected-native artifact missing or expired');
     }
-    const archive = await githubBytes(
-      `/repos/${repository}/actions/artifacts/${artifact.id}/zip`,
-      token,
-    );
-    const members = readZipMembers(archive, [
-      'cache/dependency.receipt.json',
-      'cache/compiler.receipt.json',
-      'cache/compiler-stats.txt',
-      'receipt.json',
-      'diagnostics.json',
-    ]);
-    const cache = cacheEvidenceFromMembers(members, classification);
-    const native = nativeEvidenceFromMembers(members, classification);
-    const artifactSourceSha = artifact.name.slice(
-      'core-affected-native-'.length,
-    );
-    if (
-      cache.layers.some(
-        ({ sourceSha }) => !sourceSha || sourceSha !== artifactSourceSha,
-      ) ||
-      (native.outcome === 'observed' &&
-        (native.source?.head !== artifactSourceSha ||
-          native.planDigest !== classification.planDigest))
-    ) {
-      throw new Error('affected-native evidence does not match source or plan');
+    const entries = [];
+    for (const artifact of artifacts) {
+      const archive = await githubBytes(
+        `/repos/${repository}/actions/artifacts/${artifact.id}/zip`,
+        token,
+      );
+      const members = readZipMembers(archive, [
+        'cache/dependency.receipt.json',
+        'cache/compiler.receipt.json',
+        'cache/compiler-stats.txt',
+        'receipt.json',
+        'diagnostics.json',
+      ]);
+      const cache = cacheEvidenceFromMembers(members, classification);
+      const native = nativeEvidenceFromMembers(members, classification);
+      if (
+        cache.layers.some(
+          ({ sourceSha }) => !sourceSha || sourceSha !== expectedSourceSha,
+        ) ||
+        (native.outcome === 'observed' &&
+          (native.source?.head !== expectedSourceSha ||
+            JSON.stringify(native.planChangedPaths) !==
+              JSON.stringify(classification.changedPaths) ||
+            JSON.stringify(native.planAuthority) !==
+              JSON.stringify(classification.authority)))
+      ) {
+        throw new Error(
+          'affected-native evidence does not match source or plan',
+        );
+      }
+      entries.push({ cache, native, artifact });
     }
+    const combined = aggregatePartitionEvidence(entries, classification);
+    const artifactIds = artifacts.map(({ id }) => id);
+    const artifactNames = artifacts.map(({ name }) => name);
     return {
       cache: {
-        ...cache,
-        artifactId: artifact.id,
-        artifactName: artifact.name,
+        ...combined.cache,
+        artifactIds,
+        artifactNames,
         workflowRunId: runId,
       },
       native: {
-        ...native,
-        artifactId: artifact.id,
-        artifactName: artifact.name,
+        ...combined.native,
+        artifactIds,
+        artifactNames,
         workflowRunId: runId,
       },
     };
@@ -621,6 +838,8 @@ async function collectSample(repository, pull, requiredContexts, token) {
       kind: plan.closureComponents.length ? 'native' : 'non-native',
       reason: plan.platformTier,
       planDigest: plan.planDigest,
+      changedPaths: plan.changedPaths,
+      authority: plan.authority,
     };
   } catch (error) {
     classification = {
@@ -647,6 +866,7 @@ async function collectSample(repository, pull, requiredContexts, token) {
     affectedNative?.finalWorkflowRunId,
     classification,
     token,
+    affectedNative?.finalWorkflowHeadSha || sha,
   );
   const startedAt = checks.map(({ startedAt }) => startedAt).sort()[0];
   const completedAt = checks

@@ -486,6 +486,12 @@ function parseArgs(argv) {
     verifyReceipt: '',
     planOut: '',
     planInput: process.env.KUNGFU_AFFECTED_NATIVE_PLAN || '',
+    partitionCount: Number(
+      process.env.KUNGFU_AFFECTED_NATIVE_PARTITION_COUNT || 1,
+    ),
+    partitionIndex: Number(
+      process.env.KUNGFU_AFFECTED_NATIVE_PARTITION_INDEX || 0,
+    ),
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -497,12 +503,61 @@ function parseArgs(argv) {
     else if (arg === '--verify-receipt') options.verifyReceipt = argv[++index];
     else if (arg === '--plan-out') options.planOut = argv[++index];
     else if (arg === '--plan-input') options.planInput = argv[++index];
+    else if (arg === '--partition-count')
+      options.partitionCount = Number(argv[++index]);
+    else if (arg === '--partition-index')
+      options.partitionIndex = Number(argv[++index]);
     else if (arg === '--json') options.json = true;
     else if (arg === '--execute') options.execute = true;
     else if (arg === '--self-test') options.selfTest = true;
     else throw new Error(`unknown argument: ${arg}`);
   }
   return options;
+}
+
+export function partitionAffectedNativePlan(plan, count = 1, index = 0) {
+  if (!Number.isInteger(count) || count < 1 || count > 8) {
+    throw new Error(
+      'affected-native partition count must be an integer from 1 to 8',
+    );
+  }
+  if (!Number.isInteger(index) || index < 0 || index >= count) {
+    throw new Error(
+      'affected-native partition index is outside the partition set',
+    );
+  }
+  const lanes = Array.from({ length: count }, (_, laneIndex) => {
+    const targets = plan.targets.filter(
+      (_target, targetIndex) => targetIndex % count === laneIndex,
+    );
+    const targetSet = new Set(targets);
+    return {
+      index: laneIndex,
+      targets,
+      tests: plan.tests.filter((test) => targetSet.has(test)),
+    };
+  });
+  const coverage = {
+    planDigest: plan.planDigest,
+    count,
+    lanes,
+  };
+  const selected = lanes[index];
+  return {
+    schema: 'kungfu.core-affected-native-partition/v1',
+    index,
+    count,
+    targets: selected.targets,
+    tests: selected.tests,
+    partitionDigest: digest({
+      planDigest: plan.planDigest,
+      index,
+      count,
+      targets: selected.targets,
+      tests: selected.tests,
+    }),
+    coverageDigest: digest(coverage),
+  };
 }
 
 function verifyPlan(plan) {
@@ -635,8 +690,13 @@ function toolFact(command, args = ['--version']) {
   );
 }
 
-async function execute(plan, receiptPath) {
+async function execute(plan, receiptPath, partitionCount, partitionIndex) {
   const baseline = readJson(baselinePath);
+  const executionPartition = partitionAffectedNativePlan(
+    plan,
+    partitionCount,
+    partitionIndex,
+  );
   const receiptFile =
     receiptPath ||
     path.join(
@@ -644,6 +704,11 @@ async function execute(plan, receiptPath) {
       'qualification',
       'affected-native',
       plan.head.slice(0, 12),
+      ...(executionPartition.count > 1
+        ? [
+            `partition-${executionPartition.index}-of-${executionPartition.count}`,
+          ]
+        : []),
       'receipt.json',
     );
   const absoluteReceipt = path.resolve(root, receiptFile);
@@ -666,6 +731,7 @@ async function execute(plan, receiptPath) {
           gateId: 'source.changed-scope',
           planDigest: plan.planDigest,
           sourceSha: plan.head,
+          partitionDigest: executionPartition.partitionDigest,
         },
       })
     : null;
@@ -688,12 +754,14 @@ async function execute(plan, receiptPath) {
     phase: 'plan',
     attributes: {
       profile: plan.profile || 'none',
-      targetCount: plan.targets.length,
-      testCount: plan.tests.length,
+      targetCount: executionPartition.targets.length,
+      testCount: executionPartition.tests.length,
+      partitionIndex: executionPartition.index,
+      partitionCount: executionPartition.count,
     },
   });
   try {
-    if (plan.targets.length) {
+    if (executionPartition.targets.length) {
       steps.push(
         await runStep(
           'conan-install',
@@ -740,7 +808,7 @@ async function execute(plan, receiptPath) {
             '--build',
             buildRoot,
             '--target',
-            ...plan.targets,
+            ...executionPartition.targets,
             '--parallel',
             String(requestedParallelism),
           ],
@@ -756,8 +824,8 @@ async function execute(plan, receiptPath) {
           },
         ),
       );
-      if (plan.tests.length) {
-        const expression = `^(${plan.tests.map((test) => test.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})$`;
+      if (executionPartition.tests.length) {
+        const expression = `^(${executionPartition.tests.map((test) => test.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})$`;
         steps.push(
           await runStep(
             'ctest',
@@ -808,6 +876,7 @@ async function execute(plan, receiptPath) {
       source: { base: plan.base, head: plan.head },
       planDigest: plan.planDigest,
       profile: plan.profile,
+      executionPartition,
       status,
     };
     toolkit.writeDiagnosticsArtifact(diagnosticsPath, diagnostics);
@@ -827,6 +896,7 @@ async function execute(plan, receiptPath) {
     source: { base: plan.base, head: plan.head },
     plan,
     planDigest: plan.planDigest,
+    executionPartition,
     platform: `${process.platform}-${process.arch}`,
     toolchain: {
       compiler: toolFact(process.env.CXX || 'c++'),
@@ -879,6 +949,16 @@ function verifyReceipt(receipt) {
   if (!['passed', 'failed'].includes(receipt.status)) {
     throw new Error('affected-native receipt status is invalid');
   }
+  if (receipt.executionPartition) {
+    const expected = partitionAffectedNativePlan(
+      receipt.plan,
+      receipt.executionPartition.count,
+      receipt.executionPartition.index,
+    );
+    if (stableJson(receipt.executionPartition) !== stableJson(expected)) {
+      throw new Error('affected-native receipt partition drift');
+    }
+  }
   return true;
 }
 
@@ -917,6 +997,28 @@ function selfTest(authority, buildAuthority) {
     if (stableJson(first) !== stableJson(second)) throw new Error('plan drift');
     if (!first.directComponents.includes('runtime-storage-services'))
       throw new Error('owner missing');
+  });
+  expect('partition set is deterministic, disjoint, and complete', () => {
+    const partitions = [0, 1].map((index) =>
+      partitionAffectedNativePlan(first, 2, index),
+    );
+    if (partitions[0].coverageDigest !== partitions[1].coverageDigest) {
+      throw new Error('partition coverage digest drift');
+    }
+    const targets = partitions.flatMap(({ targets }) => targets);
+    const tests = partitions.flatMap(({ tests }) => tests);
+    if (
+      stableJson(unique(targets)) !== stableJson(first.targets) ||
+      targets.length !== new Set(targets).size
+    ) {
+      throw new Error('partition target coverage is incomplete or overlapping');
+    }
+    if (
+      stableJson(unique(tests)) !== stableJson(first.tests) ||
+      tests.length !== new Set(tests).size
+    ) {
+      throw new Error('partition test coverage is incomplete or overlapping');
+    }
   });
   expect('native contract JSON fixture selects qualification tests', () => {
     const plan = planFromChanged(
@@ -1217,6 +1319,23 @@ function selfTest(authority, buildAuthority) {
     },
     /plan digest drift/,
   );
+  expect(
+    'receipt partition drift fails closed',
+    () => {
+      const executionPartition = partitionAffectedNativePlan(first, 2, 0);
+      verifyReceipt({
+        schema: 'kungfu.core-affected-native-receipt/v1',
+        status: 'passed',
+        plan: first,
+        planDigest: first.planDigest,
+        executionPartition: {
+          ...executionPartition,
+          targets: [...executionPartition.targets, 'foreign-target'],
+        },
+      });
+    },
+    /partition drift/,
+  );
   const sourceBoundPlan = planFromChanged(
     ['docs/README.md'],
     authority,
@@ -1283,7 +1402,14 @@ async function main() {
     console.log(`[core-affected] targets=${plan.targets.join(', ') || 'none'}`);
     console.log(`[core-affected] tests=${plan.tests.join(', ') || 'none'}`);
   }
-  if (options.execute) await execute(plan, options.receipt);
+  if (options.execute) {
+    await execute(
+      plan,
+      options.receipt,
+      options.partitionCount,
+      options.partitionIndex,
+    );
+  }
 }
 
 if (

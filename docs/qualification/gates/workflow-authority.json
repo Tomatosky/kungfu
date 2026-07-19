@@ -46,11 +46,11 @@
       "definitionDigest": "sha256:7442605d85c6dd1f55c8695729bf8cfb8d8fa9110173c66205c3553cfcb12daa",
       "jobs": [
         {
-          "id": "affected-native",
+          "id": "affected_native_shards",
           "authority": "qualification",
           "publication": "none",
           "receipt": "diagnostic",
-          "definitionDigest": "sha256:90b2404524c21673945f5f6e30770b725d5d59139e8730f84175c77e3cd99d92",
+          "definitionDigest": "sha256:ff29d371adc78d10efeccd977edef70d5b27223ebce30590fe1b9d40267da3e2",
           "credentials": {
             "githubToken": "read",
             "oidc": false,
@@ -95,19 +95,19 @@
             {
               "index": 5,
               "label": "name:Install pinned source acceptance tools",
-              "authority": "evidence-publication",
+              "authority": "qualification",
               "definitionDigest": "sha256:b7df40ac7c0863d7bb955d3434a9c854c26f2f32007aec2882b24fb3989650de"
             },
             {
               "index": 6,
               "label": "name:Ensure compiler cache tool",
-              "authority": "evidence-publication",
+              "authority": "qualification",
               "definitionDigest": "sha256:b97a413320d0679f99eb18609c21a6e581bd3e531b6a2b274b7fcc2041976cf1"
             },
             {
               "index": 7,
               "label": "name:Write portable cache manifests",
-              "authority": "evidence-publication",
+              "authority": "qualification",
               "definitionDigest": "sha256:4fe617cc34b9d75ee2c846c69f94dccc99bb94e696b9b9f13d122a37677e7957"
             },
             {
@@ -167,14 +167,14 @@
             {
               "index": 17,
               "label": "name:Seal portable cache receipts",
-              "authority": "evidence-publication",
+              "authority": "qualification",
               "definitionDigest": "sha256:4b019f0fc9427abf9f3ee0dd01a7ff189b0478e1a980b93b6a045ebf303ce1ae"
             },
             {
               "index": 18,
               "label": "name:Save dependency cache",
-              "authority": "evidence-publication",
-              "definitionDigest": "sha256:3c71fa0fc12325dddd0ac84fb8f430b42474ece709f21d7f120026227ae1f58f"
+              "authority": "qualification",
+              "definitionDigest": "sha256:8f6eabd31ff9c94980e28ea47b32d2d0c927d23dda497c0c642d5297a6f523c6"
             },
             {
               "index": 19,
@@ -186,7 +186,30 @@
               "index": 20,
               "label": "name:Upload raw plan, receipt, and logs",
               "authority": "evidence-publication",
-              "definitionDigest": "sha256:0f28160bcefdbe43893cc96cb3f0c16cf658bae71720fec314f4ef478c38590a"
+              "definitionDigest": "sha256:69bcddc7d298cf073e4479481e6b810b8cdc33013f012e12f927530ab54d85a0"
+            }
+          ]
+        },
+        {
+          "id": "affected-native",
+          "authority": "qualification",
+          "publication": "none",
+          "receipt": "diagnostic",
+          "definitionDigest": "sha256:f99dab01912effa2ebc44cc0af08240a0fdabcb98720d892566a5ae3c7353484",
+          "credentials": {
+            "githubToken": "read",
+            "oidc": false,
+            "repositorySecrets": [],
+            "inheritedSecrets": false,
+            "environment": null
+          },
+          "externalActions": [],
+          "steps": [
+            {
+              "index": 1,
+              "label": "name:Admit complete affected-native partition set",
+              "authority": "qualification",
+              "definitionDigest": "sha256:c80a7b5d3abe9d542b59ac181ace87ace5d3494a17be72220f97512a8168bb48"
             }
           ]
         }

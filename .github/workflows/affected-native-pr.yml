@@ -16,12 +16,18 @@ permissions:
   contents: read
 
 jobs:
-  affected-native:
-    name: affected-native / linux
+  affected_native_shards:
+    name: affected-native shard ${{ matrix.partition }} of 2 / linux
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        partition: [0, 1]
     env:
       KUNGFU_BUILDCHAIN_SOURCE_BUILD: "1"
+      KUNGFU_AFFECTED_NATIVE_PARTITION_COUNT: "2"
+      KUNGFU_AFFECTED_NATIVE_PARTITION_INDEX: ${{ matrix.partition }}
       CC: gcc-14
       CXX: g++-14
     steps:
@@ -213,7 +219,7 @@ jobs:
           seal dependency "$DEPENDENCY_MATCHED_KEY" "$DEPENDENCY_HIT"
           seal compiler "$COMPILER_MATCHED_KEY" "$COMPILER_HIT"
       - name: Save dependency cache
-        if: ${{ steps.native-gate.outcome == 'success' && steps.dependency-cache.outputs.cache-hit != 'true' }}
+        if: ${{ steps.native-gate.outcome == 'success' && steps.dependency-cache.outputs.cache-hit != 'true' && matrix.partition == 0 }}
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ steps.dependency-plan.outputs.cache-paths }}
@@ -228,7 +234,26 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: core-affected-native-${{ github.sha }}
+          name: core-affected-native-${{ github.sha }}-partition-${{ matrix.partition }}-of-2
           path: product/qualification/affected-native
           if-no-files-found: warn
           retention-days: 14
+
+  affected-native:
+    name: affected-native / linux
+    if: ${{ always() }}
+    needs: affected_native_shards
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Admit complete affected-native partition set
+        shell: bash
+        env:
+          PARTITION_RESULT: ${{ needs.affected_native_shards.result }}
+        run: |
+          set -euo pipefail
+          if [ "$PARTITION_RESULT" != "success" ]; then
+            echo "affected-native partition set is not complete: $PARTITION_RESULT" >&2
+            exit 1
+          fi
+          echo "All affected-native partitions passed."

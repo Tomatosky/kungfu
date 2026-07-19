@@ -5,6 +5,7 @@ import crypto from 'node:crypto';
 import test from 'node:test';
 
 import {
+  aggregatePartitionEvidence,
   cacheEvidenceFromMembers,
   nativeEvidenceFromMembers,
   nearestRank,
@@ -14,6 +15,7 @@ import {
   summarizeNativeAttribution,
   validateBaseline,
 } from './measure-dev-required-latency.mjs';
+import { partitionAffectedNativePlan } from './run-core-affected-native.mjs';
 
 function cacheReceipt(layer, outcome, overrides = {}) {
   return JSON.stringify({
@@ -30,14 +32,20 @@ function cacheReceipt(layer, outcome, overrides = {}) {
   });
 }
 
-function nativeMembers() {
+function nativeMembers({ executionPartition = null, plan = null } = {}) {
+  const effectivePlan = plan || {
+    targets: ['kungfu'],
+    tests: [],
+  };
+  const planDigest = effectivePlan.planDigest || 'sha256:plan';
   const diagnostics = `${JSON.stringify(
     {
       contract: 'kungfu-buildchain-diagnostics',
       consumer: {
         contract: 'kungfu.affected-native-diagnostics/v1',
         gateId: 'source.changed-scope',
-        planDigest: 'sha256:plan',
+        planDigest,
+        ...(executionPartition ? { executionPartition } : {}),
       },
       lifecycleObservability: {
         stages: { build: { durationMs: 200000 } },
@@ -62,7 +70,9 @@ function nativeMembers() {
       schema: 'kungfu.core-affected-native-receipt/v1',
       status: 'passed',
       source: { base: 'base', head: 'head' },
-      planDigest: 'sha256:plan',
+      planDigest,
+      plan: effectivePlan,
+      ...(executionPartition ? { executionPartition } : {}),
       durationMs: 240000,
       steps: [
         { id: 'cmake-configure', durationMs: 40000, exitCode: 0 },
@@ -169,6 +179,57 @@ test('native evidence binds the receipt to Buildchain diagnostics', () => {
   );
 });
 
+test('partition evidence admits only a complete source-bound closure', () => {
+  const planWithoutDigest = {
+    targets: ['kungfu', 'test-a', 'yijinjing', 'test-b'],
+    tests: ['test-a', 'test-b'],
+  };
+  const ordered = (value) => {
+    if (Array.isArray(value)) return value.map(ordered);
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(
+        Object.keys(value)
+          .sort()
+          .map((key) => [key, ordered(value[key])]),
+      );
+    }
+    return value;
+  };
+  const plan = {
+    ...planWithoutDigest,
+    planDigest: `sha256:${crypto
+      .createHash('sha256')
+      .update(JSON.stringify(ordered(planWithoutDigest)))
+      .digest('hex')}`,
+  };
+  const entries = [0, 1].map((index) => {
+    const executionPartition = partitionAffectedNativePlan(plan, 2, index);
+    const members = nativeMembers({ executionPartition, plan });
+    members['cache/dependency.receipt.json'] = cacheReceipt(
+      'dependency',
+      'compatible',
+      { sourceSha: 'head' },
+    );
+    members['cache/compiler.receipt.json'] = cacheReceipt('compiler', 'exact', {
+      sourceSha: 'head',
+    });
+    return {
+      cache: cacheEvidenceFromMembers(members, { kind: 'native' }),
+      native: nativeEvidenceFromMembers(members, { kind: 'native' }),
+    };
+  });
+  const combined = aggregatePartitionEvidence(entries, { kind: 'native' });
+  assert.equal(combined.cache.outcome, 'compatible');
+  assert.equal(combined.cache.layers.length, 4);
+  assert.equal(combined.native.executionPartitions.length, 2);
+  assert.equal(combined.native.steps[1].id, 'cmake-configure');
+
+  assert.throws(
+    () => aggregatePartitionEvidence(entries.slice(0, 1), { kind: 'native' }),
+    /index set is incomplete/,
+  );
+});
+
 test('native attribution separates warm and cold phase distributions', () => {
   const nativeEvidence = nativeEvidenceFromMembers(nativeMembers(), {
     kind: 'native',
@@ -245,12 +306,19 @@ test('context duration starts at the workflow run creation time', () => {
         details_url: 'https://github.com/owner/repo/actions/runs/42/job/7',
       },
     ],
-    [{ id: 42, created_at: '2026-07-17T00:00:00Z' }],
+    [
+      {
+        id: 42,
+        created_at: '2026-07-17T00:00:00Z',
+        head_sha: 'merge-head',
+      },
+    ],
     'required',
   );
   assert.equal(context.startAuthority, 'workflow.created_at');
   assert.equal(context.durationMs, 300000);
   assert.equal(context.queueMs, 180000);
+  assert.equal(context.finalWorkflowHeadSha, 'merge-head');
 });
 
 test('context admission ignores successful post-merge reruns', () => {

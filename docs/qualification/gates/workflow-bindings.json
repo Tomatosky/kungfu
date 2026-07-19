@@ -31,14 +31,14 @@
       "id": "dev-core-affected-native",
       "execution": "gate",
       "workflow": ".github/workflows/affected-native-pr.yml",
-      "job": "affected-native",
+      "job": "affected_native_shards",
       "profiles": [
         "dev-pr"
       ],
       "gates": [
         "source.changed-scope"
       ],
-      "activation": "every development pull request and merge group, plus post-merge dev pushes that seed the base-branch cache scope; outside-Core changes produce a passed tier-none receipt so the required check never deadlocks",
+      "activation": "two deterministic GitHub-hosted Linux partitions on every development pull request and merge group, plus post-merge dev pushes; the stable affected-native aggregator admits only the complete successful set, while outside-Core changes produce partition-bound tier-none receipts so the required check never deadlocks",
       "invocation": {
         "args": [
           "--capability",

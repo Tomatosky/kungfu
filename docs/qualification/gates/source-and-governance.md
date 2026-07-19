@@ -122,11 +122,23 @@ Each section is bound to the registry id by the catalog meta gate.
   source-bound exact keys and always rerunning configure/build/CTest. PR-scoped
   saves remain useful for same-PR reruns but are not treated as merge-queue
   baselines.
+- **Cold-path partitioning:** the authoritative target and CTest lists are split
+  deterministically across two GitHub-hosted Linux jobs. Each receipt binds its
+  zero-based partition index, partition count, selected targets/tests, partition
+  digest, and the common full-closure coverage digest. The stable
+  `affected-native / linux` admission job succeeds only after the entire matrix
+  succeeds. The retained latency collector rejects missing, duplicate,
+  source-drifted, plan-drifted, or coverage-drifted partition artifacts before
+  aggregating their critical-path timings. Dependency cache identity stays
+  common; compiler cache identity includes the partition so independently
+  produced ccache roots cannot collide. This preserves configure/build/CTest
+  coverage while using parallel GitHub-hosted capacity for a cold cohort; it
+  does not claim that GitHub PR-scoped cache data was promoted to default scope.
 - **Diagnosis:** inspect without building with `./shifu core:affected -- --base
   <base> --head <head> --json`; run mutation fixtures with `./shifu
   core:affected -- --self-test`.
 - **Cost:** heavy; timeout 1500 seconds.
-- **Current source:** .github/workflows/affected-native-pr.yml (affected-native; every development pull request and merge group, plus post-merge dev pushes that seed the base-branch cache scope; outside-Core changes produce a passed tier-none receipt so the required check never deadlocks)
+- **Current source:** .github/workflows/affected-native-pr.yml (affected_native_shards; two deterministic GitHub-hosted Linux partitions on every development pull request and merge group, plus post-merge dev pushes; the stable affected-native aggregator admits only the complete successful set, while outside-Core changes produce partition-bound tier-none receipts so the required check never deadlocks)
 - **Source-first orchestration:** the workflow first runs the build-free source
   planner with `node scripts/run-core-affected-native.mjs --plan-out <path>
   --json`. A non-empty, source-bound plan then enters the registered action; a
