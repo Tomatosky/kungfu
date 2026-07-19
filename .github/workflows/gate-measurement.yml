@@ -75,7 +75,9 @@ jobs:
           mkdir -p "$source_dir"
           git -C "$source_dir" init
           git -C "$source_dir" remote add origin https://github.com/kungfu-systems/kungfu.git
-          git -C "$source_dir" fetch --no-tags origin '+refs/heads/*:refs/remotes/origin/*'
+          git -C "$source_dir" fetch --no-tags origin \
+            "$KUNGFU_GATE_SOURCE_REF" \
+            '+refs/heads/dev/v4/v4.0:refs/remotes/origin/dev/v4/v4.0'
           git -C "$source_dir" checkout --detach "$KUNGFU_GATE_SOURCE_REF"
           runner_root="$(cd "$RUNNER_TEMP/../.." && pwd)"
           node_bin="$runner_root/externals/node24/bin"
@@ -97,7 +99,9 @@ jobs:
           New-Item -ItemType Directory -Force -Path $sourceDir | Out-Null
           git -C $sourceDir init
           git -C $sourceDir remote add origin https://github.com/kungfu-systems/kungfu.git
-          git -C $sourceDir fetch --no-tags origin '+refs/heads/*:refs/remotes/origin/*'
+          git -C $sourceDir fetch --no-tags origin `
+            $env:KUNGFU_GATE_SOURCE_REF `
+            '+refs/heads/dev/v4/v4.0:refs/remotes/origin/dev/v4/v4.0'
           git -C $sourceDir checkout --detach $env:KUNGFU_GATE_SOURCE_REF
           if ($LASTEXITCODE -ne 0) { throw "locked source checkout failed" }
           $runnerRoot = Split-Path (Split-Path $env:RUNNER_TEMP -Parent) -Parent

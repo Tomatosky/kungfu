@@ -241,8 +241,12 @@ gh workflow run gate-measurement.yml --ref dev/v4/v4.0 -f source-ref=<FULL_SHA>
 
 Focused measurements bootstrap from the locked source with the self-hosted
 runner's bundled Node.js and do not download external Actions. Each focused job
-retains its receipt in the job log. Recover one exact receipt without relying
-on the Actions artifact service:
+retains its receipt in the job log. During this diagnostic-only bootstrap, the
+catalog may tolerate stale retained evidence only for the explicitly focused
+Gate ids, breaking the otherwise circular requirement to measure a changed
+definition before its old receipt can be replaced. Every other catalog issue
+still fails closed, and ordinary source acceptance has no exemption. Recover
+one exact receipt without relying on the Actions artifact service:
 
 ```sh
 gh run view <RUN_ID> --job <JOB_ID> --log 2>/dev/null \

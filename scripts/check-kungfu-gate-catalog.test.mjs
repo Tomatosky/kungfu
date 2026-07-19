@@ -8,6 +8,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
   checkKungfuGateCatalog,
+  focusedMeasurementStaleGateIdsFromEnv,
   renderPolicyMatrix,
   validateMeasurementCoverage,
 } from './check-kungfu-gate-catalog.mjs';
@@ -117,6 +118,32 @@ function writeMeasurementCoverage(root, document) {
     JSON.stringify(document, null, 2),
   );
 }
+
+test('focused measurement bootstrap is exact and fail-closed', () => {
+  assert.deepEqual(
+    focusedMeasurementStaleGateIdsFromEnv({
+      KUNGFU_GATE_MEASUREMENT_BOOTSTRAP: 'focused-diagnostic-v1',
+      KUNGFU_GATE_MEASUREMENT_FOCUS: 'source.acceptance',
+    }),
+    ['source.acceptance'],
+  );
+  for (const focus of ['', 'source.acceptance,source.acceptance', 'Source']) {
+    assert.deepEqual(
+      focusedMeasurementStaleGateIdsFromEnv({
+        KUNGFU_GATE_MEASUREMENT_BOOTSTRAP: 'focused-diagnostic-v1',
+        KUNGFU_GATE_MEASUREMENT_FOCUS: focus,
+      }),
+      [],
+    );
+  }
+  assert.deepEqual(
+    focusedMeasurementStaleGateIdsFromEnv({
+      KUNGFU_GATE_MEASUREMENT_BOOTSTRAP: 'unexpected',
+      KUNGFU_GATE_MEASUREMENT_FOCUS: 'source.acceptance',
+    }),
+    [],
+  );
+});
 
 test('current Kungfu catalog, docs, matrix, actions, and workflows align', () => {
   const root = fixture();
@@ -435,6 +462,13 @@ test('missing platforms and stale Gate definitions fail measurement coverage', (
   writeMeasurementCoverage(staleRoot, staleCoverage);
   assert.ok(
     validateMeasurementCoverage(staleRoot, staleRegistry).issues.some((issue) =>
+      issue.includes('gate.catalog: definition digest is stale'),
+    ),
+  );
+  assert.ok(
+    !validateMeasurementCoverage(staleRoot, staleRegistry, {
+      staleMeasurementGateIds: ['gate.catalog'],
+    }).issues.some((issue) =>
       issue.includes('gate.catalog: definition digest is stale'),
     ),
   );

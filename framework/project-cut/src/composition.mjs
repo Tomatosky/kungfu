@@ -533,7 +533,7 @@ export function observeComposition(rootInput, baseInput, commitInput) {
       }
     }
   }
-  for (const successor of inputs.filter(
+  for (const successor of activeLeaves.filter(
     (input) => input.parentCutRoots.length > 1,
   )) {
     const parents = inputs.filter((input) =>

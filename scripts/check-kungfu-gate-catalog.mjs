@@ -90,8 +90,28 @@ function sameStringSet(actual, expected) {
   );
 }
 
-export function validateMeasurementCoverage(root, registry) {
+export function focusedMeasurementStaleGateIdsFromEnv(env = process.env) {
+  if (env.KUNGFU_GATE_MEASUREMENT_BOOTSTRAP !== 'focused-diagnostic-v1')
+    return [];
+  const gateIds = String(env.KUNGFU_GATE_MEASUREMENT_FOCUS || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (
+    !gateIds.length ||
+    gateIds.length !== new Set(gateIds).size ||
+    gateIds.some((gateId) => !/^[a-z][a-z0-9.-]*$/.test(gateId))
+  )
+    return [];
+  return gateIds;
+}
+
+export function validateMeasurementCoverage(root, registry, options = {}) {
   const issues = [];
+  const staleMeasurementGateIds = new Set([
+    ...focusedMeasurementStaleGateIdsFromEnv(),
+    ...(options.staleMeasurementGateIds || []),
+  ]);
   const document = readJson(root, MEASUREMENT_COVERAGE);
   const bindingDocument = readJson(root, BINDINGS);
   const bindings = new Map(
@@ -179,7 +199,10 @@ export function validateMeasurementCoverage(root, registry) {
       continue;
     }
     const currentDefinitionDigest = gateDefinitionDigest(gate);
-    if (record.definitionDigest !== currentDefinitionDigest)
+    if (
+      record.definitionDigest !== currentDefinitionDigest &&
+      !staleMeasurementGateIds.has(record.gateId)
+    )
       issues.push(`[measurement] ${record.gateId}: definition digest is stale`);
     if (!Array.isArray(record.observations) || !record.observations.length) {
       issues.push(
@@ -397,7 +420,10 @@ export function validateMeasurementCoverage(root, registry) {
         continue;
       }
       const result = results[0];
-      if (result.definitionDigest !== currentDefinitionDigest)
+      if (
+        result.definitionDigest !== currentDefinitionDigest &&
+        !staleMeasurementGateIds.has(record.gateId)
+      )
         issues.push(
           `[measurement] ${record.gateId}:${observation.platform}: receipt definition digest is stale`,
         );
@@ -641,7 +667,7 @@ function replaceGeneratedMeasurements(text, measurements) {
   return `${text.slice(0, start + MEASUREMENT_BEGIN.length)}\n${measurements}\n${text.slice(finish)}`;
 }
 
-export function checkKungfuGateCatalog(root = ROOT) {
+export function checkKungfuGateCatalog(root = ROOT, options = {}) {
   const issues = [];
   const registry = readJson(root, 'shifu.gates.json');
   const validation = validateGateRegistry(registry);
@@ -667,7 +693,11 @@ export function checkKungfuGateCatalog(root = ROOT) {
     issues.push(`[release-admission] ${error.message}`);
   }
 
-  const measurementValidation = validateMeasurementCoverage(root, registry);
+  const measurementValidation = validateMeasurementCoverage(
+    root,
+    registry,
+    options,
+  );
   issues.push(...measurementValidation.issues);
   if (!measurementValidation.issues.length) {
     const measurementReportPath = path.join(root, MEASUREMENT_REPORT);
@@ -1063,11 +1093,27 @@ export function writePolicyMatrix(root = ROOT) {
 
 function main() {
   if (process.argv.includes('--write')) writePolicyMatrix();
-  const result = checkKungfuGateCatalog();
+  const focusedMeasurementBootstrap =
+    process.env.KUNGFU_GATE_MEASUREMENT_BOOTSTRAP === 'focused-diagnostic-v1';
+  const focusedGateIds = focusedMeasurementStaleGateIdsFromEnv();
+  if (focusedMeasurementBootstrap && !focusedGateIds.length) {
+    console.error(
+      '[kungfu-gates] focused measurement bootstrap requires unique canonical Gate ids',
+    );
+    process.exit(1);
+  }
+  const result = checkKungfuGateCatalog(ROOT, {
+    staleMeasurementGateIds: focusedMeasurementBootstrap ? focusedGateIds : [],
+  });
   if (result.issues.length) {
     console.error('[kungfu-gates] catalog violations:');
     for (const issue of result.issues) console.error(`  ${issue}`);
     process.exit(1);
+  }
+  if (focusedMeasurementBootstrap) {
+    console.warn(
+      `[kungfu-gates] focused diagnostic measurement permits stale retained evidence only for: ${focusedGateIds.join(', ')}`,
+    );
   }
   console.log(
     `[kungfu-gates] ${result.registry.gates.length} gates, ${result.registry.profiles.length} profiles, ${result.workflowFacts.length} structured invocations and ${result.workflowAuthority.workflows.length} closed-world workflows aligned`,

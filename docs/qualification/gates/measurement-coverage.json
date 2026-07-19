@@ -119,14 +119,14 @@
     },
     {
       "gateId": "source.acceptance",
-      "definitionDigest": "sha256:198beb4fd80ea00d49bb07c2e0931ba219b42ecac71b26fd82893ed42976052a",
+      "definitionDigest": "sha256:2861df086084761c8ad7a4b87cb100e03c9291f70ab36ec0f4e3fe3b15f0a2fb",
       "observations": [
         {
           "platform": "linux",
-          "sourceSha": "785abbd44dfec6d8466ce023e4553dc5cbae5da3",
-          "registryDigest": "sha256:ba6be36c14e4708e1c40628cf0e9df3af410bc9a5dd82cd404a25ce2e1dfa078",
-          "durationMs": 24558,
-          "receipt": "docs/qualification/evidence/gate-measurements/785abbd44/linux/changed/receipt.json"
+          "sourceSha": "1edae0d8b1c0fbbabdd2df7f16093eb3de6259bf",
+          "registryDigest": "sha256:6bae54b599660bd7fcd92f9515e9e8ab2816c88559164c9002e95626c2df75da",
+          "durationMs": 1639045,
+          "receipt": "docs/qualification/evidence/gate-measurements/1edae0d8b1/linux/receipt.json"
         }
       ]
     },

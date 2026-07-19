@@ -44,6 +44,7 @@ if (
 const receipt =
   process.env.KUNGFU_GATE_MEASUREMENT_RECEIPT ||
   path.join('.buildchain', 'gates', 'focused', 'receipt.json');
+process.env.KUNGFU_GATE_MEASUREMENT_BOOTSTRAP = 'focused-diagnostic-v1';
 const args = [
   measurement,
   'gate',

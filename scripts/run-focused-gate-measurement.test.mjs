@@ -82,6 +82,16 @@ test('focused measurement bootstraps without remote Action downloads', () => {
     /(?:^|\n) {6,}uses:/,
     'focused measurement must not depend on codeload Action archives',
   );
+  assert.doesNotMatch(
+    focusedJob[1],
+    /refs\/heads\/\*:refs\/remotes\/origin\/\*/,
+    'focused measurement must not fetch every remote branch',
+  );
+  assert.match(
+    focusedJob[1],
+    /KUNGFU_GATE_SOURCE_REF[\s\S]*refs\/heads\/dev\/v4\/v4\.0/,
+    'focused measurement must fetch only the locked source and history base',
+  );
   assert.match(
     focusedJob[1],
     /KUNGFU_GATE_RECEIPT_BASE64=/,
@@ -101,5 +111,13 @@ test('focused measurement bootstraps without remote Action downloads', () => {
     focusedJob[1],
     /\$sourceDir = Join-Path \$env:RUNNER_TEMP "kg-\$env:GITHUB_RUN_ID-\$env:GITHUB_RUN_ATTEMPT"/,
     'Windows focused measurement must preserve headroom for path-limited MSVC dependency outputs',
+  );
+});
+
+test('focused measurement marks its catalog relaxation as diagnostic-only', () => {
+  const source = fs.readFileSync(script, 'utf8');
+  assert.match(
+    source,
+    /KUNGFU_GATE_MEASUREMENT_BOOTSTRAP = 'focused-diagnostic-v1'/,
   );
 });

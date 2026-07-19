@@ -71,7 +71,8 @@ Each section is bound to the registry id by the catalog meta gate.
 - **Failure or skip:** action failure, timeout, unsupported required capability, dependency failure, or missing required artifact is non-qualifying; advisory mode remains visible.
 - **Evidence:** unified Gate receipt; no separate artifact is currently required.
 - **Diagnosis:** `./shifu gate explain source.acceptance --profile <profile>`; reproduce with `./shifu gate run source.acceptance` on a capable runner.
-- **Cost:** light; timeout 900 seconds.
+- **Cost:** light; timeout 1800 seconds. This budget covers cold shared-runner
+  Project Cut composition while retaining a bounded failure signal.
 - **Current source:** .github/workflows/source-acceptance.yml (source-acceptance; dev pull request).
 - **Retirement:** remove only after every selecting profile and workflow binding is migrated or explicitly replaced, with the registry and matrix changed in the same review.
 <!-- /gate-doc:source.acceptance -->

@@ -370,6 +370,41 @@ test('resolved overlap qualifies with a tracked admitted Integration Episode', (
   );
 });
 
+test('a qualified Integration Cut remains valid after forward evolution', (t) => {
+  const { root, parent, base } = baseline(t);
+  const left = feature(root, 'feature-a', parent, 'shared.txt', 'a\n');
+  const right = feature(root, 'feature-b', parent, 'shared.txt', 'b\n');
+  git(root, 'checkout', '-B', 'candidate', base);
+  git(root, 'merge', '--no-ff', '-qm', 'merge a', 'feature-a');
+  try {
+    git(root, 'merge', '--no-ff', '-m', 'merge b', 'feature-b');
+  } catch {
+    fs.writeFileSync(path.join(root, 'shared.txt'), 'resolved\n');
+    git(root, 'add', 'shared.txt');
+    git(root, 'commit', '-qm', 'test: resolve overlap');
+  }
+  const providerRoot = admittedEpisode(root);
+  git(root, 'add', '--all');
+  git(root, 'commit', '-qm', 'test: seal integration evidence');
+  const integration = publishCut(
+    root,
+    [left.cut.cutRoot, right.cut.cutRoot],
+    providerRoot,
+  );
+  fs.writeFileSync(path.join(root, 'future.txt'), 'future\n');
+  git(root, 'add', 'future.txt');
+  git(root, 'commit', '-qm', 'feat: continue after integration');
+  publishCut(root, [integration.cut.cutRoot]);
+
+  const receipt = observeComposition(root, base, 'HEAD');
+  assert.equal(
+    receipt.status,
+    'qualified',
+    JSON.stringify(receipt.diagnostics),
+  );
+  assert.equal(verifyComposition(root, receipt).ok, true);
+});
+
 test('self-consistent forged Episode evidence cannot admit an overlap', (t) => {
   const { root, parent, base } = baseline(t);
   const left = feature(root, 'feature-a', parent, 'shared.txt', 'a\n');
