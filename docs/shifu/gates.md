@@ -91,6 +91,12 @@ rewrite project policy and cannot later produce a qualifying profile receipt.
 
 `run GATE...` closes and executes dependencies once, but it is always a
 diagnostic run. `run --profile PROFILE` is the only qualification candidate.
+An explicit diagnostic run may use `--omit-dependency GATE` to avoid executing
+a dependency that an embedding control plane independently requires and binds.
+The omission is recorded in the receipt selection and plan digest, cannot name
+the selected Gate or a non-dependency, and is forbidden for qualifying profile
+runs. Project workflow bindings must separately prove the omitted required Gate;
+the option never changes the registry dependency graph or publication policy.
 It executes deterministic topological groups sequentially on the local runner;
 Buildchain may distribute the same planned groups later without changing gate
 meaning. `--include-advisory` runs advisory selections without making their

@@ -161,6 +161,76 @@ test('explicit multi-gate runs close and deduplicate shared dependencies', async
   }
 });
 
+test('explicit diagnostic runs can omit one declared dependency without becoming qualifying', async () => {
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'shifu-gate-test-'));
+  const log = path.join(temporary, 'actions.log');
+  const previous = process.env.SHIFU_GATE_FIXTURE_LOG;
+  process.env.SHIFU_GATE_FIXTURE_LOG = log;
+  try {
+    const receipt = await run({
+      explicitGates: ['fixture.left'],
+      omittedDependencies: ['fixture.prepare'],
+    });
+    assert.equal(receipt.status, 'pass');
+    assert.equal(receipt.ok, true);
+    assert.equal(receipt.qualifying, false);
+    assert.deepEqual(receipt.selection.omittedDependencies, [
+      'fixture.prepare',
+    ]);
+    assert.deepEqual(
+      receipt.results.map((result) => result.gateId),
+      ['fixture.left'],
+    );
+    assert.equal(fs.readFileSync(log, 'utf8').trim(), 'fixture.left');
+    assert.deepEqual(
+      validateGateReceipt(receipt, loaded.registry, {
+        root: ROOT,
+        registryRef: REGISTRY_REF,
+        registryDigest: loaded.digest,
+        source: SOURCE,
+      }),
+      {
+        valid: true,
+        current: true,
+        qualifying: false,
+        issues: [
+          {
+            code: 'diagnostic-selection',
+            path: '/selection',
+            message: 'explicit gate selection is non-qualifying',
+          },
+        ],
+      },
+    );
+  } finally {
+    if (previous === undefined)
+      Reflect.deleteProperty(process.env, 'SHIFU_GATE_FIXTURE_LOG');
+    else process.env.SHIFU_GATE_FIXTURE_LOG = previous;
+    fs.rmSync(temporary, { recursive: true, force: true });
+  }
+});
+
+test('dependency omission rejects qualifying, explicit, and unrelated Gates', async () => {
+  await assert.rejects(
+    run({ profile: 'success', omittedDependencies: ['fixture.prepare'] }),
+    /allowed only for explicit gate runs/,
+  );
+  await assert.rejects(
+    run({
+      explicitGates: ['fixture.left'],
+      omittedDependencies: ['fixture.left'],
+    }),
+    /cannot omit explicitly selected gate/,
+  );
+  await assert.rejects(
+    run({
+      explicitGates: ['fixture.left'],
+      omittedDependencies: ['fixture.evidence'],
+    }),
+    /cannot omit non-dependency gate/,
+  );
+});
+
 test('a clean complete profile produces a current qualifying receipt', async () => {
   const receipt = await run({ profile: 'success' });
   assert.equal(receipt.status, 'pass');

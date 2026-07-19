@@ -41,6 +41,8 @@
       "activation": "two deterministic GitHub-hosted Linux partitions on every development pull request and merge group, plus post-merge dev pushes; the stable affected-native aggregator admits only the complete successful set, while outside-Core changes produce partition-bound tier-none receipts so the required check never deadlocks",
       "invocation": {
         "args": [
+          "--omit-dependency",
+          "source.acceptance",
           "--capability",
           "native-toolchain"
         ]

@@ -39,7 +39,7 @@ export function gateHelp() {
   gate plan PROFILE [--include-advisory] [--gate GATE] [--platform PLATFORM]
                     [--registry FILE] [--json]
                                         produce a deterministic dependency and platform plan
-  gate run GATE... [--capability CAP] [--execution-context JSON] [--registry FILE] [--receipt FILE] [--json]
+  gate run GATE... [--omit-dependency GATE] [--capability CAP] [--execution-context JSON] [--registry FILE] [--receipt FILE] [--json]
   gate run --profile PROFILE [--include-advisory] [--capability CAP]
            [--registry FILE] [--receipt FILE] [--json]
                                         execute a dependency closure and emit one unified receipt
@@ -271,6 +271,7 @@ function parseRunArgs(argv) {
   let executionContext = null;
   const capabilities = [];
   const gates = [];
+  const omittedDependencies = [];
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     const value = () => {
@@ -280,6 +281,7 @@ function parseRunArgs(argv) {
     };
     if (arg === '--profile') profile = value();
     else if (arg === '--include-advisory') includeAdvisory = true;
+    else if (arg === '--omit-dependency') omittedDependencies.push(value());
     else if (arg === '--capability') capabilities.push(value());
     else if (arg === '--receipt') receipt = value();
     else if (arg === '--overwrite') overwrite = true;
@@ -384,6 +386,7 @@ function parseRunArgs(argv) {
     executionContext,
     capabilities,
     gates,
+    omittedDependencies,
   };
 }
 
@@ -552,6 +555,7 @@ export async function runGateCommand(
       registryDigest: loaded.digest,
       profile: options.profile,
       explicitGates: options.gates,
+      omittedDependencies: options.omittedDependencies,
       includeAdvisory: options.includeAdvisory,
       capabilities: options.capabilities,
       executionContext: options.executionContext,

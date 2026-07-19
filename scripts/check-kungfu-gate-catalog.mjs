@@ -476,6 +476,20 @@ function invocationDrift(fact, binding) {
   return [];
 }
 
+function omittedDependencyArgs(binding) {
+  const args = binding.invocation?.args || [];
+  const ids = [];
+  let malformed = false;
+  for (let index = 0; index < args.length; index += 1) {
+    if (args[index] !== '--omit-dependency') continue;
+    const id = args[index + 1];
+    if (typeof id !== 'string' || !id || id.startsWith('-')) malformed = true;
+    else ids.push(id);
+    index += 1;
+  }
+  return { ids: [...new Set(ids)].sort(), malformed };
+}
+
 function gateActionLine(gate) {
   if (gate.action.kind === 'task') {
     const command = [gate.action.task, ...(gate.action.args || [])].join(' ');
@@ -846,6 +860,55 @@ export function checkKungfuGateCatalog(root = ROOT) {
     const workflow = path.join(root, workflowRelative);
     if (!fs.existsSync(workflow)) {
       issues.push(`[workflow] ${binding.id}: missing ${binding.workflow}`);
+    }
+  }
+
+  for (const binding of bindings.filter(
+    (candidate) => candidate.execution === 'gate',
+  )) {
+    const omission = omittedDependencyArgs(binding);
+    if (omission.malformed) {
+      issues.push(
+        `[workflow-omission] ${binding.id}: --omit-dependency requires a static Gate id`,
+      );
+    }
+    if (!omission.ids.length) continue;
+    const dependencyIds = new Set();
+    const collectDependencies = (gateId) => {
+      const gate = registry.gates.find((candidate) => candidate.id === gateId);
+      for (const dependency of gate?.dependencies || []) {
+        if (dependencyIds.has(dependency)) continue;
+        dependencyIds.add(dependency);
+        collectDependencies(dependency);
+      }
+    };
+    for (const gate of binding.gates || []) collectDependencies(gate);
+    for (const omitted of omission.ids) {
+      if (!dependencyIds.has(omitted)) {
+        issues.push(
+          `[workflow-omission] ${binding.id}: ${omitted} is not a dependency of the bound Gate closure`,
+        );
+      }
+      for (const profileId of binding.profiles || []) {
+        const profile = registry.profiles.find(({ id }) => id === profileId);
+        if (profile?.decisions?.[omitted]?.mode !== 'required') {
+          issues.push(
+            `[workflow-omission] ${binding.id}: ${profileId}:${omitted} must remain required`,
+          );
+        }
+        const externalBinding = bindings.find(
+          (candidate) =>
+            candidate.id !== binding.id &&
+            candidate.workflow !== binding.workflow &&
+            candidate.profiles?.includes(profileId) &&
+            candidate.gates?.includes(omitted),
+        );
+        if (!externalBinding) {
+          issues.push(
+            `[workflow-omission] ${binding.id}: ${profileId}:${omitted} has no distinct workflow binding`,
+          );
+        }
+      }
     }
   }
 

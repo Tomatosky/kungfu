@@ -86,6 +86,11 @@ Each section is bound to the registry id by the catalog meta gate.
   cannot observe.
 - **Action:** `./shifu core:affected -- --execute`
 - **Dependencies:** `gate.catalog`, `source.acceptance`.
+- **Workflow execution:** the partition worker uses the explicit diagnostic
+  `--omit-dependency source.acceptance` form. The `dev-pr` matrix independently
+  requires `source.acceptance`, and its distinct source workflow binding is
+  checked alongside this exact invocation, so branch admission still requires
+  both Gates without rerunning the build-free closure inside every partition.
 - **Platforms and runner:** linux; capabilities `native-toolchain`.
 - **Pass:** the resolver validates the authority, selects a supported minimal
   profile, and the selected configure/compile/link/CTest closure passes.

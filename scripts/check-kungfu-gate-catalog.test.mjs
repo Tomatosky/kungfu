@@ -148,6 +148,22 @@ test('current Kungfu catalog, docs, matrix, actions, and workflows align', () =>
   assert.equal(result.workflowAuthority.workflows.length, 17);
 });
 
+test('an omitted workflow dependency stays required and distinctly bound', () => {
+  const root = fixture();
+  const file = path.join(
+    root,
+    'docs/qualification/gates/workflow-bindings.json',
+  );
+  const document = JSON.parse(fs.readFileSync(file, 'utf8'));
+  document.bindings = document.bindings.filter(({ id }) => id !== 'dev-source');
+  fs.writeFileSync(file, `${JSON.stringify(document, null, 2)}\n`);
+  assert.ok(
+    checkKungfuGateCatalog(root).issues.includes(
+      '[workflow-omission] dev-core-affected-native: dev-pr:source.acceptance has no distinct workflow binding',
+    ),
+  );
+});
+
 test('workflow authority rejects unknown workflows, jobs, steps, and activation drift', () => {
   const root = fixture();
   fs.writeFileSync(

@@ -52,7 +52,8 @@
       "properties": {
         "profile": { "type": ["string", "null"] },
         "includeAdvisory": { "type": "boolean" },
-        "explicitGates": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+        "explicitGates": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "omittedDependencies": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
       }
     },
     "environment": {

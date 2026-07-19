@@ -184,7 +184,10 @@ jobs:
           GITHUB_BASE_SHA: ${{ steps.revisions.outputs.base_sha }}
           GITHUB_HEAD_SHA: ${{ steps.revisions.outputs.head_sha }}
           KUNGFU_AFFECTED_NATIVE_PLAN: product/qualification/affected-native/plan.json
-        run: ./shifu gate run source.changed-scope --capability native-toolchain
+        run: >-
+          ./shifu gate run source.changed-scope
+          --omit-dependency source.acceptance
+          --capability native-toolchain
       - name: Record compiler cache statistics
         if: ${{ always() && steps.plan.outputs.required == 'true' }}
         shell: bash

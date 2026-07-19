@@ -50,7 +50,7 @@
           "authority": "qualification",
           "publication": "none",
           "receipt": "diagnostic",
-          "definitionDigest": "sha256:ff29d371adc78d10efeccd977edef70d5b27223ebce30590fe1b9d40267da3e2",
+          "definitionDigest": "sha256:8fe53dc66fded73d60d293981fc5315fb9c68de563cd613149407cbcbff27f62",
           "credentials": {
             "githubToken": "read",
             "oidc": false,
@@ -156,7 +156,7 @@
               "index": 15,
               "label": "id:native-gate",
               "authority": "qualification",
-              "definitionDigest": "sha256:09a66ef457cc7fc0050f65ec8386625ca9a9d4b951ad9dcdb7411a8ed6edf95a"
+              "definitionDigest": "sha256:02339daee46ac76a74548bec81fe9bc9ab992d657565ee9770215f3eca889787"
             },
             {
               "index": 16,

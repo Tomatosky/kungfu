@@ -77,10 +77,35 @@ function requireGate(byId, id) {
  * @param {any} registry
  * @param {string[]} explicitGates
  * @param {string} platform
+ * @param {string[]} omittedDependencies
  */
-function buildExplicitPlan(registry, explicitGates, platform) {
+function buildExplicitPlan(
+  registry,
+  explicitGates,
+  platform,
+  omittedDependencies = [],
+) {
   const byId = gateMap(registry);
   const explicit = [...new Set(explicitGates)].sort();
+  const omitted = [...new Set(omittedDependencies)].sort();
+  const transitiveDependencies = new Set();
+  /** @param {string} id */
+  const collectDependencies = (id) => {
+    for (const dependency of requireGate(byId, id).dependencies) {
+      if (transitiveDependencies.has(dependency)) continue;
+      transitiveDependencies.add(dependency);
+      collectDependencies(dependency);
+    }
+  };
+  for (const id of explicit) collectDependencies(id);
+  for (const id of omitted) {
+    if (!byId.has(id)) throw new Error(`unknown gate: ${id}`);
+    if (explicit.includes(id))
+      throw new Error(`cannot omit explicitly selected gate: ${id}`);
+    if (!transitiveDependencies.has(id))
+      throw new Error(`cannot omit non-dependency gate: ${id}`);
+  }
+  const omittedSet = new Set(omitted);
   const selected = new Set();
   /** @type {Map<string, Set<string>>} */
   const selectedBy = new Map();
@@ -96,6 +121,7 @@ function buildExplicitPlan(registry, explicitGates, platform) {
   const visit = (id) => {
     const gate = requireGate(byId, id);
     for (const dependency of [...gate.dependencies].sort()) {
+      if (omittedSet.has(dependency)) continue;
       select(dependency, `dependency-of:${id}`);
       visit(dependency);
     }
@@ -155,6 +181,7 @@ function buildExplicitPlan(registry, explicitGates, platform) {
     platform,
     includeAdvisory: false,
     explicitGates: explicit,
+    omittedDependencies: omitted,
     ok: unsupported.length === 0,
     qualifying: false,
     groups,
@@ -165,7 +192,7 @@ function buildExplicitPlan(registry, explicitGates, platform) {
 
 /**
  * @param {any} registry
- * @param {{registryRef:string, registryDigest:string, profile?:string, explicitGates?:string[], includeAdvisory?:boolean, platform?:string}} options
+ * @param {{registryRef:string, registryDigest:string, profile?:string, explicitGates?:string[], omittedDependencies?:string[], includeAdvisory?:boolean, platform?:string}} options
  */
 export function buildGateRunPlan(registry, options) {
   const issues = validateGateRegistry(registry);
@@ -176,10 +203,13 @@ export function buildGateRunPlan(registry, options) {
   const platform = normalizeGatePlatform(options.platform);
   const profile = options.profile || '';
   const explicitGates = options.explicitGates || [];
+  const omittedDependencies = options.omittedDependencies || [];
   if (Boolean(profile) === Boolean(explicitGates.length))
     throw new Error(
       'gate run requires either --profile PROFILE or one or more GATE ids',
     );
+  if (profile && omittedDependencies.length)
+    throw new Error('--omit-dependency is allowed only for explicit gate runs');
   const plan = profile
     ? buildGatePlan(registry, profile, {
         ref: options.registryRef,
@@ -187,13 +217,18 @@ export function buildGateRunPlan(registry, options) {
         includeAdvisory: options.includeAdvisory || false,
         platform,
       })
-    : buildExplicitPlan(registry, explicitGates, platform);
+    : buildExplicitPlan(registry, explicitGates, platform, omittedDependencies);
+  /** @type {string[]} */
+  const plannedOmissions = /** @type {any} */ (plan).omittedDependencies || [];
   const identity = {
     registryDigest: options.registryDigest,
     profile: plan.profile,
     platform: plan.platform,
     includeAdvisory: plan.includeAdvisory,
     explicitGates: plan.explicitGates,
+    ...(plannedOmissions.length
+      ? { omittedDependencies: plannedOmissions }
+      : {}),
     qualifying: plan.qualifying,
     groups: plan.groups.map((group) => ({
       index: group.index,
@@ -514,7 +549,7 @@ function requiredCoverage(results) {
 
 /**
  * @param {any} registry
- * @param {{root:string, registryRef:string, registryDigest:string, profile?:string, explicitGates?:string[], includeAdvisory?:boolean, platform?:string, capabilities?:string[], executionContext?:Record<string,unknown>|null, writer?:Writer, handlers?:Record<string,Function>, source?:{sha:string|null,dirty:boolean}, now?:()=>Date}} options
+ * @param {{root:string, registryRef:string, registryDigest:string, profile?:string, explicitGates?:string[], omittedDependencies?:string[], includeAdvisory?:boolean, platform?:string, capabilities?:string[], executionContext?:Record<string,unknown>|null, writer?:Writer, handlers?:Record<string,Function>, source?:{sha:string|null,dirty:boolean}, now?:()=>Date}} options
  */
 export async function executeGateRun(registry, options) {
   const root = options.root;
@@ -527,9 +562,12 @@ export async function executeGateRun(registry, options) {
     registryDigest: options.registryDigest,
     profile: options.profile,
     explicitGates: options.explicitGates,
+    omittedDependencies: options.omittedDependencies,
     includeAdvisory: options.includeAdvisory,
     platform,
   });
+  /** @type {string[]} */
+  const plannedOmissions = /** @type {any} */ (plan).omittedDependencies || [];
   const source = options.source || readGateSourceIdentity(root);
   const now = options.now || (() => new Date());
   const startedAt = now();
@@ -539,6 +577,7 @@ export async function executeGateRun(registry, options) {
   const results = [];
   /** @type {Map<string, any>} */
   const resultById = new Map();
+  const omittedDependencies = new Set(plannedOmissions);
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'shifu-gate-'));
   try {
     for (const group of plan.groups) {
@@ -546,6 +585,7 @@ export async function executeGateRun(registry, options) {
         const gate = requireGate(byId, planned.id);
         const failedDependency = gate.dependencies.find(
           (/** @type {string} */ dependency) =>
+            !omittedDependencies.has(dependency) &&
             resultById.get(dependency)?.status !== 'pass',
         );
         const base = {
@@ -577,6 +617,10 @@ export async function executeGateRun(registry, options) {
                 'gate',
                 'run',
                 gate.id,
+                ...plannedOmissions.flatMap((dependency) => [
+                  '--omit-dependency',
+                  dependency,
+                ]),
                 '--registry',
                 options.registryRef,
               ],
@@ -612,6 +656,10 @@ export async function executeGateRun(registry, options) {
                 'gate',
                 'run',
                 gate.id,
+                ...plannedOmissions.flatMap((dependency) => [
+                  '--omit-dependency',
+                  dependency,
+                ]),
                 '--registry',
                 options.registryRef,
               ],
@@ -645,6 +693,10 @@ export async function executeGateRun(registry, options) {
               'gate',
               'run',
               gate.id,
+              ...plannedOmissions.flatMap((dependency) => [
+                '--omit-dependency',
+                dependency,
+              ]),
               '--registry',
               options.registryRef,
             ],
@@ -692,6 +744,9 @@ export async function executeGateRun(registry, options) {
       profile: plan.profile,
       includeAdvisory: plan.includeAdvisory,
       explicitGates: plan.explicitGates,
+      ...(plannedOmissions.length
+        ? { omittedDependencies: plannedOmissions }
+        : {}),
     },
     environment: { platform, runnerCapabilities: capabilities },
     ...(options.executionContext
@@ -786,6 +841,7 @@ export function validateGateReceipt(receipt, registry, options) {
       registryDigest: options.registryDigest,
       profile: receipt.selection?.profile || '',
       explicitGates: receipt.selection?.explicitGates || [],
+      omittedDependencies: receipt.selection?.omittedDependencies || [],
       includeAdvisory: receipt.selection?.includeAdvisory || false,
       platform: receipt.environment?.platform,
     });

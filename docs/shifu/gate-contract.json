@@ -27,7 +27,7 @@
     "explain": "shifu gate explain GATE [--profile PROFILE] [--registry FILE] [--json]",
     "matrix": "shifu gate matrix [--registry FILE] [--json]",
     "plan": "shifu gate plan PROFILE [--include-advisory] [--gate GATE] [--platform PLATFORM] [--registry FILE] [--json]",
-    "runGates": "shifu gate run GATE... [--capability CAP] [--registry FILE] [--receipt FILE] [--json]",
+    "runGates": "shifu gate run GATE... [--omit-dependency GATE] [--capability CAP] [--registry FILE] [--receipt FILE] [--json]",
     "runProfile": "shifu gate run --profile PROFILE [--include-advisory] [--capability CAP] [--registry FILE] [--receipt FILE] [--json]",
     "validateReceipt": "shifu gate receipt validate FILE [--registry FILE] [--json]"
   },
