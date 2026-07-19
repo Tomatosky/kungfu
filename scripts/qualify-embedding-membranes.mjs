@@ -18,6 +18,11 @@ const python = path.join(
   process.platform === 'win32' ? 'Scripts' : 'bin',
   process.platform === 'win32' ? 'python.exe' : 'python3',
 );
+const ninja = path.join(
+  pythonEnvironment,
+  process.platform === 'win32' ? 'Scripts' : 'bin',
+  process.platform === 'win32' ? 'ninja.exe' : 'ninja',
+);
 
 function cmakePath(value) {
   return value.replaceAll('\\', '/');
@@ -39,6 +44,9 @@ function run(command, args) {
 
 if (!fs.existsSync(python)) {
   throw new Error(`managed Python is not materialized: ${python}`);
+}
+if (!fs.existsSync(ninja)) {
+  throw new Error(`managed Ninja is not materialized: ${ninja}`);
 }
 if (process.platform === 'darwin' && process.arch !== 'arm64') {
   throw new Error(
@@ -63,6 +71,7 @@ run('cmake', [
   build,
   '-G',
   'Ninja',
+  `-DCMAKE_MAKE_PROGRAM=${cmakePath(ninja)}`,
   `-DCMAKE_TOOLCHAIN_FILE=${cmakePath(path.join(build, 'conan_toolchain.cmake'))}`,
   '-DCMAKE_POLICY_DEFAULT_CMP0091=NEW',
   '-DCMAKE_BUILD_TYPE=Release',

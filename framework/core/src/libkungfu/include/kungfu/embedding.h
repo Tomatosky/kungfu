@@ -31,6 +31,7 @@ extern "C" {
 #define KF_EMBEDDING_ABI_V2 UINT32_C(2)
 #define KF_EMBEDDING_ABI_V3 UINT32_C(3)
 #define KF_EMBEDDING_ABI_V4 UINT32_C(4)
+#define KF_EMBEDDING_ABI_V5 UINT32_C(5)
 #define KF_EMBEDDING_MAX_BATCH_FRAMES UINT32_C(4096)
 #define KF_EMBEDDING_CONTEXT_LOW_LATENCY UINT32_C(1)
 
@@ -57,6 +58,8 @@ typedef enum kf_embedding_status {
 #define KF_EMBEDDING_CAP_GENERIC_CODEC (UINT64_C(1) << 3)
 /* v4 (ADR-0071): read-only maintenance plans reachable without CPython. */
 #define KF_EMBEDDING_CAP_STORAGE_MAINTENANCE_PLANS (UINT64_C(1) << 4)
+/* v5 (ADR-0071): read-only native storage status reachable without CPython. */
+#define KF_EMBEDDING_CAP_STORAGE_STATUS (UINT64_C(1) << 5)
 
 typedef enum kf_embedding_mode {
   KF_EMBEDDING_MODE_LIVE = 0,
@@ -164,6 +167,16 @@ typedef struct kf_embedding_storage_gc_plan_request_v1 {
   uint32_t reserved1;
 } kf_embedding_storage_gc_plan_request_v1;
 
+/* v5: status is read-only and selects either the whole runtime or one source. */
+typedef struct kf_embedding_storage_status_request_v1 {
+  uint32_t struct_size;
+  uint32_t reserved;
+  const char *runtime_dir;
+  const char *provider;               /* nullable */
+  const char *provider_config_source; /* nullable */
+  const char *source_id;              /* nullable; null means all-scope */
+} kf_embedding_storage_status_request_v1;
+
 #define KF_EMBEDDING_REPORT_FORMAT_JSON UINT32_C(1)
 
 typedef struct kf_embedding_report_v1 {
@@ -200,6 +213,9 @@ typedef int32_t(KF_EMBEDDING_CALL *kf_embedding_storage_gc_plan_v1_fn)(
     kf_embedding_report_v1 *out_report);
 typedef int32_t(KF_EMBEDDING_CALL *kf_embedding_storage_repair_plan_v1_fn)(
     kf_embedding_context *context, const kf_embedding_storage_fsck_request_v1 *request,
+    kf_embedding_report_v1 *out_report);
+typedef int32_t(KF_EMBEDDING_CALL *kf_embedding_storage_status_v1_fn)(
+    kf_embedding_context *context, const kf_embedding_storage_status_request_v1 *request,
     kf_embedding_report_v1 *out_report);
 /*
  * v3 (ADR-0078) generic self-describing primitives. `decode_frame_json` decodes a
@@ -300,6 +316,31 @@ typedef struct kf_embedding_api_v4 {
   kf_embedding_storage_gc_plan_v1_fn storage_gc_plan;
   kf_embedding_storage_repair_plan_v1_fn storage_repair_plan;
 } kf_embedding_api_v4;
+
+/*
+ * v5 appends the read-only storage-status pointer after a byte-identical v4
+ * prefix (ADR-0071). The result is the existing C++ storage authority's JSON;
+ * no second status implementation or mutating control crosses the membrane.
+ */
+typedef struct kf_embedding_api_v5 {
+  uint32_t abi_version;
+  uint32_t struct_size;
+  uint64_t capabilities;
+  kf_embedding_context_open_v1_fn context_open;
+  kf_embedding_context_capabilities_v1_fn context_capabilities;
+  kf_embedding_context_close_v1_fn context_close;
+  kf_embedding_reader_open_v1_fn reader_open;
+  kf_embedding_reader_read_batch_v1_fn reader_read_batch;
+  kf_embedding_reader_release_batch_v1_fn reader_release_batch;
+  kf_embedding_reader_close_v1_fn reader_close;
+  kf_embedding_storage_fsck_v1_fn storage_fsck;
+  kf_embedding_report_release_v1_fn report_release;
+  kf_embedding_decode_frame_json_v1_fn decode_frame_json;
+  kf_embedding_frame_checksum_v1_fn frame_checksum;
+  kf_embedding_storage_gc_plan_v1_fn storage_gc_plan;
+  kf_embedding_storage_repair_plan_v1_fn storage_repair_plan;
+  kf_embedding_storage_status_v1_fn storage_status;
+} kf_embedding_api_v5;
 
 /*
  * The only link-visible bootstrap. All versioned operations live in the table.
