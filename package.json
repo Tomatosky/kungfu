@@ -79,6 +79,7 @@
     "check:agent-work-state-contract": "node scripts/require-shifu.mjs check:agent-work-state-contract && node scripts/run-agent-work-state-tests.mjs",
     "check:agent-pack": "node scripts/require-shifu.mjs check:agent-pack && node scripts/verify-agent-pack.mjs",
     "check:fact-cut-kernel-contract": "node scripts/require-shifu.mjs check:fact-cut-kernel-contract && node --test scripts/check-fact-cut-kernel-contract.test.mjs",
+    "check:kfd7-library-boundary": "node scripts/require-shifu.mjs check:kfd7-library-boundary && node scripts/check-kfd7-library-boundary.test.mjs",
     "docs:check": "node scripts/require-shifu.mjs docs:check && node scripts/run-docs-check.mjs",
     "docs:check:readonly": "node scripts/require-shifu.mjs docs:check:readonly && node scripts/run-docs-readonly.mjs",
     "docs:prose": "node scripts/require-shifu.mjs docs:prose && node scripts/run-docs-prose-check.mjs",
