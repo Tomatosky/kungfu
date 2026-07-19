@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import copy
+import base64
 import hashlib
 import json
 import sys
@@ -192,6 +193,61 @@ def test_agent_work_model_closes_the_kfd3_runtime_interface(tmp_path):
     assert payload["runtimeAnchors"]["missingRuntimeAnchors"] == []
     assert payload["commandCatalog"]["missingRegistryEntries"] == []
     assert payload["commandCatalog"]["missingCatalogEntries"] == []
+
+
+def test_kfd7_authority_bundle_cli_exports_and_imports_the_same_public_shape(
+    tmp_path, monkeypatch
+):
+    bundle = {
+        "schema": work_profile.AUTHORITY_BUNDLE_SCHEMA,
+        "bundleRoot": "sha256:" + "a" * 64,
+    }
+    exported = {
+        "ok": True,
+        "status": "exported",
+        "result": {"bundle": bundle},
+    }
+    observed = {}
+    monkeypatch.setattr(work_profile, "export_authority", lambda runtime_dir: exported)
+
+    def import_authority(runtime_dir, candidate, *, execute=False):
+        observed.update(
+            {"runtimeDir": str(runtime_dir), "bundle": candidate, "execute": execute}
+        )
+        return {"ok": True, "status": "imported" if execute else "planned"}
+
+    monkeypatch.setattr(work_profile, "import_authority", import_authority)
+    runner = CliRunner()
+    home = tmp_path / "home"
+    export_result = runner.invoke(
+        kfc,
+        ["--home", str(home), "agent", "work", "export-authority", "--json"],
+    )
+    encoded = base64.b64encode(json.dumps(bundle).encode()).decode()
+    import_result = runner.invoke(
+        kfc,
+        [
+            "--home",
+            str(home),
+            "agent",
+            "work",
+            "import-authority",
+            "--input-base64",
+            encoded,
+            "--execute",
+            "--json",
+        ],
+    )
+
+    assert export_result.exit_code == 0, export_result.output
+    assert json.loads(export_result.output) == exported
+    assert import_result.exit_code == 0, import_result.output
+    assert json.loads(import_result.output)["status"] == "imported"
+    assert observed == {
+        "runtimeDir": str(home / "runtime"),
+        "bundle": bundle,
+        "execute": True,
+    }
 
 
 def _root(value):
@@ -425,6 +481,49 @@ def _profile_request():
     }
 
 
+def _session_fixture():
+    return {
+        "schema": work_profile.SESSION_SCHEMA,
+        "sessionId": "session:release-check",
+        "goal": {
+            "pursuitId": "pursuit:release-check",
+            "state": "active",
+            "summary": "qualify the exact release cut",
+            "operations": ["fact:successor", "episode:seal"],
+            "alternatives": [],
+        },
+        "context": {
+            "atlasId": "atlas:release-check",
+            "state": "current",
+            "perspective": "release-reviewer",
+            "perspectives": ["release-reviewer"],
+            "basisRevision": 4,
+            "validThroughRevision": 4,
+            "lossRoots": [],
+        },
+        "permissions": {
+            "warrantId": "warrant:release-check",
+            "state": "issued",
+            "allowedOperations": ["fact:successor", "episode:seal"],
+            "validThroughRevision": 4,
+            "delegated": False,
+        },
+        "run": {
+            "episodeId": "episode:release-check",
+            "episodeIds": ["episode:release-check"],
+            "state": "open",
+            "causalRoot": "sha256:" + "a" * 64,
+        },
+        "facts": {
+            "factId": "fact:release-check",
+            "state": "declared",
+            "inputRoot": "sha256:" + "b" * 64,
+            "resultRoots": ["sha256:" + "c" * 64],
+            "branchRoots": [],
+        },
+    }
+
+
 def _successor_request(previous, *, action_id="continue-1"):
     request = _profile_request()
     request["actionId"] = action_id
@@ -452,6 +551,47 @@ def _successor_request(previous, *, action_id="continue-1"):
     return request
 
 
+def _role_transition_request(
+    previous,
+    *,
+    action_id,
+    role,
+    operation,
+    from_state,
+    to_state,
+    payload,
+    ref_name=None,
+    new_ref=False,
+):
+    request = _profile_request()
+    request["actionId"] = action_id
+    request["refName"] = ref_name or request["refName"]
+    request["basis"] = {
+        "cutRoot": previous["result"]["cutRoot"],
+        "revision": previous["result"]["revision"],
+    }
+    request["ref"] = (
+        {"cutRoot": None, "revision": 0} if new_ref else copy.deepcopy(request["basis"])
+    )
+    request["subject"] = {
+        "role": role,
+        "operation": operation,
+        "fromState": from_state,
+        "toState": to_state,
+    }
+    request["responsibilities"] = {
+        current_role: {
+            "objectId": request["responsibilities"][current_role]["objectId"],
+            "expectedVersionRoot": previous["result"]["roleVersions"][current_role],
+        }
+        for current_role in work_profile.ROLES
+    }
+    request.pop("roleInputs")
+    request["relations"] = []
+    request["payload"] = copy.deepcopy(payload)
+    return request
+
+
 def test_kfd7_profile_capabilities_and_typed_responsibility_gap():
     capabilities = work_profile.capabilities()
     assert capabilities["roles"] == ["fact", "episode", "pursuit", "atlas", "warrant"]
@@ -463,6 +603,149 @@ def test_kfd7_profile_capabilities_and_typed_responsibility_gap():
     )
     request = _profile_request()
     del request["responsibilities"]["warrant"]
+
+    denied = work_profile.apply_action("/unused", request, kernel=_MemoryFactKernel())
+
+    assert denied["status"] == "denied"
+    assert denied["failureCode"] == "responsibility-gap"
+    assert denied["writeOccurred"] is False
+
+
+def test_kfd7_simple_session_round_trips_all_five_decision_observations():
+    session = _session_fixture()
+    expanded = work_profile.expand_session(session)
+
+    assert expanded["compressibility"] == {
+        "schema": work_profile.SESSION_COMPRESSIBILITY_SCHEMA,
+        "sessionId": session["sessionId"],
+        "compressible": True,
+        "breakpoints": [],
+        "revealedRoles": [],
+    }
+    assert set(expanded["observations"]) == {
+        "direction",
+        "perspective-boundary",
+        "effective-authority",
+        "causal-process",
+        "admitted-result",
+    }
+    assert work_profile.project_session(expanded) == session
+
+
+def test_kfd7_session_cli_and_python_api_share_the_same_projection(tmp_path):
+    session = _session_fixture()
+    encoded = base64.b64encode(json.dumps(session).encode()).decode()
+    result = CliRunner().invoke(
+        kfc,
+        [
+            "--home",
+            str(tmp_path / "home"),
+            "agent",
+            "work",
+            "session",
+            "--operation",
+            "expand",
+            "--input-base64",
+            encoded,
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output) == work_profile.expand_session(session)
+
+
+@pytest.mark.parametrize(
+    ("role", "mutate"),
+    [
+        (
+            "pursuit",
+            lambda value: value["goal"].update({"alternatives": ["pursuit:other"]}),
+        ),
+        (
+            "atlas",
+            lambda value: value["context"].update(
+                {"state": "stale", "lossRoots": ["sha256:" + "d" * 64]}
+            ),
+        ),
+        (
+            "warrant",
+            lambda value: value["permissions"].update({"state": "revoked"}),
+        ),
+        (
+            "episode",
+            lambda value: value["run"].update(
+                {"episodeIds": ["episode:release-check", "episode:retry"]}
+            ),
+        ),
+        (
+            "fact",
+            lambda value: value["facts"].update(
+                {"branchRoots": ["sha256:" + "e" * 64]}
+            ),
+        ),
+    ],
+)
+def test_kfd7_session_complexity_breakpoints_reveal_the_independent_role(role, mutate):
+    session = _session_fixture()
+    mutate(session)
+    expanded = work_profile.expand_session(session)
+
+    assert expanded["compressibility"]["compressible"] is False
+    assert role in expanded["compressibility"]["revealedRoles"]
+    with pytest.raises(ValueError, match="session-complexity-breakpoint"):
+        work_profile.project_session(expanded)
+
+
+def test_kfd7_same_payload_has_different_actions_without_direction_authority_or_freshness():
+    baseline = _session_fixture()
+    payload = copy.deepcopy(baseline["facts"])
+    assert work_profile.session_valid_actions(baseline) == [
+        "episode:seal",
+        "fact:successor",
+    ]
+
+    different_direction = copy.deepcopy(baseline)
+    different_direction["goal"]["operations"] = ["episode:seal"]
+    weaker_authority = copy.deepcopy(baseline)
+    weaker_authority["permissions"]["allowedOperations"] = ["fact:successor"]
+    stale_context = copy.deepcopy(baseline)
+    stale_context["context"]["validThroughRevision"] = 3
+
+    for candidate in (different_direction, weaker_authority, stale_context):
+        assert candidate["facts"] == payload
+    assert work_profile.session_valid_actions(different_direction) == ["episode:seal"]
+    assert work_profile.session_valid_actions(weaker_authority) == ["fact:successor"]
+    assert work_profile.session_valid_actions(stale_context) == []
+
+
+@pytest.mark.parametrize("role", work_profile.ROLES)
+def test_kfd7_profile_role_deletion_fails_before_write(role):
+    request = _profile_request()
+    del request["responsibilities"][role]
+
+    denied = work_profile.apply_action("/unused", request, kernel=_MemoryFactKernel())
+
+    assert denied["status"] == "denied"
+    assert denied["failureCode"] == "responsibility-gap"
+    assert denied["writeOccurred"] is False
+
+
+@pytest.mark.parametrize(
+    ("left", "right"),
+    [
+        ("fact", "episode"),
+        ("episode", "pursuit"),
+        ("pursuit", "atlas"),
+        ("atlas", "warrant"),
+        ("fact", "warrant"),
+    ],
+)
+def test_kfd7_profile_role_fusion_fails_before_write(left, right):
+    request = _profile_request()
+    request["responsibilities"][right]["objectId"] = request["responsibilities"][left][
+        "objectId"
+    ]
 
     denied = work_profile.apply_action("/unused", request, kernel=_MemoryFactKernel())
 
@@ -570,3 +853,354 @@ def test_kfd7_profile_rejects_stale_atlas_and_expired_warrant_before_writes():
 
     assert expired["failureCode"] == "warrant-expired"
     assert expired["writeOccurred"] is False
+
+
+def test_kfd7_profile_warrant_attenuation_and_revocation_are_enforced():
+    kernel = _MemoryFactKernel()
+    created = work_profile.apply_action(
+        "/runtime", _profile_request(), execute=True, kernel=kernel
+    )
+    attenuated = work_profile.apply_action(
+        "/runtime",
+        _role_transition_request(
+            created,
+            action_id="attenuate-warrant",
+            role="warrant",
+            operation="attenuate",
+            from_state="issued",
+            to_state="attenuated",
+            payload={
+                "allowedOperations": ["pursuit:continue", "warrant:revoke"],
+                "validThroughRevision": 5,
+            },
+        ),
+        execute=True,
+        kernel=kernel,
+    )
+    assert attenuated["status"] == "accepted"
+
+    denied = work_profile.apply_action(
+        "/runtime",
+        _role_transition_request(
+            attenuated,
+            action_id="complete-outside-scope",
+            role="pursuit",
+            operation="complete",
+            from_state="active",
+            to_state="completed",
+            payload={"settlementRoot": "sha256:" + "8" * 64, "outcome": "done"},
+        ),
+        execute=True,
+        kernel=kernel,
+    )
+    assert denied["failureCode"] == "unauthorized"
+    assert denied["writeOccurred"] is False
+
+    revoked = work_profile.apply_action(
+        "/runtime",
+        _role_transition_request(
+            attenuated,
+            action_id="revoke-warrant",
+            role="warrant",
+            operation="revoke",
+            from_state="attenuated",
+            to_state="revoked",
+            payload={
+                "reason": "issuer withdrew authority",
+                "reasonRoot": "sha256:" + "9" * 64,
+            },
+        ),
+        execute=True,
+        kernel=kernel,
+    )
+    assert revoked["status"] == "accepted"
+    rejected_after_revoke = work_profile.apply_action(
+        "/runtime",
+        _role_transition_request(
+            revoked,
+            action_id="continue-after-revoke",
+            role="pursuit",
+            operation="continue",
+            from_state="active",
+            to_state="active",
+            payload={"continuation": "must fail"},
+        ),
+        execute=True,
+        kernel=kernel,
+    )
+    assert rejected_after_revoke["failureCode"] == "warrant-revoked"
+    assert rejected_after_revoke["writeOccurred"] is False
+
+
+def test_kfd7_profile_atlas_loss_refresh_and_pursuit_branch_are_explicit():
+    kernel = _MemoryFactKernel()
+    created = work_profile.apply_action(
+        "/runtime", _profile_request(), execute=True, kernel=kernel
+    )
+    stale = work_profile.apply_action(
+        "/runtime",
+        _role_transition_request(
+            created,
+            action_id="mark-atlas-stale",
+            role="atlas",
+            operation="mark-stale",
+            from_state="current",
+            to_state="stale",
+            payload={
+                "lossRoots": ["sha256:" + "a" * 64],
+                "lossReason": "source expired",
+            },
+        ),
+        execute=True,
+        kernel=kernel,
+    )
+    assert stale["status"] == "accepted"
+    blocked = work_profile.apply_action(
+        "/runtime",
+        _role_transition_request(
+            stale,
+            action_id="blocked-by-stale-atlas",
+            role="pursuit",
+            operation="continue",
+            from_state="active",
+            to_state="active",
+            payload={"continuation": "unsafe"},
+        ),
+        execute=True,
+        kernel=kernel,
+    )
+    assert blocked["failureCode"] == "atlas-stale"
+    assert blocked["writeOccurred"] is False
+
+    refreshed = work_profile.apply_action(
+        "/runtime",
+        _role_transition_request(
+            stale,
+            action_id="refresh-atlas",
+            role="atlas",
+            operation="refresh",
+            from_state="stale",
+            to_state="current",
+            payload={
+                "sourceRoots": ["sha256:" + "b" * 64],
+                "lossRoots": ["sha256:" + "a" * 64],
+                "validThroughRevision": 10,
+            },
+        ),
+        execute=True,
+        kernel=kernel,
+    )
+    assert refreshed["status"] == "accepted"
+
+    branched = work_profile.apply_action(
+        "/runtime",
+        _role_transition_request(
+            refreshed,
+            action_id="branch-pursuit",
+            role="pursuit",
+            operation="branch",
+            from_state="active",
+            to_state="active",
+            payload={
+                "branchOfCutRoot": refreshed["result"]["cutRoot"],
+                "branchReasonRoot": "sha256:" + "c" * 64,
+            },
+            ref_name="profiles/work/branch",
+            new_ref=True,
+        ),
+        execute=True,
+        kernel=kernel,
+    )
+    assert branched["status"] == "accepted"
+    assert branched["result"]["revision"] == 1
+    assert (
+        work_profile.inspect("/runtime", "profiles/work/main", kernel=kernel)[
+            "revision"
+        ]
+        == 3
+    )
+
+    abandoned = work_profile.apply_action(
+        "/runtime",
+        _role_transition_request(
+            branched,
+            action_id="abandon-branch",
+            role="pursuit",
+            operation="abandon",
+            from_state="active",
+            to_state="abandoned",
+            payload={
+                "settlementRoot": "sha256:" + "d" * 64,
+                "outcome": "superseded by main",
+            },
+            ref_name="profiles/work/branch",
+        ),
+        execute=True,
+        kernel=kernel,
+    )
+    assert abandoned["status"] == "accepted"
+
+
+def test_kfd7_profile_episode_replay_distinguishes_equal_endpoint_causality():
+    kernel = _MemoryFactKernel()
+    created = work_profile.apply_action(
+        "/runtime", _profile_request(), execute=True, kernel=kernel
+    )
+    endpoint = "sha256:" + "d" * 64
+    sealed_payload = {
+        "episodeId": "episode:1",
+        "beforeCutRoot": endpoint,
+        "afterCutRoot": endpoint,
+        "causalRoot": "sha256:" + "e" * 64,
+        "sealedContentRoot": "sha256:" + "f" * 64,
+    }
+    sealed = work_profile.apply_action(
+        "/runtime",
+        _role_transition_request(
+            created,
+            action_id="seal-equal-endpoint-episode",
+            role="episode",
+            operation="seal",
+            from_state="open",
+            to_state="sealed",
+            payload=sealed_payload,
+        ),
+        execute=True,
+        kernel=kernel,
+    )
+    assert sealed["status"] == "accepted"
+
+    mismatched = copy.deepcopy(sealed_payload)
+    mismatched["causalRoot"] = "sha256:" + "0" * 64
+    replay_denied = work_profile.apply_action(
+        "/runtime",
+        _role_transition_request(
+            sealed,
+            action_id="replay-mismatched-causality",
+            role="episode",
+            operation="reconcile",
+            from_state="sealed",
+            to_state="reconciled",
+            payload={"replay": mismatched},
+        ),
+        execute=True,
+        kernel=kernel,
+    )
+    assert replay_denied["failureCode"] == "replay-mismatch"
+    assert replay_denied["writeOccurred"] is False
+
+    replayed = work_profile.apply_action(
+        "/runtime",
+        _role_transition_request(
+            sealed,
+            action_id="replay-exact-causality",
+            role="episode",
+            operation="reconcile",
+            from_state="sealed",
+            to_state="reconciled",
+            payload={"replay": sealed_payload},
+        ),
+        execute=True,
+        kernel=kernel,
+    )
+    assert replayed["status"] == "accepted"
+
+
+def test_kfd7_context_only_rival_loses_each_decision_relevant_role():
+    baseline_kernel = _MemoryFactKernel()
+    created = work_profile.apply_action(
+        "/baseline", _profile_request(), execute=True, kernel=baseline_kernel
+    )
+    candidate = _successor_request(created, action_id="same-visible-task")
+    visible_task = {
+        "subject": copy.deepcopy(candidate["subject"]),
+        "payload": copy.deepcopy(candidate["payload"]),
+    }
+    baseline_plan = work_profile.apply_action(
+        "/baseline", candidate, kernel=baseline_kernel
+    )
+    assert baseline_plan["status"] == "planned"
+    assert baseline_plan["changedRoles"] == ["pursuit"]
+
+    fact_variant = copy.deepcopy(candidate)
+    fact_variant["responsibilities"]["fact"]["expectedVersionRoot"] = (
+        "sha256:" + "7" * 64
+    )
+    assert {
+        "subject": fact_variant["subject"],
+        "payload": fact_variant["payload"],
+    } == visible_task
+    assert (
+        work_profile.apply_action("/baseline", fact_variant, kernel=baseline_kernel)[
+            "failureCode"
+        ]
+        == "profile-state-mismatch"
+    )
+
+    pursuit_kernel = _MemoryFactKernel()
+    pursuit_created = work_profile.apply_action(
+        "/pursuit", _profile_request(), execute=True, kernel=pursuit_kernel
+    )
+    pursuit_root = pursuit_created["result"]["roleVersions"]["pursuit"]
+    pursuit_body = json.loads(pursuit_kernel.versions[pursuit_root]["body"])
+    pursuit_body["state"] = "completed"
+    pursuit_kernel.versions[pursuit_root]["body"] = json.dumps(
+        pursuit_body, sort_keys=True
+    )
+    pursuit_variant = _successor_request(pursuit_created, action_id="same-visible-task")
+    assert {
+        "subject": pursuit_variant["subject"],
+        "payload": pursuit_variant["payload"],
+    } == visible_task
+    assert (
+        work_profile.apply_action("/pursuit", pursuit_variant, kernel=pursuit_kernel)[
+            "failureCode"
+        ]
+        == "profile-state-mismatch"
+    )
+
+    atlas_kernel = _MemoryFactKernel()
+    atlas_created = work_profile.apply_action(
+        "/atlas", _profile_request(), execute=True, kernel=atlas_kernel
+    )
+    atlas_root = atlas_created["result"]["roleVersions"]["atlas"]
+    atlas_body = json.loads(atlas_kernel.versions[atlas_root]["body"])
+    atlas_body["state"] = "stale"
+    atlas_kernel.versions[atlas_root]["body"] = json.dumps(atlas_body, sort_keys=True)
+    atlas_variant = _successor_request(atlas_created, action_id="same-visible-task")
+    assert {
+        "subject": atlas_variant["subject"],
+        "payload": atlas_variant["payload"],
+    } == visible_task
+    assert (
+        work_profile.apply_action("/atlas", atlas_variant, kernel=atlas_kernel)[
+            "failureCode"
+        ]
+        == "atlas-stale"
+    )
+
+    warrant_kernel = _MemoryFactKernel()
+    warrant_created = work_profile.apply_action(
+        "/warrant", _profile_request(), execute=True, kernel=warrant_kernel
+    )
+    warrant_root = warrant_created["result"]["roleVersions"]["warrant"]
+    warrant_body = json.loads(warrant_kernel.versions[warrant_root]["body"])
+    warrant_body["details"]["allowedOperations"] = ["atlas:refresh"]
+    warrant_kernel.versions[warrant_root]["body"] = json.dumps(
+        warrant_body, sort_keys=True
+    )
+    warrant_variant = _successor_request(warrant_created, action_id="same-visible-task")
+    assert {
+        "subject": warrant_variant["subject"],
+        "payload": warrant_variant["payload"],
+    } == visible_task
+    assert (
+        work_profile.apply_action("/warrant", warrant_variant, kernel=warrant_kernel)[
+            "failureCode"
+        ]
+        == "unauthorized"
+    )
+
+    # A context-only rival also treats equal endpoints as equal. The Profile's
+    # Episode replay fixture above rejects a different causal root, preserving
+    # the fifth role even when beforeCutRoot == afterCutRoot.

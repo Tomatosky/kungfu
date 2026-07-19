@@ -20,29 +20,32 @@ may not decide authority, visibility, required capability, or the active cut.
 Missing evidence is `ambiguous` or `degraded` with candidates, omissions, and a
 next action; it is never silently replaced by the first route.
 
-Xinfa is an independent product incubated in this repository. Its source
-location is not an ownership boundary: it has its own `xinfa` CLI, `xinfa.*`
-protocol namespace, version, release tag, artifacts, state, cache, license,
-and extraction manifest. The core binary has no Kungfu or Shifu runtime
-dependency; its closed public-registry dependency allowlist rejects path, git,
-private, and monorepo-relative dependencies.
+Xinfa is an independent engine incubated in this repository. Its source
+location is not an ownership boundary: it has its own `xinfa.*` protocol
+namespace, version, release tag, engine artifact, state, cache, license, and
+extraction manifest. The core binary has no Kungfu or Shifu runtime dependency;
+its closed public-registry dependency allowlist rejects path, git, private, and
+monorepo-relative dependencies. Kungfu distributions expose that engine only as
+`kungfu xinfa`; the physical `xinfa` command remains a source-development and
+standalone-qualification boundary, not a second terminal-user entrypoint.
 
 ## Agent discovery and help
 
 Agents working in this repository start from
 [`AGENTS.md`](../AGENTS.md) and the task-oriented
 [`Verified Context for Agents`](../docs/guides/xinfa-agent-context.md) guide.
-The source-checkout entrypoint is `./shifu docs context`; it remains a thin
-adapter over the public Xinfa Atlas, route-resolution, and Task Chart contracts.
-The installed `kungfu agent docs` surface is read-only and consumes a
-precompiled Atlas; it is not a hidden Xinfa compiler or selector.
+The source-checkout compiler entrypoint is `./shifu xinfa`; Shifu documentation
+commands remain thin adapters over the Xinfa Atlas, route-resolution, and Task
+Chart contracts. Installed products use `kungfu xinfa`; `kungfu agent docs`
+continues to verify and read the precompiled product documentation Atlas.
 
-For machine consumers, `xinfa contract --json` is the product discovery root.
-`xinfa schema task-envelope`, `xinfa schema route-resolution`, and
-`xinfa schema task-chart` print the exact current schemas. Automatic invocation
-requires a coordinator to create and resolve the structured task envelope and
-bind the verified roots. A Go card, Agent instruction, Skill, or Episode alone
-does not execute Xinfa.
+For installed machine consumers, `kungfu xinfa contract --json` is the product
+discovery root. `kungfu xinfa schema task-envelope`,
+`kungfu xinfa schema route-resolution`, and
+`kungfu xinfa schema task-chart` print the exact current schemas. Automatic
+invocation requires a coordinator to create and resolve the structured task
+envelope and bind the verified roots. A Go card, Agent instruction, Skill, or
+Episode alone does not execute Xinfa.
 
 ## Authority
 
@@ -51,7 +54,7 @@ does not execute Xinfa.
 | Project | source documents, domain semantics, provider instances, route intent | Context IR or compiler receipts |
 | Shifu | project submission protocol, conformance diagnostics, Gate execution, thin invocation adapters | a second Context IR, graph, selector, pack, or capsule compiler |
 | Xinfa | Atlas identity, Context IR, graph and impact semantics, selection, pack/capsule formats, compiler provenance | project truth, runtime facts, or release attestation |
-| Kungfu | product adapters and read-only consumption of public Xinfa artifacts | Xinfa schemas, state, version, or compiler internals |
+| Kungfu | the single public executable, thin product adapters, and consumption of public Xinfa artifacts | Xinfa schemas, state, version, or compiler internals |
 | Buildchain | exact artifact and release attestation | authoring or compiler semantics |
 
 The dependency direction is Project sources → public submission contracts →
@@ -140,20 +143,14 @@ one-token budget for every case. No LLM or embedding judge decides correctness.
 
 To reproduce the retained
 [`context-quality-v1.json`](qualification/context-quality-v1.json) receipt
-against an already verified Atlas:
+from the current checkout:
 
 ```sh
-node xinfa/tooling/check-context-quality-corpus.mjs
-node xinfa/tooling/qualify-context-quality.mjs \
-  --xinfa xinfa/target/debug/xinfa \
-  --atlas <verified-atlas> \
-  --corpus xinfa/fixtures/golden/context-quality-corpus-v1.json \
-  --actor context-quality-v1 \
-  --output xinfa/qualification/context-quality-v1.json
+./shifu xinfa:quality --write
 ```
 
 The repository CI runs the same end-to-end proof from a clean checkout with
-`node scripts/qualify-xinfa-context-quality.mjs --check`; it first compiles the
+`./shifu xinfa:quality --check`; it first compiles the
 current tracked Documentation Atlas and then requires the newly generated
 receipt bytes to equal the retained receipt.
 
@@ -162,12 +159,21 @@ receipt bytes to equal the retained receipt.
 Use the repository entrypoint while Xinfa is incubated here:
 
 ```sh
+./shifu xinfa --version
+./shifu xinfa contract --json
 ./shifu xinfa:build
 ./shifu xinfa:check
 ./shifu xinfa:fix
 ./shifu xinfa:standalone
 ./shifu xinfa:dogfood
 ```
+
+`./shifu xinfa <args>` is the source-development authority. It runs locked,
+quiet Cargo against this checkout and keeps Cargo's target directory in the
+per-checkout user cache, so JSON stdout belongs only to Xinfa and every call
+uses Cargo's own freshness decision. `xinfa:build` remains a migration oracle
+for standalone and differential fixtures; production callers must not trust
+its physical `target/debug/xinfa` output as the current source entry.
 
 The standalone qualification copies only the files listed in
 `extraction-manifest.json` into a clean temporary directory, removes host
@@ -194,7 +200,8 @@ The dogfood fault campaign changes implementation evidence and expressive
 models explicit acceptance as a new managed source cut plus successor Atlas.
 Its retained result is
 [`qualification/shifu-kungfu-dogfood-v1.json`](qualification/shifu-kungfu-dogfood-v1.json).
-The extraction itself builds with ordinary Cargo:
+The extraction itself deliberately builds and invokes its copied physical
+binary. This is the standalone boundary proof, not a repository source entry:
 
 ```sh
 cargo build --locked --manifest-path Cargo.toml

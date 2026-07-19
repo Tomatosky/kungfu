@@ -83,6 +83,16 @@
       "projections": ["commands.json", "capabilities-json", "provider-skill"]
     },
     {
+      "id": "kungfu.agent.work.session",
+      "surface": "cli-api-gui",
+      "name": "kungfu agent work session --operation <compressibility|expand|project> --file <session.json> --json",
+      "purpose": "Round-trip a simple work session through the five KFD-7 Profile roles or expose the exact role at a complexity breakpoint.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "runtime-click", "symbol": "work_session" },
+      "projections": ["commands.json", "capabilities-json", "provider-skill"]
+    },
+    {
       "id": "kungfu.agent.work.inspect",
       "surface": "cli-api-gui",
       "name": "kungfu agent work inspect --ref <ref> --json",
@@ -100,6 +110,26 @@
       "maturity": "experimental",
       "visibility": "public-agent",
       "anchor": { "kind": "runtime-click", "symbol": "work_action" },
+      "projections": ["commands.json", "capabilities-json", "provider-skill"]
+    },
+    {
+      "id": "kungfu.agent.work.export-authority",
+      "surface": "cli-api-gui",
+      "name": "kungfu agent work export-authority --json",
+      "purpose": "Export a content-bound native Fact authority bundle that preserves exact Profile object, version, Cut, and ref roots.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "runtime-click", "symbol": "work_export_authority" },
+      "projections": ["commands.json", "capabilities-json", "provider-skill"]
+    },
+    {
+      "id": "kungfu.agent.work.import-authority",
+      "surface": "cli-api-gui",
+      "name": "kungfu agent work import-authority --file <bundle.json> [--execute] --json",
+      "purpose": "Validate or replay one qualified Fact authority bundle into a clean runtime home without changing logical Profile roots.",
+      "maturity": "experimental",
+      "visibility": "public-agent",
+      "anchor": { "kind": "runtime-click", "symbol": "work_import_authority" },
       "projections": ["commands.json", "capabilities-json", "provider-skill"]
     },
     {

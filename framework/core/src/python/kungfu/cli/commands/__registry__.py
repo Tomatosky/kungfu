@@ -23,6 +23,11 @@ from . import skill
 from . import codex
 from . import sdk
 from . import kfd
+from . import action
+from . import xinfa
+from . import pursuit
+from . import warrant
+from . import episode
 from . import runtime
 from . import update
 from . import workspace
@@ -55,6 +60,11 @@ __all__ = [
     "codex",
     "sdk",
     "kfd",
+    "action",
+    "xinfa",
+    "pursuit",
+    "warrant",
+    "episode",
     "runtime",
     "update",
     "workspace",

@@ -267,6 +267,79 @@ int32_t KF_EMBEDDING_CALL report_release(kf_embedding_report_v1 *report) noexcep
   });
 }
 
+int32_t KF_EMBEDDING_CALL storage_gc_plan(kf_embedding_context *context,
+                                          const kf_embedding_storage_gc_plan_request_v1 *request,
+                                          kf_embedding_report_v1 *out_report) noexcept {
+  return contain_exceptions([&]() -> int32_t {
+    if (context == nullptr || request == nullptr || out_report == nullptr || request->struct_size < sizeof(*request) ||
+        out_report->struct_size < sizeof(*out_report) || request->runtime_dir == nullptr || request->dry_run != 1) {
+      return KF_EMBEDDING_INVALID_ARGUMENT;
+    }
+    (void)context;
+    namespace ssa = kungfu::runtime::storage_service_api;
+    ssa::storage_gc_plan_request req;
+    req.runtime_dir = request->runtime_dir;
+    if (request->provider != nullptr) {
+      req.provider = request->provider;
+    }
+    if (request->source_id != nullptr) {
+      req.source_id = request->source_id;
+    }
+    req.dry_run = true;
+    const auto result = ssa::default_storage_service().gc_plan(req);
+    auto payload = std::make_unique<std::string>(ssa::render_storage_gc_plan_result(result).dump());
+    out_report->format = KF_EMBEDDING_REPORT_FORMAT_JSON;
+    out_report->ok = result.ok ? 1 : 0;
+    out_report->degraded = 0;
+    out_report->reserved0[0] = 0;
+    out_report->reserved0[1] = 0;
+    out_report->data = reinterpret_cast<const uint8_t *>(payload->data());
+    out_report->data_size = payload->size();
+    out_report->owner = payload.release();
+    return KF_EMBEDDING_OK;
+  });
+}
+
+int32_t KF_EMBEDDING_CALL storage_repair_plan(kf_embedding_context *context,
+                                              const kf_embedding_storage_fsck_request_v1 *request,
+                                              kf_embedding_report_v1 *out_report) noexcept {
+  return contain_exceptions([&]() -> int32_t {
+    if (context == nullptr || request == nullptr || out_report == nullptr || request->struct_size < sizeof(*request) ||
+        out_report->struct_size < sizeof(*out_report) || request->runtime_dir == nullptr ||
+        request->scope > KF_EMBEDDING_FSCK_SCOPE_EPISODE) {
+      return KF_EMBEDDING_INVALID_ARGUMENT;
+    }
+    (void)context;
+    namespace ssa = kungfu::runtime::storage_service_api;
+    ssa::storage_repair_plan_request req;
+    req.runtime_dir = request->runtime_dir;
+    if (request->provider != nullptr) {
+      req.provider = request->provider;
+    }
+    if (request->provider_config_source != nullptr) {
+      req.provider_config_source = request->provider_config_source;
+    }
+    req.scope = static_cast<ssa::storage_fsck_scope>(request->scope);
+    if (request->source_id != nullptr) {
+      req.source_id = request->source_id;
+    }
+    req.episode_id = request->episode_id;
+    req.verify_frames = request->verify_frames != 0;
+    req.dry_run = true;
+    const auto result = ssa::default_storage_service().repair_plan(req);
+    auto payload = std::make_unique<std::string>(ssa::render_storage_repair_plan_result(result).dump());
+    out_report->format = KF_EMBEDDING_REPORT_FORMAT_JSON;
+    out_report->ok = result.ok ? 1 : 0;
+    out_report->degraded = result.degraded ? 1 : 0;
+    out_report->reserved0[0] = 0;
+    out_report->reserved0[1] = 0;
+    out_report->data = reinterpret_cast<const uint8_t *>(payload->data());
+    out_report->data_size = payload->size();
+    out_report->owner = payload.release();
+    return KF_EMBEDDING_OK;
+  });
+}
+
 int32_t KF_EMBEDDING_CALL decode_frame_json(kf_embedding_context *context, const uint8_t *schema_bfbs,
                                             uint64_t schema_size, const uint8_t *frame, uint64_t frame_size,
                                             const char *object_name, kf_embedding_report_v1 *out_report) noexcept {
@@ -343,6 +416,17 @@ const kf_embedding_api_v3 API_V3 = {KF_EMBEDDING_ABI_V3,  sizeof(kf_embedding_ap
                                     storage_fsck,         report_release,
                                     decode_frame_json,    frame_checksum};
 
+constexpr uint64_t CAPABILITIES_V4 = CAPABILITIES_V3 | KF_EMBEDDING_CAP_STORAGE_MAINTENANCE_PLANS;
+
+const kf_embedding_api_v4 API_V4 = {KF_EMBEDDING_ABI_V4,  sizeof(kf_embedding_api_v4),
+                                    CAPABILITIES_V4,      context_open,
+                                    context_capabilities, context_close,
+                                    reader_open,          reader_read_batch,
+                                    reader_release_batch, reader_close,
+                                    storage_fsck,         report_release,
+                                    decode_frame_json,    frame_checksum,
+                                    storage_gc_plan,      storage_repair_plan};
+
 } // namespace
 
 extern "C" KF_EMBEDDING_EXPORT int32_t KF_EMBEDDING_CALL kungfu_embedding_get_api(uint32_t requested_version,
@@ -369,6 +453,12 @@ extern "C" KF_EMBEDDING_EXPORT int32_t KF_EMBEDDING_CALL kungfu_embedding_get_ap
       return KF_EMBEDDING_INVALID_ARGUMENT;
     }
     std::memcpy(out_api, &API_V3, sizeof(API_V3));
+    return KF_EMBEDDING_OK;
+  case KF_EMBEDDING_ABI_V4:
+    if (caller_struct_size < sizeof(kf_embedding_api_v4)) {
+      return KF_EMBEDDING_INVALID_ARGUMENT;
+    }
+    std::memcpy(out_api, &API_V4, sizeof(API_V4));
     return KF_EMBEDDING_OK;
   default:
     return KF_EMBEDDING_UNSUPPORTED_VERSION;

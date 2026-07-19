@@ -358,7 +358,7 @@ if (
   }
 }
 
-// Prove the frozen runtime CLI runs standalone next to the binding, and hand
+// Prove the assembled Rust-trunk CLI runs standalone next to the binding, and hand
 // the result to the renderer for display.
 try {
   const kungfuBin = path.join(path.dirname(process.env.KFE_PATH), 'kungfu');

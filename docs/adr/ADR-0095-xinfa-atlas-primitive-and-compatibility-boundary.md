@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0095
 decision_status: accepted
 implementation_status: implemented
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/939]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/939, https://github.com/kungfu-systems/kungfu/pull/1098]
 closure_pr: https://github.com/kungfu-systems/kungfu/pull/939
 qualification_refs: [xinfa/qualification/atlas-v1.json, xinfa/qualification/repository-pack-v1.json, xinfa/qualification/standalone-smoke-v1.json]
 review_state: self-reviewed
@@ -14,7 +14,7 @@ period: 2026-07-15
 theme: xinfa-atlas-primitive-compatibility-boundary
 confidence: high
 evidence_grade: B
-last_reviewed: 2026-07-15
+last_reviewed: 2026-07-18
 ---
 
 # ADR-0095: Xinfa Atlas is the immutable compiled context primitive
@@ -77,6 +77,15 @@ Existing Pack commands, schemas, bytes, and golden roots remain unchanged.
 An Atlas may be compiled from project sources or imported from a complete Pack
 directory only after Pack verification succeeds. No old Pack root is renamed,
 promoted, or retrospectively interpreted as an Atlas root.
+
+The repository development entry is source-bound: `./shifu xinfa ...` and its
+Windows counterpart execute the current checkout through locked Cargo Run with
+a controlled per-checkout target directory. Documentation, quality, dogfood,
+and consumer adapters use that entry instead of trusting a previously built
+physical binary. Explicit standalone and differential-oracle paths retain a
+physical binary where the acceptance boundary requires one. This follow-up
+changes development freshness and distribution discipline, not Atlas identity,
+Context Pack compatibility, or the standalone product boundary.
 
 ### 4. Atlas-first CLI is additive
 

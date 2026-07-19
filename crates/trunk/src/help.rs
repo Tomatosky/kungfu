@@ -21,6 +21,7 @@
 //   VERSION <version>
 //   OPT     <flags>         <summary>
 //   CMD     <name>  <summary>        <priority>
+//   ROOTOPT <name>  <arity>  <envvar> <comma-separated flags> <choices>
 // Records may arrive in any order; the trunk groups and sorts them.
 
 use std::env;
@@ -34,17 +35,25 @@ const MANIFEST_FILE: &str = "help-manifest.txt";
 /// default) for commands whose record omits one.
 const DEFAULT_PRIORITY: u32 = 100;
 
-/// Commands the trunk owns natively and the Python click tree does not know about,
-/// so they are not in the generated manifest. `env` is deliberately absent here:
-/// it is a Python command that forwards to the trunk, so it already appears in the
-/// manifest.
-const TRUNK_ONLY_COMMANDS: &[(&str, &str)] = &[
-    (
-        "doctor",
-        "read-only runtime inspection via the embedding membrane",
-    ),
-    ("prewarm", "pre-fetch the pinned uv + satellite CPython"),
-];
+/// Help metadata for one command implemented by the Rust trunk. The caller
+/// supplies this from the same table used for dispatch, so discovery cannot
+/// drift from execution when another native command lands.
+pub struct NativeCommandHelp {
+    pub name: &'static str,
+    pub summary: &'static str,
+}
+
+/// Machine-readable root option emitted from the live Click group. The trunk
+/// uses these records only while routing to a native command; domain command
+/// arguments remain opaque and are forwarded byte-for-byte.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RootOption {
+    pub name: String,
+    pub arity: usize,
+    pub envvar: Option<String>,
+    pub flags: Vec<String>,
+    pub choices: Vec<String>,
+}
 
 struct Command {
     name: String,
@@ -54,17 +63,75 @@ struct Command {
 
 /// Render the unified `kungfu` help from the shipped manifest, or `None` if the
 /// manifest is not present (the caller then falls through to the Python CLI help).
-pub fn render() -> Option<String> {
-    let manifest = manifest_path()?;
-    let text = fs::read_to_string(&manifest).ok()?;
-    Some(render_from(&text))
+pub fn render(native_commands: &[NativeCommandHelp]) -> Option<String> {
+    Some(render_from(&manifest_text()?, native_commands))
+}
+
+/// Return the product version recorded by the assembled runtime manifest.
+/// A bare development trunk may not have a manifest; the caller owns that
+/// informational fallback.
+pub fn version() -> Option<String> {
+    manifest_text()?.lines().find_map(|line| {
+        let mut fields = line.trim_end_matches(['\r', '\n']).split('\t');
+        (fields.next() == Some("VERSION"))
+            .then(|| fields.next().map(str::to_string))
+            .flatten()
+    })
+}
+
+/// Load the generated root-routing contract. Absence is tolerated for a bare
+/// development binary; assembled product builds make generation mandatory.
+pub fn root_options() -> Option<Vec<RootOption>> {
+    Some(parse_root_options(&manifest_text()?))
 }
 
 fn manifest_path() -> Option<PathBuf> {
     Some(env::current_exe().ok()?.parent()?.join(MANIFEST_FILE))
 }
 
-fn render_from(text: &str) -> String {
+fn manifest_text() -> Option<String> {
+    fs::read_to_string(manifest_path()?).ok()
+}
+
+fn parse_root_options(text: &str) -> Vec<RootOption> {
+    text.lines()
+        .filter_map(|line| {
+            let mut fields = line.trim_end_matches(['\r', '\n']).split('\t');
+            if fields.next() != Some("ROOTOPT") {
+                return None;
+            }
+            let name = fields.next()?.to_string();
+            let arity = fields.next()?.parse().ok()?;
+            let envvar = fields
+                .next()
+                .filter(|value| !value.is_empty())
+                .map(str::to_string);
+            let flags = fields
+                .next()
+                .unwrap_or("")
+                .split(',')
+                .filter(|flag| !flag.is_empty())
+                .map(str::to_string)
+                .collect();
+            let choices = fields
+                .next()
+                .unwrap_or("")
+                .split(',')
+                .filter(|choice| !choice.is_empty())
+                .map(str::to_string)
+                .collect();
+            Some(RootOption {
+                name,
+                arity,
+                envvar,
+                flags,
+                choices,
+            })
+        })
+        .collect()
+}
+
+fn render_from(text: &str, native_commands: &[NativeCommandHelp]) -> String {
     let mut version: Option<String> = None;
     let mut options: Vec<(String, String)> = Vec::new();
     let mut commands: Vec<Command> = Vec::new();
@@ -100,12 +167,13 @@ fn render_from(text: &str) -> String {
         }
     }
 
-    // Merge the trunk-only commands the manifest cannot know about.
-    for (name, summary) in TRUNK_ONLY_COMMANDS {
-        if !commands.iter().any(|c| c.name == *name) {
+    // Merge the native command table used by dispatch. `env` is also present in
+    // the Click manifest as a forwarding compatibility surface; de-duplicate it.
+    for native in native_commands {
+        if !commands.iter().any(|c| c.name == native.name) {
             commands.push(Command {
-                name: (*name).to_string(),
-                summary: (*summary).to_string(),
+                name: native.name.to_string(),
+                summary: native.summary.to_string(),
                 priority: DEFAULT_PRIORITY,
             });
         }
@@ -161,11 +229,32 @@ OPT\t-h, --help\tshow this help and exit
 CMD\tenv\tmanage runtime environments\t10
 CMD\ttrace\ttrace a running runtime\t100
 CMD\tagent\tagent bridge\t100
+ROOTOPT\thome\t1\tKF_HOME\t-H,--home\t
+ROOTOPT\tenv_verify_location\t0\tKF_VERIFY_LOCATION\t-ENV-verify-location\t
 ";
+
+    const NATIVE: &[NativeCommandHelp] = &[
+        NativeCommandHelp {
+            name: "env",
+            summary: "manage runtime environments",
+        },
+        NativeCommandHelp {
+            name: "doctor",
+            summary: "read-only runtime inspection via the embedding membrane",
+        },
+        NativeCommandHelp {
+            name: "prewarm",
+            summary: "pre-fetch the pinned uv + satellite CPython",
+        },
+        NativeCommandHelp {
+            name: "fsck",
+            summary: "read-only storage integrity check via the embedding membrane",
+        },
+    ];
 
     #[test]
     fn renders_version_options_and_sorted_commands() {
-        let out = render_from(SAMPLE);
+        let out = render_from(SAMPLE, NATIVE);
         assert!(out.contains("kungfu 4.0.0-alpha.1"));
         assert!(out.contains("usage: kungfu [options] <command>"));
         assert!(out.contains("-H, --home <path>"));
@@ -180,8 +269,10 @@ CMD\tagent\tagent bridge\t100
 
     #[test]
     fn merges_trunk_only_commands() {
-        let out = render_from(SAMPLE);
-        // doctor/prewarm are not in the manifest but the trunk owns them.
+        let out = render_from(SAMPLE, NATIVE);
+        // Every command in the dispatch table must be discoverable, including
+        // fsck (the regression that prompted the shared source of truth).
+        assert!(out.contains("\n  fsck "));
         assert!(out.contains("\n  doctor "));
         assert!(out.contains("\n  prewarm "));
     }
@@ -189,14 +280,37 @@ CMD\tagent\tagent bridge\t100
     #[test]
     fn does_not_duplicate_a_trunk_command_already_in_manifest() {
         let text = "CMD\tdoctor\tfrom manifest\t100\n";
-        let out = render_from(text);
+        let out = render_from(text, NATIVE);
         assert_eq!(out.matches("\n  doctor ").count(), 1);
         assert!(out.contains("from manifest"));
     }
 
     #[test]
     fn ignores_comments_and_blank_lines() {
-        let out = render_from("# just a comment\n\n\nVERSION\t1.2.3\n");
+        let out = render_from("# just a comment\n\n\nVERSION\t1.2.3\n", NATIVE);
         assert!(out.contains("kungfu 1.2.3"));
+    }
+
+    #[test]
+    fn parses_generated_root_routing_records() {
+        assert_eq!(
+            parse_root_options(SAMPLE),
+            vec![
+                RootOption {
+                    name: "home".to_string(),
+                    arity: 1,
+                    envvar: Some("KF_HOME".to_string()),
+                    flags: vec!["-H".to_string(), "--home".to_string()],
+                    choices: vec![],
+                },
+                RootOption {
+                    name: "env_verify_location".to_string(),
+                    arity: 0,
+                    envvar: Some("KF_VERIFY_LOCATION".to_string()),
+                    flags: vec!["-ENV-verify-location".to_string()],
+                    choices: vec![],
+                },
+            ]
+        );
     }
 }

@@ -5,6 +5,7 @@
 import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import { sourceCommandArguments } from './source-command-arguments.mjs';
 
 /** @param {unknown} value */
 function canonical(value) {
@@ -52,9 +53,10 @@ function argumentsFromCli() {
  * @param {unknown} [input]
  */
 function invoke(binary, args, input) {
-  const result = spawnSync(binary, args, {
+  const result = spawnSync(binary, sourceCommandArguments(binary, args), {
     input: input === undefined ? undefined : `${JSON.stringify(input)}\n`,
     encoding: 'utf8',
+    shell: process.platform === 'win32' && /\.(?:cmd|bat)$/i.test(binary),
   });
   if (result.error || ![0, 1].includes(result.status ?? -1))
     throw new Error(
@@ -71,9 +73,10 @@ function invoke(binary, args, input) {
  * @param {unknown} input
  */
 function invokeBindingFault(binary, args, input) {
-  const result = spawnSync(binary, args, {
+  const result = spawnSync(binary, sourceCommandArguments(binary, args), {
     input: `${JSON.stringify(input)}\n`,
     encoding: 'utf8',
+    shell: process.platform === 'win32' && /\.(?:cmd|bat)$/i.test(binary),
   });
   if ([0, 1].includes(result.status ?? -1)) return JSON.parse(result.stdout);
   const diagnostic = (result.stderr || '').trim();

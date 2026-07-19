@@ -36,6 +36,7 @@
             "compensate",
             "reconcile",
             "continue",
+            "branch",
             "pause",
             "complete",
             "abandon",

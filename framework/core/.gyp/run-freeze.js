@@ -690,9 +690,9 @@ function assembleTree(bt) {
 // Introspect the assembled click tree into the declarative help manifest the
 // trunk renders for `kungfu --help` without booting Python (ADR-0046 stage 4).
 // The manifest is generated from the live CLI (kungfu.cli.help_manifest), so it
-// is the single source of truth and cannot drift. Non-fatal: the trunk falls
-// back to the Python CLI help when the manifest is absent, so a generation
-// failure must not break the assemble.
+// is the single source of truth and cannot drift. Generation is mandatory for
+// an assembled product: the same manifest now owns native root-option routing,
+// so silently falling back would make `kungfu -H <home> fsck` depend on Python.
 /** @param {string} pythonExe @param {string} distKfc */
 function generateHelpManifest(pythonExe, distKfc) {
   const out = path.join(distKfc, 'help-manifest.txt');
@@ -706,14 +706,15 @@ function generateHelpManifest(pythonExe, distKfc) {
     console.log('[freeze] assemble: staged help-manifest.txt');
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    console.error(
-      `[freeze] assemble: help manifest generation failed; the trunk will fall back to python --help: ${message}`,
+    throw new Error(
+      `[freeze] assemble: help/root-routing manifest generation failed: ${message}`,
     );
   }
 }
 
 // The product entry is the trunk binary installed under the name `kungfu`:
-// invoked as `kungfu` it keeps the subtrees it implements (env, prewarm) and
+// invoked as `kungfu` it parses the generated root contract, keeps the native
+// subtrees in its dispatch table, and
 // execs the assembled interpreter on -m kungfu for everything else, verbatim
 // (crates/trunk/src/launch.rs). Staged here so a bare `pnpm run freeze`
 // yields a runnable assembled dist; dist.mjs stageTrunk later re-stages

@@ -66,7 +66,9 @@ rem native dispatch; an inner `shifu <task>` can still select the native path.
 if /i "%~1"=="cache" goto delegate
 if /i "%~1"=="check:source" goto sourceacceptance
 if /i "%~1"=="project-cut" goto projectcut
+if /i "%~1"=="action" goto action
 if /i "%~1"=="kungfu" goto kungfucli
+if /i "%~1"=="xinfa" goto xinfarun
 if /i "%~1"=="xinfa:build" goto xinfa
 if /i "%~1"=="xinfa:check" goto xinfa
 if /i "%~1"=="xinfa:fix" goto xinfa
@@ -87,6 +89,22 @@ where node >nul 2>nul && (
   exit /b !errorlevel!
 )
 echo shifu: project-cut needs node 1>&2
+exit /b 127
+
+:action
+set "KUNGFU_ACTION_HOST=development-node"
+set "KUNGFU_ACTION_LAYOUT=source"
+where fnm >nul 2>nul && (
+  fnm install >nul 2>nul
+  rem Keep the leading action token; action.mjs drops it without cmd re-expansion.
+  fnm exec --using-file -- node "%~dp0framework\action\action.mjs" %*
+  exit /b !errorlevel!
+)
+where node >nul 2>nul && (
+  node "%~dp0framework\action\action.mjs" %*
+  exit /b !errorlevel!
+)
+echo shifu: action needs node 1>&2
 exit /b 127
 
 :sourceacceptance
@@ -115,6 +133,26 @@ if exist "%~dp0framework\core\dist\kungfu\kungfu.exe" (
 )
 echo shifu: kungfu source CLI is not assembled; run shifu.cmd build:core 1>&2
 exit /b 127
+
+:xinfarun
+rem shifu-xinfa-source-entry: cargo-freshness-authority
+set "_XINFA_FORWARD_ARGS="
+if not "%~2"=="" (
+  set "_XINFA_FORWARD_ARGS=%*"
+  set "_XINFA_FORWARD_ARGS=!_XINFA_FORWARD_ARGS:* =!"
+)
+where cargo >nul 2>nul || (
+  echo shifu: xinfa source execution needs cargo 1>&2
+  exit /b 127
+)
+set "_XINFA_CACHE=%USERPROFILE%\.cache"
+if defined XDG_CACHE_HOME set "_XINFA_CACHE=%XDG_CACHE_HOME%"
+set "_XINFA_TGTKEY=%CD:\=_%"
+set "_XINFA_TGTKEY=%_XINFA_TGTKEY::=%"
+set "CARGO_TARGET_DIR=%_XINFA_CACHE%\kungfu\xinfa\cargo-target\%_XINFA_TGTKEY%"
+if defined XINFA_CARGO_TARGET_DIR set "CARGO_TARGET_DIR=%XINFA_CARGO_TARGET_DIR%"
+cargo run --locked --quiet --manifest-path xinfa\Cargo.toml -- !_XINFA_FORWARD_ARGS!
+exit /b !errorlevel!
 
 :xinfa
 rem shifu-xinfa-entry: cache-independent
@@ -156,14 +194,10 @@ if not "%~3"=="" (
 :xinfaqualityrun
 where fnm >nul 2>nul && (
   fnm install >nul 2>nul
-  fnm exec --using-file -- node "%~dp0xinfa\tooling\task.mjs" build
-  if errorlevel 1 exit /b !errorlevel!
   fnm exec --using-file -- node "%~dp0scripts\qualify-xinfa-context-quality.mjs" "%_XINFA_QUALITY_MODE%"
   exit /b !errorlevel!
 )
 where node >nul 2>nul && (
-  node "%~dp0xinfa\tooling\task.mjs" build
-  if errorlevel 1 exit /b !errorlevel!
   node "%~dp0scripts\qualify-xinfa-context-quality.mjs" "%_XINFA_QUALITY_MODE%"
   exit /b !errorlevel!
 )

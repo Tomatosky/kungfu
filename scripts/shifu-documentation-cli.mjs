@@ -261,9 +261,8 @@ function surfaceXinfaBinary(root, requested) {
     requested ||
       path.join(
         'xinfa',
-        'target',
-        'debug',
-        process.platform === 'win32' ? 'xinfa.exe' : 'xinfa',
+        'tooling',
+        process.platform === 'win32' ? 'source-xinfa.cmd' : 'source-xinfa',
       ),
   );
 }
@@ -304,7 +303,7 @@ function materializeSurfaceProject(root, inventory, requestedBinary) {
   const reference = path.join(temporary, 'inventory.json');
   try {
     fs.writeFileSync(reference, `${JSON.stringify(inventory)}\n`);
-    const result = spawnSync(
+    const result = spawnXinfa(
       binary,
       ['project', 'materialize', '--inventory', reference, '--json'],
       { cwd: root, encoding: 'utf8' },
@@ -327,7 +326,7 @@ function materializeSurfaceProject(root, inventory, requestedBinary) {
 function runSurfaceGraph(root, inventory, project, options) {
   const binary = surfaceXinfaBinary(root, options.xinfa);
   return withSurfaceProject(project, (reference) => {
-    const compile = spawnSync(
+    const compile = spawnXinfa(
       binary,
       [
         'atlas',
@@ -348,7 +347,7 @@ function runSurfaceGraph(root, inventory, project, options) {
     let verifyReceipt = null;
     let verifyStatus = null;
     if (compile.status === 0) {
-      const verify = spawnSync(
+      const verify = spawnXinfa(
         binary,
         ['atlas', 'verify', '--atlas', options.output, '--json'],
         { cwd: root, encoding: 'utf8' },
@@ -458,7 +457,7 @@ function runSurfacePack(root, inventory, project, options) {
 function runSurfaceImpact(root, inventory, project, options) {
   const binary = surfaceXinfaBinary(root, options.xinfa);
   return withSurfaceProject(project, (reference) => {
-    const result = spawnSync(
+    const result = spawnXinfa(
       binary,
       [
         'atlas',
@@ -572,7 +571,7 @@ function runSurfaceReader(root, inventory, project, operation, options) {
             String(options.maxHops),
             '--json',
           ];
-    const delegated = spawnSync(binary, argv, { cwd: root, encoding: 'utf8' });
+    const delegated = spawnXinfa(binary, argv, { cwd: root, encoding: 'utf8' });
     const projection = parseJsonOutput(delegated, `Xinfa ${operation}`);
     const passed = delegated.status === 0;
     return {
@@ -678,7 +677,7 @@ function runFinalReadyProjection(
           String(options.budget),
           '--json',
         ];
-  const delegated = spawnSync(binary, argv, { cwd: root, encoding: 'utf8' });
+  const delegated = spawnXinfa(binary, argv, { cwd: root, encoding: 'utf8' });
   return {
     exitStatus: delegated.status ?? 1,
     route: {
@@ -877,16 +876,7 @@ function spawnXinfa(binary, args, options) {
 
 /** @param {string} root @param {ReturnType<typeof parseXinfaOptions>} options */
 function runXinfaCompile(root, options) {
-  const binary = path.resolve(
-    root,
-    options.xinfa ||
-      path.join(
-        'xinfa',
-        'target',
-        'debug',
-        process.platform === 'win32' ? 'xinfa.exe' : 'xinfa',
-      ),
-  );
+  const binary = surfaceXinfaBinary(root, options.xinfa);
   const compileArgs = [
     'atlas',
     'compile',

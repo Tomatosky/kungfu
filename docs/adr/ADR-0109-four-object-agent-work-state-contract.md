@@ -4,8 +4,8 @@ doc_type: architecture-decision
 adr_id: ADR-0109
 decision_status: accepted
 implementation_status: staged
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1026, https://github.com/kungfu-systems/kungfu/pull/1079, https://github.com/kungfu-systems/kungfu/pull/1081]
-qualification_refs: [framework/agent-work/kungfu-agent-work-state.contract.json, framework/agent-work/validate-profile.mjs, framework/agent-work/fixtures/manifest.json, scripts/check-agent-work-state-contract.test.mjs, framework/core/tests/python/test_agent_work_state_contract.py, framework/core/src/python/kungfu/agent/kfd3_api.registry.json]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1026, https://github.com/kungfu-systems/kungfu/pull/1079, https://github.com/kungfu-systems/kungfu/pull/1081, https://github.com/kungfu-systems/kungfu/pull/1091]
+qualification_refs: [framework/agent-work/kungfu-agent-work-state.contract.json, framework/agent-work/validate-profile.mjs, framework/agent-work/fixtures/manifest.json, framework/agent-work/kungfu-kfd-7-action-contract.json, framework/agent-work/kungfu-kfd-7-release-gate.json, framework/agent-work/evidence/kfd-7/, scripts/check-agent-work-state-contract.test.mjs, framework/core/tests/python/test_agent_work_state_contract.py, framework/core/tests/python/test_agent_work_profile_native.py, framework/core/src/python/kungfu/agent/kfd3_api.registry.json]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -18,7 +18,8 @@ last_reviewed: 2026-07-18
 
 # ADR-0109: Real-world agent work preserves four independently addressable roles
 
-- Status: accepted; provisional runtime Profile staged, P17 not qualified
+- Status: accepted; four-role contract v2 staged; KFD-7 Product Profile
+  qualified and activated against KFD alpha.35 at the retained review cut
 - Date: 2026-07-17
 - Category: Agent Work Profile / product contract / KFD-3
 - Related: [ADR-0033](ADR-0033-episode-causal-segment-object.md),
@@ -109,9 +110,10 @@ kungfu contract show agent-work-state --json
 The KFD-3 registry, command catalog, onboarding brief, and provider skills
 declare the agent entrypoint. Neither prose nor the CLI owns a second role
 definition. The bounded KFD-2 release claim audits only that this exact
-contract remains explicitly `P17 not-qualified`, exposes all `FO1`-`FO8`
-evidence debt, and preserves its residual non-claims. It does not upgrade the
-projection into qualification.
+contract preserves its explicit P17 status, exposes all `FO1`-`FO8` evidence
+debt, and retains its residual non-claims. The separate KFD-7 release-gate
+declaration qualifies the provisional product Action Profile against retained
+runtime evidence; it does not silently upgrade the wider welded contract.
 
 ### 6. Exact versions meet at a derived ActionBinding
 
@@ -160,20 +162,22 @@ runtime completion.
 
 ## Qualification boundary
 
-The contract establishes the public vocabulary, current implementation
-mappings, forbidden inferences, and P17 evidence plan. It does not pass P17.
-The contract reports every `FO1`-`FO8` state and residual evidence requirement;
-release qualification still needs persisted cross-role fixtures, an end-to-end
-dogfood loop, negative authority tests, progressive-disclosure usability,
-cross-surface parity, recovery and handoff, and Release Passport evidence.
+The welded Agent Work contract and the KFD-7 Product Profile have distinct
+qualification boundaries. The v2 contract closes the in-repository object
+schema and negative semantic fixtures while continuing to report its own P17
+status and remaining `FO1`-`FO8` debt.
 
-The v2 contract closes the in-repository object schema and negative semantic
-fixtures. It does not close native persistence, recovery, GUI/CLI workflow, or
-reality-pressure dogfood, so P17 remains `not-qualified`.
-
-The KFD Independent Action State work remains a non-normative candidate. This
-decision neither reserves a KFD number nor claims universal organizational
-ontology.
+The Kungfu KFD-7 Product Profile is bound to KFD alpha.35 and an exact
+implementation/evidence cut. Twelve retained categories cover
+positive and negative transitions, export/import and backend recovery, role
+deletion or fusion, Warrant decay, Atlas staleness, Pursuit and Episode
+lifecycle, concurrency, session round-trip refinement, complexity breakpoints,
+and context-insufficiency. The release declaration is `qualified` and its
+activation decision is `activate`, bound to
+[independent review 4728705815](https://github.com/kungfu-systems/kungfu/pull/1091#pullrequestreview-4728705815)
+at exact qualification commit `8f6eff198751af109ddbeead8db4390d35303880`.
+Those facts do not prove universal minimality, provider-wide correctness, or
+completion of the wider P17 program.
 
 ## Consequences
 
