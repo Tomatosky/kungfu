@@ -14,6 +14,7 @@ mod help;
 mod launch;
 mod pins;
 mod plans;
+mod status;
 mod variant;
 
 use std::env;
@@ -43,6 +44,7 @@ usage:
   kungfu-trunk gc-plan [--source <id>]          plan unreachable payload collection
   kungfu-trunk repair-plan [--source <id>] [--episode <id>]
                                                plan storage repair (never writes)
+  kungfu-trunk storage-status [--source <id>]  summarize native storage state
   kungfu-trunk --version | --help
 
 envs live under <KF_HOME>/envs; the default env is named 'default'.
@@ -59,6 +61,7 @@ enum NativeCommand {
     Verify,
     GcPlan,
     RepairPlan,
+    StorageStatus,
 }
 
 struct NativeCommandSpec {
@@ -105,6 +108,11 @@ const NATIVE_COMMANDS: &[NativeCommandSpec] = &[
         command: NativeCommand::RepairPlan,
         name: "repair-plan",
         summary: "plan storage repair without writing",
+    },
+    NativeCommandSpec {
+        command: NativeCommand::StorageStatus,
+        name: "storage-status",
+        summary: "summarize native storage state without CPython",
     },
 ];
 
@@ -190,6 +198,7 @@ fn main() {
         Some("verify") => fsck::run_verify(&args[1..]),
         Some("gc-plan") => plans::run_gc(&args[1..]),
         Some("repair-plan") => plans::run_repair(&args[1..]),
+        Some("storage-status") => status::run(&args[1..]),
         Some("--version" | "-V" | "version") => {
             println!("kungfu-trunk {}", env!("CARGO_PKG_VERSION"));
             Ok(())
@@ -235,6 +244,7 @@ fn run_native(command: NativeCommand, args: &[String]) -> Result<(), String> {
         NativeCommand::Verify => fsck::run_verify(args),
         NativeCommand::GcPlan => plans::run_gc(args),
         NativeCommand::RepairPlan => plans::run_repair(args),
+        NativeCommand::StorageStatus => status::run(args),
     }
 }
 
@@ -518,6 +528,7 @@ mod tests {
             ("verify", NativeCommand::Verify),
             ("gc-plan", NativeCommand::GcPlan),
             ("repair-plan", NativeCommand::RepairPlan),
+            ("storage-status", NativeCommand::StorageStatus),
         ] {
             assert_eq!(
                 route_product(&s(&["--home", "/tmp/kf", name, "--json"]), &root_options()).unwrap(),
@@ -592,6 +603,7 @@ mod tests {
                 "gc-plan",
                 "prewarm",
                 "repair-plan",
+                "storage-status",
                 "verify"
             ]
         );
