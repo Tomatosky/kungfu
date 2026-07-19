@@ -7,8 +7,10 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <filesystem>
 #include <memory>
 #include <string>
+#include <tuple>
 #include <vector>
 
 #if defined(_WIN32)
@@ -27,6 +29,19 @@ constexpr uint32_t BATCH_FIXTURE_FRAMES =
     KF_NATIVE_PROBE_BATCH_FRAMES * (KF_NATIVE_PROBE_WARMUP_BATCHES + KF_NATIVE_PROBE_MEASURED_BATCHES);
 constexpr uint64_t MEASURED_PAYLOAD_BYTES =
     static_cast<uint64_t>(KF_NATIVE_PROBE_BATCH_FRAMES) * KF_NATIVE_PROBE_MEASURED_BATCHES * 256U;
+
+using tree_entry = std::tuple<std::string, bool, uintmax_t, std::filesystem::file_time_type>;
+
+std::vector<tree_entry> snapshot_tree(const std::filesystem::path &root) {
+  std::vector<tree_entry> result;
+  for (const auto &entry : std::filesystem::recursive_directory_iterator(root)) {
+    const bool directory = entry.is_directory();
+    result.emplace_back(entry.path().lexically_relative(root).generic_string(), directory,
+                        entry.is_regular_file() ? entry.file_size() : 0, entry.last_write_time());
+  }
+  std::sort(result.begin(), result.end());
+  return result;
+}
 
 bool check_error_paths(const kf_embedding_api_v1 &api, const char *root) {
   if (api.context_capabilities(nullptr, nullptr) != KF_EMBEDDING_INVALID_ARGUMENT ||
@@ -148,11 +163,12 @@ bool check_windows_dll_diagnostics(const char *root, const char *dll_path) {
     std::fprintf(stderr, "Windows embedding DLL load/export failed: %s\n", dll_path);
     return false;
   }
-  kf_embedding_api_v4 api{};
-  if (get_api(KF_EMBEDDING_ABI_V4, sizeof(api), &api) != KF_EMBEDDING_OK || api.abi_version != KF_EMBEDDING_ABI_V4 ||
+  kf_embedding_api_v5 api{};
+  if (get_api(KF_EMBEDDING_ABI_V5, sizeof(api), &api) != KF_EMBEDDING_OK || api.abi_version != KF_EMBEDDING_ABI_V5 ||
       (api.capabilities & KF_EMBEDDING_CAP_STORAGE_MAINTENANCE_PLANS) == 0 || api.storage_gc_plan == nullptr ||
-      api.storage_repair_plan == nullptr) {
-    std::fprintf(stderr, "Windows embedding DLL ABI v4 negotiation failed\n");
+      api.storage_repair_plan == nullptr || (api.capabilities & KF_EMBEDDING_CAP_STORAGE_STATUS) == 0 ||
+      api.storage_status == nullptr) {
+    std::fprintf(stderr, "Windows embedding DLL ABI v5 negotiation failed\n");
     return false;
   }
   kf_embedding_context_config_v1 config{};
@@ -190,11 +206,18 @@ bool check_windows_dll_diagnostics(const char *root, const char *dll_path) {
   repair_report.struct_size = sizeof(repair_report);
   const bool repair_ok = api.storage_repair_plan(context, &repair, &repair_report) == KF_EMBEDDING_OK &&
                          release_ok_json(repair_report, "\"plan_only\":true");
+  kf_embedding_storage_status_request_v1 storage_status{};
+  storage_status.struct_size = sizeof(storage_status);
+  storage_status.runtime_dir = root;
+  kf_embedding_report_v1 status_report{};
+  status_report.struct_size = sizeof(status_report);
+  const bool status_ok = api.storage_status(context, &storage_status, &status_report) == KF_EMBEDDING_OK &&
+                         release_ok_json(status_report, "\"scope\":\"all\"");
   const bool close_ok = api.context_close(context) == KF_EMBEDDING_OK;
-  if (gc_ok && repair_ok && close_ok) {
-    std::printf("{\"consumer\":\"windows-embedding-dll\",\"abi_version\":4,\"plans\":2}\n");
+  if (gc_ok && repair_ok && status_ok && close_ok) {
+    std::printf("{\"consumer\":\"windows-embedding-dll\",\"abi_version\":5,\"plans\":2,\"status\":1}\n");
   }
-  return gc_ok && repair_ok && close_ok;
+  return gc_ok && repair_ok && status_ok && close_ok;
 }
 #endif
 
@@ -219,7 +242,7 @@ int main(int argc, char **argv) {
   kf_embedding_api_v1 api{};
   // A version above the highest supported table is UNSUPPORTED_VERSION; an
   // undersized buffer for a supported version is INVALID_ARGUMENT.
-  if (kungfu_embedding_get_api(KF_EMBEDDING_ABI_V4 + 1, sizeof(api), &api) != KF_EMBEDDING_UNSUPPORTED_VERSION ||
+  if (kungfu_embedding_get_api(KF_EMBEDDING_ABI_V5 + 1, sizeof(api), &api) != KF_EMBEDDING_UNSUPPORTED_VERSION ||
       kungfu_embedding_get_api(KF_EMBEDDING_ABI_V1, sizeof(api) - 1, &api) != KF_EMBEDDING_INVALID_ARGUMENT) {
     std::fprintf(stderr, "ABI version/size negotiation failed\n");
     return 4;
@@ -275,6 +298,85 @@ int main(int argc, char **argv) {
       (api_v4.capabilities & KF_EMBEDDING_CAP_STORAGE_MAINTENANCE_PLANS) == 0 || api_v4.storage_gc_plan == nullptr ||
       api_v4.storage_repair_plan == nullptr) {
     std::fprintf(stderr, "ABI v4 negotiation failed: %d\n", v4_status);
+    return 5;
+  }
+  // v5 preserves the v4 prefix and appends only the existing C++ storage-status
+  // authority. It must remain read-only and return an owned JSON report.
+  kf_embedding_api_v5 api_v5{};
+  if (kungfu_embedding_get_api(KF_EMBEDDING_ABI_V5, sizeof(kf_embedding_api_v4), &api_v5) !=
+      KF_EMBEDDING_INVALID_ARGUMENT) {
+    std::fprintf(stderr, "ABI v5 size negotiation failed\n");
+    return 4;
+  }
+  const auto v5_status = kungfu_embedding_get_api(KF_EMBEDDING_ABI_V5, sizeof(api_v5), &api_v5);
+  if (v5_status != KF_EMBEDDING_OK || api_v5.abi_version != KF_EMBEDDING_ABI_V5 ||
+      (api_v5.capabilities & KF_EMBEDDING_CAP_STORAGE_STATUS) == 0 || api_v5.storage_status == nullptr) {
+    std::fprintf(stderr, "ABI v5 negotiation failed: %d\n", v5_status);
+    return 5;
+  }
+  kf_embedding_context_config_v1 status_config{};
+  status_config.struct_size = sizeof(status_config);
+  const auto status_context_root = std::filesystem::path(argv[1]).concat("-status-context");
+  const auto status_context_root_string = status_context_root.string();
+  status_config.root = status_context_root_string.c_str();
+  status_config.host_namespace = "shared_membrane";
+  status_config.host_name = "storage_status";
+  status_config.mode = KF_EMBEDDING_MODE_LIVE;
+  const auto tree_before_status = snapshot_tree(argv[1]);
+  kf_embedding_context *status_context = nullptr;
+  kf_embedding_storage_status_request_v1 status_request{};
+  status_request.struct_size = sizeof(status_request);
+  status_request.runtime_dir = argv[1];
+  kf_embedding_report_v1 status_report{};
+  status_report.struct_size = sizeof(status_report);
+  if (api_v5.context_open(&status_config, &status_context) != KF_EMBEDDING_OK ||
+      api_v5.storage_status(status_context, &status_request, &status_report) != KF_EMBEDDING_OK ||
+      status_report.ok != 1 || status_report.format != KF_EMBEDDING_REPORT_FORMAT_JSON ||
+      status_report.data == nullptr) {
+    std::fprintf(stderr, "ABI v5 storage status failed\n");
+    return 5;
+  }
+  const std::string status_json(reinterpret_cast<const char *>(status_report.data),
+                                static_cast<size_t>(status_report.data_size));
+  if (status_json.find("\"scope\":\"all\"") == std::string::npos ||
+      api_v5.report_release(&status_report) != KF_EMBEDDING_OK) {
+    std::fprintf(stderr, "ABI v5 storage status report failed\n");
+    return 5;
+  }
+  status_request.source_id = "missing-source";
+  status_report = {};
+  status_report.struct_size = sizeof(status_report);
+  if (api_v5.storage_status(status_context, &status_request, &status_report) != KF_EMBEDDING_OK ||
+      status_report.ok != 0 || status_report.format != KF_EMBEDDING_REPORT_FORMAT_JSON ||
+      status_report.data == nullptr) {
+    std::fprintf(stderr, "ABI v5 missing-source status failed\n");
+    return 5;
+  }
+  const std::string missing_json(reinterpret_cast<const char *>(status_report.data),
+                                 static_cast<size_t>(status_report.data_size));
+  const bool missing_scope_ok = missing_json.find("\"scope\":\"source\"") != std::string::npos;
+  const bool missing_source_ok = missing_json.find("\"source_id\":\"missing-source\"") != std::string::npos;
+  const bool missing_release_ok = api_v5.report_release(&status_report) == KF_EMBEDDING_OK;
+  const bool status_close_ok = api_v5.context_close(status_context) == KF_EMBEDDING_OK;
+  std::filesystem::remove_all(status_context_root);
+  const auto tree_after_status = snapshot_tree(argv[1]);
+  const bool no_mutation = tree_after_status == tree_before_status;
+  if (!missing_scope_ok || !missing_source_ok || !missing_release_ok || !status_close_ok || !no_mutation) {
+    std::fprintf(stderr,
+                 "ABI v5 storage status invariant failed: scope=%d source=%d release=%d close=%d no_mutation=%d "
+                 "tree_before=%zu tree_after=%zu\n",
+                 missing_scope_ok, missing_source_ok, missing_release_ok, status_close_ok, no_mutation,
+                 tree_before_status.size(), tree_after_status.size());
+    for (const auto &entry : tree_before_status) {
+      if (std::find(tree_after_status.begin(), tree_after_status.end(), entry) == tree_after_status.end()) {
+        std::fprintf(stderr, "  before-only-or-changed: %s\n", std::get<0>(entry).c_str());
+      }
+    }
+    for (const auto &entry : tree_after_status) {
+      if (std::find(tree_before_status.begin(), tree_before_status.end(), entry) == tree_before_status.end()) {
+        std::fprintf(stderr, "  after-only-or-changed: %s\n", std::get<0>(entry).c_str());
+      }
+    }
     return 5;
   }
   if (!check_error_paths(api, argv[1])) {

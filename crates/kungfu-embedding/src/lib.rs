@@ -17,8 +17,9 @@
 //! ([`Context::decode_frame_json`] + [`Context::frame_checksum`]) after a
 //! byte-identical v2 prefix, so a non-Python consumer can decode/verify a
 //! `.kungfu` frame without re-implementing FlatBuffers reflection or the
-//! checksum; v4 (ADR-0071) appends plan-only storage maintenance entries.
-//! [`Context::open`] negotiates v4 first and falls back through v3/v2/v1,
+//! checksum; v4 (ADR-0071) appends plan-only storage maintenance entries; v5
+//! appends the read-only native storage-status authority.
+//! [`Context::open`] negotiates v5 first and falls back through v4/v3/v2/v1,
 //! so an older core still yields a working journal-read context.
 //!
 //! # ABI fidelity
@@ -72,6 +73,9 @@ pub const ABI_V3: u32 = 3;
 /// with `verify_frames=true` rather than duplicating a core operation.
 pub const ABI_V4: u32 = 4;
 
+/// The v5 ABI version (ADR-0071): v4 plus read-only native storage status.
+pub const ABI_V5: u32 = 5;
+
 /// Maximum frames a single `read_batch` call may return (`KF_EMBEDDING_MAX_BATCH_FRAMES`).
 pub const MAX_BATCH_FRAMES: u32 = 4096;
 
@@ -95,6 +99,9 @@ pub const CAP_GENERIC_CODEC: u64 = 1 << 3;
 
 /// Capability bit: plan-only storage maintenance is reachable without CPython.
 pub const CAP_STORAGE_MAINTENANCE_PLANS: u64 = 1 << 4;
+
+/// Capability bit: read-only native storage status is reachable without CPython.
+pub const CAP_STORAGE_STATUS: u64 = 1 << 5;
 
 /// Report blob format tag: UTF-8 JSON (`KF_EMBEDDING_REPORT_FORMAT_JSON`).
 pub const REPORT_FORMAT_JSON: u32 = 1;
@@ -185,6 +192,18 @@ struct StorageGcPlanRequestV1 {
     reserved1: u32,
 }
 
+/// v5: a read-only storage-status request.
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct StorageStatusRequestV1 {
+    struct_size: u32,
+    reserved: u32,
+    runtime_dir: *const c_char,
+    provider: *const c_char,
+    provider_config_source: *const c_char,
+    source_id: *const c_char,
+}
+
 /// v2: an owned diagnostic report blob (mirrors `kf_embedding_report_v1`). The
 /// `data` bytes and their backing `owner` are freed by `report_release`.
 #[repr(C)]
@@ -214,6 +233,8 @@ type StorageGcPlan =
     unsafe extern "C" fn(*mut c_void, *const StorageGcPlanRequestV1, *mut ReportV1) -> i32;
 type StorageRepairPlan =
     unsafe extern "C" fn(*mut c_void, *const StorageFsckRequestV1, *mut ReportV1) -> i32;
+type StorageStatus =
+    unsafe extern "C" fn(*mut c_void, *const StorageStatusRequestV1, *mut ReportV1) -> i32;
 /// v3: decode a `.bfbs`-schema'd frame into structured JSON (owned report blob,
 /// freed with `report_release`). `object_name` is a nullable C string selecting the
 /// table to decode (null = the `.bfbs` root_type).
@@ -337,6 +358,76 @@ struct ApiV4 {
     frame_checksum: FrameChecksum,
     storage_gc_plan: StorageGcPlan,
     storage_repair_plan: StorageRepairPlan,
+}
+
+/// The v5 table: a byte-identical v4 prefix followed by read-only storage status.
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct ApiV5 {
+    abi_version: u32,
+    struct_size: u32,
+    capabilities: u64,
+    context_open: ContextOpen,
+    context_capabilities: ContextCapabilities,
+    context_close: ContextClose,
+    reader_open: ReaderOpen,
+    reader_read_batch: ReaderReadBatch,
+    reader_release_batch: ReaderReleaseBatch,
+    reader_close: ReaderClose,
+    storage_fsck: StorageFsck,
+    report_release: ReportRelease,
+    decode_frame_json: DecodeFrameJson,
+    frame_checksum: FrameChecksum,
+    storage_gc_plan: StorageGcPlan,
+    storage_repair_plan: StorageRepairPlan,
+    storage_status: StorageStatus,
+}
+
+impl ApiV5 {
+    fn as_v1(&self) -> ApiV1 {
+        ApiV1 {
+            abi_version: self.abi_version,
+            struct_size: self.struct_size,
+            capabilities: self.capabilities,
+            context_open: self.context_open,
+            context_capabilities: self.context_capabilities,
+            context_close: self.context_close,
+            reader_open: self.reader_open,
+            reader_read_batch: self.reader_read_batch,
+            reader_release_batch: self.reader_release_batch,
+            reader_close: self.reader_close,
+        }
+    }
+
+    fn diagnostics(&self) -> Diagnostics {
+        Diagnostics {
+            storage_fsck: self.storage_fsck,
+            report_release: self.report_release,
+        }
+    }
+
+    fn generic_codec(&self) -> GenericCodec {
+        GenericCodec {
+            decode_frame_json: self.decode_frame_json,
+            frame_checksum: self.frame_checksum,
+            report_release: self.report_release,
+        }
+    }
+
+    fn maintenance_plans(&self) -> MaintenancePlans {
+        MaintenancePlans {
+            storage_gc_plan: self.storage_gc_plan,
+            storage_repair_plan: self.storage_repair_plan,
+            report_release: self.report_release,
+        }
+    }
+
+    fn storage_status(&self) -> StorageStatusSurface {
+        StorageStatusSurface {
+            storage_status: self.storage_status,
+            report_release: self.report_release,
+        }
+    }
 }
 
 impl ApiV4 {
@@ -568,33 +659,68 @@ fn api_v4() -> Result<ApiV4, EmbeddingError> {
     Ok(api)
 }
 
+fn api_v5() -> Result<ApiV5, EmbeddingError> {
+    let mut api = std::mem::MaybeUninit::<ApiV5>::uninit();
+    // SAFETY: the negotiator fills `out_api` only on OK; a pre-v5 core rejects
+    // this request and negotiation falls back without reading the buffer.
+    let result = unsafe {
+        kungfu_embedding_get_api(
+            ABI_V5,
+            std::mem::size_of::<ApiV5>() as u32,
+            api.as_mut_ptr().cast(),
+        )
+    };
+    status(result)?;
+    // SAFETY: OK from the negotiator means the table is initialized.
+    let api = unsafe { api.assume_init() };
+    if api.abi_version != ABI_V5 || api.struct_size < std::mem::size_of::<ApiV5>() as u32 {
+        return Err(EmbeddingError::IncompatibleTable);
+    }
+    Ok(api)
+}
+
 type Negotiated = (
     ApiV1,
     Option<Diagnostics>,
     Option<GenericCodec>,
     Option<MaintenancePlans>,
+    Option<StorageStatusSurface>,
 );
 
 /// Negotiate the richest table the core offers, falling back one version only
 /// on `UnsupportedVersion`; all other contract errors surface immediately.
 fn negotiate() -> Result<Negotiated, EmbeddingError> {
-    match api_v4() {
-        Ok(v4) => Ok((
-            v4.as_v1(),
-            Some(v4.diagnostics()),
-            Some(v4.generic_codec()),
-            Some(v4.maintenance_plans()),
+    match api_v5() {
+        Ok(v5) => Ok((
+            v5.as_v1(),
+            Some(v5.diagnostics()),
+            Some(v5.generic_codec()),
+            Some(v5.maintenance_plans()),
+            Some(v5.storage_status()),
         )),
-        Err(EmbeddingError::UnsupportedVersion) => match api_v3() {
-            Ok(v3) => Ok((
-                v3.as_v1(),
-                Some(v3.diagnostics()),
-                Some(v3.generic_codec()),
+        Err(EmbeddingError::UnsupportedVersion) => match api_v4() {
+            Ok(v4) => Ok((
+                v4.as_v1(),
+                Some(v4.diagnostics()),
+                Some(v4.generic_codec()),
+                Some(v4.maintenance_plans()),
                 None,
             )),
-            Err(EmbeddingError::UnsupportedVersion) => match api_v2() {
-                Ok(v2) => Ok((v2.as_v1(), Some(v2.diagnostics()), None, None)),
-                Err(EmbeddingError::UnsupportedVersion) => Ok((api_v1()?, None, None, None)),
+            Err(EmbeddingError::UnsupportedVersion) => match api_v3() {
+                Ok(v3) => Ok((
+                    v3.as_v1(),
+                    Some(v3.diagnostics()),
+                    Some(v3.generic_codec()),
+                    None,
+                    None,
+                )),
+                Err(EmbeddingError::UnsupportedVersion) => match api_v2() {
+                    Ok(v2) => Ok((v2.as_v1(), Some(v2.diagnostics()), None, None, None)),
+                    Err(EmbeddingError::UnsupportedVersion) => {
+                        Ok((api_v1()?, None, None, None, None))
+                    }
+                    Err(other) => Err(other),
+                },
                 Err(other) => Err(other),
             },
             Err(other) => Err(other),
@@ -624,6 +750,13 @@ struct GenericCodec {
 struct MaintenancePlans {
     storage_gc_plan: StorageGcPlan,
     storage_repair_plan: StorageRepairPlan,
+    report_release: ReportRelease,
+}
+
+/// The v5 read-only storage-status pointer.
+#[derive(Clone, Copy)]
+struct StorageStatusSurface {
+    storage_status: StorageStatus,
     report_release: ReportRelease,
 }
 
@@ -716,6 +849,11 @@ impl Capabilities {
     /// Whether plan-only storage maintenance is reachable.
     pub fn storage_maintenance_plans(self) -> bool {
         self.0 & CAP_STORAGE_MAINTENANCE_PLANS != 0
+    }
+
+    /// Whether read-only native storage status is reachable.
+    pub fn storage_status(self) -> bool {
+        self.0 & CAP_STORAGE_STATUS != 0
     }
 }
 
@@ -861,6 +999,32 @@ impl<'a> StorageGcPlanRequest<'a> {
     }
 }
 
+/// A read-only native storage-status request. Optional fields map to nullable
+/// C strings; a missing source selects the whole runtime.
+#[derive(Clone, Copy, Debug)]
+pub struct StorageStatusRequest<'a> {
+    /// Runtime root to inspect.
+    pub runtime_dir: &'a str,
+    /// Storage provider name (`None` for the runtime default).
+    pub provider: Option<&'a str>,
+    /// Where provider configuration came from (`None` for the default).
+    pub provider_config_source: Option<&'a str>,
+    /// Optional source scope; `None` means the whole runtime.
+    pub source_id: Option<&'a str>,
+}
+
+impl<'a> StorageStatusRequest<'a> {
+    /// An all-scope status request using runtime provider defaults.
+    pub fn new(runtime_dir: &'a str) -> Self {
+        Self {
+            runtime_dir,
+            provider: None,
+            provider_config_source: None,
+            source_id: None,
+        }
+    }
+}
+
 fn empty_report() -> ReportV1 {
     ReportV1 {
         struct_size: std::mem::size_of::<ReportV1>() as u32,
@@ -882,14 +1046,15 @@ pub struct Context {
     diagnostics: Option<Diagnostics>,
     generic_codec: Option<GenericCodec>,
     maintenance_plans: Option<MaintenancePlans>,
+    storage_status: Option<StorageStatusSurface>,
     raw: *mut c_void,
 }
 
 impl Context {
-    /// Negotiate the richest table the core offers (v4 through v1) and open a
+    /// Negotiate the richest table the core offers (v5 through v1) and open a
     /// context for `config`.
     pub fn open(config: &ContextConfig) -> Result<Self, EmbeddingError> {
-        let (api, diagnostics, generic_codec, maintenance_plans) = negotiate()?;
+        let (api, diagnostics, generic_codec, maintenance_plans, storage_status) = negotiate()?;
         let root = cstr(config.root, "root")?;
         let namespace = cstr(config.host_namespace, "host_namespace")?;
         let name = cstr(config.host_name, "host_name")?;
@@ -914,7 +1079,39 @@ impl Context {
             diagnostics,
             generic_codec,
             maintenance_plans,
+            storage_status,
             raw,
+        })
+    }
+
+    /// Return the existing C++ storage authority's read-only status report
+    /// through the v5 membrane. No CPython or duplicate status logic is involved.
+    pub fn storage_status(
+        &self,
+        request: &StorageStatusRequest,
+    ) -> Result<FsckReport, EmbeddingError> {
+        let surface = self
+            .storage_status
+            .ok_or(EmbeddingError::UnsupportedVersion)?;
+        let runtime_dir = cstr(request.runtime_dir, "runtime_dir")?;
+        let provider = opt_cstr(request.provider, "provider")?;
+        let provider_config_source =
+            opt_cstr(request.provider_config_source, "provider_config_source")?;
+        let source_id = opt_cstr(request.source_id, "source_id")?;
+        let raw_request = StorageStatusRequestV1 {
+            struct_size: std::mem::size_of::<StorageStatusRequestV1>() as u32,
+            reserved: 0,
+            runtime_dir: runtime_dir.as_ptr(),
+            provider: opt_ptr(&provider),
+            provider_config_source: opt_ptr(&provider_config_source),
+            source_id: opt_ptr(&source_id),
+        };
+        let mut raw_report = empty_report();
+        // SAFETY: CStrings outlive the call and the context/report are live.
+        status(unsafe { (surface.storage_status)(self.raw, &raw_request, &mut raw_report) })?;
+        Ok(FsckReport {
+            release: surface.report_release,
+            raw: raw_report,
         })
     }
 
@@ -1419,6 +1616,8 @@ mod layout_guards {
     const _: () = assert!(align_of::<StorageFsckRequestV1>() == 8);
     const _: () = assert!(size_of::<StorageGcPlanRequestV1>() == 40);
     const _: () = assert!(align_of::<StorageGcPlanRequestV1>() == 8);
+    const _: () = assert!(size_of::<StorageStatusRequestV1>() == 40);
+    const _: () = assert!(align_of::<StorageStatusRequestV1>() == 8);
     const _: () = assert!(size_of::<ReportV1>() == 40);
     const _: () = assert!(align_of::<ReportV1>() == 8);
     const _: () = assert!(size_of::<ApiV2>() == 88);
@@ -1429,6 +1628,9 @@ mod layout_guards {
     // v4 = v3 (104) + gc-plan (8) + repair-plan (8) = 120.
     const _: () = assert!(size_of::<ApiV4>() == 120);
     const _: () = assert!(align_of::<ApiV4>() == 8);
+    // v5 = v4 (120) + storage-status (8) = 128.
+    const _: () = assert!(size_of::<ApiV5>() == 128);
+    const _: () = assert!(align_of::<ApiV5>() == 8);
 }
 
 #[cfg(test)]
@@ -1479,6 +1681,9 @@ mod tests {
         assert!(!caps.storage_maintenance_plans());
         assert!(Capabilities(CAP_STORAGE_MAINTENANCE_PLANS).storage_maintenance_plans());
         assert_eq!(CAP_STORAGE_MAINTENANCE_PLANS, 1 << 4);
+        assert!(!caps.storage_status());
+        assert!(Capabilities(CAP_STORAGE_STATUS).storage_status());
+        assert_eq!(CAP_STORAGE_STATUS, 1 << 5);
     }
 
     #[test]
@@ -1504,6 +1709,15 @@ mod tests {
         let req = StorageGcPlanRequest::new("/rt");
         assert_eq!(req.runtime_dir, "/rt");
         assert!(req.provider.is_none());
+        assert!(req.source_id.is_none());
+    }
+
+    #[test]
+    fn storage_status_request_defaults_to_all_scope() {
+        let req = StorageStatusRequest::new("/rt");
+        assert_eq!(req.runtime_dir, "/rt");
+        assert!(req.provider.is_none());
+        assert!(req.provider_config_source.is_none());
         assert!(req.source_id.is_none());
     }
 
@@ -1543,5 +1757,6 @@ mod tests {
         assert_eq!(ABI_V2, 2);
         assert_eq!(ABI_V3, 3);
         assert_eq!(ABI_V4, 4);
+        assert_eq!(ABI_V5, 5);
     }
 }

@@ -4,8 +4,8 @@ doc_type: architecture-decision
 adr_id: ADR-0071
 decision_status: accepted
 implementation_status: partial
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/735, https://github.com/kungfu-systems/kungfu/pull/1097]
-qualification_refs: [crates/trunk/src/fsck.rs, crates/trunk/src/plans.rs, crates/trunk/src/main.rs, crates/trunk/src/help.rs, crates/kungfu-embedding/src/lib.rs, framework/core/src/libkungfu/include/kungfu/embedding.h, framework/core/src/libkungfu/src/runtime/embedding.cpp, framework/core/slices/shared-embedding-membrane/host.cpp, framework/core/slices/shared-embedding-membrane/run.mjs, framework/core/src/python/kungfu/cli/help_manifest.py, framework/core/tests/python/test_cli_help_manifest.py]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/735, https://github.com/kungfu-systems/kungfu/pull/1097, https://github.com/kungfu-systems/kungfu/pull/1112]
+qualification_refs: [crates/trunk/src/fsck.rs, crates/trunk/src/plans.rs, crates/trunk/src/status.rs, crates/trunk/src/main.rs, crates/trunk/src/help.rs, crates/kungfu-embedding/src/lib.rs, framework/core/src/libkungfu/include/kungfu/embedding.h, framework/core/src/libkungfu/src/runtime/embedding.cpp, framework/core/slices/shared-embedding-membrane/host.cpp, framework/core/slices/shared-embedding-membrane/run.mjs, framework/core/src/python/kungfu/cli/help_manifest.py, framework/core/tests/python/test_cli_help_manifest.py]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-decision]
@@ -13,15 +13,16 @@ period: 2026-07-13
 theme: cli-implementation-language-split
 confidence: high
 evidence_grade: B
-last_reviewed: 2026-07-18
+last_reviewed: 2026-07-19
 ---
 
 # ADR-0071: CLI implementation split — Rust trunk vs Python, and growing the embedding membrane's diagnostic surface
 
-- Status: accepted; two bounded Bucket A stages are delivered: `fsck` plus root
+- Status: accepted; three bounded Bucket A stages are delivered: `fsck` plus root
   routing/help closure, then native `verify` / `gc-plan` / `repair-plan` over the
-  versioned membrane with a real Windows DLL smoke. The wider Bucket A surface
-  remains partial as enumerated under Completion boundary.
+  versioned membrane with a real Windows DLL smoke, then read-only native
+  `storage-status`. The wider Bucket A surface remains partial as enumerated
+  under Completion boundary.
 - Date: 2026-07-13
 - Category: CLI architecture / host boundary / embedding membrane
 - Related: [ADR-0046](ADR-0046-rust-host-trunk-and-assembled-runtime.md)
@@ -35,10 +36,10 @@ After ADR-0046 stage 3 the `kungfu` CLI is split by a layering law — *whoever
 implements the semantics parses the argv*:
 
 - **Rust trunk** (`crates/trunk`) owns `env`, `prewarm`, `doctor`, `fsck`,
-  `verify`, `gc-plan`, `repair-plan`, the root option/routing contract, root
-  `--version`/`--help`, and the
-  `KUNGFU_AS_VARIANT=node` native variant. Root help and routing records are
-  generated from the live Click root tree; these paths never boot CPython.
+  `verify`, `gc-plan`, `repair-plan`, `storage-status`, the root option/routing
+  contract, root `--version`/`--help`, and the `KUNGFU_AS_VARIANT=node` native
+  variant. Root help and routing records are generated from the live Click root
+  tree; these paths never boot CPython.
 - **Python** (`framework/core/src/python/kungfu/cli/commands/*.py`, click) owns
   the ~24 domain commands; the trunk forwards everything else argv-transparently
   to `python -m kungfu`.
@@ -158,6 +159,12 @@ The next bounded stage keeps that face narrow:
   they are recovery/front-door tools that must remain discoverable when CPython
   is broken. The Python `storage` subtree remains its compatibility and broader
   operational surface; the trunk does not parse or mirror that subtree.
+- ABI v5 preserves the complete v4 prefix and appends only `storage_status`, a
+  read-only bridge to the existing C++ `storage_service::status` authority. The
+  top-level name is deliberately `storage-status`, not generic `status`: it
+  admits all-runtime or one-source storage inspection without claiming Atlas or
+  product-wide status semantics. No general dispatcher, CPython fallback, or
+  mutation control crosses this surface.
 
 ## Consequences
 
@@ -204,6 +211,13 @@ The next bounded stage keeps that face narrow:
   sole bootstrap export with `GetProcAddress`, negotiates v4, and executes both
   native plans against a temporary runtime. This is runtime evidence on Windows,
   not a source/export-list assertion.
+- Bucket A third stage delivered: ABI v5 appends the read-only
+  `storage_status` pointer and the Rust `storage-status` command routes and
+  appears in unified root help from the same native command table. Both the
+  POSIX shared-library path and the real Windows DLL path negotiate v5 and call
+  `storage_service::status` against a temporary runtime; source selection stays
+  an optional narrow field, while Atlas status and every write mode stay out of
+  scope.
 - Root ownership is now mechanically closed rather than asserted in prose:
   `help_manifest.py` projects every live Click root option into both human help
   and a machine `ROOTOPT` record; the trunk consumes only that root prefix when
@@ -217,16 +231,17 @@ The next bounded stage keeps that face narrow:
 
 ## Completion boundary
 
-This ADR stays `partial` after the second stage. “Second stage complete” means:
-the three native commands route and appear in unified help, their C++ authority
-is reached through byte-prefix-compatible ABI tables, mutating modes are absent,
-temporary-root tests prove the reports, and Windows executes the actual
-single-export DLL path. It does **not** mean all Bucket A candidates have moved.
+This ADR stays `partial` after the third stage. “Third stage complete” means:
+`storage-status` routes and appears in unified help, the existing C++ status
+authority is reached through a byte-prefix-compatible ABI v5 table, mutating
+modes are absent, temporary-root tests prove the report, and Windows executes
+the actual single-export DLL path. It does **not** mean all Bucket A candidates
+have moved.
 
 Remaining ADR work is explicit:
 
 1. evaluate and admit the rest of Bucket A one bounded primitive at a time
-   (`compact`/`verify-sync`/`rebuild-index`/`layout`/`status`, then schema/facts),
+   (`compact`/`verify-sync`/`rebuild-index`/`layout`, then schema/facts),
    without turning the membrane into a generic command dispatcher;
 2. retain Bucket C in Python unless its placement criteria change;
 3. perform the real-workload measurement before opening any Bucket B rewrite.
