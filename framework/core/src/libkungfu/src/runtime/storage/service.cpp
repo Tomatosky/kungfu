@@ -2177,6 +2177,8 @@ std::vector<std::string> storage_operation_names() {
       storage_operation_name(storage_operation::EpisodeList),
       storage_operation_name(storage_operation::EpisodeInspect),
       storage_operation_name(storage_operation::EpisodeRecover),
+      storage_operation_name(storage_operation::EpisodeRecoveryPlan),
+      storage_operation_name(storage_operation::EpisodeRecoveryExecute),
       storage_operation_name(storage_operation::EpisodeProjectionRebuild),
       storage_operation_name(storage_operation::SourceRegister),
       storage_operation_name(storage_operation::SourceUpdateHead),
@@ -2292,6 +2294,10 @@ std::string storage_operation_name(storage_operation operation) {
     return "episode_inspect";
   case storage_operation::EpisodeRecover:
     return "episode_recover";
+  case storage_operation::EpisodeRecoveryPlan:
+    return "episode_recovery_plan";
+  case storage_operation::EpisodeRecoveryExecute:
+    return "episode_recovery_execute";
   case storage_operation::EpisodeProjectionRebuild:
     return "episode_projection_rebuild";
   case storage_operation::SourceRegister:
@@ -2461,6 +2467,12 @@ storage_operation parse_storage_operation(const std::string &operation) {
   }
   if (operation == "episode_recover") {
     return storage_operation::EpisodeRecover;
+  }
+  if (operation == "episode_recovery_plan") {
+    return storage_operation::EpisodeRecoveryPlan;
+  }
+  if (operation == "episode_recovery_execute") {
+    return storage_operation::EpisodeRecoveryExecute;
   }
   if (operation == "episode_projection_rebuild") {
     return storage_operation::EpisodeProjectionRebuild;

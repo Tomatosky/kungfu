@@ -836,15 +836,17 @@ def episode(ctx):
 
 
 def _run_episode_write(ctx, as_json, operation, action):
-    from kungfu.storage.episode_control import (
-        EpisodeWriterBusyError,
-        retry_episode_write,
-    )
+    from kungfu.storage.episode_control import EpisodeWriterBusyError
 
     run_command_preflight(ctx, "episode-write")
     try:
-        result, retry = retry_episode_write(operation, action)
-    except EpisodeWriterBusyError as exc:
+        result = dict(action())
+    except RuntimeError as cause:
+        if not str(cause).startswith("episode_writer_busy_timeout:"):
+            raise
+        exc = EpisodeWriterBusyError(
+            operation=operation, attempts=0, busy_retries=0, elapsed_ms=0
+        )
         payload = {"ok": False, "error": exc.to_dict()}
         if as_json:
             _echo_json(payload)
@@ -854,8 +856,11 @@ def _run_episode_write(ctx, as_json, operation, action):
             translated = diagnostics.problem_from_exception(exc, area="episode")
             click.echo(f"[storage] {diagnostics.actionable_text(translated)}", err=True)
         ctx.exit(1)
-    result = dict(result)
-    result["write_retry"] = retry
+    retry = dict(result.get("write_retry") or {})
+    if not retry:
+        raise RuntimeError(
+            f"{operation}: native Episode write did not return a retry receipt"
+        )
     if retry["busyRetries"] and not as_json:
         click.echo(
             f"[storage] absorbed {retry['busyRetries']} manifest writer "

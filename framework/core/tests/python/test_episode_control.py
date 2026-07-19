@@ -13,67 +13,41 @@ from kungfu.storage import episode_control
 from kungfu.storage.episode_lifecycle import RuntimeEpisodeLifecycle
 
 
-class _FakeClock:
-    def __init__(self) -> None:
-        self.value = 0.0
-
-    def now(self) -> float:
-        return self.value
-
-    def sleep(self, seconds: float) -> None:
-        self.value += seconds
-
-
-def _open_episode(*, location_uid: int = 17, begin_time: int = 1_000_000_000):
+def _native_write(**result):
     return {
-        "ok": True,
-        "episode": {
-            "episode_id": 41,
-            "opened": True,
-            "closed": False,
-            "close_count": 0,
-            "heartbeat_seen": False,
-            "update_time": 0,
-            "open_manifest_gen_time": begin_time,
-            "open": {
-                "episode_id": 41,
-                "location_uid": location_uid,
-                "begin_time": begin_time,
-            },
-            "records": [{"manifest_frame_uid": 101}],
+        **result,
+        "write_retry": {
+            "schema": "kungfu.episode.write-retry/v1",
+            "operation": "fixture",
+            "attempts": 1,
+            "busyRetries": 0,
+            "elapsedMs": 0,
+            "exhausted": False,
         },
     }
 
 
-def test_retry_absorbs_only_manifest_writer_busy():
-    clock = _FakeClock()
+def test_retry_adapter_consumes_native_receipt_without_replaying():
     calls = 0
+    native_receipt = {
+        "schema": "kungfu.episode.write-retry/v1",
+        "operation": "episode_begin",
+        "attempts": 3,
+        "busyRetries": 2,
+        "elapsedMs": 30,
+        "exhausted": False,
+    }
 
     def action():
         nonlocal calls
         calls += 1
-        if calls < 3:
-            raise RuntimeError("manifest_writer_busy: held by fixture")
-        return {"ok": True}
+        return {"ok": True, "write_retry": native_receipt}
 
-    result, receipt = episode_control.retry_episode_write(
-        "episode_begin",
-        action,
-        policy=episode_control.EpisodeWriteRetryPolicy(
-            timeout_seconds=1,
-            initial_delay_seconds=0.01,
-            max_delay_seconds=0.02,
-            jitter_ratio=0,
-        ),
-        clock=clock.now,
-        sleep=clock.sleep,
-        random_value=lambda: 0.5,
-    )
+    result, receipt = episode_control.retry_episode_write("episode_begin", action)
 
-    assert result == {"ok": True}
-    assert receipt["attempts"] == 3
-    assert receipt["busyRetries"] == 2
-    assert receipt["elapsedMs"] == 30
+    assert calls == 1
+    assert result["ok"] is True
+    assert receipt == native_receipt
 
 
 def test_retry_never_replays_unknown_or_non_busy_failures():
@@ -89,74 +63,55 @@ def test_retry_never_replays_unknown_or_non_busy_failures():
     assert calls == 1
 
 
-def test_retry_exhaustion_is_machine_readable():
-    clock = _FakeClock()
+def test_retry_policy_projects_to_native_milliseconds():
+    policy = episode_control.EpisodeWriteRetryPolicy(
+        timeout_seconds=0.05,
+        initial_delay_seconds=0.02,
+        max_delay_seconds=0.03,
+        jitter_ratio=0.1,
+    )
 
-    with pytest.raises(episode_control.EpisodeWriterBusyError) as raised:
-        episode_control.retry_episode_write(
-            "episode_abort",
-            lambda: (_ for _ in ()).throw(
-                RuntimeError("manifest_writer_busy: held by fixture")
-            ),
-            policy=episode_control.EpisodeWriteRetryPolicy(
-                timeout_seconds=0.05,
-                initial_delay_seconds=0.02,
-                max_delay_seconds=0.02,
-                jitter_ratio=0,
-            ),
-            clock=clock.now,
-            sleep=clock.sleep,
-            random_value=lambda: 0.5,
-        )
-
-    assert raised.value.to_dict()["code"] == "episode_writer_busy_timeout"
-    assert raised.value.to_dict()["exhausted"] is True
+    assert policy.to_native_options() == {
+        "timeout_ms": 50,
+        "initial_delay_ms": 20,
+        "max_delay_ms": 30,
+        "jitter_ratio": 0.1,
+    }
 
 
-def test_recovery_plan_requires_stale_inactive_owned_location(tmp_path, monkeypatch):
+def test_recovery_plan_delegates_to_native_service(tmp_path, monkeypatch):
+    calls = []
+    native_plan = {
+        "schema": "kungfu.episode.recovery-plan/v1",
+        "eligible": True,
+        "planId": "sha256:native",
+    }
     monkeypatch.setattr(
         episode_control.service,
-        "episode_inspect",
-        lambda *_args, **_kwargs: _open_episode(),
+        "episode_recovery_plan",
+        lambda *args, **kwargs: calls.append((args, kwargs)) or native_plan,
     )
 
-    eligible = episode_control.plan_episode_recovery(
+    result = episode_control.plan_episode_recovery(
         tmp_path,
         episode_id=41,
+        location_uid=17,
         stale_after_seconds=5,
         now_ns=10_000_000_000,
     )
-    assert eligible["eligible"] is True
-    assert eligible["writer"]["status"] == "absent"
-    assert eligible["expectedManifestFrameUid"] == 101
-    assert eligible["planId"].startswith("sha256:")
-    assert (
-        eligible["planId"]
-        == episode_control.plan_episode_recovery(
-            tmp_path,
-            episode_id=41,
-            stale_after_seconds=5,
-            now_ns=10_000_000_000,
-        )["planId"]
-    )
 
-    evidence_path = tmp_path / "ownership" / "writers" / "00000011.00000000.lock"
-    evidence_path.parent.mkdir(parents=True)
-    evidence_path.write_text("owned", encoding="utf-8")
-    monkeypatch.setattr(
-        episode_control.yjj,
-        "inspect_active_stream_writer",
-        lambda *_args: {"ownerPid": 99, "owned": True},
-        raising=False,
-    )
-    active = episode_control.plan_episode_recovery(
-        tmp_path,
-        episode_id=41,
-        stale_after_seconds=5,
-        now_ns=10_000_000_000,
-    )
-    assert active["eligible"] is False
-    assert [item["code"] for item in active["blockers"]] == ["episode_writer_active"]
+    assert result == native_plan
+    assert calls == [
+        (
+            (tmp_path,),
+            {
+                "episode_id": 41,
+                "location_uid": 17,
+                "stale_after_seconds": 5,
+                "now_ns": 10_000_000_000,
+            },
+        )
+    ]
 
 
 def test_native_writer_inspection_reports_the_live_lease(tmp_path):
@@ -172,87 +127,46 @@ def test_native_writer_inspection_reports_the_live_lease(tmp_path):
     assert evidence["generation"] == lease.status["generation"]
 
 
-def test_recovery_execute_fences_writer_and_revalidates(tmp_path, monkeypatch):
+def test_recovery_execute_delegates_to_native_service(tmp_path, monkeypatch):
+    calls = []
+    native_receipt = {
+        "schema": "kungfu.episode.recovery-receipt/v1",
+        "ok": True,
+        "fence": {"resourceId": "00000011.00000000"},
+    }
     monkeypatch.setattr(
         episode_control.service,
-        "episode_inspect",
-        lambda *_args, **_kwargs: _open_episode(),
-    )
-    recovery_calls = []
-    monkeypatch.setattr(
-        episode_control.service,
-        "episode_recover",
-        lambda *args, **kwargs: (
-            recovery_calls.append((args, kwargs))
-            or {
-                "recovered": [
-                    {"close": {"episode_id": 41, "status": 3}, "content_root": {}}
-                ],
-                "skipped_open": [],
-            }
-        ),
-    )
-
-    class FakeLease:
-        def __init__(self, data_root, resource_id):
-            self.status = {
-                "dataRoot": data_root,
-                "resourceId": resource_id,
-                "generation": 2,
-                "owned": True,
-            }
-
-    monkeypatch.setattr(
-        episode_control.yjj,
-        "durability_writer_lease",
-        FakeLease,
-        raising=False,
+        "episode_recovery_execute",
+        lambda *args, **kwargs: calls.append((args, kwargs)) or native_receipt,
     )
 
     receipt = episode_control.execute_episode_recovery(
         tmp_path,
         episode_id=41,
+        location_uid=17,
         stale_after_seconds=5,
         now_ns=10_000_000_000,
         reason="fixture recovery",
     )
 
-    assert receipt["ok"] is True
-    assert receipt["fence"]["resourceId"] == "00000011.00000000"
-    assert recovery_calls[0][1]["location_uid"] == 17
-    assert recovery_calls[0][1]["reason"] == "fixture recovery"
-    assert recovery_calls[0][1]["expected_manifest_frame_uid"] == 101
+    assert receipt == native_receipt
+    assert calls[0][1]["location_uid"] == 17
+    assert calls[0][1]["reason"] == "fixture recovery"
 
 
-def test_recovery_execute_rejects_changed_manifest_frame(tmp_path, monkeypatch):
-    inspected = [_open_episode(), _open_episode()]
-    inspected[1]["episode"]["records"][-1]["manifest_frame_uid"] = 102
+def test_recovery_execute_preserves_native_error_shape(tmp_path, monkeypatch):
     monkeypatch.setattr(
         episode_control.service,
-        "episode_inspect",
-        lambda *_args, **_kwargs: inspected.pop(0),
-    )
-
-    class FakeLease:
-        def __init__(self, data_root, resource_id):
-            self.status = {
-                "dataRoot": data_root,
-                "resourceId": resource_id,
-                "generation": 3,
-                "owned": True,
-            }
-
-    monkeypatch.setattr(
-        episode_control.yjj,
-        "durability_writer_lease",
-        FakeLease,
-        raising=False,
-    )
-    recovery_calls = []
-    monkeypatch.setattr(
-        episode_control.service,
-        "episode_recover",
-        lambda *_args, **_kwargs: recovery_calls.append("write") or {},
+        "episode_recovery_execute",
+        lambda *_args, **_kwargs: {
+            "schema": "kungfu.episode.recovery-receipt/v1",
+            "ok": False,
+            "error": {
+                "code": "episode_recovery_state_changed",
+                "message": "Episode facts changed after planning; generate a new plan",
+            },
+            "plan": {"planId": "sha256:native"},
+        },
     )
 
     with pytest.raises(
@@ -267,7 +181,7 @@ def test_recovery_execute_rejects_changed_manifest_frame(tmp_path, monkeypatch):
         )
 
     assert raised.value.code == "episode_recovery_state_changed"
-    assert recovery_calls == []
+    assert raised.value.plan == {"planId": "sha256:native"}
 
 
 def test_lifecycle_guard_aborts_keyboard_interrupt(tmp_path, monkeypatch):
@@ -283,12 +197,12 @@ def test_lifecycle_guard_aborts_keyboard_interrupt(tmp_path, monkeypatch):
     monkeypatch.setattr(
         episode_lifecycle.service,
         "episode_begin",
-        lambda *_args, **_kwargs: {"episode_id": 41},
+        lambda *_args, **_kwargs: _native_write(episode_id=41),
     )
     monkeypatch.setattr(
         episode_lifecycle.service,
         "episode_abort",
-        lambda *_args, **kwargs: aborts.append(kwargs) or {"ok": True},
+        lambda *_args, **kwargs: aborts.append(kwargs) or _native_write(ok=True),
     )
 
     lifecycle = RuntimeEpisodeLifecycle(
@@ -321,12 +235,12 @@ def test_lifecycle_guard_aborts_sigterm(tmp_path, monkeypatch):
     monkeypatch.setattr(
         episode_lifecycle.service,
         "episode_begin",
-        lambda *_args, **_kwargs: {"episode_id": 41},
+        lambda *_args, **_kwargs: _native_write(episode_id=41),
     )
     monkeypatch.setattr(
         episode_lifecycle.service,
         "episode_abort",
-        lambda *_args, **kwargs: aborts.append(kwargs) or {"ok": True},
+        lambda *_args, **kwargs: aborts.append(kwargs) or _native_write(ok=True),
     )
 
     lifecycle = RuntimeEpisodeLifecycle(

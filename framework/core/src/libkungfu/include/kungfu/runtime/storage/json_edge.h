@@ -67,6 +67,8 @@ enum class storage_operation {
   EpisodeList,
   EpisodeInspect,
   EpisodeRecover,
+  EpisodeRecoveryPlan,
+  EpisodeRecoveryExecute,
   EpisodeProjectionRebuild,
   SourceRegister,
   SourceUpdateHead,

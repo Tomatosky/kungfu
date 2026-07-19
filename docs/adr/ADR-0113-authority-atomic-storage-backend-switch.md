@@ -4,8 +4,8 @@ doc_type: architecture-decision
 adr_id: ADR-0113
 decision_status: accepted
 implementation_status: staged
-implementation_prs: []
-qualification_refs: [framework/core/tests/python/test_storage_backend_switch.py, framework/core/tests/storage-node-binding.test.js]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1136]
+qualification_refs: [framework/core/src/libkungfu/src/runtime/native_storage.cpp, framework/core/src/libkungfu/src/runtime/storage/episode_control.cpp, framework/core/slices/native-storage-closure/host.cpp, framework/core/tests/python/test_episode_control.py, framework/core/tests/python/test_storage_backend_switch.py, framework/core/tests/storage-node-binding.test.js]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
