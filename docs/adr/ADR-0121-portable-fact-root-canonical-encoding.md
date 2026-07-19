@@ -3,9 +3,10 @@ metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
 adr_id: ADR-0121
 decision_status: accepted
-implementation_status: partial
+implementation_status: implemented
 implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1115, https://github.com/kungfu-systems/kungfu/pull/1116]
-qualification_refs: [framework/fact/kungfu-fact-root-canonical-v2.json, tests/fixtures/fact-root-canonical/vectors.json, framework/core/src/libkungfu/src/runtime/storage/fact_kernel.cpp, framework/core/src/python/kungfu/storage/fact_root_canonical.py, scripts/check-fact-root-canonical.test.mjs, framework/core/tests/storage-node-binding.test.js, docs/qualification/evidence/gate-measurements/1edae0d8b1/linux/receipt.json, scripts/check-kungfu-gate-catalog.test.mjs, scripts/check-project-cut-composition.test.mjs]
+closure_pr: https://github.com/kungfu-systems/kungfu/pull/1116
+qualification_refs: [framework/fact/kungfu-fact-root-canonical-v2.json, tests/fixtures/fact-root-canonical/vectors.json, framework/core/src/libkungfu/src/runtime/storage/fact_protocol.cpp, framework/core/src/libkungfu/src/runtime/storage/fact_query.cpp, framework/core/src/python/kungfu/storage/fact_root_canonical.py, scripts/check-fact-root-canonical.test.mjs, framework/core/tests/storage-node-binding.test.js, docs/qualification/evidence/gate-measurements/1edae0d8b1/linux/receipt.json, scripts/check-kungfu-gate-catalog.test.mjs, scripts/check-project-cut-composition.test.mjs]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -19,7 +20,9 @@ ai_provenance: GPT-5 via Codex on 2026-07-19; based on repository sources and us
 
 # ADR-0121: Fact Root v2 uses a closed typed binary preimage
 
-- Status: accepted; KFR2 conformance staged, writer cutover pending
+- Status: accepted; the independent KFR2 codec and conformance corpus are
+  implemented; writer-authority migration and release qualification remain
+  separate pending work
 - Date: 2026-07-19
 - Category: Fact identity / canonical encoding / KFD-1
 - Related: [ADR-0112](ADR-0112-backend-neutral-fact-cut-kernel.md), [ADR-0098](ADR-0098-project-cut-v1-canonical-root-and-source-projection.md)

@@ -19,6 +19,9 @@ const registry = readJson('framework/contract/kungfu-contracts.registry.json');
 const canonicalPolicy = readJson(
   'framework/contract/kungfu-agent-first-canonical-policy.json',
 );
+const portableAdr = read(
+  'docs/adr/ADR-0121-portable-fact-root-canonical-encoding.md',
+);
 
 const ROOT_PATTERN = /^sha256:[0-9a-f]{64}$/;
 const OBJECT_PATTERN = /^fact:[0-9a-f]{32}$/;
@@ -154,6 +157,38 @@ test('registers one accepted contract with the native writer stage implemented',
       .update(canonicalJson(canonicalPolicy.contractWorld.value))
       .digest('hex')}`,
   );
+});
+
+test('keeps Fact lifecycle claims aligned with current implementation evidence', () => {
+  assert.match(portableAdr, /^implementation_status: implemented$/mu);
+  assert.match(
+    portableAdr,
+    /^implementation_prs: \[https:\/\/github\.com\/kungfu-systems\/kungfu\/pull\/1115, https:\/\/github\.com\/kungfu-systems\/kungfu\/pull\/1116\]$/mu,
+  );
+  assert.match(
+    portableAdr,
+    /writer-authority migration and release qualification remain\n {2}separate pending work/u,
+  );
+  assert.equal(contract.rootCanonical.legacy.writerDefault, true);
+  assert.equal(contract.rootCanonical.portable.writerDefault, false);
+  assert.deepEqual(contract.qualification.requiredNextEvidence, [
+    'positive and negative CAS concurrency tests',
+    'cross-platform exact-candidate qualification',
+  ]);
+  assert.deepEqual(
+    contract.qualification.completedEvidence.map((evidence) => evidence.id),
+    [
+      'rebuild-and-replaceable-backend-parity',
+      'fsck-portable-export-import-root-preservation',
+      'portable-kfr2-independent-conformance',
+    ],
+  );
+  for (const evidence of contract.qualification.completedEvidence) {
+    const [relative, testName] = evidence.test.split('::');
+    assert.equal(fs.existsSync(path.join(ROOT, relative)), true, evidence.id);
+    if (testName)
+      assert.match(read(relative), new RegExp(`def ${testName}\\b`, 'u'));
+  }
 });
 
 test('the embedded Draft 2020-12 schema validates the exact contract', () => {

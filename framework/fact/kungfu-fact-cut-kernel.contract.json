@@ -856,9 +856,21 @@
     "test": "scripts/check-fact-cut-kernel-contract.test.mjs",
     "requiredNextEvidence": [
       "positive and negative CAS concurrency tests",
-      "rebuild parity against at least one replaceable projection",
-      "fsck and portable export/import root preservation",
       "cross-platform exact-candidate qualification"
+    ],
+    "completedEvidence": [
+      {
+        "id": "rebuild-and-replaceable-backend-parity",
+        "test": "framework/core/tests/python/test_fact_kernel_integrity.py::test_rebuild_retention_and_backend_switch_preserve_semantic_roots"
+      },
+      {
+        "id": "fsck-portable-export-import-root-preservation",
+        "test": "framework/core/tests/python/test_fact_kernel_integrity.py::test_fsck_export_import_preserves_exact_cut_and_ref"
+      },
+      {
+        "id": "portable-kfr2-independent-conformance",
+        "test": "scripts/check-fact-root-canonical.test.mjs"
+      }
     ]
   },
   "nonClaims": [
