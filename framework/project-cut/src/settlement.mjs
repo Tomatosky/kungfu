@@ -393,14 +393,57 @@ function indexEntries(root) {
     });
 }
 
-function commitEntries(root, commit, pathspec = null) {
+function commitBlobs(root, objectIds) {
+  const uniqueIds = [...new Set(objectIds)];
+  if (uniqueIds.length === 0) return new Map();
+  const output = execFileSync('git', ['cat-file', '--batch'], {
+    cwd: root,
+    input: Buffer.from(`${uniqueIds.join('\n')}\n`, 'utf8'),
+    encoding: 'buffer',
+    maxBuffer: 512 * 1024 * 1024,
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  const blobs = new Map();
+  let offset = 0;
+  for (const expected of uniqueIds) {
+    const headerEnd = output.indexOf(0x0a, offset);
+    if (headerEnd === -1)
+      throw failure('invalid-batch-output', 'Git blob header is incomplete');
+    const header = output.subarray(offset, headerEnd).toString('utf8');
+    const match = /^([0-9a-f]+) blob ([0-9]+)$/u.exec(header);
+    if (!match || match[1] !== expected)
+      throw failure('invalid-batch-output', 'Git blob header is invalid', {
+        expected,
+        header,
+      });
+    const size = Number(match[2]);
+    const start = headerEnd + 1;
+    const end = start + size;
+    if (!Number.isSafeInteger(size) || output[end] !== 0x0a)
+      throw failure('invalid-batch-output', 'Git blob payload is incomplete', {
+        objectId: expected,
+      });
+    blobs.set(expected, output.subarray(start, end));
+    offset = end + 1;
+  }
+  if (offset !== output.length)
+    throw failure('invalid-batch-output', 'Git blob batch has trailing bytes');
+  return blobs;
+}
+
+function commitEntries(
+  root,
+  commit,
+  pathspec = null,
+  includeBytes = () => true,
+) {
   const args = ['ls-tree', '-r', '-z', commit];
   if (pathspec) args.push('--', pathspec);
   const output = git(root, args, {
     encoding: 'buffer',
     code: 'commit-unavailable',
   });
-  return output
+  const entries = output
     .toString('utf8')
     .split('\0')
     .filter(Boolean)
@@ -410,12 +453,20 @@ function commitEntries(root, commit, pathspec = null) {
       if (!['100644', '100755'].includes(match[1])) return null;
       return {
         path: match[3],
-        bytes: git(root, ['cat-file', 'blob', match[2]], {
-          encoding: 'buffer',
-        }),
+        objectId: match[2],
       };
     })
     .filter(Boolean);
+  const blobs = commitBlobs(
+    root,
+    entries
+      .filter((entry) => includeBytes(entry.path))
+      .map((entry) => entry.objectId),
+  );
+  return entries.map((entry) => ({
+    path: entry.path,
+    bytes: blobs.get(entry.objectId) ?? Buffer.alloc(0),
+  }));
 }
 
 function sourceInput(root, request, policy, entries, additions = []) {
@@ -489,8 +540,22 @@ export function sourceProjectionAtTree(rootInput, treeInput, cut) {
     visibility: cut.visibility,
     source: {},
   };
+  const metadataOnlyPrefixes = [
+    ...policy.privacyDenyPrefixes,
+    ...policy.excludePrefixes,
+    ...policy.protocolOutputPrefixes,
+  ];
+  const includeBytes = (path) =>
+    !metadataOnlyPrefixes.some(
+      (prefix) => path === prefix || path.startsWith(`${prefix}/`),
+    );
   return buildSourceProjection(
-    sourceInput(root, request, policy, commitEntries(root, tree)),
+    sourceInput(
+      root,
+      request,
+      policy,
+      commitEntries(root, tree, null, includeBytes),
+    ),
     policy,
   ).projection;
 }
