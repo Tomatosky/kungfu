@@ -356,12 +356,23 @@ function visibilityFor(path, request) {
   return matches[0]?.visibility ?? request.visibility;
 }
 
-function indexEntries(root) {
+function projectionIncludesBytes(policy, path) {
+  const metadataOnlyPrefixes = [
+    ...policy.privacyDenyPrefixes,
+    ...policy.excludePrefixes,
+    ...policy.protocolOutputPrefixes,
+  ];
+  return !metadataOnlyPrefixes.some(
+    (prefix) => path === prefix || path.startsWith(`${prefix}/`),
+  );
+}
+
+function indexEntries(root, includeBytes = () => true) {
   const output = git(root, ['ls-files', '-s', '-z'], {
     encoding: 'buffer',
     code: 'index-unavailable',
   });
-  return output
+  const entries = output
     .toString('utf8')
     .split('\0')
     .filter(Boolean)
@@ -388,9 +399,19 @@ function indexEntries(root) {
         );
       return {
         path: match[4],
-        bytes: git(root, ['show', `:${match[4]}`], { encoding: 'buffer' }),
+        objectId: match[2],
       };
     });
+  const blobs = commitBlobs(
+    root,
+    entries
+      .filter((entry) => includeBytes(entry.path))
+      .map((entry) => entry.objectId),
+  );
+  return entries.map((entry) => ({
+    path: entry.path,
+    bytes: blobs.get(entry.objectId) ?? Buffer.alloc(0),
+  }));
 }
 
 function commitBlobs(root, objectIds) {
@@ -540,15 +561,7 @@ export function sourceProjectionAtTree(rootInput, treeInput, cut) {
     visibility: cut.visibility,
     source: {},
   };
-  const metadataOnlyPrefixes = [
-    ...policy.privacyDenyPrefixes,
-    ...policy.excludePrefixes,
-    ...policy.protocolOutputPrefixes,
-  ];
-  const includeBytes = (path) =>
-    !metadataOnlyPrefixes.some(
-      (prefix) => path === prefix || path.startsWith(`${prefix}/`),
-    );
+  const includeBytes = (path) => projectionIncludesBytes(policy, path);
   return buildSourceProjection(
     sourceInput(
       root,
@@ -785,7 +798,9 @@ export function prepareSettlement(rootInput, requestInput, options = {}) {
   const atlasOutput = join(temporaryRoot, 'atlas');
   const stagedRoot = join(temporaryRoot, 'index');
   try {
-    const entries = indexEntries(root);
+    const entries = indexEntries(root, (path) =>
+      projectionIncludesBytes(policy, path),
+    );
     sourceInput(root, request, policy, entries);
     const indexTreeOid = git(root, ['write-tree']).trim();
     materializeIndex(root, stagedRoot);
@@ -1074,13 +1089,14 @@ function verifyAgainstEntries(root, state, entries, mode) {
 export function verifySettlement(rootInput, statePath, options = {}) {
   const root = repositoryRoot(rootInput);
   const state = stateFrom(root, statePath);
-  const indexed = new Set(indexEntries(root).map((entry) => entry.path));
-  const result = verifyAgainstEntries(
-    root,
-    state,
-    indexEntries(root),
-    'staged',
+  const policy = readRootJson(
+    resolve(CONTRACT_ROOT, 'default-source-projection-policy.json'),
   );
+  const entries = indexEntries(root, (path) =>
+    projectionIncludesBytes(policy, path),
+  );
+  const indexed = new Set(entries.map((entry) => entry.path));
+  const result = verifyAgainstEntries(root, state, entries, 'staged');
   for (const path of state.outputs) {
     if (!indexed.has(path))
       result.diagnostics.push({
@@ -1149,13 +1165,19 @@ export function observeSettlementCommit(
     path,
     detail: 'prepared output is absent from observed commit',
   }));
-  if (missing.length === 0)
+  if (missing.length === 0) {
+    const policy = readRootJson(
+      resolve(CONTRACT_ROOT, 'default-source-projection-policy.json'),
+    );
     diagnostics = verifyAgainstEntries(
       root,
       state,
-      commitEntries(root, commit),
+      commitEntries(root, commit, null, (path) =>
+        projectionIncludesBytes(policy, path),
+      ),
       'committed',
     ).diagnostics;
+  }
   const published = missing.length === 0 && diagnostics.length === 0;
   const status = published ? 'published' : 'sealed-unpublished';
   let nextState = state;
