@@ -167,6 +167,10 @@ test('keeps Fact lifecycle claims aligned with current implementation evidence',
   );
   assert.match(
     portableAdr,
+    /^closure_pr: https:\/\/github\.com\/kungfu-systems\/kungfu\/pull\/1115$/mu,
+  );
+  assert.match(
+    portableAdr,
     /writer-authority migration and release qualification remain\n {2}separate pending work/u,
   );
   assert.equal(contract.rootCanonical.legacy.writerDefault, true);

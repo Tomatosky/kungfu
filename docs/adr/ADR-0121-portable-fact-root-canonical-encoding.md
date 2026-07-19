@@ -5,7 +5,7 @@ adr_id: ADR-0121
 decision_status: accepted
 implementation_status: implemented
 implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1115, https://github.com/kungfu-systems/kungfu/pull/1116]
-closure_pr: https://github.com/kungfu-systems/kungfu/pull/1116
+closure_pr: https://github.com/kungfu-systems/kungfu/pull/1115
 qualification_refs: [framework/fact/kungfu-fact-root-canonical-v2.json, tests/fixtures/fact-root-canonical/vectors.json, framework/core/src/libkungfu/src/runtime/storage/fact_protocol.cpp, framework/core/src/libkungfu/src/runtime/storage/fact_query.cpp, framework/core/src/python/kungfu/storage/fact_root_canonical.py, scripts/check-fact-root-canonical.test.mjs, framework/core/tests/storage-node-binding.test.js, docs/qualification/evidence/gate-measurements/1edae0d8b1/linux/receipt.json, scripts/check-kungfu-gate-catalog.test.mjs, scripts/check-project-cut-composition.test.mjs]
 review_state: self-reviewed
 sensitivity: public
