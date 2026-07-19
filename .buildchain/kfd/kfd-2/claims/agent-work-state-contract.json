@@ -7,7 +7,7 @@
       "role": "claim-source",
       "kind": "file",
       "path": "framework/agent-work/kungfu-agent-work-state.contract.json",
-      "sha256": "e89bdbeef7b3015869e27b7a5fb010fd2a697a925f4690cc8dadafd55cf83b20"
+      "sha256": "69d87b9a6cd5efd7c9a4af03dd40fd94fd162d927cb04619c218f1f698ca5c5e"
     }
   ],
   "machineEvidence": [
@@ -16,7 +16,7 @@
       "pointer": {
         "kind": "file",
         "path": "docs/adr/ADR-0109-four-object-agent-work-state-contract.md",
-        "sha256": "6f30305eed2d1d9f4cc55508fd7014e81aa6846a0608015ea410175dc8fec981"
+        "sha256": "c805449d66da9d81fa41ae7a27883e5c38411b40f5665d51bcc5b60bd77e08fa"
       },
       "description": "Accepted role-separation decision and bounded P17 qualification boundary."
     },
@@ -50,11 +50,11 @@
   ],
   "hashes": {
     "registrySha256": "9d1f607e4e9973a8c0ac1fb60105e65b5fbaa56f4cd9e2eb51633b4091188fe4",
-    "sourceSha256": "e89bdbeef7b3015869e27b7a5fb010fd2a697a925f4690cc8dadafd55cf83b20",
+    "sourceSha256": "69d87b9a6cd5efd7c9a4af03dd40fd94fd162d927cb04619c218f1f698ca5c5e",
     "evidenceSha256": [
       {
         "path": "docs/adr/ADR-0109-four-object-agent-work-state-contract.md",
-        "sha256": "6f30305eed2d1d9f4cc55508fd7014e81aa6846a0608015ea410175dc8fec981"
+        "sha256": "c805449d66da9d81fa41ae7a27883e5c38411b40f5665d51bcc5b60bd77e08fa"
       },
       {
         "path": "scripts/check-agent-work-state-contract.test.mjs",
@@ -72,7 +72,7 @@
     "artifactSha256": [
       {
         "path": "framework/agent-work/kungfu-agent-work-state.contract.json",
-        "sha256": "e89bdbeef7b3015869e27b7a5fb010fd2a697a925f4690cc8dadafd55cf83b20"
+        "sha256": "69d87b9a6cd5efd7c9a4af03dd40fd94fd162d927cb04619c218f1f698ca5c5e"
       }
     ]
   },
@@ -80,7 +80,7 @@
     {
       "name": "agent-work-state-contract",
       "path": "framework/agent-work/kungfu-agent-work-state.contract.json",
-      "sha256": "e89bdbeef7b3015869e27b7a5fb010fd2a697a925f4690cc8dadafd55cf83b20",
+      "sha256": "69d87b9a6cd5efd7c9a4af03dd40fd94fd162d927cb04619c218f1f698ca5c5e",
       "expectedPackagePath": "config/kungfu-agent-work-state.contract.json"
     }
   ],

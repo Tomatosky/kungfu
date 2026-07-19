@@ -164,11 +164,14 @@ has passed.
 
 ## Qualification status
 
-The contract is a starting point for product gate P17, not proof that P17 has
-passed. Its `qualification.checks` field reports `FO1` through `FO8` and the
-remaining evidence for independent identity, end-to-end action, invalid
-inference rejection, progressive disclosure, human/agent parity, recovery and
-handoff, reality-pressure dogfood, and bounded release claims.
+The contract remains below product gate P17. Retained generic Fact kernel
+dogfood now qualifies `FO1`, `FO2`, and `FO6`: all four roles have independent
+persisted identities and relations, one real qualification work item reaches a
+sealed successor Cut, and two exact-root files support no-chat review plus
+clean-runtime continuation. `FO3` and `FO7` are partial; fresh-product
+progressive disclosure, GUI/TUI parity, sustained multi-work-item dogfood,
+generic Warrant maturity, and release binding remain explicit debt. Inspect the
+machine contract and retained report rather than inferring P17 from this prose.
 
 The retained KFD-7 release-gate declaration is
 [`kungfu-kfd-7-release-gate.json`](../../framework/agent-work/kungfu-kfd-7-release-gate.json).
