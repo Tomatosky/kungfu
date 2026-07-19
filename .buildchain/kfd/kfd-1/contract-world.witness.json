@@ -35,7 +35,7 @@
   "sourceVerificationRequired": false,
   "canonicalPolicy": {
     "path": "framework/contract/kungfu-agent-first-canonical-policy.json",
-    "sha256": "63b712ba261a40deb6a9f2e14104dd4aac25bd9ecec10efeac28a37b49c771c9"
+    "sha256": "f46145737bd7e299bb4550e4786b17aef3391cf97b79702504d6f1763cd2e664"
   },
   "registry": {
     "path": "framework/contract/kungfu-contracts.registry.json",
@@ -109,9 +109,9 @@
     {
       "name": "kungfu-agent-work-state",
       "sourcePath": "framework/agent-work/kungfu-agent-work-state.contract.json",
-      "sourceSha256": "e89bdbeef7b3015869e27b7a5fb010fd2a697a925f4690cc8dadafd55cf83b20",
+      "sourceSha256": "69d87b9a6cd5efd7c9a4af03dd40fd94fd162d927cb04619c218f1f698ca5c5e",
       "artifactPath": "config/kungfu-agent-work-state.contract.json",
-      "expectedSha256": "e89bdbeef7b3015869e27b7a5fb010fd2a697a925f4690cc8dadafd55cf83b20",
+      "expectedSha256": "69d87b9a6cd5efd7c9a4af03dd40fd94fd162d927cb04619c218f1f698ca5c5e",
       "byteForByte": true
     },
     {
@@ -126,18 +126,26 @@
   "metadata": {
     "kfdPackage": {
       "name": "@kungfu-tech/kfd",
-      "version": "1.0.0-alpha.21",
+      "version": "1.0.0-alpha.35",
       "repository": "git+https://github.com/kungfu-systems/kfd.git"
     },
     "schemaIds": {
       "metadata": "https://kfd.libkungfu.dev/schemas/kfd-standards.schema.json",
       "contractWorld": "https://kfd.libkungfu.dev/schemas/kfd-1/contract-world.schema.json",
-      "witness": "https://kfd.libkungfu.dev/schemas/kfd-1/witness.schema.json"
+      "witness": "https://kfd.libkungfu.dev/schemas/kfd-1/witness.schema.json",
+      "publicationUrlSemantics": "https://kfd.libkungfu.dev/schemas/kfd-1/publication-url-semantics.schema.json",
+      "candidateRegistry": "https://kfd.libkungfu.dev/schemas/kfd-candidate-registry.schema.json",
+      "verificationBundle": "https://kfd.libkungfu.dev/schemas/kfd-verification-bundle.schema.json",
+      "verificationReport": "https://kfd.libkungfu.dev/schemas/kfd-verification-report.schema.json"
     },
     "schemaPaths": {
       "metadata": "schemas/kfd-standards.schema.json",
       "contractWorld": "schemas/kfd-1/contract-world.schema.json",
-      "witness": "schemas/kfd-1/witness.schema.json"
+      "witness": "schemas/kfd-1/witness.schema.json",
+      "publicationUrlSemantics": "schemas/kfd-1/publication-url-semantics.schema.json",
+      "candidateRegistry": "schemas/kfd-candidate-registry.schema.json",
+      "verificationBundle": "schemas/kfd-verification-bundle.schema.json",
+      "verificationReport": "schemas/kfd-verification-report.schema.json"
     }
   }
 }
