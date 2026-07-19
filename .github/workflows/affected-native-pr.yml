@@ -19,7 +19,7 @@ jobs:
   affected_native_shards:
     name: affected-native shard ${{ matrix.partition }} of 2 / linux
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
