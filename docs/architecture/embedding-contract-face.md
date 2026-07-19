@@ -1,5 +1,11 @@
 # RFC: the Stage 3 embedding contract face
 
+> Successor note (2026-07-19): [ADR-0120](../adr/ADR-0120-kfd7-library-boundary-and-successor-abi.md)
+> retains `kungfu_embedding_get_api` v1-v4 as a stable compatibility surface
+> while defining the planned long-term `kungfu_get_api` discovery bootstrap.
+> This RFC remains authoritative for the retained embedding tables and their
+> consumers; it no longer defines the only possible future bootstrap.
+
 - Status: accepted (2026-07-11 — all decision points ratified; see "Ratified
   decisions")
 - Date: 2026-07-11

@@ -530,6 +530,12 @@ function testSchemaAuthority() {
   ]);
 }
 
+function checkKfd7LibraryBoundary() {
+  run('KFD-7 library boundary contract', 'node', [
+    path.join('scripts', 'check-kfd7-library-boundary.test.mjs'),
+  ]);
+}
+
 function checkJournalAuthorityBoundary() {
   run('journal authority boundary gate', 'node', [
     path.join('scripts', 'check-journal-authority-boundary.mjs'),
@@ -678,6 +684,7 @@ function checkStaged() {
   checkCarrierActionEnvelope(['--staged']);
   checkRuntimeGreenfield(['--staged']);
   checkSchemaAuthority();
+  checkKfd7LibraryBoundary();
   checkJournalAuthorityBoundary();
   checkLiveRuntimeTerminology();
   checkUpgradeContract();
@@ -736,6 +743,7 @@ function checkShared() {
   testDevGateLatencyContract();
   checkKungfuGateCatalog();
   testSchemaAuthority();
+  checkKfd7LibraryBoundary();
   checkJournalAuthorityBoundary();
   checkLiveRuntimeTerminology();
   testUpgradeControlPlane();
@@ -777,6 +785,7 @@ function checkChanged() {
   checkCarrierActionEnvelope();
   checkRuntimeGreenfield();
   checkSchemaAuthority();
+  checkKfd7LibraryBoundary();
   checkJournalAuthorityBoundary();
   checkLiveRuntimeTerminology();
   checkUpgradeContract();
@@ -801,6 +810,7 @@ function checkAll() {
   checkCarrierActionEnvelope(['--all']);
   checkRuntimeGreenfield(['--all']);
   checkSchemaAuthority();
+  checkKfd7LibraryBoundary();
   checkJournalAuthorityBoundary();
   checkLiveRuntimeTerminology();
   checkUpgradeContract();

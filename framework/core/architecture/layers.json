@@ -281,7 +281,7 @@
         "implementation": "src/libkungfu/src/runtime/embedding.cpp",
         "owner_component": "core-composition-bindings",
         "minimum_profile": "embedded-sqlite",
-        "abi_versions": [1, 2, 3],
+        "abi_versions": [1, 2, 3, 4],
         "consumers": ["native embedding hosts"],
         "removal_policy": "Retain all negotiated versions in the supported compatibility window; new operations require an additive table version or capability."
       },

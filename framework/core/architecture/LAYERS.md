@@ -106,7 +106,7 @@ toolchain ABI; source-embedding-only does not promise a shared library.
 
 | Symbol | Owner | ABI versions | Minimum profile |
 | --- | --- | --- | --- |
-| `kungfu_embedding_get_api` | `core-composition-bindings` | v1, v2, v3 | `embedded-sqlite` |
+| `kungfu_embedding_get_api` | `core-composition-bindings` | v1, v2, v3, v4 | `embedded-sqlite` |
 | `kungfu_native_storage_get_api` | `core-composition-bindings` | v1 | `embedded-sqlite` |
 
 ### Schema, layout and binding parity

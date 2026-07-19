@@ -1,0 +1,213 @@
+{
+  "$schema": "kungfu.kfd7-library-boundary.contract/v1",
+  "id": "kungfu-kfd7-library-boundary",
+  "version": 1,
+  "status": "staged",
+  "kfd7Status": "draft",
+  "authority": {
+    "decision": "docs/adr/ADR-0120-kfd7-library-boundary-and-successor-abi.md",
+    "inventory": "docs/architecture/kfd7-library-boundary.md",
+    "layerRegistry": "framework/core/architecture/layers.json",
+    "factContract": "framework/fact/kungfu-fact-cut-kernel.contract.json",
+    "agentWorkContract": "framework/agent-work/kungfu-agent-work-state.contract.json"
+  },
+  "layers": [
+    {
+      "id": "reality-ledger-kernel",
+      "library": "libyijinjing",
+      "distribution": "source-static-only",
+      "owns": [
+        "fact-identity-version-relation-cut-ref-cas",
+        "episode-identity-causal-record-and-replay-input",
+        "journal-and-content-authority",
+        "integrity-and-recovery-primitives",
+        "provider-neutral-storage-ports"
+      ],
+      "forbids": [
+        "profile-vocabulary-or-success-policy",
+        "concrete-storage-engine",
+        "projection-authority",
+        "language-host",
+        "runtime-process-or-transport",
+        "shared-library-abi-or-separate-package"
+      ]
+    },
+    {
+      "id": "action-runtime-membrane",
+      "library": "libkungfu",
+      "distribution": "installed-runtime-and-public-c-abi",
+      "owns": [
+        "contract-and-capability-discovery",
+        "zero-copy-stream-data-plane",
+        "runtime-and-provider-composition",
+        "ledger-action-and-maintenance-adapters",
+        "authority-conversion-and-bounded-receipts",
+        "query-replay-and-polyglot-adaptation"
+      ],
+      "forbids": [
+        "profile-owned-success-policy",
+        "cxx-or-stl-binary-layout-across-public-abi",
+        "json-as-root-identity",
+        "cross-boundary-unwind"
+      ]
+    },
+    {
+      "id": "profiles",
+      "library": null,
+      "distribution": "profile-package-or-host-projection",
+      "owns": [
+        "pursuit-atlas-warrant-vocabulary",
+        "profile-lifecycle-defaults-and-plans",
+        "domain-folds-and-success-policy"
+      ],
+      "forbids": [
+        "private-journal-or-cas-write",
+        "fact-or-episode-root-minting",
+        "native-receipt-minting"
+      ]
+    }
+  ],
+  "currentPublicAbi": {
+    "symbols": [
+      {
+        "name": "kungfu_embedding_get_api",
+        "header": "framework/core/src/libkungfu/include/kungfu/embedding.h",
+        "versions": [1, 2, 3, 4],
+        "currency": ["fixed-width-c-structs", "borrowed-mmap-views", "json-diagnostic-reports"],
+        "disposition": "compatibility-adapter"
+      },
+      {
+        "name": "kungfu_native_storage_get_api",
+        "header": "framework/core/src/libkungfu/include/kungfu/native_storage.h",
+        "versions": [1],
+        "currency": ["operation-name", "json-request", "json-result"],
+        "disposition": "compatibility-adapter"
+      }
+    ],
+    "knownGaps": [
+      "two-public-bootstraps",
+      "partial-native-ledger-lifecycle",
+      "json-edge-is-the-only-native-storage-currency",
+      "no-action-binding-interface",
+      "no-installed-cmake-sdk-coordinate",
+      "no-repo-external-installed-shared-consumer-evidence"
+    ]
+  },
+  "successorAbi": {
+    "status": "planned-not-shipped",
+    "bootstrap": {
+      "symbol": "kungfu_get_api",
+      "version": 1,
+      "stability": "not-stable-until-export-package-and-qualification",
+      "rules": [
+        "c-compatible",
+        "fixed-width-values",
+        "caller-sized-structs",
+        "opaque-handles",
+        "explicit-release",
+        "numeric-status",
+        "no-cross-boundary-unwind",
+        "unknown-version-fails-closed"
+      ]
+    },
+    "interfaces": [
+      {
+        "id": "discovery",
+        "version": 1,
+        "owns": ["runtime-identity", "contracts", "schemas", "capabilities", "interface-versions", "error-dictionary"]
+      },
+      {
+        "id": "stream",
+        "version": 1,
+        "owns": ["zero-copy-journal-read", "borrowed-buffer-lifetime", "data-plane-metadata"]
+      },
+      {
+        "id": "ledger-action",
+        "version": 1,
+        "owns": ["fact-episode-operations", "action-binding", "authority-conversion", "occurrence-and-receipts", "query-and-replay"],
+        "requiredActionBindingRoots": ["fact-cut", "pursuit", "atlas", "warrant", "candidate-action", "preconditions", "resources"],
+        "nonInference": [
+          "planned-does-not-imply-authorized",
+          "authorized-does-not-imply-occurred",
+          "occurred-does-not-imply-admitted",
+          "admitted-does-not-imply-pursuit-settled"
+        ]
+      },
+      {
+        "id": "maintenance",
+        "version": 1,
+        "owns": ["diagnostics", "maintenance-plans", "fenced-recovery", "import-export"]
+      }
+    ],
+    "semanticCurrency": {
+      "required": ["protocol-id", "protocol-version", "schema-ref", "encoding", "bytes"],
+      "json": "named-edge-or-compatibility-encoding-only",
+      "rootIdentity": "owned-by-the-versioned-protocol-not-the-abi"
+    }
+  },
+  "compatibility": {
+    "retainedSymbols": ["kungfu_embedding_get_api", "kungfu_native_storage_get_api"],
+    "retainedVersions": {
+      "kungfu_embedding_get_api": [1, 2, 3, 4],
+      "kungfu_native_storage_get_api": [1]
+    },
+    "rules": [
+      "no-silent-removal",
+      "no-in-place-reinterpretation",
+      "old-caller-new-library-fixtures",
+      "delegate-only-after-byte-root-error-parity"
+    ]
+  },
+  "dependencies": [
+    {
+      "goal": "2026-07-18-kungfu-fact-native-foundation-closure",
+      "statusAtInventory": "paused",
+      "admittedRoot": null,
+      "gates": ["complete-language-hosts-zero-lifecycle", "native-recovery-and-writer-liveness", "public-native-coverage"]
+    },
+    {
+      "goal": "2026-07-19-kungfu-fact-root-canonical-encoding",
+      "statusAtInventory": "paused",
+      "admittedRoot": null,
+      "gates": ["canonical-bytes", "independent-implementation", "legacy-and-successor-root-rules"]
+    },
+    {
+      "goal": "2026-07-19-kungfu-fact-kernel-internal-decomposition",
+      "statusAtInventory": "paused",
+      "admittedRoot": null,
+      "gates": ["behavior-characterization", "single-authority-internal-boundaries", "safe-fact-kernel-move"]
+    }
+  ],
+  "migration": [
+    {"stage": 0, "id": "inventory-and-decision", "status": "implemented"},
+    {"stage": 1, "id": "successor-discovery-and-stream", "status": "planned"},
+    {"stage": 2, "id": "canonical-root-and-kernel-decomposition", "status": "waiting-on-dependencies"},
+    {"stage": 3, "id": "reality-kernel-move-and-semantic-interfaces", "status": "waiting-on-dependencies"},
+    {"stage": 4, "id": "consumer-sdk-and-scratch-projects", "status": "planned"},
+    {"stage": 5, "id": "legacy-adapter-and-platform-qualification", "status": "planned"}
+  ],
+  "consumerReadiness": {
+    "adopterCountGate": false,
+    "states": ["consumer-ready", "experimental", "compatibility-only", "residual-risk"],
+    "requiredEvidence": [
+      "repo-external-source-static-consumer",
+      "repo-external-installed-shared-consumer",
+      "public-headers-and-symbol-policy",
+      "cmake-package-coordinates",
+      "c-and-cpp-examples",
+      "rust-python-node-guidance",
+      "canonical-positive-and-negative-vectors",
+      "old-caller-new-library-compatibility",
+      "supported-platform-evidence",
+      "release-passport-classification"
+    ]
+  },
+  "nonClaims": [
+    "successor-bootstrap-is-shipped",
+    "fact-kernel-has-moved",
+    "canonical-root-is-independently-portable",
+    "native-sdk-is-installed-or-released",
+    "supported-platform-matrix-is-qualified",
+    "external-adoption-exists"
+  ]
+}

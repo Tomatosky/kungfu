@@ -2,7 +2,7 @@
 
 /*
  * Frozen old-consumer declarations. This translation unit deliberately does
- * not include current Kungfu headers: it proves that the v1/v2/v3 table
+ * not include current Kungfu headers: it proves that the v1/v2/v3/v4 table
  * prefixes and bootstrap negotiation still work for independently compiled C.
  */
 #include <stdint.h>
@@ -48,6 +48,12 @@ typedef struct kf_embedding_api_v3_old {
   kf_old_slot frame_checksum;
 } kf_embedding_api_v3_old;
 
+typedef struct kf_embedding_api_v4_old {
+  kf_embedding_api_v3_old v3;
+  kf_old_slot storage_gc_plan;
+  kf_old_slot storage_repair_plan;
+} kf_embedding_api_v4_old;
+
 typedef struct kf_native_storage_api_v1_old {
   uint32_t abi_version;
   uint32_t struct_size;
@@ -77,10 +83,12 @@ int main(void) {
   kf_embedding_api_v1_old embedding_v1;
   kf_embedding_api_v2_old embedding_v2;
   kf_embedding_api_v3_old embedding_v3;
+  kf_embedding_api_v4_old embedding_v4;
   kf_native_storage_api_v1_old storage_v1;
   memset(&embedding_v1, 0, sizeof(embedding_v1));
   memset(&embedding_v2, 0, sizeof(embedding_v2));
   memset(&embedding_v3, 0, sizeof(embedding_v3));
+  memset(&embedding_v4, 0, sizeof(embedding_v4));
   memset(&storage_v1, 0, sizeof(storage_v1));
 
   if (!require(kungfu_embedding_get_api(1, sizeof(embedding_v1), &embedding_v1) == KF_OLD_OK,
@@ -100,6 +108,12 @@ int main(void) {
                "embedding v3 prefix changed") ||
       !require((embedding_v3.v2.v1.capabilities & UINT64_C(15)) == UINT64_C(15),
                "embedding v3 capability increment regressed") ||
+      !require(kungfu_embedding_get_api(4, sizeof(embedding_v4), &embedding_v4) == KF_OLD_OK,
+               "old embedding v4 consumer rejected") ||
+      !require(embedding_v4.v3.v2.v1.abi_version == 4 && embedding_v4.v3.v2.v1.struct_size == sizeof(embedding_v4),
+               "embedding v4 prefix changed") ||
+      !require((embedding_v4.v3.v2.v1.capabilities & UINT64_C(31)) == UINT64_C(31),
+               "embedding v4 capability increment regressed") ||
       !require(kungfu_embedding_get_api(1, sizeof(embedding_v1) - 1, &embedding_v1) == KF_OLD_INVALID_ARGUMENT,
                "embedding undersized caller accepted") ||
       !require(kungfu_embedding_get_api(99, sizeof(embedding_v3), &embedding_v3) == KF_OLD_UNSUPPORTED_VERSION,
