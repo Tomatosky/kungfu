@@ -653,6 +653,29 @@
         "invisible_context_boundary": "untested artifacts, platforms, remote systems, and physical-media durability are not claimed"
       }
     },
+    "docs/qualification/vendor-agent-hub-embedding.md": {
+      "metadata_schema": "kungfu.document-metadata/v1",
+      "document_status": "draft",
+      "doc_type": "qualification-guide",
+      "review_state": "self-reviewed",
+      "sensitivity": "public",
+      "sources": [
+        "executable-probe",
+        "local-files",
+        "official-upstream"
+      ],
+      "period": "2026-07-20",
+      "theme": "vendor-agent-hub-embedding",
+      "confidence": "high",
+      "evidence_grade": "B",
+      "last_reviewed": "2026-07-20",
+      "ai_provenance": {
+        "model_family": "OpenAI GPT-5",
+        "product": "Codex",
+        "generated_at": "2026-07-20",
+        "invisible_context_boundary": "hidden checkpoints, vendor internals, unobserved platforms, external adoption, and endorsement are not claimed"
+      }
+    },
     "docs/qualification/unified-recovery.md": {
       "metadata_schema": "kungfu.document-metadata/v1",
       "document_status": "active",
