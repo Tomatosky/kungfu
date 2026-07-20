@@ -89,6 +89,11 @@ The adoption paths share:
 - compatibility information generated from the same monorepo;
 - the rule that higher layers add convenience, never exclusive authority.
 
+The exact portability and stable-version boundary is published in
+[Exit, Migration, and Version Compatibility](exit-and-version-compatibility.md).
+An installed artifact reports the policy and protocols it actually carries with
+`kungfu exit verify --info --json`.
+
 This is why Kungfu can offer several products without becoming several
 incompatible implementations.
 

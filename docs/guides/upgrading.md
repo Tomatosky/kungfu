@@ -16,6 +16,12 @@ stages a new generation, and accepts semantic readiness.
 > qualification are still staged. A build without qualified publication evidence
 > must not offer the update as releasable.
 
+Before relying on a version-to-version data claim, read
+[Exit, Migration, and Version Compatibility](exit-and-version-compatibility.md)
+and inspect the policy shipped with the candidate using
+`kungfu exit verify --info --json`. Product SemVer does not replace explicit
+schema, protocol, artifact, and platform evidence.
+
 ## Read update status
 
 Use the product-level status first:
@@ -295,5 +301,9 @@ collect an image still referenced by the other.
 
 For the exact compatibility fields and stable reason contract, see
 [Upgrade Compatibility Reference](../development/upgrade-compatibility.md). For
+the public same-minor semantic commitment, cross-version reader boundary, and
+current qualification matrix, see
+[Exit, Migration, and Version Compatibility](exit-and-version-compatibility.md).
+For
 process-level investigation after a user message becomes action-required, use
 [Debugging](debugging.md).

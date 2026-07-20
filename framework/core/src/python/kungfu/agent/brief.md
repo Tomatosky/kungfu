@@ -79,7 +79,10 @@ For portable Exit packages, use
 `python -m kungfu.exit_verifier`) when no Kungfu runtime or source checkout is
 available. The integrated `kungfu exit verify` alias is for an already
 configured runtime; verifier success is read-only evidence, not import
-authorization.
+authorization. Before claiming version compatibility, run
+`kungfu exit verify --info --json` and inspect the shipped product version,
+contract roots, protocol inventory, support policy, exact qualification
+boundary, and non-claims. Product SemVer alone is not compatibility proof.
 
 Long-running real-world work uses four independently inspectable roles:
 Pursuit for intent continuity, Atlas for the declared perspective and fact cut,

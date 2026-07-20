@@ -425,6 +425,29 @@
       "review_state": "unreviewed",
       "sensitivity": "public"
     },
+    "docs/guides/exit-and-version-compatibility.md": {
+      "metadata_schema": "kungfu.document-metadata/v1",
+      "document_status": "active",
+      "doc_type": "public-document",
+      "review_state": "self-reviewed",
+      "sensitivity": "public",
+      "sources": [
+        "architecture-decisions",
+        "local-files",
+        "user-consensus"
+      ],
+      "period": "2026-07-20",
+      "theme": "exit-migration-version-compatibility",
+      "confidence": "high",
+      "evidence_grade": "B",
+      "last_reviewed": "2026-07-20",
+      "ai_provenance": {
+        "model_family": "OpenAI GPT-5",
+        "product": "Codex",
+        "generated_at": "2026-07-20",
+        "invisible_context_boundary": "unpublished release artifacts, unqualified platforms, and future commercial support-window decisions are not claimed"
+      }
+    },
     "docs/guides/config.md": {
       "metadata_schema": "kungfu.document-metadata/v1",
       "document_status": "active",

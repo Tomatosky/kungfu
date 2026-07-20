@@ -14,6 +14,12 @@ const readJson = (relative) => JSON.parse(read(relative));
 const contract = readJson('framework/exit/kungfu-exit-bundle.contract.json');
 const fixtures = readJson('tests/fixtures/exit-bundle-contract/cases.json');
 const registry = readJson('framework/contract/kungfu-contracts.registry.json');
+const exitQualification = readJson(
+  'docs/qualification/evidence/exit-clean-runtime/520a61af87/report.json',
+);
+const providerQualification = readJson(
+  'docs/qualification/evidence/provider-migration-product/bb6f4a42c1/report.json',
+);
 const canonicalPolicy = readJson(
   'framework/contract/kungfu-agent-first-canonical-policy.json',
 );
@@ -310,6 +316,54 @@ test('embedded schemas validate the exact contract and full fixture', () => {
     schemaRoot(contract.manifestSchema),
   );
   assert.equal(fixtures.base.bundleRoot, bundleRoot(fixtures.base));
+});
+
+test('public compatibility policy is bounded by exact retained evidence', () => {
+  const policy = contract.supportPolicy;
+  assert.equal(policy.schema, 'kungfu.exit-compatibility-policy/v1');
+  assert.equal(
+    policy.productVersioning.stableSameMinor.commitment,
+    'registered-authoritative-semantics-unchanged',
+  );
+  assert.equal(
+    policy.productVersioning.preRelease.commitment,
+    'exact-evidence-only',
+  );
+  assert.equal(
+    policy.productVersioning.crossMinor.commitment,
+    'declared-reader-or-qualified-migration-only',
+  );
+  assert.equal(
+    policy.supportWindow.status,
+    'not-frozen-before-first-stable-v4',
+  );
+  assert.equal(policy.supportWindow.supportedPriorMinors, null);
+  assert.equal(policy.supportWindow.duration, null);
+  assert.equal(policy.qualification.overallReleaseStatus, 'not-qualified');
+  assert.deepEqual(policy.qualification.unqualifiedPlatforms, [
+    'linux-x86_64',
+    'windows-x86_64',
+  ]);
+
+  const evidence = new Map(
+    policy.qualification.retainedEvidence.map((row) => [row.kind, row]),
+  );
+  assert.deepEqual(evidence.get('clean-runtime-exit'), {
+    kind: 'clean-runtime-exit',
+    path: 'docs/qualification/evidence/exit-clean-runtime/520a61af87/report.json',
+    reportRoot: exitQualification.reportRoot,
+    artifactDigest: exitQualification.artifact.digest,
+    platform: 'darwin-arm64',
+    verdict: exitQualification.status,
+  });
+  assert.deepEqual(evidence.get('provider-migration'), {
+    kind: 'provider-migration',
+    path: 'docs/qualification/evidence/provider-migration-product/bb6f4a42c1/report.json',
+    reportRoot: providerQualification.reportRoot,
+    artifactDigest: providerQualification.artifact.digest,
+    platform: providerQualification.qualifiedPlatforms[0],
+    verdict: providerQualification.verdict,
+  });
 });
 
 test('machine inventory stays bound to current domain authorities', () => {

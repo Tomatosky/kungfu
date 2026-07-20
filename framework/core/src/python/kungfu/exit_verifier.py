@@ -70,6 +70,42 @@ def _load_asset(name: str) -> dict[str, Any]:
     return value
 
 
+def _product_identity() -> dict[str, Any]:
+    """Read product identity without importing the native binding."""
+
+    module_path = Path(__file__).resolve()
+    directories = [module_path.parent, *module_path.parents]
+    for directory in directories:
+        build_info = directory / "kungfubuildinfo.json"
+        if not build_info.is_file():
+            continue
+        try:
+            value = json.loads(build_info.read_text(encoding="utf-8"))
+            version = str(value["version"])
+        except (KeyError, OSError, TypeError, ValueError):
+            continue
+        return {
+            "version": version,
+            "channel": "pre-release" if "-" in version else "stable",
+            "source": "kungfubuildinfo.json",
+        }
+    for directory in directories:
+        package = directory / "package.json"
+        if directory.name != "core" or not package.is_file():
+            continue
+        try:
+            value = json.loads(package.read_text(encoding="utf-8"))
+            version = str(value["version"])
+        except (KeyError, OSError, TypeError, ValueError):
+            continue
+        return {
+            "version": version,
+            "channel": "pre-release" if "-" in version else "stable",
+            "source": "source-package-json",
+        }
+    return {"version": None, "channel": "unknown", "source": "unavailable"}
+
+
 def _contract() -> dict[str, Any]:
     value = _load_asset(CONTRACT_FILE)
     if value.get("schema") != "kungfu.exit-verifier.contract/v1":
@@ -108,9 +144,26 @@ def info() -> dict[str, Any]:
 
     contract = _contract()
     corpus = _corpus()
+    exit_contract = _load_asset(EXIT_CONTRACT_FILE)
+    verifier = _identity()
+    support_policy = dict(exit_contract["supportPolicy"])
     value = {
         "schema": INFO_SCHEMA,
-        "verifier": _identity(),
+        "product": _product_identity(),
+        "verifier": verifier,
+        "exitContract": {
+            "schema": exit_contract["schema"],
+            "version": exit_contract["version"],
+            "weldedSurface": exit_contract["weldedSurface"],
+            "contractRoot": verifier["exitBundleContractRoot"],
+            "manifestSchemaRoot": _sha256(_canonical(exit_contract["manifestSchema"])),
+            "topLevelProtocol": support_policy["protocolVersioning"][
+                "topLevelProtocol"
+            ],
+        },
+        "supportPolicy": support_policy,
+        "qualification": dict(support_policy["qualification"]),
+        "contractNonClaims": list(exit_contract["nonClaims"]),
         "supportedPackageSchemas": list(contract["supportedPackageSchemas"]),
         "supportedManifestSchemas": list(contract["supportedManifestSchemas"]),
         "supportedMemberProtocols": list(contract["supportedMemberProtocols"]),
@@ -120,7 +173,7 @@ def info() -> dict[str, Any]:
         "corpus": {
             "schema": corpus["schema"],
             "caseIds": [str(row["id"]) for row in corpus["cases"]],
-            "root": _identity()["corpusRoot"],
+            "root": verifier["corpusRoot"],
         },
         "independence": dict(contract["independence"]),
     }

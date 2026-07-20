@@ -89,6 +89,9 @@ public execution vocabulary.
   receipts, timeouts, and recovery.
 - [Upgrade Kungfu](guides/upgrading.md) — check, download, install, defer,
   activate, recover, and retain versioned desktop/CLI runtime images safely.
+- [Exit, Migration, and Version Compatibility](guides/exit-and-version-compatibility.md)
+  — understand the stable same-minor semantic promise, protocol readers,
+  exact-artifact qualification, and current non-claims.
 - [Debugging](guides/debugging.md) — localize failures in the runtime and build.
 - [Python Environments](guides/python-environments.md) — manage packages inside the
   assembled runtime.
@@ -126,14 +129,17 @@ Start with the decision document, then follow its evidence chain:
    operator responsibilities.
 2. [Strong Durability and Crash Recovery](qualification/durability-and-crash-recovery.md) —
    the design, current stage, Receipts, Watermarks, and power-loss non-claims.
-3. [Contracts](qualification/contracts.md) — verifiable guarantees and their maturity.
-4. [Known Limits](qualification/known-limits.md) — unresolved qualification and release gaps.
-5. [Single-host End-to-End Performance Qualification](qualification/single-host-performance-qualification.md)
+3. [Exit, Migration, and Version Compatibility](guides/exit-and-version-compatibility.md)
+   — the public support promise, exact current evidence, and what same-minor
+   compatibility does and does not preserve.
+4. [Contracts](qualification/contracts.md) — verifiable guarantees and their maturity.
+5. [Known Limits](qualification/known-limits.md) — unresolved qualification and release gaps.
+6. [Single-host End-to-End Performance Qualification](qualification/single-host-performance-qualification.md)
    — the release gate that preserves visibility, durability, recovery, and
    meaning under load.
-6. [Episode Atomicity Qualification](qualification/episode-atomicity-qualification.md) — the
+7. [Episode Atomicity Qualification](qualification/episode-atomicity-qualification.md) — the
    fault and load evidence contract for Episode closure.
-7. [Invariant Verification](qualification/invariant-verification.md) — authority-bound
+8. [Invariant Verification](qualification/invariant-verification.md) — authority-bound
    Fact/Episode claims, exact verdicts, object receipts, implementation passports,
    and release admission.
 
