@@ -19,10 +19,18 @@ ontology questions and three action questions:
 | Action Geometry | **Atlas** | From whose perspective, from which sources, and at what cut are we understanding reality? |
 | Action Geometry | **Warrant** | Who may do which bounded action against which exact state and constraints? |
 
-The machine authority for the definitions, relations, implementation mappings,
-invalid inferences, defaults, and qualification status is
-[`kungfu-agent-work-state.contract.json`](../../framework/agent-work/kungfu-agent-work-state.contract.json).
-This page is its human route, not a second specification.
+Machine authority is intentionally split:
+
+- [`action-geometry.contract.json`](../../framework/action/action-geometry.contract.json)
+  owns the cross-domain responsibility separation and invariants;
+- [`kungfu-agent-work-domain-profile.contract.json`](../../framework/agent-work/kungfu-agent-work-domain-profile.contract.json)
+  owns Agent Work role schemas, lifecycle, validation, presentation, and
+  evidence/success policy; and
+- [`kungfu-agent-work-state.contract.json`](../../framework/agent-work/kungfu-agent-work-state.contract.json)
+  retains the existing work-state and qualification surface.
+
+All three are reached through the same KFD-1 registry. This page is their human
+route, not a second specification.
 
 ## How the two-plus-three model uses the runtime substrates
 
@@ -155,25 +163,35 @@ kungfu agent work-model --json
 kungfu agent work capabilities --json
 kungfu agent work inspect --ref profiles/work/main --json
 kungfu contract show agent-work-state --json
+kungfu contract show action-geometry --json
+kungfu contract show agent-work-domain-profile --json
 kungfu agent capabilities --json
 ```
 
-The provisional combined-v1 implementation exposes five mappings through a
-legacy `roles` surface: Fact and Episode are ontology bindings, while Pursuit,
-Atlas, and Warrant are Action Geometry mappings. Every mutation uses
-`kungfu.kfd7.profile-action/v1` and returns
-`kungfu.kfd7.profile-action-receipt/v1`; the same installed CLI path is used
-by Python, Node, Agent, and GUI adapters. Product transition names remain an
-outer-ring vocabulary and map to KFD-7's closed action geometry in
-[`kungfu-kfd-7-action-contract.json`](../../framework/agent-work/kungfu-kfd-7-action-contract.json).
-These existing names retain their original compatibility meaning. The staged
-successor must separately expose `actionGeometryRoot`, `domainProfileRoot`, and
-per-role `roleSchemaRoots`; it may not relabel existing roots. The declaration
-remains provisional and non-qualifying until dogfood, migration, artifact, and
-independent-review evidence close.
+The combined-v1 compatibility surface still adds an independently queryable
+Fact mapping beside Pursuit, Atlas, Warrant, and Episode. Requests continue to
+use `kungfu.kfd7.profile-action/v1`, receipts continue to use
+`kungfu.kfd7.profile-action-receipt/v1`, object types remain
+`kfd7.profile.<role>`, and retained v1 role bodies keep their original meaning.
 
-In new documentation, **Action Geometry Contract** names the future geometry
-artifact and **Domain Profile Declaration** names the adopter artifact.
+Fact and Episode remain ontology bindings, while Pursuit, Atlas, and Warrant
+are Action Geometry mappings. Product transition names remain an outer-ring
+vocabulary and map to KFD-7's closed action geometry in
+[`kungfu-kfd-7-action-contract.json`](../../framework/agent-work/kungfu-kfd-7-action-contract.json).
+These existing names retain their original compatibility meaning.
+
+Newly persisted role bodies use per-role `/v2` schemas and bind the exact
+`actionGeometryRoot`, `domainProfileRoot`, and `roleSchemaRoot`. Missing or
+wrong successor bindings fail closed. `kungfu agent work capabilities --json`
+publishes those roots while retaining `roleBodySchema` as the legacy reader
+identity and adding `roleBodySchemas` for successor writers. The same
+registered authority is discoverable by generic contract, Agent, and
+per-primitive capability routes. This separation remains release-staged until
+cross-platform, independent-review, migration, and Release Passport evidence
+close.
+
+In new documentation, **Action Geometry Contract** names the separately rooted
+geometry artifact and **Domain Profile Declaration** names the adopter artifact.
 `Action Profile`, unqualified `Action Contract`, the existing
 `kungfu-kfd-7-action-contract.json` path, and current Profile protocol ids are
 combined-v1 compatibility terms only. They remain readable with no scheduled

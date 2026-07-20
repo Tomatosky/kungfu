@@ -15,6 +15,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from kungfu.agent import domain_profile
 from kungfu.storage import service as storage_service
 
 
@@ -108,6 +109,8 @@ Kernel = Callable[[str | Path, str, dict[str, Any] | None], dict[str, Any]]
 
 
 def capabilities() -> dict[str, Any]:
+    profile_roots = domain_profile.roots()
+    profile_contract = domain_profile.contract()
     return {
         "schema": CAPABILITIES_SCHEMA,
         "profile": "kungfu-kfd-7-action-profile",
@@ -115,6 +118,13 @@ def capabilities() -> dict[str, Any]:
         "actionSchema": ACTION_SCHEMA,
         "receiptSchema": RECEIPT_SCHEMA,
         "roleBodySchema": ROLE_BODY_SCHEMA,
+        "actionGeometryRoot": profile_roots["actionGeometryRoot"],
+        "domainProfileRoot": profile_roots["domainProfileRoot"],
+        "roleSchemaRoots": profile_roots["roleSchemaRoots"],
+        "roleBodySchemas": {
+            role: profile_contract["roleSchemas"][role]["schema"] for role in ROLES
+        },
+        "compatibility": profile_contract["legacyCompatibility"],
         "transitions": {
             role: [
                 {"operation": operation, "from": source, "to": target}
@@ -306,7 +316,7 @@ def session_valid_actions(session: dict[str, Any]) -> list[str]:
 
 
 def expand_session(session: dict[str, Any]) -> dict[str, Any]:
-    """Expand one product session into the existing five Profile role bodies."""
+    """Expand one product session into the legacy-compatible five-role shape."""
 
     components = _validate_session(session)
     compressibility = session_compressibility(session)
@@ -351,12 +361,13 @@ def project_session(expansion: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("all five expanded roles are required exactly once")
     for role in ROLES:
         body = roles[role]
-        if (
-            not isinstance(body, dict)
-            or body.get("schema") != ROLE_BODY_SCHEMA
-            or body.get("role") != role
-            or not isinstance(body.get("details"), dict)
-        ):
+        try:
+            if not isinstance(body, dict):
+                raise ValueError("role body must be an object")
+            domain_profile.validate_role_body(body)
+        except ValueError as error:
+            raise ValueError(f"expanded {role} role is invalid: {error}") from error
+        if body.get("role") != role or not isinstance(body.get("details"), dict):
             raise ValueError(f"expanded {role} role is invalid")
     projected = {
         "schema": SESSION_SCHEMA,
@@ -484,7 +495,11 @@ def _load_cut(
         except json.JSONDecodeError:
             continue
         role = decoded.get("role")
-        if decoded.get("schema") != ROLE_BODY_SCHEMA or role not in ROLES:
+        if role not in ROLES:
+            continue
+        try:
+            domain_profile.validate_role_body(decoded)
+        except ValueError:
             continue
         roles[str(role)] = {
             "objectId": row["member"][0],
@@ -1032,16 +1047,20 @@ def apply_action(
     for role in changed_roles:
         if role in current_roles:
             body = dict(current_roles[role]["body"])
+            if body.get("schema") == ROLE_BODY_SCHEMA:
+                body["schema"] = domain_profile.role_schema_id(role)
+            body["bindings"] = domain_profile.role_bindings(role)
             details = dict(body.get("details") or {})
         else:
             source = role_inputs[role]
             body = {
-                "schema": ROLE_BODY_SCHEMA,
+                "schema": domain_profile.role_schema_id(role),
                 "profile": "kungfu-kfd-7-action-profile",
                 "role": role,
                 "identity": {"objectId": responsibilities[role]["objectId"]},
                 "state": source["state"],
                 "details": dict(source.get("details") or {}),
+                "bindings": domain_profile.role_bindings(role),
                 "nonClaims": list(source.get("nonClaims") or []),
             }
             details = dict(body["details"])

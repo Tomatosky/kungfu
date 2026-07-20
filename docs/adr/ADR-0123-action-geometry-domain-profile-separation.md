@@ -5,6 +5,7 @@ adr_id: ADR-0123
 decision_status: accepted
 implementation_status: staged
 implementation_prs: []
+qualification_refs: [framework/action/action-geometry.contract.json, framework/agent-work/kungfu-agent-work-domain-profile.contract.json, framework/core/tests/python/test_agent_work_state_contract.py, scripts/check-agent-work-state-contract.test.mjs, developer/sdk/kfd/kfd-1/release-gate.json]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -17,8 +18,8 @@ last_reviewed: 2026-07-20
 
 # ADR-0123: Action Geometry and Domain Profiles are separate semantic layers
 
-- Status: accepted boundary; machine separation and compatibility migration
-  remain staged
+- Status: accepted boundary; machine separation implemented; compatibility
+  qualification and release evidence remain staged
 - Date: 2026-07-20
 - Category: KFD-7 / action semantics / Profile boundary
 - Related: [ADR-0109](ADR-0109-four-object-agent-work-state-contract.md),
@@ -154,17 +155,21 @@ failure from the number of physical objects, classes, tables, endpoints,
 commands, screens, or services. Five required responsibility declarations are
 five inspectable mappings, not a five-component implementation prescription.
 
-### 7. The current implementation is transitional
+### 7. The split is implemented behind compatibility adapters
 
-`kungfu.agent.work_profile` remains the compatibility entry until the staged
-implementation splits:
+`kungfu.agent.work_profile` remains the compatibility entry while the machine
+implementation is now split into:
 
-1. a domain-neutral Action Geometry contract, evaluator, and discovery
-   identity;
-2. an Agent Work Domain Profile manifest with exact role schemas and lifecycle
-   rules; and
-3. compatibility adapters that preserve current CLI, Python, Node, Agent, GUI,
-   object, receipt, and replay behavior.
+1. [`action-geometry.contract.json`](../../framework/action/action-geometry.contract.json)
+   plus the domain-neutral `kungfu.agent.action_geometry` evaluator;
+2. [`kungfu-agent-work-domain-profile.contract.json`](../../framework/agent-work/kungfu-agent-work-domain-profile.contract.json)
+   with five exact successor role schemas; and
+3. the existing `work_profile` public entry, legacy schema identities, object
+   types, receipts, session projection, and recovery adapters.
+
+Both contracts are registered in the existing KFD-1 registry. Generic
+contract discovery, Agent capabilities, Work capabilities, and per-role
+capabilities resolve the same roots; no parallel registry was added.
 
 No code move is justified merely by the terminology change. The split proceeds
 only with characterization and compatibility evidence.
@@ -187,6 +192,12 @@ The separation is qualified only when:
   negative evidence rather than physical component count; and
 - legacy combined-v1 objects remain readable without reinterpretation.
 
+The local implementation checks cover these conditions on macOS, including
+the retained combined-v1 suite, exact-root validation, fail-closed successor
+bindings, generic registry discovery, and session refinement. Cross-platform
+CI, independent review, PR admission, and Release Passport evidence remain
+required before changing `implementation_status` from `staged`.
+
 ## Consequences
 
 Kungfu gains one stable cross-domain action structure while domains retain
@@ -194,5 +205,5 @@ freedom over vocabulary and workflow. Agents can tell whether a claim is about
 the universal geometry or one adopter's policy by inspecting exact roots.
 
 The cost is an explicit compatibility period. Existing "Profile" names cannot
-be mass-renamed, and the implementation must carry a legacy adapter until
+be mass-renamed, and the implementation carries a legacy adapter until
 packaged products and retained data prove the split.

@@ -27,6 +27,12 @@ const canonicalJson = (value) => {
 const contract = readJson(
   'framework/agent-work/kungfu-agent-work-state.contract.json',
 );
+const actionGeometry = readJson(
+  'framework/action/action-geometry.contract.json',
+);
+const domainProfile = readJson(
+  'framework/agent-work/kungfu-agent-work-domain-profile.contract.json',
+);
 const registry = readJson('framework/contract/kungfu-contracts.registry.json');
 const commands = readJson(
   'framework/core/src/python/kungfu/agent/commands.json',
@@ -136,6 +142,65 @@ test('validates Profile shape and cross-object semantics from one contract', () 
     for (const code of fixture.codes ?? [])
       assert.ok(codes.has(code), `${fixture.path} must expose ${code}`);
   }
+});
+
+test('separates Action Geometry from the Agent Work Domain Profile by exact roots', () => {
+  const geometryEntry = registry.contracts.find(
+    (candidate) => candidate.surface === 'action-geometry',
+  );
+  const profileEntry = registry.contracts.find(
+    (candidate) => candidate.surface === 'agent-work-domain-profile',
+  );
+  assert.ok(geometryEntry);
+  assert.ok(profileEntry);
+
+  const geometryRoot = `sha256:${crypto
+    .createHash('sha256')
+    .update(read('framework/action/action-geometry.contract.json'))
+    .digest('hex')}`;
+  const profileRoot = `sha256:${crypto
+    .createHash('sha256')
+    .update(
+      read(
+        'framework/agent-work/kungfu-agent-work-domain-profile.contract.json',
+      ),
+    )
+    .digest('hex')}`;
+  assert.equal(domainProfile.actionGeometry.root, geometryRoot);
+  assert.equal(
+    geometryEntry.contractSchemaRoot,
+    `sha256:${crypto
+      .createHash('sha256')
+      .update(canonicalJson(actionGeometry.contractSchema))
+      .digest('hex')}`,
+  );
+  assert.equal(
+    profileEntry.contractSchemaRoot,
+    `sha256:${crypto
+      .createHash('sha256')
+      .update(canonicalJson(domainProfile.contractSchema))
+      .digest('hex')}`,
+  );
+  assert.equal(profileRoot.startsWith('sha256:'), true);
+  assert.equal(actionGeometry.initialStates, undefined);
+  assert.equal(actionGeometry.transitions, undefined);
+  assert.equal(actionGeometry.presentation, undefined);
+  assert.equal(actionGeometry.evidenceAndSuccess, undefined);
+
+  for (const role of domainProfile.roleOrder) {
+    const row = domainProfile.roleSchemas[role];
+    const actual = `sha256:${crypto
+      .createHash('sha256')
+      .update(read(row.source))
+      .digest('hex')}`;
+    assert.equal(row.root, actual);
+  }
+  assert.deepEqual(
+    profileEntry.extraArtifacts.map((row) => row.source),
+    domainProfile.roleOrder.map(
+      (role) => domainProfile.roleSchemas[role].source,
+    ),
+  );
 });
 
 test('proves context payload alone cannot determine action validity', () => {

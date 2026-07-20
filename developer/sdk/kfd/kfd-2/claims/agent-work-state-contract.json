@@ -25,7 +25,7 @@
       "pointer": {
         "kind": "file",
         "path": "scripts/check-agent-work-state-contract.test.mjs",
-        "sha256": "e1badbe1d3f73b51cb8664590340c0296a63f4680690e02325ed8f126ea64938"
+        "sha256": "8258a07a2802f4a4ccdc2e7187720fc26b645b365455572f3e94493734078e03"
       },
       "description": "Source, package, KFD-2, and KFD-3 projection checks."
     },
@@ -34,7 +34,7 @@
       "pointer": {
         "kind": "file",
         "path": "framework/core/tests/python/test_agent_work_state_contract.py",
-        "sha256": "af68539d3c968e192f5fcbcd9a2d27d2107d5a97c3d8af80ef5f13622de0649c"
+        "sha256": "d82b8219edceb577071c8f2af5ae56676c75e6b8c58275be934d5d7a49ebe961"
       },
       "description": "Runtime CLI parity and fail-closed contract-schema checks."
     },
@@ -58,11 +58,11 @@
       },
       {
         "path": "scripts/check-agent-work-state-contract.test.mjs",
-        "sha256": "e1badbe1d3f73b51cb8664590340c0296a63f4680690e02325ed8f126ea64938"
+        "sha256": "8258a07a2802f4a4ccdc2e7187720fc26b645b365455572f3e94493734078e03"
       },
       {
         "path": "framework/core/tests/python/test_agent_work_state_contract.py",
-        "sha256": "af68539d3c968e192f5fcbcd9a2d27d2107d5a97c3d8af80ef5f13622de0649c"
+        "sha256": "d82b8219edceb577071c8f2af5ae56676c75e6b8c58275be934d5d7a49ebe961"
       },
       {
         "path": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
