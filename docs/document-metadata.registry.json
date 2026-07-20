@@ -585,6 +585,28 @@
       "review_state": "self-reviewed",
       "sensitivity": "public"
     },
+    "docs/qualification/provider-migration-product.md": {
+      "metadata_schema": "kungfu.document-metadata/v1",
+      "document_status": "active",
+      "doc_type": "qualification-evidence",
+      "review_state": "self-reviewed",
+      "sensitivity": "public",
+      "sources": [
+        "local-files",
+        "executable-probe"
+      ],
+      "period": "2026-07-20",
+      "theme": "installed-provider-migration",
+      "confidence": "high",
+      "evidence_grade": "B",
+      "last_reviewed": "2026-07-20",
+      "ai_provenance": {
+        "model_family": "OpenAI GPT-5",
+        "product": "Codex",
+        "generated_at": "2026-07-20",
+        "invisible_context_boundary": "untested artifacts, platforms, remote systems, and physical-media durability are not claimed"
+      }
+    },
     "docs/qualification/unified-recovery.md": {
       "metadata_schema": "kungfu.document-metadata/v1",
       "document_status": "active",
