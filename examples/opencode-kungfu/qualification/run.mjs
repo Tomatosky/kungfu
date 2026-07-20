@@ -315,7 +315,8 @@ async function main() {
     const binding = core.default.kungfu();
     const episodesBeforeClose = binding.storageEpisodeListTyped(runtimeDir);
     const activeEpisode = episodesBeforeClose.episodes.find(
-      (episode) => episode.open?.source === 'opencode.plugin.lifecycle',
+      (episode) =>
+        episode.open?.source === 'opencode.plugin.lifecycle' && !episode.close,
     );
     assert.ok(activeEpisode);
     await hooks.event({
@@ -334,6 +335,7 @@ async function main() {
         thin: false,
       }),
     );
+    assert.equal(JSON.parse(bundleJson).manifest.status, 'ended');
     const bundlePath = path.join(outputDir, 'episode-bundle.json');
     fs.writeFileSync(bundlePath, `${bundleJson}\n`);
     const projectCutBundleJson = binding.runStorageTransferOperationJson(
