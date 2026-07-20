@@ -322,7 +322,11 @@ def validate(
         for path in [row.get("canonical_path"), *row.get("aliases", [])]
     }
     for catalog_row in command_catalog.get("commands", []):
-        path = _resolve_catalog_path(catalog_row.get("name"), surface_by_path)
+        path = _resolve_catalog_path(
+            catalog_row.get("name"),
+            surface_by_path,
+            metadata_registry.get("standaloneCatalogRoutes", []),
+        )
         api_id = catalog_row.get("apiId")
         linked = surface_by_path.get(path)
         if linked is None:
@@ -462,7 +466,11 @@ def _click_surface(record, stable_id, metadata_registry, api_map, api_paths):
     explicit_api_id = (
         _callback_attr(getattr(command, "callback", None), _KFD3_ATTR) or None
     )
-    linked_api_ids = set(api_paths.get(path, set()))
+    linked_api_ids = {
+        api_id
+        for observed_path in record["paths"]
+        for api_id in api_paths.get(observed_path, set())
+    }
     if explicit_api_id:
         linked_api_ids.add(explicit_api_id)
     api_ids = sorted(linked_api_ids, key=lambda value: (value.count("."), value))
@@ -500,6 +508,7 @@ def _click_surface(record, stable_id, metadata_registry, api_map, api_paths):
         "id": metadata.get("id", stable_id),
         "canonical_path": path,
         "aliases": sorted(set(record["aliases"] + metadata.get("aliases", []))),
+        "alias_diagnostics": _alias_diagnostics(record["aliases"], metadata_registry),
         "owner": metadata.get("owner"),
         "audience": metadata.get("audience", []),
         "maturity": metadata.get("maturity"),
@@ -535,6 +544,7 @@ def _contribution_surface(row, metadata_registry):
         "id": metadata.get("id"),
         "canonical_path": metadata.get("canonical_path"),
         "aliases": metadata.get("aliases", []),
+        "alias_diagnostics": metadata.get("alias_diagnostics", []),
         "owner": metadata.get("owner"),
         "audience": metadata.get("audience", []),
         "maturity": metadata.get("maturity"),
@@ -648,6 +658,22 @@ def _attach_registry_aliases(surfaces, alias_rows):
             )
 
 
+def _alias_diagnostics(paths, metadata_registry):
+    by_path = {row.get("path"): row for row in metadata_registry.get("aliases", [])}
+    return [
+        {
+            "path": path,
+            "status": row.get("status", "compatibility"),
+            "replacement": row.get("replacement"),
+            "supported_window": row.get("supported_window"),
+            "removal_gate": row.get("removal_gate"),
+            "warning_channel": "stderr",
+        }
+        for path in sorted(set(paths))
+        if (row := by_path.get(path)) is not None
+    ]
+
+
 def _known_schema_ref(reference, metadata_registry, known_api_ids):
     if not isinstance(reference, str):
         return False
@@ -691,7 +717,18 @@ def _canonical_cli_path(name):
     return " ".join(tokens)
 
 
-def _resolve_catalog_path(name, surface_by_path):
+def _resolve_catalog_path(name, surface_by_path, standalone_routes=None):
+    for route in standalone_routes or []:
+        prefix = route.get("prefix")
+        target = route.get("target")
+        if (
+            isinstance(name, str)
+            and isinstance(prefix, str)
+            and isinstance(target, str)
+            and (name == prefix or name.startswith(f"{prefix} "))
+            and target in surface_by_path
+        ):
+            return target
     path = _canonical_cli_path(name)
     tokens = (path or "").split()
     while len(tokens) >= 2:

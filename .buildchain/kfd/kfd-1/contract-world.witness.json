@@ -11,14 +11,14 @@
   },
   "contractWorld": {
     "schemaId": "https://kfd.libkungfu.dev/schemas/kfd-1/contract-world.schema.json",
-    "digest": "sha256:2209492d74af89bfcf93191f99d0bae7d6391a308fe1f6fea35e6914a615d83c"
+    "digest": "sha256:87cb8d6643a7615c0631a3605a7997b4709d5ebadbcc4499663da6123d9c1c34"
   },
   "standardContract": {
     "id": "",
     "schemaId": "https://kfd.libkungfu.dev/schemas/kfd-1/contract-world.schema.json",
     "path": "",
     "sha256": "",
-    "digest": "sha256:2209492d74af89bfcf93191f99d0bae7d6391a308fe1f6fea35e6914a615d83c"
+    "digest": "sha256:87cb8d6643a7615c0631a3605a7997b4709d5ebadbcc4499663da6123d9c1c34"
   },
   "selfHostingBoundary": {
     "mode": "external-contract-world",
@@ -35,11 +35,11 @@
   "sourceVerificationRequired": false,
   "canonicalPolicy": {
     "path": "framework/contract/kungfu-agent-first-canonical-policy.json",
-    "sha256": "8449793cf9750d02e500b2342cb4afffe7e0dfa0354f4c8447a0cc8b5db6f816"
+    "sha256": "c5a6caf0d6badf396c710e221b3a2288afd887e861a25f6f827abc72fb71dd81"
   },
   "registry": {
     "path": "framework/contract/kungfu-contracts.registry.json",
-    "sha256": "39dc57dc9a46edf633751f8a724c996bcb3d55ca16548b0b044de50363fb72a4"
+    "sha256": "31e109cc323608e8aa6a3ee2ef9bd5a822ffe36421105ca5663c1ee1d25aa5bc"
   },
   "surfaces": [
     {
@@ -128,6 +128,14 @@
       "sourceSha256": "b93abaff5b77c0d4a83364166139312807ffc1655d46611f2f15a8ca61ac1c96",
       "artifactPath": "config/kungfu-exit-bundle.contract.json",
       "expectedSha256": "b93abaff5b77c0d4a83364166139312807ffc1655d46611f2f15a8ca61ac1c96",
+      "byteForByte": true
+    },
+    {
+      "name": "kungfu-invariant-system",
+      "sourcePath": "framework/invariant/kungfu-invariant-system.contract.json",
+      "sourceSha256": "1dc6c49c50b90164f3f45af4c22a945f18ef0559c90b93c025bc041145312a40",
+      "artifactPath": "config/kungfu-invariant-system.contract.json",
+      "expectedSha256": "1dc6c49c50b90164f3f45af4c22a945f18ef0559c90b93c025bc041145312a40",
       "byteForByte": true
     }
   ],
