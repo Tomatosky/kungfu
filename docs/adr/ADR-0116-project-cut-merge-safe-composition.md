@@ -4,7 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0116
 decision_status: accepted
 implementation_status: staged
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1165]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1165, https://github.com/kungfu-systems/kungfu/pull/1171]
 qualification_refs: [framework/project-cut/composition.contract.json, framework/project-cut/src/composition.mjs, scripts/check-project-cut-composition.test.mjs, scripts/check-project-cut-composition-gate.mjs]
 review_state: self-reviewed
 sensitivity: public
@@ -65,9 +65,18 @@ published its manifest. If a merge queue has rebased that publication onto a
 moving base, the gate uses an isolated temporary Git index to replay only the
 bounded queue segment onto the Cut's semantic parent tree. The reconstructed
 tree, rather than the moving-base tree, must reproduce the Cut's exact declared
-source projection. A replay conflict or a reconstructed root mismatch remains
-source drift and fails closed. Parent Cuts and Cut receipts must exist in the
-candidate.
+source projection.
+
+A queue may also linearize multiple iterative Cuts first published in the same
+PR. A root Cut in that chain has no pre-rebase semantic parent tree available
+inside the synthetic history, so its historical projection cannot always be
+reconstructed from the merge-group ancestry alone. The mismatch is admissible
+only when that Cut is no longer an active leaf and an exact same-project active
+successor transitively names it, has no replay drift of its own, and matches the
+candidate output projection. The receipt records the bounded mismatch as a
+`superseded-publication-replay` omission. Active-leaf drift, an unanchored
+ancestor mismatch, or a replay conflict still fails closed. Parent Cuts and Cut
+receipts must exist in the candidate.
 
 An empty changed-Cut scope is a scoped no-op only. It cannot be reported as a
 global Project Cut DAG pass. History reconciliation remains a separate global
@@ -116,6 +125,10 @@ clone and a merge-group checkout.
 - A linear merge-queue rebase onto an unrelated moving-main commit reproduces
   each original Cut root by bounded delta replay; a self-consistent Cut with a
   forged source root remains incomplete.
+- A merge queue may linearize an iterative same-PR Cut chain only when an exact
+  active successor anchors every superseded replay mismatch; the receipt keeps
+  those mismatches visible as omissions, while active or unanchored drift still
+  fails closed.
 - Clean-clone reconstruction returns the identical `compositionRoot`.
 - Missing parent manifests, missing Cut receipts, source drift, and tampered
   receipt roots fail closed.

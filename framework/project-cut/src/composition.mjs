@@ -428,6 +428,7 @@ export function observeComposition(rootInput, baseInput, commitInput) {
   });
   const processed = new Map();
   const chronologicalInputs = [];
+  const publicationDrifts = [];
   for (const candidate of candidates) {
     const { cut, path, publication, parentPublications } = candidate;
     let projection = sourceProjectionAtCommit(root, publication.commitOid, cut);
@@ -476,13 +477,12 @@ export function observeComposition(rootInput, baseInput, commitInput) {
         );
       }
       if (projection.root !== cut.sourceProjection.root)
-        diagnostics.push(
-          diagnostic(
-            'source-drift',
-            path,
-            `publication projects ${projection.root}, expected ${cut.sourceProjection.root}`,
-          ),
-        );
+        publicationDrifts.push({
+          cutRoot: cut.cutRoot,
+          path,
+          observedSourceProjectionRoot: projection.root,
+          expectedSourceProjectionRoot: cut.sourceProjection.root,
+        });
     }
     const input = {
       project: cut.project,
@@ -535,6 +535,71 @@ export function observeComposition(rootInput, baseInput, commitInput) {
   );
   const activeLeaves = inputs.filter(
     (input) => !referencedRoots.has(input.cutRoot),
+  );
+  const inputsByRoot = new Map(inputs.map((input) => [input.cutRoot, input]));
+  const driftedRoots = new Set(publicationDrifts.map((entry) => entry.cutRoot));
+  function descendsFrom(input, ancestorRoot) {
+    const pending = [...input.parentCutRoots];
+    const visited = new Set();
+    while (pending.length > 0) {
+      const rootValue = pending.pop();
+      if (rootValue === ancestorRoot) return true;
+      if (visited.has(rootValue)) continue;
+      visited.add(rootValue);
+      const parent = inputsByRoot.get(rootValue);
+      if (parent) pending.push(...parent.parentCutRoots);
+    }
+    return false;
+  }
+  const omissions = [];
+  for (const drift of publicationDrifts) {
+    const input = inputsByRoot.get(drift.cutRoot);
+    const anchoredBy = activeLeaves
+      .filter((leaf) => {
+        if (
+          !input ||
+          driftedRoots.has(leaf.cutRoot) ||
+          !descendsFrom(leaf, drift.cutRoot)
+        )
+          return false;
+        if (
+          leaf.project.id !== input.project.id ||
+          leaf.project.identityRoot !== input.project.identityRoot
+        )
+          return false;
+        const output = outputProjects.find(
+          (entry) =>
+            entry.project.id === leaf.project.id &&
+            entry.project.identityRoot === leaf.project.identityRoot,
+        );
+        return leaf.sourceProjectionRoot === output?.sourceProjectionRoot;
+      })
+      .map((leaf) => leaf.cutRoot)
+      .sort(compareText);
+    if (anchoredBy.length === 0) {
+      diagnostics.push(
+        diagnostic(
+          'source-drift',
+          drift.path,
+          `publication projects ${drift.observedSourceProjectionRoot}, expected ${drift.expectedSourceProjectionRoot}`,
+        ),
+      );
+      continue;
+    }
+    omissions.push({
+      code: 'superseded-publication-replay',
+      path: drift.path,
+      inputCutRoot: drift.cutRoot,
+      observedSourceProjectionRoot: drift.observedSourceProjectionRoot,
+      expectedSourceProjectionRoot: drift.expectedSourceProjectionRoot,
+      anchoredByCutRoots: anchoredBy,
+    });
+  }
+  omissions.sort((left, right) =>
+    compareText(
+      `${left.path}\0${left.inputCutRoot}`,
+      `${right.path}\0${right.inputCutRoot}`,
+    ),
   );
   for (let left = 0; left < activeLeaves.length; left += 1) {
     for (let right = left + 1; right < activeLeaves.length; right += 1) {
@@ -627,7 +692,7 @@ export function observeComposition(rootInput, baseInput, commitInput) {
     inputs,
     mappings,
     output: { projects: outputProjects },
-    omissions: [],
+    omissions,
     conflicts,
     diagnostics: normalized,
     status: normalized.length === 0 ? 'qualified' : 'incomplete',

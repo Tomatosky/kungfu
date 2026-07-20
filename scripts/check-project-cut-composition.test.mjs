@@ -386,6 +386,49 @@ test('three concurrent Cuts survive a moving-main merge and clean-clone rebuild'
   assert.equal(verifyComposition(clone, receipt).ok, true);
 });
 
+test('an exact successor anchors superseded Cut publications after queue rebase', (t) => {
+  const { root, parent, base } = baseline(t);
+  git(root, 'checkout', '-qb', 'iterative-feature', parent.commit);
+  fs.mkdirSync(path.join(root, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'src/task.txt'), 'task\n');
+  git(root, 'add', 'src/task.txt');
+  git(root, 'commit', '-qm', 'feat: iterative task');
+  const first = publishCut(root);
+  fs.writeFileSync(path.join(root, 'src/task.txt'), 'task repaired\n');
+  git(root, 'add', 'src/task.txt');
+  git(root, 'commit', '-qm', 'fix: iterative task');
+  const second = publishCut(root, [first.cut.cutRoot]);
+
+  git(root, 'checkout', '-B', 'moving-main', base);
+  fs.writeFileSync(path.join(root, 'moving.txt'), 'moving\n');
+  git(root, 'add', 'moving.txt');
+  git(root, 'commit', '-qm', 'test: move main before queue rebase');
+  const movingBase = git(root, 'rev-parse', 'HEAD');
+
+  git(root, 'checkout', 'iterative-feature');
+  git(root, 'rebase', '--onto', movingBase, base, 'iterative-feature');
+  const successor = publishCut(root, [second.cut.cutRoot]);
+
+  const receipt = observeComposition(root, movingBase, successor.commit);
+  assert.equal(
+    receipt.status,
+    'qualified',
+    JSON.stringify(receipt.diagnostics),
+  );
+  assert.equal(verifyComposition(root, receipt).ok, true);
+  assert.deepEqual(
+    receipt.omissions.map((entry) => entry.inputCutRoot).sort(),
+    [first.cut.cutRoot, second.cut.cutRoot].sort(),
+  );
+  assert.ok(
+    receipt.omissions.every(
+      (entry) =>
+        entry.code === 'superseded-publication-replay' &&
+        entry.anchoredByCutRoots.includes(successor.cut.cutRoot),
+    ),
+  );
+});
+
 test('a self-consistent Cut with the wrong source root still fails closed', (t) => {
   const { root, parent, base } = baseline(t);
   git(root, 'checkout', '-qb', 'source-drift', parent.commit);
