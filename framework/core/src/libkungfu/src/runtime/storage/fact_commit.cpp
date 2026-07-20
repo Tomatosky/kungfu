@@ -183,7 +183,7 @@ nlohmann::json import_interrupted(const std::string &runtime_dir, const kernel_s
           {"action", "authority-import"},
           {"status", "interrupted"},
           {"failure_code", failure_code},
-          {"failure_category", "backend-failure"},
+          {"failure_category", failure_category_for(failure_code)},
           {"message", "Fact authority import stopped at a logical append boundary"},
           {"details",
            {{"fault_mode", fault_mode},
@@ -369,21 +369,16 @@ nlohmann::json execute_mutation_batch(const std::string &runtime_dir, const nloh
                                   response);
       }
       if (!response.value("ok", false) || actual_root != expected_root) {
-        return {{"schema", FACT_KERNEL_SCHEMA_V1},
-                {"ok", false},
-                {"action", "authority-import"},
-                {"status", "rejected"},
-                {"failure_code", "import-operation-mismatch"},
-                {"message", "Fact authority import did not reproduce the declared record root"},
-                {"details",
-                 {{"index", index},
-                  {"operation", action},
-                  {"expected_record_root", expected_root},
-                  {"actual_record_root", actual_root},
-                  {"kernel_response", response},
-                  {"completed_responses", responses}}},
-                {"write_occurred", write_occurred},
-                {"receipt", nullptr}};
+        auto result = failure("authority-import", "import-operation-mismatch",
+                              "Fact authority import did not reproduce the declared record root",
+                              {{"index", index},
+                               {"operation", action},
+                               {"expected_record_root", expected_root},
+                               {"actual_record_root", actual_root},
+                               {"kernel_response", response},
+                               {"completed_responses", responses}});
+        result["write_occurred"] = write_occurred;
+        return result;
       }
       responses.push_back(response);
       committed_prefix_record_roots.push_back(expected_root);

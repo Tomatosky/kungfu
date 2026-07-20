@@ -21,6 +21,7 @@ const owners = {
   state: read('fact_state.cpp'),
   actions: read('fact_actions.cpp'),
   commit: read('fact_commit.cpp'),
+  durable: read('fact_durable_admission.cpp'),
   query: read('fact_query.cpp'),
   portability: read('fact_portability.cpp'),
 };
@@ -102,6 +103,7 @@ test('failure categories and fold issue fields stay aligned across machine and h
     'invalid-field',
     'invalid-identity',
     'stale-ref',
+    'integrity-failure',
     'backend-failure',
   ];
   const issueFields = [
@@ -127,7 +129,10 @@ test('failure categories and fold issue fields stay aligned across machine and h
 
   assert.match(owners.facade, /action_route::unknown/);
   assert.match(owners.facade, /"invalid-action"/);
-  assert.match(owners.protocol, /\{"failure_category", category\}/);
+  assert.match(
+    owners.protocol,
+    /\{"failure_category", failure_category_for\(code\)\}/,
+  );
   for (const category of categories) {
     assert.match(owners.query, new RegExp(`"${category}"`));
     assert.match(qualification, new RegExp(`\\b${category}\\b`));
@@ -139,6 +144,33 @@ test('failure categories and fold issue fields stay aligned across machine and h
     assert.match(qualification, new RegExp(`\\b${field}\\b`));
   }
   assert.match(owners.query, /"payloads_exposed", false/);
+});
+
+test('qualification faults, durable ids, and oversized operations have explicit phases', () => {
+  assert.match(owners.protocol, /KUNGFU_FACT_QUALIFICATION_FAULTS/);
+  assert.match(owners.durable, /require_qualification_fault_gate\(\)/);
+  assert.match(owners.portability, /require_qualification_fault_gate\(\)/);
+  assert.match(owners.query, /"request_controlled", false/);
+  assert.match(owners.durable, /compute_content_hash_value\(operation_id\)/);
+  assert.match(owners.durable, /"durable_request_id"/);
+  assert.match(
+    owners.durable,
+    /if \(!payload\.contains\("durable_request_id"\)\)[\s\S]*legacy_durable_request_id\(operation_id\)/,
+  );
+  assert.match(
+    owners.protocol,
+    /code == "durable-evidence-corrupt"[\s\S]*"integrity-failure"/,
+  );
+  assert.match(
+    owners.protocol,
+    /code == "import-interrupted" \|\| code == "outcome-unknown"[\s\S]*"backend-failure"/,
+  );
+  assert.match(owners.durable, /prepare_durable_admission\(/);
+  assert.match(owners.durable, /append_durable_admission\(/);
+  assert.match(owners.portability, /preflight_authority_import\(/);
+  assert.match(owners.portability, /authority_import_batch_options\(/);
+  assert.match(owners.portability, /pending_authority_operations\(/);
+  assert.equal([...owners.state.matchAll(/fold_authority_frame</g)].length, 6);
 });
 
 test('portability enters the typed mutation executor, never the public dispatcher', () => {

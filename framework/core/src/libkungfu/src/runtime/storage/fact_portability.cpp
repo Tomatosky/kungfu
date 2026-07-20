@@ -153,9 +153,107 @@ nlohmann::json export_authority(const std::string &runtime_dir) {
   }
 }
 
+nlohmann::json preflight_authority_import(const nlohmann::json &operations, const std::string &bundle_protocol,
+                                          const std::set<std::string> &expected_roots,
+                                          const nlohmann::json &final_state) {
+  const std::string action = "authority-import";
+  const auto preflight_root =
+      fs::temp_directory_path() / ("kungfu-fact-authority-import-" + std::to_string(std::random_device{}()) + "-" +
+                                   std::to_string(std::random_device{}()));
+  nlohmann::json preflight_failure = nullptr;
+  try {
+    for (size_t index = 0; index < operations.size(); ++index) {
+      const auto &operation = operations.at(index);
+      const auto operation_action = operation.at("action").get<std::string>();
+      const auto expected_root = operation.at("recordRoot").get<std::string>();
+      const auto root_protocol = operation.value("rootProtocol", bundle_protocol);
+      const auto response =
+          execute_mutation_with_protocol(preflight_root.string(), operation.at("request"), root_protocol);
+      const auto actual_root = response_record_root(operation_action, response);
+      if (!response.value("ok", false) || actual_root != expected_root) {
+        preflight_failure = failure(action, "import-preflight-operation-mismatch",
+                                    "Fact authority bundle failed isolated replay before destination mutation",
+                                    {{"index", index},
+                                     {"operation", operation_action},
+                                     {"expected_record_root", expected_root},
+                                     {"actual_record_root", actual_root},
+                                     {"kernel_response", response}});
+        break;
+      }
+    }
+    if (preflight_failure.is_null()) {
+      const auto preflight_state = fold_kernel(preflight_root.string());
+      const auto preflight_roots = authority_record_roots(preflight_state);
+      const auto expected_counts = final_state.value("counts", nlohmann::json::object());
+      const auto actual_counts = nlohmann::json{
+          {"objects", preflight_state.objects.size()},     {"versions", preflight_state.versions.size()},
+          {"relations", preflight_state.relations.size()}, {"revocations", preflight_state.revocations.size()},
+          {"cuts", preflight_state.cuts.size()},           {"transitions", preflight_state.transitions.size()}};
+      if (preflight_roots != expected_roots ||
+          fact_refs_json(preflight_state.refs) != final_state.value("refs", nlohmann::json::object()) ||
+          actual_counts != expected_counts) {
+        preflight_failure = failure(action, "import-preflight-final-state-mismatch",
+                                    "Fact authority bundle isolated replay did not reproduce its declared final state",
+                                    {{"expected_refs", final_state.value("refs", nlohmann::json::object())},
+                                     {"actual_refs", fact_refs_json(preflight_state.refs)},
+                                     {"expected_counts", expected_counts},
+                                     {"actual_counts", actual_counts}});
+      }
+    }
+    std::error_code cleanup_error;
+    fs::remove_all(preflight_root, cleanup_error);
+    if (cleanup_error) {
+      throw std::runtime_error("fact authority import preflight cleanup failed");
+    }
+  } catch (...) {
+    std::error_code cleanup_error;
+    fs::remove_all(preflight_root, cleanup_error);
+    throw;
+  }
+  return preflight_failure;
+}
+
+mutation_batch_options authority_import_batch_options(const nlohmann::json &input,
+                                                      const std::string &declared_bundle_root) {
+  auto options = mutation_batch_options{};
+  options.bundle_root = declared_bundle_root;
+  if (!input.contains("qualification_fault")) {
+    return options;
+  }
+  require_qualification_fault_gate();
+  const auto &fault = input.at("qualification_fault");
+  if (!fault.is_object() || fault.size() != 2 || text_or(fault, "schema") != "kungfu.fact-authority-import-fault/v1" ||
+      !fault.contains("fail_after_logical_appends") ||
+      !is_nonnegative_integer(fault.at("fail_after_logical_appends"))) {
+    throw fact_request_error("invalid-field",
+                             "qualification_fault must be the exact deterministic import fault contract");
+  }
+  const auto requested = fault.at("fail_after_logical_appends").get<uint64_t>();
+  if (requested > std::numeric_limits<size_t>::max()) {
+    throw fact_request_error("invalid-field", "qualification import fault cut point exceeds size_t");
+  }
+  options.inject_import_failure = true;
+  options.fail_after_logical_appends = static_cast<size_t>(requested);
+  return options;
+}
+
+nlohmann::json pending_authority_operations(const nlohmann::json &operations,
+                                            const std::set<std::string> &current_roots) {
+  auto pending = nlohmann::json::array();
+  for (const auto &operation : operations) {
+    if (current_roots.count(operation.at("recordRoot").get<std::string>()) == 0) {
+      pending.push_back(operation);
+    }
+  }
+  return pending;
+}
+
 nlohmann::json import_authority(const std::string &runtime_dir, const nlohmann::json &input) {
   const std::string action = "authority-import";
   try {
+    if (input.contains("qualification_fault")) {
+      require_qualification_fault_gate();
+    }
     if (!input.contains("bundle") || !input.at("bundle").is_object()) {
       return failure(action, "bundle-invalid", "Fact authority bundle is required");
     }
@@ -219,61 +317,8 @@ nlohmann::json import_authority(const std::string &runtime_dir, const nlohmann::
     // A valid bundle root authenticates only the supplied bytes. Replay the
     // complete bundle in an isolated runtime so a later invalid request can
     // never reject after earlier immutable destination records have landed.
-    const auto preflight_root =
-        fs::temp_directory_path() / ("kungfu-fact-authority-import-" + std::to_string(std::random_device{}()) + "-" +
-                                     std::to_string(std::random_device{}()));
-    nlohmann::json preflight_failure = nullptr;
-    try {
-      for (size_t index = 0; index < operations.size(); ++index) {
-        const auto &operation = operations.at(index);
-        const auto operation_action = operation.at("action").get<std::string>();
-        const auto expected_root = operation.at("recordRoot").get<std::string>();
-        const auto root_protocol = operation.value("rootProtocol", bundle_protocol);
-        const auto response =
-            execute_mutation_with_protocol(preflight_root.string(), operation.at("request"), root_protocol);
-        const auto actual_root = response_record_root(operation_action, response);
-        if (!response.value("ok", false) || actual_root != expected_root) {
-          preflight_failure = failure(action, "import-preflight-operation-mismatch",
-                                      "Fact authority bundle failed isolated replay before destination mutation",
-                                      {{"index", index},
-                                       {"operation", operation_action},
-                                       {"expected_record_root", expected_root},
-                                       {"actual_record_root", actual_root},
-                                       {"kernel_response", response}});
-          break;
-        }
-      }
-      if (preflight_failure.is_null()) {
-        const auto preflight_state = fold_kernel(preflight_root.string());
-        const auto preflight_roots = authority_record_roots(preflight_state);
-        const auto final_state = bundle.value("finalState", nlohmann::json::object());
-        const auto expected_counts = final_state.value("counts", nlohmann::json::object());
-        const auto actual_counts = nlohmann::json{
-            {"objects", preflight_state.objects.size()},     {"versions", preflight_state.versions.size()},
-            {"relations", preflight_state.relations.size()}, {"revocations", preflight_state.revocations.size()},
-            {"cuts", preflight_state.cuts.size()},           {"transitions", preflight_state.transitions.size()}};
-        if (preflight_roots != expected_roots ||
-            fact_refs_json(preflight_state.refs) != final_state.value("refs", nlohmann::json::object()) ||
-            actual_counts != expected_counts) {
-          preflight_failure =
-              failure(action, "import-preflight-final-state-mismatch",
-                      "Fact authority bundle isolated replay did not reproduce its declared final state",
-                      {{"expected_refs", final_state.value("refs", nlohmann::json::object())},
-                       {"actual_refs", fact_refs_json(preflight_state.refs)},
-                       {"expected_counts", expected_counts},
-                       {"actual_counts", actual_counts}});
-        }
-      }
-      std::error_code cleanup_error;
-      fs::remove_all(preflight_root, cleanup_error);
-      if (cleanup_error) {
-        throw std::runtime_error("fact authority import preflight cleanup failed");
-      }
-    } catch (...) {
-      std::error_code cleanup_error;
-      fs::remove_all(preflight_root, cleanup_error);
-      throw;
-    }
+    const auto final_state = bundle.value("finalState", nlohmann::json::object());
+    const auto preflight_failure = preflight_authority_import(operations, bundle_protocol, expected_roots, final_state);
     if (!preflight_failure.is_null()) {
       return preflight_failure;
     }
@@ -291,32 +336,8 @@ nlohmann::json import_authority(const std::string &runtime_dir, const nlohmann::
               {"receipt", nullptr}};
     }
 
-    auto batch_options = mutation_batch_options{};
-    batch_options.bundle_root = declared_bundle_root;
-    if (input.contains("qualification_fault")) {
-      const auto &fault = input.at("qualification_fault");
-      if (!fault.is_object() || fault.size() != 2 ||
-          text_or(fault, "schema") != "kungfu.fact-authority-import-fault/v1" ||
-          !fault.contains("fail_after_logical_appends") ||
-          !is_nonnegative_integer(fault.at("fail_after_logical_appends"))) {
-        return failure(action, "invalid-field",
-                       "qualification_fault must be the exact deterministic import fault contract");
-      }
-      const auto requested = fault.at("fail_after_logical_appends").get<uint64_t>();
-      if (requested > std::numeric_limits<size_t>::max()) {
-        return failure(action, "invalid-field", "qualification import fault cut point exceeds size_t");
-      }
-      batch_options.inject_import_failure = true;
-      batch_options.fail_after_logical_appends = static_cast<size_t>(requested);
-    }
-
-    auto pending_operations = nlohmann::json::array();
-    for (size_t index = 0; index < operations.size(); ++index) {
-      const auto record_root = operations.at(index).at("recordRoot").get<std::string>();
-      if (current_roots.count(record_root) == 0) {
-        pending_operations.push_back(operations.at(index));
-      }
-    }
+    const auto batch_options = authority_import_batch_options(input, declared_bundle_root);
+    const auto pending_operations = pending_authority_operations(operations, current_roots);
     if (batch_options.inject_import_failure && batch_options.fail_after_logical_appends >= pending_operations.size()) {
       return failure(action, "invalid-field",
                      "qualification import fault cut point must precede a pending logical append",
@@ -345,20 +366,15 @@ nlohmann::json import_authority(const std::string &runtime_dir, const nlohmann::
       const auto &response = responses.at(response_index++);
       const auto actual_root = response_record_root(operation_action, response);
       if (!response.value("ok", false) || actual_root != record_root) {
-        return {{"schema", FACT_KERNEL_SCHEMA_V1},
-                {"ok", false},
-                {"action", action},
-                {"status", "rejected"},
-                {"failure_code", "import-operation-mismatch"},
-                {"message", "Fact authority import did not reproduce the declared record root"},
-                {"details",
-                 {{"index", index},
-                  {"operation", operation_action},
-                  {"expected_record_root", record_root},
-                  {"actual_record_root", actual_root},
-                  {"kernel_response", response}}},
-                {"write_occurred", write_occurred},
-                {"receipt", nullptr}};
+        auto result = failure(action, "import-operation-mismatch",
+                              "Fact authority import did not reproduce the declared record root",
+                              {{"index", index},
+                               {"operation", operation_action},
+                               {"expected_record_root", record_root},
+                               {"actual_record_root", actual_root},
+                               {"kernel_response", response}});
+        result["write_occurred"] = write_occurred;
+        return result;
       }
       current_roots.insert(record_root);
       mappings.push_back({{"recordRoot", record_root},
@@ -367,24 +383,18 @@ nlohmann::json import_authority(const std::string &runtime_dir, const nlohmann::
                           {"status", response.at("status")}});
     }
     const auto final_roots = batch.at("record_roots").get<std::set<std::string>>();
-    const auto final_state = bundle.value("finalState", nlohmann::json::object());
     const auto expected_counts = final_state.value("counts", nlohmann::json::object());
     const auto actual_counts = batch.at("counts");
     if (final_roots != expected_roots || batch.at("refs") != final_state.value("refs", nlohmann::json::object()) ||
         actual_counts != expected_counts) {
-      return {{"schema", FACT_KERNEL_SCHEMA_V1},
-              {"ok", false},
-              {"action", action},
-              {"status", "rejected"},
-              {"failure_code", "import-final-state-mismatch"},
-              {"message", "Fact authority import did not reproduce the declared final refs and record roots"},
-              {"details",
-               {{"expected_refs", final_state.value("refs", nlohmann::json::object())},
-                {"actual_refs", batch.at("refs")},
-                {"expected_counts", expected_counts},
-                {"actual_counts", actual_counts}}},
-              {"write_occurred", write_occurred},
-              {"receipt", nullptr}};
+      auto result = failure(action, "import-final-state-mismatch",
+                            "Fact authority import did not reproduce the declared final refs and record roots",
+                            {{"expected_refs", final_state.value("refs", nlohmann::json::object())},
+                             {"actual_refs", batch.at("refs")},
+                             {"expected_counts", expected_counts},
+                             {"actual_counts", actual_counts}});
+      result["write_occurred"] = write_occurred;
+      return result;
     }
     return {{"schema", FACT_KERNEL_SCHEMA_V1},
             {"ok", true},

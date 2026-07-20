@@ -283,6 +283,11 @@ def test_fact_kernel_ref_cas_durable_admission_closes_and_reconciles(
     assert durability["journal_pair"]["receipt_root"] == accepted["receipt_root"]
     assert durability["journal_pair"]["durable_sync"]["directory_synced"] is True
     assert durability["durability_receipt"]["status"] == "succeeded"
+    operation_id = accepted["receipt"]["operationId"]
+    durable_request_id = int(hashlib.sha256(operation_id.encode()).hexdigest()[:16], 16)
+    legacy_request_id = int(operation_id.removeprefix("op:")[:16], 16)
+    assert durability["durability_receipt"]["request_id"] == str(durable_request_id)
+    assert durable_request_id != legacy_request_id
 
     replay = service.fact_kernel(runtime, "ref-cas", request)
     assert replay["ok"] is True, replay
@@ -341,6 +346,46 @@ def test_fact_kernel_ref_cas_rejects_buffered_rocks_provider_before_write(
     assert query["inventory"]["transitions"] == {}
 
 
+def test_fact_kernel_qualification_faults_are_not_request_enabled(
+    tmp_path, monkeypatch
+):
+    monkeypatch.delenv("KUNGFU_FACT_QUALIFICATION_FAULTS", raising=False)
+    runtime = tmp_path / "runtime"
+    cut_root = _durable_fact_cut(runtime)
+    request = _durable_ref_request(
+        cut_root,
+        "durable-fault-production-gate",
+        fault="before-journal-sync",
+    )
+
+    durable_rejected = service.fact_kernel(runtime, "ref-cas", request)
+    import_rejected = service.fact_kernel(
+        tmp_path / "import-target",
+        "authority-import",
+        {
+            "qualification_fault": {
+                "schema": "kungfu.fact-authority-import-fault/v1",
+                "fail_after_logical_appends": 0,
+            }
+        },
+    )
+
+    for rejected in (durable_rejected, import_rejected):
+        assert rejected["ok"] is False
+        assert rejected["failure_code"] == "invalid-field"
+        assert rejected["failure_category"] == "invalid-field"
+        assert "KUNGFU_FACT_QUALIFICATION_FAULTS=1" in rejected["message"]
+        assert rejected["write_occurred"] is False
+    query = service.fact_kernel(runtime, "query", {"include_inventory": True})
+    assert "facts/durable-fault-production-gate" not in query["refs"]
+    assert (
+        service.fact_kernel(runtime, "capabilities")["qualification_fault_gate"][
+            "enabled"
+        ]
+        is False
+    )
+
+
 @pytest.mark.parametrize(
     ("fault", "expected_reconciled"),
     [
@@ -358,8 +403,9 @@ def test_fact_kernel_ref_cas_rejects_buffered_rocks_provider_before_write(
     ],
 )
 def test_fact_kernel_ref_cas_durable_fault_frontier(
-    tmp_path, fault, expected_reconciled
+    tmp_path, monkeypatch, fault, expected_reconciled
 ):
+    monkeypatch.setenv("KUNGFU_FACT_QUALIFICATION_FAULTS", "1")
     runtime = tmp_path / fault
     cut_root = _durable_fact_cut(runtime)
     request = _durable_ref_request(cut_root, f"durable-fault-{fault}", fault=fault)
@@ -369,6 +415,7 @@ def test_fact_kernel_ref_cas_durable_fault_frontier(
     assert interrupted["ok"] is False
     assert interrupted["status"] == "unknown"
     assert interrupted["failure_code"] == "outcome-unknown"
+    assert interrupted["failure_category"] == "backend-failure"
     assert interrupted["write_occurred"] is True
     operation_id = interrupted["operation_id"]
     context = multiprocessing.get_context("spawn")
@@ -390,6 +437,7 @@ def test_fact_kernel_ref_cas_durable_fault_frontier(
     else:
         assert reconciled["status"] == "unknown"
         assert reconciled["failure_code"] == "outcome-unknown"
+        assert reconciled["failure_category"] == "backend-failure"
 
 
 def test_fact_kernel_v2_native_canonical_conformance(tmp_path):
@@ -539,13 +587,23 @@ def test_fact_kernel_v1_exposes_stable_failure_taxonomy(tmp_path):
         "invalid-field",
         "invalid-identity",
         "stale-ref",
+        "integrity-failure",
         "backend-failure",
     ]
+    assert capabilities["qualification_fault_gate"] == {
+        "kind": "environment",
+        "variable": "KUNGFU_FACT_QUALIFICATION_FAULTS",
+        "required_value": "1",
+        "default_enabled": False,
+        "enabled": False,
+        "request_controlled": False,
+    }
     assert capabilities["cas"]["contention"] == "serialized-stale-ref"
     assert capabilities["authority_import"] == {
         "batch_atomicity": "accepted-logical-append-prefix",
         "interruption": "truthful-prefix-restart-and-retry",
         "qualification_fault": "test-only-logical-append-boundary",
+        "qualification_fault_gate_required": True,
     }
 
     wrong_type = service.fact_kernel(runtime, 7)  # type: ignore[arg-type]
@@ -714,7 +772,9 @@ def test_fact_kernel_ref_cas_converges_under_multiprocess_contention(tmp_path):
 
 def test_fact_kernel_v1_authority_import_fault_recovers_at_every_append_boundary(
     tmp_path,
+    monkeypatch,
 ):
+    monkeypatch.setenv("KUNGFU_FACT_QUALIFICATION_FAULTS", "1")
     source = tmp_path / "source"
     object_id = "fact:10000000000000000000000000000001"
     relation_id = "fact:10000000000000000000000000000002"

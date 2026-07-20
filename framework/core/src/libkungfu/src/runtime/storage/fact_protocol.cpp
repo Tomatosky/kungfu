@@ -7,6 +7,7 @@
 #include <bit>
 #include <charconv>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <regex>
 #include <stdexcept>
@@ -945,41 +946,57 @@ void reject_environment_identity(const nlohmann::json &value) {
   }
 }
 
+bool qualification_faults_enabled() {
+  const auto *value = std::getenv("KUNGFU_FACT_QUALIFICATION_FAULTS");
+  return value != nullptr && std::string_view(value) == "1";
+}
+
+void require_qualification_fault_gate() {
+  if (!qualification_faults_enabled()) {
+    throw fact_request_error("invalid-field", "qualification_fault requires KUNGFU_FACT_QUALIFICATION_FAULTS=1");
+  }
+}
+
+std::string failure_category_for(const std::string &code) {
+  static const std::set<std::string> stable = {"invalid-request",  "invalid-action", "invalid-field",
+                                               "invalid-identity", "stale-ref",      "integrity-failure",
+                                               "backend-failure"};
+  if (stable.count(code) != 0) {
+    return code;
+  }
+  if (code == "unsupported-version") {
+    return "invalid-action";
+  }
+  if (code == "import-interrupted" || code == "outcome-unknown") {
+    return "backend-failure";
+  }
+  if (code == "durable-evidence-corrupt" || code == "authority-evidence-corrupt" ||
+      code == "import-final-state-mismatch") {
+    return "integrity-failure";
+  }
+  if (code == "expected-old-required" || code == "transition-id-reused" || code == "destination-drift" ||
+      code == "destination-diverged") {
+    return "stale-ref";
+  }
+  if (code.rfind("canonical-", 0) == 0 || code == "body-missing" || code == "invalid-cut" || code == "bundle-invalid") {
+    return "invalid-field";
+  }
+  if (code.rfind("unknown-", 0) == 0 || code == "admission-missing" || code == "relation-endpoint-invalid" ||
+      code == "relation-already-revoked" || code == "bundle-root-mismatch" || code == "import-operation-mismatch" ||
+      code == "import-preflight-operation-mismatch" || code == "import-preflight-final-state-mismatch") {
+    return "invalid-identity";
+  }
+  return "invalid-request";
+}
+
 nlohmann::json failure(const std::string &action, const std::string &code, const std::string &message,
                        const nlohmann::json &details) {
-  const auto category = [&]() -> std::string {
-    static const std::set<std::string> stable = {"invalid-request",  "invalid-action", "invalid-field",
-                                                 "invalid-identity", "stale-ref",      "backend-failure"};
-    if (stable.count(code) != 0) {
-      return code;
-    }
-    if (code == "unsupported-version") {
-      return "invalid-action";
-    }
-    if (code == "import-interrupted") {
-      return "backend-failure";
-    }
-    if (code == "expected-old-required" || code == "transition-id-reused" || code == "destination-drift" ||
-        code == "destination-diverged") {
-      return "stale-ref";
-    }
-    if (code.rfind("canonical-", 0) == 0 || code == "body-missing" || code == "invalid-cut" ||
-        code == "bundle-invalid") {
-      return "invalid-field";
-    }
-    if (code.rfind("unknown-", 0) == 0 || code == "admission-missing" || code == "relation-endpoint-invalid" ||
-        code == "relation-already-revoked" || code == "bundle-root-mismatch" || code == "import-operation-mismatch" ||
-        code == "import-preflight-operation-mismatch") {
-      return "invalid-identity";
-    }
-    return "invalid-request";
-  }();
   return {{"schema", FACT_KERNEL_SCHEMA_V1},
           {"ok", false},
           {"action", action},
           {"status", "rejected"},
           {"failure_code", code},
-          {"failure_category", category},
+          {"failure_category", failure_category_for(code)},
           {"message", message},
           {"details", details},
           {"write_occurred", false},
