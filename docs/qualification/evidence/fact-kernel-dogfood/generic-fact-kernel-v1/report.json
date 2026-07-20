@@ -4,8 +4,8 @@
   "status": "qualified-with-residuals",
   "work_item": "2026-07-18-kungfu-generic-fact-kernel",
   "authority": "disposable-yijinjing-hana-pod-journal",
-  "source_cut_root": "sha256:742389264abbbca894149ee68c91942dbd9ce9019c946e465d2ac75fe1151eb7",
-  "successor_cut_root": "sha256:95229cfc01dc4cb3cd2174d82b2d455b1cc77ec68e8283ef27f3f8c995d77eed",
+  "source_cut_root": "sha256:1f840487c8a8510795336452be471314cf49dd11720af0e737abbd2b00e8faee",
+  "successor_cut_root": "sha256:392167567435c1d441354e54a2de12158224812b13bfa2cf5bade3f7bb37409c",
   "role_identities": {
     "atlas": "fact:9d4bf1ba3d049db9f0b0b352adbce521",
     "episode": "fact:e77aa1390b00f17cef6a754d3a92be14",
@@ -13,26 +13,26 @@
     "warrant": "fact:339d389b5af52cc698bfcb3f92c69c9c"
   },
   "relation_roots": {
-    "authorized-by": "sha256:ca5784e4ec81c6129f8c0ab892a2969a4ff7e5c48bef9a5a5397f32b139953c7",
-    "observed-under": "sha256:41cde0105cb412c8e78e5d119550d62025ce307a8ccc12021eddf4c598294c3f",
-    "recorded-in": "sha256:6baefa8a665718aa312552980f1bcfd9ae892a491d2c70db48e4dc027f88793b",
-    "uses-atlas": "sha256:f46d1ba684ffa1a41ac3f00d0cfb2350a76ddeba425ba70d0a7103b90962aa8b"
+    "authorized-by": "sha256:1b92fb4c869cbcf6a832978bc8a32904b036fbc35da7e0f4c2ab48ba07fe472b",
+    "observed-under": "sha256:d442a3f997d08cf817e6df511e94e9f96db1dc4a8837b49829c107291e49a31a",
+    "recorded-in": "sha256:dc942c6d4eb381c722112b53420dfb3a68c57580816aa458e0066834e2554230",
+    "uses-atlas": "sha256:0b60aa4e2dd750b27b2e8a24437134a8af7863201831ddc734413bb6d8ddce93"
   },
   "actors": [
     {
       "id": "A",
       "process": "independent",
-      "result": "sha256:b79092c80eb2bc5958323a5f93700fbdce7d9482946a7de57b8ed5156bc2d138"
+      "result": "sha256:1fe35a504521ead5020c27006bcbf76be4e8381ed87ad92a0a125e8542457466"
     },
     {
       "id": "B",
       "process": "independent",
-      "result": "sha256:69d91ccfdb1e417e7c039608dbcf40088c72d8820cfb5199eac1c1eb2a2e58aa"
+      "result": "sha256:06e8967030219e43ffeb6b0980d83a76cc115e85162fb28d681736a275fa1743"
     },
     {
       "id": "C",
       "process": "independent",
-      "result": "sha256:7f3b7fb14e2a9fd0dee85b36e8ef75169828ec3850e92c4d31bbd4c9dfec22fb"
+      "result": "sha256:ff5ed0f3762333bfab33c39cd3e42896504b0f197d58181086154bb74b91abf5"
     }
   ],
   "handoff": {
@@ -40,8 +40,8 @@
     "chat_inputs": 0,
     "required_retained_inputs": ["handoff.json", "bundle.json"],
     "exact_roots": [
-      "sha256:b79092c80eb2bc5958323a5f93700fbdce7d9482946a7de57b8ed5156bc2d138",
-      "sha256:807392aa4edfad8ca9ca38735f0efe01c8e9465fa65e376f6feef8f749fe9ea5"
+      "sha256:1fe35a504521ead5020c27006bcbf76be4e8381ed87ad92a0a125e8542457466",
+      "sha256:2b01f18d8960245de4cbde660f433dbb5909e6c572f0312a20af6bc5140a1398"
     ]
   },
   "fault_matrix": [
@@ -57,7 +57,7 @@
     },
     {
       "id": "revoked-warrant",
-      "observed": "sha256:1688f40407e5edadd28ba2a3a5b2ee3c92870202456e8f7774e78e029e1b2e73",
+      "observed": "sha256:ca2efcc5a934823a4740094f02e7b4edca180b905f10b52a0dc765970e2e3fe5",
       "status": "refused"
     },
     {
@@ -83,12 +83,12 @@
     {
       "id": "projection-loss",
       "status": "rebuildable-read-only",
-      "observed": "sha256:abd2565697661c5f1700b1564f88b86c0f565b9ed4d50f6ceae5e65517ce502f"
+      "observed": "sha256:37df56403eb7d120c8273853b8c95b8ff5b1bcd5dc8df00c1e721681bd3a19d9"
     },
     {
       "id": "backend-reopen",
       "status": "passed",
-      "observed": "sha256:abd2565697661c5f1700b1564f88b86c0f565b9ed4d50f6ceae5e65517ce502f"
+      "observed": "sha256:37df56403eb7d120c8273853b8c95b8ff5b1bcd5dc8df00c1e721681bd3a19d9"
     }
   ],
   "recovery": {
@@ -140,5 +140,5 @@
     "No real user runtime was modified.",
     "P17 and universal four-role ontology remain unqualified."
   ],
-  "report_root": "sha256:941f1408405b9c416082e9f2cf025902d31eab13112523555724419ae2704c10"
+  "report_root": "sha256:35f7f9757b769c219c6989cb4727215355dcbbc48728687ec189881c2b3a5941"
 }

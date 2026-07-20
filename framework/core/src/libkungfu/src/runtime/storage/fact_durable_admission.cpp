@@ -78,25 +78,51 @@ durable::ingest_options durable_options(const std::string &runtime_dir, bool rea
   return options;
 }
 
-uint64_t durable_request_id(const std::string &operation_id) {
-  constexpr std::string_view prefix = "op:";
-  if (!operation_id.starts_with(prefix) || operation_id.size() < prefix.size() + 16) {
-    throw fact_request_error("invalid-identity", "operation_id is not a Fact operation identity");
-  }
-  uint64_t value = 0;
-  const auto first = operation_id.data() + prefix.size();
-  const auto last = first + 16;
-  const auto [position, error] = std::from_chars(first, last, value, 16);
-  if (error != std::errc{} || position != last || value == 0) {
+uint64_t parse_request_id_hex(std::string_view value) {
+  if (value.size() != 16) {
     throw fact_request_error("invalid-identity", "operation_id cannot derive a durable request identity");
   }
-  return value;
+  uint64_t result = 0;
+  const auto [position, error] = std::from_chars(value.data(), value.data() + value.size(), result, 16);
+  if (error != std::errc{} || position != value.data() + value.size() || result == 0) {
+    throw fact_request_error("invalid-identity", "operation_id cannot derive a durable request identity");
+  }
+  return result;
+}
+
+uint64_t legacy_durable_request_id(const std::string &operation_id) {
+  constexpr std::string_view prefix = "op:";
+  if (!operation_id.starts_with(prefix) || operation_id.size() != prefix.size() + 32) {
+    throw fact_request_error("invalid-identity", "operation_id is not a Fact operation identity");
+  }
+  return parse_request_id_hex(std::string_view(operation_id).substr(prefix.size(), 16));
+}
+
+uint64_t durable_request_id(const std::string &operation_id) {
+  constexpr std::string_view prefix = "op:";
+  if (!operation_id.starts_with(prefix) || operation_id.size() != prefix.size() + 32) {
+    throw fact_request_error("invalid-identity", "operation_id is not a Fact operation identity");
+  }
+  const auto digest = yy_storage::compute_content_hash_value(operation_id);
+  return parse_request_id_hex(std::string_view(digest).substr(0, 16));
+}
+
+uint64_t durable_request_id(const nlohmann::json &payload, const std::string &operation_id) {
+  if (!payload.contains("durable_request_id")) {
+    return legacy_durable_request_id(operation_id);
+  }
+  const auto &value = payload.at("durable_request_id");
+  if (!value.is_number_unsigned() || value.get<uint64_t>() == 0) {
+    throw fact_integrity_error("durable-evidence-corrupt", "stored durable_request_id is invalid");
+  }
+  return value.get<uint64_t>();
 }
 
 std::optional<durable::ingest_fault_point> parse_fault(const nlohmann::json &durability) {
   if (!durability.contains("qualification_fault")) {
     return std::nullopt;
   }
+  require_qualification_fault_gate();
   const auto &fault = durability.at("qualification_fault");
   if (!fault.is_object() || fault.size() != 2 || text_or(fault, "schema") != "kungfu.fact.durable-admission-fault/v1") {
     throw fact_request_error("invalid-field", "qualification_fault must use the exact Fact durable fault schema");
@@ -409,35 +435,40 @@ void inject_fact_fault(const requested_durability &request, const std::string &p
 nlohmann::json non_success(const nlohmann::json &response, const std::string &status, const std::string &code,
                            const std::string &message, const std::string &operation_id, const std::string &request_root,
                            bool write_occurred, const nlohmann::json &details = nlohmann::json::object()) {
-  auto result =
-      nlohmann::json{{"schema", FACT_KERNEL_SCHEMA_V1},
-                     {"ok", false},
-                     {"action", "ref-cas"},
-                     {"status", status},
-                     {"failure_code", code},
-                     {"failure_category", code == "durability-unqualified" ? "invalid-request" : "backend-failure"},
-                     {"message", message},
-                     {"operation_id", operation_id},
-                     {"request_root", request_root},
-                     {"write_occurred", write_occurred},
-                     {"reconciliation_action", "durability-reconcile"},
-                     {"details", details},
-                     {"receipt", response.value("receipt", nlohmann::json(nullptr))}};
+  auto result = nlohmann::json{{"schema", FACT_KERNEL_SCHEMA_V1},
+                               {"ok", false},
+                               {"action", "ref-cas"},
+                               {"status", status},
+                               {"failure_code", code},
+                               {"failure_category", failure_category_for(code)},
+                               {"message", message},
+                               {"operation_id", operation_id},
+                               {"request_root", request_root},
+                               {"write_occurred", write_occurred},
+                               {"reconciliation_action", "durability-reconcile"},
+                               {"details", details},
+                               {"receipt", response.value("receipt", nlohmann::json(nullptr))}};
   return result;
 }
 
 nlohmann::json parse_durable_payload(const std::string &payload) {
-  auto value = nlohmann::json::parse(payload);
-  if (!value.is_object() || value.value("schema", std::string{}) != FACT_DURABLE_ADMISSION_SCHEMA_V1) {
-    throw std::runtime_error("fact durable payload schema is unsupported");
+  try {
+    auto value = nlohmann::json::parse(payload);
+    if (!value.is_object() || value.value("schema", std::string{}) != FACT_DURABLE_ADMISSION_SCHEMA_V1) {
+      throw fact_integrity_error("durable-evidence-corrupt", "fact durable payload schema is unsupported");
+    }
+    auto material = value;
+    const auto declared = required_text(value, "entry_root");
+    material.erase("entry_root");
+    if (content_root(canonical_json(material)) != declared) {
+      throw fact_integrity_error("durable-evidence-corrupt", "fact durable payload root mismatch");
+    }
+    return value;
+  } catch (const fact_integrity_error &) {
+    throw;
+  } catch (const std::exception &error) {
+    throw fact_integrity_error("durable-evidence-corrupt", error.what());
   }
-  auto material = value;
-  const auto declared = required_text(value, "entry_root");
-  material.erase("entry_root");
-  if (content_root(canonical_json(material)) != declared) {
-    throw std::runtime_error("fact durable payload root mismatch");
-  }
-  return value;
 }
 
 std::optional<std::pair<durable::durable_record, nlohmann::json>>
@@ -458,12 +489,46 @@ find_durable_operation(const std::string &runtime_dir, const std::string &operat
   return std::nullopt;
 }
 
+struct durable_admission_context {
+  requested_durability request;
+  nlohmann::json provider;
+  nlohmann::json evidence;
+};
+
+durable_admission_context prepare_durable_admission(const std::string &runtime_dir, const nlohmann::json &input) {
+  return {parse_requested_durability(input), admitted_provider(runtime_dir), admitted_evidence()};
+}
+
+durable::barrier_result append_durable_admission(const std::string &runtime_dir, const nlohmann::json &payload,
+                                                 const requested_durability &request) {
+  const auto root = durable_root(runtime_dir);
+  auto service_owner = lease::acquire_data_root_service(root.string(), "fact-durable-admission");
+  auto writer_owner = lease::acquire_stream_writer(root.string(), FACT_DURABLE_WRITER_RESOURCE);
+  durable::ingest_fault_injector injector;
+  if (request.fault.has_value()) {
+    const auto selected = *request.fault;
+    injector = [selected](durable::ingest_fault_point point) {
+      if (point == selected) {
+        throw std::runtime_error("fact_durable_admission_injected_fault");
+      }
+    };
+  }
+  durable::durable_ingest_log log(durable_options(runtime_dir), std::move(injector));
+  const auto current = log.status().durable_watermark;
+  const auto sequence = current.has_value() ? current->sequence + 1 : 1;
+  const durable::stream_position position{FACT_DURABLE_STREAM_ID, FACT_DURABLE_CONTAINER_EPOCH, sequence, sequence};
+  log.append(position, FACT_DURABLE_BUNDLE_CARRIER_TYPE, canonical_json(payload), service_owner, writer_owner);
+  const durable::durability_request durable_request{payload.at("durable_request_id").get<uint64_t>(), position,
+                                                    request.requested_profile};
+  return log.barrier(durable_request, service_owner, writer_owner, {request.deadline_at_ns});
+}
+
 void verify_reconciled_authority(const std::string &runtime_dir, const nlohmann::json &payload) {
   auto closure = payload.at("content_closure");
   const auto declared_closure_root = required_text(closure, "content_closure_root");
   closure.erase("content_closure_root");
   if (content_root(canonical_json(closure)) != declared_closure_root) {
-    throw std::runtime_error("fact durable content closure root mismatch");
+    throw fact_integrity_error("authority-evidence-corrupt", "fact durable content closure root mismatch");
   }
   const auto state = fold_kernel(runtime_dir);
   const auto operation_id = required_text(payload, "operation_id");
@@ -471,7 +536,8 @@ void verify_reconciled_authority(const std::string &runtime_dir, const nlohmann:
   const auto receipt = state.receipts.find(operation_id);
   if (receipt == state.receipts.end() || receipt->second.request_root != payload.value("request_root", std::string{}) ||
       receipt->second.receipt_root != journal_pair.value("receipt_root", std::string{})) {
-    throw std::runtime_error("checkpoint-covered Fact operation receipt is absent from journal authority");
+    throw fact_integrity_error("authority-evidence-corrupt",
+                               "checkpoint-covered Fact operation receipt is absent from journal authority");
   }
   const auto expected = payload.at("response").at("result");
   const auto transition = state.transitions.find(expected.at("transition_id").get<std::string>());
@@ -479,7 +545,8 @@ void verify_reconciled_authority(const std::string &runtime_dir, const nlohmann:
       transition->second.transition_root != expected.at("transition_root").get<std::string>() ||
       transition->second.new_cut_root != expected.at("current_cut_root").get<std::string>() ||
       transition->second.revision != expected.at("current_revision").get<uint64_t>()) {
-    throw std::runtime_error("checkpoint-covered Fact ref transition does not match journal authority");
+    throw fact_integrity_error("authority-evidence-corrupt",
+                               "checkpoint-covered Fact ref transition does not match journal authority");
   }
   const auto record = std::find_if(state.authority_records.begin(), state.authority_records.end(),
                                    [&](const kernel_authority_record &candidate) {
@@ -488,7 +555,8 @@ void verify_reconciled_authority(const std::string &runtime_dir, const nlohmann:
   if (record == state.authority_records.end() ||
       record->sequence != journal_pair.value("record_sequence", uint64_t{0}) ||
       record->sequence + 1 != journal_pair.value("receipt_sequence", uint64_t{0})) {
-    throw std::runtime_error("checkpoint-covered Fact record and receipt are not the exact adjacent pair");
+    throw fact_integrity_error("authority-evidence-corrupt",
+                               "checkpoint-covered Fact record and receipt are not the exact adjacent pair");
   }
   for (const auto &root : payload.at("content_closure").at("metadata_roots")) {
     (void)content_store_get(runtime_dir, METADATA_NAMESPACE, root.get<std::string>());
@@ -501,9 +569,7 @@ void verify_reconciled_authority(const std::string &runtime_dir, const nlohmann:
 } // namespace
 
 void validate_durable_ref_cas_admission(const std::string &runtime_dir, const nlohmann::json &input) {
-  (void)parse_requested_durability(input);
-  (void)admitted_provider(runtime_dir);
-  (void)admitted_evidence();
+  (void)prepare_durable_admission(runtime_dir, input);
 }
 
 nlohmann::json durably_admit_ref_cas(const std::string &runtime_dir, const nlohmann::json &input,
@@ -511,12 +577,13 @@ nlohmann::json durably_admit_ref_cas(const std::string &runtime_dir, const nlohm
   const auto operation_id = response.at("receipt").value("operationId", std::string{});
   const auto request_root = response.at("receipt").value("requestRoot", std::string{});
   try {
-    const auto request = parse_requested_durability(input);
-    const auto provider = admitted_provider(runtime_dir);
-    const auto evidence = admitted_evidence();
+    const auto context = prepare_durable_admission(runtime_dir, input);
+    const auto &request = context.request;
+    const auto &provider = context.provider;
+    const auto &evidence = context.evidence;
     if (const auto existing = find_durable_operation(runtime_dir, operation_id); existing.has_value()) {
-      const durable::durability_request durable_request{durable_request_id(operation_id), existing->first.position,
-                                                        request.requested_profile};
+      const durable::durability_request durable_request{durable_request_id(existing->second, operation_id),
+                                                        existing->first.position, request.requested_profile};
       const auto reconciled = durable::reconcile_durable_receipt(durable_options(runtime_dir), durable_request);
       if (reconciled.state != "reconciled" || !reconciled.receipt.has_value() ||
           reconciled.receipt->status != "succeeded") {
@@ -568,6 +635,7 @@ nlohmann::json durably_admit_ref_cas(const std::string &runtime_dir, const nlohm
                                        {"durable_sync", std::move(journal_sync)}};
     auto payload = nlohmann::json{{"schema", FACT_DURABLE_ADMISSION_SCHEMA_V1},
                                   {"operation_id", operation_id},
+                                  {"durable_request_id", durable_request_id(operation_id)},
                                   {"request_root", request_root},
                                   {"response", response},
                                   {"authority_bundle", std::move(bundle)},
@@ -580,26 +648,7 @@ nlohmann::json durably_admit_ref_cas(const std::string &runtime_dir, const nlohm
     auto root_material = payload;
     payload["entry_root"] = content_root(canonical_json(root_material));
 
-    const auto root = durable_root(runtime_dir);
-    auto service_owner = lease::acquire_data_root_service(root.string(), "fact-durable-admission");
-    auto writer_owner = lease::acquire_stream_writer(root.string(), FACT_DURABLE_WRITER_RESOURCE);
-    durable::ingest_fault_injector injector;
-    if (request.fault.has_value()) {
-      const auto selected = *request.fault;
-      injector = [selected](durable::ingest_fault_point point) {
-        if (point == selected) {
-          throw std::runtime_error("fact_durable_admission_injected_fault");
-        }
-      };
-    }
-    durable::durable_ingest_log log(durable_options(runtime_dir), std::move(injector));
-    const auto current = log.status().durable_watermark;
-    const auto sequence = current.has_value() ? current->sequence + 1 : 1;
-    const durable::stream_position position{FACT_DURABLE_STREAM_ID, FACT_DURABLE_CONTAINER_EPOCH, sequence, sequence};
-    log.append(position, FACT_DURABLE_BUNDLE_CARRIER_TYPE, canonical_json(payload), service_owner, writer_owner);
-    const durable::durability_request durable_request{durable_request_id(operation_id), position,
-                                                      request.requested_profile};
-    const auto barrier = log.barrier(durable_request, service_owner, writer_owner, {request.deadline_at_ns});
+    const auto barrier = append_durable_admission(runtime_dir, payload, request);
     if (barrier.receipt.status != durable::receipt_status::Succeeded || !barrier.receipt.achieved_profile.has_value() ||
         *barrier.receipt.achieved_profile != request.requested_profile) {
       const auto status =
@@ -618,6 +667,9 @@ nlohmann::json durably_admit_ref_cas(const std::string &runtime_dir, const nlohm
         durability_binding(request, provider, evidence, durable::render_durability_receipt(barrier.receipt), closure,
                            payload.at("journal_pair"));
     return result;
+  } catch (const fact_integrity_error &error) {
+    return non_success(response, "rejected", error.code(), error.what(), operation_id, request_root,
+                       response.value("write_occurred", false));
   } catch (const fact_request_error &error) {
     return non_success(response, "rejected", error.code(), error.what(), operation_id, request_root,
                        response.value("write_occurred", false));
@@ -636,26 +688,25 @@ nlohmann::json reconcile_durable_ref_cas(const std::string &runtime_dir, const n
     const auto operation_id = required_text(input, "operation_id");
     const auto found = find_durable_operation(runtime_dir, operation_id);
     if (!found.has_value()) {
-      return {{"schema", FACT_DURABLE_RECONCILIATION_SCHEMA_V1},
-              {"ok", false},
-              {"action", action},
-              {"status", "unknown"},
-              {"failure_code", "outcome-unknown"},
-              {"operation_id", operation_id},
-              {"message", "operation_id is absent from checkpoint-covered Fact durable evidence"}};
+      auto result =
+          failure(action, "outcome-unknown", "operation_id is absent from checkpoint-covered Fact durable evidence");
+      result["schema"] = FACT_DURABLE_RECONCILIATION_SCHEMA_V1;
+      result["status"] = "unknown";
+      result["operation_id"] = operation_id;
+      return result;
     }
     const auto profile = durable::parse_durability_profile(found->second.at("requested_profile").get<std::string>());
-    const durable::durability_request request{durable_request_id(operation_id), found->first.position, profile};
+    const durable::durability_request request{durable_request_id(found->second, operation_id), found->first.position,
+                                              profile};
     const auto reconciled = durable::reconcile_durable_receipt(durable_options(runtime_dir), request);
     if (reconciled.state != "reconciled" || !reconciled.receipt.has_value() ||
         reconciled.receipt->status != "succeeded") {
-      return {{"schema", FACT_DURABLE_RECONCILIATION_SCHEMA_V1},
-              {"ok", false},
-              {"action", action},
-              {"status", reconciled.state},
-              {"failure_code", reconciled.error},
-              {"operation_id", operation_id},
-              {"message", reconciled.message}};
+      const auto code = reconciled.error.empty() ? std::string("outcome-unknown") : reconciled.error;
+      auto result = failure(action, code, reconciled.message);
+      result["schema"] = FACT_DURABLE_RECONCILIATION_SCHEMA_V1;
+      result["status"] = reconciled.state;
+      result["operation_id"] = operation_id;
+      return result;
     }
     verify_reconciled_authority(runtime_dir, found->second);
     requested_durability binding_request;
@@ -673,6 +724,8 @@ nlohmann::json reconcile_durable_ref_cas(const std::string &runtime_dir, const n
                                               found->second.at("evidence"), receipt_view_json(*reconciled.receipt),
                                               found->second.at("content_closure"), found->second.at("journal_pair"))},
             {"recovered", reconciled.recovered}};
+  } catch (const fact_integrity_error &error) {
+    return failure(action, error.code(), error.what());
   } catch (const fact_request_error &error) {
     return failure(action, error.code(), error.what());
   } catch (const std::exception &error) {

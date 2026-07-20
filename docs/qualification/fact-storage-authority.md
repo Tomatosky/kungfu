@@ -61,7 +61,10 @@ query-result characterization tests guard the edge bytes and semantics.
 Fact operation failures expose two machine-readable levels. Automation uses the
 stable `failure_category`, whose closed values are `invalid-request`,
 `invalid-action`, `invalid-field`, `invalid-identity`, `stale-ref`, and
-`backend-failure`. The existing `failure_code` remains the more specific reason
+`integrity-failure`, and `backend-failure`. `integrity-failure` means persisted
+evidence is readable but contradicts its declared root or authority relation;
+backend I/O and availability faults remain `backend-failure`. The existing
+`failure_code` remains the more specific reason
 and may grow as new rejection cases are admitted; `message` is explanatory and
 is not an automation contract. Unknown actions fail as `invalid-action`, while
 an action of the wrong JSON type and closed-schema field errors fail as
@@ -74,6 +77,11 @@ array. Each issue has exactly `sequence`, `frame_tag`, `record_root`,
 identity is `null`. Raw frame bytes and payloads are never included. The Python
 integrity fsck, CLI, and Agent-facing storage facade project these same fields
 without inventing a second diagnostic taxonomy.
+
+Deterministic durable-admission and authority-import fault injection is a
+qualification-only surface. Request JSON cannot enable it. The process must
+start with `KUNGFU_FACT_QUALIFICATION_FAULTS=1`; the capabilities document
+reports the gate, its disabled default, and its current state.
 
 ## Advisory writer-lock contract
 

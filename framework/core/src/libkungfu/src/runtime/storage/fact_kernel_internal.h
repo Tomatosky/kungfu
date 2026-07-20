@@ -79,6 +79,17 @@ private:
   std::string code_;
 };
 
+class fact_integrity_error : public std::runtime_error {
+public:
+  fact_integrity_error(std::string code, const std::string &message)
+      : std::runtime_error(message), code_(std::move(code)) {}
+
+  [[nodiscard]] const std::string &code() const { return code_; }
+
+private:
+  std::string code_;
+};
+
 struct kernel_authority_record {
   uint32_t tag = 0;
   uint64_t sequence = 0;
@@ -148,6 +159,9 @@ void validate_root(const std::string &, const char *, bool allow_empty = false);
 void validate_ref_name(const std::string &);
 void validate_transition_id(const std::string &);
 void reject_environment_identity(const nlohmann::json &);
+bool qualification_faults_enabled();
+void require_qualification_fault_gate();
+std::string failure_category_for(const std::string &);
 nlohmann::json failure(const std::string &, const std::string &, const std::string &,
                        const nlohmann::json &details = nlohmann::json::object());
 nlohmann::json fold_issues_json(const std::vector<kernel_fold_issue> &);

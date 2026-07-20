@@ -71,6 +71,25 @@ template <typename T> bool decode_record(const frame_ptr &frame, T &value) {
   return !root_protocol_for_version(value.schema_version).empty();
 }
 
+template <typename Record, typename Root, typename Key, typename Materialize>
+void fold_authority_frame(const frame_ptr &frame, kernel_state &state, std::vector<kernel_authority_record> &pending,
+                          uint32_t frame_tag, uint64_t &sequence, bool &sequence_known, std::string &record_root,
+                          Root root_of, Key key_of, Materialize materialize) {
+  Record record{};
+  if (!decode_record(frame, record)) {
+    add_issue(state, frame_tag, 0, false, {}, "record-decode-failed",
+              "Fact record is truncated or uses an unsupported schema version", "decode",
+              "preserve-authority-and-upgrade-reader");
+    return;
+  }
+  sequence = record.sequence;
+  sequence_known = true;
+  record_root = root_of(record);
+  pending.push_back(
+      {Record::tag, sequence, key_of(record, record_root), record_root, materialize(record, record_root)});
+  pending.back().root_protocol = root_protocol_for_version(record.schema_version);
+}
+
 kernel_state fold_kernel(const std::string &runtime_dir) {
   kernel_state state;
   std::vector<kernel_authority_record> pending;
@@ -90,147 +109,115 @@ kernel_state fold_kernel(const std::string &runtime_dir) {
     try {
       switch (frame->carrier_type()) {
       case FactObjectRecorded::tag: {
-        FactObjectRecorded record{};
-        if (!decode_record(frame, record)) {
-          add_issue(state, frame_tag, 0, false, {}, "record-decode-failed",
-                    "Fact record is truncated or uses an unsupported schema version", "decode",
-                    "preserve-authority-and-upgrade-reader");
-          break;
-        }
-        sequence = record.sequence;
-        sequence_known = true;
-        record_root = fixed_string(record.object_root);
-        auto document = parse_fact_document("kungfu.fact.object/v1",
-                                            load_metadata(runtime_dir, record_root, "kungfu.fact.object/v1"));
-        validate_fact_record_authority(
-            document,
-            object_record_authority{fixed_string(record.object_id), fixed_string(record.object_type),
-                                    fixed_string(record.created_by_receipt_root), record_root},
-            root_protocol_for_version(record.schema_version));
-        pending.push_back(
-            {FactObjectRecorded::tag, sequence, fixed_string(record.object_id), record_root, std::move(document)});
-        pending.back().root_protocol = root_protocol_for_version(record.schema_version);
+        fold_authority_frame<FactObjectRecorded>(
+            frame, state, pending, frame_tag, sequence, sequence_known, record_root,
+            [](const auto &record) { return fixed_string(record.object_root); },
+            [](const auto &record, const auto &) { return fixed_string(record.object_id); },
+            [&](const auto &record, const auto &root) {
+              auto document = parse_fact_document("kungfu.fact.object/v1",
+                                                  load_metadata(runtime_dir, root, "kungfu.fact.object/v1"));
+              validate_fact_record_authority(
+                  document,
+                  object_record_authority{fixed_string(record.object_id), fixed_string(record.object_type),
+                                          fixed_string(record.created_by_receipt_root), root},
+                  root_protocol_for_version(record.schema_version));
+              return document;
+            });
         break;
       }
       case FactVersionRecorded::tag: {
-        FactVersionRecorded record{};
-        if (!decode_record(frame, record)) {
-          add_issue(state, frame_tag, 0, false, {}, "record-decode-failed",
-                    "Fact record is truncated or uses an unsupported schema version", "decode",
-                    "preserve-authority-and-upgrade-reader");
-          break;
-        }
-        sequence = record.sequence;
-        sequence_known = true;
-        record_root = fixed_string(record.version_root);
-        auto document = parse_fact_document("kungfu.fact.version/v1",
-                                            load_metadata(runtime_dir, record_root, "kungfu.fact.version/v1"));
-        validate_fact_record_authority(
-            document,
-            version_record_authority{fixed_string(record.object_id), record_root, fixed_string(record.body_root),
-                                     fixed_string(record.schema_root), fixed_string(record.parent_versions_root),
-                                     fixed_string(record.declaration_roots_root),
-                                     fixed_string(record.admission_roots_root)},
-            root_protocol_for_version(record.schema_version));
-        pending.push_back({FactVersionRecorded::tag, sequence, record_root, record_root, std::move(document)});
-        pending.back().root_protocol = root_protocol_for_version(record.schema_version);
+        fold_authority_frame<FactVersionRecorded>(
+            frame, state, pending, frame_tag, sequence, sequence_known, record_root,
+            [](const auto &record) { return fixed_string(record.version_root); },
+            [](const auto &, const auto &root) { return root; },
+            [&](const auto &record, const auto &root) {
+              auto document = parse_fact_document("kungfu.fact.version/v1",
+                                                  load_metadata(runtime_dir, root, "kungfu.fact.version/v1"));
+              validate_fact_record_authority(
+                  document,
+                  version_record_authority{fixed_string(record.object_id), root, fixed_string(record.body_root),
+                                           fixed_string(record.schema_root), fixed_string(record.parent_versions_root),
+                                           fixed_string(record.declaration_roots_root),
+                                           fixed_string(record.admission_roots_root)},
+                  root_protocol_for_version(record.schema_version));
+              return document;
+            });
         break;
       }
       case FactRelationAdded::tag: {
-        FactRelationAdded record{};
-        if (!decode_record(frame, record)) {
-          add_issue(state, frame_tag, 0, false, {}, "record-decode-failed",
-                    "Fact record is truncated or uses an unsupported schema version", "decode",
-                    "preserve-authority-and-upgrade-reader");
-          break;
-        }
-        sequence = record.sequence;
-        sequence_known = true;
-        record_root = fixed_string(record.relation_root);
-        auto document = parse_fact_document("kungfu.fact.relation-add/v1",
-                                            load_metadata(runtime_dir, record_root, "kungfu.fact.relation-add/v1"));
-        validate_fact_record_authority(
-            document,
-            relation_record_authority{
-                fixed_string(record.relation_id), fixed_string(record.relation_type), fixed_string(record.source_kind),
-                fixed_string(record.source_id), fixed_string(record.target_kind), fixed_string(record.target_id),
-                fixed_string(record.attributes_root), fixed_string(record.admission_roots_root), record_root},
-            root_protocol_for_version(record.schema_version));
-        pending.push_back({FactRelationAdded::tag, sequence, record_root, record_root, std::move(document)});
-        pending.back().root_protocol = root_protocol_for_version(record.schema_version);
+        fold_authority_frame<FactRelationAdded>(
+            frame, state, pending, frame_tag, sequence, sequence_known, record_root,
+            [](const auto &record) { return fixed_string(record.relation_root); },
+            [](const auto &, const auto &root) { return root; },
+            [&](const auto &record, const auto &root) {
+              auto document = parse_fact_document("kungfu.fact.relation-add/v1",
+                                                  load_metadata(runtime_dir, root, "kungfu.fact.relation-add/v1"));
+              validate_fact_record_authority(
+                  document,
+                  relation_record_authority{fixed_string(record.relation_id), fixed_string(record.relation_type),
+                                            fixed_string(record.source_kind), fixed_string(record.source_id),
+                                            fixed_string(record.target_kind), fixed_string(record.target_id),
+                                            fixed_string(record.attributes_root),
+                                            fixed_string(record.admission_roots_root), root},
+                  root_protocol_for_version(record.schema_version));
+              return document;
+            });
         break;
       }
       case FactRelationRevoked::tag: {
-        FactRelationRevoked record{};
-        if (!decode_record(frame, record)) {
-          add_issue(state, frame_tag, 0, false, {}, "record-decode-failed",
-                    "Fact record is truncated or uses an unsupported schema version", "decode",
-                    "preserve-authority-and-upgrade-reader");
-          break;
-        }
-        sequence = record.sequence;
-        sequence_known = true;
-        record_root = fixed_string(record.revoke_root);
-        auto document = parse_fact_document("kungfu.fact.relation-revoke/v1",
-                                            load_metadata(runtime_dir, record_root, "kungfu.fact.relation-revoke/v1"));
-        validate_fact_record_authority(document,
-                                       revocation_record_authority{fixed_string(record.relation_root),
-                                                                   fixed_string(record.reason_root), record_root},
-                                       root_protocol_for_version(record.schema_version));
-        pending.push_back(
-            {FactRelationRevoked::tag, sequence, fixed_string(record.relation_root), record_root, std::move(document)});
-        pending.back().root_protocol = root_protocol_for_version(record.schema_version);
+        fold_authority_frame<FactRelationRevoked>(
+            frame, state, pending, frame_tag, sequence, sequence_known, record_root,
+            [](const auto &record) { return fixed_string(record.revoke_root); },
+            [](const auto &record, const auto &) { return fixed_string(record.relation_root); },
+            [&](const auto &record, const auto &root) {
+              auto document = parse_fact_document("kungfu.fact.relation-revoke/v1",
+                                                  load_metadata(runtime_dir, root, "kungfu.fact.relation-revoke/v1"));
+              validate_fact_record_authority(document,
+                                             revocation_record_authority{fixed_string(record.relation_root),
+                                                                         fixed_string(record.reason_root), root},
+                                             root_protocol_for_version(record.schema_version));
+              return document;
+            });
         break;
       }
       case FactCutCommitted::tag: {
-        FactCutCommitted record{};
-        if (!decode_record(frame, record)) {
-          add_issue(state, frame_tag, 0, false, {}, "record-decode-failed",
-                    "Fact record is truncated or uses an unsupported schema version", "decode",
-                    "preserve-authority-and-upgrade-reader");
-          break;
-        }
-        sequence = record.sequence;
-        sequence_known = true;
-        record_root = fixed_string(record.cut_root);
-        auto document =
-            parse_fact_document("kungfu.fact.cut/v1", load_metadata(runtime_dir, record_root, "kungfu.fact.cut/v1"));
-        validate_fact_record_authority(
-            document,
-            cut_record_authority{record_root, fixed_string(record.parent_cuts_root),
-                                 fixed_string(record.object_versions_root), fixed_string(record.active_relations_root),
-                                 fixed_string(record.declaration_roots_root), fixed_string(record.admission_roots_root),
-                                 fixed_string(record.episode_frontier_root), fixed_string(record.omission_roots_root),
-                                 fixed_string(record.conflict_roots_root)},
-            root_protocol_for_version(record.schema_version));
-        pending.push_back({FactCutCommitted::tag, sequence, record_root, record_root, std::move(document)});
-        pending.back().root_protocol = root_protocol_for_version(record.schema_version);
+        fold_authority_frame<FactCutCommitted>(
+            frame, state, pending, frame_tag, sequence, sequence_known, record_root,
+            [](const auto &record) { return fixed_string(record.cut_root); },
+            [](const auto &, const auto &root) { return root; },
+            [&](const auto &record, const auto &root) {
+              auto document =
+                  parse_fact_document("kungfu.fact.cut/v1", load_metadata(runtime_dir, root, "kungfu.fact.cut/v1"));
+              validate_fact_record_authority(
+                  document,
+                  cut_record_authority{
+                      root, fixed_string(record.parent_cuts_root), fixed_string(record.object_versions_root),
+                      fixed_string(record.active_relations_root), fixed_string(record.declaration_roots_root),
+                      fixed_string(record.admission_roots_root), fixed_string(record.episode_frontier_root),
+                      fixed_string(record.omission_roots_root), fixed_string(record.conflict_roots_root)},
+                  root_protocol_for_version(record.schema_version));
+              return document;
+            });
         break;
       }
       case FactRefTransition::tag: {
-        FactRefTransition record{};
-        if (!decode_record(frame, record)) {
-          add_issue(state, frame_tag, 0, false, {}, "record-decode-failed",
-                    "Fact record is truncated or uses an unsupported schema version", "decode",
-                    "preserve-authority-and-upgrade-reader");
-          break;
-        }
-        sequence = record.sequence;
-        sequence_known = true;
-        record_root = fixed_string(record.transition_root);
-        auto document = parse_fact_document("kungfu.fact.ref-transition/v1",
-                                            load_metadata(runtime_dir, record_root, "kungfu.fact.ref-transition/v1"),
-                                            record_root, record.expected_old_revision + 1);
-        validate_fact_record_authority(
-            document,
-            transition_record_authority{fixed_string(record.transition_id), fixed_string(record.ref_name),
-                                        fixed_string(record.expected_old_cut_root), record.expected_old_revision,
-                                        fixed_string(record.new_cut_root), fixed_string(record.transition_kind),
-                                        fixed_string(record.reason_root), record_root},
-            root_protocol_for_version(record.schema_version));
-        pending.push_back(
-            {FactRefTransition::tag, sequence, fixed_string(record.transition_id), record_root, std::move(document)});
-        pending.back().root_protocol = root_protocol_for_version(record.schema_version);
+        fold_authority_frame<FactRefTransition>(
+            frame, state, pending, frame_tag, sequence, sequence_known, record_root,
+            [](const auto &record) { return fixed_string(record.transition_root); },
+            [](const auto &record, const auto &) { return fixed_string(record.transition_id); },
+            [&](const auto &record, const auto &root) {
+              auto document = parse_fact_document("kungfu.fact.ref-transition/v1",
+                                                  load_metadata(runtime_dir, root, "kungfu.fact.ref-transition/v1"),
+                                                  root, record.expected_old_revision + 1);
+              validate_fact_record_authority(
+                  document,
+                  transition_record_authority{fixed_string(record.transition_id), fixed_string(record.ref_name),
+                                              fixed_string(record.expected_old_cut_root), record.expected_old_revision,
+                                              fixed_string(record.new_cut_root), fixed_string(record.transition_kind),
+                                              fixed_string(record.reason_root), root},
+                  root_protocol_for_version(record.schema_version));
+              return document;
+            });
         break;
       }
       case FactOperationReceipt::tag: {
