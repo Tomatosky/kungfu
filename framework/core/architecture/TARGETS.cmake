@@ -82,6 +82,9 @@ target_link_libraries(kungfu_storage_services PUBLIC kungfu_contracts)
 target_link_libraries(kungfu_storage_services PUBLIC ${KUNGFU_TARGET_KUNGFU_STORAGE_SERVICES_DEPENDENCIES})
 
 set(KUNGFU_EXTENSION_SERVICES_SOURCE_FILES
+  "${PROJECT_SOURCE_DIR}/src/runtime/action/action_canonical_json.cpp"
+  "${PROJECT_SOURCE_DIR}/src/runtime/action/action_contract_registry.cpp"
+  "${PROJECT_SOURCE_DIR}/src/runtime/action/action_geometry.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/kfx/native_contract.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/kfx/native_registry.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/profile/profile_lifecycle.cpp"
