@@ -29,7 +29,7 @@
           "pointer": {
             "kind": "file",
             "path": "framework/core/src/python/kungfu/agent/commands.json",
-            "sha256": "583295901ceaddc4a36920bed6a39a710458c124347af40f6ccc30c4ac55efbb"
+            "sha256": "013b70ce8a30c8109da275e51585f3ed5a6998a435d4769c3b147718c95a2715"
           },
           "description": "Machine-readable command catalog and mode maturity metadata."
         },
@@ -194,7 +194,7 @@
           "pointer": {
             "kind": "file",
             "path": "framework/core/src/python/kungfu/agent/commands.json",
-            "sha256": "583295901ceaddc4a36920bed6a39a710458c124347af40f6ccc30c4ac55efbb"
+            "sha256": "013b70ce8a30c8109da275e51585f3ed5a6998a435d4769c3b147718c95a2715"
           },
           "description": "Remote add/sync command declarations and mode metadata."
         },
@@ -274,7 +274,7 @@
           "pointer": {
             "kind": "file",
             "path": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
-            "sha256": "91294bb5d359299e2deda1a12d5629b599aaf20d2147816bab9f92098b5c813b"
+            "sha256": "02e26264c076a46374bd204525069fdd001e698febe0b35ef1fae6ca3a90fa9d"
           },
           "description": "Agent collaboration-interface registration for the work-model query."
         }

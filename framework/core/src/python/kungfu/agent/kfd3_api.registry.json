@@ -476,6 +476,17 @@
       "projections": ["commands.json", "agent-pack-doc"]
     },
     {
+      "id": "kungfu.exit.bundle",
+      "surface": "cli",
+      "name": "kungfu exit build --file <request.json> --json",
+      "aliases": ["kungfu exit inspect --file <package.json> --json", "kungfu exit import --file <package.json> [--execute --authorized-by <actor>] --json"],
+      "purpose": "Compose, inspect, validate, or explicitly import one scope-bound Exit package through the shared Core receipt path.",
+      "maturity": "experimental",
+      "visibility": "adjacent-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc"]
+    },
+    {
       "id": "kungfu.work.create",
       "surface": "cli",
       "name": "kungfu work create <title> --json",

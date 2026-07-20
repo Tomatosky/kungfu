@@ -35,6 +35,7 @@ from . import profile
 from . import lock
 from . import health
 from . import recover
+from . import exit
 
 __all__ = [
     "engage",
@@ -72,4 +73,5 @@ __all__ = [
     "lock",
     "health",
     "recover",
+    "exit",
 ]

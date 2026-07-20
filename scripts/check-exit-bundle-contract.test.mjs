@@ -250,7 +250,7 @@ test('registers one packaged KFD-1 Exit Bundle contract', () => {
   assert.equal(entry.weldedSurface, 'exit-bundle-contract');
   assert.equal(entry.contractSchemaRoot, schemaRoot(contract.contractSchema));
   assert.equal(contract.status.specification, 'accepted');
-  assert.equal(contract.status.composition, 'not-started');
+  assert.equal(contract.status.composition, 'implemented');
   assert.equal(contract.status.installedVerifier, 'not-qualified');
   assert.equal(contract.status.releaseQualification, 'not-qualified');
   const sourceRoot = `sha256:${crypto
@@ -279,6 +279,9 @@ test('embedded schemas validate the exact contract and full fixture', () => {
     JSON.stringify(validateContract.errors),
   );
   const validateManifest = ajv.compile(contract.manifestSchema);
+  ajv.compile(contract.requestSchema);
+  ajv.compile(contract.packageSchema);
+  ajv.compile(contract.receiptSchema);
   assert.equal(
     validateManifest(fixtures.base),
     true,

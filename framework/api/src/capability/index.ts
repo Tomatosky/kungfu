@@ -12,6 +12,7 @@ export * from './terminal.js';
 export * from './work.js';
 export * from './workspace.js';
 export * from './storage.js';
+export * from './exit.js';
 export * from './query.js';
 export * from './profile.js';
 export * from './agent-runtime.js';

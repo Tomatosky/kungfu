@@ -266,6 +266,24 @@
       "purpose": "Capture an Episode with an explicit Home or project target when ambient discovery should not decide."
     },
     {
+      "apiId": "kungfu.exit.bundle",
+      "name": "kungfu exit build --file <request.json> --json",
+      "maturity": "experimental",
+      "purpose": "Compose existing domain authority bundles into one scope-bound full or thin Exit package."
+    },
+    {
+      "apiId": "kungfu.exit.bundle",
+      "name": "kungfu exit inspect --file <package.json> --json",
+      "maturity": "experimental",
+      "purpose": "Verify the package root, manifest contract, opaque material bytes, and delegated domain roots without mutation."
+    },
+    {
+      "apiId": "kungfu.exit.bundle",
+      "name": "kungfu exit import --file <package.json> [--execute --authorized-by <actor>] --json",
+      "maturity": "experimental",
+      "purpose": "Validate by default or explicitly import after isolated full replay, returning landed, remaining, loss, and recovery evidence."
+    },
+    {
       "apiId": "kungfu.work.create",
       "name": "kungfu work create <title> --json",
       "maturity": "stable",

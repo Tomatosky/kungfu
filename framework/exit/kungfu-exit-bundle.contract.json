@@ -6,7 +6,7 @@
   "description": "Domain-neutral composition contract for verifiable, bounded exit bundles. Member domains retain their own schemas, roots, import semantics, and receipts.",
   "status": {
     "specification": "accepted",
-    "composition": "not-started",
+    "composition": "implemented",
     "installedVerifier": "not-qualified",
     "releaseQualification": "not-qualified"
   },
@@ -23,6 +23,9 @@
       "status",
       "contractSchema",
       "manifestSchema",
+      "requestSchema",
+      "packageSchema",
+      "receiptSchema",
       "authority",
       "vocabularies",
       "modeSemantics",
@@ -57,6 +60,15 @@
         "type": "object"
       },
       "manifestSchema": {
+        "type": "object"
+      },
+      "requestSchema": {
+        "type": "object"
+      },
+      "packageSchema": {
+        "type": "object"
+      },
+      "receiptSchema": {
         "type": "object"
       },
       "authority": {
@@ -573,6 +585,369 @@
           "detailRoot": {
             "$ref": "#/$defs/root"
           }
+        }
+      }
+    }
+  },
+  "requestSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://libkungfu.dev/schemas/kungfu.exit-bundle-request-v1.schema.json",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema",
+      "mode",
+      "scope",
+      "members"
+    ],
+    "properties": {
+      "schema": {
+        "const": "kungfu.exit-bundle-request/v1"
+      },
+      "bundleId": {
+        "type": "string",
+        "pattern": "^exit:[a-z0-9][a-z0-9._/-]{0,127}$"
+      },
+      "mode": {
+        "enum": [
+          "full",
+          "thin"
+        ]
+      },
+      "scope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "authority",
+          "schema",
+          "protocol"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "authority": {
+            "type": "string",
+            "minLength": 1
+          },
+          "schema": {
+            "type": "string",
+            "minLength": 1
+          },
+          "protocol": {
+            "type": "string",
+            "minLength": 1
+          },
+          "cutRoot": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/root"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "members": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "memberId",
+            "kind"
+          ],
+          "properties": {
+            "memberId": {
+              "$ref": "#/$defs/memberId"
+            },
+            "kind": {
+              "enum": [
+                "profile-source-v1",
+                "fact-authority-v2",
+                "fact-cut-portable-v1",
+                "storage-source-export-v1",
+                "episode-v1",
+                "fact-library-v1",
+                "mission-control-v2"
+              ]
+            },
+            "requiredForScope": {
+              "type": "boolean"
+            },
+            "options": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "requiredCapabilities": {
+        "$ref": "#/$defs/capabilitySet"
+      },
+      "equivalenceLevels": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "exact-physical-bytes",
+            "exact-record-roots",
+            "exact-semantic-state",
+            "rebuilt-projection-equivalence",
+            "declared-capability-equivalence"
+          ]
+        }
+      }
+    },
+    "$defs": {
+      "root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "memberId": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+      },
+      "capabilitySet": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "inspect",
+            "verify-inventory",
+            "verify-content",
+            "materialize",
+            "rebuild-projections",
+            "continue"
+          ]
+        }
+      }
+    }
+  },
+  "packageSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://libkungfu.dev/schemas/kungfu.exit-package-v1.schema.json",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema",
+      "manifest",
+      "materials",
+      "execution",
+      "packageRoot"
+    ],
+    "properties": {
+      "schema": {
+        "const": "kungfu.exit-package/v1"
+      },
+      "manifest": {
+        "type": "object",
+        "required": [
+          "schema",
+          "bundleRoot"
+        ],
+        "properties": {
+          "schema": {
+            "const": "kungfu.exit-bundle/v1"
+          },
+          "bundleRoot": {
+            "$ref": "#/$defs/root"
+          }
+        }
+      },
+      "materials": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object"
+        }
+      },
+      "execution": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "grantedPermissions"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "minLength": 1
+            },
+            "grantedPermissions": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "profileSuiteRoot": {
+              "$ref": "#/$defs/root"
+            },
+            "requiresProfileSuiteRoot": {
+              "$ref": "#/$defs/root"
+            },
+            "deferContractMaterialization": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "packageRoot": {
+        "$ref": "#/$defs/root"
+      }
+    },
+    "$defs": {
+      "root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      }
+    }
+  },
+  "receiptSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://libkungfu.dev/schemas/kungfu.exit-import-receipt-v1.schema.json",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema",
+      "status",
+      "ok",
+      "execute",
+      "bundleId",
+      "bundleRoot",
+      "packageRoot",
+      "alreadyPresent",
+      "writtenMembers",
+      "remainingMembers",
+      "memberReceipts",
+      "omissions",
+      "loss",
+      "residualRisk",
+      "recoveryNextAction",
+      "failure",
+      "receiptRoot"
+    ],
+    "properties": {
+      "schema": {
+        "const": "kungfu.exit-import-receipt/v1"
+      },
+      "status": {
+        "enum": [
+          "validated",
+          "imported",
+          "already_present",
+          "partial",
+          "rejected"
+        ]
+      },
+      "ok": {
+        "type": "boolean"
+      },
+      "execute": {
+        "type": "boolean"
+      },
+      "bundleId": {
+        "type": "string",
+        "pattern": "^exit:[a-z0-9][a-z0-9._/-]{0,127}$"
+      },
+      "bundleRoot": {
+        "$ref": "#/$defs/root"
+      },
+      "packageRoot": {
+        "$ref": "#/$defs/root"
+      },
+      "alreadyPresent": {
+        "$ref": "#/$defs/memberIds"
+      },
+      "writtenMembers": {
+        "$ref": "#/$defs/memberIds"
+      },
+      "remainingMembers": {
+        "$ref": "#/$defs/memberIds"
+      },
+      "memberReceipts": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "memberId",
+            "kind",
+            "receipt"
+          ],
+          "properties": {
+            "memberId": {
+              "$ref": "#/$defs/memberId"
+            },
+            "kind": {
+              "type": "string",
+              "minLength": 1
+            },
+            "receipt": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "omissions": {
+        "type": "array",
+        "items": {
+          "type": "object"
+        }
+      },
+      "loss": {
+        "type": "array",
+        "items": {
+          "type": "object"
+        }
+      },
+      "residualRisk": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "recoveryNextAction": {
+        "type": "string",
+        "minLength": 1
+      },
+      "failure": {
+        "anyOf": [
+          {
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "receiptRoot": {
+        "$ref": "#/$defs/root"
+      }
+    },
+    "$defs": {
+      "root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "memberId": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$"
+      },
+      "memberIds": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/memberId"
         }
       }
     }
