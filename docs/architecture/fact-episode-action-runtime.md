@@ -138,7 +138,7 @@ containment hierarchy.
 | --- | --- | --- |
 | Storage kernel | immutable bodies, typed records, refs, relations, cuts, receipts, integrity | product workflow vocabulary |
 | Runtime substrate | Fact admission/query and Episode lifecycle/replay | Mission/Go policy or UI defaults |
-| Action Geometry | Pursuit, Atlas, Warrant responsibility boundaries, typed relations, non-substitution invariants, and session refinement | domain field or lifecycle vocabulary |
+| Action Geometry (cross-domain responsibility model) | Pursuit, Atlas, Warrant responsibility boundaries, typed relations, non-substitution invariants, and session refinement | domain field or lifecycle vocabulary |
 | Domain Profiles | Mission/Go and other domain fields, lifecycle, defaults, validation, presentation, and success policy | independent storage semantics or redefinition of Action Geometry |
 | Projections | Git, JSON, CLI, GUI, Python, Node, bundles | hidden authority |
 
@@ -163,6 +163,13 @@ They are the transitional combined-v1 implementation, not a second storage
 stack or a KFD normative definition. ADR-0123 requires future machine
 discovery to expose an exact `actionGeometryRoot`, `domainProfileRoot`, and
 per-role `roleSchemaRoots` without reinterpreting existing roots.
+
+Action Geometry names semantic responsibility, not physical topology. One
+record, type, API, process, or interface may carry several role mappings when
+their sources, cuts, versions, authority, and derivations remain independently
+inspectable and counterfactually distinguishable. Architecture and
+qualification checks therefore test mappings and prohibited inferences, not
+the number of implementation components.
 
 ## Semantic identity
 
