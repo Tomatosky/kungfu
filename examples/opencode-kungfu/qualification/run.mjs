@@ -336,6 +336,20 @@ async function main() {
     );
     const bundlePath = path.join(outputDir, 'episode-bundle.json');
     fs.writeFileSync(bundlePath, `${bundleJson}\n`);
+    const projectCutBundleJson = binding.runStorageTransferOperationJson(
+      'export_bundle',
+      runtimeDir,
+      JSON.stringify({
+        scope: 'episode',
+        episode_id: episodeId,
+        thin: true,
+      }),
+    );
+    const projectCutBundlePath = path.join(
+      outputDir,
+      'episode-project-cut-bundle.json',
+    );
+    fs.writeFileSync(projectCutBundlePath, `${projectCutBundleJson}\n`);
     const sourceFsck = binding.storageFsckTyped(runtimeDir, {});
     assert.equal(sourceFsck.ok, true);
     const episodeFsck = binding.storageFsckTyped(runtimeDir, {
@@ -417,6 +431,11 @@ async function main() {
           path: path.basename(episodeQualificationPath),
           sha256: sha256File(episodeQualificationPath),
           status: episodeFsck.qualification.status,
+        },
+        projectCutBundle: {
+          path: path.basename(projectCutBundlePath),
+          sha256: sha256File(projectCutBundlePath),
+          thin: true,
         },
         import: {
           ok: imported.ok,

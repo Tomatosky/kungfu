@@ -16,11 +16,14 @@ exports and imports the Episode, runs source and destination fsck, records hook
 latency, and binds the result to the independently verified KFD Runtime 100
 report for the exact frozen adapter.
 
-The retained output includes `episode-bundle.json` and the matching
-`episode-qualification.json`. The latter is the complete native
-`storageFsckTyped` response for the exact unsigned 64-bit Episode identifier,
-so Project Cut can verify and seal the real qualification Episode without
-reconstructing it through a JavaScript `number`.
+The retained output includes the self-contained portability artifact
+`episode-bundle.json`, the public thin
+`episode-project-cut-bundle.json`, and the matching
+`episode-qualification.json`. The qualification is the complete native
+`storageFsckTyped` response for the exact unsigned 64-bit Episode identifier.
+Project Cut consumes the thin bundle, which excludes journal bytes and private
+material, and therefore does not need to reconstruct the identifier through a
+JavaScript `number`.
 
 Run after building and freezing the exact source and producing the KFD adapter
 qualification:
