@@ -74,7 +74,8 @@
         "kungfu_profile_lifecycle_tests",
         "kungfu_bounded_sql_parser_tests",
         "kungfu_native_kfx_contract_tests",
-        "kungfu_action_geometry_tests"
+        "kungfu_action_geometry_tests",
+        "kungfu_domain_profile_tests"
       ],
       "tokens": {
         "kungfu": "${LIBKUNGFU_NAME}"
@@ -997,7 +998,8 @@
       "contract_tests": [
         "kungfu_native_kfx_contract_tests",
         "kungfu_profile_lifecycle_tests",
-        "kungfu_action_geometry_tests"
+        "kungfu_action_geometry_tests",
+        "kungfu_domain_profile_tests"
       ]
     },
     {
@@ -1184,7 +1186,8 @@
         "kungfu_public_headers_libkungfu_cxx_source_surface",
         "kungfu_public_headers_libyijinjing_source_embedding_surface",
         "kungfu_public_contract_compatibility_tests",
-        "kungfu_action_geometry_tests"
+        "kungfu_action_geometry_tests",
+        "kungfu_domain_profile_tests"
       ],
       "entry_points": [
         "src/libkungfu/tests/domain_component_link_tests.cpp",
