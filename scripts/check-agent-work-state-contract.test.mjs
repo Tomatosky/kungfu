@@ -40,7 +40,7 @@ const canonicalPolicy = readJson(
 );
 const fixtureManifest = readJson('framework/agent-work/fixtures/manifest.json');
 
-test('registers one four-role welded contract with bounded claims', () => {
+test('registers one layered Agent Work contract with bounded claims', () => {
   const entry = registry.contracts.find(
     (candidate) => candidate.surface === 'agent-work-state',
   );
@@ -78,6 +78,14 @@ test('registers one four-role welded contract with bounded claims', () => {
     contract.roles.map((role) => role.id),
     contract.roleOrder,
   );
+  assert.deepEqual(contract.semanticLayers.ontology, {
+    name: 'Fact-Episode Ontology',
+    bindings: ['fact', 'episode'],
+  });
+  assert.deepEqual(contract.semanticLayers.actionGeometry, {
+    name: 'Action Geometry',
+    mappings: ['pursuit', 'atlas', 'warrant'],
+  });
   assert.equal(contract.status.runtimeProjection, 'partial');
   assert.equal(contract.status.releaseQualification, 'not-qualified');
   assert.equal(contract.qualification.status, 'not-qualified');

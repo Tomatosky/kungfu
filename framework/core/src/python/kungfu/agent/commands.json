@@ -35,7 +35,7 @@
       "apiId": "kungfu.agent.work.capabilities",
       "name": "kungfu agent work capabilities --json",
       "maturity": "experimental",
-      "purpose": "Discover five responsibility roles, Product Profile transitions, typed denials, and authority boundaries."
+      "purpose": "Discover two ontology bindings, three Action Geometry mappings, Domain Profile transitions, typed denials, and authority boundaries."
     },
     {
       "apiId": "kungfu.agent.work.session",

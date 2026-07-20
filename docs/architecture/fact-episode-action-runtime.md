@@ -12,8 +12,11 @@ authority or claim authority cutover or P17 release qualification.
 The sources of authority remain:
 
 - [ADR-0109](../adr/ADR-0109-four-object-agent-work-state-contract.md) for the
-  accepted product rule that Pursuit, Atlas, Warrant, and Episode remain
-  independently addressable roles;
+  accepted combined-v1 product rule that Pursuit, Atlas, Warrant, and Episode
+  remain independently addressable;
+- [ADR-0125](../adr/ADR-0125-fact-episode-ontology-and-action-geometry.md) for
+  the current distinction between the Fact-Episode Ontology and the three
+  Action Geometry Primitives;
 - [ADR-0112](../adr/ADR-0112-backend-neutral-fact-cut-kernel.md) and
   [`kungfu-fact-cut-kernel.contract.json`](../../framework/fact/kungfu-fact-cut-kernel.contract.json)
   for the accepted domain-neutral Fact object, version, relation, Cut, ref,
@@ -41,10 +44,14 @@ between those boundaries, not a second semantic registry or a release claim.
 
 ## Design thesis
 
-Kungfu should model real-world agent work on two runtime substrates:
+KFD-7 names the semantic foundation the **Fact-Episode Ontology**:
 
 - **Fact** preserves admitted state under an explicit cut.
-- **Episode** preserves bounded causal experience across cuts.
+- **Episode** preserves realized causal occurrence across cuts.
+
+Kungfu realizes that ontology through two runtime substrates: journal-backed
+Fact admission/query and Episode lifecycle/replay. "Runtime substrate" is the
+implementation term; it does not replace the normative ontology.
 
 Three cross-domain action roles are then expressed over Facts:
 
@@ -75,11 +82,12 @@ It is an immutable intersection receipt: changing any input root produces a
 different binding, and an Episode can record use of a binding without making
 an invalid decision valid.
 
-ADR-0109 still exposes four roles to the Agent Work Domain Profile. This design
-adds a lower-level architectural distinction: Episode is both the fourth
-independently addressable work role and the temporal substrate that records
-movement among Fact cuts. That distinction must not erase Episode identity or
-allow Pursuit, Atlas, or Warrant to stand in for occurrence.
+ADR-0109 still exposes a four-value combined-v1 compatibility surface to the
+Agent Work Domain Profile. The current semantic model classifies those values
+differently: Episode is the ontology binding that records realized movement
+among Fact cuts, while Pursuit, Atlas, and Warrant are the three Action
+Geometry mappings. That distinction must not erase Episode identity or allow
+any action Primitive to stand in for occurrence.
 
 ## Canonical relationship and ordering
 
@@ -103,7 +111,7 @@ This creates three different orderings that must not be collapsed:
                        append-only journal authority
                          /                     \
                         /                       \
-       Fact substrate: admitted state      Episode substrate: causal experience
+       Fact substrate: admitted state      Episode substrate: causal occurrence
           at explicit Cuts                    across those Cuts
                   |
         Pursuit / Atlas / Warrant
@@ -137,8 +145,9 @@ containment hierarchy.
 | Layer | Owns | Must not own |
 | --- | --- | --- |
 | Storage kernel | immutable bodies, typed records, refs, relations, cuts, receipts, integrity | product workflow vocabulary |
-| Runtime substrate | Fact admission/query and Episode lifecycle/replay | Mission/Go policy or UI defaults |
-| Action Geometry (cross-domain responsibility model) | Pursuit, Atlas, Warrant responsibility boundaries, typed relations, non-substitution invariants, and session refinement | domain field or lifecycle vocabulary |
+| Fact-Episode Ontology | admitted state and realized causal occurrence | direction, perspective, authority, or domain policy |
+| Runtime substrate | journal-backed Fact admission/query and Episode lifecycle/replay | a second ontology, Mission/Go policy, or UI defaults |
+| Action Geometry (cross-domain responsibility model) | Pursuit, Atlas, Warrant responsibility boundaries, typed relations, non-substitution invariants, and session refinement | Fact/Episode authority or domain field and lifecycle vocabulary |
 | Domain Profiles | Mission/Go and other domain fields, lifecycle, defaults, validation, presentation, and success policy | independent storage semantics or redefinition of Action Geometry |
 | Projections | Git, JSON, CLI, GUI, Python, Node, bundles | hidden authority |
 
@@ -150,9 +159,9 @@ one Agent Work Domain Profile:
 
 - the generic Fact kernel remains the sole owner of object ids, immutable
   versions, typed relations, Cuts, ref CAS, and kernel receipts;
-- `kungfu agent work action` validates the five responsibility bindings and
-  the Pursuit, Atlas, Warrant, Episode, or Fact transition before issuing
-  generic kernel writes;
+- `kungfu agent work action` validates two ontology bindings and three action
+  mappings, plus the applicable Pursuit, Atlas, Warrant, Episode, or Fact
+  transition, before issuing generic kernel writes;
 - one final native ref CAS is the public commit point, while a denied CAS
   reports any immutable prerequisite records that were already appended; and
 - `kungfu agent work inspect` requests immutable bodies explicitly, so the
@@ -164,8 +173,9 @@ stack or a KFD normative definition. ADR-0123 requires future machine
 discovery to expose an exact `actionGeometryRoot`, `domainProfileRoot`, and
 per-role `roleSchemaRoots` without reinterpreting existing roots.
 
-Action Geometry names semantic responsibility, not physical topology. One
-record, type, API, process, or interface may carry several role mappings when
+Action Geometry names three semantic action responsibilities, not physical
+topology. One record, type, API, process, or interface may carry several
+ontology bindings and action mappings when
 their sources, cuts, versions, authority, and derivations remain independently
 inspectable and counterfactually distinguishable. Architecture and
 qualification checks therefore test mappings and prohibited inferences, not
@@ -194,9 +204,10 @@ trust.
 The first executable Agent Work Domain Profile schema and semantic fixtures
 live beside the public work-state contract. They deliberately remain above the
 storage kernel: Core provides roots, cuts, relations, receipts, and Episode
-identity; Action Geometry preserves responsibility separation and cross-role
-invariants; the Domain Profile decides which fields, lifecycle states, and
-domain predicates constitute a valid action.
+identity; the Fact-Episode Ontology distinguishes admitted state from realized
+occurrence; Action Geometry preserves the three action responsibilities and
+cross-role invariants; the Domain Profile decides which fields, lifecycle
+states, and domain predicates constitute a valid action.
 
 ## Storage architecture
 
@@ -379,8 +390,8 @@ qualification plan.
 
 ## Open questions
 
-- Which relations belong in the Action Geometry closed set, and which remain
-  Domain Profile-defined schemas?
+- Which relations belong to the Fact-Episode Ontology or Action Geometry
+  closed sets, and which remain Domain Profile-defined schemas?
 - What is the minimum Warrant kernel that supports both local agent work and
   higher-consequence domains without importing their policy?
 - How should a single Episode reference several Pursuits or Warrants without

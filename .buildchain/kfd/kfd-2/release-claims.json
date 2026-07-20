@@ -29,7 +29,7 @@
           "pointer": {
             "kind": "file",
             "path": "framework/core/src/python/kungfu/agent/commands.json",
-            "sha256": "dba620780a20104ea289cd79e037670c051eb8ca1419d46ae362129bbc866602"
+            "sha256": "ebcd87f9dee4e92206cb7cf4eb42a988b93753aee53862798bc8c6a9ccf19ec1"
           },
           "description": "Machine-readable command catalog and mode maturity metadata."
         },
@@ -38,7 +38,7 @@
           "pointer": {
             "kind": "file",
             "path": "framework/core/src/python/kungfu/agent/cli_surface.catalog.json",
-            "sha256": "0bdad23ca069b4c0d163e8bbf2fd37f4ad1879e1064288e3254c041a9552ed89"
+            "sha256": "c76ca77f663cfe11bd24ed6e00aaa00b4b3305282ee75a52e4e7eb0baa4bda1f"
           },
           "description": "Complete deterministic CLI surface graph shared by offline Agent capabilities and catalog parity checks."
         },
@@ -212,7 +212,7 @@
           "pointer": {
             "kind": "file",
             "path": "framework/core/src/python/kungfu/agent/commands.json",
-            "sha256": "dba620780a20104ea289cd79e037670c051eb8ca1419d46ae362129bbc866602"
+            "sha256": "ebcd87f9dee4e92206cb7cf4eb42a988b93753aee53862798bc8c6a9ccf19ec1"
           },
           "description": "Remote add/sync command declarations and mode metadata."
         },
@@ -257,7 +257,7 @@
       "source": {
         "kind": "file",
         "path": "framework/agent-work/kungfu-agent-work-state.contract.json",
-        "sha256": "69d87b9a6cd5efd7c9a4af03dd40fd94fd162d927cb04619c218f1f698ca5c5e"
+        "sha256": "0b3198e529735c3a9e4ddba250d6e7bf3eb532395021a6c2d78e4a66d35588ae"
       },
       "evidence": [
         {
@@ -274,7 +274,7 @@
           "pointer": {
             "kind": "file",
             "path": "scripts/check-agent-work-state-contract.test.mjs",
-            "sha256": "9e1cc36c91b22c051e44848b3f1811c975027f15806ee12eac0fe85c5051c436"
+            "sha256": "e1badbe1d3f73b51cb8664590340c0296a63f4680690e02325ed8f126ea64938"
           },
           "description": "Source, package, KFD-2, and KFD-3 projection checks."
         },
@@ -292,7 +292,7 @@
           "pointer": {
             "kind": "file",
             "path": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
-            "sha256": "732c9d8bfee2aeb7f09f6ca5dc5561bb73a9a254767c310f45f2b096832687ae"
+            "sha256": "f786fd06eadf2a1f7704e7b49e821d689f4b60f73274e4952f5546c96a0e122f"
           },
           "description": "Agent collaboration-interface registration for the work-model query."
         }

@@ -3,6 +3,15 @@
   "canonicalReference": "docs/concepts/vocabulary.md",
   "layers": [
     {
+      "id": "contract-world-ontology",
+      "heading": "Contract-world ontology",
+      "terms": [
+        {
+          "name": "Fact-Episode Ontology"
+        }
+      ]
+    },
+    {
       "id": "substrates",
       "heading": "Runtime substrates",
       "terms": [

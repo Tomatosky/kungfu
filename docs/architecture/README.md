@@ -7,6 +7,9 @@ successor membrane, see
 For the boundary between cross-domain Action Geometry and adopter-owned Domain
 Profiles, see
 [ADR-0123](../adr/ADR-0123-action-geometry-domain-profile-separation.md).
+For the distinction between the Fact-Episode Ontology and the three Action
+Geometry Primitives, see
+[ADR-0125](../adr/ADR-0125-fact-episode-ontology-and-action-geometry.md).
 
 This section owns the current system structure and the boundaries between the
 journal, runtime, services, language adapters, SDK, extensions, and skills.

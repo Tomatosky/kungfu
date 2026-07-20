@@ -4784,7 +4784,7 @@
         "module": "kungfu.cli.commands.agent",
         "symbol": "work_capabilities"
       },
-      "summary": "Discover five responsibility roles, Product Profile transitions, typed denials, and authority boundaries.",
+      "summary": "Discover two ontology bindings, three Action Geometry mappings, Domain Profile transitions, typed denials, and authority boundaries.",
       "visibility": "public"
     },
     {

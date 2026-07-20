@@ -3,7 +3,7 @@
   "id": "kungfu-agent-work-state",
   "version": 2,
   "weldedSurface": "agent-work-state-contract",
-  "description": "Public four-role contract for preserving intent continuity, declared perspective, bounded authority, and causal experience in real-world agent work.",
+  "description": "Public combined-v1 compatibility contract for binding Fact and Episode ontology to Pursuit, Atlas, and Warrant Action Geometry in real-world agent work.",
   "status": {
     "specification": "implemented",
     "runtimeProjection": "partial",
@@ -74,6 +74,60 @@
           },
           "releaseQualification": {
             "const": "not-qualified"
+          }
+        }
+      },
+      "semanticLayers": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ontology",
+          "actionGeometry",
+          "compatibility"
+        ],
+        "properties": {
+          "ontology": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "bindings"
+            ],
+            "properties": {
+              "name": {
+                "const": "Fact-Episode Ontology"
+              },
+              "bindings": {
+                "const": [
+                  "fact",
+                  "episode"
+                ]
+              }
+            }
+          },
+          "actionGeometry": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "mappings"
+            ],
+            "properties": {
+              "name": {
+                "const": "Action Geometry"
+              },
+              "mappings": {
+                "const": [
+                  "pursuit",
+                  "atlas",
+                  "warrant"
+                ]
+              }
+            }
+          },
+          "compatibility": {
+            "type": "string",
+            "minLength": 1
           }
         }
       },
@@ -1388,6 +1442,24 @@
       }
     }
   },
+  "semanticLayers": {
+    "ontology": {
+      "name": "Fact-Episode Ontology",
+      "bindings": [
+        "fact",
+        "episode"
+      ]
+    },
+    "actionGeometry": {
+      "name": "Action Geometry",
+      "mappings": [
+        "pursuit",
+        "atlas",
+        "warrant"
+      ]
+    },
+    "compatibility": "The v2 roleOrder and roles fields retain the combined-v1 four-value surface. Episode remains readable there but is classified as an ontology binding rather than a fourth Action Geometry Primitive."
+  },
   "roleOrder": [
     "pursuit",
     "atlas",
@@ -1609,7 +1681,7 @@
     "continue-revise-pause-escalate-or-stop"
   ],
   "progressiveDisclosure": {
-    "rule": "Preserve all four roles in the system; expose only the complexity required by the current consequence.",
+    "rule": "Preserve two ontology bindings and three action mappings in the system; expose only the complexity required by the current consequence.",
     "lowConsequenceDefaults": {
       "pursuit": "current inbox or work item",
       "atlas": "current workspace and declared source cut",
@@ -1664,7 +1736,7 @@
       {
         "id": "FO1",
         "status": "qualified",
-        "evidenceRequired": "Retained generic Fact dogfood persists independently queryable identities and non-inheriting relations for all four roles."
+        "evidenceRequired": "Retained generic Fact dogfood persists independently queryable Pursuit, Atlas, Warrant, and Episode identities and non-inheriting relations over exact Fact Cuts."
       },
       {
         "id": "FO2",
@@ -1705,14 +1777,15 @@
     "releaseRule": "Contract projection is a qualification starting point and never by itself passes P17."
   },
   "guarantees": [
-    "The four roles are named and semantically separable.",
+    "The Fact-Episode ontology bindings and three Action Geometry mappings are named and semantically separable.",
+    "The current combined-v1 four-value role surface is explicitly classified without reinterpreting its identity.",
     "Current implementation mappings and their maturity are machine-readable.",
     "Invalid cross-role inferences are explicit and fail-visible.",
     "Human and agent entrypoints resolve to this same welded contract."
   ],
   "nonClaims": [
-    "The four-role names are permanent.",
-    "Every workflow must display all four roles.",
+    "The combined-v1 four-value role surface is the final successor interface.",
+    "Every workflow must display all five bindings and mappings.",
     "P17 is release-qualified.",
     "The model is universal for every organization.",
     "The Independent Action State candidate is an adopted numbered KFD.",

@@ -1,52 +1,55 @@
 # Agent Work State
 
-Agent Work is Kungfu's first **Domain Profile** over **Action Geometry**, the
-cross-domain responsibility model for real-world action defined by KFD-7 and
-ADR-0123. Action Geometry preserves the responsibility boundaries and
-non-substitution invariants below; this Domain Profile owns the concrete work
+Agent Work is Kungfu's first **Domain Profile** over the **Fact-Episode
+Ontology** and **Action Geometry** defined by KFD-7, ADR-0123, and ADR-0125.
+Fact and Episode bind admitted state and realized causal occurrence. Action
+Geometry preserves the Pursuit, Atlas, and Warrant responsibility boundaries
+and non-substitution invariants; this Domain Profile owns the concrete work
 fields, lifecycle vocabulary, defaults, validation, evidence policy, and
-presentation. Pursuit, Atlas, and Warrant are Action Primitives, not Profiles.
+presentation.
 
-Real-world agent work stays coherent when four different questions have four
-independently inspectable answers:
+Real-world agent work stays coherent when five inspectable bindings answer two
+ontology questions and three action questions:
 
-| Role | Question it answers |
-| --- | --- |
-| **Pursuit** | What intended change are we continuing, and what would count as success? |
-| **Atlas** | From whose perspective, from which sources, and at what cut are we understanding reality? |
-| **Warrant** | Who may do which bounded action against which exact state and constraints? |
-| **Episode** | What actually occurred, with which inputs, observations, consequences, and provenance? |
+| Layer | Binding | Question it answers |
+| --- | --- | --- |
+| Ontology | **Fact** | What state has been admitted at the declared Cut? |
+| Ontology | **Episode** | What actually occurred, with which inputs, observations, consequences, and provenance? |
+| Action Geometry | **Pursuit** | What intended change are we continuing, and what would count as success? |
+| Action Geometry | **Atlas** | From whose perspective, from which sources, and at what cut are we understanding reality? |
+| Action Geometry | **Warrant** | Who may do which bounded action against which exact state and constraints? |
 
 The machine authority for the definitions, relations, implementation mappings,
 invalid inferences, defaults, and qualification status is
 [`kungfu-agent-work-state.contract.json`](../../framework/agent-work/kungfu-agent-work-state.contract.json).
 This page is its human route, not a second specification.
 
-## How the four roles use the runtime substrates
+## How the two-plus-three model uses the runtime substrates
 
-The four-role product model and the lower runtime ontology answer different
-questions:
+The current semantic model distinguishes ontology from action:
 
 ```text
-Fact substrate
+Fact-Episode Ontology
+  -> Fact substrate: admitted state at explicit Cuts
+  -> Episode substrate: causal experience across Fact Cuts
+
+Action Geometry over an exact Fact Cut
   -> Pursuit: intent continuity and success conditions
   -> Atlas: declared perspective, sources, and Cut
   -> Warrant: bounded authority and responsibility
-
-Episode substrate
-  -> causal experience of what occurred across Fact Cuts
 ```
 
 Pursuit, Atlas, and Warrant are not three special databases or aliases for any
 arbitrary Fact. They are independently identified action objects whose
 versions, relations, and current views use the generic Fact kernel. Episode is
-both the fourth independently addressable Agent Work role and the temporal
-substrate. It may produce evidence for new Facts but cannot substitute for
-state, perspective, authority, or completion.
+the independently addressable occurrence binding and temporal runtime
+substrate, not a fourth Action Geometry Primitive. It may produce evidence for
+new Facts but cannot substitute for state, perspective, authority, or
+completion.
 
 ## Identity, versions, and one action
 
-Each Fact-backed role separates three things:
+Each Fact-backed action Primitive separates three things:
 
 ```text
 stable role identity
@@ -90,10 +93,11 @@ is missing or stale. It must not reconstruct the missing fact from chat,
 provider memory, or a nearby object.
 
 Separation here is semantic. A single stored document, service call, command,
-or interface may carry several roles when each mapping remains traceable and
+or interface may carry several bindings and mappings when each remains
+traceable and
 can be varied, invalidated, expired, revoked, or made stale without silently
 changing the others. Qualification tests those counterfactual and negative
-cases. It does not require four physical objects, APIs, forms, or interface
+cases. It does not require five physical objects, APIs, forms, or interface
 components.
 
 ## The work loop
@@ -118,7 +122,7 @@ Warrant  -> explicit standing low-risk local authority
 Episode  -> automatically opened and sealed action record
 ```
 
-A low-risk flow may present one action instead of four forms. Its defaults must
+A low-risk flow may present one action instead of five forms. Its defaults must
 remain inspectable, replaceable, exportable, and independently invalidatable.
 External effects, uncertain evidence, delegation, consequential execution, and
 handoff reveal the additional roots required by their consequence.
@@ -154,8 +158,9 @@ kungfu contract show agent-work-state --json
 kungfu agent capabilities --json
 ```
 
-The provisional combined-v1 implementation adds an independently queryable
-Fact mapping beside Pursuit, Atlas, Warrant, and Episode. Every mutation uses
+The provisional combined-v1 implementation exposes five mappings through a
+legacy `roles` surface: Fact and Episode are ontology bindings, while Pursuit,
+Atlas, and Warrant are Action Geometry mappings. Every mutation uses
 `kungfu.kfd7.profile-action/v1` and returns
 `kungfu.kfd7.profile-action-receipt/v1`; the same installed CLI path is used
 by Python, Node, Agent, and GUI adapters. Product transition names remain an
@@ -190,10 +195,11 @@ has passed.
 ## Qualification status
 
 The contract remains below product gate P17. Retained generic Fact kernel
-dogfood now qualifies `FO1`, `FO2`, and `FO6`: all four roles have independent
-persisted identities and relations, one real qualification work item reaches a
-sealed successor Cut, and two exact-root files support no-chat review plus
-clean-runtime continuation. `FO3` and `FO7` are partial; fresh-product
+dogfood now qualifies `FO1`, `FO2`, and `FO6`: Pursuit, Atlas, Warrant, and
+Episode have independent persisted identities and relations over exact Fact
+Cuts, one real qualification work item reaches a sealed successor Cut, and two
+exact-root files support no-chat review plus clean-runtime continuation. `FO3`
+and `FO7` are partial; fresh-product
 progressive disclosure, GUI/TUI parity, sustained multi-work-item dogfood,
 generic Warrant maturity, and release binding remain explicit debt. Inspect the
 machine contract and retained report rather than inferring P17 from this prose.
@@ -210,6 +216,6 @@ Schema closure and semantic fixtures strengthen the contract but do not
 qualify native persistence, recovery, product interaction, or sustained
 dogfood. The release status therefore remains explicitly `not-qualified`.
 
-Kungfu does not currently claim that the four names are permanent, that every
-workflow must display all four roles, that the model is universal for every
-organization, or that it is an adopted numbered KFD.
+Kungfu does not currently claim that every workflow must display all five
+bindings, that the model is universal for every organization, or that current
+combined-v1 labels are the final successor interface.

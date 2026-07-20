@@ -16,6 +16,9 @@ from the registry instead of maintaining another rule copy.
 The hierarchy is intentional:
 
 ```text
+contract-world ontology
+  Fact-Episode Ontology
+
 runtime substrates
   Fact / Episode
 
@@ -37,6 +40,22 @@ operations
 domain profiles
   Agent Work / Trading / Games and Virtual Worlds / future profiles
 ```
+
+## Contract-world ontology
+
+### Fact-Episode Ontology
+
+**Definition:** The contract-world distinction between admitted state and
+realized causal occurrence. Facts define admitted state at an explicit Cut.
+Episodes preserve the realized causal path between declared Cuts.
+
+**Boundary:** This ontology does not claim an observer-independent model of all
+reality. It defines the two semantic categories that Kungfu must preserve
+before Action Geometry or a Domain Profile can interpret work.
+
+**Implementation:** Kungfu realizes the ontology through its Fact/Episode
+runtime substrates. "Runtime substrate" names the journal, content, admission,
+query, lifecycle, and replay support; it is not a competing normative term.
 
 ## Runtime substrates
 
@@ -247,15 +266,16 @@ cannot create Facts, expand authority, or silently execute a Decision.
 ### Action Geometry
 
 **Definition:** The cross-domain responsibility model for real-world action. It
-keeps Fact, Episode, Pursuit, Atlas, and Warrant responsibilities independently
-addressable and defines their non-substitution invariants and conservative
-session projection.
+keeps Pursuit, Atlas, and Warrant independently addressable as direction,
+perspective, and authority over the Fact-Episode Ontology, and defines their
+non-substitution invariants and conservative session projection.
 
 **Boundary:** Action Geometry does not prescribe domain fields, lifecycle
 vocabulary, storage layout, API count, process count, or interface shape.
-Several responsibilities may share one physical representation when their
-sources, cuts, versions, authority, derivations, and invalidation remain
-semantically distinguishable and traceable.
+Episode is not a fourth Action Geometry Primitive, and Fact is not another
+action role. Several bindings and mappings may share one physical
+representation when their sources, cuts, versions, authority, derivations, and
+invalidation remain semantically distinguishable and traceable.
 
 ### Domain Profile
 
