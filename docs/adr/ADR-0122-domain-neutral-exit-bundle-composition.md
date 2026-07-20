@@ -3,7 +3,8 @@ metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
 adr_id: ADR-0122
 decision_status: accepted
-implementation_status: not-started
+implementation_status: staged
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1150]
 qualification_refs: [framework/exit/kungfu-exit-bundle.contract.json, tests/fixtures/exit-bundle-contract/cases.json, scripts/check-exit-bundle-contract.test.mjs]
 review_state: self-reviewed
 sensitivity: public
