@@ -4,8 +4,8 @@ doc_type: architecture-decision
 adr_id: ADR-0122
 decision_status: accepted
 implementation_status: staged
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1150]
-qualification_refs: [framework/exit/kungfu-exit-bundle.contract.json, tests/fixtures/exit-bundle-contract/cases.json, scripts/check-exit-bundle-contract.test.mjs]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1150, https://github.com/kungfu-systems/kungfu/pull/1154]
+qualification_refs: [framework/exit/kungfu-exit-bundle.contract.json, framework/core/src/python/kungfu/exit_verifier.py, tests/fixtures/exit-bundle-contract/cases.json, scripts/check-exit-bundle-contract.test.mjs, docs/guides/exit-and-version-compatibility.md, docs/qualification/evidence/exit-clean-runtime/520a61af87/report.json, docs/qualification/evidence/provider-migration-product/bb6f4a42c1/report.json]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -14,15 +14,15 @@ theme: domain-neutral-exit-bundle-composition
 confidence: high
 evidence_grade: B
 last_reviewed: 2026-07-20
-ai_provenance: GPT-5 via Codex on 2026-07-20; based on current Fact, Episode, Fact Library, Mission, Profile, source-export, and recovery-backup authorities; installed verifier and release evidence remain unobserved
+ai_provenance: GPT-5 via Codex on 2026-07-20; based on current Fact, Episode, Fact Library, Mission, Profile, source-export, recovery-backup, installed verifier, and retained exact-artifact qualification authorities; stable v4 release admission, non-Darwin platforms, and the cross-minor support window remain unobserved
 ---
 
 # ADR-0122: Exit Bundles compose domain roots, closure, loss, capabilities, and receipts without becoming another authority
 
-- Status: accepted; the machine contract, inventory, negative corpus, packaging
-  registration, and drift gate are staged; composition,
-  installed verification, clean-runtime qualification, and release admission
-  remain open
+- Status: accepted; the machine contract, composition, installed verifier,
+  exact `darwin-arm64` clean-runtime and provider-migration evidence, public
+  support policy, packaging registration, and drift gates are staged; stable
+  v4 and wider platform release admission remain open
 - Date: 2026-07-20
 - Category: portability / exit / migration / contract composition
 - Related: [ADR-0018](ADR-0018-runtime-storage-service-architecture.md),
@@ -113,6 +113,27 @@ the destination before mutation. Validation is the default. Execute is
 explicit. Success is issued only after the requested root, semantic,
 projection, and capability postflight equivalence has passed.
 
+### 6. Product support is explicit and evidence-bound
+
+The same machine contract owns the public version-support policy. Qualified
+stable releases on one `major.minor` line preserve registered authoritative
+semantics: roots and their preimages, full/thin closure, structured omission
+and loss, supported protocol interpretation, fail-closed behavior, and the
+meaning of validation, execution, postflight, and success Receipts.
+
+That promise does not freeze provider paths, physical layout, derived SQLite
+files, GUI caches, performance, logs, wording, or presentation. Pre-release
+builds remain exact-evidence-only. Cross-minor support requires an explicitly
+declared historical reader or qualified migration; the first stable v4 release
+must separately freeze a prior-minor count or duration. A supported breaking
+major must provide a documented and qualified reader, export, or migration path
+for data from every still-supported qualified stable line.
+
+Product SemVer never overrides the installed artifact's explicit schema and
+protocol inventory. `kungfu exit verify --info --json` exposes the exact policy,
+contract roots, reader inventory, retained qualification evidence, and
+non-claims without initializing a runtime.
+
 ## Falsification and acceptance gates
 
 The contract is false if any implementation:
@@ -140,7 +161,9 @@ is merely inspectable or actually sufficient to verify, import, rebuild, and
 continue. Existing member bundles do not change identity and no second exporter
 or importer is created.
 
-The contract alone does not compose artifacts, ship an independent verifier,
-qualify a clean installed runtime, qualify provider migration in a release
-artifact, or authorize destructive source retirement. Those remain subsequent
-stages with their own evidence.
+The current staged implementation composes artifacts, ships a registry-free
+verifier, and retains exact `darwin-arm64` clean-runtime and provider-migration
+qualification for one official CLI artifact. It does not qualify stable v4,
+Linux, Windows, GUI/TUI parity, cross-machine migration, physical-media
+durability, a fixed cross-minor support window, or destructive source
+retirement. Those remain separate release stages with their own evidence.
