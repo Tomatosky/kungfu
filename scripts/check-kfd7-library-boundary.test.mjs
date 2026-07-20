@@ -3,6 +3,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
+import { parseDumpbinExports } from './kfd7-public-symbols.mjs';
+
 const read = (path) => fs.readFileSync(path, 'utf8');
 const readJson = (path) => JSON.parse(read(path));
 
@@ -129,6 +131,19 @@ assert.deepEqual(releasePassport.platformMatrix.required, [
 ]);
 assert.match(consumerGuide, /find_package\(Kungfu 4 CONFIG REQUIRED\)/);
 assert.match(consumerGuide, /cooperative before native admission/);
+assert.deepEqual(
+  parseDumpbinExports(`
+    ordinal hint RVA      name
+          1    0 00011000 kungfu_embedding_get_api = kungfu_embedding_get_api
+          2    1 00012000 kungfu_get_api
+          3    2 00013000 kungfu_native_storage_get_api = kungfu_native_storage_get_api
+  `),
+  [
+    'kungfu_embedding_get_api',
+    'kungfu_get_api',
+    'kungfu_native_storage_get_api',
+  ],
+);
 assert.deepEqual(
   registered.get(contract.successorAbi.bootstrap.symbol).abi_versions,
   [1],

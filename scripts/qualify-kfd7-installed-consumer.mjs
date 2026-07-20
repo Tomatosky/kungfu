@@ -7,6 +7,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { parseDumpbinExports } from './kfd7-public-symbols.mjs';
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const buildDir = path.resolve(
   root,
@@ -93,13 +95,7 @@ function publicSymbols(library) {
   const output = run('dumpbin', ['/nologo', '/exports', library], {
     capture: true,
   });
-  return output
-    .split('\n')
-    .map(
-      (line) =>
-        line.trim().match(/^\d+\s+[0-9A-F]+\s+[0-9A-F]+\s+(\S+)$/i)?.[1],
-    )
-    .filter(Boolean);
+  return parseDumpbinExports(output);
 }
 
 try {
