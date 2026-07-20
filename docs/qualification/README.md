@@ -11,6 +11,7 @@ implemented behavior, retained evidence, and released guarantees. Begin with
 - [GUI Capability-boundary Qualification](gui-capability-boundary.md)
 - [Strong Durability and Crash Recovery](durability-and-crash-recovery.md)
 - [Fact Storage Authority Qualification](fact-storage-authority.md)
+- [Installed Provider Migration Qualification](provider-migration-product.md)
 - [Durability Qualification Harness](../../framework/core/tests/qualification/durability/README.md)
 - [Current-hardware Production-candidate Admission Evidence](evidence/durability/production-candidate-v1/README.md)
 - [Three-platform durability process evidence at `12dd26e899`](evidence/durability/12dd26e899/README.md)

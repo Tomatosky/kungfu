@@ -68,7 +68,19 @@ function canonicalPath(name) {
   return tokens.join(' ');
 }
 
-function resolvePath(name, byPath) {
+function resolvePath(name, byPath, standaloneRoutes = []) {
+  for (const route of standaloneRoutes) {
+    const { prefix, target } = route;
+    if (
+      typeof name === 'string' &&
+      typeof prefix === 'string' &&
+      typeof target === 'string' &&
+      (name === prefix || name.startsWith(`${prefix} `)) &&
+      byPath.has(target)
+    ) {
+      return target;
+    }
+  }
   const tokens = (canonicalPath(name) || '').split(' ');
   while (tokens.length >= 2) {
     const candidate = tokens.join(' ');
@@ -198,7 +210,11 @@ export function auditCatalogParity({
     }
     if (row.maturity !== api.maturity)
       fail(`commands.json maturity drift for ${row.name}`);
-    const resolved = resolvePath(row.name, byPath);
+    const resolved = resolvePath(
+      row.name,
+      byPath,
+      registry.standaloneCatalogRoutes,
+    );
     const surface = byPath.get(resolved);
     if (!surface) fail(`commands.json orphan path ${row.name}`);
     else if (!(surface.kfd3_api_ids || []).includes(row.apiId))

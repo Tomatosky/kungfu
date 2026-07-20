@@ -35,6 +35,7 @@ from . import profile
 from . import lock
 from . import health
 from . import recover
+from . import exit
 from . import dev
 
 __all__ = [
@@ -73,5 +74,6 @@ __all__ = [
     "lock",
     "health",
     "recover",
+    "exit",
     "dev",
 ]

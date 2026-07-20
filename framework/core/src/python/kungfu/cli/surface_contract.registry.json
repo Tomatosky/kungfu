@@ -35,6 +35,7 @@
     "workspace": {"visibility": "start-here", "section": "start-here"},
     "agent": {"visibility": "start-here", "section": "start-here"},
     "profile": {"visibility": "start-here", "section": "start-here"},
+    "exit": {"audience": ["human", "agent", "operator"], "maturity": "experimental", "visibility": "public", "section": "system-maintenance", "owner": "core"},
     "dev": {"audience": ["developer"], "visibility": "advanced", "section": "developer", "owner": "core"},
     "health": {"audience": ["human", "agent", "operator"], "visibility": "start-here", "section": "start-here"},
     "pursuit": {"visibility": "public", "section": "action-model"},
@@ -68,6 +69,18 @@
     "engage": {"audience": ["developer"], "visibility": "advanced", "section": "developer"},
     "codex": {"audience": ["developer", "agent"], "visibility": "advanced", "section": "developer"}
   },
+  "standaloneCatalogRoutes": [
+    {
+      "prefix": "kungfu-exit-verify",
+      "target": "kungfu exit verify",
+      "source": "framework/core/src/python/kungfu/exit_verifier.py"
+    },
+    {
+      "prefix": "python -m kungfu.exit_verifier",
+      "target": "kungfu exit verify",
+      "source": "framework/core/src/python/kungfu/exit_verifier.py"
+    }
+  ],
   "mutationRules": {
     "planTokens": ["plan", "advise", "diff", "validate", "verify", "qualify", "assess"],
     "destructiveTokens": ["delete", "remove", "uninstall", "unset"],
@@ -146,7 +159,7 @@
   "catalogProjection": {
     "artifact": "kungfu.agent/cli_surface.catalog.json",
     "authority": "runtime-fold",
-    "expectedSurfaceRoot": "sha256:681c5df2a47f52bc6b157368d09435209522c8e54095c88557117e07ebc47d09",
+    "expectedSurfaceRoot": "sha256:20d23d2813f45fda06edacf0dde341993bcefd5005265023601e858d5218261f",
     "consumers": {
       "agentCapabilities": "embed-complete",
       "agentCommands": "strict-link",
