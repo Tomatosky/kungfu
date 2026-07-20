@@ -1,7 +1,7 @@
 ---
 metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
-adr_id: ADR-0123
+adr_id: ADR-0122
 decision_status: accepted
 implementation_status: staged
 implementation_commits: [1ae8e0aad95bc4f5873c285fd7531711b9c7f485]
@@ -18,7 +18,7 @@ last_reviewed: 2026-07-20
 ai_provenance: GPT-5 via Codex on 2026-07-20; based on current Fact, Episode, Fact Library, Mission, Profile, source-export, and recovery-backup authorities; installed verifier and release evidence remain unobserved
 ---
 
-# ADR-0123: Exit Bundles compose domain roots, closure, loss, capabilities, and receipts without becoming another authority
+# ADR-0122: Exit Bundles compose domain roots, closure, loss, capabilities, and receipts without becoming another authority
 
 - Status: accepted; the machine contract, inventory, negative corpus, packaging
   registration, and drift gate are staged; composition,

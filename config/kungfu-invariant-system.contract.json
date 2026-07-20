@@ -221,7 +221,7 @@
       ],
       "artifactPattern": "^kungfu-episodes-cli-(darwin-arm64|linux-x64|windows-x64)\\.(tar\\.gz|zip)$",
       "acceptedAdr": {
-        "path": "docs/adr/ADR-0123-domain-neutral-exit-bundle-composition.md",
+        "path": "docs/adr/ADR-0122-domain-neutral-exit-bundle-composition.md",
         "decisionStatus": "accepted",
         "implementationStatus": "staged"
       },
