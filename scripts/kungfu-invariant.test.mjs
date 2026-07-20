@@ -10,6 +10,7 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import {
   canonicalJson,
   checkEvolution,
+  commandFailureDiagnostic,
   createEvidenceEnvelope,
   createPassport,
   digest,
@@ -129,6 +130,24 @@ test('checker command resolution uses the native Windows shifu launcher', () => 
   assert.equal(resolveCheckerCommand('./shifu', 'win32'), '.\\shifu.cmd');
   assert.equal(resolveCheckerCommand('./shifu', 'darwin'), './shifu');
   assert.equal(resolveCheckerCommand('node', 'win32'), 'node');
+});
+
+test('checker failures expose bounded stdout and stderr diagnostics', () => {
+  const rendered = commandFailureDiagnostic(
+    'fact-native-characterization',
+    {
+      code: 2,
+      signal: null,
+      timedOut: false,
+      stdout: 'pytest output',
+      stderr: `discard-${'x'.repeat(20)}-usage error`,
+    },
+    16,
+  );
+  assert.match(rendered, /exit=2 signal=none timedOut=false/u);
+  assert.match(rendered, /pytest output/u);
+  assert.doesNotMatch(rendered, /discard/u);
+  assert.match(rendered, /usage error/u);
 });
 
 test('Fact native harness preserves its source qualification boundary on Windows', () => {

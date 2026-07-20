@@ -718,6 +718,22 @@ function unavailableFailure(stderr) {
   );
 }
 
+export function commandFailureDiagnostic(checkerId, result, limit = 8_000) {
+  const excerpt = (value) =>
+    String(value || '')
+      .trim()
+      .slice(-limit);
+  const stdout = excerpt(result.stdout);
+  const stderr = excerpt(result.stderr);
+  return [
+    `[invariant-checker:${checkerId}] exit=${result.code ?? 'none'} signal=${result.signal || 'none'} timedOut=${result.timedOut === true}`,
+    stdout ? `[invariant-checker:${checkerId}:stdout]\n${stdout}` : '',
+    stderr ? `[invariant-checker:${checkerId}:stderr]\n${stderr}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
 export function resolveCheckerCommand(command, platform = process.platform) {
   if (platform === 'win32' && command === './shifu') return '.\\shifu.cmd';
   return command;
@@ -752,14 +768,19 @@ function runCommand(checker) {
     }, checker.timeoutSeconds * 1000);
     child.on('close', (code, signal) => {
       clearTimeout(timer);
-      resolve({
+      const result = {
         code,
         signal,
         stdout,
         stderr,
         timedOut,
         durationMs: Date.now() - started,
-      });
+      };
+      if (timedOut || code !== 0)
+        process.stderr.write(
+          `${commandFailureDiagnostic(checker.id, result)}\n`,
+        );
+      resolve(result);
     });
   });
 }
