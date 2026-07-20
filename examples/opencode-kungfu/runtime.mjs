@@ -118,7 +118,7 @@ export function createEpisodeRuntime({
     }
     return binding.runStorageServiceOperation('export_bundle', runtimeDir, {
       scope: 'episode',
-      episode_id: episodeId,
+      episode_id: String(episodeId),
       thin: false,
     });
   }

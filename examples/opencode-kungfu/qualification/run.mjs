@@ -323,7 +323,7 @@ async function main() {
       runtimeDir,
       {
         scope: 'episode',
-        episode_id: activeEpisode.episode_id,
+        episode_id: String(activeEpisode.episode_id),
         thin: false,
       },
     );
@@ -344,7 +344,7 @@ async function main() {
       destinationRuntime,
       {
         scope: 'episode',
-        episode_id: bundle.episode_id,
+        episode_id: String(bundle.episode_id),
         verify: true,
         dry_run: false,
         bundle,

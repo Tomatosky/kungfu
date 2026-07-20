@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createKungfuOpenCodePlugin } from '../index.mjs';
+import { createEpisodeRuntime } from '../runtime.mjs';
 
 function inspectCalls(calls) {
   return JSON.stringify(calls, (_, value) =>
@@ -145,4 +146,22 @@ test('restart recovers an unsealed Episode before accepting resumed work', async
     inspectCalls(binding.calls).includes('private-error-body'),
     false,
   );
+});
+
+test('service-operation JSON edge uses decimal Episode identifiers', () => {
+  const binding = fakeBinding();
+  const runtime = createEpisodeRuntime({
+    binding,
+    clock: () => 4000,
+    runtimeDir: '/tmp/opencode-export.kungfu',
+  });
+  const episodeId = runtime.begin('export-task');
+  assert.equal(typeof episodeId, 'bigint');
+
+  runtime.exportEpisode('export-task');
+
+  const exported = binding.calls.find(
+    ({ operation }) => operation === 'export_bundle',
+  );
+  assert.equal(exported.options.episode_id, '700');
 });
