@@ -338,6 +338,15 @@ async function main() {
     fs.writeFileSync(bundlePath, `${bundleJson}\n`);
     const sourceFsck = binding.storageFsckTyped(runtimeDir, {});
     assert.equal(sourceFsck.ok, true);
+    const episodeFsck = binding.storageFsckTyped(runtimeDir, {
+      episode_id: BigInt(episodeId),
+    });
+    assert.equal(episodeFsck.ok, true);
+    const episodeQualificationPath = path.join(
+      outputDir,
+      'episode-qualification.json',
+    );
+    writeJson(episodeQualificationPath, episodeFsck);
 
     const destinationRuntime = path.join(scratch, 'destination.kungfu');
     const imported = JSON.parse(
@@ -403,6 +412,11 @@ async function main() {
           path: path.basename(bundlePath),
           sha256: sha256File(bundlePath),
           episodeId,
+        },
+        episodeQualification: {
+          path: path.basename(episodeQualificationPath),
+          sha256: sha256File(episodeQualificationPath),
+          status: episodeFsck.qualification.status,
         },
         import: {
           ok: imported.ok,

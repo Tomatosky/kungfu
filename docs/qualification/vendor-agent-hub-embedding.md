@@ -16,6 +16,12 @@ exports and imports the Episode, runs source and destination fsck, records hook
 latency, and binds the result to the independently verified KFD Runtime 100
 report for the exact frozen adapter.
 
+The retained output includes `episode-bundle.json` and the matching
+`episode-qualification.json`. The latter is the complete native
+`storageFsckTyped` response for the exact unsigned 64-bit Episode identifier,
+so Project Cut can verify and seal the real qualification Episode without
+reconstructing it through a JavaScript `number`.
+
 Run after building and freezing the exact source and producing the KFD adapter
 qualification:
 
