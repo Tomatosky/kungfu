@@ -331,9 +331,23 @@ registration, and known ADR/schema metadata drift. A thin artifact can expose
 only inventory inspection; it cannot claim materialization, projection rebuild,
 continuation, or capability equivalence.
 
-**Maturity.** The contract and drift gate are staged. Composition, an installed
-independent verifier, clean-runtime continuation, provider migration
-qualification, and release admission remain separate evidence stages.
+The same authority also carries the public version-support policy. Qualified
+stable releases on one `major.minor` line preserve registered authoritative
+semantics; pre-release builds remain exact-evidence-only, and cross-minor
+support requires a declared historical reader or qualified migration. Inspect
+the policy shipped with an artifact using:
+
+```sh
+kungfu exit verify --info --json
+```
+
+**Maturity.** Composition and the installed registry-free verifier are
+implemented. One exact `darwin-arm64` official CLI artifact has retained
+clean-runtime Exit and File↔RocksDB provider-migration qualification. The
+current v4 line is still pre-release and not release-qualified; Linux, Windows,
+GUI/TUI parity, cross-machine migration, physical-media durability, and the
+stable cross-minor support window remain unqualified or undecided. See
+[Exit, Migration, and Version Compatibility](../guides/exit-and-version-compatibility.md).
 
 ## KFD-2 release claims use the Buildchain product registry contract
 

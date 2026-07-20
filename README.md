@@ -43,6 +43,22 @@ understanding, failed attempts, handoff, and restart.
 - **Inspectable understanding.** Sources, omissions, uncertainty, and evidence
   stay visible to both people and agents.
 
+## Keep your work when you leave or upgrade
+
+Kungfu treats Exit and migration as a product contract. Qualified stable
+releases on the same `major.minor` line preserve registered authoritative
+semantics, not physical provider paths, caches, or presentation. The current v4
+alpha remains exact-evidence-only; it does not yet carry that stable promise.
+
+Read the [Exit, migration, and version compatibility policy](docs/guides/exit-and-version-compatibility.md)
+for the support boundary, current qualification matrix, and non-claims. An
+installed artifact exposes its exact policy and protocol inventory without
+initializing a runtime:
+
+```sh
+kungfu exit verify --info --json
+```
+
 ## Keep using the agents you already have
 
 `kungfu run agent` is the golden path, not a required replacement for Codex,

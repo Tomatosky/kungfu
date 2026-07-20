@@ -78,8 +78,30 @@ def test_packaged_verifier_is_discoverable_bounded_and_honest(tmp_path, monkeypa
 
     assert first == second
     assert first["schema"] == "kungfu.exit-verifier-info/v1"
+    assert first["product"] == {
+        "version": "4.0.0-alpha.1",
+        "channel": "pre-release",
+        "source": "source-package-json",
+    }
     assert first["verifier"]["independentImplementation"] is False
     assert first["verifier"]["runtimeMutation"] is False
+    assert first["exitContract"]["schema"] == "kungfu.exit-bundle.contract/v1"
+    assert first["exitContract"]["weldedSurface"] == "exit-bundle-contract"
+    assert first["exitContract"]["contractRoot"].startswith("sha256:")
+    assert first["exitContract"]["manifestSchemaRoot"].startswith("sha256:")
+    assert (
+        first["supportPolicy"]["productVersioning"]["stableSameMinor"]["commitment"]
+        == "registered-authoritative-semantics-unchanged"
+    )
+    assert (
+        first["supportPolicy"]["productVersioning"]["preRelease"]["commitment"]
+        == "exact-evidence-only"
+    )
+    assert first["qualification"]["overallReleaseStatus"] == "not-qualified"
+    assert first["qualification"]["unqualifiedPlatforms"] == [
+        "linux-x86_64",
+        "windows-x86_64",
+    ]
     assert first["independence"]["kfr2"]["executedByThisEntrypoint"] is False
     assert first["independence"]["episode"]["executedByThisEntrypoint"] is False
     assert "kungfu.exit-package/v1" in first["supportedPackageSchemas"]

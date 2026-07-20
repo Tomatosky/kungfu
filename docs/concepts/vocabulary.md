@@ -28,9 +28,6 @@ coordinates and perspective
 derivation, trust, and action
   Projection / Timeline / Claim / Proof / Purpose / TrustReport / Decision
 
-action responsibility model
-  Action Geometry / Domain Profile
-
 operations
   Replay / Rewind / Recovery
 
@@ -241,32 +238,6 @@ archive, recover, or reopen.
 
 **Boundary:** Recommendation and authorization remain distinct. Agent prose
 cannot create Facts, expand authority, or silently execute a Decision.
-
-## Action responsibility model
-
-### Action Geometry
-
-**Definition:** The cross-domain responsibility model for real-world action. It
-keeps Fact, Episode, Pursuit, Atlas, and Warrant responsibilities independently
-addressable and defines their non-substitution invariants and conservative
-session projection.
-
-**Boundary:** Action Geometry does not prescribe domain fields, lifecycle
-vocabulary, storage layout, API count, process count, or interface shape.
-Several responsibilities may share one physical representation when their
-sources, cuts, versions, authority, derivations, and invalidation remain
-semantically distinguishable and traceable.
-
-### Domain Profile
-
-**Definition:** A versioned adopter specialization that maps domain objects,
-fields, lifecycle vocabulary, transitions, validation, defaults, presentation,
-and evidence policy onto Action Geometry.
-
-**Boundary:** A Domain Profile cannot redefine Action Geometry, mint Fact or
-Episode authority, or infer one responsibility from another. `Action Profile`
-and unqualified `Action Contract` are combined-v1 compatibility terms, not
-preferred names for new documentation or successor interfaces.
 
 ## Operations
 

@@ -15,6 +15,7 @@ review the plan from `kungfu recover`.
 - [Configuration](config.md)
 - [Durability Configuration](durability-configuration.md)
 - [Upgrade Kungfu](upgrading.md)
+- [Exit, Migration, and Version Compatibility](exit-and-version-compatibility.md)
 - [Debugging](debugging.md)
 - [Python Environments](python-environments.md)
 - [Querying Runtime Facts](querying-runtime-facts.md)

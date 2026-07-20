@@ -1,12 +1,5 @@
 # Agent Work State
 
-Agent Work is Kungfu's first **Domain Profile** over **Action Geometry**, the
-cross-domain responsibility model for real-world action defined by KFD-7 and
-ADR-0123. Action Geometry preserves the responsibility boundaries and
-non-substitution invariants below; this Domain Profile owns the concrete work
-fields, lifecycle vocabulary, defaults, validation, evidence policy, and
-presentation. Pursuit, Atlas, and Warrant are Action Primitives, not Profiles.
-
 Real-world agent work stays coherent when four different questions have four
 independently inspectable answers:
 
@@ -89,13 +82,6 @@ Kungfu must refuse, report uncertainty, or degrade trust when a required role
 is missing or stale. It must not reconstruct the missing fact from chat,
 provider memory, or a nearby object.
 
-Separation here is semantic. A single stored document, service call, command,
-or interface may carry several roles when each mapping remains traceable and
-can be varied, invalidated, expired, revoked, or made stale without silently
-changing the others. Qualification tests those counterfactual and negative
-cases. It does not require four physical objects, APIs, forms, or interface
-components.
-
 ## The work loop
 
 A complete loop selects a Pursuit, declares the Atlas used for the next
@@ -123,8 +109,7 @@ remain inspectable, replaceable, exportable, and independently invalidatable.
 External effects, uncertain evidence, delegation, consequential execution, and
 handoff reveal the additional roots required by their consequence.
 
-The contract embeds the transitional combined-v1 Domain Profile object schema
-and publishes executable
+The contract embeds the Profile object schema and publishes executable
 positive and negative examples under
 [`framework/agent-work/fixtures`](../../framework/agent-work/fixtures/).
 One paired example preserves the same context payload and candidate action
@@ -154,25 +139,15 @@ kungfu contract show agent-work-state --json
 kungfu agent capabilities --json
 ```
 
-The provisional combined-v1 implementation adds an independently queryable
-Fact mapping beside Pursuit, Atlas, Warrant, and Episode. Every mutation uses
+The provisional KFD-7 Product Profile adds an independently queryable Fact
+mapping beside Pursuit, Atlas, Warrant, and Episode. Every mutation uses
 `kungfu.kfd7.profile-action/v1` and returns
 `kungfu.kfd7.profile-action-receipt/v1`; the same installed CLI path is used
 by Python, Node, Agent, and GUI adapters. Product transition names remain an
 outer-ring vocabulary and map to KFD-7's closed action geometry in
 [`kungfu-kfd-7-action-contract.json`](../../framework/agent-work/kungfu-kfd-7-action-contract.json).
-These existing names retain their original compatibility meaning. The staged
-successor must separately expose `actionGeometryRoot`, `domainProfileRoot`, and
-per-role `roleSchemaRoots`; it may not relabel existing roots. The declaration
-remains provisional and non-qualifying until dogfood, migration, artifact, and
-independent-review evidence close.
-
-In new documentation, **Action Geometry Contract** names the future geometry
-artifact and **Domain Profile Declaration** names the adopter artifact.
-`Action Profile`, unqualified `Action Contract`, the existing
-`kungfu-kfd-7-action-contract.json` path, and current Profile protocol ids are
-combined-v1 compatibility terms only. They remain readable with no scheduled
-removal version and are not reused for successor semantics.
+The declaration is provisional and non-qualifying until dogfood, migration,
+artifact, and independent-review evidence close.
 
 Projection rebuild is supported from the native Fact journal plus verified
 body bytes. A clean home without a qualified Fact export reports
