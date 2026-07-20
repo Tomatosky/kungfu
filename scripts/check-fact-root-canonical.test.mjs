@@ -100,6 +100,37 @@ function mapObject(map) {
   return Object.fromEntries([...map.entries()]);
 }
 
+function parseCppSchemaRegistry(source) {
+  const initializer = source.match(
+    /PORTABLE_RECORD_SCHEMAS = \{([\s\S]*?)\n\};/,
+  );
+  assert.ok(initializer, 'PORTABLE_RECORD_SCHEMAS initializer is required');
+  const starts = [...initializer[1].matchAll(/\{"([^"]+)",\s*\{/g)];
+  const fields = new Map();
+  const names = new Map();
+  const optional = new Map();
+  for (let index = 0; index < starts.length; ++index) {
+    const entry = initializer[1].slice(
+      starts[index].index,
+      starts[index + 1]?.index,
+    );
+    const schema = starts[index][1];
+    const rows = [
+      ...entry.matchAll(/\{(\d+),\s*"([^"]+)"(?:,\s*(true|false))?\}/g),
+    ];
+    fields.set(
+      schema,
+      rows.map((row) => Number(row[1])),
+    );
+    names.set(schema, Object.fromEntries(rows.map((row) => [row[1], row[2]])));
+    const optionalIds = rows
+      .filter((row) => row[3] === 'true')
+      .map((row) => Number(row[1]));
+    if (optionalIds.length > 0) optional.set(schema, optionalIds);
+  }
+  return { fields, names, optional };
+}
+
 test('KFR2 freezes a library-independent closed typed protocol', () => {
   assert.equal(protocol.protocol.id, corpus.protocol);
   assert.equal(protocol.protocol.magicHex, '4b465232');
@@ -160,18 +191,7 @@ test('the machine registry welds ordered C++ and Python schema projections', () 
     ),
     'utf8',
   );
-  const cppFields = parseCppMap(
-    cpp,
-    'PORTABLE_RECORD_FIELDS',
-    /(\d+)/g,
-    Number,
-  );
-  const cppOptional = parseCppMap(
-    cpp,
-    'PORTABLE_OPTIONAL_RECORD_FIELDS',
-    /(\d+)/g,
-    Number,
-  );
+  const registry = parseCppSchemaRegistry(cpp);
   const python = runIndependentPython();
   const contractFields = Object.fromEntries(
     protocol.schemas.map((schema) => [
@@ -190,10 +210,28 @@ test('the machine registry welds ordered C++ and Python schema projections', () 
       .filter(([, fields]) => fields.length > 0),
   );
 
-  assert.deepEqual(mapObject(cppFields), contractFields);
+  const contractNames = Object.fromEntries(
+    protocol.schemas.map((schema) => [
+      schema.id,
+      Object.fromEntries(
+        schema.fields.map((field) => [
+          String(field.id),
+          field.name === 'mappingReceiptRoot'
+            ? 'mapping_receipt_root'
+            : field.name,
+        ]),
+      ),
+    ]),
+  );
+
+  assert.deepEqual(mapObject(registry.fields), contractFields);
+  assert.deepEqual(mapObject(registry.names), contractNames);
   assert.deepEqual(python.schemaFields, contractFields);
-  assert.deepEqual(mapObject(cppOptional), contractOptional);
+  assert.deepEqual(mapObject(registry.optional), contractOptional);
   assert.deepEqual(python.optionalFields, contractOptional);
+  assert.doesNotMatch(cpp, /PORTABLE_RECORD_FIELDS\s*=/);
+  assert.doesNotMatch(cpp, /PORTABLE_RECORD_FIELD_NAMES\s*=/);
+  assert.doesNotMatch(cpp, /PORTABLE_OPTIONAL_RECORD_FIELDS\s*=/);
   assert.equal(protocol.schemaRegistry.requiredByDefault, true);
 });
 

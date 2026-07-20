@@ -472,6 +472,61 @@ def test_fact_kernel_v1_rejects_unknown_request_fields_before_identity(tmp_path)
     assert not metadata_dir.exists() or not any(metadata_dir.rglob("*"))
 
 
+@pytest.mark.parametrize(
+    ("action", "field"),
+    [
+        ("version-put", "parent_version_roots"),
+        ("version-put", "declaration_roots"),
+        ("version-put", "admission_roots"),
+        ("relation-add", "admission_roots"),
+        ("cut-put", "parent_cut_roots"),
+        ("cut-put", "active_relation_roots"),
+        ("cut-put", "declaration_roots"),
+        ("cut-put", "admission_roots"),
+        ("cut-put", "omission_roots"),
+        ("cut-put", "conflict_roots"),
+    ],
+)
+def test_fact_kernel_rejects_each_malformed_root_list_member(tmp_path, action, field):
+    if action == "version-put":
+        request = {
+            "object_id": f"fact:{'1' * 32}",
+            "body": "root-list-validation",
+            "schema_root": _root("2"),
+            "parent_version_roots": [],
+            "declaration_roots": [_root("3")],
+            "admission_roots": [_root("4")],
+        }
+    elif action == "relation-add":
+        request = {
+            "relation_id": f"fact:{'2' * 32}",
+            "relation_type": "root-list-validation",
+            "source": {"kind": "logical-object", "id": f"fact:{'3' * 32}"},
+            "target": {"kind": "logical-object", "id": f"fact:{'4' * 32}"},
+            "attributes_root": _root("5"),
+            "admission_roots": [_root("6")],
+        }
+    else:
+        request = {
+            "parent_cut_roots": [],
+            "object_versions": [],
+            "active_relation_roots": [],
+            "declaration_roots": [],
+            "admission_roots": [],
+            "episode_frontier": [],
+            "omission_roots": [],
+            "conflict_roots": [],
+        }
+    request[field] = ["not-a-content-root"]
+
+    rejected = service.fact_kernel(tmp_path / field, action, request)
+
+    assert rejected["failure_code"] == "invalid-field"
+    assert rejected["failure_category"] == "invalid-field"
+    assert f"{field}[0]" in rejected["message"]
+    assert rejected["write_occurred"] is False
+
+
 def test_fact_kernel_v1_exposes_stable_failure_taxonomy(tmp_path):
     runtime = tmp_path / "runtime"
     capabilities = service.fact_kernel(runtime, "capabilities")

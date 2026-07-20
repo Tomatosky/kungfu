@@ -184,6 +184,20 @@ test('the machine parity matrix assigns every internal authority boundary', () =
   );
 });
 
+test('portable decoding bounds untrusted collection counts before iteration', () => {
+  assert.match(owners.protocol, /void validate_portable_count\(/);
+  assert.equal(
+    [...owners.protocol.matchAll(/validate_portable_count\(count,/g)].length,
+    3,
+  );
+  for (const kind of ['array', 'set', 'map', 'record field'])
+    assert.ok(owners.protocol.includes(`"${kind}"`), kind);
+  assert.match(
+    owners.protocol,
+    /count > remaining_bytes \/ minimum_bytes_per_entry/,
+  );
+});
+
 test('Core architecture compiles every internal Fact owner', () => {
   const targets = fs.readFileSync(
     path.join(ROOT, 'framework/core/architecture/TARGETS.cmake'),

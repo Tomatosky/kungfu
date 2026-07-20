@@ -22,25 +22,16 @@ namespace yy = kungfu::yijinjing;
 
 constexpr std::array<unsigned char, 4> PORTABLE_ROOT_MAGIC = {'K', 'F', 'R', '2'};
 
-// The machine contract owns field meaning.  This ordered projection remains
-// independent from the Python encoder and is welded to that contract by the
-// KFR2 conformance gate.
-const std::map<std::string, std::vector<uint64_t>> PORTABLE_RECORD_FIELDS = {
-    {"kungfu.fact.object/v2", {1, 2, 3, 4}},
-    {"kungfu.fact.version/v2", {1, 2, 3, 4, 5, 6, 7}},
-    {"kungfu.fact.relation-endpoint/v2", {1, 2, 3}},
-    {"kungfu.fact.relation-add/v2", {1, 2, 3, 4, 5, 6, 7}},
-    {"kungfu.fact.relation-revoke/v2", {1, 2, 3}},
-    {"kungfu.fact.cut/v2", {1, 2, 3, 4, 5, 6, 7, 8, 9}},
-    {"kungfu.fact.ref-transition/v2", {1, 2, 3, 4, 5, 6, 7, 8}},
-    {"kungfu.fact.operation-receipt/v2", {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}},
-    {"kungfu.fact.operation-request/v2", {1, 2}},
-    {"kungfu.fact.root-set/v2", {1, 2}},
-    {"kungfu.fact.authority-bundle/v2", {1, 2, 3, 4}},
-    {"kungfu.fact.root-mapping-receipt/v1", {1, 2, 3, 4, 5, 6}},
+struct portable_record_field {
+  uint64_t id;
+  const char *name;
+  bool optional = false;
 };
 
-const std::map<std::string, std::map<uint64_t, std::string>> PORTABLE_RECORD_FIELD_NAMES = {
+// The machine contract owns field meaning. This single ordered registry is
+// independent from the Python encoder and is welded to that contract by the
+// KFR2 conformance gate.
+const std::map<std::string, std::vector<portable_record_field>> PORTABLE_RECORD_SCHEMAS = {
     {"kungfu.fact.object/v2", {{1, "schema"}, {2, "objectId"}, {3, "objectType"}, {4, "createdByReceiptRoot"}}},
     {"kungfu.fact.version/v2",
      {{1, "schema"},
@@ -50,7 +41,7 @@ const std::map<std::string, std::map<uint64_t, std::string>> PORTABLE_RECORD_FIE
       {5, "parentVersionRoots"},
       {6, "declarationRoots"},
       {7, "admissionRoots"}}},
-    {"kungfu.fact.relation-endpoint/v2", {{1, "kind"}, {2, "id"}, {3, "mapping_receipt_root"}}},
+    {"kungfu.fact.relation-endpoint/v2", {{1, "kind"}, {2, "id"}, {3, "mapping_receipt_root", true}}},
     {"kungfu.fact.relation-add/v2",
      {{1, "schema"},
       {2, "relationId"},
@@ -100,10 +91,6 @@ const std::map<std::string, std::map<uint64_t, std::string>> PORTABLE_RECORD_FIE
       {4, "successorProtocol"},
       {5, "successorRoot"},
       {6, "admissionRoot"}}},
-};
-
-const std::map<std::string, std::set<uint64_t>> PORTABLE_OPTIONAL_RECORD_FIELDS = {
-    {"kungfu.fact.relation-endpoint/v2", {3}},
 };
 
 const std::map<std::string, std::vector<std::string>> RECORD_ROOT_FIELDS = {
@@ -435,8 +422,8 @@ std::string portable_typed_value(const nlohmann::json &value) {
   }
   if (type == "record") {
     const auto schema = required_descriptor_text(value, "schema");
-    const auto known_schema = PORTABLE_RECORD_FIELDS.find(schema);
-    if (known_schema == PORTABLE_RECORD_FIELDS.end()) {
+    const auto known_schema = PORTABLE_RECORD_SCHEMAS.find(schema);
+    if (known_schema == PORTABLE_RECORD_SCHEMAS.end()) {
       canonical_fail("canonical-unknown-schema", "record schema is not registered");
     }
     if (!value.contains("fields") || !value.at("fields").is_array()) {
@@ -448,7 +435,9 @@ std::string portable_typed_value(const nlohmann::json &value) {
         canonical_fail("canonical-invalid-descriptor", "record field requires id and value");
       }
       const auto field_id = parse_canonical_u64(required_descriptor_text(field, "id"));
-      if (std::find(known_schema->second.begin(), known_schema->second.end(), field_id) == known_schema->second.end()) {
+      const auto registered_field = std::find_if(known_schema->second.begin(), known_schema->second.end(),
+                                                 [field_id](const auto &field) { return field.id == field_id; });
+      if (registered_field == known_schema->second.end()) {
         canonical_fail("canonical-unknown-field", "record field is not registered");
       }
       fields.emplace_back(field_id, portable_typed_value(field.at("value")));
@@ -460,13 +449,11 @@ std::string portable_typed_value(const nlohmann::json &value) {
         }) != fields.end()) {
       canonical_fail("canonical-duplicate-field", "record contains a duplicate field id");
     }
-    const auto optional = PORTABLE_OPTIONAL_RECORD_FIELDS.find(schema);
-    for (const auto field_id : known_schema->second) {
-      const auto is_optional =
-          optional != PORTABLE_OPTIONAL_RECORD_FIELDS.end() && optional->second.count(field_id) != 0;
-      const auto is_present =
-          std::any_of(fields.begin(), fields.end(), [field_id](const auto &field) { return field.first == field_id; });
-      if (!is_optional && !is_present) {
+    for (const auto &registered_field : known_schema->second) {
+      const auto is_present = std::any_of(fields.begin(), fields.end(), [&registered_field](const auto &field) {
+        return field.first == registered_field.id;
+      });
+      if (!registered_field.optional && !is_present) {
         canonical_fail("canonical-missing-field", "record is missing a required field");
       }
     }
@@ -666,6 +653,12 @@ std::string read_portable_bytes(const std::string &input, size_t &position) {
   return result;
 }
 
+void validate_portable_count(uint64_t count, size_t remaining_bytes, size_t minimum_bytes_per_entry, const char *kind) {
+  if (count > remaining_bytes / minimum_bytes_per_entry) {
+    throw std::runtime_error(std::string("portable Fact ") + kind + " count exceeds the remaining input");
+  }
+}
+
 nlohmann::json decode_portable_value(const std::string &input, size_t &position) {
   if (position >= input.size())
     throw std::runtime_error("portable Fact metadata is truncated");
@@ -691,6 +684,7 @@ nlohmann::json decode_portable_value(const std::string &input, size_t &position)
     return lower_hex(read_portable_bytes(input, position));
   if (tag == 0x30U || tag == 0x31U) {
     const auto count = read_u64(input, position);
+    validate_portable_count(count, input.size() - position, 1, tag == 0x30U ? "array" : "set");
     auto values = nlohmann::json::array();
     for (uint64_t index = 0; index < count; ++index)
       values.push_back(decode_portable_value(input, position));
@@ -698,6 +692,7 @@ nlohmann::json decode_portable_value(const std::string &input, size_t &position)
   }
   if (tag == 0x32U) {
     const auto count = read_u64(input, position);
+    validate_portable_count(count, input.size() - position, 2, "map");
     auto value = nlohmann::json::object();
     for (uint64_t index = 0; index < count; ++index) {
       const auto key = decode_portable_value(input, position);
@@ -711,17 +706,19 @@ nlohmann::json decode_portable_value(const std::string &input, size_t &position)
     const auto schema = decode_portable_value(input, position);
     if (!schema.is_string())
       throw std::runtime_error("portable Fact record schema is not text");
-    const auto names = PORTABLE_RECORD_FIELD_NAMES.find(schema.get<std::string>());
-    if (names == PORTABLE_RECORD_FIELD_NAMES.end())
+    const auto registered_schema = PORTABLE_RECORD_SCHEMAS.find(schema.get<std::string>());
+    if (registered_schema == PORTABLE_RECORD_SCHEMAS.end())
       throw std::runtime_error("portable Fact record schema is unknown");
     const auto count = read_u64(input, position);
+    validate_portable_count(count, input.size() - position, 9, "record field");
     auto value = nlohmann::json::object();
     for (uint64_t index = 0; index < count; ++index) {
       const auto field_id = read_u64(input, position);
-      const auto name = names->second.find(field_id);
-      if (name == names->second.end())
+      const auto registered_field = std::find_if(registered_schema->second.begin(), registered_schema->second.end(),
+                                                 [field_id](const auto &field) { return field.id == field_id; });
+      if (registered_field == registered_schema->second.end())
         throw std::runtime_error("portable Fact record field is unknown");
-      value[name->second] = decode_portable_value(input, position);
+      value[registered_field->name] = decode_portable_value(input, position);
     }
     return value;
   }
@@ -865,15 +862,25 @@ std::string root_mapping_receipt_root(const nlohmann::json &receipt) {
 
 std::vector<std::string> normalized_roots(const nlohmann::json &value, const char *field) {
   std::vector<std::string> roots;
+  size_t index = 0;
   for (const auto &entry : array_or_empty(value, field)) {
     if (!entry.is_string() || entry.get<std::string>().empty()) {
-      throw std::invalid_argument(std::string(field) + " entries must be non-empty roots");
+      throw fact_request_error("invalid-field", std::string(field) + "[" + std::to_string(index) +
+                                                    "] must be a non-empty sha256 content root");
     }
-    roots.push_back(entry.get<std::string>());
+    const auto root = entry.get<std::string>();
+    try {
+      validate_root(root, field);
+    } catch (const fact_request_error &) {
+      throw fact_request_error("invalid-field",
+                               std::string(field) + "[" + std::to_string(index) + "] must be a sha256 content root");
+    }
+    roots.push_back(root);
+    ++index;
   }
   std::sort(roots.begin(), roots.end());
   if (std::adjacent_find(roots.begin(), roots.end()) != roots.end()) {
-    throw std::invalid_argument(std::string(field) + " contains duplicate roots");
+    throw fact_request_error("invalid-field", std::string(field) + " contains duplicate roots");
   }
   return roots;
 }
