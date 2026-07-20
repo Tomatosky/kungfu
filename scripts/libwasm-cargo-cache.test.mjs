@@ -38,7 +38,7 @@ test('Windows qualification runs Cargo command wrappers through cmd.exe', () => 
       ComSpec: 'C:\\Windows\\System32\\cmd.exe',
     }),
     {
-      command: '"C:\\cache overlay\\bin\\cargo.cmd" "-Vv"',
+      command: '"C:\\cache overlay\\bin\\cargo.cmd" -Vv',
       args: [],
       shell: 'C:\\Windows\\System32\\cmd.exe',
     },
