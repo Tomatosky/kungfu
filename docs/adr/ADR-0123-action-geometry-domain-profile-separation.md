@@ -45,7 +45,8 @@ appear to require the same fields and lifecycle.
 
 ### 1. Action Geometry is the cross-domain layer
 
-**Action Geometry** owns the stable separation and relationships among:
+**Action Geometry**, the cross-domain responsibility model for real-world
+action, owns the stable separation and relationships among:
 
 - admitted Fact state and causal Episode experience;
 - direction through Pursuit;
@@ -81,7 +82,35 @@ per-role `roleSchemaRoots`. Domain states may refine or map to base geometric
 observations, but they cannot redefine what direction, perspective, authority,
 state, or occurrence mean.
 
-### 3. Authority remains below both layers
+### 3. Canonical terminology is narrower than compatibility terminology
+
+New product documentation, discovery surfaces, and successor interfaces use
+one canonical language:
+
+| Term | Status and meaning |
+| --- | --- |
+| **Action Geometry** | Canonical cross-domain responsibility model. |
+| **Domain Profile** | Canonical adopter-specific specialization. |
+| **Action Geometry Contract** | Canonical machine artifact for geometry identity and invariants. |
+| **Domain Profile Declaration** | Canonical machine artifact for adopter mappings, fields, lifecycle, and evidence policy. |
+| **Action Profile** | Compatibility-only combined-v1 term; deprecated for new authoring. |
+| **Action Contract** | Compatibility-only when retained in an existing path, contract id, or product identifier; unqualified use is prohibited in new prose. |
+
+The existing `kungfu-kfd-7-action-contract.json`, `actionProfile`, Profile
+protocol ids, and related `actionContract` metadata retain their current
+combined-v1 meaning. They are not renamed into the future Action Geometry
+Contract. New writers continue to use them only while the combined-v1
+compatibility entry remains authoritative. Successor writers begin only after
+the separately rooted contracts and adapters qualify.
+
+Deprecation therefore has two distinct meanings:
+
+- compatibility terms are deprecated for new human-facing authoring now; and
+- persisted identifiers and readers have no scheduled removal version and
+  remain supported until an explicit migration decision binds successor
+  availability, differential evidence, retained-data coverage, and rollback.
+
+### 4. Authority remains below both layers
 
 Neither an Action Geometry Contract nor a Domain Profile may:
 
@@ -93,7 +122,7 @@ Neither an Action Geometry Contract nor a Domain Profile may:
 
 They use public Fact, Episode, query, receipt, and ActionBinding interfaces.
 
-### 4. Existing identities are not reinterpreted
+### 5. Existing identities are not reinterpreted
 
 The current identifiers, including `kungfu.kfd7.profile-role/v1`,
 `kungfu.kfd7.profile-action/v1`, `kungfu-kfd-7-action-profile`, and
@@ -105,7 +134,27 @@ A semantic encoding change requires a successor schema or protocol tag,
 preserved legacy readers, explicit mapping, and differential evidence. It must
 not silently relabel an existing root.
 
-### 5. The current implementation is transitional
+### 6. Semantic independence does not require physical separation
+
+Several responsibilities may share one physical record, type, table, API,
+process, service, command, or interface component. They remain independently
+addressable when:
+
+- each responsibility has an inspectable source, cut or version, authority,
+  and derivation;
+- changing, invalidating, expiring, revoking, or making one responsibility
+  stale does not silently mutate another;
+- counterfactual fixtures can vary one responsibility while holding the others
+  fixed and observe a changed valid-action or audit conclusion; and
+- prohibited cross-role inferences fail visibly.
+
+The verifier and qualification gates inspect those semantic mappings,
+transitions, roots, and retained witnesses. They must not infer conformance or
+failure from the number of physical objects, classes, tables, endpoints,
+commands, screens, or services. Five required responsibility declarations are
+five inspectable mappings, not a five-component implementation prescription.
+
+### 7. The current implementation is transitional
 
 `kungfu.agent.work_profile` remains the compatibility entry until the staged
 implementation splits:
@@ -132,7 +181,10 @@ The separation is qualified only when:
   fixtures, roots, receipts, public commands, and recovery behavior;
 - session round-trip refinement and context-insufficiency checks remain valid;
 - a Domain Profile cannot weaken role separation or obtain Fact/Episode
-  authority; and
+  authority;
+- semantic distinguishability is qualified through traceability,
+  counterfactual variation, invalidation or revocation, and fail-visible
+  negative evidence rather than physical component count; and
 - legacy combined-v1 objects remain readable without reinterpretation.
 
 ## Consequences
