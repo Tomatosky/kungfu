@@ -347,6 +347,15 @@ def test_legacy_warning_stays_off_stdout_and_canonical_path_is_quiet(tmp_path):
     assert "use `kungfu dev sdk`" in legacy.stderr
     assert "compatibility alias" not in canonical.stderr
 
+    installed = runner.invoke(
+        kfc,
+        ["--home", str(tmp_path), "sdk", "--help"],
+        prog_name="python -m kungfu",
+    )
+    assert installed.exit_code == 0
+    assert "compatibility alias" not in installed.stdout
+    assert "use `kungfu dev sdk`" in installed.stderr
+
 
 def test_adr_0118_atlas_primitives_and_non_equivalent_families_stay_canonical():
     pytest.importorskip("pykungfu")

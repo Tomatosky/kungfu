@@ -70,7 +70,9 @@ class PrioritizedCommandGroup(click.Group):
     def resolve_command(self, ctx, args):
         resolved = super(PrioritizedCommandGroup, self).resolve_command(ctx, args)
         command_name, _command, _remaining = resolved
-        path = f"{ctx.command_path} {command_name}"
+        root_path = ctx.find_root().command_path
+        relative_path = ctx.command_path[len(root_path) :]
+        path = f"kungfu{relative_path} {command_name}"
 
         # Compatibility paths reuse the exact same Click command objects as
         # their canonical replacements.  The registry is the single source of

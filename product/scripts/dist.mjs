@@ -7,6 +7,7 @@
 //   ./shifu dist
 
 import { spawnSync } from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import os from 'node:os';
@@ -18,6 +19,7 @@ import {
 } from '@kungfu-tech/buildchain/logging';
 import { extractTarGz, extractZip, writeTarGz, writeZip } from './archive.mjs';
 import { cliLauncherContent } from './cli-launcher.mjs';
+import { qualifyCliSurface } from './cli-surface-qualification.mjs';
 import { writeCompatibilityManifest } from './compatibility.mjs';
 import {
   assertLibwasmArtifact,
@@ -53,6 +55,16 @@ const RELEASE_DIR = path.join(PRODUCT_DIR, 'release');
 const DESKTOP_RELEASE_DIR = path.join(RELEASE_DIR, 'desktop');
 const CLI_RELEASE_DIR = path.join(RELEASE_DIR, 'cli');
 const CLI_ARCHIVE_PREFIX = 'kungfu-episodes-cli';
+const CLI_SURFACE_CATALOG = path.join(
+  ROOT,
+  'framework',
+  'core',
+  'src',
+  'python',
+  'kungfu',
+  'agent',
+  'cli_surface.catalog.json',
+);
 const XINFA_ENGINE_BUILD = path.join(DIST_DIR, 'xinfa-engine-build');
 const COMPATIBILITY_MANIFEST = path.join(
   CORE_DIST,
@@ -111,6 +123,10 @@ function wantsCli() {
 
 function rel(p) {
   return path.relative(ROOT, p) || '.';
+}
+
+function sha256File(file) {
+  return `sha256:${crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`;
 }
 
 function exitLabel(status, signal) {
@@ -1112,6 +1128,7 @@ function writeCliLauncher(stageRoot, layout) {
 }
 
 function writeCliManifest(stageRoot, archiveName, layout) {
+  const surfaceCatalog = readJson(CLI_SURFACE_CATALOG);
   fs.writeFileSync(
     path.join(stageRoot, 'product.json'),
     `${JSON.stringify(
@@ -1125,6 +1142,12 @@ function writeCliManifest(stageRoot, archiveName, layout) {
           frontendAuthority: 'archive-updater',
           runtimeAuthority: 'kungfu-core-runtime-upgrade-controller',
           backgroundUpdater: false,
+        },
+        cliSurface: {
+          catalogRoot: surfaceCatalog.catalogRoot,
+          surfaceRoot: surfaceCatalog.surfaceRoot,
+          contractRoot: surfaceCatalog.contractRoot,
+          registryRoot: surfaceCatalog.registryRoot,
         },
         entries: {
           kungfu: layout.launcherName,
@@ -1660,7 +1683,7 @@ function runInstalledActionPrimitiveDiscovery({ installRoot, kungfuBin, env }) {
 }
 
 export function smokeCliProductArchive({ archivePath, archiveBase }) {
-  buildchainLogger.spanSync(
+  return buildchainLogger.spanSync(
     'product.cli.smoke',
     {
       phase: 'package',
@@ -1858,7 +1881,24 @@ export function smokeCliProductArchive({ archivePath, archiveBase }) {
           kungfuBin,
           env: smokeEnv,
         });
+        const qualification = qualifyCliSurface({
+          cli: kungfuBin,
+          expectedCatalog: readJson(CLI_SURFACE_CATALOG),
+          label: 'cli-archive',
+          identity: {
+            archive: path.basename(archivePath),
+            archiveSha256: sha256File(archivePath),
+          },
+          environment: smokeEnv,
+        });
+        if (
+          JSON.stringify(manifest.cliSurface) !==
+          JSON.stringify(qualification.roots)
+        ) {
+          throw new Error('CLI product manifest surface roots drifted');
+        }
         console.log('[product] CLI installed-layout smoke passed');
+        return qualification;
       } finally {
         fs.rmSync(tempRoot, { recursive: true, force: true });
       }
@@ -1920,7 +1960,14 @@ function buildCliProduct(esbuildRuntime) {
       } else {
         writeTarGz({ sourceDir: CLI_DIST_DIR, outputFile: archivePath });
       }
-      smokeCliProductArchive({ archivePath, archiveBase });
+      const qualification = smokeCliProductArchive({
+        archivePath,
+        archiveBase,
+      });
+      fs.writeFileSync(
+        path.join(CLI_RELEASE_DIR, `${archiveBase}.qualification.json`),
+        `${JSON.stringify(qualification, null, 2)}\n`,
+      );
       const outputName = platformUpgradeManifestName(
         bundledUpgradeManifest.productVersion,
         process.platform,
