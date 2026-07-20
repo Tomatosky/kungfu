@@ -26,6 +26,10 @@ const owners = {
   portability: read('fact_portability.cpp'),
 };
 const internalHeader = read('fact_kernel_internal.h');
+const factLedger = fs.readFileSync(
+  path.join(YIJINJING, 'src/storage/fact_ledger.cpp'),
+  'utf8',
+);
 const queryHeader = fs.readFileSync(
   path.join(
     ROOT,
@@ -170,7 +174,10 @@ test('qualification faults, durable ids, and oversized operations have explicit 
   assert.match(owners.portability, /preflight_authority_import\(/);
   assert.match(owners.portability, /authority_import_batch_options\(/);
   assert.match(owners.portability, /pending_authority_operations\(/);
-  assert.equal([...owners.state.matchAll(/fold_authority_frame</g)].length, 6);
+  assert.match(owners.state, /fact_ledger_store\(runtime_dir\)\.replay\(\)/);
+  assert.match(factLedger, /frame->data_length\(\) < sizeof\(Record\)/);
+  assert.match(factLedger, /supported_schema\(record\.schema_version\)/);
+  assert.equal([...factLedger.matchAll(/return decode_record</g)].length, 6);
 });
 
 test('portability enters the typed mutation executor, never the public dispatcher', () => {
