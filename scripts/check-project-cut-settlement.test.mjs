@@ -23,6 +23,7 @@ import {
   observeSettlementCommit,
   prepareSettlement,
   reconcileCommit,
+  reconcileIncludesBytes,
   verifySettlement,
 } from '../framework/project-cut/src/settlement.mjs';
 
@@ -46,6 +47,15 @@ const SHIFU_CMD = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../shifu.cmd',
 );
+const SOURCE_PROJECTION_POLICY = JSON.parse(
+  fs.readFileSync(
+    path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      '../framework/project-cut/default-source-projection-policy.json',
+    ),
+    'utf8',
+  ),
+);
 
 function git(root, ...args) {
   return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
@@ -55,6 +65,27 @@ function writeJson(file, value) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, `${canonicalJson(value)}\n`);
 }
+
+test('reconcile skips excluded baseline bytes while retaining protocol evidence', () => {
+  assert.equal(
+    reconcileIncludesBytes(
+      SOURCE_PROJECTION_POLICY,
+      '.xinfa/baselines/sha256/example/atlas.json',
+    ),
+    false,
+  );
+  assert.equal(
+    reconcileIncludesBytes(
+      SOURCE_PROJECTION_POLICY,
+      '.kungfu/project-cuts/sha256/aa/example/manifest.json',
+    ),
+    true,
+  );
+  assert.equal(
+    reconcileIncludesBytes(SOURCE_PROJECTION_POLICY, 'src/app.txt'),
+    true,
+  );
+});
 
 function bundle(id = 7) {
   return {

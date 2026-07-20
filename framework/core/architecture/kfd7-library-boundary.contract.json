@@ -9,7 +9,9 @@
     "inventory": "docs/architecture/kfd7-library-boundary.md",
     "layerRegistry": "framework/core/architecture/layers.json",
     "factContract": "framework/fact/kungfu-fact-cut-kernel.contract.json",
-    "agentWorkContract": "framework/agent-work/kungfu-agent-work-state.contract.json"
+    "agentWorkContract": "framework/agent-work/kungfu-agent-work-state.contract.json",
+    "actionGeometryContract": "framework/action/action-geometry.contract.json",
+    "agentWorkDomainProfile": "framework/agent-work/kungfu-agent-work-domain-profile.contract.json"
   },
   "layers": [
     {
@@ -52,15 +54,34 @@
       ]
     },
     {
+      "id": "action-geometry",
+      "library": null,
+      "distribution": "versioned-contract-and-runtime-evaluator",
+      "owns": [
+        "responsibility-separation",
+        "typed-relation-constraints",
+        "non-substitution-invariants",
+        "conservative-session-refinement"
+      ],
+      "forbids": [
+        "domain-fields-or-lifecycle-vocabulary",
+        "profile-defaults-presentation-or-success-policy",
+        "fact-or-episode-authority",
+        "storage-receipt-or-action-state-machine"
+      ]
+    },
+    {
       "id": "profiles",
       "library": null,
       "distribution": "profile-package-or-host-projection",
       "owns": [
-        "pursuit-atlas-warrant-vocabulary",
+        "domain-role-fields-and-schemas",
         "profile-lifecycle-defaults-and-plans",
-        "domain-folds-and-success-policy"
+        "domain-validation-presentation-and-success-policy",
+        "exact-action-geometry-and-role-schema-bindings"
       ],
       "forbids": [
+        "action-geometry-redefinition",
         "private-journal-or-cas-write",
         "fact-or-episode-root-minting",
         "native-receipt-minting"

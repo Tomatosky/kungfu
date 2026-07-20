@@ -20,6 +20,18 @@ const require = createRequire(import.meta.url);
 const { contractArtifacts } = require('../../../scripts/contract-registry.cjs');
 const kfdPackage = require('@kungfu-tech/kfd/package.json');
 const buildchainPackage = require('@kungfu-tech/buildchain/package.json');
+const contractRegistry = JSON.parse(
+  readFileSync(
+    join(repoRoot, 'framework', 'contract', 'kungfu-contracts.registry.json'),
+    'utf8',
+  ),
+);
+const registeredSurfaces = contractRegistry.contracts.map(
+  (contract) => contract.surface,
+);
+const registeredContractIds = contractRegistry.contracts.map(
+  (contract) => contract.id,
+);
 
 function runJson(args, cwd = repoRoot) {
   const result = spawnSync(process.execPath, [sdk, ...args], {
@@ -110,20 +122,9 @@ test('emits KFD-1 contract evidence for registered surfaces', () => {
     'https://kfd.libkungfu.dev/schemas/kfd-1/contract-world.schema.json',
   );
   assert.equal(data.releaseGate.role, 'local-evidence');
-  assert.deepEqual(data.summary.surfaces, [
-    'config',
-    'kfx',
-    'skill',
-    'runtime',
-    'peer-lifecycle',
-    'diagnostics',
-    'upgrade',
-    'agent-session',
-    'agent-work-state',
-    'fact-cut-kernel',
-  ]);
-  assert.equal(data.summary.count, 10);
-  assert.equal(data.contracts.length, 10);
+  assert.deepEqual(data.summary.surfaces, registeredSurfaces);
+  assert.equal(data.summary.count, registeredSurfaces.length);
+  assert.equal(data.contracts.length, registeredSurfaces.length);
   for (const contract of data.contracts) {
     assert.match(contract.contract.sourceHash, /^sha256:[0-9a-f]{64}$/);
     assert.match(contract.contract.renderedHash, /^sha256:[0-9a-f]{64}$/);
@@ -151,18 +152,7 @@ test('prints the agent-first canonical policy from upstream KFD and Buildchain m
   assert.equal(data.upstream.buildchain.releaseGate.passportKey, 'kfd-1');
   assert.deepEqual(
     data.surfaces.map((surface) => surface.surface),
-    [
-      'config',
-      'kfx',
-      'skill',
-      'runtime',
-      'peer-lifecycle',
-      'diagnostics',
-      'upgrade',
-      'agent-session',
-      'agent-work-state',
-      'fact-cut-kernel',
-    ],
+    registeredSurfaces,
   );
   for (const surface of data.surfaces) {
     assert.match(surface.source.sha256, /^sha256:[0-9a-f]{64}$/);
@@ -183,18 +173,7 @@ test('emits a Buildchain KFD-1 contract-world witness for registered surfaces', 
   assert.match(data.contractWorld.digest, /^sha256:[0-9a-f]{64}$/);
   assert.deepEqual(
     data.surfaces.map((surface) => surface.name),
-    [
-      'kungfu-config',
-      'kungfu-kfx',
-      'kungfu-skill',
-      'kungfu-runtime',
-      'kungfu-peer-lifecycle',
-      'kungfu-diagnostics',
-      'kungfu-product-upgrade',
-      'kungfu-agent-session',
-      'kungfu-agent-work-state',
-      'kungfu-fact-cut-kernel',
-    ],
+    registeredContractIds,
   );
 });
 
@@ -212,18 +191,7 @@ test('audits the contract world as current and Buildchain-release-gate compatibl
   assert.equal(data.failures.length, 0);
   assert.deepEqual(
     data.contracts.map((contract) => contract.status),
-    [
-      'current',
-      'current',
-      'current',
-      'current',
-      'current',
-      'current',
-      'current',
-      'current',
-      'current',
-      'current',
-    ],
+    registeredSurfaces.map(() => 'current'),
   );
 });
 

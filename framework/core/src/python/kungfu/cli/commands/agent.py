@@ -264,6 +264,10 @@ def docs(ctx, as_json, atlas, verify_pack, show_catalog, read_path, projection):
 @agent_command_context
 def capabilities(ctx, as_json):
     work_model = contract_runtime.contract_metadata("agent-work-state")
+    action_geometry = contract_runtime.contract_metadata("action-geometry")
+    work_domain_profile = contract_runtime.contract_metadata(
+        "agent-work-domain-profile"
+    )
     payload = {
         "schema": "kungfu.agent-capabilities/v1",
         "index": agent_pack.index(),
@@ -275,6 +279,8 @@ def capabilities(ctx, as_json):
             "command": "kungfu agent work-model --json",
             "contract": work_model,
         },
+        "actionGeometry": action_geometry,
+        "workDomainProfile": work_domain_profile,
     }
     if as_json:
         _json(payload)
