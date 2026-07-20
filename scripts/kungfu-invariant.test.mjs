@@ -14,6 +14,7 @@ import {
   createPassport,
   digest,
   qualifyEpisodeObject,
+  resolveCheckerCommand,
   sourceIdentityFromEvidence,
   synchronizeRegistryRoots,
   validateRegistry,
@@ -107,6 +108,12 @@ function completeEvidence() {
   }
   return evidence;
 }
+
+test('checker command resolution uses the native Windows shifu launcher', () => {
+  assert.equal(resolveCheckerCommand('./shifu', 'win32'), '.\\shifu.cmd');
+  assert.equal(resolveCheckerCommand('./shifu', 'darwin'), './shifu');
+  assert.equal(resolveCheckerCommand('node', 'win32'), 'node');
+});
 
 test('meta-contract freezes orthogonal stability, maturity, verdict, and layer vocabularies', () => {
   assert.deepEqual(contract.vocabulary.stability, [

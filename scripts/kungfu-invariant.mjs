@@ -412,11 +412,16 @@ function unavailableFailure(stderr) {
   );
 }
 
+export function resolveCheckerCommand(command, platform = process.platform) {
+  if (platform === 'win32' && command === './shifu') return '.\\shifu.cmd';
+  return command;
+}
+
 function runCommand(checker) {
   return new Promise((resolve) => {
     const started = Date.now();
     const [command, ...args] = checker.command;
-    const child = spawn(command, args, {
+    const child = spawn(resolveCheckerCommand(command), args, {
       cwd: ROOT,
       env: process.env,
       shell: process.platform === 'win32',
