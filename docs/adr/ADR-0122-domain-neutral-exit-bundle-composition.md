@@ -4,8 +4,7 @@ doc_type: architecture-decision
 adr_id: ADR-0122
 decision_status: accepted
 implementation_status: staged
-implementation_commits: [db9b16627692235bb0fdd454602836e791f12a2b]
-closure_commit: db9b16627692235bb0fdd454602836e791f12a2b
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1148]
 qualification_refs: [framework/exit/kungfu-exit-bundle.contract.json, tests/fixtures/exit-bundle-contract/cases.json, scripts/check-exit-bundle-contract.test.mjs]
 review_state: self-reviewed
 sensitivity: public
