@@ -723,52 +723,14 @@ export function resolveCheckerCommand(command, platform = process.platform) {
   return command;
 }
 
-export function resolveCheckerInvocation(
-  checker,
-  platform = process.platform,
-  baseEnv = process.env,
-) {
-  const [command, ...args] = checker.command;
-  if (platform === 'win32' && checker.id === 'fact-native-characterization') {
-    const delimiter = ';';
-    return {
-      command: 'uv',
-      args: [
-        'run',
-        '--project',
-        'framework/core',
-        '--frozen',
-        'pytest',
-        '-q',
-        'framework/core/tests/python/test_agent_work_profile_native.py',
-        'framework/core/tests/python/test_fact_kernel_characterization.py',
-      ],
-      env: {
-        ...baseEnv,
-        PYTHONPATH: [
-          path.join(ROOT, 'framework/core/src/python'),
-          path.join(ROOT, 'framework/core/build/Release'),
-        ].join(delimiter),
-      },
-      shell: true,
-    };
-  }
-  return {
-    command: resolveCheckerCommand(command, platform),
-    args,
-    env: baseEnv,
-    shell: platform === 'win32',
-  };
-}
-
 function runCommand(checker) {
   return new Promise((resolve) => {
     const started = Date.now();
-    const invocation = resolveCheckerInvocation(checker);
-    const child = spawn(invocation.command, invocation.args, {
+    const [command, ...args] = checker.command;
+    const child = spawn(resolveCheckerCommand(command), args, {
       cwd: ROOT,
-      env: invocation.env,
-      shell: invocation.shell,
+      env: process.env,
+      shell: process.platform === 'win32',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let stdout = '';

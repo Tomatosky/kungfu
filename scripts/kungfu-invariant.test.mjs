@@ -16,7 +16,6 @@ import {
   evaluateExitMigrationReleaseClaims,
   qualifyEpisodeObject,
   resolveCheckerCommand,
-  resolveCheckerInvocation,
   sourceIdentityFromEvidence,
   synchronizeRegistryRoots,
   validateRegistry,
@@ -24,6 +23,7 @@ import {
   verifyInvariants,
   verifyPassport,
 } from './kungfu-invariant.mjs';
+import { factKernelNativeInvocation } from './run-fact-kernel-native-tests.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const readJson = (relative) =>
@@ -131,26 +131,29 @@ test('checker command resolution uses the native Windows shifu launcher', () => 
   assert.equal(resolveCheckerCommand('node', 'win32'), 'node');
 });
 
-test('Windows Fact native checker preserves the pytest contract without POSIX env syntax', () => {
-  const checker = registry.checkers.find(
-    (item) => item.id === 'fact-native-characterization',
-  );
-  const invocation = resolveCheckerInvocation(checker, 'win32', {
-    SENTINEL: 'preserved',
+test('Fact native harness preserves its source qualification boundary on Windows', () => {
+  const invocation = factKernelNativeInvocation({
+    platform: 'win32',
+    baseEnv: { PATH: 'existing-path', SENTINEL: 'preserved' },
   });
   assert.equal(invocation.command, 'uv');
-  assert.deepEqual(invocation.args, [
+  assert.deepEqual(invocation.args.slice(0, 6), [
     'run',
     '--project',
-    'framework/core',
+    path.join(ROOT, 'framework', 'core'),
     '--frozen',
     'pytest',
     '-q',
-    'framework/core/tests/python/test_agent_work_profile_native.py',
-    'framework/core/tests/python/test_fact_kernel_characterization.py',
   ]);
+  assert.match(invocation.args.at(-2), /test_agent_work_profile_native\.py$/u);
+  assert.match(
+    invocation.args.at(-1),
+    /test_fact_kernel_characterization\.py$/u,
+  );
   assert.equal(invocation.env.SENTINEL, 'preserved');
-  assert.equal(invocation.env.PYTHONPATH.split(';').length, 2);
+  assert.equal(invocation.env.KUNGFU_ALLOW_FOREIGN_RUNTIME, '1');
+  assert.equal(invocation.env.PYTHONPATH.split(';').length, 3);
+  assert.match(invocation.env.PATH, /framework[/\\]core[/\\]build/u);
   assert.equal(invocation.shell, true);
 });
 
