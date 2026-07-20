@@ -122,7 +122,7 @@ implemented and qualified or explicitly waived for that release.
 | [0050](ADR-0050-assembled-runtime-stdlib-pruning-policy.md) | accepted | stdlib pruning policy for the assembled runtime — family-level subtraction, declarative fail-closed manifest |
 | [0051](ADR-0051-kfd-contract-world-fact-admission-and-trust.md) | accepted | KFD contract worlds govern fact admission, historical interpretation, and trust assessment |
 | [0052](ADR-0052-kfd2-assessment-lifecycle-and-executors.md) | accepted | KFD-2 assessments are claim-triggered jobs coordinated by the workspace coordinator |
-| [0053](ADR-0053-self-contained-episode-bundles.md) | proposed | Episode bundles carry their owned bytes, and import materializes them |
+| [0053](ADR-0053-self-contained-episode-bundles.md) | accepted | Episode bundles carry their owned bytes, and import materializes them |
 | [0054](ADR-0054-libwasm-production-runtime-and-release.md) | accepted | libwasm is a governed product runtime, not a copied spike library |
 | [0055](ADR-0055-retire-journal-session-and-separate-runtime-state-from-projection.md) | accepted | retire journal Session; separate live state from schema projections |
 | [0056](ADR-0056-retire-legacy-journal-cli-lifecycle-tools.md) | accepted | journal lifecycle management belongs to Storage and Episode boundaries |
@@ -191,8 +191,9 @@ implemented and qualified or explicitly waived for that release.
 | [0119](ADR-0119-recoverable-action-loop-coordination-contract.md) | accepted | Action Loop recovery follows explicit five-role roots and the accepted authority-receipt prefix without creating a second fact store, receipt source, or cross-system transaction |
 | [0120](ADR-0120-kfd7-library-boundary-and-successor-abi.md) | accepted | KFD-7 fixes the source/static reality kernel, installed action-runtime membrane, and one compatibility-preserving successor ABI |
 | [0121](ADR-0121-portable-fact-root-canonical-encoding.md) | accepted | KFR2 freezes typed portable Fact Root preimages, independent byte-level conformance, and explicit legacy mapping without reinterpreting v1 Roots |
-| [0122](ADR-0122-unified-invariant-verification-and-release-passport.md) | accepted | Fact and Episode invariants use one authority-bound registry, runner, evidence/object-receipt/passport vocabulary, successor gate, and fail-closed release projection without duplicating domain semantics |
+| [0122](ADR-0122-domain-neutral-exit-bundle-composition.md) | accepted | Exit Bundles compose domain roots, closure, loss, capabilities, and receipts without becoming another authority |
 | [0123](ADR-0123-action-geometry-domain-profile-separation.md) | accepted | Action Geometry owns cross-domain responsibility separation and invariants; Domain Profiles own adopter-specific fields, lifecycle, policy, and presentation without gaining Fact or Episode authority |
+| [0124](ADR-0124-unified-invariant-verification-and-release-passport.md) | accepted | Fact and Episode invariants use one authority-bound registry, runner, evidence/object-receipt/passport vocabulary, successor gate, and fail-closed release projection without duplicating domain semantics |
 | [SHIFU-0001](SHIFU-ADR-0001-cache-profile-contract-and-ownership.md) | accepted | Cache profiles are Shifu-owned contracts; inventories project instances and Buildchain owns process |
 | [SHIFU-0002](SHIFU-ADR-0002-local-artifact-catalog-and-safe-promotion.md) | accepted | Shifu and Kungfu product artifacts share provenance-aware, Git-safe local promotion semantics |
 | [SHIFU-0003](SHIFU-ADR-0003-uv-effective-lock-cache-enforcement.md) | accepted | Strict uv cache execution uses a disposable effective lock while canonical locks stay public |

@@ -71,6 +71,23 @@ test('orphan and mismatched consumer entries fail closed', () => {
   );
 });
 
+test('standalone command routes require an explicit live Click target', () => {
+  const fixture = inputs();
+  fixture.registry.standaloneCatalogRoutes = [];
+  const result = auditCatalogParity(fixture);
+  assert.equal(result.ok, false);
+  assert(
+    result.issues.includes(
+      'commands.json orphan path kungfu-exit-verify --file <package.json> --json',
+    ),
+  );
+  assert(
+    result.issues.includes(
+      'commands.json orphan path python -m kungfu.exit_verifier --file <package.json> --json',
+    ),
+  );
+});
+
 test('orphan runtime API and packaged omission fail closed', () => {
   const fixture = inputs();
   fixture.kfd3.apis.push({

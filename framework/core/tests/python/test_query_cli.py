@@ -42,6 +42,16 @@ def test_facts_cli_exposes_the_libkungfu_owned_contract(tmp_path):
     ]
 
 
+def test_nested_facts_cli_inherits_the_root_runtime_context(tmp_path):
+    home = tmp_path / "home"
+    result = CliRunner().invoke(
+        kfc, ["--home", str(home), "facts", "integrity", "fsck"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["ok"] is True
+
+
 def test_facts_kernel_cli_is_a_thin_native_schema_edge(tmp_path, monkeypatch):
     calls = []
 

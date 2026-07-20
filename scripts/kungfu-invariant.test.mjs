@@ -13,6 +13,7 @@ import {
   createEvidenceEnvelope,
   createPassport,
   digest,
+  evaluateExitMigrationReleaseClaims,
   qualifyEpisodeObject,
   resolveCheckerCommand,
   resolveCheckerInvocation,
@@ -77,6 +78,20 @@ function qualificationSubject(overrides = {}) {
 
 function cleanSource() {
   return { revision: 'a'.repeat(40), tree: 'b'.repeat(40), dirty: false };
+}
+
+function releaseOptions(overrides = {}) {
+  return {
+    releaseArtifacts: [
+      {
+        name: 'kungfu-episodes-cli-darwin-arm64.tar.gz',
+        digest:
+          'sha256:8c0fcb6ec811c03c11be56b6d10fdd7cea5aed50657bc50979cfcdc805fd5cd3',
+      },
+    ],
+    targetPlatforms: ['darwin-arm64'],
+    ...overrides,
+  };
 }
 
 function completeEvidence() {
@@ -234,11 +249,15 @@ test('implementation passport verifies a complete three-platform matrix and reje
   const passport = createPassport(evidence, {
     source: cleanSource(),
     observedAt: '2026-07-20T00:00:00.000Z',
+    ...releaseOptions(),
   });
   assert.equal(passport.verdict, 'verified');
   assert.equal(passport.coverage.complete, true);
   assert.deepEqual(
-    verifyPassport(passport, evidence, registry, { checkRevision: false }),
+    verifyPassport(passport, evidence, registry, {
+      checkRevision: false,
+      ...releaseOptions(),
+    }),
     [],
   );
 
@@ -246,6 +265,7 @@ test('implementation passport verifies a complete three-platform matrix and reje
   const omitted = createPassport(omittedEvidence, {
     source: cleanSource(),
     observedAt: '2026-07-20T00:00:00.000Z',
+    ...releaseOptions(),
   });
   assert.equal(omitted.verdict, 'unqualified');
   assert.ok(omitted.coverage.missing.length > 0);
@@ -270,6 +290,7 @@ test('implementation passport verifies a complete three-platform matrix and reje
   const falsified = createPassport(falsifiedEvidence, {
     source: cleanSource(),
     observedAt: '2026-07-20T00:00:00.000Z',
+    ...releaseOptions(),
   });
   assert.equal(falsified.verdict, 'falsified');
 
@@ -286,10 +307,12 @@ test('implementation passport verifies a complete three-platform matrix and reje
   const stalePassport = createPassport(stale, {
     source: cleanSource(),
     observedAt: '2026-07-20T00:00:00.000Z',
+    ...releaseOptions(),
   });
   assert.ok(
     verifyPassport(stalePassport, stale, registry, {
       checkRevision: false,
+      ...releaseOptions(),
     }).some((item) => item.includes('stale-source')),
   );
 });
@@ -306,9 +329,105 @@ test('release evidence aggregation preserves the built source identity and rejec
   });
   const passport = createPassport(mixed, {
     source: sourceIdentityFromEvidence(mixed),
+    ...releaseOptions(),
   });
   assert.equal(passport.verdict, 'unqualified');
   assert.ok(passport.diagnostics.some((item) => item.code === 'dirty-source'));
+});
+
+test('Exit migration release claims bind exact installed witnesses and fail closed on every declared downgrade', () => {
+  const exact = evaluateExitMigrationReleaseClaims(releaseOptions());
+  assert.equal(exact.verdict, 'verified');
+  assert.equal(exact.freshness.current, true);
+  assert.deepEqual(exact.nextActions, []);
+  assert.deepEqual(exact.applicability.targetPlatforms, ['darwin-arm64']);
+  assert.equal(
+    exact.sourceWitnesses.installedVerifierRoot,
+    'sha256:5850fd3fd6e559871f7ba10973f6db78ac50e738f327169e2457b67628396151',
+  );
+
+  const missing = evaluateExitMigrationReleaseClaims();
+  assert.equal(missing.verdict, 'unqualified');
+  assert.ok(
+    missing.diagnostics.some(
+      (item) => item.code === 'release-artifact-missing',
+    ),
+  );
+  assert.ok(
+    missing.nextActions.some((item) =>
+      item.includes('installed-product qualification'),
+    ),
+  );
+
+  const tamperedReport = readJson(
+    'docs/qualification/evidence/exit-clean-runtime/520a61af87/report.json',
+  );
+  tamperedReport.status = 'tampered';
+  const tampered = evaluateExitMigrationReleaseClaims({
+    ...releaseOptions(),
+    cleanRuntime: tamperedReport,
+  });
+  assert.ok(
+    tampered.diagnostics.some(
+      (item) => item.code === 'release-evidence-stale-or-tampered',
+    ),
+  );
+
+  const thin = evaluateExitMigrationReleaseClaims(
+    releaseOptions({ releaseProfile: 'thin' }),
+  );
+  assert.ok(
+    thin.diagnostics.some(
+      (item) => item.code === 'release-profile-unqualified',
+    ),
+  );
+
+  const wrongPlatform = evaluateExitMigrationReleaseClaims({
+    releaseArtifacts: [
+      {
+        name: 'kungfu-episodes-cli-linux-x64.tar.gz',
+        digest:
+          'sha256:8c0fcb6ec811c03c11be56b6d10fdd7cea5aed50657bc50979cfcdc805fd5cd3',
+      },
+    ],
+  });
+  assert.ok(
+    wrongPlatform.diagnostics.some(
+      (item) => item.code === 'release-platform-unqualified',
+    ),
+  );
+
+  const providerUnavailable = evaluateExitMigrationReleaseClaims(
+    releaseOptions({ availableProviders: ['content-addressed-file'] }),
+  );
+  assert.ok(
+    providerUnavailable.diagnostics.some(
+      (item) => item.code === 'release-provider-unavailable',
+    ),
+  );
+
+  const contractWithStaleSource = structuredClone(contract);
+  contractWithStaleSource.releaseGate.exitMigrationClaims.evidence.cleanRuntime.sourceRevision =
+    'deadbeef00';
+  const stale = evaluateExitMigrationReleaseClaims({
+    ...releaseOptions(),
+    contract: contractWithStaleSource,
+  });
+  assert.ok(
+    stale.diagnostics.some(
+      (item) => item.code === 'release-evidence-source-unbound',
+    ),
+  );
+
+  const adrDrift = evaluateExitMigrationReleaseClaims({
+    ...releaseOptions(),
+    adr: { decisionStatus: 'proposed', implementationStatus: 'staged' },
+  });
+  assert.ok(
+    adrDrift.diagnostics.some(
+      (item) => item.code === 'release-adr-status-drift',
+    ),
+  );
 });
 
 test('Episode object receipt is stable, separate from admission, and honest for sealed, open, damaged, and changed objects', () => {

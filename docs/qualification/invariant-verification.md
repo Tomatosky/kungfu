@@ -82,7 +82,28 @@ are downloaded, aggregate them from a clean checkout:
 
 The passport is `verified` only when every registry-required
 invariant/layer/platform coordinate is present, current, untampered, and
-verified. It is then passed to Buildchain as an invariant passport input.
+verified. The same passport also contains
+`releaseClaims` for Exit and provider migration. That section:
+
+- re-hashes the retained clean-runtime and provider-migration reports;
+- requires the current candidate archives to match the installed-product
+  artifact digest in those reports;
+- binds the accepted ADR and Exit contract status;
+- records the full-only profile, exact platform applicability, required
+  providers, downgrade behavior, residual risks, and next action;
+- fails closed when evidence or artifacts are missing, stale, tampered,
+  thin-only, platform-mismatched, provider-unavailable, or status-drifted.
+
+With no platform override, all release-required platforms are evaluated. A
+single-platform admission may explicitly pass
+`--release-target-platform darwin-arm64`; this does not qualify other
+platforms. Both human output and `--json` are rendered from the same passport
+object and therefore carry the same verdict, limitations, diagnostics, and
+next actions.
+
+The completed passport is passed to Buildchain as an invariant passport input.
+Buildchain validates its root and verified verdict and projects the result into
+the Release Passport; it does not reinterpret Exit or migration semantics.
 
 ## Adversarial qualification
 
@@ -92,6 +113,9 @@ verified. It is then passed to Buildchain as an invariant passport input.
 - unknown verdicts and checkers;
 - missing model/refinement on strong invariants;
 - platform omission and unqualified evidence;
+- missing, stale, tampered, thin-only, platform-mismatched, and
+  provider-unavailable Exit/migration release claims;
+- ADR and Exit contract status drift;
 - explicit falsifiers;
 - object damage, open lifecycle, stale subject, and receipt tamper;
 - semantic change without a successor;
@@ -104,7 +128,11 @@ a complete formal proof.
 ## Current proof boundary
 
 The source contract and adversarial control-plane suite are implemented and
-portable. Native/runtime claims are release-qualified only after the exact
-macOS ARM64, Linux x64, and Windows x64 evidence matrix is present in one clean
-passport. `battle-tested` remains unavailable without separately retained
+portable. Exit continuation and provider migration are product-qualified only
+for the retained macOS ARM64 full CLI artifact. Linux x64, Windows x64, thin
+bundles, GUI/TUI parity, cross-machine migration, distributed writer fencing,
+destructive cleanup, and physical-media durability remain unqualified.
+Native/runtime claims are release-qualified only after the exact macOS ARM64,
+Linux x64, and Windows x64 evidence matrix is present in one clean passport.
+`battle-tested` remains unavailable without separately retained
 production-operation evidence.

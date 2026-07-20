@@ -639,6 +639,13 @@ function assembleTree(bt) {
       filter: (src) => !src.split(path.sep).includes('__pycache__'),
     },
   );
+  // The wheel's build_py command stages the normative Exit contract beside
+  // the registry-free verifier.  The assembled product copies Python sources
+  // directly, so it must make the same package-data promise explicitly.
+  fs.copyFileSync(
+    path.join(CORE, '..', 'exit', 'kungfu-exit-bundle.contract.json'),
+    path.join(layout.sitePackages, 'kungfu', 'exit_bundle.contract.json'),
+  );
   fs.cpSync(
     documentationAtlasSource(),
     path.join(layout.sitePackages, 'kungfu', 'agent', 'documentation'),

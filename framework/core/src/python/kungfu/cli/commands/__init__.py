@@ -70,7 +70,9 @@ class PrioritizedCommandGroup(click.Group):
     def resolve_command(self, ctx, args):
         resolved = super(PrioritizedCommandGroup, self).resolve_command(ctx, args)
         command_name, _command, _remaining = resolved
-        path = f"{ctx.command_path} {command_name}"
+        root_path = ctx.find_root().command_path
+        relative_path = ctx.command_path[len(root_path) :]
+        path = f"kungfu{relative_path} {command_name}"
 
         # Compatibility paths reuse the exact same Click command objects as
         # their canonical replacements.  The registry is the single source of
@@ -176,7 +178,14 @@ class PrioritizedCommandGroup(click.Group):
                     "index_location",
                     "stage",
                 ] + list(keys):
-                    ctx.__dict__[key] = ctx.parent.__dict__[key]
+                    ancestor = ctx.parent
+                    while ancestor is not None and key not in ancestor.__dict__:
+                        ancestor = ancestor.parent
+                    if ancestor is None:
+                        raise click.ClickException(
+                            f"Kungfu command context field is unavailable: {key}"
+                        )
+                    ctx.__dict__[key] = ancestor.__dict__[key]
                 return f(ctx, *args, **kwargs)
 
             return typing.cast(CLI, update_wrapper(new_func, f))
@@ -335,6 +344,7 @@ def kfc(ctx, home, extension_path, log_level, name, stage, env_verify_location):
         "pursuit",
         "warrant",
         "episode",
+        "exit",
     }:
         return
     initialize_runtime_context(ctx)

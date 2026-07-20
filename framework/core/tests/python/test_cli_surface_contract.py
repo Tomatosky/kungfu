@@ -115,6 +115,46 @@ def test_fold_keeps_stable_identity_separate_from_path_and_projects_risk():
     assert mutate_surface["approval_policy"]["mode"] == "explicit-execute"
 
 
+def test_standalone_catalog_route_binds_to_one_live_click_authority():
+    registry = _sample_registry()
+    registry["standaloneCatalogRoutes"] = [
+        {
+            "prefix": "python -m kungfu.sample",
+            "target": "kungfu sample read",
+            "source": "kungfu/sample.py",
+        }
+    ]
+    contract = surface_contract.fold(
+        sample_root,
+        metadata_registry=registry,
+        schema=SCHEMA,
+        kfd3_registry={
+            "apis": [
+                {
+                    "id": "kungfu.sample.read",
+                    "name": "kungfu sample read",
+                    "maturity": "experimental",
+                    "visibility": "public-agent",
+                }
+            ]
+        },
+        command_catalog={
+            "commands": [
+                {
+                    "apiId": "kungfu.sample.read",
+                    "name": "python -m kungfu.sample --json",
+                }
+            ]
+        },
+    )
+
+    assert contract["diagnostics"]["ok"] is True
+    assert (
+        _surface(contract["surfaces"], "kungfu sample read")["kfd3_api_id"]
+        == "kungfu.sample.read"
+    )
+
+
 def test_fold_preserves_system_and_profile_kfx_ownership_and_availability():
     contribution_base = {
         "aliases": [],
@@ -346,6 +386,15 @@ def test_legacy_warning_stays_off_stdout_and_canonical_path_is_quiet(tmp_path):
     assert "compatibility alias" not in legacy.stdout
     assert "use `kungfu dev sdk`" in legacy.stderr
     assert "compatibility alias" not in canonical.stderr
+
+    installed = runner.invoke(
+        kfc,
+        ["--home", str(tmp_path), "sdk", "--help"],
+        prog_name="python -m kungfu",
+    )
+    assert installed.exit_code == 0
+    assert "compatibility alias" not in installed.stdout
+    assert "use `kungfu dev sdk`" in installed.stderr
 
 
 def test_adr_0118_atlas_primitives_and_non_equivalent_families_stay_canonical():

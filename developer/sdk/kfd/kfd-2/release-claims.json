@@ -29,7 +29,7 @@
           "pointer": {
             "kind": "file",
             "path": "framework/core/src/python/kungfu/agent/commands.json",
-            "sha256": "583295901ceaddc4a36920bed6a39a710458c124347af40f6ccc30c4ac55efbb"
+            "sha256": "dba620780a20104ea289cd79e037670c051eb8ca1419d46ae362129bbc866602"
           },
           "description": "Machine-readable command catalog and mode maturity metadata."
         },
@@ -38,7 +38,7 @@
           "pointer": {
             "kind": "file",
             "path": "framework/core/src/python/kungfu/agent/cli_surface.catalog.json",
-            "sha256": "70208d6d7ea6b97a45f0319c994b671fed070361b44289498f1cc298a1f7c388"
+            "sha256": "0bdad23ca069b4c0d163e8bbf2fd37f4ad1879e1064288e3254c041a9552ed89"
           },
           "description": "Complete deterministic CLI surface graph shared by offline Agent capabilities and catalog parity checks."
         },
@@ -74,7 +74,7 @@
           "pointer": {
             "kind": "file",
             "path": "scripts/check-cli-catalog-parity.mjs",
-            "sha256": "0d4ecced4dc10a7a9bce3754c1207dd84a91fcf79d4b00b49959acc8cfef3594"
+            "sha256": "0d339f2f2e771244ee8b261a9832677b7c8faeb963292dc118da4831180876b7"
           },
           "description": "Build-free source-acceptance verifier for surface roots and Human, Agent, KFD-3, docs, skills, GUI, and package consumers."
         }
@@ -212,7 +212,7 @@
           "pointer": {
             "kind": "file",
             "path": "framework/core/src/python/kungfu/agent/commands.json",
-            "sha256": "583295901ceaddc4a36920bed6a39a710458c124347af40f6ccc30c4ac55efbb"
+            "sha256": "dba620780a20104ea289cd79e037670c051eb8ca1419d46ae362129bbc866602"
           },
           "description": "Remote add/sync command declarations and mode metadata."
         },
@@ -265,7 +265,7 @@
           "pointer": {
             "kind": "file",
             "path": "docs/adr/ADR-0109-four-object-agent-work-state-contract.md",
-            "sha256": "21425294f5c7def62b3970765d0746e5b71adce1957409f913bffa8c931473e9"
+            "sha256": "d71f24686963f8c11d202edb4f5ab2182d5bae81bc10521fb3c6c990f15fff3a"
           },
           "description": "Accepted role-separation decision and bounded P17 qualification boundary."
         },
@@ -292,7 +292,7 @@
           "pointer": {
             "kind": "file",
             "path": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
-            "sha256": "91294bb5d359299e2deda1a12d5629b599aaf20d2147816bab9f92098b5c813b"
+            "sha256": "732c9d8bfee2aeb7f09f6ca5dc5561bb73a9a254767c310f45f2b096832687ae"
           },
           "description": "Agent collaboration-interface registration for the work-model query."
         }

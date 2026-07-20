@@ -1,7 +1,7 @@
 ---
 metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
-adr_id: ADR-0122
+adr_id: ADR-0124
 decision_status: accepted
 implementation_status: implemented
 implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1141]
@@ -18,7 +18,7 @@ last_reviewed: 2026-07-20
 ai_provenance: GPT-5 via Codex on 2026-07-20; based on repository contracts, tests, and user-authorized design constraints; no claim about unpublished release artifacts or unobserved third-party implementations
 ---
 
-# ADR-0122: Invariants use one authority-bound verification and release-passport system
+# ADR-0124: Invariants use one authority-bound verification and release-passport system
 
 - Status: accepted and implemented by the bounded delivery and closure evidence above
 - Date: 2026-07-20

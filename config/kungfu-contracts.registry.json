@@ -274,6 +274,44 @@
       }
     },
     {
+      "surface": "exit-bundle",
+      "id": "kungfu-exit-bundle",
+      "schema": "kungfu.exit-bundle.contract/v1",
+      "contractSchemaRoot": "sha256:f1b2c4642f91dec499341fa7b1f14eb510a4b30ca00c9177bdc70a42fee10803",
+      "weldedSurface": "exit-bundle-contract",
+      "env": "KUNGFU_EXIT_BUNDLE_CONTRACT",
+      "file": "kungfu-exit-bundle.contract.json",
+      "source": "framework/exit/kungfu-exit-bundle.contract.json",
+      "artifact": "config/kungfu-exit-bundle.contract.json",
+      "extraArtifacts": [
+        {
+          "label": "Exit verifier contract",
+          "source": "framework/core/src/python/kungfu/exit_verifier.contract.json",
+          "artifact": "config/exit_verifier.contract.json"
+        },
+        {
+          "label": "Exit verifier corpus",
+          "source": "framework/core/src/python/kungfu/exit_verifier.corpus.json",
+          "artifact": "config/exit_verifier.corpus.json"
+        }
+      ],
+      "probeFixture": "tests/fixtures/exit-bundle-contract/cases.json",
+      "cli": {
+        "contract": [
+          "contract",
+          "show",
+          "exit-bundle",
+          "--json"
+        ],
+        "schema": [
+          "contract",
+          "show",
+          "exit-bundle",
+          "--json"
+        ]
+      }
+    },
+    {
       "surface": "invariant-system",
       "id": "kungfu-invariant-system",
       "schema": "kungfu.invariant-system.contract/v1",
