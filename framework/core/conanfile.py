@@ -299,7 +299,9 @@ class KungfuCoreConan(ConanFile):
     def package_info(self):
         self.cpp_info.set_property("cmake_file_name", "kungfu")
         self.cpp_info.set_property("cmake_target_name", "kungfu::kungfu")
-        self.cpp_info.libs = ["kungfu"]
+        self.cpp_info.libs = (
+            ["kungfu"] if _detected_os() == "Windows" else ["kungfu", "kungfu_runtime"]
+        )
 
     # ------------------------------------------------------------------ helpers
 

@@ -1,0 +1,59 @@
+{
+  "$schema": "kungfu.kfd7-library-release-passport/v1",
+  "surface": "libkungfu-kfd7-library-boundary",
+  "version": "4.0.0-alpha.1",
+  "classifications": [
+    {
+      "id": "libkungfu-successor-c-abi",
+      "classification": "consumer-ready",
+      "coordinate": "find_package(Kungfu 4 CONFIG REQUIRED); Kungfu::kungfu",
+      "evidence": [
+        "framework/core/src/libkungfu/include/kungfu/api.h",
+        "framework/core/examples/kfd7-consumer",
+        "scripts/qualify-kfd7-installed-consumer.mjs"
+      ]
+    },
+    {
+      "id": "libyijinjing-source-static",
+      "classification": "consumer-ready",
+      "coordinate": "add_subdirectory(libyijinjing); yijinjing",
+      "evidence": [
+        "framework/core/src/libyijinjing/include/kungfu/yijinjing/storage/fact_ledger.h",
+        "framework/core/examples/kfd7-yijinjing-source"
+      ]
+    },
+    {
+      "id": "legacy-embedding-and-native-storage",
+      "classification": "compatibility-only",
+      "evidence": [
+        "framework/core/src/libkungfu/tests/compat/public_contract_compatibility_tests.c"
+      ]
+    },
+    {
+      "id": "rust-python-node-successor-wrappers",
+      "classification": "experimental",
+      "evidence": [
+        "docs/guides/libkungfu-abi-consumer.md"
+      ]
+    }
+  ],
+  "platformMatrix": {
+    "required": ["darwin-arm64", "linux-x64", "win32-x64"],
+    "workflow": ".github/workflows/core-build-profiles.yml",
+    "gate": "kfd7:qualify:installed-consumer",
+    "comparison": [
+      "interface-registry",
+      "action-binding-root",
+      "status-codes",
+      "public-symbol-policy",
+      "installed-consumer-report"
+    ]
+  },
+  "residualRisk": [
+    "v1 cancellation is cooperative before native admission and does not preempt a running call",
+    "v1 timeout is declared in discovery but has no mid-call preemption",
+    "Rust Python and Node shipping SDKs still target the retained native-storage compatibility bootstrap",
+    "external adoption is not yet observed and is not a completion gate",
+    "battle-tested maturity is not claimed"
+  ]
+}

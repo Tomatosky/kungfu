@@ -3,20 +3,15 @@
 #include "fact_authority.h"
 #include "fact_kernel_internal.h"
 
-#include <algorithm>
-#include <memory>
+#include <type_traits>
 
 #include <kungfu/common.h>
-#include <kungfu/yijinjing/common.h>
-#include <kungfu/yijinjing/journal/journal.h>
 #include <kungfu/yijinjing/schema/types.h>
+#include <kungfu/yijinjing/storage/fact_ledger.h>
 
 namespace kungfu::runtime::storage_service_api::fact_kernel_internal {
 
 namespace yy = kungfu::yijinjing;
-using namespace kungfu::yijinjing::data;
-using namespace kungfu::yijinjing::enums;
-using namespace kungfu::yijinjing::journal;
 using namespace kungfu::yijinjing::types;
 
 namespace {
@@ -26,11 +21,6 @@ template <size_t N> std::string fixed_string(const kungfu::array<char, N> &value
     ++length;
   return std::string(value.value, length);
 }
-location_ptr kernel_location(const std::string &runtime_dir) {
-  auto locator = std::make_shared<yy::data::locator>(runtime_dir, mode::LIVE);
-  return location::make_shared(mode::LIVE, location_role::SYSTEM, JOURNAL_NAMESPACE, JOURNAL_NAME, locator);
-}
-
 void add_issue(kernel_state &state, uint32_t frame_tag, uint64_t sequence, bool sequence_known,
                const std::string &record_root, const std::string &failure_code, const std::string &message,
                const std::string &phase, const std::string &recovery) {
@@ -63,238 +53,131 @@ const char *domain_for_tag(uint32_t tag) {
 }
 } // namespace
 
-template <typename T> bool decode_record(const frame_ptr &frame, T &value) {
-  if (frame->data_length() < sizeof(T)) {
-    return false;
-  }
-  value = frame->data<T>();
-  return !root_protocol_for_version(value.schema_version).empty();
-}
-
-template <typename Record, typename Root, typename Key, typename Materialize>
-void fold_authority_frame(const frame_ptr &frame, kernel_state &state, std::vector<kernel_authority_record> &pending,
-                          uint32_t frame_tag, uint64_t &sequence, bool &sequence_known, std::string &record_root,
-                          Root root_of, Key key_of, Materialize materialize) {
-  Record record{};
-  if (!decode_record(frame, record)) {
-    add_issue(state, frame_tag, 0, false, {}, "record-decode-failed",
-              "Fact record is truncated or uses an unsupported schema version", "decode",
-              "preserve-authority-and-upgrade-reader");
-    return;
-  }
-  sequence = record.sequence;
-  sequence_known = true;
-  record_root = root_of(record);
-  pending.push_back(
-      {Record::tag, sequence, key_of(record, record_root), record_root, materialize(record, record_root)});
-  pending.back().root_protocol = root_protocol_for_version(record.schema_version);
-}
-
 kernel_state fold_kernel(const std::string &runtime_dir) {
   kernel_state state;
-  std::vector<kernel_authority_record> pending;
-  std::set<uint64_t> accepted_sequences;
-  const auto target = kernel_location(runtime_dir);
-  if (target->locator->list_page_id(target, location::PUBLIC).empty()) {
-    return state;
+  const auto ledger = yy::storage::fact_ledger_store(runtime_dir).replay();
+  state.next_sequence = ledger.next_sequence;
+  for (const auto &issue : ledger.issues) {
+    add_issue(state, issue.frame_tag, issue.sequence, issue.sequence_known, issue.record_root, issue.code,
+              "Fact authority record/receipt pairing is not readable", "authority-replay",
+              "preserve-authority-and-run-fsck");
   }
-  auto reader = std::make_shared<yy::journal::reader>(true, false, std::make_shared<bus>(false));
-  reader->join(target, location::PUBLIC, 0);
-  while (reader->data_available()) {
-    const auto frame = reader->current_frame();
-    const auto frame_tag = static_cast<uint32_t>(frame->carrier_type());
-    uint64_t sequence = 0;
-    bool sequence_known = false;
-    std::string record_root;
+  for (const auto &pair : ledger.accepted) {
+    const auto &source = pair.record;
     try {
-      switch (frame->carrier_type()) {
-      case FactObjectRecorded::tag: {
-        fold_authority_frame<FactObjectRecorded>(
-            frame, state, pending, frame_tag, sequence, sequence_known, record_root,
-            [](const auto &record) { return fixed_string(record.object_root); },
-            [](const auto &record, const auto &) { return fixed_string(record.object_id); },
-            [&](const auto &record, const auto &root) {
-              auto document = parse_fact_document("kungfu.fact.object/v1",
-                                                  load_metadata(runtime_dir, root, "kungfu.fact.object/v1"));
+      auto accepted = kernel_authority_record{};
+      accepted.tag = source.tag;
+      accepted.sequence = source.sequence;
+      accepted.record_root = source.record_root;
+      accepted.root_protocol = root_protocol_for_version(source.schema_version);
+      std::visit(
+          [&](const auto &record) {
+            using record_type = std::decay_t<decltype(record)>;
+            if constexpr (std::is_same_v<record_type, FactObjectRecorded>) {
+              accepted.key = fixed_string(record.object_id);
+              accepted.document = parse_fact_document(
+                  "kungfu.fact.object/v1", load_metadata(runtime_dir, source.record_root, "kungfu.fact.object/v1"));
               validate_fact_record_authority(
-                  document,
+                  accepted.document,
                   object_record_authority{fixed_string(record.object_id), fixed_string(record.object_type),
-                                          fixed_string(record.created_by_receipt_root), root},
-                  root_protocol_for_version(record.schema_version));
-              return document;
-            });
-        break;
-      }
-      case FactVersionRecorded::tag: {
-        fold_authority_frame<FactVersionRecorded>(
-            frame, state, pending, frame_tag, sequence, sequence_known, record_root,
-            [](const auto &record) { return fixed_string(record.version_root); },
-            [](const auto &, const auto &root) { return root; },
-            [&](const auto &record, const auto &root) {
-              auto document = parse_fact_document("kungfu.fact.version/v1",
-                                                  load_metadata(runtime_dir, root, "kungfu.fact.version/v1"));
+                                          fixed_string(record.created_by_receipt_root), source.record_root},
+                  accepted.root_protocol);
+            } else if constexpr (std::is_same_v<record_type, FactVersionRecorded>) {
+              accepted.key = source.record_root;
+              accepted.document = parse_fact_document(
+                  "kungfu.fact.version/v1", load_metadata(runtime_dir, source.record_root, "kungfu.fact.version/v1"));
               validate_fact_record_authority(
-                  document,
-                  version_record_authority{fixed_string(record.object_id), root, fixed_string(record.body_root),
-                                           fixed_string(record.schema_root), fixed_string(record.parent_versions_root),
-                                           fixed_string(record.declaration_roots_root),
-                                           fixed_string(record.admission_roots_root)},
-                  root_protocol_for_version(record.schema_version));
-              return document;
-            });
-        break;
-      }
-      case FactRelationAdded::tag: {
-        fold_authority_frame<FactRelationAdded>(
-            frame, state, pending, frame_tag, sequence, sequence_known, record_root,
-            [](const auto &record) { return fixed_string(record.relation_root); },
-            [](const auto &, const auto &root) { return root; },
-            [&](const auto &record, const auto &root) {
-              auto document = parse_fact_document("kungfu.fact.relation-add/v1",
-                                                  load_metadata(runtime_dir, root, "kungfu.fact.relation-add/v1"));
+                  accepted.document,
+                  version_record_authority{
+                      fixed_string(record.object_id), source.record_root, fixed_string(record.body_root),
+                      fixed_string(record.schema_root), fixed_string(record.parent_versions_root),
+                      fixed_string(record.declaration_roots_root), fixed_string(record.admission_roots_root)},
+                  accepted.root_protocol);
+            } else if constexpr (std::is_same_v<record_type, FactRelationAdded>) {
+              accepted.key = source.record_root;
+              accepted.document =
+                  parse_fact_document("kungfu.fact.relation-add/v1",
+                                      load_metadata(runtime_dir, source.record_root, "kungfu.fact.relation-add/v1"));
               validate_fact_record_authority(
-                  document,
+                  accepted.document,
                   relation_record_authority{fixed_string(record.relation_id), fixed_string(record.relation_type),
                                             fixed_string(record.source_kind), fixed_string(record.source_id),
                                             fixed_string(record.target_kind), fixed_string(record.target_id),
                                             fixed_string(record.attributes_root),
-                                            fixed_string(record.admission_roots_root), root},
-                  root_protocol_for_version(record.schema_version));
-              return document;
-            });
-        break;
-      }
-      case FactRelationRevoked::tag: {
-        fold_authority_frame<FactRelationRevoked>(
-            frame, state, pending, frame_tag, sequence, sequence_known, record_root,
-            [](const auto &record) { return fixed_string(record.revoke_root); },
-            [](const auto &record, const auto &) { return fixed_string(record.relation_root); },
-            [&](const auto &record, const auto &root) {
-              auto document = parse_fact_document("kungfu.fact.relation-revoke/v1",
-                                                  load_metadata(runtime_dir, root, "kungfu.fact.relation-revoke/v1"));
-              validate_fact_record_authority(document,
+                                            fixed_string(record.admission_roots_root), source.record_root},
+                  accepted.root_protocol);
+            } else if constexpr (std::is_same_v<record_type, FactRelationRevoked>) {
+              accepted.key = fixed_string(record.relation_root);
+              accepted.document =
+                  parse_fact_document("kungfu.fact.relation-revoke/v1",
+                                      load_metadata(runtime_dir, source.record_root, "kungfu.fact.relation-revoke/v1"));
+              validate_fact_record_authority(accepted.document,
                                              revocation_record_authority{fixed_string(record.relation_root),
-                                                                         fixed_string(record.reason_root), root},
-                                             root_protocol_for_version(record.schema_version));
-              return document;
-            });
-        break;
-      }
-      case FactCutCommitted::tag: {
-        fold_authority_frame<FactCutCommitted>(
-            frame, state, pending, frame_tag, sequence, sequence_known, record_root,
-            [](const auto &record) { return fixed_string(record.cut_root); },
-            [](const auto &, const auto &root) { return root; },
-            [&](const auto &record, const auto &root) {
-              auto document =
-                  parse_fact_document("kungfu.fact.cut/v1", load_metadata(runtime_dir, root, "kungfu.fact.cut/v1"));
+                                                                         fixed_string(record.reason_root),
+                                                                         source.record_root},
+                                             accepted.root_protocol);
+            } else if constexpr (std::is_same_v<record_type, FactCutCommitted>) {
+              accepted.key = source.record_root;
+              accepted.document = parse_fact_document(
+                  "kungfu.fact.cut/v1", load_metadata(runtime_dir, source.record_root, "kungfu.fact.cut/v1"));
               validate_fact_record_authority(
-                  document,
+                  accepted.document,
                   cut_record_authority{
-                      root, fixed_string(record.parent_cuts_root), fixed_string(record.object_versions_root),
-                      fixed_string(record.active_relations_root), fixed_string(record.declaration_roots_root),
-                      fixed_string(record.admission_roots_root), fixed_string(record.episode_frontier_root),
-                      fixed_string(record.omission_roots_root), fixed_string(record.conflict_roots_root)},
-                  root_protocol_for_version(record.schema_version));
-              return document;
-            });
-        break;
-      }
-      case FactRefTransition::tag: {
-        fold_authority_frame<FactRefTransition>(
-            frame, state, pending, frame_tag, sequence, sequence_known, record_root,
-            [](const auto &record) { return fixed_string(record.transition_root); },
-            [](const auto &record, const auto &) { return fixed_string(record.transition_id); },
-            [&](const auto &record, const auto &root) {
-              auto document = parse_fact_document("kungfu.fact.ref-transition/v1",
-                                                  load_metadata(runtime_dir, root, "kungfu.fact.ref-transition/v1"),
-                                                  root, record.expected_old_revision + 1);
+                      source.record_root, fixed_string(record.parent_cuts_root),
+                      fixed_string(record.object_versions_root), fixed_string(record.active_relations_root),
+                      fixed_string(record.declaration_roots_root), fixed_string(record.admission_roots_root),
+                      fixed_string(record.episode_frontier_root), fixed_string(record.omission_roots_root),
+                      fixed_string(record.conflict_roots_root)},
+                  accepted.root_protocol);
+            } else if constexpr (std::is_same_v<record_type, FactRefTransition>) {
+              accepted.key = fixed_string(record.transition_id);
+              accepted.document =
+                  parse_fact_document("kungfu.fact.ref-transition/v1",
+                                      load_metadata(runtime_dir, source.record_root, "kungfu.fact.ref-transition/v1"),
+                                      source.record_root, record.expected_old_revision + 1);
               validate_fact_record_authority(
-                  document,
+                  accepted.document,
                   transition_record_authority{fixed_string(record.transition_id), fixed_string(record.ref_name),
                                               fixed_string(record.expected_old_cut_root), record.expected_old_revision,
                                               fixed_string(record.new_cut_root), fixed_string(record.transition_kind),
-                                              fixed_string(record.reason_root), root},
-                  root_protocol_for_version(record.schema_version));
-              return document;
-            });
-        break;
-      }
-      case FactOperationReceipt::tag: {
-        FactOperationReceipt record{};
-        if (!decode_record(frame, record)) {
-          add_issue(state, frame_tag, 0, false, {}, "record-decode-failed",
-                    "Fact receipt is truncated or uses an unsupported schema version", "decode",
-                    "preserve-authority-and-upgrade-reader");
-          break;
-        }
-        sequence = record.sequence;
-        sequence_known = true;
-        record_root = fixed_string(record.receipt_root);
-        if (pending.empty()) {
-          add_issue(state, frame_tag, sequence, true, {}, "receipt-pair-mismatch",
-                    "Fact receipt does not pair with the immediately preceding record", "receipt-pairing",
-                    "preserve-authority-and-run-fsck");
-          break;
-        }
-        auto failure_code = fixed_string(record.failure_code);
-        auto receipt = parse_operation_receipt(
-            load_metadata(runtime_dir, record_root, "kungfu.fact.operation-receipt/v1"), pending.back().document,
-            operation_receipt_authority{
-                fixed_string(record.operation_id), fixed_string(record.operation), fixed_string(record.status),
-                failure_code.empty() ? std::nullopt : std::optional<std::string>{std::move(failure_code)},
-                fixed_string(record.request_root), fixed_string(record.record_root),
-                fixed_string(record.prior_cut_root), fixed_string(record.current_cut_root), record.prior_revision,
-                record.current_revision, record.write_occurred != 0, record_root});
-        if (pending.back().sequence + 1 != sequence ||
-            pending.back().root_protocol != root_protocol_for_version(record.schema_version) ||
-            pending.back().record_root != receipt.record_root) {
-          add_issue(state, frame_tag, sequence, true, receipt.record_root, "receipt-pair-mismatch",
-                    "Fact receipt does not pair with the immediately preceding record", "receipt-pairing",
-                    "preserve-authority-and-run-fsck");
-          break;
-        }
-        accepted_sequences.insert(pending.back().sequence);
-        pending.back().receipt = receipt;
-        state.receipts[fixed_string(record.operation_id)] = std::move(receipt);
-        break;
-      }
-      case PageEnd::tag:
-        break;
-      default:
-        add_issue(state, frame_tag, 0, false, {}, "unknown-frame-tag", "Fact journal frame tag is not recognized",
-                  "dispatch", "preserve-authority-and-upgrade-reader");
-        break;
-      }
+                                              fixed_string(record.reason_root), source.record_root},
+                  accepted.root_protocol);
+            }
+          },
+          source.value);
+
+      const auto &receipt_record = pair.receipt;
+      const auto receipt_root = fixed_string(receipt_record.receipt_root);
+      auto failure_code = fixed_string(receipt_record.failure_code);
+      accepted.receipt = parse_operation_receipt(
+          load_metadata(runtime_dir, receipt_root, "kungfu.fact.operation-receipt/v1"), accepted.document,
+          operation_receipt_authority{
+              fixed_string(receipt_record.operation_id), fixed_string(receipt_record.operation),
+              fixed_string(receipt_record.status),
+              failure_code.empty() ? std::nullopt : std::optional<std::string>{std::move(failure_code)},
+              fixed_string(receipt_record.request_root), fixed_string(receipt_record.record_root),
+              fixed_string(receipt_record.prior_cut_root), fixed_string(receipt_record.current_cut_root),
+              receipt_record.prior_revision, receipt_record.current_revision, receipt_record.write_occurred != 0,
+              receipt_root});
+      state.receipts[fixed_string(receipt_record.operation_id)] = accepted.receipt;
+
+      const auto document = fact_document_json(accepted.document);
+      const auto successor_root = accepted.root_protocol == PORTABLE_ROOT_PROTOCOL
+                                      ? accepted.record_root
+                                      : metadata_root(domain_for_tag(accepted.tag), document, PORTABLE_ROOT_PROTOCOL);
+      accepted.mapping_receipt = parse_root_mapping(
+          root_mapping_receipt(domain_for_tag(accepted.tag), document, successor_root, accepted.receipt.request_root));
+      accepted.mapping_receipt_root = root_mapping_receipt_root(root_mapping_json(accepted.mapping_receipt));
+      state.authority_records.push_back(std::move(accepted));
     } catch (const fact_authority_mismatch &error) {
-      add_issue(state, frame_tag, sequence, sequence_known, record_root, "authority-record-mismatch", error.what(),
+      add_issue(state, source.tag, source.sequence, true, source.record_root, "authority-record-mismatch", error.what(),
                 "authority-validation", "preserve-authority-and-run-fsck");
     } catch (const std::exception &) {
-      add_issue(state, frame_tag, sequence, sequence_known, record_root, "record-materialization-failed",
+      add_issue(state, source.tag, source.sequence, true, source.record_root, "record-materialization-failed",
                 "Fact record metadata could not be verified", "materialize", "preserve-authority-and-restore-content");
     }
-    state.next_sequence = std::max(state.next_sequence, sequence + 1);
-    reader->next();
   }
-  // Every authoritative record and its accepted receipt are one logical
-  // append decision. A torn or mismatched pair remains diagnostic material.
-  for (const auto &record : pending) {
-    if (accepted_sequences.count(record.sequence) == 0) {
-      add_issue(state, record.tag, record.sequence, true, record.record_root, "record-receipt-missing",
-                "Fact record has no accepted adjacent operation receipt", "receipt-pairing",
-                "preserve-authority-and-run-fsck");
-      continue;
-    }
-    state.authority_records.push_back(record);
-    auto &accepted = state.authority_records.back();
-    const auto successor_root = accepted.root_protocol == PORTABLE_ROOT_PROTOCOL
-                                    ? accepted.record_root
-                                    : metadata_root(domain_for_tag(accepted.tag), fact_document_json(accepted.document),
-                                                    PORTABLE_ROOT_PROTOCOL);
-    accepted.mapping_receipt =
-        parse_root_mapping(root_mapping_receipt(domain_for_tag(accepted.tag), fact_document_json(accepted.document),
-                                                successor_root, accepted.receipt.request_root));
-    accepted.mapping_receipt_root = root_mapping_receipt_root(root_mapping_json(accepted.mapping_receipt));
+  for (const auto &record : state.authority_records) {
     switch (record.tag) {
     case FactObjectRecorded::tag:
       state.objects[record.key] = std::get<fact_object>(record.document);

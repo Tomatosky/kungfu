@@ -1,7 +1,7 @@
 {
   "schema": "kungfu.core-build-capability-manifest/v1",
   "authority_version": 1,
-  "authority_sha256": "sha256:32b53931547127bf7919f98284ea39643c5c573840de412810c398a1ac1a3a74",
+  "authority_sha256": "sha256:5e234736416b3b74c2818dea1c1cc257898c5ce01eaba1a64a5d09e099f7d80b",
   "default_profile": "full",
   "profiles": [
     {

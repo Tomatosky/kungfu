@@ -94,6 +94,20 @@ jobs:
           cmd.exe /d /s /c "`"$vsDevCmd`" -arch=x64 -host_arch=x64 >nul && node framework/core/slices/custom-provider/run.mjs"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Qualify installed KFD-7 consumers (POSIX full profile)
+        if: runner.os != 'Windows' && matrix.profile == 'full'
+        shell: bash
+        run: >-
+          ./shifu kfd7:qualify:installed-consumer --
+          --report=product/release/qualification/kfd7-installed-consumer/${{ runner.os }}-${{ runner.arch }}.json
+
+      - name: Qualify installed KFD-7 consumers (Windows full profile)
+        if: runner.os == 'Windows' && matrix.profile == 'full'
+        shell: pwsh
+        run: >-
+          .\shifu.cmd kfd7:qualify:installed-consumer --
+          --report=product/release/qualification/kfd7-installed-consumer/${{ runner.os }}-${{ runner.arch }}.json
+
       - name: Qualify Peer lifecycle faults (POSIX full profile)
         if: runner.os != 'Windows' && matrix.profile == 'full'
         shell: bash
@@ -160,5 +174,14 @@ jobs:
           path: |
             product/release/qualification/invariants/${{ runner.os }}-${{ runner.arch }}
             product/release/qualification/invariant-run-${{ runner.os }}-${{ runner.arch }}.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Retain KFD-7 installed-consumer qualification
+        if: always() && matrix.profile == 'full'
+        uses: actions/upload-artifact@v4
+        with:
+          name: kfd7-installed-consumer-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+          path: product/release/qualification/kfd7-installed-consumer/${{ runner.os }}-${{ runner.arch }}.json
           if-no-files-found: error
           retention-days: 14

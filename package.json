@@ -97,6 +97,7 @@
     "check:exit-clean-runtime": "node scripts/require-shifu.mjs check:exit-clean-runtime && python3 scripts/check-exit-clean-runtime.py --json",
     "check:provider-migration-product": "node scripts/require-shifu.mjs check:provider-migration-product && python3 scripts/check-provider-migration-product.py --no-rocks-library \"${KUNGFU_NO_ROCKS_LIBRARY:?set KUNGFU_NO_ROCKS_LIBRARY}\" --no-rocks-identity \"${KUNGFU_NO_ROCKS_IDENTITY:?set KUNGFU_NO_ROCKS_IDENTITY}\" --json",
     "check:kfd7-library-boundary": "node scripts/require-shifu.mjs check:kfd7-library-boundary && node scripts/check-kfd7-library-boundary.test.mjs",
+    "kfd7:qualify:installed-consumer": "node scripts/require-shifu.mjs kfd7:qualify:installed-consumer && node scripts/qualify-kfd7-installed-consumer.mjs",
     "test:fact-profile-shadow": "node scripts/require-shifu.mjs test:fact-profile-shadow && node scripts/run-fact-profile-shadow-tests.mjs",
     "test:fact-kernel-integrity": "node scripts/require-shifu.mjs test:fact-kernel-integrity && node scripts/run-fact-kernel-integrity-tests.mjs",
     "test:fact-kernel-dogfood": "node scripts/require-shifu.mjs test:fact-kernel-dogfood && node scripts/run-fact-kernel-dogfood-tests.mjs",

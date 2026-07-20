@@ -72,10 +72,22 @@ function currentPlatform() {
   return descriptor;
 }
 
-function nativeLibraryName() {
-  if (process.platform === 'darwin') return 'libkungfu.dylib';
-  if (process.platform === 'win32') return 'kungfu.dll';
-  return 'libkungfu.so';
+function nativeLibraryNames() {
+  if (process.platform === 'win32') return ['kungfu.dll'];
+  if (process.platform === 'darwin')
+    return ['libkungfu.dylib', 'libkungfu_runtime.dylib'];
+  return ['libkungfu.so', 'libkungfu_runtime.so'];
+}
+
+function nativeLibraries() {
+  return nativeLibraryNames().map((name) => path.join(NATIVE, name));
+}
+
+function copyNativeLibraries(destination) {
+  for (const library of nativeLibraries()) {
+    requireFile(library);
+    fs.copyFileSync(library, path.join(destination, path.basename(library)));
+  }
 }
 
 function requireFile(file) {
@@ -100,18 +112,15 @@ function packNode() {
   const npmStage = path.join(STAGE, 'npm');
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'kungfu-node-sdk-pack-'));
   const addon = path.join(NATIVE, 'kungfu_node.node');
-  const library = path.join(NATIVE, nativeLibraryName());
+  const libraries = nativeLibraries();
   requireFile(addon);
-  requireFile(library);
+  for (const library of libraries) requireFile(library);
   fs.mkdirSync(npmStage, { recursive: true });
   try {
     const platformRoot = path.join(work, 'platform');
     fs.mkdirSync(path.join(platformRoot, 'dist'), { recursive: true });
     fs.copyFileSync(addon, path.join(platformRoot, 'dist', 'kungfu_node.node'));
-    fs.copyFileSync(
-      library,
-      path.join(platformRoot, 'dist', path.basename(library)),
-    );
+    copyNativeLibraries(path.join(platformRoot, 'dist'));
     fs.copyFileSync(
       CONTRACT,
       path.join(platformRoot, 'kungfu-storage.contract.json'),
@@ -175,16 +184,12 @@ function packPython() {
   const work = fs.mkdtempSync(
     path.join(os.tmpdir(), 'kungfu-python-sdk-pack-'),
   );
-  const library = path.join(NATIVE, nativeLibraryName());
-  requireFile(library);
+  for (const library of nativeLibraries()) requireFile(library);
   fs.mkdirSync(pythonStage, { recursive: true });
   try {
     fs.cpSync(source, work, { recursive: true });
     fs.copyFileSync(path.join(ROOT, 'LICENSE'), path.join(work, 'LICENSE'));
-    fs.copyFileSync(
-      library,
-      path.join(work, 'kungfu_sdk', path.basename(library)),
-    );
+    copyNativeLibraries(path.join(work, 'kungfu_sdk'));
     fs.copyFileSync(
       CONTRACT,
       path.join(work, 'kungfu_sdk', 'kungfu-storage.contract.json'),

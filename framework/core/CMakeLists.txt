@@ -3,6 +3,8 @@
 cmake_minimum_required(VERSION 3.28)
 project(kungfu LANGUAGES C CXX)
 
+set(KUNGFU_SDK_VERSION "4.0.0-alpha.1" CACHE STRING "Installed Kungfu SDK version")
+
 ##########################################################################
 
 include(${PROJECT_SOURCE_DIR}/.cmake/editor.cmake)
@@ -189,4 +191,59 @@ endif()
 if (KUNGFU_WITH_SLICES AND TARGET yijinjing)
   message(STATUS "Enabled capability slices")
   add_subdirectory(slices)
+endif()
+
+if(TARGET ${LIBKUNGFU_NAME})
+  include(GNUInstallDirs)
+  include(CMakePackageConfigHelpers)
+
+  if(WIN32)
+    set(KUNGFU_INSTALL_RUNTIME_TARGETS kungfu_native_storage_shared)
+  else()
+    set(KUNGFU_INSTALL_RUNTIME_TARGETS kungfu_abi ${LIBKUNGFU_NAME})
+  endif()
+
+  install(TARGETS ${KUNGFU_INSTALL_RUNTIME_TARGETS}
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+  )
+  install(FILES
+    "${PROJECT_SOURCE_DIR}/src/libkungfu/include/kungfu/api.h"
+    "${PROJECT_SOURCE_DIR}/src/libkungfu/include/kungfu/api.hpp"
+    "${PROJECT_SOURCE_DIR}/src/libkungfu/include/kungfu/embedding.h"
+    "${PROJECT_SOURCE_DIR}/src/libkungfu/include/kungfu/native_storage.h"
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/kungfu"
+  )
+  install(FILES
+    "${PROJECT_SOURCE_DIR}/architecture/kfd7-library-boundary.contract.json"
+    "${PROJECT_SOURCE_DIR}/architecture/libkungfu-symbol-policy.json"
+    "${PROJECT_SOURCE_DIR}/architecture/kfd7-abi-conformance-v1.json"
+    "${PROJECT_SOURCE_DIR}/architecture/kfd7-release-passport.json"
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/kungfu/contracts"
+  )
+  install(FILES
+    "${PROJECT_SOURCE_DIR}/../../docs/guides/libkungfu-abi-consumer.md"
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/kungfu/docs"
+  )
+  install(DIRECTORY
+    "${PROJECT_SOURCE_DIR}/examples/kfd7-consumer/"
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/kungfu/examples/kfd7-consumer"
+  )
+
+  configure_package_config_file(
+    "${PROJECT_SOURCE_DIR}/cmake/KungfuConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/KungfuConfig.cmake"
+    INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/Kungfu"
+  )
+  write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/KungfuConfigVersion.cmake"
+    VERSION 4.0.0
+    COMPATIBILITY SameMajorVersion
+  )
+  install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/KungfuConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/KungfuConfigVersion.cmake"
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/Kungfu"
+  )
 endif()

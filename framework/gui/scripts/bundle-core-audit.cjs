@@ -179,6 +179,7 @@ function auditPackagedApp(appDir, options = {}) {
     'kungfu',
     'kungfu_electron.node',
     'libkungfu.dylib',
+    'libkungfu_runtime.dylib',
     'profile-kfd3.json',
   ]) {
     const p = path.join(runtimeDir, required);
@@ -230,7 +231,8 @@ function auditPackagedApp(appDir, options = {}) {
   const allRuntimeDirs = listDirs(resources).filter(
     (dir) =>
       exists(path.join(dir, 'kungfu_electron.node')) &&
-      exists(path.join(dir, 'libkungfu.dylib')),
+      exists(path.join(dir, 'libkungfu.dylib')) &&
+      exists(path.join(dir, 'libkungfu_runtime.dylib')),
   );
   const nonCanonicalRuntimeDirs = allRuntimeDirs.filter(
     (dir) => path.resolve(dir) !== path.resolve(runtimeDir),

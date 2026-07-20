@@ -3,8 +3,10 @@ metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
 adr_id: ADR-0120
 decision_status: accepted
-implementation_status: staged
-implementation_prs: []
+implementation_status: implemented
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1152]
+closure_pr: https://github.com/kungfu-systems/kungfu/pull/1152
+qualification_refs: [framework/core/architecture/kfd7-library-boundary.contract.json, framework/core/architecture/kfd7-abi-conformance-v1.json, framework/core/architecture/kfd7-release-passport.json, framework/core/architecture/libkungfu-symbol-policy.json, scripts/qualify-kfd7-installed-consumer.mjs, .github/workflows/core-build-profiles.yml]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -13,13 +15,13 @@ theme: kfd7-library-boundary-and-successor-abi
 confidence: high
 evidence_grade: B
 last_reviewed: 2026-07-20
-ai_provenance: GPT-5 via Codex on 2026-07-19; based on repository sources, KFD-7, and user-authorized design constraints; no claim about unfinished dependency goals, unobserved platform behavior, or external adoption
+ai_provenance: GPT-5 via Codex on 2026-07-20; based on repository sources, KFD-7, and user-authorized design constraints; no claim about external adoption or battle-tested maturity
 ---
 
 # ADR-0120: KFD-7 fixes the reality-kernel boundary and one successor libkungfu ABI
 
-- Status: accepted boundary; boundary-contract stage delivered; successor ABI
-  implementation not started
+- Status: accepted, implemented, and consumer-qualified on the supported
+  Darwin arm64, Linux x64, and Windows x64 matrix
 - Date: 2026-07-19
 - Category: library ownership / native ABI / consumer readiness
 - Related: [ADR-0018](ADR-0018-runtime-storage-service-architecture.md),
@@ -148,7 +150,10 @@ The eventual adapters may delegate to the successor implementation after
 byte/root/error parity is proved. Until then they retain their current
 implementations. New consumers target `kungfu_get_api` only after the successor
 header, implementation, package coordinates, and qualification gates land.
-The accepted name in this ADR is not itself a shipped symbol or an ABI promise.
+The successor is exported by the narrow public façade and installed through
+the `Kungfu::kungfu` CMake coordinate. It remains a pre-release ABI, with the
+supported platform matrix qualified at the exact source revision recorded in
+the Release Passport.
 
 ### 5. Migration is dependency-gated and incremental
 
@@ -168,9 +173,11 @@ The migration order is:
 6. switch old bootstraps to compatibility adapters only after differential
    evidence proves no semantic change.
 
-The paused Fact native-closure, canonical-root, and internal-decomposition
-goals own steps 3 and 4 prerequisites. This ADR does not invent their roots,
-move their code early, or treat their unqualified state as delivered.
+The Fact native-closure, canonical-root, and internal-decomposition goals have
+published exact admitted roots. The generic Fact record/receipt pairing,
+verified replay, recovery disposition, and snapshot primitive now live in
+`libyijinjing`; JSON rendering, providers, projections, runtime composition,
+and Profile policy remain in `libkungfu` or above it.
 
 ### 6. Consumer readiness is evidence, not an adopter count
 
@@ -237,22 +244,24 @@ protocol/root/receipt comparisons where the surface claims portability.
 ## Version impact
 
 The boundary and machine contract are additive documentation and architecture
-authority. Recording embedding v5 and the expanded native-storage v1
-capability/operation inventory matches the already implemented public ABI and
-is non-breaking.
+authority. The architecture registry and frozen caller fixture now track the
+complete retained embedding range v1-v5 and the expanded native-storage v1
+capability/operation inventory. This recording change matches the implemented
+public ABI and is non-breaking.
 
-`kungfu_get_api` and its responsibility-scoped interfaces are a planned
-successor surface. They do not become stable until implemented, exported,
-packaged, and qualified. Existing symbols and versions remain the current
-stable native entry points throughout migration. Any persisted Root protocol
-change requires a successor protocol tag, preserved legacy reader, and
-explicit mapping/admission receipts.
+`kungfu_get_api` and its responsibility-scoped v1 interfaces are implemented,
+exported, packaged, and consumer-qualified on Darwin arm64, Linux x64, and
+Windows x64 at source revision
+`a6ccb0ec476d8a57a24c79ce49acf77a0c9996e2` by
+[Core build profiles run 29762683233](https://github.com/kungfu-systems/kungfu/actions/runs/29762683233).
+Existing symbols and versions remain retained compatibility entry points. Any
+persisted Root protocol change requires a successor protocol tag, preserved
+legacy reader, and explicit mapping/admission receipts.
 
 ## Consequences
 
-Consumers and future maintainers get one end-state ownership map and one
-compatibility story without prematurely freezing unfinished Fact internals.
-The cost is a staged migration: the repository must carry both old bootstraps
-until the successor is real and independently qualified, and the library goal
-cannot claim completion while its Root/decomposition/native-closure
-dependencies remain unproved.
+Consumers and future maintainers get one ownership map, one successor
+bootstrap, one installed coordinate, and one compatibility story. The
+repository continues to carry both old bootstraps as compatibility-only
+surfaces. Language SDK migration, external adoption, and battle-tested maturity
+remain explicit follow-on evidence rather than hidden completion claims.

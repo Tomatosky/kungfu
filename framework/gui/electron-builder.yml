@@ -35,8 +35,8 @@ extraResources:
       - src/**/*
       - "*.contract.json"
       - schemas/**/*
-  # Ship the kungfu runtime (libkungfu.dylib + kungfu_electron.node) so the
-  # packaged app loads the binding from Resources/kungfu, matching its rpath.
+  # Ship the narrow public facade, its private runtime dependency, and the
+  # Electron binding so Resources/kungfu remains one loader-closed directory.
   - from: ../core/dist/kungfu
     to: kungfu
   # Generated after the runtime tree is final. Keep it outside Resources/kungfu

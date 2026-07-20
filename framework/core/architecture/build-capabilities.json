@@ -194,6 +194,7 @@
     "kungfu_storage_adapters": ["sqlite", "rocksdb"],
     "kungfu_view_adapters": ["flatbuffers"],
     "kungfu_platform_adapters": ["nng", "sqlite", "tabulate"],
+    "kungfu_abi_exports": [],
     "kungfu_composition": []
   },
   "build_identity": {

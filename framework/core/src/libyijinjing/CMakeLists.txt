@@ -39,6 +39,14 @@ add_library(yijinjing STATIC ${YIJINJING_SOURCE_FILES})
 # the ADR-0001 publication protocol uses std::atomic_ref; a target-level
 # requirement holds even when the embedder's global standard is older
 target_compile_features(yijinjing PUBLIC cxx_std_20)
+target_compile_definitions(yijinjing PRIVATE HAVE_USLEEP=1 SPDLOG_NO_NAME SPDLOG_NO_ATOMIC_LEVELS)
+# Standalone embedders do not load the full Kungfu compiler contract. Keep the
+# same narrow fmt compatibility rule on the source/static target itself.
+if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" AND
+   CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 21 AND
+   CMAKE_CXX_COMPILER_VERSION VERSION_LESS 22)
+  target_compile_options(yijinjing PUBLIC -DFMT_CONSTEVAL=)
+endif()
 if(TARGET kungfu_compile_contract)
   target_link_libraries(yijinjing PUBLIC kungfu_compile_contract)
 endif()
@@ -90,6 +98,14 @@ if(YIJINJING_BUILD_TESTS)
   endif()
   target_compile_features(yijinjing_advisory_file_lock_tests PRIVATE cxx_std_20)
   add_test(NAME yijinjing_advisory_file_lock_tests COMMAND yijinjing_advisory_file_lock_tests)
+
+  add_executable(yijinjing_fact_ledger_tests tests/fact_ledger_tests.cpp)
+  target_link_libraries(yijinjing_fact_ledger_tests PRIVATE yijinjing)
+  if(TARGET kungfu_compile_contract)
+    target_link_libraries(yijinjing_fact_ledger_tests PRIVATE kungfu_compile_contract)
+  endif()
+  target_compile_features(yijinjing_fact_ledger_tests PRIVATE cxx_std_20)
+  add_test(NAME yijinjing_fact_ledger_tests COMMAND yijinjing_fact_ledger_tests)
 
   add_executable(yijinjing_custom_provider_qualification tests/custom_provider_qualification.cpp)
   target_link_libraries(yijinjing_custom_provider_qualification PRIVATE yijinjing)

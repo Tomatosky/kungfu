@@ -42,6 +42,8 @@ extern "C" {
 #define KF_PROTOCOL_STORAGE_SERVICE "kungfu.runtime.storage-service"
 #define KF_PROTOCOL_ACTION_BINDING "kungfu.action-binding"
 #define KF_PROTOCOL_INTERFACE_REGISTRY "kungfu.interface-registry"
+#define KF_SCHEMA_LEDGER_ACTION_REQUEST_V1 "kungfu.ledger-action.request/v1"
+#define KF_SCHEMA_MAINTENANCE_REQUEST_V1 "kungfu.maintenance.request/v1"
 
 typedef struct kf_context kf_context;
 typedef struct kf_stream_reader kf_stream_reader;

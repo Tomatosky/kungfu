@@ -476,9 +476,8 @@ const kf_embedding_api_v5 API_V5 = {KF_EMBEDDING_ABI_V5,  sizeof(kf_embedding_ap
 
 } // namespace
 
-extern "C" KF_EMBEDDING_EXPORT int32_t KF_EMBEDDING_CALL kungfu_embedding_get_api(uint32_t requested_version,
-                                                                                  uint32_t caller_struct_size,
-                                                                                  void *out_api) {
+extern "C" int32_t kungfu_embedding_get_api_internal(uint32_t requested_version, uint32_t caller_struct_size,
+                                                     void *out_api) {
   if (out_api == nullptr) {
     return KF_EMBEDDING_INVALID_ARGUMENT;
   }

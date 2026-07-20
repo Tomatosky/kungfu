@@ -14,6 +14,7 @@
 #include <kungfu/yijinjing/io/advisory_file_lock.h>
 #include <kungfu/yijinjing/journal/journal.h>
 #include <kungfu/yijinjing/schema/types.h>
+#include <kungfu/yijinjing/storage/fact_ledger.h>
 #include <kungfu/yijinjing/time.h>
 
 namespace kungfu::runtime::storage_service_api::fact_kernel_internal {
@@ -50,11 +51,6 @@ template <> const char *record_domain<FactRefTransition>() { return "kungfu.fact
 location_ptr kernel_location(const std::string &runtime_dir) {
   auto locator = std::make_shared<yy::data::locator>(runtime_dir, mode::LIVE);
   return location::make_shared(mode::LIVE, location_role::SYSTEM, JOURNAL_NAMESPACE, JOURNAL_NAME, locator);
-}
-
-writer make_writer(const std::string &runtime_dir) {
-  return writer(kernel_location(runtime_dir), location::PUBLIC, std::make_shared<noop_publisher>(), false,
-                std::make_shared<bus>(false));
 }
 
 advisory_file_lock acquire_writer_guard(const std::string &path, advisory_lock_wait wait) {
@@ -127,9 +123,10 @@ nlohmann::json append_record_with_receipt(const std::string &runtime_dir, kernel
     set_fixed(receipt.prior_cut_root, typed_receipt.prior_cut_root, "prior_cut_root");
     set_fixed(receipt.current_cut_root, typed_receipt.current_cut_root, "current_cut_root");
   }
-  auto output = make_writer(runtime_dir);
-  output.write_at(yy::time::now_in_nano(), 0, record);
-  output.write_at(yy::time::now_in_nano(), 0, receipt);
+  const auto authority_record = yy::storage::fact_record(record);
+  if (authority_record.record_root != record_root)
+    throw std::invalid_argument("fact-record-root-mismatch");
+  yy::storage::fact_ledger_store(runtime_dir).append(authority_record, receipt);
   return {{"schema", FACT_KERNEL_SCHEMA_V1},
           {"ok", true},
           {"action", action},

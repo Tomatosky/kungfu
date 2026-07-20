@@ -75,6 +75,16 @@ configure_file(
 # an architecture-blind recursive GLOB must not silently absorb them.
 set(LIBKUNGFU_SQLITE_ORM_INCLUDE ${PROJECT_SOURCE_DIR}/../../.deps/sqlite_orm-1.7.1/include)
 include("${CMAKE_CURRENT_SOURCE_DIR}/../../architecture/TARGETS.cmake")
+target_compile_definitions(kungfu_composition PRIVATE KUNGFU_SDK_VERSION="${KUNGFU_SDK_VERSION}")
+target_compile_definitions(kungfu_abi_exports PRIVATE
+  KF_API_BUILD_SHARED=1
+  KF_EMBEDDING_BUILD_SHARED=1
+  KF_NATIVE_STORAGE_BUILD_SHARED=1
+)
+set_target_properties(kungfu_abi_exports PROPERTIES
+  CXX_VISIBILITY_PRESET hidden
+  VISIBILITY_INLINES_HIDDEN YES
+)
 
 # Windows: 用 STATIC。libkungfu 含 rocksdb/boost::hana/sqlite_orm 大量模板实例化，作为 SHARED DLL 时
 # CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS 自动导出的符号数 >65535，撞 COFF 库成员上限(LNK1189)。改 STATIC 由各
@@ -84,10 +94,12 @@ if (WIN32)
   add_library(${LIBKUNGFU_NAME} STATIC ${KUNGFU_INTERNAL_OBJECTS})
 else ()
   add_library(${LIBKUNGFU_NAME} SHARED ${KUNGFU_INTERNAL_OBJECTS})
+  set_target_properties(${LIBKUNGFU_NAME} PROPERTIES OUTPUT_NAME kungfu_runtime)
 endif ()
 set_target_properties(${LIBKUNGFU_NAME} PROPERTIES LINKER_LANGUAGE CXX)
 set_target_properties(${LIBKUNGFU_NAME} PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${KUNGFU_BUILD_DIR})
 target_compile_options(${LIBKUNGFU_NAME} PRIVATE "$<$<CONFIG:Release>:${COMPILER_OPTIMIZE_ON_OPTIONS}>")
+target_compile_definitions(${LIBKUNGFU_NAME} PRIVATE KUNGFU_SDK_VERSION="${KUNGFU_SDK_VERSION}")
 # journal core comes from the yijinjing static library (built once in
 # src/libyijinjing, its sources are no longer under this directory's GLOB);
 # PUBLIC so bindings linking libkungfu inherit the core usage requirements.
@@ -97,6 +109,26 @@ target_include_directories(${LIBKUNGFU_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/includ
 target_include_directories(${LIBKUNGFU_NAME} SYSTEM PUBLIC ${LIBKUNGFU_SQLITE_ORM_INCLUDE})
 target_link_libraries(${LIBKUNGFU_NAME} PUBLIC yijinjing ${KUNGFU_BUILD_LINK_DEPENDENCIES} kungfu_compile_contract)
 kungfu_strip_release_local_symbols(${LIBKUNGFU_NAME})
+
+if(NOT WIN32)
+  add_library(kungfu_abi SHARED $<TARGET_OBJECTS:kungfu_abi_exports>)
+  target_include_directories(kungfu_abi PUBLIC ${PROJECT_SOURCE_DIR}/include)
+  target_include_directories(kungfu_abi PRIVATE ${PROJECT_SOURCE_DIR}/src/runtime)
+  target_link_libraries(kungfu_abi PRIVATE ${LIBKUNGFU_NAME})
+  set_target_properties(kungfu_abi PROPERTIES
+    OUTPUT_NAME kungfu
+    CXX_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN YES
+  )
+  kungfu_strip_release_local_symbols(kungfu_abi)
+endif()
+
+if(WIN32)
+  set(KUNGFU_PUBLIC_ABI_TARGET kungfu_native_storage_shared)
+else()
+  set(KUNGFU_PUBLIC_ABI_TARGET kungfu_abi)
+endif()
+set(KUNGFU_PUBLIC_ABI_TARGET "${KUNGFU_PUBLIC_ABI_TARGET}" PARENT_SCOPE)
 
 if(KUNGFU_WITH_CORE_TESTS)
   find_package(Threads REQUIRED)
@@ -119,12 +151,13 @@ if(KUNGFU_WITH_CORE_TESTS)
   add_test(NAME kungfu_runtime_error_tests COMMAND kungfu_runtime_error_tests)
 
   add_executable(kungfu_embedding_generic_codec_tests tests/embedding_generic_codec_tests.cpp)
-  target_link_libraries(kungfu_embedding_generic_codec_tests PRIVATE ${LIBKUNGFU_NAME} kungfu_compile_contract)
+  target_link_libraries(kungfu_embedding_generic_codec_tests PRIVATE ${LIBKUNGFU_NAME} ${KUNGFU_PUBLIC_ABI_TARGET}
+                                                                      kungfu_compile_contract)
   target_compile_features(kungfu_embedding_generic_codec_tests PRIVATE cxx_std_20)
   add_test(NAME kungfu_embedding_generic_codec_tests COMMAND kungfu_embedding_generic_codec_tests)
 
   add_executable(kungfu_api_contract_tests tests/api_contract_tests.cpp)
-  target_link_libraries(kungfu_api_contract_tests PRIVATE ${LIBKUNGFU_NAME} kungfu_compile_contract)
+  target_link_libraries(kungfu_api_contract_tests PRIVATE ${KUNGFU_PUBLIC_ABI_TARGET} kungfu_compile_contract)
   target_compile_features(kungfu_api_contract_tests PRIVATE cxx_std_20)
   add_test(NAME kungfu_api_contract_tests COMMAND kungfu_api_contract_tests)
 
@@ -199,10 +232,13 @@ endif()
 # the static core. The explicit dllexport macro keeps this target to the single
 # version-negotiated bootstrap instead of re-enabling export-all-symbols.
 if (WIN32)
-  add_library(kungfu_native_storage_shared SHARED src/runtime/native_storage.cpp src/runtime/api.cpp)
+  add_library(kungfu_native_storage_shared SHARED $<TARGET_OBJECTS:kungfu_abi_exports>)
+  target_include_directories(kungfu_native_storage_shared PUBLIC ${PROJECT_SOURCE_DIR}/include)
   target_compile_definitions(kungfu_native_storage_shared PRIVATE
     KF_API_BUILD_SHARED=1
+    KF_EMBEDDING_BUILD_SHARED=1
     KF_NATIVE_STORAGE_BUILD_SHARED=1
+    KUNGFU_SDK_VERSION="${KUNGFU_SDK_VERSION}"
   )
   target_link_libraries(kungfu_native_storage_shared PRIVATE ${LIBKUNGFU_NAME})
   set_target_properties(kungfu_native_storage_shared PROPERTIES
@@ -210,6 +246,7 @@ if (WIN32)
     ARCHIVE_OUTPUT_NAME kungfu_native_storage
     WINDOWS_EXPORT_ALL_SYMBOLS OFF
   )
+  set(KUNGFU_PUBLIC_ABI_TARGET kungfu_native_storage_shared)
 endif ()
 
 # Windows AppContainer guest launcher (ADR-0014) lives in the runtime sandbox

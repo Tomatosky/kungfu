@@ -64,6 +64,13 @@ as-is and performs no `find_package` of its own.
   manifests, hash/schema inventories, accepted segments, fsck reports, and
   provider interfaces. These are contracts only; no RocksDB, SQLite, transport,
   or runtime process implementation is included;
+- the provider-neutral generic Fact authority surface
+  `<kungfu/yijinjing/storage/fact_ledger.h>`, which owns typed record/receipt
+  pairing, replay verification, recovery disposition, and exact native
+  snapshot export without JSON, Profile vocabulary, language hosts, or a
+  concrete storage engine. See
+  `framework/core/examples/kfd7-yijinjing-source` for a clean source/static
+  Fact plus Episode consumer;
 - a dependency-direction guarantee, enforced by `check-deps.sh`: the core
   never includes runtime, transport or storage-engine headers, the legacy
   `kungfu/yijinjing/util/...` surface, the trading type registry, or any

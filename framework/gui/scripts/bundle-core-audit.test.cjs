@@ -38,6 +38,7 @@ function packagedAppFixture() {
     'kungfu',
     'kungfu_electron.node',
     'libkungfu.dylib',
+    'libkungfu_runtime.dylib',
     'profile-kfd3.json',
   ]) {
     fs.writeFileSync(path.join(runtime, name), 'fixture');

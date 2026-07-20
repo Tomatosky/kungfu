@@ -111,16 +111,16 @@
         "local-files",
         "user-consensus"
       ],
-      "period": "2026-07-19",
+      "period": "2026-07-20",
       "theme": "kfd7-library-boundary-inventory",
       "confidence": "high",
-      "evidence_grade": "B",
-      "last_reviewed": "2026-07-19",
+      "evidence_grade": "A",
+      "last_reviewed": "2026-07-20",
       "ai_provenance": {
         "model_family": "OpenAI GPT-5",
         "product": "Codex",
-        "generated_at": "2026-07-19",
-        "invisible_context_boundary": "pending dependency outputs, unobserved packaged and platform behavior, and external adoption are not claimed"
+        "generated_at": "2026-07-20",
+        "invisible_context_boundary": "pending supported-platform results, language SDK successor migration, external adoption, and battle-tested maturity are not claimed"
       }
     },
     "docs/architecture/invariant-verification-system.md": {
@@ -502,6 +502,29 @@
         "product": "Codex",
         "generated_at": "2026-07-16",
         "invisible_context_boundary": "unpublished runtime data, hidden platform state, and unretained qualification evidence are not claimed"
+      }
+    },
+    "docs/guides/libkungfu-abi-consumer.md": {
+      "metadata_schema": "kungfu.document-metadata/v1",
+      "document_status": "active",
+      "doc_type": "consumer-guide",
+      "review_state": "self-reviewed",
+      "sensitivity": "public",
+      "sources": [
+        "architecture-decisions",
+        "local-files",
+        "user-consensus"
+      ],
+      "period": "2026-07-20",
+      "theme": "kfd7-libkungfu-consumer",
+      "confidence": "high",
+      "evidence_grade": "A",
+      "last_reviewed": "2026-07-20",
+      "ai_provenance": {
+        "model_family": "OpenAI GPT-5",
+        "product": "Codex",
+        "generated_at": "2026-07-20",
+        "invisible_context_boundary": "pending supported-platform results, language SDK successor migration, external adoption, and battle-tested maturity are not claimed"
       }
     },
     "docs/guides/python-environments.md": {

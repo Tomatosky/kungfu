@@ -131,6 +131,13 @@ add_library_object(kungfu_platform_adapters "${KUNGFU_PLATFORM_ADAPTERS_SOURCE_F
 target_link_libraries(kungfu_platform_adapters PUBLIC kungfu_contracts)
 target_link_libraries(kungfu_platform_adapters PUBLIC ${KUNGFU_TARGET_KUNGFU_PLATFORM_ADAPTERS_DEPENDENCIES})
 
+set(KUNGFU_ABI_EXPORTS_SOURCE_FILES
+  "${PROJECT_SOURCE_DIR}/src/runtime/abi_exports.cpp"
+)
+add_library_object(kungfu_abi_exports "${KUNGFU_ABI_EXPORTS_SOURCE_FILES}" "${COMPILER_OPTIMIZE_ON_OPTIONS}" "${KUNGFU_BUILD_DIR}")
+target_link_libraries(kungfu_abi_exports PUBLIC kungfu_contracts)
+target_link_libraries(kungfu_abi_exports PUBLIC ${KUNGFU_TARGET_KUNGFU_ABI_EXPORTS_DEPENDENCIES})
+
 set(KUNGFU_COMPOSITION_SOURCE_FILES
   "${PROJECT_SOURCE_DIR}/src/runtime/api.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/embedding.cpp"
@@ -151,5 +158,6 @@ set(KUNGFU_INTERNAL_OBJECTS
   $<TARGET_OBJECTS:kungfu_storage_adapters>
   $<TARGET_OBJECTS:kungfu_view_adapters>
   $<TARGET_OBJECTS:kungfu_platform_adapters>
+  $<TARGET_OBJECTS:kungfu_abi_exports>
   $<TARGET_OBJECTS:kungfu_composition>
 )

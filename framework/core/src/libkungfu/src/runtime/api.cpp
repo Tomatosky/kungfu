@@ -7,6 +7,8 @@
 #include <kungfu/runtime/storage/json_edge.h>
 #include <kungfu/yijinjing/storage/content_hash.h>
 
+#include "abi_internal.h"
+
 #include <atomic>
 #include <cstring>
 #include <iterator>
@@ -19,6 +21,10 @@
 #include <utility>
 
 #include <nlohmann/json.hpp>
+
+#ifndef KUNGFU_SDK_VERSION
+#define KUNGFU_SDK_VERSION "unknown"
+#endif
 
 namespace {
 
@@ -242,7 +248,8 @@ int32_t KF_CALL result_release(kf_context *context, uint64_t token) noexcept {
   return KF_OK;
 }
 
-int32_t validate_json_edge_message(kf_context *context, const kf_semantic_message_v1 *request) {
+int32_t validate_json_edge_message(kf_context *context, const kf_semantic_message_v1 *request,
+                                   std::string_view expected_schema) {
   if (request == nullptr || request->struct_size < sizeof(*request) || request->protocol_id == nullptr ||
       request->schema_ref == nullptr || request->encoding == nullptr ||
       (request->bytes == nullptr && request->byte_size != 0)) {
@@ -257,8 +264,8 @@ int32_t validate_json_edge_message(kf_context *context, const kf_semantic_messag
     set_error(context, "storage-service protocol version is unsupported");
     return KF_UNSUPPORTED_VERSION;
   }
-  if (request->schema_ref[0] == '\0') {
-    set_error(context, "schema_ref must name the exact request schema");
+  if (std::string_view(request->schema_ref) != expected_schema) {
+    set_error(context, "schema_ref does not match the requested interface");
     return KF_UNSUPPORTED_SCHEMA;
   }
   if (std::string_view(request->encoding) != KF_ENCODING_JSON) {
@@ -298,7 +305,7 @@ int32_t KF_CALL context_open(const kf_context_config_v1 *config, kf_context **ou
     context->mode = config->mode;
     context->default_timeout_ms = config->default_timeout_ms;
     const auto status =
-        kungfu_embedding_get_api(KF_EMBEDDING_ABI_V1, sizeof(context->embedding_api), &context->embedding_api);
+        kungfu_embedding_get_api_internal(KF_EMBEDDING_ABI_V1, sizeof(context->embedding_api), &context->embedding_api);
     if (status != KF_EMBEDDING_OK) {
       return KF_CORE_ERROR;
     }
@@ -402,7 +409,7 @@ int32_t KF_CALL discovery_runtime_info(kf_context *context, kf_runtime_info_v1 *
   out_info->abi_version = KF_ABI_V1;
   out_info->capabilities = API_CAPABILITIES;
   out_info->runtime_name = "libkungfu";
-  out_info->runtime_version = "4";
+  out_info->runtime_version = KUNGFU_SDK_VERSION;
   out_info->abi_contract = "kungfu.kfd7-library-boundary.contract/v1";
   out_info->interface_count = static_cast<uint32_t>(std::size(INTERFACES));
   out_info->reserved = 0;
@@ -472,7 +479,9 @@ nlohmann::json interface_registry_document() {
       {"semantic_currency",
        {{"required", nlohmann::json::array({"protocol_id", "protocol_version", "schema_ref", "encoding", "bytes"})},
         {"json", "named-compatibility-edge-only"},
-        {"root_identity", "owned-by-protocol"}}},
+        {"root_identity", "owned-by-protocol"},
+        {"request_schemas",
+         {{"ledger_action", KF_SCHEMA_LEDGER_ACTION_REQUEST_V1}, {"maintenance", KF_SCHEMA_MAINTENANCE_REQUEST_V1}}}}},
       {"action_binding",
        {{"schema", "kungfu.action-binding/v1"},
         {"required_roots", nlohmann::json::array({"fact_cut", "pursuit", "atlas", "warrant", "candidate_action",
@@ -789,7 +798,7 @@ int32_t KF_CALL ledger_action_execute(kf_context *context, const kf_action_bindi
       set_error(context, "ledger-action operation requires a live binding owned by the same context");
       return KF_STALE_HANDLE;
     }
-    const auto message_status = validate_json_edge_message(context, request);
+    const auto message_status = validate_json_edge_message(context, request, KF_SCHEMA_LEDGER_ACTION_REQUEST_V1);
     if (message_status != KF_OK) {
       return message_status;
     }
@@ -860,7 +869,7 @@ int32_t KF_CALL maintenance_execute(kf_context *context, uint32_t operation, con
     if (status != KF_OK) {
       return status;
     }
-    const auto message_status = validate_json_edge_message(context, request);
+    const auto message_status = validate_json_edge_message(context, request, KF_SCHEMA_MAINTENANCE_REQUEST_V1);
     if (message_status != KF_OK) {
       return message_status;
     }
@@ -942,8 +951,7 @@ const kf_api_v1 API_V1 = {
 
 } // namespace
 
-extern "C" KF_API_EXPORT int32_t KF_CALL kungfu_get_api(uint32_t requested_version, uint32_t caller_struct_size,
-                                                        void *out_api) {
+extern "C" int32_t kungfu_get_api_internal(uint32_t requested_version, uint32_t caller_struct_size, void *out_api) {
   try {
     if (requested_version != KF_ABI_V1) {
       return KF_UNSUPPORTED_VERSION;

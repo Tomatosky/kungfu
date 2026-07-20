@@ -999,7 +999,13 @@ function renderPublicContractsCmake(contract, ownership) {
     });
     lines.push(
       `    add_library(${target} OBJECT \${${sourceVariable}})`,
-      `    target_link_libraries(${target} PRIVATE ${rule.id.startsWith('libyijinjing') ? 'yijinjing' : '${LIBKUNGFU_NAME}'})`,
+      `    target_link_libraries(${target} PRIVATE ${
+        rule.id.startsWith('libyijinjing')
+          ? 'yijinjing'
+          : rule.level === 'stable'
+            ? '${KUNGFU_PUBLIC_ABI_TARGET}'
+            : '${LIBKUNGFU_NAME}'
+      })`,
     );
     if (rule.level !== 'stable') {
       lines.push(`    target_compile_features(${target} PRIVATE cxx_std_20)`);
@@ -1010,7 +1016,7 @@ function renderPublicContractsCmake(contract, ownership) {
     '  if(TARGET ${LIBKUNGFU_NAME})',
     '    add_executable(kungfu_public_contract_compatibility_tests',
     '      "${PROJECT_SOURCE_DIR}/src/libkungfu/tests/compat/public_contract_compatibility_tests.c")',
-    '    target_link_libraries(kungfu_public_contract_compatibility_tests PRIVATE ${LIBKUNGFU_NAME})',
+    '    target_link_libraries(kungfu_public_contract_compatibility_tests PRIVATE ${KUNGFU_PUBLIC_ABI_TARGET})',
     '    set_target_properties(kungfu_public_contract_compatibility_tests PROPERTIES LINKER_LANGUAGE CXX)',
     '    add_test(NAME kungfu_public_contract_compatibility_tests COMMAND kungfu_public_contract_compatibility_tests)',
     '  endif()',

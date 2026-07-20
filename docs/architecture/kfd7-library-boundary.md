@@ -12,9 +12,9 @@ Repository files and qualified artifacts remain the underlying facts.
 | --- | --- | --- | --- |
 | frame/page mmap, reader/writer, ordering, journal replay input | `libyijinjing` | `src/libyijinjing` | owned correctly |
 | content hashes, content store, source/manifest catalogs, provider-neutral storage contracts | `libyijinjing` | `src/libyijinjing/include/kungfu/yijinjing/storage*` | owned correctly |
-| Episode identity, causal records, append/seal/recovery primitives | `libyijinjing` substrate; `libkungfu` orchestration | manifests partly in `libyijinjing`; lifecycle/admission/repair in `libkungfu` | characterize and split |
-| Fact identity/version/relation/Cut/ref/CAS protocol and authoritative fold | `libyijinjing` | contract in `framework/fact`; implementation in `libkungfu/.../fact_kernel.cpp` | dependency-gated move |
-| Root canonical encoding | protocol contract consumed by `libyijinjing` | staged Fact Kernel implementation; independent protocol goal paused | do not move or reinterpret yet |
+| Episode identity, causal records, append/seal/recovery primitives | `libyijinjing` substrate; `libkungfu` orchestration | typed manifest authority and source/static Episode records in `libyijinjing`; runtime admission/repair composition in `libkungfu` | owned at the intended split |
+| Fact identity/version/relation/Cut/ref/CAS authority | `libyijinjing` typed authority; `libkungfu` request validation and JSON/materialized projections | `fact_ledger_store` owns record/receipt pairing, replay verification, recovery disposition, and native snapshot export; `fact_kernel` retains protocol orchestration | characterized slice moved |
+| Root canonical encoding | versioned protocol consumed across both libraries | KFR2 writer plus exact legacy reader and independent Python corpus | dependency admitted; no reinterpretation |
 | storage service composition and runtime lifecycle | `libkungfu` | `libkungfu/runtime/storage/service*` | remains above kernel |
 | file/RocksDB providers, SQLite projections, transport and process utilities | `libkungfu` adapters | `libkungfu/runtime/storage/provider*`, `io`, `util`, projections | remains above kernel |
 | zero-copy stream, generic decode/checksum, maintenance-plan and read-only storage-status membrane | `libkungfu` public ABI | `embedding.h` v1-v5 | successor stream/maintenance adapter |
@@ -32,28 +32,30 @@ Repository files and qualified artifacts remain the underlying facts.
 | --- | --- | --- | --- | --- |
 | `kungfu_embedding_get_api` | v1-v5 | C structs, borrowed mmap views, JSON diagnostic/status reports | proven version/size negotiation and zero-copy data plane | retain as compatibility adapter; successor stream/maintenance interfaces absorb new work |
 | `kungfu_native_storage_get_api` | v1 | operation name plus JSON request/result | language-host-free entry to a bounded subset of current storage operations | retain as compatibility adapter; do not grow into the final semantic ABI |
-| `kungfu_get_api` | planned | discovery plus separately versioned interfaces and protocol/schema-tagged bytes | not implemented, exported, packaged, or stable | new-consumer target only after qualification |
+| `kungfu_get_api` | v1 | discovery plus separately versioned interfaces and protocol/schema-tagged bytes | implemented behind a narrow three-export façade; qualified as an installed consumer on Darwin arm64, Linux x64, and Windows x64 | consumer-ready pre-release target |
 
-The current storage bootstrap advertises eleven capability bits and allows
+The retained storage bootstrap advertises eleven capability bits and allows
 forty operation names. It reaches the bounded language-host-free Episode
 lifecycle, recovery and projection rebuild; Fact query/admission/Cut-kernel
 and Fact Library operations; fsck, export/import, index rebuild, backend
-lifecycle, and assessment/trust. It still does not provide the successor
-ActionBinding, cancellation, timeout, or independently versioned interface
-topology. JSON is its named edge currency and therefore cannot be reused as
-the implicit canonical Root format.
+lifecycle, and assessment/trust. It remains an operation-name plus JSON
+compatibility surface. The successor provides discovery, stream, ledger-action,
+and maintenance v1 tables, an exact seven-root ActionBinding, stable numeric
+statuses, owner-thread handles, cancellation-before-admission, and explicit
+protocol/schema/encoding fields. JSON is a named v1 edge encoding and does not
+define Root identity.
 
 ## Language and product surfaces
 
 | Surface | Valid responsibility | Current risk to close |
 | --- | --- | --- |
-| C/C++ | stable C ABI and source-only C++ conveniences | no installed CMake consumer package; two bootstraps; only partial semantic coverage |
+| C/C++ | versioned C ABI and source-only C++ conveniences | installed `Kungfu::kungfu`, C and C++ scratch consumers, exact symbol policy, and supported-platform matrix qualified |
 | Python | CLI/SDK/rendering and thin native projection | remaining recovery/retry/writer-liveness decisions are owned by the native-closure dependency |
 | Node/Electron | UI/product host and thin native projection | must resolve the same interface registry and errors as C/Python |
 | Rust | safe wrapper and host trunk | current embedding proof is not yet the final successor binding |
 | Action MJS | pure declarations, validation, plans, and projections | must call public Core adapters for authority; cannot use private layouts |
 | CLI/agent docs/site | discovery and human/Agent explanation | must be generated or checked against the machine contract rather than copy inventories |
-| Buildchain | release evidence and surface classification | must distinguish consumer-ready, experimental, compatibility-only, and residual risk |
+| Buildchain | release evidence and surface classification | machine passport distinguishes consumer-ready, experimental, compatibility-only, and residual risk and binds the exact three-platform reports |
 
 ## Packaging and consumer gaps
 
@@ -61,43 +63,51 @@ the implicit canonical Root format.
   declared header-only dependencies. It has no shared artifact or ABI promise.
 - `libkungfu` is shared on macOS/Linux and static in the main Windows build;
   Windows provides narrow DLL entry targets for public C membranes.
-- The repository does not yet install a supported `Kungfu::kungfu` CMake
-  package, public native SDK layout, or repo-external installed/shared example.
-- Public-header self-compilation and frozen old-consumer tests exist, but
-  package-coordinate and clean-scratch consumption evidence remains open.
-- Architecture authority now records the implemented embedding ABI v1-v5 and
-  native-storage v1 eleven-capability/forty-operation closure; frozen callers
-  retain every embedding table version.
+- The repository installs the narrow façade, private runtime dependency, four
+  public headers, machine contracts, guide, examples, and a versioned
+  `Kungfu::kungfu` CMake package.
+- Clean scratch C and C++ consumers use only that installed coordinate; the
+  source/static example independently writes and verifies Fact record/receipt
+  pairs plus Episode records with `language_hosts=0`.
+- Public exports are exactly `kungfu_get_api`,
+  `kungfu_embedding_get_api`, and `kungfu_native_storage_get_api`.
+- The supported Darwin/Linux/Windows workflow retains the same installed
+  consumer qualification. Run
+  [29762683233](https://github.com/kungfu-systems/kungfu/actions/runs/29762683233)
+  passed at source revision
+  `a6ccb0ec476d8a57a24c79ce49acf77a0c9996e2`.
+- The KFD Agent Runtime reference adapter is an in-process consumer of the
+  retained public C membranes and exposes a separate JSONL process protocol; it
+  does not add a fourth exported `libkungfu` bootstrap.
 
 ## Dependency boundary
 
-Three direct dependencies are paused and have no admitted implementation root
-for this goal:
+All three direct dependencies are complete and admitted by exact roots:
 
 | Goal | Owns | Required before |
 | --- | --- | --- |
-| Fact native foundation closure | complete `language_hosts=0` lifecycle, recovery, writer liveness, and ABI coverage | final ledger-action coverage and native-closure claim |
-| Fact Root canonical encoding | implementation-independent bytes, vectors, and successor/legacy rules | canonical request/Root portability claim or Root-code movement |
-| Fact Kernel internal decomposition | characterized protocol/fold/commit/query boundaries | moving the generic Fact authority into `libyijinjing` |
+| Fact native foundation closure | complete `language_hosts=0` lifecycle, recovery, writer liveness, and ABI coverage | `sha256:f8a0cfe31ce213b541ec2d7d6a1656c7350c2fec3ec451faa7b22685b145a9f1` |
+| Fact Root canonical encoding | implementation-independent bytes, vectors, and successor/legacy rules | `sha256:d8feb83845e3c9fbff4f26019fa72645a2812becbeb7c32fbde3423235d23944` |
+| Fact Kernel internal decomposition | characterized protocol/fold/commit/query boundaries | `sha256:753ef35095a7c66511508e5bc6d7ddcc86c70d0e4c94d2523cbdca862798cbd8` |
 
-The current stage may freeze ownership, compatibility, and the successor ABI
-shape. It must not manufacture dependency roots, move Root/Fold code, or claim
-consumer readiness from planned interfaces.
+The implementation consumes these roots and moves only the provider-neutral
+typed authority slice. It does not duplicate their codecs, reinterpret persisted
+roots, or move JSON/Profile/provider policy below the membrane.
 
 ## Migration matrix
 
 | Stage | Change | Required proof | State |
 | --- | --- | --- | --- |
 | 0 | inventory current ownership, public ABI, packages, and dependencies | checked machine contract and ADR | implemented in this stage |
-| 1 | add `kungfu_get_api`, discovery v1, stream v1 adapter, stable error dictionary | public-header compile, symbol policy, old/new negotiation, v1-v4 legacy callers | planned |
-| 2 | qualify canonical Root protocol and decompose the authoritative Fact Kernel | exact canonical bytes, independent implementation, characterization, no-write failures | waiting on dependencies |
-| 3 | move generic Fact/Episode slices to `libyijinjing`; add ledger-action and maintenance interfaces | `language_hosts=0`, parity, crash/restart, provider switch, import/export | waiting on dependencies |
-| 4 | publish native SDK coordinates, examples, wrappers, conformance corpus, and package discovery | clean repo-external source/static and installed/shared consumers | planned |
-| 5 | delegate legacy bootstraps to the successor and qualify supported platforms | exact schemas, roots, errors, receipts, compatibility and platform evidence | planned |
+| 1 | add `kungfu_get_api`, discovery v1, stream v1 adapter, stable error dictionary | public-header compile, exact symbol policy, old/new negotiation, v1-v5 legacy callers | implemented and qualified |
+| 2 | qualify canonical Root protocol and decompose the authoritative Fact Kernel | exact canonical bytes, independent implementation, characterization, no-write failures | complete by admitted dependencies |
+| 3 | move generic Fact/Episode slices to `libyijinjing`; add ledger-action and maintenance interfaces | `language_hosts=0`, pairing/replay/recovery, crash/restart, provider and transfer regressions | implemented and qualified |
+| 4 | publish native SDK coordinates, examples, wrappers, conformance corpus, and package discovery | clean repo-external source/static and installed/shared consumers | implemented and qualified |
+| 5 | retain legacy adapters and qualify supported platforms | exact schemas, roots, errors, receipts, compatibility and platform evidence | implemented and qualified |
 
 ## Non-claims
 
-This inventory does not claim that the successor symbol exists, the Fact
-Kernel has moved, Root encoding is independently portable, a shared Windows
-`libkungfu` exists, release artifacts contain a native SDK, supported platforms
-are qualified, or external consumers have adopted the surface.
+This inventory does not claim that every Fact protocol/policy implementation
+moved below the membrane, that `libyijinjing` has a shared ABI, that language
+SDKs have migrated to the successor, that external consumers have adopted it,
+or that it is battle-tested.

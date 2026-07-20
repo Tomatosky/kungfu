@@ -6,6 +6,7 @@
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <thread>
 
 namespace {
 
@@ -69,6 +70,15 @@ int main() {
       !require(runtime_info.interface_count == 4, "responsibility interface count drifted")) {
     return 1;
   }
+  int32_t wrong_thread_status = KF_OK;
+  std::thread foreign_thread([&]() {
+    uint64_t capabilities = 0;
+    wrong_thread_status = api.context_capabilities(context, &capabilities);
+  });
+  foreign_thread.join();
+  if (!require(wrong_thread_status == KF_WRONG_THREAD, "foreign thread used an owner-thread context")) {
+    return 1;
+  }
   for (uint32_t index = 0; index < runtime_info.interface_count; ++index) {
     kf_interface_info_v1 info{};
     info.struct_size = sizeof(info);
@@ -99,11 +109,21 @@ int main() {
   result.struct_size = sizeof(result);
   if (!require(discovery.contract_get(context, &request, &result) == KF_OK, "contract discovery failed") ||
       !require(contains(result, "planned-does-not-imply-authorized"), "non-inference rules missing") ||
+      !require(discovery.contract_get(context, &request, &result) == KF_BUSY,
+               "a second owned result bypassed the lifetime fence") ||
       !require(discovery.result_release(context, result.token + 1) == KF_STALE_HANDLE,
                "stale result token was accepted") ||
       !require(discovery.result_release(context, result.token) == KF_OK, "result release failed")) {
     return 1;
   }
+  request.protocol_id = "kungfu.unsupported";
+  result = {};
+  result.struct_size = sizeof(result);
+  if (!require(discovery.contract_get(context, &request, &result) == KF_UNSUPPORTED_PROTOCOL,
+               "unknown discovery protocol did not fail closed")) {
+    return 1;
+  }
+  request.protocol_id = KF_PROTOCOL_INTERFACE_REGISTRY;
 
   kf_ledger_action_api_v1 ledger{};
   if (!require(api.interface_get(context, KF_INTERFACE_LEDGER_ACTION, KF_LEDGER_ACTION_ABI_V1, sizeof(ledger),
@@ -135,20 +155,60 @@ int main() {
 
   kf_action_binding_info_v1 binding_info{};
   binding_info.struct_size = sizeof(binding_info);
+  constexpr const char *EXPECTED_BINDING_ROOT =
+      "sha256:c156cb56fc16603689f6b875985ed7b7d92bec5d5d5b76adc2f75c67fabb3739";
   if (!require(ledger.binding_info(binding, &binding_info) == KF_OK, "binding info failed") ||
-      !require(std::strncmp(binding_info.binding_root, "sha256:", 7) == 0, "binding root is not canonical")) {
+      !require(std::strcmp(binding_info.binding_root, EXPECTED_BINDING_ROOT) == 0,
+               "ActionBinding canonical vector drifted")) {
+    return 1;
+  }
+  const auto first_binding_root = std::string(binding_info.binding_root);
+  const auto r8 = root('8');
+  binding_config.pursuit_root = r8.c_str();
+  kf_action_binding *changed_binding = nullptr;
+  if (!require(ledger.binding_open(context, &binding_config, &changed_binding) == KF_OK,
+               "changed binding input was rejected")) {
+    return 1;
+  }
+  kf_action_binding_info_v1 changed_binding_info{};
+  changed_binding_info.struct_size = sizeof(changed_binding_info);
+  if (!require(ledger.binding_info(changed_binding, &changed_binding_info) == KF_OK, "changed binding info failed") ||
+      !require(first_binding_root != changed_binding_info.binding_root,
+               "a changed Pursuit root reused the old ActionBinding root") ||
+      !require(ledger.binding_close(changed_binding) == KF_OK, "changed binding close failed")) {
     return 1;
   }
 
   const std::string fact_request = R"({"action":"capabilities"})";
   request.protocol_id = KF_PROTOCOL_STORAGE_SERVICE;
   request.protocol_version = 1;
-  request.schema_ref = "kungfu.fact-kernel.request/v1";
+  request.schema_ref = KF_SCHEMA_LEDGER_ACTION_REQUEST_V1;
   request.encoding = KF_ENCODING_JSON;
   request.bytes = reinterpret_cast<const uint8_t *>(fact_request.data());
   request.byte_size = fact_request.size();
   result = {};
   result.struct_size = sizeof(result);
+  request.protocol_id = "kungfu.unsupported";
+  if (!require(ledger.execute(context, binding, KF_LEDGER_ACTION_FACT_KERNEL, &request, &result) ==
+                   KF_UNSUPPORTED_PROTOCOL,
+               "ledger-action accepted an unknown protocol")) {
+    return 1;
+  }
+  request.protocol_id = KF_PROTOCOL_STORAGE_SERVICE;
+  request.schema_ref = "kungfu.wrong-request/v1";
+  if (!require(ledger.execute(context, binding, KF_LEDGER_ACTION_FACT_KERNEL, &request, &result) ==
+                   KF_UNSUPPORTED_SCHEMA,
+               "ledger-action accepted a mismatched schema")) {
+    return 1;
+  }
+  request.schema_ref = KF_SCHEMA_LEDGER_ACTION_REQUEST_V1;
+  request.encoding = "application/cbor";
+  if (!require(ledger.execute(context, binding, KF_LEDGER_ACTION_FACT_KERNEL, &request, &result) ==
+                   KF_UNSUPPORTED_ENCODING,
+               "ledger-action accepted an unknown encoding")) {
+    return 1;
+  }
+  request.encoding = KF_ENCODING_JSON;
   if (!require(ledger.execute(context, binding, KF_LEDGER_ACTION_FACT_KERNEL, &request, &result) == KF_OK,
                "Fact kernel capability request failed") ||
       !require(contains(result, binding_info.binding_root), "ledger result did not bind exact decision roots") ||

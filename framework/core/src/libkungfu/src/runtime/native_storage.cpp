@@ -216,8 +216,8 @@ const kf_native_storage_api_v1 API_V1 = {KF_NATIVE_STORAGE_ABI_V1,
 
 } // namespace
 
-extern "C" KF_NATIVE_STORAGE_EXPORT int32_t KF_NATIVE_STORAGE_CALL kungfu_native_storage_get_api(
-    uint32_t requested_version, uint32_t caller_struct_size, kf_native_storage_api_v1 *out_api) {
+extern "C" int32_t kungfu_native_storage_get_api_internal(uint32_t requested_version, uint32_t caller_struct_size,
+                                                          kf_native_storage_api_v1 *out_api) {
   if (requested_version != KF_NATIVE_STORAGE_ABI_V1) {
     return KF_NATIVE_STORAGE_UNSUPPORTED_VERSION;
   }

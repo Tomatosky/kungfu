@@ -83,7 +83,7 @@ export function createPowerCutPlan(input) {
   const packageName = `linux-image-unsigned-${kernelRelease}`;
   const deb = `${workspace}/${packageName}_${kernelVersion}_amd64.deb`;
   const fixture = `${repo}/framework/core/build/Release/kungfu_durability_powercut_fixture`;
-  const library = `${repo}/framework/core/build/Release/libkungfu.so`;
+  const library = `${repo}/framework/core/build/Release/libkungfu_runtime.so`;
   const guestInit = `${repo}/framework/core/tests/qualification/durability/powercut_guest_init`;
   const sentinel = `${repo}/framework/core/tests/qualification/durability/powercut_disposable_root_sentinel`;
   const workspaceSentinel = `${repo}/framework/core/tests/qualification/durability/powercut_qemu_workspace_sentinel`;
@@ -235,7 +235,7 @@ export function createPowerCutPlan(input) {
           '-m',
           '0755',
           library,
-          `${rootfsTree}/usr/lib/x86_64-linux-gnu/libkungfu.so`,
+          `${rootfsTree}/usr/lib/x86_64-linux-gnu/libkungfu_runtime.so`,
         ],
         'installs the fixture build library into the guest loader path',
       ),
