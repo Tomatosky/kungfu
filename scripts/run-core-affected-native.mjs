@@ -308,6 +308,8 @@ export function planFromChanged(
     }
     if (
       (relative.startsWith('.cmake/') && relative.endsWith('.cmake')) ||
+      (relative.startsWith('cmake/') &&
+        (relative.endsWith('.cmake') || relative.endsWith('.cmake.in'))) ||
       (relative.startsWith('.gyp/') && relative.endsWith('.js')) ||
       (relative.startsWith('lib/') && /\.(?:js|d\.ts)$/.test(relative))
     ) {
@@ -1233,6 +1235,7 @@ function selfTest(authority, buildAuthority) {
     const plan = planFromChanged(
       [
         'framework/core/.cmake/libwasm-cargo-cache.cmake',
+        'framework/core/cmake/KungfuConfig.cmake.in',
         'framework/core/.gyp/run-link-node.js',
         'framework/core/lib/executable.js',
         'framework/core/lib/kungfu.d.ts',
