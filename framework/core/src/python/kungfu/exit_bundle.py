@@ -960,7 +960,7 @@ def _apply_profile(
             answer = profile_sdk.answer_decision(plan["decisionCard"], "approve", actor)
             receipt = profile_sdk.authorized_lifecycle_apply(runtime_dir, plan, answer)
             lifecycle.append({"action": action, "receipt": receipt})
-    contract_plan = {"operations": []}
+    contract_plan: dict[str, Any] = {"operations": []}
     contract_receipt = None
     if not execution.get("deferContractMaterialization"):
         contract_plan = profile_composition.contract_materialization_plan(
