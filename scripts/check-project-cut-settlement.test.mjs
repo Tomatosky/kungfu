@@ -625,7 +625,7 @@ test('public CLI seals a qualified Episode only on execute and stages exact outp
   );
 });
 
-test('public CLI admits a valid int63 Episode identity losslessly', (t) => {
+test('public CLI matches a lossless int63 bundle to decimal-string fsck evidence', (t) => {
   const root = fs.mkdtempSync(
     path.join(os.tmpdir(), 'project-cut-seal-int63-cli-'),
   );
@@ -644,7 +644,7 @@ test('public CLI admits a valid int63 Episode identity losslessly', (t) => {
   fs.writeFileSync(bundlePath, lossless(bundle(token)));
   fs.writeFileSync(
     qualificationPath,
-    lossless({ qualification: qualification(token) }),
+    `${canonicalJson({ qualification: qualification(episodeId) })}\n`,
   );
 
   const result = spawnSync(

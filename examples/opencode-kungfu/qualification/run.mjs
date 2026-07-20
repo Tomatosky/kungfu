@@ -313,19 +313,20 @@ async function main() {
       }?qualification=${Date.now()}`
     );
     const binding = core.default.kungfu();
-    const episodesBeforeClose = binding.storageEpisodeListTyped(runtimeDir);
-    const activeEpisode = episodesBeforeClose.episodes.find(
-      (episode) =>
-        episode.open?.source === 'opencode.plugin.lifecycle' && !episode.close,
-    );
-    assert.ok(activeEpisode);
     await hooks.event({
       event: {
         type: 'session.idle',
         properties: { sessionID: 'qualification-long-task' },
       },
     });
-    const episodeId = String(activeEpisode.episode_id);
+    const episodesAfterClose = binding.storageEpisodeListTyped(runtimeDir);
+    const sealedEpisode = episodesAfterClose.episodes.find(
+      (episode) =>
+        episode.open?.source === 'opencode.plugin.lifecycle' &&
+        episode.close?.status === 2,
+    );
+    assert.ok(sealedEpisode);
+    const episodeId = String(sealedEpisode.episode_id);
     const bundleJson = binding.runStorageTransferOperationJson(
       'export_bundle',
       runtimeDir,
@@ -420,7 +421,7 @@ async function main() {
           status: crashed.status,
           signal: crashed.signal,
         },
-        recoveredEpisodeCount: episodesBeforeClose.episodes.filter(
+        recoveredEpisodeCount: episodesAfterClose.episodes.filter(
           (episode) => episode.close?.status === 3,
         ).length,
         sourceFsck: sourceFsck.ok,

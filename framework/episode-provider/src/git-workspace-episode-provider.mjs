@@ -24,6 +24,8 @@ export const EPISODE_QUALIFICATION_SCHEMA = 'kungfu.episode.qualification/v1';
 
 const ROOT = /^sha256:[0-9a-f]{64}$/u;
 const BARE_ROOT = /^[0-9a-f]{64}$/u;
+const UINT64_DECIMAL = /^(?:0|[1-9][0-9]*)$/u;
+const UINT64_MAX = 18446744073709551615n;
 const SEGMENT_FILE = 'claims.jsonl';
 const MANIFEST_FILE = 'manifest.json';
 const QUALIFICATION_FILE = 'qualification.json';
@@ -63,6 +65,25 @@ function portableRoot(bundle) {
   return `sha256:${manifest.content_root}`;
 }
 
+function episodeIdDecimal(value) {
+  if (typeof value === 'bigint') {
+    if (value < 0n || value > UINT64_MAX) return null;
+    return value.toString(10);
+  }
+  if (typeof value === 'number') {
+    if (!Number.isSafeInteger(value) || value < 0) return null;
+    return String(value);
+  }
+  if (
+    typeof value === 'string' &&
+    UINT64_DECIMAL.test(value) &&
+    BigInt(value) <= UINT64_MAX
+  ) {
+    return value;
+  }
+  return null;
+}
+
 function verifyQualification(bundle, qualification) {
   requireObject(
     qualification,
@@ -76,7 +97,9 @@ function verifyQualification(bundle, qualification) {
     qualification.policy_source !== 'cpp-typed-fold-fsck' ||
     qualification.lifecycle !== 'ended' ||
     qualification.status !== 'ok' ||
-    qualification.episode_id !== bundle.episode_id
+    episodeIdDecimal(qualification.episode_id) === null ||
+    episodeIdDecimal(qualification.episode_id) !==
+      episodeIdDecimal(bundle.episode_id)
   ) {
     throw failure(
       'qualification-not-admissible',
