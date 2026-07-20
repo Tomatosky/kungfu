@@ -37,7 +37,7 @@ const releasePassport = readJson(
 const consumerGuide = read('docs/guides/libkungfu-abi-consumer.md');
 
 assert.equal(contract.$schema, 'kungfu.kfd7-library-boundary.contract/v1');
-assert.equal(contract.status, 'qualification-candidate');
+assert.equal(contract.status, 'implemented-qualified');
 assert.equal(contract.kfd7Status, 'draft');
 assert.equal(contract.consumerReadiness.adopterCountGate, false);
 assert.ok(
@@ -91,7 +91,10 @@ for (const version of [1, 2, 3, 4, 5]) {
 }
 assert.match(storageHeader, /KF_NATIVE_STORAGE_ABI_V1\s+UINT32_C\(1\)/);
 
-assert.equal(contract.successorAbi.status, 'implemented-local-qualified');
+assert.equal(
+  contract.successorAbi.status,
+  'implemented-consumer-ready-qualified',
+);
 assert.equal(contract.successorAbi.bootstrap.symbol, 'kungfu_get_api');
 assert.match(successorHeader, /KF_ABI_V1\s+UINT32_C\(1\)/);
 assert.match(successorHeader, /kungfu_get_api\s*\(/);
@@ -129,6 +132,16 @@ assert.deepEqual(releasePassport.platformMatrix.required, [
   'linux-x64',
   'win32-x64',
 ]);
+assert.equal(releasePassport.platformMatrix.qualification.status, 'passed');
+assert.equal(
+  releasePassport.platformMatrix.qualification.sourceRevision,
+  contract.qualification.sourceRevision,
+);
+assert.equal(
+  releasePassport.platformMatrix.qualification.workflowRun,
+  contract.qualification.workflowRun,
+);
+assert.equal(releasePassport.platformMatrix.qualification.reports.length, 3);
 assert.match(consumerGuide, /find_package\(Kungfu 4 CONFIG REQUIRED\)/);
 assert.match(consumerGuide, /cooperative before native admission/);
 assert.deepEqual(
