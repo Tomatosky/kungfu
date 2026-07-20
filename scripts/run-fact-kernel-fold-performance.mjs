@@ -13,26 +13,32 @@ const pythonPath = [
 ]
   .filter(Boolean)
   .join(path.delimiter);
-const result = spawnSync(
-  'uv',
+const workloadDir = path.join(
+  root,
+  'framework',
+  'core',
+  'tests',
+  'qualification',
+  'fact-kernel-fold-performance',
+);
+const common = [
+  'run',
+  '--project',
+  path.join(root, 'framework', 'core'),
+  '--frozen',
+];
+const invocations = [
+  [...common, 'pytest', path.join(workloadDir, 'workload_test.py'), '-q'],
   [
-    'run',
-    '--project',
-    path.join(root, 'framework', 'core'),
-    '--frozen',
+    ...common,
     'python',
-    path.join(
-      root,
-      'framework',
-      'core',
-      'tests',
-      'qualification',
-      'fact-kernel-fold-performance',
-      'workload.py',
-    ),
+    path.join(workloadDir, 'workload.py'),
     ...process.argv.slice(2),
   ],
-  {
+];
+
+for (const invocation of invocations) {
+  const result = spawnSync('uv', invocation, {
     cwd: root,
     env: {
       ...process.env,
@@ -41,9 +47,11 @@ const result = spawnSync(
     },
     stdio: 'inherit',
     shell: process.platform === 'win32',
-  },
-);
+  });
 
-if (result.error)
-  console.error(`[fact-kernel-fold-performance] ${result.error.message}`);
-process.exit(result.status ?? 1);
+  if (result.error) {
+    console.error(`[fact-kernel-fold-performance] ${result.error.message}`);
+    process.exit(1);
+  }
+  if (result.status !== 0) process.exit(result.status ?? 1);
+}
