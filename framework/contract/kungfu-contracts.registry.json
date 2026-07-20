@@ -248,6 +248,83 @@
       }
     },
     {
+      "surface": "action-geometry",
+      "id": "kungfu-action-geometry",
+      "schema": "kungfu.action-geometry.contract/v1",
+      "contractSchemaRoot": "sha256:707077dbcd91148aadbdd00dab05dcd0769c3b02790f179a60cfcd3a6e6e1e21",
+      "weldedSurface": "action-geometry-contract",
+      "env": "KUNGFU_ACTION_GEOMETRY_CONTRACT",
+      "file": "action-geometry.contract.json",
+      "source": "framework/action/action-geometry.contract.json",
+      "artifact": "config/action/action-geometry.contract.json",
+      "cli": {
+        "contract": [
+          "contract",
+          "show",
+          "action-geometry",
+          "--json"
+        ],
+        "schema": [
+          "contract",
+          "show",
+          "action-geometry",
+          "--json"
+        ]
+      }
+    },
+    {
+      "surface": "agent-work-domain-profile",
+      "id": "kungfu-agent-work-domain-profile",
+      "schema": "kungfu.agent-work-domain-profile.contract/v1",
+      "contractSchemaRoot": "sha256:4771b8309345940500f9b995d2bc2a5219080a0d6e14542fbb5c91d3f6fedd32",
+      "weldedSurface": "agent-work-domain-profile-contract",
+      "env": "KUNGFU_AGENT_WORK_DOMAIN_PROFILE_CONTRACT",
+      "file": "kungfu-agent-work-domain-profile.contract.json",
+      "source": "framework/agent-work/kungfu-agent-work-domain-profile.contract.json",
+      "artifact": "config/agent-work/kungfu-agent-work-domain-profile.contract.json",
+      "cli": {
+        "contract": [
+          "contract",
+          "show",
+          "agent-work-domain-profile",
+          "--json"
+        ],
+        "schema": [
+          "contract",
+          "show",
+          "agent-work-domain-profile",
+          "--json"
+        ]
+      },
+      "extraArtifacts": [
+        {
+          "label": "Agent Work Fact role schema",
+          "source": "framework/agent-work/role-schemas/fact.schema.json",
+          "artifact": "config/agent-work/role-schemas/fact.schema.json"
+        },
+        {
+          "label": "Agent Work Episode role schema",
+          "source": "framework/agent-work/role-schemas/episode.schema.json",
+          "artifact": "config/agent-work/role-schemas/episode.schema.json"
+        },
+        {
+          "label": "Agent Work Pursuit role schema",
+          "source": "framework/agent-work/role-schemas/pursuit.schema.json",
+          "artifact": "config/agent-work/role-schemas/pursuit.schema.json"
+        },
+        {
+          "label": "Agent Work Atlas role schema",
+          "source": "framework/agent-work/role-schemas/atlas.schema.json",
+          "artifact": "config/agent-work/role-schemas/atlas.schema.json"
+        },
+        {
+          "label": "Agent Work Warrant role schema",
+          "source": "framework/agent-work/role-schemas/warrant.schema.json",
+          "artifact": "config/agent-work/role-schemas/warrant.schema.json"
+        }
+      ]
+    },
+    {
       "surface": "fact-cut-kernel",
       "id": "kungfu-fact-cut-kernel",
       "schema": "kungfu.fact-cut-kernel.contract/v1",

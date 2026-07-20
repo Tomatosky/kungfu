@@ -3,6 +3,7 @@
 import copy
 import base64
 import hashlib
+import inspect
 import json
 import sys
 import types
@@ -40,7 +41,7 @@ import kungfu  # noqa: E402
 kungfu._build_info = {"version": "test"}
 
 from kungfu import contract, durability  # noqa: E402
-from kungfu.agent import work_profile  # noqa: E402
+from kungfu.agent import action_geometry, domain_profile, work_profile  # noqa: E402
 from kungfu.cli.commands import __registry__  # noqa: E402, F401
 from kungfu.cli.commands import kfc  # noqa: E402
 
@@ -174,6 +175,10 @@ def test_agent_capabilities_discovers_the_same_work_model(tmp_path, monkeypatch)
         "command": "kungfu agent work-model --json",
         "contract": metadata,
     }
+    assert payload["actionGeometry"] == contract.contract_metadata("action-geometry")
+    assert payload["workDomainProfile"] == contract.contract_metadata(
+        "agent-work-domain-profile"
+    )
     assert any(
         row["apiId"] == "kungfu.agent.work-model"
         and row["name"] == "kungfu agent work-model --json"
@@ -611,6 +616,102 @@ def test_kfd7_profile_capabilities_and_typed_responsibility_gap():
     assert denied["writeOccurred"] is False
 
 
+def test_kfd7_geometry_and_domain_profile_have_independent_exact_roots():
+    geometry = contract.load_contract("action-geometry")
+    profile = contract.load_contract("agent-work-domain-profile")
+    roots = domain_profile.roots()
+
+    assert geometry["responsibilities"] == list(work_profile.ROLES)
+    assert profile["actionGeometry"]["root"] == roots["actionGeometryRoot"]
+    assert roots["domainProfileRoot"] == contract.contract_hash(
+        "agent-work-domain-profile"
+    )
+    assert roots["roleSchemaRoots"] == {
+        role: profile["roleSchemas"][role]["root"] for role in work_profile.ROLES
+    }
+    capabilities = work_profile.capabilities()
+    assert capabilities["actionGeometryRoot"] == roots["actionGeometryRoot"]
+    assert capabilities["domainProfileRoot"] == roots["domainProfileRoot"]
+    assert capabilities["roleSchemaRoots"] == roots["roleSchemaRoots"]
+    assert capabilities["roleBodySchema"] == work_profile.ROLE_BODY_SCHEMA
+
+
+def test_kfd7_geometry_evaluator_has_no_domain_profile_dependency():
+    source = inspect.getsource(action_geometry)
+    assert "domain_profile" not in source
+    assert "INITIAL_STATES" not in source
+    assert "TRANSITIONS" not in source
+    assert "successPolicy" not in source
+
+    identities = {
+        role: f"fact:{index:032x}"
+        for index, role in enumerate(work_profile.ROLES, start=1)
+    }
+    accepted = action_geometry.evaluate(identities)
+    rejected = action_geometry.evaluate(
+        identities,
+        inference_claims=["completion-from-episode"],
+    )
+
+    assert accepted["admissible"] is True
+    assert rejected["admissible"] is False
+    assert rejected["failures"] == [
+        {
+            "code": "non-substitution-invariant",
+            "invariant": "completion-not-from-episode",
+        }
+    ]
+
+
+def test_kfd7_domain_profile_validates_successor_and_legacy_bodies():
+    role = "pursuit"
+    successor = {
+        "schema": domain_profile.role_schema_id(role),
+        "role": role,
+        "state": "active",
+        "details": {"summary": "preserve contract roots"},
+        "bindings": domain_profile.role_bindings(role),
+    }
+    assert domain_profile.validate_role_body(successor)["legacy"] is False
+
+    missing = copy.deepcopy(successor)
+    del missing["bindings"]["roleSchemaRoot"]
+    with pytest.raises(ValueError, match="validation failed"):
+        domain_profile.validate_role_body(missing)
+
+    wrong = copy.deepcopy(successor)
+    wrong["bindings"]["roleSchemaRoot"] = "sha256:" + "0" * 64
+    with pytest.raises(ValueError, match="exact contract roots"):
+        domain_profile.validate_role_body(wrong)
+
+    legacy = {
+        "schema": work_profile.ROLE_BODY_SCHEMA,
+        "role": role,
+        "state": "active",
+        "details": {"summary": "legacy meaning is unchanged"},
+    }
+    assert domain_profile.validate_role_body(legacy) == {
+        "role": role,
+        "legacy": True,
+    }
+
+
+def test_kfd7_session_geometry_round_trip_is_domain_neutral():
+    session = _session_fixture()
+    expanded = work_profile.expand_session(session)
+    projected = work_profile.project_session(expanded)
+    before = expanded["observations"]
+    after = work_profile.expand_session(projected)["observations"]
+
+    assert action_geometry.evaluate_session_refinement(before, after) == {
+        "schema": action_geometry.SESSION_EVALUATION_SCHEMA,
+        "geometryRoot": contract.contract_hash("action-geometry"),
+        "preserved": True,
+        "missingDimensions": [],
+        "changedDimensions": [],
+    }
+
+
 def test_kfd7_simple_session_round_trips_all_five_decision_observations():
     session = _session_fixture()
     expanded = work_profile.expand_session(session)
@@ -819,6 +920,69 @@ def test_kfd7_profile_bootstrap_continue_inspect_and_replay_fail_closed():
     )
     assert replay_mismatch["status"] == "denied"
     assert replay_mismatch["failureCode"] == "replay-mismatch"
+
+
+def test_kfd7_profile_persists_exact_role_schema_bindings_and_fails_closed():
+    kernel = _MemoryFactKernel()
+    created = work_profile.apply_action(
+        "/runtime", _profile_request(), execute=True, kernel=kernel
+    )
+
+    for role, version_root in created["result"]["roleVersions"].items():
+        body = json.loads(kernel.versions[version_root]["body"])
+        assert body["schema"] == domain_profile.role_schema_id(role)
+        assert body["bindings"] == domain_profile.role_bindings(role)
+        assert domain_profile.validate_role_body(body)["legacy"] is False
+
+    pursuit_root = created["result"]["roleVersions"]["pursuit"]
+    corrupted = json.loads(kernel.versions[pursuit_root]["body"])
+    corrupted["bindings"]["domainProfileRoot"] = "sha256:" + "0" * 64
+    kernel.versions[pursuit_root]["body"] = json.dumps(corrupted, sort_keys=True)
+
+    denied = work_profile.apply_action(
+        "/runtime",
+        _successor_request(created, action_id="wrong-profile-root"),
+        kernel=kernel,
+    )
+    assert denied["status"] == "denied"
+    assert denied["failureCode"] == "body-missing"
+    assert denied["details"]["missingRoles"] == ["pursuit"]
+
+
+def test_kfd7_legacy_role_roots_remain_readable_without_reinterpretation():
+    kernel = _MemoryFactKernel()
+    created = work_profile.apply_action(
+        "/runtime", _profile_request(), execute=True, kernel=kernel
+    )
+    legacy_roots = copy.deepcopy(created["result"]["roleVersions"])
+    for version_root in legacy_roots.values():
+        body = json.loads(kernel.versions[version_root]["body"])
+        body["schema"] = work_profile.ROLE_BODY_SCHEMA
+        body.pop("bindings")
+        kernel.versions[version_root]["body"] = json.dumps(body, sort_keys=True)
+
+    inspected = work_profile.inspect(
+        "/runtime", _profile_request()["refName"], kernel=kernel
+    )
+    assert inspected["status"] == "current"
+    assert {
+        role: row["versionRoot"] for role, row in inspected["roles"].items()
+    } == legacy_roots
+
+    continued = work_profile.apply_action(
+        "/runtime",
+        _successor_request(created, action_id="legacy-compatible-successor"),
+        execute=True,
+        kernel=kernel,
+    )
+    assert continued["status"] == "accepted"
+    for role in set(work_profile.ROLES) - {"pursuit"}:
+        assert continued["result"]["roleVersions"][role] == legacy_roots[role]
+    pursuit_body = json.loads(
+        kernel.versions[continued["result"]["roleVersions"]["pursuit"]]["body"]
+    )
+    assert pursuit_body["schema"] == domain_profile.role_schema_id("pursuit")
+    assert pursuit_body["bindings"] == domain_profile.role_bindings("pursuit")
 
 
 def test_kfd7_profile_rejects_stale_atlas_and_expired_warrant_before_writes():

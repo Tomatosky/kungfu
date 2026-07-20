@@ -27,6 +27,15 @@ class FakeWorkProfile:
             "profile": "kungfu-kfd-7-action-profile",
             "actionSchema": "kungfu.kfd7.profile-action/v1",
             "receiptSchema": "kungfu.kfd7.profile-action-receipt/v1",
+            "actionGeometryRoot": "sha256:" + "a" * 64,
+            "domainProfileRoot": "sha256:" + "b" * 64,
+            "roleSchemaRoots": {
+                role: "sha256:" + str(index) * 64
+                for index, role in enumerate(operations, start=1)
+            },
+            "roleBodySchemas": {
+                role: f"kungfu.agent-work.{role}-role/v2" for role in operations
+            },
             "transitions": {
                 role: [{"operation": operation, "from": "before", "to": "after"}]
                 for role, operation in operations.items()
@@ -72,6 +81,9 @@ def test_each_public_role_projects_only_its_declared_transitions(monkeypatch):
         assert payload["transitions"] == [
             {"operation": operation, "from": "before", "to": "after"}
         ]
+        assert payload["actionGeometryRoot"] == "sha256:" + "a" * 64
+        assert payload["domainProfileRoot"] == "sha256:" + "b" * 64
+        assert payload["roleBodySchema"] == f"kungfu.agent-work.{role}-role/v2"
 
 
 def test_role_action_rejects_cross_role_requests_before_kernel(monkeypatch):

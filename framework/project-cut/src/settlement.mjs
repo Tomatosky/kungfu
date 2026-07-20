@@ -367,6 +367,14 @@ function projectionIncludesBytes(policy, path) {
   );
 }
 
+export function reconcileIncludesBytes(policy, path) {
+  return (
+    projectionIncludesBytes(policy, path) ||
+    path === SETTLEMENT_OUTPUT ||
+    path.startsWith(`${SETTLEMENT_OUTPUT}/`)
+  );
+}
+
 function indexEntries(root, includeBytes = () => true) {
   const output = git(root, ['ls-files', '-s', '-z'], {
     encoding: 'buffer',
@@ -1378,8 +1386,15 @@ export function reconcileCommit(rootInput, commitInput) {
   const commit = git(root, ['rev-parse', `${commitInput}^{commit}`]).trim();
   const cutEntries = commitEntries(root, commit, SETTLEMENT_OUTPUT);
   const candidatePaths = projectCutPaths(cutEntries);
+  const policy = readRootJson(
+    resolve(CONTRACT_ROOT, 'default-source-projection-policy.json'),
+  );
   const entries =
-    candidatePaths.length === 0 ? cutEntries : commitEntries(root, commit);
+    candidatePaths.length === 0
+      ? cutEntries
+      : commitEntries(root, commit, null, (path) =>
+          reconcileIncludesBytes(policy, path),
+        );
   const byPath = new Map(entries.map((entry) => [entry.path, entry.bytes]));
   const paths =
     candidatePaths.length === 0 ? candidatePaths : projectCutPaths(entries);
@@ -1469,9 +1484,6 @@ export function reconcileCommit(rootInput, commitInput) {
       for (const native of cut.episodeDelta.nativeRoots) {
         diagnostics.push(...verifyEpisodeProviderEntries(entries, native.root));
       }
-      const policy = readRootJson(
-        resolve(CONTRACT_ROOT, 'default-source-projection-policy.json'),
-      );
       const request = {
         project: cut.project,
         visibility: cut.visibility,

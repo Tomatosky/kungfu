@@ -21,6 +21,21 @@ assert.equal(contract.$schema, 'kungfu.kfd7-library-boundary.contract/v1');
 assert.equal(contract.status, 'staged');
 assert.equal(contract.kfd7Status, 'draft');
 assert.equal(contract.consumerReadiness.adopterCountGate, false);
+assert.ok(
+  contract.layers.some(
+    (layer) =>
+      layer.id === 'action-geometry' &&
+      layer.forbids.includes('domain-fields-or-lifecycle-vocabulary'),
+  ),
+);
+assert.equal(
+  contract.authority.actionGeometryContract,
+  'framework/action/action-geometry.contract.json',
+);
+assert.equal(
+  contract.authority.agentWorkDomainProfile,
+  'framework/agent-work/kungfu-agent-work-domain-profile.contract.json',
+);
 
 const current = new Map(
   contract.currentPublicAbi.symbols.map((entry) => [entry.name, entry]),

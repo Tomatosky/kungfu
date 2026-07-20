@@ -6,15 +6,15 @@
   "supportLevel": "release",
   "source": {
     "cwd": ".",
-    "sourceSha": "7655c45641be0347c646dd48af999cb8d1b71491",
+    "sourceSha": "651dcae45dbb25c2c201bb7f868db9ced223641d",
     "registryPath": ".buildchain/kfd/kfd-3/surfaces.json",
-    "registryDigest": "sha256:e3d73f95fd432ad3e2ef76047d9aab87de84e3ad4d1696c80a1aee56bc779251"
+    "registryDigest": "sha256:bae99056a96e9958528baa04ece23612b85580635086547e3a7651f6e417f8d1"
   },
   "sourceRegistry": {
     "id": "kungfu",
     "path": ".buildchain/kfd/kfd-3/surfaces.json",
-    "sha256": "8f672c13e6dbbfe185b35c2e0d388a35f95bfe7ee2f32cc07e936335bf2bd9c2",
-    "digest": "sha256:e3d73f95fd432ad3e2ef76047d9aab87de84e3ad4d1696c80a1aee56bc779251"
+    "sha256": "fc0aae8d85a879a89013d5bb4a0c88be6dd2fd1f5b3b0a96bdfee21fb71e5e57",
+    "digest": "sha256:bae99056a96e9958528baa04ece23612b85580635086547e3a7651f6e417f8d1"
   },
   "upstreamKfd": {
     "aggregatePath": "developer/sdk/kfd/upstream-aggregate.json",
@@ -29,12 +29,12 @@
       "libnode": "22.22.3-kf.3-alpha.16",
       "buildchain": "2.11.14-alpha.0"
     },
-    "digest": "sha256:339ae35c9cd2c4016a2538e739dd12c5f48c1b7f96f44ab0a5da895001e144d9"
+    "digest": "sha256:3d8ccc88d8a44a0c3dfbcbf28bb4ea06548ec666755a69f34322a3eb702d7a0f"
   },
   "expectedArtifactVerification": {
     "command": "node scripts/buildchain-kfd-evidence.mjs --artifact-witness --json"
   },
-  "collaborationInterfaceDigest": "sha256:7cfc3533660739f753c0153ef35684eaef2b152fea8ac896999d6ce844ba464e",
+  "collaborationInterfaceDigest": "sha256:c9cbfc7ba26cd0a2c420569afc549ab7915bc72505e95c4b982c0783bf9eeb2d",
   "collaborationInterface": {
     "schemaVersion": 1,
     "contract": "kungfu-buildchain-kfd-3-surface-registry",
@@ -57,7 +57,7 @@
         "libnode": "22.22.3-kf.3-alpha.16",
         "buildchain": "2.11.14-alpha.0"
       },
-      "digest": "sha256:339ae35c9cd2c4016a2538e739dd12c5f48c1b7f96f44ab0a5da895001e144d9"
+      "digest": "sha256:3d8ccc88d8a44a0c3dfbcbf28bb4ea06548ec666755a69f34322a3eb702d7a0f"
     },
     "surfaces": [
       {
