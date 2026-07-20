@@ -223,6 +223,9 @@ test('source plan covers representative source-only checks', () => {
     ),
   );
   assert.ok(
+    contractTests.args.includes('scripts/check-exit-bundle-contract.test.mjs'),
+  );
+  assert.ok(
     contractTests.args.includes('scripts/check-git-episode-provider.test.mjs'),
   );
   assert.ok(

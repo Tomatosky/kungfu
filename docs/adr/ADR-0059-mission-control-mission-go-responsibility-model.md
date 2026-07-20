@@ -180,7 +180,7 @@ creating overlapping declarations or silently changing authority.
 
 ### 9. Mission portability composes Episode identities
 
-`kungfu.mission-control.bundle/v1` is a bounded closure, not another journal.
+`kungfu.mission-control.bundle/v2` is a bounded closure, not another journal.
 It inventories the contract declarations, Mission/Go/claim fact Episodes,
 linked CostSnapshot and claim-evidence Episodes, assessment Episode, expected
 query roots, and Cost/State/Proof profile identity. Each inventory entry embeds
@@ -192,6 +192,8 @@ fresh data root. A thin bundle preserves roots and references, validates, and
 remains explicitly degraded; it cannot materialize Mission state. Atlas bridge
 exports may include a shared source-import Episode and disclose that broader
 provenance scope. GUI caches and projection rows are never portability input.
+The historical v1 reader remains audit-only because it does not bind the exact
+Profile Suite, member, catalog, and policy closure required for continuation.
 
 ### 10. Human and agent surfaces are peers
 

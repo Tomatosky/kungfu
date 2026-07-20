@@ -180,6 +180,22 @@
         "contract": ["contract", "show", "fact-cut-kernel", "--json"],
         "schema": ["contract", "show", "fact-cut-kernel", "--json"]
       }
+    },
+    {
+      "surface": "exit-bundle",
+      "id": "kungfu-exit-bundle",
+      "schema": "kungfu.exit-bundle.contract/v1",
+      "contractSchemaRoot": "sha256:69a19e641b9e36aab7772b8430f5889e5a961f72218e32276455e36f46393a8c",
+      "weldedSurface": "exit-bundle-contract",
+      "env": "KUNGFU_EXIT_BUNDLE_CONTRACT",
+      "file": "kungfu-exit-bundle.contract.json",
+      "source": "framework/exit/kungfu-exit-bundle.contract.json",
+      "artifact": "config/kungfu-exit-bundle.contract.json",
+      "probeFixture": "tests/fixtures/exit-bundle-contract/cases.json",
+      "cli": {
+        "contract": ["contract", "show", "exit-bundle", "--json"],
+        "schema": ["contract", "show", "exit-bundle", "--json"]
+      }
     }
   ]
 }

@@ -59,7 +59,7 @@
   },
   "contractWorld": {
     "schemaId": "https://kfd.libkungfu.dev/schemas/kfd-1/contract-world.schema.json",
-    "digest": "sha256:3a1fd2f9f6d72bd7f2cf9dcf9a77f3288d5d614de10bee7c99f55ca3dcca8c18",
+    "digest": "sha256:2209492d74af89bfcf93191f99d0bae7d6391a308fe1f6fea35e6914a615d83c",
     "value": {
       "schemaVersion": 1,
       "contract": "kfd-1-contract-world",
@@ -115,6 +115,11 @@
           "id": "kungfu-fact-cut-kernel",
           "class": "integration-time",
           "description": "fact-cut-kernel contract source framework/fact/kungfu-fact-cut-kernel.contract.json is copied byte-for-byte to config/kungfu-fact-cut-kernel.contract.json."
+        },
+        {
+          "id": "kungfu-exit-bundle",
+          "class": "integration-time",
+          "description": "exit-bundle contract source framework/exit/kungfu-exit-bundle.contract.json is copied byte-for-byte to config/kungfu-exit-bundle.contract.json."
         }
       ]
     }
@@ -308,6 +313,25 @@
       "artifact": {
         "path": "config/kungfu-fact-cut-kernel.contract.json",
         "expectedSha256": "sha256:96a005599477553359bfc84ce403efd9eddf5b3ad08666a98aba8bd4755b528b"
+      }
+    },
+    {
+      "surface": "exit-bundle",
+      "id": "kungfu-exit-bundle",
+      "recipe": {
+        "path": "framework/exit/kungfu-exit-bundle.contract.json",
+        "generator": "kungfu sdk contract render",
+        "evidence": "kungfu sdk contract evidence"
+      },
+      "source": {
+        "path": "framework/exit/kungfu-exit-bundle.contract.json",
+        "sha256": "sha256:10a475604a15f5512d114b16539c1790342a21560b5d1590820d34bab5dae819",
+        "renderedSha256": "sha256:10a475604a15f5512d114b16539c1790342a21560b5d1590820d34bab5dae819",
+        "byteForByte": true
+      },
+      "artifact": {
+        "path": "config/kungfu-exit-bundle.contract.json",
+        "expectedSha256": "sha256:10a475604a15f5512d114b16539c1790342a21560b5d1590820d34bab5dae819"
       }
     }
   ]

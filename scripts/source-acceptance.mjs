@@ -293,6 +293,7 @@ export function sourceAcceptancePlan(files) {
         'scripts/upgrade-publication-admission.test.mjs',
         'scripts/check-agent-session-contract.test.mjs',
         'scripts/check-fact-cut-kernel-contract.test.mjs',
+        'scripts/check-exit-bundle-contract.test.mjs',
         'scripts/check-fact-root-canonical.test.mjs',
         'scripts/check-kfd7-library-boundary.test.mjs',
         'scripts/check-fact-root-canonical.test.mjs',

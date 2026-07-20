@@ -308,6 +308,33 @@ currently named `kfd-1`.
 contracts. The registry/tooling path is intended to be the stable KFD-1
 infrastructure before third-party contract surfaces are published.
 
+## Exit Bundle composition is one registered vocabulary, not another fact authority
+
+**Guarantee.** The registered
+[`kungfu-exit-bundle.contract.json`](../../framework/exit/kungfu-exit-bundle.contract.json)
+defines the top-level scope, member-root, full/thin closure, omission/loss,
+compatibility, equivalence, and verification vocabulary for bounded exit
+artifacts. Fact, Episode, Fact Library, Mission, Profile, source-export, and
+recovery-backup contracts retain their own roots, material semantics, import
+rules, and receipts.
+
+**Verify.** Run:
+
+```sh
+./shifu check:exit-bundle-contract
+kungfu contract show exit-bundle --json
+```
+
+The gate validates the embedded schemas, the positive/negative corpus, the
+machine inventory against live source authorities, KFD-1 packaging
+registration, and known ADR/schema metadata drift. A thin artifact can expose
+only inventory inspection; it cannot claim materialization, projection rebuild,
+continuation, or capability equivalence.
+
+**Maturity.** The contract and drift gate are staged. Composition, an installed
+independent verifier, clean-runtime continuation, provider migration
+qualification, and release admission remain separate evidence stages.
+
 ## KFD-2 release claims use the Buildchain product registry contract
 
 **Guarantee.** Public KFD-2 release trust claims are declared in one tracked
