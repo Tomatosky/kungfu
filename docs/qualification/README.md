@@ -12,6 +12,8 @@ implemented behavior, retained evidence, and released guarantees. Begin with
 - [Strong Durability and Crash Recovery](durability-and-crash-recovery.md)
 - [Fact Storage Authority Qualification](fact-storage-authority.md)
 - [Installed Provider Migration Qualification](provider-migration-product.md)
+- [Exit and Version Compatibility Policy](../guides/exit-and-version-compatibility.md)
+- [Clean-runtime Exit Qualification Evidence](evidence/exit-clean-runtime/520a61af87/report.json)
 - [Durability Qualification Harness](../../framework/core/tests/qualification/durability/README.md)
 - [Current-hardware Production-candidate Admission Evidence](evidence/durability/production-candidate-v1/README.md)
 - [Three-platform durability process evidence at `12dd26e899`](evidence/durability/12dd26e899/README.md)

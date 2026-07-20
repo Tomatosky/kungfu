@@ -31,6 +31,7 @@
       "modeSemantics",
       "equivalenceSemantics",
       "compatibilitySemantics",
+      "supportPolicy",
       "memberInventory",
       "guarantees",
       "falsifiers",
@@ -84,6 +85,9 @@
         "type": "object"
       },
       "compatibilitySemantics": {
+        "type": "object"
+      },
+      "supportPolicy": {
         "type": "object"
       },
       "memberInventory": {
@@ -1034,6 +1038,94 @@
     "legacyReader": "may inspect and verify only the historical schema/protocol it explicitly declares; it never rewrites the old root",
     "successorContract": "requires a new schema/protocol plus an explicit mapping receipt when identity changes",
     "partialCompatibility": "is degraded and cannot issue a materialization, continuation, or capability-equivalence success receipt"
+  },
+  "supportPolicy": {
+    "schema": "kungfu.exit-compatibility-policy/v1",
+    "publicGuide": "docs/guides/exit-and-version-compatibility.md",
+    "productVersioning": {
+      "authority": "docs/development/versioning.md",
+      "currentStage": "pre-release",
+      "preRelease": {
+        "commitment": "exact-evidence-only",
+        "rule": "Alpha, beta, and release-candidate builds do not receive the stable same-minor promise. Compatibility is limited to the exact schemas, protocols, readers, artifact digest, platform, and retained evidence named by that build."
+      },
+      "stablePatch": {
+        "commitment": "registered-semantics-unchanged",
+        "rule": "A stable patch release does not change a registered welded surface. A required registered semantic change must be classified and released on a wider line."
+      },
+      "stableSameMinor": {
+        "commitment": "registered-authoritative-semantics-unchanged",
+        "includes": [
+          "portable identity and root preimages",
+          "full versus thin closure and explicit omission or loss",
+          "supported schema and protocol interpretation",
+          "validate, execute, postflight, and receipt success semantics",
+          "fail-closed behavior for unsupported required material"
+        ],
+        "excludes": [
+          "physical provider layout and paths",
+          "derived SQLite files and GUI caches",
+          "performance, logs, wording, and presentation",
+          "capabilities not named by the artifact and its retained qualification evidence"
+        ],
+        "rule": "Qualified stable releases on one major.minor line preserve the registered authoritative semantics above. An implementation may change only when the same declared roots, closure, compatibility verdicts, and success receipts remain true."
+      },
+      "crossMinor": {
+        "commitment": "declared-reader-or-qualified-migration-only",
+        "rule": "A newer minor may add schemas or protocols, but cross-minor read or import is supported only when the installed reader explicitly declares the historical protocol or retained evidence qualifies a migration. No number of prior minors or duration is promised before the first stable v4 support window is frozen."
+      },
+      "crossMajor": {
+        "commitment": "no-supported-release-may-strand-qualified-stable-data",
+        "rule": "A breaking major may change registered semantics only with a documented and qualified reader, export, or migration path for data produced by every still-supported qualified stable line. Unknown majors fail closed."
+      }
+    },
+    "protocolVersioning": {
+      "topLevelProtocol": "kungfu.exit-bundle/v1",
+      "memberProtocols": "memberInventory[].protocol",
+      "readerRule": "Product SemVer never implies protocol compatibility by itself. The installed verifier's explicit supported protocol inventory is authoritative for that artifact.",
+      "writerRule": "A successor identity contract uses a new schema or protocol and emits a mapping receipt when identity changes."
+    },
+    "supportWindow": {
+      "status": "not-frozen-before-first-stable-v4",
+      "supportedPriorMinors": null,
+      "duration": null,
+      "releaseGate": "A stable release support window must name both a minor count or duration and the exact reader or migration evidence before publication."
+    },
+    "qualification": {
+      "overallReleaseStatus": "not-qualified",
+      "claimRule": "exact-artifact-and-platform-evidence-only",
+      "installedArtifactRule": "Installed discovery reports policy and retained evidence but does not self-qualify; a release claim requires an exact artifact digest and platform match in retained release evidence.",
+      "retainedEvidence": [
+        {
+          "kind": "clean-runtime-exit",
+          "path": "docs/qualification/evidence/exit-clean-runtime/520a61af87/report.json",
+          "reportRoot": "sha256:105a912f54720bf5665b8cfd666013b788e423cd841b7a5af8525b9bc11d1726",
+          "artifactDigest": "sha256:8c0fcb6ec811c03c11be56b6d10fdd7cea5aed50657bc50979cfcdc805fd5cd3",
+          "platform": "darwin-arm64",
+          "verdict": "qualified"
+        },
+        {
+          "kind": "provider-migration",
+          "path": "docs/qualification/evidence/provider-migration-product/bb6f4a42c1/report.json",
+          "reportRoot": "sha256:fa73e01fb7df43220fd1397d2140567c732b8d8fd5bb5db2b122400c69addd02",
+          "artifactDigest": "sha256:8c0fcb6ec811c03c11be56b6d10fdd7cea5aed50657bc50979cfcdc805fd5cd3",
+          "platform": "darwin-arm64",
+          "verdict": "qualified"
+        }
+      ],
+      "unqualifiedPlatforms": [
+        "linux-x86_64",
+        "windows-x86_64"
+      ],
+      "nonClaims": [
+        "GUI or TUI Exit and migration parity",
+        "cross-machine migration or distributed writer fencing",
+        "destructive source cleanup",
+        "physical-media durability",
+        "a frozen prior-minor count or support duration",
+        "a released stable v4 artifact"
+      ]
+    }
   },
   "memberInventory": [
     {
