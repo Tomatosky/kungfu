@@ -191,6 +191,18 @@
       "file": "kungfu-exit-bundle.contract.json",
       "source": "framework/exit/kungfu-exit-bundle.contract.json",
       "artifact": "config/kungfu-exit-bundle.contract.json",
+      "extraArtifacts": [
+        {
+          "label": "Exit verifier contract",
+          "source": "framework/core/src/python/kungfu/exit_verifier.contract.json",
+          "artifact": "config/exit_verifier.contract.json"
+        },
+        {
+          "label": "Exit verifier corpus",
+          "source": "framework/core/src/python/kungfu/exit_verifier.corpus.json",
+          "artifact": "config/exit_verifier.corpus.json"
+        }
+      ],
       "probeFixture": "tests/fixtures/exit-bundle-contract/cases.json",
       "cli": {
         "contract": ["contract", "show", "exit-bundle", "--json"],

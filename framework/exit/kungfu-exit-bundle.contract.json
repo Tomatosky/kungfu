@@ -7,7 +7,7 @@
   "status": {
     "specification": "accepted",
     "composition": "implemented",
-    "installedVerifier": "not-qualified",
+    "installedVerifier": "implemented",
     "releaseQualification": "not-qualified"
   },
   "contractSchema": {
@@ -1300,7 +1300,7 @@
   ],
   "nonClaims": [
     "This contract does not implement transport, remote synchronization, HA, replication, or consensus.",
-    "This contract does not qualify a released installed verifier, clean-runtime continuation, or provider migration artifact.",
+    "This contract does not qualify clean-runtime continuation, provider migration, or a released cross-platform artifact.",
     "This contract does not make physical paths, provider directories, SQLite files, GUI caches, or configuration part of portable identity.",
     "This contract does not authorize destructive source retirement or real-user runtime migration."
   ]

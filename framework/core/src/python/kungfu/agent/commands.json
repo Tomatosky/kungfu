@@ -284,6 +284,24 @@
       "purpose": "Validate by default or explicitly import after isolated full replay, returning landed, remaining, loss, and recovery evidence."
     },
     {
+      "apiId": "kungfu.exit.verify",
+      "name": "kungfu-exit-verify --file <package.json> --json",
+      "maturity": "experimental",
+      "purpose": "Run the bounded read-only installed Exit verifier without initializing a runtime; report safe capabilities, omissions, loss, failure codes, and residual risk."
+    },
+    {
+      "apiId": "kungfu.exit.verify",
+      "name": "python -m kungfu.exit_verifier --file <package.json> --json",
+      "maturity": "experimental",
+      "purpose": "Invoke the same registry-free verifier directly from an installed Python module."
+    },
+    {
+      "apiId": "kungfu.exit.verify",
+      "name": "kungfu exit verify --file <package.json> --json",
+      "maturity": "experimental",
+      "purpose": "Invoke the packaged verifier through the integrated Kungfu CLI when a configured runtime is already available."
+    },
+    {
       "apiId": "kungfu.work.create",
       "name": "kungfu work create <title> --json",
       "maturity": "stable",

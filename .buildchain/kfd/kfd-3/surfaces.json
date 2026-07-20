@@ -65,7 +65,7 @@
       "libnode": "22.22.3-kf.3-alpha.16",
       "buildchain": "2.11.14-alpha.0"
     },
-    "digest": "sha256:3800e9bfab05e779c7d45d58f6d9e3cf12ed19ec0f8f4f2dd5cd13cdd7c41e3d"
+    "digest": "sha256:0e308045cf73e26084c070473a65886489523178dbf20419b5297530309ecefb"
   },
   "surfaces": [
     {
@@ -1111,6 +1111,26 @@
     {
       "id": "kungfu.exit.bundle",
       "name": "kungfu exit build --file <request.json> --json",
+      "kind": "cli",
+      "participantProfile": "agent-or-developer",
+      "state": "declared",
+      "availability": "shipped",
+      "visibility": "public",
+      "participantFacing": true,
+      "public": true,
+      "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json",
+      "evidencePath": "framework/core/src/python/kungfu/agent/commands.json",
+      "artifactPath": "framework/core/src/python/kungfu/agent/commands.json",
+      "maturity": "experimental",
+      "declaration": {
+        "owner": "kungfu",
+        "source": "scripts/buildchain-kfd-evidence.mjs",
+        "sourcePath": "framework/core/src/python/kungfu/agent/kfd3_api.registry.json"
+      }
+    },
+    {
+      "id": "kungfu.exit.verify",
+      "name": "kungfu-exit-verify --file <package.json> --json",
       "kind": "cli",
       "participantProfile": "agent-or-developer",
       "state": "declared",

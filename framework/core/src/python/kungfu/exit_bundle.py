@@ -694,10 +694,74 @@ def _validate_dependency_closure(package: Mapping[str, Any]) -> None:
             )
 
 
-def inspect(package: Mapping[str, Any]) -> dict[str, Any]:
+def _validate_mode_semantics(manifest: Mapping[str, Any]) -> None:
+    mode = manifest.get("mode")
+    closure = manifest.get("closure") or {}
+    members = manifest.get("members") or []
+    requirements = manifest.get("requirements") or {}
+    if mode == "thin":
+        expected = {
+            "selfContained": False,
+            "completeForScope": False,
+            "materialMissing": True,
+            "degraded": True,
+        }
+        overclaim = (
+            closure != expected
+            or any(
+                value not in _THIN_CAPABILITIES for value in manifest["capabilities"]
+            )
+            or any(
+                value not in _THIN_CAPABILITIES
+                for value in requirements.get("requiredCapabilities") or []
+            )
+            or any(
+                member["material"]["included"]
+                or member["import"]["execute"]
+                or any(
+                    value not in _THIN_CAPABILITIES for value in member["capabilities"]
+                )
+                for member in members
+            )
+        )
+        if overclaim:
+            raise ExitBundleError(
+                "thin-capability-overclaim",
+                "thin package claims material, closure, or unsafe capabilities",
+            )
+        return
+    expected = {
+        "selfContained": True,
+        "completeForScope": True,
+        "materialMissing": False,
+        "degraded": False,
+    }
+    if closure != expected:
+        raise ExitBundleError(
+            "full-closure-invalid",
+            "full package does not declare complete self-contained closure",
+        )
+    if any(
+        omission.get("requiredForScope") is True
+        for omission in manifest.get("omissions") or []
+    ) or any(
+        member["requiredForScope"] and not member["material"]["included"]
+        for member in members
+    ):
+        raise ExitBundleError(
+            "required-omission",
+            "full package omits material required for its declared scope",
+        )
+
+
+def inspect(
+    package: Mapping[str, Any],
+    *,
+    _contract_value: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     """Verify package, manifest, material bytes, and domain-owned member roots."""
 
-    contract = _contract()
+    contract = dict(_contract_value) if _contract_value is not None else _contract()
     try:
         contract_runtime.validate_json_schema(
             package, contract["packageSchema"], "exit package"
@@ -732,6 +796,7 @@ def inspect(package: Mapping[str, Any]) -> dict[str, Any]:
         )
     except ValueError as error:
         raise ExitBundleError("manifest-schema-invalid", str(error)) from error
+    _validate_mode_semantics(manifest)
 
     materials = package.get("materials")
     execution = package.get("execution")

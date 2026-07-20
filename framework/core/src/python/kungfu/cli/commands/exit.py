@@ -10,7 +10,7 @@ from typing import Any
 
 import click
 
-from kungfu import exit_bundle
+from kungfu import exit_bundle, exit_verifier
 from kungfu.cli.commands import PrioritizedCommandGroup, kfc
 
 
@@ -51,6 +51,28 @@ def _run(operation):
             json.dumps(error.diagnosis(), sort_keys=True)
         ) from error
     except (OSError, RuntimeError, ValueError) as error:
+        raise click.ClickException(str(error)) from error
+
+
+def _verification_bytes(file_path: str | None, input_base64: str | None) -> bytes:
+    if bool(file_path) == bool(input_base64):
+        raise click.ClickException(
+            "exactly one of --file or --input-base64 is required"
+        )
+    try:
+        if input_base64:
+            maximum = int(exit_verifier.info()["bounds"]["maximumPackageBytes"])
+            maximum_encoded = maximum * 4 // 3 + 8
+            if len(input_base64) > maximum_encoded:
+                raise click.ClickException(
+                    "base64 input exceeds Exit verifier byte limit"
+                )
+            return base64.b64decode(input_base64, validate=True)
+        if file_path == "-":
+            maximum = int(exit_verifier.info()["bounds"]["maximumPackageBytes"])
+            return sys.stdin.buffer.read(maximum + 1)
+        return Path(str(file_path)).read_bytes()
+    except (OSError, ValueError) as error:
         raise click.ClickException(str(error)) from error
 
 
@@ -113,6 +135,45 @@ def inspect_cmd(ctx, file_path, input_base64, as_json):
         f"[exit] {result['bundleId']} {result['status']}: "
         f"{len(result['verifiedMembers'])} verified member(s)"
     )
+
+
+@exit_group.command(
+    name="verify",
+    help="run the packaged read-only Exit verifier without initializing a runtime",
+)
+@click.option("--file", "file_path", help="package JSON path or -")
+@click.option("--input-base64", help="base64-encoded package JSON for process adapters")
+@click.option(
+    "--info",
+    "show_info",
+    is_flag=True,
+    help="show verifier identity, bounds, versions, corpus, and independence",
+)
+@click.option("--json", "as_json", is_flag=True, help="machine-readable output")
+@exit_command_context
+def verify_cmd(ctx, file_path, input_base64, show_info, as_json):
+    if show_info:
+        if file_path or input_base64:
+            raise click.ClickException("--info does not accept package input")
+        result = _run(exit_verifier.info)
+    elif file_path and file_path != "-":
+        result = exit_verifier.verify_file(file_path)
+    else:
+        result = exit_verifier.verify_bytes(
+            _verification_bytes(file_path, input_base64)
+        )
+    if as_json or show_info:
+        _json(result)
+    else:
+        click.echo(
+            f"[exit-verifier] {result.get('bundleId') or '<unknown>'} "
+            f"{result['verdict']}: {result['reportRoot']}"
+        )
+    verdict = result.get("verdict")
+    if verdict == "degraded":
+        ctx.exit(3)
+    if verdict == "rejected":
+        ctx.exit(4)
 
 
 @exit_group.command(

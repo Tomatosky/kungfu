@@ -249,9 +249,21 @@ test('registers one packaged KFD-1 Exit Bundle contract', () => {
   assert.equal(entry.source, 'framework/exit/kungfu-exit-bundle.contract.json');
   assert.equal(entry.weldedSurface, 'exit-bundle-contract');
   assert.equal(entry.contractSchemaRoot, schemaRoot(contract.contractSchema));
+  assert.deepEqual(entry.extraArtifacts, [
+    {
+      label: 'Exit verifier contract',
+      source: 'framework/core/src/python/kungfu/exit_verifier.contract.json',
+      artifact: 'config/exit_verifier.contract.json',
+    },
+    {
+      label: 'Exit verifier corpus',
+      source: 'framework/core/src/python/kungfu/exit_verifier.corpus.json',
+      artifact: 'config/exit_verifier.corpus.json',
+    },
+  ]);
   assert.equal(contract.status.specification, 'accepted');
   assert.equal(contract.status.composition, 'implemented');
-  assert.equal(contract.status.installedVerifier, 'not-qualified');
+  assert.equal(contract.status.installedVerifier, 'implemented');
   assert.equal(contract.status.releaseQualification, 'not-qualified');
   const sourceRoot = `sha256:${crypto
     .createHash('sha256')

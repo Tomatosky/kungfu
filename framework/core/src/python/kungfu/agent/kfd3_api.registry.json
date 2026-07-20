@@ -487,6 +487,17 @@
       "projections": ["commands.json", "agent-pack-doc"]
     },
     {
+      "id": "kungfu.exit.verify",
+      "surface": "cli",
+      "name": "kungfu-exit-verify --file <package.json> --json",
+      "aliases": ["python -m kungfu.exit_verifier --file <package.json> --json", "kungfu exit verify --file <package.json> --json"],
+      "purpose": "Run the bounded read-only installed Exit verifier without initializing a runtime; report safe capabilities, omissions, loss, failure codes, and residual risk.",
+      "maturity": "experimental",
+      "visibility": "adjacent-agent",
+      "anchor": { "kind": "catalog" },
+      "projections": ["commands.json", "agent-pack-doc"]
+    },
+    {
       "id": "kungfu.work.create",
       "surface": "cli",
       "name": "kungfu work create <title> --json",
