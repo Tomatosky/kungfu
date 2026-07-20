@@ -74,6 +74,13 @@ registry. `kungfu agent verify --json` checks the installed runtime command tree
 against the registry so a shipped agent surface cannot quietly expose extra
 `kungfu agent` commands outside the declared interface.
 
+For portable Exit packages, use
+`kungfu-exit-verify --file <package.json> --json` (or
+`python -m kungfu.exit_verifier`) when no Kungfu runtime or source checkout is
+available. The integrated `kungfu exit verify` alias is for an already
+configured runtime; verifier success is read-only evidence, not import
+authorization.
+
 Long-running real-world work uses four independently inspectable roles:
 Pursuit for intent continuity, Atlas for the declared perspective and fact cut,
 Warrant for bounded authority, and Episode for causal experience. Read the

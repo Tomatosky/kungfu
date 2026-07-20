@@ -2,15 +2,26 @@
 metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
 adr_id: ADR-0053
-decision_status: proposed
-implementation_status: not-started
-review_state: legacy-unreviewed
+decision_status: accepted
+implementation_status: implemented
+implementation_commits: [e1dd234d9f8c7b503873f8abc66071af244fb59c]
+closure_commit: e1dd234d9f8c7b503873f8abc66071af244fb59c
+qualification_refs: [framework/core/src/libkungfu/src/runtime/storage/service.cpp, framework/core/src/libkungfu/src/runtime/storage/episode_repair.cpp, framework/core/tests/python/test_episode_bundle_roundtrip.py, framework/core/tests/python/test_atlas_storage.py]
+review_state: self-reviewed
 sensitivity: public
+sources: [local-files, user-consensus]
+period: 2026-07-11
+theme: self-contained-episode-bundles
+confidence: high
+evidence_grade: B
+last_reviewed: 2026-07-20
+ai_provenance: GPT-5 via Codex on 2026-07-20; metadata reconciled against Git commit e1dd234d9f8c7b503873f8abc66071af244fb59c and current executable roundtrip tests; no claim about released installed-product qualification
 ---
 
 # ADR-0053: Episode bundles carry their owned bytes, and import materializes them
 
-- Status: proposed
+- Status: accepted; implemented for the source/runtime product path, while
+  installed-product release qualification remains separate
 - Date: 2026-07-11
 - Category: (architecture) Episode export/import — what a
   `kungfu.storage.episode-bundle/v1` document must carry for a sealed Episode

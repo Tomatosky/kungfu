@@ -1,7 +1,7 @@
 {
-  "catalogRoot": "sha256:426c8e84179d9090395f4611955fa6dbece20819837ce96ca357d9c63baf78a0",
+  "catalogRoot": "sha256:c8be969d0ab7c6cdeef6852b728277301542671d1e82a492064172d85695ed99",
   "contractId": "kungfu-cli-surface",
-  "contractRoot": "sha256:e321d7a5374c1c7f5df5b2d32f6b401c8f73ac28c391a119635420dcb83220d2",
+  "contractRoot": "sha256:54b6d0052dee9d93dbcf240046a10e1e946413e1b94c47404783ae10ed79d14c",
   "kfd3Linkage": [
     {
       "apiIds": [],
@@ -532,6 +532,44 @@
       "reason": "no-agent-first-api-declared",
       "state": "unlinked",
       "surfaceId": "kungfu.cli.commands.primitive.role.register.role.commands.locals.inspect.kungfu.episode.inspect"
+    },
+    {
+      "apiIds": [],
+      "reason": "navigation-only",
+      "state": "unlinked",
+      "surfaceId": "kungfu.cli.commands.exit.exit.group"
+    },
+    {
+      "apiIds": [
+        "kungfu.exit.bundle"
+      ],
+      "reason": null,
+      "state": "linked",
+      "surfaceId": "kungfu.cli.commands.exit.build.cmd"
+    },
+    {
+      "apiIds": [
+        "kungfu.exit.bundle"
+      ],
+      "reason": null,
+      "state": "linked",
+      "surfaceId": "kungfu.cli.commands.exit.import.cmd"
+    },
+    {
+      "apiIds": [
+        "kungfu.exit.bundle"
+      ],
+      "reason": null,
+      "state": "linked",
+      "surfaceId": "kungfu.cli.commands.exit.inspect.cmd"
+    },
+    {
+      "apiIds": [
+        "kungfu.exit.verify"
+      ],
+      "reason": null,
+      "state": "linked",
+      "surfaceId": "kungfu.cli.commands.exit.verify.cmd"
     },
     {
       "apiIds": [],
@@ -2563,11 +2601,11 @@
       "kfd3Registry": "strict-link",
       "packagedInventory": "required-agent-pack-entry"
     },
-    "expectedSurfaceRoot": "sha256:681c5df2a47f52bc6b157368d09435209522c8e54095c88557117e07ebc47d09",
+    "expectedSurfaceRoot": "sha256:20d23d2813f45fda06edacf0dde341993bcefd5005265023601e858d5218261f",
     "regeneration": "./shifu fix:cli-catalog-parity",
     "validation": "./shifu check:cli-catalog-parity"
   },
-  "registryRoot": "sha256:28effd64ee1ece570da7109eb803b1e97e06c7d2e61a9ffb49d46d18eb5e5104",
+  "registryRoot": "sha256:9750afad84ce9f0034c0178f1c47dfab3e02224c8ba9080aafd4938428c3038d",
   "schema": "kungfu.cli-surface-catalog/v1",
   "schemaRoot": "sha256:731eec25990d090067d59651d6c0793934124ac79df4111990bd905e03b605c4",
   "source": {
@@ -2580,7 +2618,7 @@
     "pathAuthority": "live-click-tree",
     "root": "kungfu"
   },
-  "surfaceRoot": "sha256:681c5df2a47f52bc6b157368d09435209522c8e54095c88557117e07ebc47d09",
+  "surfaceRoot": "sha256:20d23d2813f45fda06edacf0dde341993bcefd5005265023601e858d5218261f",
   "surfaces": [
     {
       "alias_diagnostics": [],
@@ -7844,6 +7882,417 @@
         "symbol": "register_role_commands.<locals>.inspect"
       },
       "summary": "inspect this role at one named Fact ref",
+      "visibility": "advanced"
+    },
+    {
+      "alias_diagnostics": [],
+      "aliases": [],
+      "approval_policy": {
+        "caller_confirmation_required": false,
+        "mode": "none",
+        "preconditions": []
+      },
+      "audience": [
+        "human",
+        "agent",
+        "operator"
+      ],
+      "availability": {
+        "conditions": [
+          "source-runtime"
+        ],
+        "state": "available"
+      },
+      "canonical_path": "kungfu exit",
+      "id": "kungfu.cli.commands.exit.exit.group",
+      "kfd3_api_id": null,
+      "kfd3_api_ids": [],
+      "kind": "family",
+      "maturity": "experimental",
+      "mutation_class": "read",
+      "owner": "core",
+      "parameters": [
+        {
+          "arity": 1,
+          "flags": [
+            "-h",
+            "--help"
+          ],
+          "hidden": false,
+          "kind": "option",
+          "name": "help",
+          "required": false,
+          "type": "boolean"
+        }
+      ],
+      "path_depth": 2,
+      "removal_gate": null,
+      "replacement": null,
+      "schema_refs": [],
+      "section": "system-maintenance",
+      "source": {
+        "familyPolicy": true,
+        "kind": "runtime-click",
+        "module": "kungfu.cli.commands.exit",
+        "symbol": "exit_group"
+      },
+      "summary": "compose, inspect, and exactly import portable Exit packages",
+      "visibility": "public"
+    },
+    {
+      "alias_diagnostics": [],
+      "aliases": [],
+      "approval_policy": {
+        "caller_confirmation_required": false,
+        "mode": "none",
+        "preconditions": []
+      },
+      "audience": [
+        "human",
+        "agent",
+        "operator"
+      ],
+      "availability": {
+        "conditions": [
+          "source-runtime"
+        ],
+        "state": "available"
+      },
+      "canonical_path": "kungfu exit build",
+      "id": "kungfu.cli.commands.exit.build.cmd",
+      "kfd3_api_id": "kungfu.exit.bundle",
+      "kfd3_api_ids": [
+        "kungfu.exit.bundle"
+      ],
+      "kind": "command",
+      "maturity": "experimental",
+      "mutation_class": "read",
+      "owner": "core",
+      "parameters": [
+        {
+          "arity": 1,
+          "flags": [
+            "--file"
+          ],
+          "hidden": false,
+          "kind": "option",
+          "name": "file_path",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "arity": 1,
+          "flags": [
+            "--input-base64"
+          ],
+          "hidden": false,
+          "kind": "option",
+          "name": "input_base64",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "arity": 1,
+          "flags": [
+            "--out"
+          ],
+          "hidden": false,
+          "kind": "option",
+          "name": "out",
+          "required": false,
+          "type": "file"
+        },
+        {
+          "arity": 1,
+          "flags": [
+            "--json"
+          ],
+          "hidden": false,
+          "kind": "option",
+          "name": "as_json",
+          "required": false,
+          "type": "boolean"
+        }
+      ],
+      "path_depth": 3,
+      "removal_gate": null,
+      "replacement": null,
+      "schema_refs": [],
+      "section": "system-maintenance",
+      "source": {
+        "familyPolicy": true,
+        "kind": "runtime-click",
+        "module": "kungfu.cli.commands.exit",
+        "symbol": "build_cmd"
+      },
+      "summary": "compose existing domain bundles into one full or thin Exit package",
+      "visibility": "advanced"
+    },
+    {
+      "alias_diagnostics": [],
+      "aliases": [],
+      "approval_policy": {
+        "caller_confirmation_required": false,
+        "mode": "authorization-artifact",
+        "preconditions": []
+      },
+      "audience": [
+        "human",
+        "agent",
+        "operator"
+      ],
+      "availability": {
+        "conditions": [
+          "source-runtime"
+        ],
+        "state": "available"
+      },
+      "canonical_path": "kungfu exit import",
+      "id": "kungfu.cli.commands.exit.import.cmd",
+      "kfd3_api_id": "kungfu.exit.bundle",
+      "kfd3_api_ids": [
+        "kungfu.exit.bundle"
+      ],
+      "kind": "command",
+      "maturity": "experimental",
+      "mutation_class": "write",
+      "owner": "core",
+      "parameters": [
+        {
+          "arity": 1,
+          "flags": [
+            "--file"
+          ],
+          "hidden": false,
+          "kind": "option",
+          "name": "file_path",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "arity": 1,
+          "flags": [
+            "--input-base64"
+          ],
+          "hidden": false,
+          "kind": "option",
+          "name": "input_base64",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "arity": 1,
+          "flags": [
+            "--execute"
+          ],
+          "hidden": false,
+          "kind": "option",
+          "name": "execute",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "arity": 1,
+          "flags": [
+            "--authorized-by"
+          ],
+          "hidden": false,
+          "kind": "option",
+          "name": "authorized_by",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "arity": 1,
+          "flags": [
+            "--json"
+          ],
+          "hidden": false,
+          "kind": "option",
+          "name": "as_json",
+          "required": false,
+          "type": "boolean"
+        }
+      ],
+      "path_depth": 3,
+      "removal_gate": null,
+      "replacement": null,
+      "schema_refs": [],
+      "section": "system-maintenance",
+      "source": {
+        "familyPolicy": true,
+        "kind": "runtime-click",
+        "module": "kungfu.cli.commands.exit",
+        "symbol": "import_cmd"
+      },
+      "summary": "validate by default or explicitly execute exact import",
+      "visibility": "advanced"
+    },
+    {
+      "alias_diagnostics": [],
+      "aliases": [],
+      "approval_policy": {
+        "caller_confirmation_required": false,
+        "mode": "none",
+        "preconditions": []
+      },
+      "audience": [
+        "human",
+        "agent",
+        "operator"
+      ],
+      "availability": {
+        "conditions": [
+          "source-runtime"
+        ],
+        "state": "available"
+      },
+      "canonical_path": "kungfu exit inspect",
+      "id": "kungfu.cli.commands.exit.inspect.cmd",
+      "kfd3_api_id": "kungfu.exit.bundle",
+      "kfd3_api_ids": [
+        "kungfu.exit.bundle"
+      ],
+      "kind": "command",
+      "maturity": "experimental",
+      "mutation_class": "read",
+      "owner": "core",
+      "parameters": [
+        {
+          "arity": 1,
+          "flags": [
+            "--file"
+          ],
+          "hidden": false,
+          "kind": "option",
+          "name": "file_path",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "arity": 1,
+          "flags": [
+            "--input-base64"
+          ],
+          "hidden": false,
+          "kind": "option",
+          "name": "input_base64",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "arity": 1,
+          "flags": [
+            "--json"
+          ],
+          "hidden": false,
+          "kind": "option",
+          "name": "as_json",
+          "required": false,
+          "type": "boolean"
+        }
+      ],
+      "path_depth": 3,
+      "removal_gate": null,
+      "replacement": null,
+      "schema_refs": [],
+      "section": "system-maintenance",
+      "source": {
+        "familyPolicy": true,
+        "kind": "runtime-click",
+        "module": "kungfu.cli.commands.exit",
+        "symbol": "inspect_cmd"
+      },
+      "summary": "verify package, manifest, material bytes, and delegated member roots",
+      "visibility": "advanced"
+    },
+    {
+      "alias_diagnostics": [],
+      "aliases": [],
+      "approval_policy": {
+        "caller_confirmation_required": false,
+        "mode": "none",
+        "preconditions": []
+      },
+      "audience": [
+        "human",
+        "agent",
+        "operator"
+      ],
+      "availability": {
+        "conditions": [
+          "source-runtime"
+        ],
+        "state": "available"
+      },
+      "canonical_path": "kungfu exit verify",
+      "id": "kungfu.cli.commands.exit.verify.cmd",
+      "kfd3_api_id": "kungfu.exit.verify",
+      "kfd3_api_ids": [
+        "kungfu.exit.verify"
+      ],
+      "kind": "command",
+      "maturity": "experimental",
+      "mutation_class": "plan",
+      "owner": "core",
+      "parameters": [
+        {
+          "arity": 1,
+          "flags": [
+            "--file"
+          ],
+          "hidden": false,
+          "kind": "option",
+          "name": "file_path",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "arity": 1,
+          "flags": [
+            "--input-base64"
+          ],
+          "hidden": false,
+          "kind": "option",
+          "name": "input_base64",
+          "required": false,
+          "type": "text"
+        },
+        {
+          "arity": 1,
+          "flags": [
+            "--info"
+          ],
+          "hidden": false,
+          "kind": "option",
+          "name": "show_info",
+          "required": false,
+          "type": "boolean"
+        },
+        {
+          "arity": 1,
+          "flags": [
+            "--json"
+          ],
+          "hidden": false,
+          "kind": "option",
+          "name": "as_json",
+          "required": false,
+          "type": "boolean"
+        }
+      ],
+      "path_depth": 3,
+      "removal_gate": null,
+      "replacement": null,
+      "schema_refs": [],
+      "section": "system-maintenance",
+      "source": {
+        "familyPolicy": true,
+        "kind": "runtime-click",
+        "module": "kungfu.cli.commands.exit",
+        "symbol": "verify_cmd"
+      },
+      "summary": "run the packaged read-only Exit verifier without initializing a runtime",
       "visibility": "advanced"
     },
     {

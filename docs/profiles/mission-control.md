@@ -355,7 +355,7 @@ A full bundle carries the bounded content closure needed for offline replay and
 proof. A thin bundle carries declared roots and references and reports missing
 material honestly. Copying a GUI cache is never a portability mechanism.
 
-The first portable contract is `kungfu.mission-control.bundle/v1`. It composes
+The current portable writer contract is `kungfu.mission-control.bundle/v2`. It composes
 the existing self-contained Episode bundles for declarations, Mission/Go/claim
 facts, linked cost/work evidence, and assessment, then pins the expected Mission
 query definition, proof, result, and Cost/State/Proof profile identities:
@@ -375,6 +375,10 @@ three Mission state roots. A thin bundle always remains a degraded reference
 with a diagnosis that a full bundle is required. Rewind run discovery uses the
 restored Episode source, so cost facts survive transfer without copying the
 old runtime directory or GUI projection.
+
+The historical `kungfu.mission-control.bundle/v1` reader is audit-only. It does
+not bind the exact Profile Suite/member/policy closure and therefore cannot be
+executed as a continuation bundle.
 
 ## Current maturity
 

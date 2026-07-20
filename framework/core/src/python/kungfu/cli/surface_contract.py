@@ -322,7 +322,11 @@ def validate(
         for path in [row.get("canonical_path"), *row.get("aliases", [])]
     }
     for catalog_row in command_catalog.get("commands", []):
-        path = _resolve_catalog_path(catalog_row.get("name"), surface_by_path)
+        path = _resolve_catalog_path(
+            catalog_row.get("name"),
+            surface_by_path,
+            metadata_registry.get("standaloneCatalogRoutes", []),
+        )
         api_id = catalog_row.get("apiId")
         linked = surface_by_path.get(path)
         if linked is None:
@@ -713,7 +717,18 @@ def _canonical_cli_path(name):
     return " ".join(tokens)
 
 
-def _resolve_catalog_path(name, surface_by_path):
+def _resolve_catalog_path(name, surface_by_path, standalone_routes=None):
+    for route in standalone_routes or []:
+        prefix = route.get("prefix")
+        target = route.get("target")
+        if (
+            isinstance(name, str)
+            and isinstance(prefix, str)
+            and isinstance(target, str)
+            and (name == prefix or name.startswith(f"{prefix} "))
+            and target in surface_by_path
+        ):
+            return target
     path = _canonical_cli_path(name)
     tokens = (path or "").split()
     while len(tokens) >= 2:
