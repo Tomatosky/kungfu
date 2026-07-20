@@ -59,7 +59,7 @@
   },
   "contractWorld": {
     "schemaId": "https://kfd.libkungfu.dev/schemas/kfd-1/contract-world.schema.json",
-    "digest": "sha256:87cb8d6643a7615c0631a3605a7997b4709d5ebadbcc4499663da6123d9c1c34",
+    "digest": "sha256:86545b0ec1666daf35cde80dccea1ce807b571bfd0fe1aaea8c1e3c44aaa1d5c",
     "value": {
       "schemaVersion": 1,
       "contract": "kfd-1-contract-world",
@@ -110,6 +110,16 @@
           "id": "kungfu-agent-work-state",
           "class": "integration-time",
           "description": "agent-work-state contract source framework/agent-work/kungfu-agent-work-state.contract.json is copied byte-for-byte to config/kungfu-agent-work-state.contract.json."
+        },
+        {
+          "id": "kungfu-action-geometry",
+          "class": "integration-time",
+          "description": "action-geometry contract source framework/action/action-geometry.contract.json is copied byte-for-byte to config/action/action-geometry.contract.json."
+        },
+        {
+          "id": "kungfu-agent-work-domain-profile",
+          "class": "integration-time",
+          "description": "agent-work-domain-profile contract source framework/agent-work/kungfu-agent-work-domain-profile.contract.json is copied byte-for-byte to config/agent-work/kungfu-agent-work-domain-profile.contract.json."
         },
         {
           "id": "kungfu-fact-cut-kernel",
@@ -302,6 +312,44 @@
       }
     },
     {
+      "surface": "action-geometry",
+      "id": "kungfu-action-geometry",
+      "recipe": {
+        "path": "framework/action/action-geometry.contract.json",
+        "generator": "kungfu sdk contract render",
+        "evidence": "kungfu sdk contract evidence"
+      },
+      "source": {
+        "path": "framework/action/action-geometry.contract.json",
+        "sha256": "sha256:7714576ce33208544ca8a9ee1869ad988d815c07dacbf9e136e0475ce2fb9793",
+        "renderedSha256": "sha256:7714576ce33208544ca8a9ee1869ad988d815c07dacbf9e136e0475ce2fb9793",
+        "byteForByte": true
+      },
+      "artifact": {
+        "path": "config/action/action-geometry.contract.json",
+        "expectedSha256": "sha256:7714576ce33208544ca8a9ee1869ad988d815c07dacbf9e136e0475ce2fb9793"
+      }
+    },
+    {
+      "surface": "agent-work-domain-profile",
+      "id": "kungfu-agent-work-domain-profile",
+      "recipe": {
+        "path": "framework/agent-work/kungfu-agent-work-domain-profile.contract.json",
+        "generator": "kungfu sdk contract render",
+        "evidence": "kungfu sdk contract evidence"
+      },
+      "source": {
+        "path": "framework/agent-work/kungfu-agent-work-domain-profile.contract.json",
+        "sha256": "sha256:be4c92b368d0b015b78d1a67a1087c2a11c9f85eaebfc8c203ad695ac6ba3e4d",
+        "renderedSha256": "sha256:be4c92b368d0b015b78d1a67a1087c2a11c9f85eaebfc8c203ad695ac6ba3e4d",
+        "byteForByte": true
+      },
+      "artifact": {
+        "path": "config/agent-work/kungfu-agent-work-domain-profile.contract.json",
+        "expectedSha256": "sha256:be4c92b368d0b015b78d1a67a1087c2a11c9f85eaebfc8c203ad695ac6ba3e4d"
+      }
+    },
+    {
       "surface": "fact-cut-kernel",
       "id": "kungfu-fact-cut-kernel",
       "recipe": {
@@ -349,13 +397,13 @@
       },
       "source": {
         "path": "framework/invariant/kungfu-invariant-system.contract.json",
-        "sha256": "sha256:26d952857020c0b7a45c1f0a0cc4fd1c5af8f5d3ce71a04f41651fc031846167",
-        "renderedSha256": "sha256:26d952857020c0b7a45c1f0a0cc4fd1c5af8f5d3ce71a04f41651fc031846167",
+        "sha256": "sha256:461fa1d012e9957e163684248eaf11c493bf88ea61ed707337217b3b6f7d2e43",
+        "renderedSha256": "sha256:461fa1d012e9957e163684248eaf11c493bf88ea61ed707337217b3b6f7d2e43",
         "byteForByte": true
       },
       "artifact": {
         "path": "config/kungfu-invariant-system.contract.json",
-        "expectedSha256": "sha256:26d952857020c0b7a45c1f0a0cc4fd1c5af8f5d3ce71a04f41651fc031846167"
+        "expectedSha256": "sha256:461fa1d012e9957e163684248eaf11c493bf88ea61ed707337217b3b6f7d2e43"
       }
     }
   ]

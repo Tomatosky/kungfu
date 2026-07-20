@@ -542,11 +542,11 @@
         "local-files",
         "user-consensus"
       ],
-      "period": "2026-07-17",
-      "theme": "four-object-agent-work-state",
+      "period": "2026-07-20",
+      "theme": "agent-work-domain-profile",
       "confidence": "high",
       "evidence_grade": "B",
-      "last_reviewed": "2026-07-17"
+      "last_reviewed": "2026-07-20"
     },
     "docs/profiles/cost-state-proof-profile.md": {
       "metadata_schema": "kungfu.document-metadata/v1",

@@ -17,10 +17,18 @@ independently inspectable answers:
 | **Warrant** | Who may do which bounded action against which exact state and constraints? |
 | **Episode** | What actually occurred, with which inputs, observations, consequences, and provenance? |
 
-The machine authority for the definitions, relations, implementation mappings,
-invalid inferences, defaults, and qualification status is
-[`kungfu-agent-work-state.contract.json`](../../framework/agent-work/kungfu-agent-work-state.contract.json).
-This page is its human route, not a second specification.
+Machine authority is intentionally split:
+
+- [`action-geometry.contract.json`](../../framework/action/action-geometry.contract.json)
+  owns the cross-domain responsibility separation and invariants;
+- [`kungfu-agent-work-domain-profile.contract.json`](../../framework/agent-work/kungfu-agent-work-domain-profile.contract.json)
+  owns Agent Work role schemas, lifecycle, validation, presentation, and
+  evidence/success policy; and
+- [`kungfu-agent-work-state.contract.json`](../../framework/agent-work/kungfu-agent-work-state.contract.json)
+  retains the existing work-state and qualification surface.
+
+All three are reached through the same KFD-1 registry. This page is their human
+route, not a second specification.
 
 ## How the four roles use the runtime substrates
 
@@ -144,21 +152,26 @@ kungfu agent work-model --json
 kungfu agent work capabilities --json
 kungfu agent work inspect --ref profiles/work/main --json
 kungfu contract show agent-work-state --json
+kungfu contract show action-geometry --json
+kungfu contract show agent-work-domain-profile --json
 kungfu agent capabilities --json
 ```
 
-The provisional combined-v1 implementation adds an independently queryable
-Fact mapping beside Pursuit, Atlas, Warrant, and Episode. Every mutation uses
-`kungfu.kfd7.profile-action/v1` and returns
-`kungfu.kfd7.profile-action-receipt/v1`; the same installed CLI path is used
-by Python, Node, Agent, and GUI adapters. Product transition names remain an
-outer-ring vocabulary and map to KFD-7's closed action geometry in
-[`kungfu-kfd-7-action-contract.json`](../../framework/agent-work/kungfu-kfd-7-action-contract.json).
-These existing names retain their original compatibility meaning. The staged
-successor must separately expose `actionGeometryRoot`, `domainProfileRoot`, and
-per-role `roleSchemaRoots`; it may not relabel existing roots. The declaration
-remains provisional and non-qualifying until dogfood, migration, artifact, and
-independent-review evidence close.
+The combined-v1 compatibility surface still adds an independently queryable
+Fact mapping beside Pursuit, Atlas, Warrant, and Episode. Requests continue to
+use `kungfu.kfd7.profile-action/v1`, receipts continue to use
+`kungfu.kfd7.profile-action-receipt/v1`, object types remain
+`kfd7.profile.<role>`, and retained v1 role bodies keep their original meaning.
+
+Newly persisted role bodies use per-role `/v2` schemas and bind the exact
+`actionGeometryRoot`, `domainProfileRoot`, and `roleSchemaRoot`. Missing or
+wrong successor bindings fail closed. `kungfu agent work capabilities --json`
+publishes those roots while retaining `roleBodySchema` as the legacy reader
+identity and adding `roleBodySchemas` for successor writers. The same
+registered authority is discoverable by generic contract, Agent, and
+per-primitive capability routes. This separation remains release-staged until
+cross-platform, independent-review, migration, and Release Passport evidence
+close.
 
 Projection rebuild is supported from the native Fact journal plus verified
 body bytes. A clean home without a qualified Fact export reports
