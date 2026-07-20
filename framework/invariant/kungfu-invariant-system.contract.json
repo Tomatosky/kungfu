@@ -206,7 +206,71 @@
       "successor-evidence-missing"
     ],
     "provider": "Buildchain Release Passport invariantPassports section",
-    "consumerDeclaration": ".buildchain/invariants/required.json"
+    "consumerDeclaration": ".buildchain/invariants/required.json",
+    "exitMigrationClaims": {
+      "id": "kungfu-exit-migration-release",
+      "profile": "full",
+      "requiredPlatforms": [
+        "darwin-arm64",
+        "linux-x64",
+        "win32-x64"
+      ],
+      "requiredProviders": [
+        "content-addressed-file",
+        "rocksdb"
+      ],
+      "artifactPattern": "^kungfu-episodes-cli-(darwin-arm64|linux-x64|windows-x64)\\.(tar\\.gz|zip)$",
+      "acceptedAdr": {
+        "path": "docs/adr/ADR-0123-domain-neutral-exit-bundle-composition.md",
+        "decisionStatus": "accepted",
+        "implementationStatus": "staged"
+      },
+      "exitContract": {
+        "path": "framework/exit/kungfu-exit-bundle.contract.json",
+        "status": {
+          "composition": "implemented",
+          "installedVerifier": "implemented",
+          "releaseQualification": "not-qualified",
+          "specification": "accepted"
+        }
+      },
+      "evidence": {
+        "cleanRuntime": {
+          "path": "docs/qualification/evidence/exit-clean-runtime/520a61af87/report.json",
+          "schema": "kungfu.exit-clean-runtime-qualification/v1",
+          "reportRoot": "sha256:105a912f54720bf5665b8cfd666013b788e423cd841b7a5af8525b9bc11d1726",
+          "sourceRevision": "520a61af87"
+        },
+        "providerMigration": {
+          "path": "docs/qualification/evidence/provider-migration-product/bb6f4a42c1/report.json",
+          "schema": "kungfu.provider-migration-product-qualification/v1",
+          "reportRoot": "sha256:fa73e01fb7df43220fd1397d2140567c732b8d8fd5bb5db2b122400c69addd02",
+          "sourceRevision": "bb6f4a42c1"
+        }
+      },
+      "downgrade": [
+        {
+          "condition": "evidence-not-current",
+          "verdict": "unqualified",
+          "nextAction": "Regenerate installed-product evidence for the exact candidate and update the consumer-owned policy roots after review."
+        },
+        {
+          "condition": "profile-is-thin",
+          "verdict": "unqualified",
+          "nextAction": "Rebuild and requalify a full Exit Bundle; thin omits material required for content verification, materialization, rebuild, and continuation."
+        },
+        {
+          "condition": "platform-not-qualified",
+          "verdict": "unqualified",
+          "nextAction": "Run installed-product qualification for the exact candidate artifact on the missing platform."
+        },
+        {
+          "condition": "provider-unavailable",
+          "verdict": "unqualified",
+          "nextAction": "Use a candidate with both declared providers or select a migration target available in the candidate."
+        }
+      ]
+    }
   },
   "nonClaims": [
     "The system does not redefine Fact or Episode semantics.",

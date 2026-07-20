@@ -77,6 +77,312 @@ function rooted(value, rootField) {
   return result;
 }
 
+function domainDigest(prefix, domain, value) {
+  const pythonStable = (item) => {
+    if (Array.isArray(item)) return item.map(pythonStable);
+    if (item !== null && typeof item === 'object')
+      return Object.fromEntries(
+        Object.keys(item)
+          .sort()
+          .map((key) => [key, pythonStable(item[key])]),
+      );
+    return item;
+  };
+  return digest(
+    Buffer.concat([
+      Buffer.from(`${prefix}\0${domain}\0`),
+      Buffer.from(JSON.stringify(pythonStable(value))),
+    ]),
+  );
+}
+
+function reportRoot(value, prefix) {
+  const semantic = structuredClone(value);
+  Reflect.deleteProperty(semantic, 'reportRoot');
+  return domainDigest(prefix, 'report', semantic);
+}
+
+function markdownMetadata(filePath) {
+  const source = fs.readFileSync(path.join(ROOT, filePath), 'utf8');
+  const read = (key) =>
+    source.match(new RegExp(`^${key}:\\s*([^\\n]+)$`, 'mu'))?.[1]?.trim() ||
+    null;
+  return {
+    decisionStatus: read('decision_status'),
+    implementationStatus: read('implementation_status'),
+  };
+}
+
+function normalizeReleasePlatform(value) {
+  if (value === 'windows-x64' || value === 'windows-x86_64') return 'win32-x64';
+  if (value === 'linux-x86_64') return 'linux-x64';
+  return value;
+}
+
+function artifactPlatform(name) {
+  const match = name.match(
+    /^kungfu-episodes-cli-(darwin-arm64|linux-x64|windows-x64)\.(?:tar\.gz|zip)$/u,
+  );
+  return match ? normalizeReleasePlatform(match[1]) : null;
+}
+
+export function discoverReleaseArtifacts(directory) {
+  const artifacts = [];
+  const visit = (current) => {
+    if (!fs.existsSync(current)) return;
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const absolute = path.join(current, entry.name);
+      if (
+        entry.isDirectory() &&
+        !['.git', 'node_modules', '.venv'].includes(entry.name)
+      )
+        visit(absolute);
+      else if (entry.isFile() && artifactPlatform(entry.name))
+        artifacts.push({
+          name: entry.name,
+          digest: digest(fs.readFileSync(absolute)),
+        });
+    }
+  };
+  visit(directory);
+  return artifacts.sort((left, right) => left.name.localeCompare(right.name));
+}
+
+export function evaluateExitMigrationReleaseClaims(options = {}) {
+  const contract = options.contract || readJson(CONTRACT_PATH);
+  const policy = contract.releaseGate.exitMigrationClaims;
+  const clean =
+    options.cleanRuntime || readJson(policy.evidence.cleanRuntime.path);
+  const provider =
+    options.providerMigration ||
+    readJson(policy.evidence.providerMigration.path);
+  const exitContract =
+    options.exitContract || readJson(policy.exitContract.path);
+  const adr = options.adr || markdownMetadata(policy.acceptedAdr.path);
+  const releaseArtifacts = options.releaseArtifacts || [];
+  const profile = options.releaseProfile || policy.profile;
+  const availableProviders = new Set(
+    options.availableProviders ||
+      Object.entries(provider.capabilities?.providers || {})
+        .filter(([, item]) => item.available)
+        .map(([name]) => name),
+  );
+  const targetPlatforms = [
+    ...new Set(options.targetPlatforms || policy.requiredPlatforms),
+  ].sort();
+  const diagnostics = [];
+  const check = (condition, code, message) => {
+    if (!condition) diagnostics.push(diagnostic(code, message));
+  };
+  const freshReports = [
+    {
+      id: 'clean-runtime',
+      path: policy.evidence.cleanRuntime.path,
+      schema: clean.schema,
+      sourceRevision: policy.evidence.cleanRuntime.sourceRevision,
+      expectedRoot: policy.evidence.cleanRuntime.reportRoot,
+      observedRoot: reportRoot(clean, 'kungfu.exit-clean-runtime/v1'),
+      declaredRoot: clean.reportRoot,
+    },
+    {
+      id: 'provider-migration',
+      path: policy.evidence.providerMigration.path,
+      schema: provider.schema,
+      sourceRevision: policy.evidence.providerMigration.sourceRevision,
+      expectedRoot: policy.evidence.providerMigration.reportRoot,
+      observedRoot: reportRoot(
+        provider,
+        'kungfu.provider-migration-product/v1',
+      ),
+      declaredRoot: provider.reportRoot,
+    },
+  ];
+  for (const report of freshReports) {
+    const declared =
+      policy.evidence[
+        report.id === 'clean-runtime' ? 'cleanRuntime' : 'providerMigration'
+      ];
+    check(
+      report.schema === declared.schema,
+      'release-evidence-schema-mismatch',
+      `${report.id} evidence schema is not the declared schema.`,
+    );
+    check(
+      report.expectedRoot === report.declaredRoot &&
+        report.expectedRoot === report.observedRoot,
+      'release-evidence-stale-or-tampered',
+      `${report.id} evidence root is missing, stale, or tampered.`,
+    );
+    check(
+      report.path.includes(report.sourceRevision),
+      'release-evidence-source-unbound',
+      `${report.id} evidence path is not bound to its source revision.`,
+    );
+  }
+  check(
+    canonicalJson(adr) ===
+      canonicalJson({
+        decisionStatus: policy.acceptedAdr.decisionStatus,
+        implementationStatus: policy.acceptedAdr.implementationStatus,
+      }),
+    'release-adr-status-drift',
+    'ADR decision or implementation status drifted from the release policy.',
+  );
+  check(
+    canonicalJson(exitContract.status) ===
+      canonicalJson(policy.exitContract.status),
+    'release-exit-contract-status-drift',
+    'Exit Bundle contract status drifted from the release policy.',
+  );
+  check(
+    clean.status === 'qualified' &&
+      clean.packages?.full?.verdict === 'verified',
+    'release-full-bundle-unqualified',
+    'The retained full Exit Bundle evidence is not qualified.',
+  );
+  check(
+    clean.packages?.thin?.verdict === 'degraded',
+    'release-thin-downgrade-missing',
+    'Thin Exit Bundle evidence no longer declares a degraded verdict.',
+  );
+  check(
+    provider.verdict === 'qualified' &&
+      provider.rollback?.ok === true &&
+      provider.noRocksCandidate?.targetBindingPublished === false,
+    'release-provider-migration-unqualified',
+    'Provider migration, rollback, or provider-unavailable fencing is unqualified.',
+  );
+  check(
+    clean.artifact?.digest === provider.artifact?.digest,
+    'release-artifact-evidence-mixed',
+    'Exit and provider reports do not bind the same installed artifact.',
+  );
+  const expectedArtifactDigest = clean.artifact?.digest || null;
+  const qualifiedPlatforms = [
+    ...new Set(
+      (clean.releaseMatrix || [])
+        .filter((item) => item.verdict === 'qualified')
+        .map((item) => normalizeReleasePlatform(item.platform))
+        .filter((platform) =>
+          (provider.qualifiedPlatforms || [])
+            .map(normalizeReleasePlatform)
+            .includes(platform),
+        ),
+    ),
+  ].sort();
+  if (targetPlatforms.length === 0)
+    diagnostics.push(
+      diagnostic(
+        'release-artifact-missing',
+        'No exact release artifact was supplied for claim verification.',
+      ),
+    );
+  for (const platform of targetPlatforms) {
+    const artifacts = releaseArtifacts.filter(
+      (item) => artifactPlatform(item.name) === platform,
+    );
+    if (artifacts.length === 0)
+      diagnostics.push(
+        diagnostic(
+          'release-artifact-missing',
+          `${platform} has no candidate artifact.`,
+        ),
+      );
+    else
+      check(
+        artifacts.some((item) => item.digest === expectedArtifactDigest),
+        'release-artifact-stale-or-tampered',
+        `${platform} has no artifact matching the retained installed-product witness.`,
+      );
+    check(
+      qualifiedPlatforms.includes(platform),
+      'release-platform-unqualified',
+      `${platform} lacks exact clean-runtime and provider-migration qualification.`,
+    );
+  }
+  check(
+    profile === policy.profile,
+    'release-profile-unqualified',
+    `${profile} is not the release-qualified Exit Bundle profile.`,
+  );
+  for (const providerName of policy.requiredProviders)
+    check(
+      availableProviders.has(providerName),
+      'release-provider-unavailable',
+      `Required provider ${providerName} is unavailable.`,
+    );
+  const verdict = diagnostics.length ? 'unqualified' : 'verified';
+  const downgradeConditions = new Set(
+    diagnostics.map((item) => {
+      if (item.code === 'release-profile-unqualified') return 'profile-is-thin';
+      if (item.code === 'release-provider-unavailable')
+        return 'provider-unavailable';
+      if (
+        [
+          'release-artifact-missing',
+          'release-artifact-stale-or-tampered',
+          'release-platform-unqualified',
+        ].includes(item.code)
+      )
+        return 'platform-not-qualified';
+      return 'evidence-not-current';
+    }),
+  );
+  const nextActions = policy.downgrade
+    .filter((item) => downgradeConditions.has(item.condition))
+    .map((item) => item.nextAction);
+  return rooted(
+    {
+      schema: 'kungfu.exit-migration-release-claims/v1',
+      id: policy.id,
+      verdict,
+      policyRoot: digest(policy),
+      artifact: {
+        expectedDigest: expectedArtifactDigest,
+        observed: releaseArtifacts,
+      },
+      freshness: {
+        mode: 'source-revision-and-content-root',
+        current: !diagnostics.some((item) =>
+          [
+            'release-evidence-schema-mismatch',
+            'release-evidence-stale-or-tampered',
+            'release-evidence-source-unbound',
+            'release-adr-status-drift',
+            'release-exit-contract-status-drift',
+          ].includes(item.code),
+        ),
+        reports: freshReports,
+      },
+      applicability: {
+        profile,
+        requiredProfile: policy.profile,
+        targetPlatforms,
+        qualifiedPlatforms,
+        requiredPlatforms: policy.requiredPlatforms,
+        availableProviders: [...availableProviders].sort(),
+        requiredProviders: policy.requiredProviders,
+      },
+      sourceWitnesses: {
+        exitContractRoot: digest(exitContract),
+        installedPackageRoot: clean.packages?.full?.packageRoot || null,
+        installedVerifierRoot: clean.packages?.full?.verifierRoot || null,
+        cleanRuntimeReportRoot: clean.reportRoot,
+        providerMigrationReportRoot: provider.reportRoot,
+      },
+      downgrade: policy.downgrade,
+      nextActions,
+      residualRisk: [
+        ...(clean.knownLimits || []),
+        ...(provider.nonClaims || []),
+        ...(provider.resume?.residual_risks || []),
+      ],
+      diagnostics,
+    },
+    'claimRoot',
+  );
+}
+
 function decodePointerToken(token) {
   return token.replaceAll('~1', '/').replaceAll('~0', '~');
 }
@@ -632,6 +938,17 @@ function coverageKey(invariantId, level, platform) {
 export function createPassport(evidence, options = {}) {
   const registry = options.registry || readJson(REGISTRY_PATH);
   const source = options.source || sourceIdentity();
+  const releaseClaims = evaluateExitMigrationReleaseClaims({
+    releaseArtifacts: options.releaseArtifacts,
+    releaseProfile: options.releaseProfile,
+    targetPlatforms: options.targetPlatforms,
+    availableProviders: options.availableProviders,
+    cleanRuntime: options.cleanRuntime,
+    providerMigration: options.providerMigration,
+    exitContract: options.exitContract,
+    adr: options.adr,
+    contract: options.contract,
+  });
   const required = [];
   for (const invariant of registry.invariants.filter(
     (item) => item.release.required,
@@ -682,10 +999,17 @@ export function createPassport(evidence, options = {}) {
     (key) => evidenceByKey.get(key)?.verdict === 'verified',
   );
   const dirty = Boolean(source.dirty);
-  const verdict =
+  const invariantVerdict =
     falsified.length > 0
       ? 'falsified'
       : missing.length > 0 || unqualified.length > 0 || dirty
+        ? 'unqualified'
+        : 'verified';
+  const verdict =
+    invariantVerdict === 'falsified' || releaseClaims.verdict === 'falsified'
+      ? 'falsified'
+      : invariantVerdict === 'unqualified' ||
+          releaseClaims.verdict === 'unqualified'
         ? 'unqualified'
         : 'verified';
   const diagnostics = [];
@@ -770,8 +1094,10 @@ export function createPassport(evidence, options = {}) {
           coverageKey(right.invariantId, right.level, right.platformId),
         ),
       ),
+    releaseClaims,
     residualRisk: [
       ...new Set(registry.invariants.flatMap((item) => item.residualRisk)),
+      ...releaseClaims.residualRisk,
     ].sort(),
     diagnostics,
     observedAt: options.observedAt || new Date().toISOString(),
@@ -837,6 +1163,10 @@ export function verifyPassport(
     registry,
     source: value.source,
     observedAt: value.observedAt,
+    releaseArtifacts: options.releaseArtifacts,
+    releaseProfile: options.releaseProfile,
+    targetPlatforms: options.targetPlatforms,
+    availableProviders: options.availableProviders,
   });
   if (
     evidenceValues.length > 0 &&
@@ -846,6 +1176,8 @@ export function verifyPassport(
     issues.push('passport-coverage-mismatch');
   if (value.verdict !== 'verified') issues.push(`passport-${value.verdict}`);
   if (!value.coverage?.complete) issues.push('coverage-incomplete');
+  if (value.releaseClaims?.verdict !== 'verified')
+    issues.push(`release-claims-${value.releaseClaims?.verdict || 'missing'}`);
   return [...new Set(issues)];
 }
 
@@ -992,7 +1324,15 @@ export function checkEvolution(baseline, current, successors = []) {
 }
 
 function parseArgs(argv) {
-  const options = { ids: [], domains: [], levels: [], evidence: [] };
+  const options = {
+    ids: [],
+    domains: [],
+    levels: [],
+    evidence: [],
+    releaseArtifacts: [],
+    releaseProviders: [],
+    releaseTargetPlatforms: [],
+  };
   const values = argv.filter((arg) => arg !== '--');
   for (let index = 0; index < values.length; index += 1) {
     const arg = values[index];
@@ -1019,6 +1359,15 @@ function parseArgs(argv) {
     else if (arg === '--collect-evidence')
       options.collectEvidence = path.resolve(next());
     else if (arg === '--evidence') options.evidence.push(path.resolve(next()));
+    else if (arg === '--release-artifact')
+      options.releaseArtifacts.push(path.resolve(next()));
+    else if (arg === '--release-profile') options.releaseProfile = next();
+    else if (arg === '--release-provider')
+      options.releaseProviders.push(...next().split(',').filter(Boolean));
+    else if (arg === '--release-target-platform')
+      options.releaseTargetPlatforms.push(
+        ...next().split(',').map(normalizeReleasePlatform).filter(Boolean),
+      );
     else if (arg === '--passport') options.passport = path.resolve(next());
     else if (arg === '--verify-passport')
       options.verifyPassport = path.resolve(next());
@@ -1037,7 +1386,7 @@ function parseArgs(argv) {
 }
 
 function usage() {
-  return 'Kungfu Invariant Verification System\n\nUsage:\n  ./shifu invariant:verify -- --list [--json]\n  ./shifu invariant:verify -- [--domain fact|episode] [--id ID] [--level source,native,runtime] [--evidence-dir DIR] [--run-report FILE] [--passport FILE] [--json]\n  ./shifu invariant:verify -- --collect-evidence DIR --passport FILE [--json]\n  ./shifu invariant:verify -- --qualify-episode QUALIFICATION.json --receipt RECEIPT.json [--json]\n  ./shifu invariant:verify -- --verify-receipt RECEIPT.json --subject QUALIFICATION.json [--json]\n  ./shifu invariant:verify -- --verify-passport PASSPORT.json --evidence EVIDENCE.json... [--json]\n  ./shifu invariant:verify -- --baseline REGISTRY.json --successors DIR [--json]\n  ./shifu invariant:verify -- --sync-roots|--sync-artifacts [--write] [--json]\n\nExit codes: 0 verified, 1 falsified, 2 unqualified/invalid evidence, 3 usage or runner failure.';
+  return 'Kungfu Invariant Verification System\n\nUsage:\n  ./shifu invariant:verify -- --list [--json]\n  ./shifu invariant:verify -- [--domain fact|episode] [--id ID] [--level source,native,runtime] [--evidence-dir DIR] [--run-report FILE] [--passport FILE] [--json]\n  ./shifu invariant:verify -- --collect-evidence DIR --passport FILE [--release-artifact FILE...] [--release-profile full|thin] [--json]\n  ./shifu invariant:verify -- --qualify-episode QUALIFICATION.json --receipt RECEIPT.json [--json]\n  ./shifu invariant:verify -- --verify-receipt RECEIPT.json --subject QUALIFICATION.json [--json]\n  ./shifu invariant:verify -- --verify-passport PASSPORT.json --evidence EVIDENCE.json... [--release-artifact FILE...] [--json]\n  ./shifu invariant:verify -- --baseline REGISTRY.json --successors DIR [--json]\n  ./shifu invariant:verify -- --sync-roots|--sync-artifacts [--write] [--json]\n\nExit codes: 0 verified, 1 falsified, 2 unqualified/invalid evidence, 3 usage or runner failure.';
 }
 
 function writeJson(filePath, value) {
@@ -1065,6 +1414,25 @@ function collectEvidence(directory) {
   };
   visit(directory);
   return evidence;
+}
+
+function releaseContext(options, discoveryRoot = ROOT) {
+  const releaseArtifacts = options.releaseArtifacts.length
+    ? options.releaseArtifacts.map((filePath) => ({
+        name: path.basename(filePath),
+        digest: digest(fs.readFileSync(filePath)),
+      }))
+    : discoverReleaseArtifacts(discoveryRoot);
+  return {
+    releaseArtifacts,
+    releaseProfile: options.releaseProfile,
+    targetPlatforms: options.releaseTargetPlatforms.length
+      ? options.releaseTargetPlatforms
+      : undefined,
+    availableProviders: options.releaseProviders.length
+      ? options.releaseProviders
+      : undefined,
+  };
 }
 
 function print(value, json) {
@@ -1169,7 +1537,12 @@ async function main() {
   }
   if (options.verifyPassport) {
     const evidence = options.evidence.map(readJson);
-    const issues = verifyPassport(readJson(options.verifyPassport), evidence);
+    const issues = verifyPassport(
+      readJson(options.verifyPassport),
+      evidence,
+      registry,
+      releaseContext(options),
+    );
     const result = {
       schema: 'kungfu.invariant-passport-verification/v1',
       verdict: issues.length ? 'unqualified' : 'verified',
@@ -1184,6 +1557,7 @@ async function main() {
     const evidence = collectEvidence(options.collectEvidence);
     const passport = createPassport(evidence, {
       source: sourceIdentityFromEvidence(evidence),
+      ...releaseContext(options, options.collectEvidence),
     });
     writeJson(options.passport, passport);
     print(passport, options.json);
@@ -1222,7 +1596,10 @@ async function main() {
       );
   if (options.runReport) writeJson(options.runReport, run);
   if (options.passport)
-    writeJson(options.passport, createPassport(run.evidence));
+    writeJson(
+      options.passport,
+      createPassport(run.evidence, releaseContext(options)),
+    );
   print(run, options.json);
   process.exit(exitFor(run.summary.verdict));
 }
