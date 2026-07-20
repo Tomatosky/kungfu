@@ -3,9 +3,10 @@ metadata_schema: kungfu.document-metadata/v1
 doc_type: architecture-decision
 adr_id: ADR-0122
 decision_status: accepted
-implementation_status: staged
+implementation_status: implemented
 implementation_commits: [132694a5242946b555d0c7c9e980db404f079400]
-implementation_prs: []
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1141]
+closure_pr: https://github.com/kungfu-systems/kungfu/pull/1141
 qualification_refs: [framework/invariant/kungfu-invariant-system.contract.json, framework/invariant/kungfu-invariant.registry.json, scripts/kungfu-invariant.test.mjs, scripts/run-release-qualification.mjs]
 review_state: self-reviewed
 sensitivity: public
@@ -20,7 +21,7 @@ ai_provenance: GPT-5 via Codex on 2026-07-20; based on repository contracts, tes
 
 # ADR-0122: Invariants use one authority-bound verification and release-passport system
 
-- Status: accepted and staged; implementation evidence is bound to the delivery commit pending review closure
+- Status: accepted and implemented by the bounded delivery and closure evidence above
 - Date: 2026-07-20
 - Category: contract worlds, qualification, evolution, and release admission
 - Related: [ADR-0112](ADR-0112-backend-neutral-fact-cut-kernel.md),
