@@ -132,6 +132,7 @@ target_link_libraries(kungfu_platform_adapters PUBLIC kungfu_contracts)
 target_link_libraries(kungfu_platform_adapters PUBLIC ${KUNGFU_TARGET_KUNGFU_PLATFORM_ADAPTERS_DEPENDENCIES})
 
 set(KUNGFU_COMPOSITION_SOURCE_FILES
+  "${PROJECT_SOURCE_DIR}/src/runtime/api.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/embedding.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/projection_bootstrap.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/storage/domain_dispatch.cpp"

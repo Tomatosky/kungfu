@@ -1,0 +1,170 @@
+// SPDX-License-Identifier: Apache-2.0
+
+#include <kungfu/api.h>
+
+#include <array>
+#include <cstring>
+#include <iostream>
+#include <string>
+
+namespace {
+
+bool require(bool condition, const char *message) {
+  if (!condition) {
+    std::cerr << "api contract: " << message << "\n";
+  }
+  return condition;
+}
+
+std::string root(char digit) { return "sha256:" + std::string(64, digit); }
+
+bool contains(const kf_owned_message_v1 &result, const char *needle) {
+  const std::string text(reinterpret_cast<const char *>(result.message.bytes),
+                         static_cast<size_t>(result.message.byte_size));
+  return text.find(needle) != std::string::npos;
+}
+
+} // namespace
+
+int main() {
+  kf_api_v1 api{};
+  if (!require(kungfu_get_api(KF_ABI_V1 + 1, sizeof(api), &api) == KF_UNSUPPORTED_VERSION,
+               "unknown bootstrap version must fail closed") ||
+      !require(kungfu_get_api(KF_ABI_V1, sizeof(api) - 1, &api) == KF_INVALID_ARGUMENT,
+               "undersized bootstrap table must fail closed") ||
+      !require(kungfu_get_api(KF_ABI_V1, sizeof(api), &api) == KF_OK, "v1 bootstrap failed") ||
+      !require(api.abi_version == KF_ABI_V1 && api.struct_size == sizeof(api), "bootstrap identity mismatch")) {
+    return 1;
+  }
+
+  kf_context_config_v1 config{};
+  config.struct_size = sizeof(config);
+  config.runtime_dir = ".";
+  config.stream_root = ".";
+  config.host_namespace = "abi-test";
+  config.host_name = "consumer";
+  kf_context *context = nullptr;
+  if (!require(api.context_open(&config, &context) == KF_OK && context != nullptr, "context open failed")) {
+    return 1;
+  }
+
+  kf_discovery_api_v1 discovery{};
+  if (!require(api.interface_get(context, UINT32_C(99), 1, sizeof(discovery), &discovery) == KF_UNSUPPORTED_INTERFACE,
+               "unknown interface must fail closed") ||
+      !require(api.interface_get(context, KF_INTERFACE_DISCOVERY, KF_DISCOVERY_ABI_V1 + 1, sizeof(discovery),
+                                 &discovery) == KF_UNSUPPORTED_VERSION,
+               "unknown interface version must fail closed") ||
+      !require(api.interface_get(context, KF_INTERFACE_DISCOVERY, KF_DISCOVERY_ABI_V1, sizeof(discovery) - 1,
+                                 &discovery) == KF_INVALID_ARGUMENT,
+               "undersized interface table must fail closed") ||
+      !require(api.interface_get(context, KF_INTERFACE_DISCOVERY, KF_DISCOVERY_ABI_V1, sizeof(discovery), &discovery) ==
+                   KF_OK,
+               "discovery v1 failed")) {
+    return 1;
+  }
+
+  kf_runtime_info_v1 runtime_info{};
+  runtime_info.struct_size = sizeof(runtime_info);
+  if (!require(discovery.runtime_info(context, &runtime_info) == KF_OK, "runtime discovery failed") ||
+      !require(runtime_info.interface_count == 4, "responsibility interface count drifted")) {
+    return 1;
+  }
+  for (uint32_t index = 0; index < runtime_info.interface_count; ++index) {
+    kf_interface_info_v1 info{};
+    info.struct_size = sizeof(info);
+    if (!require(discovery.interface_info(context, index, &info) == KF_OK, "interface inventory failed") ||
+        !require(info.min_version == 1 && info.max_version == 1, "interface version mismatch")) {
+      return 1;
+    }
+  }
+
+  kf_error_info_v1 error{};
+  error.struct_size = sizeof(error);
+  if (!require(discovery.error_info(context, KF_STALE_HANDLE, &error) == KF_OK,
+               "stable error dictionary lookup failed") ||
+      !require(std::strcmp(error.name, "stale_handle") == 0, "stable error name drifted")) {
+    return 1;
+  }
+
+  const std::string query = R"({"contract":"all"})";
+  kf_semantic_message_v1 request{};
+  request.struct_size = sizeof(request);
+  request.protocol_id = KF_PROTOCOL_INTERFACE_REGISTRY;
+  request.protocol_version = 1;
+  request.schema_ref = "kungfu.discovery.contract-query/v1";
+  request.encoding = KF_ENCODING_JSON;
+  request.bytes = reinterpret_cast<const uint8_t *>(query.data());
+  request.byte_size = query.size();
+  kf_owned_message_v1 result{};
+  result.struct_size = sizeof(result);
+  if (!require(discovery.contract_get(context, &request, &result) == KF_OK, "contract discovery failed") ||
+      !require(contains(result, "planned-does-not-imply-authorized"), "non-inference rules missing") ||
+      !require(discovery.result_release(context, result.token + 1) == KF_STALE_HANDLE,
+               "stale result token was accepted") ||
+      !require(discovery.result_release(context, result.token) == KF_OK, "result release failed")) {
+    return 1;
+  }
+
+  kf_ledger_action_api_v1 ledger{};
+  if (!require(api.interface_get(context, KF_INTERFACE_LEDGER_ACTION, KF_LEDGER_ACTION_ABI_V1, sizeof(ledger),
+                                 &ledger) == KF_OK,
+               "ledger-action v1 failed")) {
+    return 1;
+  }
+  const auto r1 = root('1');
+  const auto r2 = root('2');
+  const auto r3 = root('3');
+  const auto r4 = root('4');
+  const auto r5 = root('5');
+  const auto r6 = root('6');
+  const auto r7 = root('7');
+  kf_action_binding_config_v1 binding_config{};
+  binding_config.struct_size = sizeof(binding_config);
+  binding_config.fact_cut_root = r1.c_str();
+  binding_config.pursuit_root = r2.c_str();
+  binding_config.atlas_root = r3.c_str();
+  binding_config.warrant_root = r4.c_str();
+  binding_config.candidate_action_root = r5.c_str();
+  binding_config.preconditions_root = r6.c_str();
+  binding_config.resources_root = r7.c_str();
+  kf_action_binding *binding = nullptr;
+  if (!require(ledger.binding_open(context, &binding_config, &binding) == KF_OK, "binding open failed") ||
+      !require(api.context_close(context) == KF_BUSY, "context closed with a live binding")) {
+    return 1;
+  }
+
+  kf_action_binding_info_v1 binding_info{};
+  binding_info.struct_size = sizeof(binding_info);
+  if (!require(ledger.binding_info(binding, &binding_info) == KF_OK, "binding info failed") ||
+      !require(std::strncmp(binding_info.binding_root, "sha256:", 7) == 0, "binding root is not canonical")) {
+    return 1;
+  }
+
+  const std::string fact_request = R"({"action":"capabilities"})";
+  request.protocol_id = KF_PROTOCOL_STORAGE_SERVICE;
+  request.protocol_version = 1;
+  request.schema_ref = "kungfu.fact-kernel.request/v1";
+  request.encoding = KF_ENCODING_JSON;
+  request.bytes = reinterpret_cast<const uint8_t *>(fact_request.data());
+  request.byte_size = fact_request.size();
+  result = {};
+  result.struct_size = sizeof(result);
+  if (!require(ledger.execute(context, binding, KF_LEDGER_ACTION_FACT_KERNEL, &request, &result) == KF_OK,
+               "Fact kernel capability request failed") ||
+      !require(contains(result, binding_info.binding_root), "ledger result did not bind exact decision roots") ||
+      !require(contains(result, "fact-operation-evaluated"), "ledger stage is missing") ||
+      !require(ledger.result_release(context, result.token) == KF_OK, "ledger result release failed")) {
+    return 1;
+  }
+
+  if (!require(api.context_request_cancel(context) == KF_OK, "cancel request failed") ||
+      !require(discovery.runtime_info(context, &runtime_info) == KF_CANCELLED,
+               "cancelled context admitted another operation") ||
+      !require(api.context_reset_cancel(context) == KF_OK, "cancel reset failed") ||
+      !require(ledger.binding_close(binding) == KF_OK, "binding close failed") ||
+      !require(api.context_close(context) == KF_OK, "context close failed")) {
+    return 1;
+  }
+
+  return 0;
+}

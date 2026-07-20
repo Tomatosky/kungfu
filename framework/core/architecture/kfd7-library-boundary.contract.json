@@ -2,7 +2,7 @@
   "$schema": "kungfu.kfd7-library-boundary.contract/v1",
   "id": "kungfu-kfd7-library-boundary",
   "version": 1,
-  "status": "staged",
+  "status": "implemented-qualified",
   "kfd7Status": "draft",
   "authority": {
     "decision": "docs/adr/ADR-0120-kfd7-library-boundary-and-successor-abi.md",
@@ -103,23 +103,23 @@
         "versions": [1],
         "currency": ["operation-name", "json-request", "json-result"],
         "disposition": "compatibility-adapter"
+      },
+      {
+        "name": "kungfu_get_api",
+        "header": "framework/core/src/libkungfu/include/kungfu/api.h",
+        "versions": [1],
+        "currency": ["protocol-id", "protocol-version", "schema-ref", "encoding", "bytes"],
+        "disposition": "successor"
       }
     ],
-    "knownGaps": [
-      "two-public-bootstraps",
-      "legacy-json-operation-currency",
-      "json-edge-is-the-only-native-storage-currency",
-      "no-action-binding-interface",
-      "no-installed-cmake-sdk-coordinate",
-      "no-independent-cross-platform-reference-reports"
-    ]
+    "knownGaps": []
   },
   "successorAbi": {
-    "status": "planned-not-shipped",
+    "status": "implemented-consumer-ready-qualified",
     "bootstrap": {
       "symbol": "kungfu_get_api",
       "version": 1,
-      "stability": "not-stable-until-export-package-and-qualification",
+      "stability": "pre-release-supported-platform-qualified",
       "rules": [
         "c-compatible",
         "fixed-width-values",
@@ -182,30 +182,30 @@
   "dependencies": [
     {
       "goal": "2026-07-18-kungfu-fact-native-foundation-closure",
-      "statusAtInventory": "paused",
-      "admittedRoot": null,
+      "statusAtInventory": "completed",
+      "admittedRoot": "sha256:f8a0cfe31ce213b541ec2d7d6a1656c7350c2fec3ec451faa7b22685b145a9f1",
       "gates": ["complete-language-hosts-zero-lifecycle", "native-recovery-and-writer-liveness", "public-native-coverage"]
     },
     {
       "goal": "2026-07-19-kungfu-fact-root-canonical-encoding",
-      "statusAtInventory": "paused",
-      "admittedRoot": null,
+      "statusAtInventory": "completed",
+      "admittedRoot": "sha256:d8feb83845e3c9fbff4f26019fa72645a2812becbeb7c32fbde3423235d23944",
       "gates": ["canonical-bytes", "independent-implementation", "legacy-and-successor-root-rules"]
     },
     {
       "goal": "2026-07-19-kungfu-fact-kernel-internal-decomposition",
-      "statusAtInventory": "paused",
-      "admittedRoot": null,
+      "statusAtInventory": "completed",
+      "admittedRoot": "sha256:753ef35095a7c66511508e5bc6d7ddcc86c70d0e4c94d2523cbdca862798cbd8",
       "gates": ["behavior-characterization", "single-authority-internal-boundaries", "safe-fact-kernel-move"]
     }
   ],
   "migration": [
     {"stage": 0, "id": "inventory-and-decision", "status": "implemented"},
-    {"stage": 1, "id": "successor-discovery-and-stream", "status": "planned"},
-    {"stage": 2, "id": "canonical-root-and-kernel-decomposition", "status": "waiting-on-dependencies"},
-    {"stage": 3, "id": "reality-kernel-move-and-semantic-interfaces", "status": "waiting-on-dependencies"},
-    {"stage": 4, "id": "consumer-sdk-and-scratch-projects", "status": "planned"},
-    {"stage": 5, "id": "legacy-adapter-and-platform-qualification", "status": "planned"}
+    {"stage": 1, "id": "successor-discovery-and-stream", "status": "implemented-qualified"},
+    {"stage": 2, "id": "canonical-root-and-kernel-decomposition", "status": "implemented-by-dependencies"},
+    {"stage": 3, "id": "reality-kernel-move-and-semantic-interfaces", "status": "implemented-qualified"},
+    {"stage": 4, "id": "consumer-sdk-and-scratch-projects", "status": "implemented-qualified"},
+    {"stage": 5, "id": "legacy-adapter-and-platform-qualification", "status": "implemented-qualified"}
   ],
   "consumerReadiness": {
     "adopterCountGate": false,
@@ -223,12 +223,18 @@
       "release-passport-classification"
     ]
   },
+  "qualification": {
+    "status": "passed",
+    "sourceRevision": "a6ccb0ec476d8a57a24c79ce49acf77a0c9996e2",
+    "workflowRun": "https://github.com/kungfu-systems/kungfu/actions/runs/29762683233",
+    "localPlatform": "darwin-arm64",
+    "installedConsumer": "scripts/qualify-kfd7-installed-consumer.mjs",
+    "conformance": "framework/core/architecture/kfd7-abi-conformance-v1.json",
+    "releasePassport": "framework/core/architecture/kfd7-release-passport.json",
+    "platformWorkflow": ".github/workflows/core-build-profiles.yml"
+  },
   "nonClaims": [
-    "successor-bootstrap-is-shipped",
-    "fact-kernel-has-moved",
-    "canonical-root-is-independently-portable",
-    "native-sdk-is-installed-or-released",
-    "supported-platform-matrix-is-qualified",
-    "external-adoption-exists"
+    "external-adoption-exists",
+    "battle-tested-maturity"
   ]
 }
