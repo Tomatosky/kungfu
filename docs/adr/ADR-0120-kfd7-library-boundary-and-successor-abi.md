@@ -194,6 +194,22 @@ bounded operation names. The registry, inventory, and frozen old-consumer test
 record that implemented state without promoting the planned successor
 bootstrap or making JSON canonical Root currency.
 
+### Vendor-owned Agent Hub reference stage
+
+The OpenCode reference candidate exercises the current Node projection over the
+native-storage v1 authority without turning that compatibility edge into a new
+semantic owner. OpenCode retains its TUI, provider routing, accounts,
+permissions, hosted connection, tools, and customer relationship. Libkungfu
+receives only bounded lifecycle metadata and owns Episode begin, heartbeat,
+seal, abort recovery, inspection, export/import, and fsck.
+
+The retained qualification proves an exact packed consumer, one forced-process
+recovery path, lossless unsigned 64-bit Episode transfer, C/Node/Python access
+to the same native authority, and the exact KFD Runtime 100 adapter report. It
+does not implement or publish `kungfu_get_api`, qualify an unobserved platform,
+claim physical power-loss durability, or count the reference as external
+adoption.
+
 ## Falsification and qualification
 
 This decision is false if an implementation:

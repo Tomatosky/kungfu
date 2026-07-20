@@ -138,6 +138,21 @@ Buildchain receives the passport as a consumer-owned evidence object and adds
 an invariant section to the Release Passport. Missing, stale, falsified,
 unqualified, tampered, dirty, or incomplete evidence fails closed.
 
+### Vendor embedding evidence remains a bounded qualification
+
+The OpenCode reference candidate binds its clean-install and lifecycle
+qualification to the exact KFD Runtime 100 report, native Episode
+qualification, source revision, package digests, adapter digest, profile and
+suite roots, observed platform, and public plugin-hook shape. The report keeps
+vendor ownership and Kungfu native authority separately visible and retains
+explicit residual risks.
+
+That report is implementation evidence for the tested candidate only. It is
+not an Invariant Passport, an Episode admission receipt, a release admission,
+an OpenCode endorsement, or evidence for unobserved platforms and providers.
+Promotion still requires the complete registry-declared platform and layer
+matrix through the ordinary invariant and release-passport gates.
+
 ## Public surface
 
 The source and agent entry is:

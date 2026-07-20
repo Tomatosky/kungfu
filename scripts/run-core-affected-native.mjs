@@ -309,7 +309,7 @@ export function planFromChanged(
     if (
       (relative.startsWith('.cmake/') && relative.endsWith('.cmake')) ||
       (relative.startsWith('.gyp/') && relative.endsWith('.js')) ||
-      (relative.startsWith('lib/') && relative.endsWith('.js'))
+      (relative.startsWith('lib/') && /\.(?:js|d\.ts)$/.test(relative))
     ) {
       global = true;
       forceFull = true;
@@ -1235,6 +1235,7 @@ function selfTest(authority, buildAuthority) {
         'framework/core/.cmake/libwasm-cargo-cache.cmake',
         'framework/core/.gyp/run-link-node.js',
         'framework/core/lib/executable.js',
+        'framework/core/lib/kungfu.d.ts',
       ],
       authority,
       buildAuthority,
