@@ -280,6 +280,12 @@ test('registers one packaged KFD-1 Exit Bundle contract', () => {
     canonicalPolicy.contractWorld.digest,
     schemaRoot(canonicalPolicy.contractWorld.value),
   );
+  const freeze = read('framework/core/.gyp/run-freeze.js');
+  assert.match(
+    freeze,
+    /kungfu-exit-bundle\.contract\.json[\s\S]+exit_bundle\.contract\.json/,
+    'assembled product must stage the registry-free verifier contract beside the package',
+  );
 });
 
 test('embedded schemas validate the exact contract and full fixture', () => {
