@@ -10,6 +10,7 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import {
   canonicalJson,
   checkEvolution,
+  checkerDiagnosticTail,
   commandFailureDiagnostic,
   createEvidenceEnvelope,
   createPassport,
@@ -17,6 +18,7 @@ import {
   evaluateExitMigrationReleaseClaims,
   qualifyEpisodeObject,
   resolveCheckerCommand,
+  resolveCheckerInvocation,
   sourceIdentityFromEvidence,
   synchronizeRegistryRoots,
   timeoutTerminationPlan,
@@ -133,12 +135,24 @@ test('checker command resolution uses the native Windows shifu launcher', () => 
   assert.equal(resolveCheckerCommand('node', 'win32'), 'node');
 });
 
+test('checker diagnostics prefer stderr, remove control codes, and redact the repository root', () => {
+  assert.equal(
+    checkerDiagnosticTail(
+      'ignored stdout',
+      `\u001b[31m${ROOT}/framework/core failed\r\n`,
+      ROOT,
+    ),
+    '<repo>/framework/core failed',
+  );
+});
+
 test('checker timeout terminates the complete Windows process tree', () => {
   assert.deepEqual(timeoutTerminationPlan(4321, 'win32'), {
     command: 'taskkill',
     args: ['/PID', '4321', '/T', '/F'],
   });
   assert.equal(timeoutTerminationPlan(4321, 'linux'), null);
+  assert.equal(timeoutTerminationPlan(undefined, 'win32'), null);
 });
 
 test('checker failures expose bounded stdout and stderr diagnostics', () => {
@@ -183,6 +197,26 @@ test('Fact native harness preserves its source qualification boundary on Windows
   assert.equal(invocation.env.PYTHONUNBUFFERED, '1');
   assert.equal(invocation.env.PYTHONPATH.split(';').length, 3);
   assert.match(invocation.env.PATH, /framework[/\\]core[/\\]build/u);
+  assert.equal(invocation.shell, true);
+});
+
+test('Windows invariant checker delegates Fact native execution to the shared harness', () => {
+  const checker = registry.checkers.find(
+    (item) => item.id === 'fact-native-characterization',
+  );
+  const invocation = resolveCheckerInvocation(checker, 'win32', {
+    PATH: 'existing-path',
+    SENTINEL: 'preserved',
+  });
+  assert.equal(invocation.command, 'uv');
+  assert.match(invocation.args.at(-2), /test_agent_work_profile_native\.py$/u);
+  assert.match(
+    invocation.args.at(-1),
+    /test_fact_kernel_characterization\.py$/u,
+  );
+  assert.equal(invocation.env.SENTINEL, 'preserved');
+  assert.equal(invocation.env.KUNGFU_ALLOW_FOREIGN_RUNTIME, '1');
+  assert.equal(invocation.env.PYTHONUNBUFFERED, '1');
   assert.equal(invocation.shell, true);
 });
 

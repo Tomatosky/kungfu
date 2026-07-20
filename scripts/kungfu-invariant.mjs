@@ -10,6 +10,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Ajv2020 from 'ajv/dist/2020.js';
 
+import { factKernelNativeInvocation } from './run-fact-kernel-native-tests.mjs';
+
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CONTRACT_PATH =
   'framework/invariant/kungfu-invariant-system.contract.json';
@@ -718,6 +720,19 @@ function unavailableFailure(stderr) {
   );
 }
 
+export function checkerDiagnosticTail(stdout, stderr, root = ROOT) {
+  const preferred = stderr.trim() || stdout.trim();
+  const ansiPattern = new RegExp(
+    `${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`,
+    'gu',
+  );
+  return preferred
+    .replace(ansiPattern, '')
+    .replaceAll(root, '<repo>')
+    .replace(/\r\n?/gu, '\n')
+    .slice(-2000);
+}
+
 export function commandFailureDiagnostic(checkerId, result, limit = 8_000) {
   const excerpt = (value) =>
     String(value || '')
@@ -739,8 +754,25 @@ export function resolveCheckerCommand(command, platform = process.platform) {
   return command;
 }
 
+export function resolveCheckerInvocation(
+  checker,
+  platform = process.platform,
+  baseEnv = process.env,
+) {
+  const [command, ...args] = checker.command;
+  if (platform === 'win32' && checker.id === 'fact-native-characterization') {
+    return factKernelNativeInvocation({ platform, baseEnv });
+  }
+  return {
+    command: resolveCheckerCommand(command, platform),
+    args,
+    env: baseEnv,
+    shell: platform === 'win32',
+  };
+}
+
 export function timeoutTerminationPlan(pid, platform = process.platform) {
-  if (platform !== 'win32') return null;
+  if (platform !== 'win32' || !Number.isInteger(pid) || pid <= 0) return null;
   return {
     command: 'taskkill',
     args: ['/PID', String(pid), '/T', '/F'],
@@ -750,45 +782,24 @@ export function timeoutTerminationPlan(pid, platform = process.platform) {
 function runCommand(checker) {
   return new Promise((resolve) => {
     const started = Date.now();
-    const [command, ...args] = checker.command;
-    const child = spawn(resolveCheckerCommand(command), args, {
+    const invocation = resolveCheckerInvocation(checker);
+    const child = spawn(invocation.command, invocation.args, {
       cwd: ROOT,
-      env: process.env,
-      shell: process.platform === 'win32',
+      env: invocation.env,
+      shell: invocation.shell,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let stdout = '';
     let stderr = '';
     let timedOut = false;
+    let settled = false;
+    let forcedSettlement = null;
     const append = (current, chunk) => `${current}${chunk}`.slice(-1_000_000);
-    child.stdout.on('data', (chunk) => {
-      stdout = append(stdout, chunk);
-    });
-    child.stderr.on('data', (chunk) => {
-      stderr = append(stderr, chunk);
-    });
-    child.on('error', (error) => {
-      stderr = append(stderr, `\n${error}`);
-    });
-    const timer = setTimeout(() => {
-      timedOut = true;
-      const plan = timeoutTerminationPlan(child.pid);
-      if (plan) {
-        const terminated = spawnSync(plan.command, plan.args, {
-          encoding: 'utf8',
-          timeout: 15_000,
-          windowsHide: true,
-        });
-        if (terminated.status !== 0)
-          stderr = append(
-            stderr,
-            `\n[checker-timeout-termination] ${(terminated.stderr || terminated.stdout || terminated.error || 'taskkill failed').toString().trim()}`,
-          );
-      }
-      child.kill('SIGKILL');
-    }, checker.timeoutSeconds * 1000);
-    child.on('close', (code, signal) => {
+    const finish = (code, signal) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
+      if (forcedSettlement !== null) clearTimeout(forcedSettlement);
       const result = {
         code,
         signal,
@@ -802,7 +813,38 @@ function runCommand(checker) {
           `${commandFailureDiagnostic(checker.id, result)}\n`,
         );
       resolve(result);
+    };
+    child.stdout.on('data', (chunk) => {
+      stdout = append(stdout, chunk);
     });
+    child.stderr.on('data', (chunk) => {
+      stderr = append(stderr, chunk);
+    });
+    child.on('error', (error) => {
+      stderr = append(stderr, `\n${error}`);
+    });
+    const timer = setTimeout(() => {
+      timedOut = true;
+      const termination = timeoutTerminationPlan(child.pid);
+      if (termination !== null) {
+        const killed = spawnSync(termination.command, termination.args, {
+          encoding: 'utf8',
+          timeout: 15_000,
+          windowsHide: true,
+        });
+        if (killed.status !== 0) {
+          stderr = append(
+            stderr,
+            `\n[checker-timeout-termination] ${(killed.stderr || killed.stdout || killed.error || `taskkill exited ${killed.status}`).toString().trim()}`,
+          );
+          child.kill('SIGKILL');
+        }
+      } else {
+        child.kill('SIGKILL');
+      }
+      forcedSettlement = setTimeout(() => finish(null, 'SIGKILL'), 5000);
+    }, checker.timeoutSeconds * 1000);
+    child.on('close', finish);
   });
 }
 
@@ -910,6 +952,10 @@ export async function verifyInvariants(options = {}) {
             : commandResult.code === 0
               ? 'checker-completed'
               : 'falsifier-hit';
+        const failureTail = checkerDiagnosticTail(
+          commandResult.stdout,
+          commandResult.stderr,
+        );
         result = {
           verdict,
           diagnostics:
@@ -918,7 +964,7 @@ export async function verifyInvariants(options = {}) {
               : [
                   diagnostic(
                     code,
-                    `${checker.id} exited ${commandResult.code ?? 'without status'}${commandResult.signal ? ` (${commandResult.signal})` : ''}`,
+                    `${checker.id} exited ${commandResult.code ?? 'without status'}${commandResult.signal ? ` (${commandResult.signal})` : ''}${failureTail ? `\n${failureTail}` : ''}`,
                   ),
                 ],
           stdout: commandResult.stdout,
