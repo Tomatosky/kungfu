@@ -10,7 +10,7 @@ const REQUIRED_METHODS = [
   'storageEpisodeCloseTyped',
   'storageEpisodeRecoverTyped',
   'storageEpisodeInspectTyped',
-  'runStorageServiceOperation',
+  'runStorageTransferOperationJson',
 ];
 
 function defaultBinding() {
@@ -57,11 +57,12 @@ export function createEpisodeRuntime({
   if (!runtimeDir) throw new Error('libkungfu runtime directory is required');
 
   const active = new Map();
-  const frameCounts = new Map();
+  const closed = new Map();
 
   function begin(id) {
     const key = sessionId(id);
     if (active.has(key)) return active.get(key);
+    closed.delete(key);
     const opened = binding.storageEpisodeBeginTyped(runtimeDir, {
       begin_time: clock(),
       title: 'OpenCode agent session',
@@ -69,19 +70,15 @@ export function createEpisodeRuntime({
       source: 'opencode.plugin.lifecycle',
     });
     active.set(key, opened.episode_id);
-    frameCounts.set(key, 0n);
     return opened.episode_id;
   }
 
   function heartbeat(id, phase) {
     const key = sessionId(id);
     const episodeId = begin(key);
-    const frameCount = (frameCounts.get(key) || 0n) + 1n;
-    frameCounts.set(key, frameCount);
     return binding.storageEpisodeHeartbeatTyped(runtimeDir, {
       episode_id: episodeId,
       update_time: clock(),
-      frame_count: frameCount,
       note: phase,
     });
   }
@@ -94,16 +91,16 @@ export function createEpisodeRuntime({
       episode_id: episodeId,
       aborted,
       end_time: clock(),
-      frame_count: frameCounts.get(key) || 0n,
       reason,
     });
     active.delete(key);
-    frameCounts.delete(key);
+    closed.set(key, episodeId);
     return result;
   }
 
   function inspect(id) {
-    const episodeId = active.get(sessionId(id));
+    const key = sessionId(id);
+    const episodeId = active.get(key) ?? closed.get(key);
     if (episodeId === undefined) return null;
     return binding.storageEpisodeInspectTyped(runtimeDir, {
       episode_id: episodeId,
@@ -112,15 +109,19 @@ export function createEpisodeRuntime({
 
   function exportEpisode(id) {
     const key = sessionId(id);
-    const episodeId = active.get(key);
+    const episodeId = closed.get(key);
     if (episodeId === undefined) {
-      throw new Error(`OpenCode session is not active: ${key}`);
+      throw new Error(`OpenCode session is not sealed: ${key}`);
     }
-    return binding.runStorageServiceOperation('export_bundle', runtimeDir, {
-      scope: 'episode',
-      episode_id: String(episodeId),
-      thin: false,
-    });
+    return binding.runStorageTransferOperationJson(
+      'export_bundle',
+      runtimeDir,
+      JSON.stringify({
+        scope: 'episode',
+        episode_id: String(episodeId),
+        thin: false,
+      }),
+    );
   }
 
   const recovery = binding.storageEpisodeRecoverTyped(runtimeDir, {

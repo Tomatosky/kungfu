@@ -48,6 +48,12 @@ startup, the plugin abort-recovers unsealed Episodes left by a terminated prior
 process. A resumed OpenCode session begins a fresh Episode; recovery is not
 silently represented as uninterrupted execution.
 
+After the session closes, Episode export uses Core's transfer-only raw-JSON
+edge so unsigned 64-bit identifiers remain exact across the Node boundary.
+`exportEpisode(sessionId)` rejects an unsealed session and returns the native
+bundle JSON text; consumers should persist or forward that text without
+round-tripping it through a JavaScript `number`.
+
 ## Public hooks and retained fields
 
 The adapter uses OpenCode's documented plugin function plus `event`,

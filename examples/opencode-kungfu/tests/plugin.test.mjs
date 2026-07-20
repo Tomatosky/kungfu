@@ -47,12 +47,13 @@ function fakeBinding() {
       calls.push({ operation: 'inspect', runtimeDir, options });
       return { episode: { episode_id: options.episode_id } };
     },
-    runStorageServiceOperation(operation, runtimeDir, options) {
+    runStorageTransferOperationJson(operation, runtimeDir, optionsJson) {
+      const options = JSON.parse(optionsJson);
       calls.push({ operation, runtimeDir, options });
-      return {
+      return JSON.stringify({
         schema: 'kungfu.storage.episode-bundle/v1',
         episode_id: options.episode_id,
-      };
+      });
     },
   };
 }
@@ -94,6 +95,12 @@ test('official OpenCode hooks retain lifecycle metadata without prompt or creden
   assert.deepEqual(
     binding.calls.map(({ operation }) => operation),
     ['recover', 'begin', 'heartbeat', 'heartbeat', 'close'],
+  );
+  assert.equal(
+    binding.calls
+      .filter(({ operation }) => ['heartbeat', 'close'].includes(operation))
+      .some(({ options }) => Object.hasOwn(options, 'frame_count')),
+    false,
   );
   assert.equal(inspectCalls(binding.calls).includes(secret), false);
 });
@@ -157,6 +164,7 @@ test('service-operation JSON edge uses decimal Episode identifiers', () => {
   });
   const episodeId = runtime.begin('export-task');
   assert.equal(typeof episodeId, 'bigint');
+  runtime.close('export-task');
 
   runtime.exportEpisode('export-task');
 

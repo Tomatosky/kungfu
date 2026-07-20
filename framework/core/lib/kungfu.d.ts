@@ -1026,6 +1026,11 @@ interface KungfuRuntime {
       provider?: 'content-addressed-file' | 'rocksdb';
     },
   ): StorageLayoutResult;
+  runStorageTransferOperationJson(
+    operation: 'export_bundle' | 'import_bundle',
+    runtimeDir: string,
+    optionsJson?: string,
+  ): string;
   storageQueryTyped(
     runtimeDir: string,
     query: StorageQueryName,

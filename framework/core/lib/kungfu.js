@@ -131,6 +131,7 @@ module.exports = () => {
     storageLayoutTyped: binding.storageLayoutTyped,
     makeStorageServiceRequest: binding.makeStorageServiceRequest,
     runStorageServiceOperation: binding.runStorageServiceOperation,
+    runStorageTransferOperationJson: binding.runStorageTransferOperationJson,
     acceptStorageManifest: binding.acceptStorageManifest,
     loadStorageLatestManifest: binding.loadStorageLatestManifest,
     exportStorageRecords: binding.exportStorageRecords,

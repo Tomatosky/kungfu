@@ -775,6 +775,29 @@ Napi::Value RunStorageServiceOperation(const Napi::CallbackInfo &info) {
   });
 }
 
+Napi::Value RunStorageTransferOperationJson(const Napi::CallbackInfo &info) {
+  if (!IsValid(info, 0, &Napi::Value::IsString) || !IsValid(info, 1, &Napi::Value::IsString) ||
+      (IsValid(info, 2) && !info[2].IsString())) {
+    throw Napi::TypeError::New(info.Env(), "runStorageTransferOperationJson(operation, runtimeDir, optionsJson?)");
+  }
+  return StorageEdgeCall(info, [&] {
+    const auto operation = info[0].As<Napi::String>().Utf8Value();
+    if (operation != "export_bundle" && operation != "import_bundle") {
+      throw std::invalid_argument("raw JSON storage transfer supports only export_bundle or import_bundle");
+    }
+    auto options = nlohmann::json::object();
+    if (IsValid(info, 2)) {
+      options = nlohmann::json::parse(info[2].As<Napi::String>().Utf8Value());
+      if (!options.is_object()) {
+        throw std::invalid_argument("optionsJson must encode an object");
+      }
+    }
+    const auto result = runtime::storage_service_api::run_storage_service_operation(
+        operation, info[1].As<Napi::String>().Utf8Value(), options);
+    return Napi::String::New(info.Env(), result.dump(-1, ' ', false));
+  });
+}
+
 Napi::Value AcceptStorageManifest(const Napi::CallbackInfo &info) {
   if (!IsValid(info, 0, &Napi::Value::IsString)) {
     throw Napi::TypeError::New(info.Env(), "acceptStorageManifest(runtimeDir, manifest)");
@@ -985,6 +1008,7 @@ Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
   exports.Set("storageLayoutTyped", Napi::Function::New(env, StorageLayoutTyped));
   exports.Set("makeStorageServiceRequest", Napi::Function::New(env, MakeStorageServiceRequest));
   exports.Set("runStorageServiceOperation", Napi::Function::New(env, RunStorageServiceOperation));
+  exports.Set("runStorageTransferOperationJson", Napi::Function::New(env, RunStorageTransferOperationJson));
   exports.Set("acceptStorageManifest", Napi::Function::New(env, AcceptStorageManifest));
   exports.Set("loadStorageLatestManifest", Napi::Function::New(env, LoadStorageLatestManifest));
   exports.Set("exportStorageRecords", Napi::Function::New(env, ExportStorageRecords));

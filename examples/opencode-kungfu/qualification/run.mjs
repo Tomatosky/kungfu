@@ -318,37 +318,34 @@ async function main() {
       (episode) => episode.open?.source === 'opencode.plugin.lifecycle',
     );
     assert.ok(activeEpisode);
-    const bundle = binding.runStorageServiceOperation(
-      'export_bundle',
-      runtimeDir,
-      {
-        scope: 'episode',
-        episode_id: String(activeEpisode.episode_id),
-        thin: false,
-      },
-    );
-    const bundlePath = path.join(outputDir, 'episode-bundle.json');
-    writeJson(bundlePath, bundle);
     await hooks.event({
       event: {
         type: 'session.idle',
         properties: { sessionID: 'qualification-long-task' },
       },
     });
+    const episodeId = String(activeEpisode.episode_id);
+    const bundleJson = binding.runStorageTransferOperationJson(
+      'export_bundle',
+      runtimeDir,
+      JSON.stringify({
+        scope: 'episode',
+        episode_id: episodeId,
+        thin: false,
+      }),
+    );
+    const bundlePath = path.join(outputDir, 'episode-bundle.json');
+    fs.writeFileSync(bundlePath, `${bundleJson}\n`);
     const sourceFsck = binding.storageFsckTyped(runtimeDir, {});
     assert.equal(sourceFsck.ok, true);
 
     const destinationRuntime = path.join(scratch, 'destination.kungfu');
-    const imported = binding.runStorageServiceOperation(
-      'import_bundle',
-      destinationRuntime,
-      {
-        scope: 'episode',
-        episode_id: String(bundle.episode_id),
-        verify: true,
-        dry_run: false,
-        bundle,
-      },
+    const imported = JSON.parse(
+      binding.runStorageTransferOperationJson(
+        'import_bundle',
+        destinationRuntime,
+        `{"scope":"episode","episode_id":"${episodeId}","verify":true,"dry_run":false,"bundle":${bundleJson}}`,
+      ),
     );
     assert.equal(imported.ok, true);
     const destinationFsck = binding.storageFsckTyped(destinationRuntime, {});
@@ -405,7 +402,7 @@ async function main() {
         exportBundle: {
           path: path.basename(bundlePath),
           sha256: sha256File(bundlePath),
-          episodeId: String(bundle.episode_id),
+          episodeId,
         },
         import: {
           ok: imported.ok,

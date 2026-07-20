@@ -12,6 +12,7 @@ const bindingDir = path.join(coreDir, 'dist', 'kungfu');
 const kungfu = kungfuFactory();
 const nativeAvailable =
   typeof kungfu.runStorageServiceOperation === 'function' &&
+  typeof kungfu.runStorageTransferOperationJson === 'function' &&
   typeof kungfu.acceptStorageManifest === 'function';
 const typedStatusAvailable = typeof kungfu.storageStatusTyped === 'function';
 const durabilityCapabilityAvailable =
@@ -821,6 +822,69 @@ for (const providerCase of providerCases) {
       }),
   );
 }
+
+test(
+  'raw JSON storage edge preserves unsigned 64-bit Episode identifiers',
+  {
+    skip:
+      nativeAvailable || process.env.KUNGFU_REQUIRE_NATIVE === '1'
+        ? false
+        : 'built kungfu_node binding is unavailable',
+  },
+  () => {
+    const sourceRuntime = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'kf-node-json-source-'),
+    );
+    const destinationRuntime = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'kf-node-json-destination-'),
+    );
+    assert.throws(
+      () =>
+        kungfu.runStorageTransferOperationJson('status', sourceRuntime, '{}'),
+      /supports only export_bundle or import_bundle/,
+    );
+    const episodeId = 15536684386318790626n;
+    kungfu.storageEpisodeBeginTyped(sourceRuntime, {
+      episode_id: episodeId,
+      begin_time: 1000,
+      title: 'lossless JSON edge',
+    });
+    kungfu.storageEpisodeCloseTyped(sourceRuntime, {
+      episode_id: episodeId,
+      end_time: 2000,
+      frame_count: 0n,
+    });
+
+    const bundleJson = kungfu.runStorageTransferOperationJson(
+      'export_bundle',
+      sourceRuntime,
+      JSON.stringify({
+        scope: 'episode',
+        episode_id: episodeId.toString(),
+        thin: false,
+      }),
+    );
+    assert.match(
+      bundleJson,
+      new RegExp(`"episode_id":${episodeId.toString()}`),
+    );
+    const importJson = kungfu.runStorageTransferOperationJson(
+      'import_bundle',
+      destinationRuntime,
+      `{"scope":"episode","episode_id":"${episodeId.toString()}","verify":true,"dry_run":false,"bundle":${bundleJson}}`,
+    );
+    const imported = JSON.parse(importJson);
+    assert.equal(imported.ok, true, importJson);
+    assert.equal(imported.status, 'applied');
+    assert.equal(
+      kungfu.storageFsckTyped(destinationRuntime, {
+        episode_id: episodeId,
+        verify_frames: true,
+      }).ok,
+      true,
+    );
+  },
+);
 
 test(
   'Node projects the C++ Episode qualification contract without re-derivation',
