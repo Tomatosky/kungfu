@@ -46,6 +46,14 @@
       ]
     },
     {
+      "id": "action-model",
+      "heading": "Action responsibility model",
+      "terms": [
+        { "name": "Action Geometry" },
+        { "name": "Domain Profile" }
+      ]
+    },
+    {
       "id": "operations",
       "heading": "Operations",
       "terms": [
