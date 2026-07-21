@@ -88,6 +88,8 @@
     "test:cli-surface-qualification": "node scripts/require-shifu.mjs test:cli-surface-qualification && node --test product/scripts/cli-surface-qualification.test.mjs product/scripts/dist.test.mjs",
     "check:health-diagnostics-contract": "node scripts/require-shifu.mjs check:health-diagnostics-contract && node --test scripts/check-health-diagnostics-contract.test.mjs",
     "check:agent-work-state-contract": "node scripts/require-shifu.mjs check:agent-work-state-contract && node scripts/run-agent-work-state-tests.mjs",
+    "test:continuity-pilot": "node scripts/require-shifu.mjs test:continuity-pilot && node --test scripts/run-continuity-pilot.test.mjs",
+    "qualify:continuity-pilot": "node scripts/require-shifu.mjs qualify:continuity-pilot && node scripts/run-continuity-pilot.mjs",
     "check:agent-pack": "node scripts/require-shifu.mjs check:agent-pack && node scripts/verify-agent-pack.mjs",
     "check:fact-cut-kernel-contract": "node scripts/require-shifu.mjs check:fact-cut-kernel-contract && node --test scripts/check-fact-cut-kernel-contract.test.mjs",
     "check:fact-durable-admission": "node scripts/require-shifu.mjs check:fact-durable-admission && node --test scripts/check-fact-durable-admission.test.mjs",

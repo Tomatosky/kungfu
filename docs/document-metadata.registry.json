@@ -757,6 +757,19 @@
       "review_state": "unreviewed",
       "sensitivity": "public"
     },
+    "docs/qualification/continuity-pilot.md": {
+      "metadata_schema": "kungfu.document-metadata/v1",
+      "document_status": "active",
+      "doc_type": "qualification-guide",
+      "review_state": "self-reviewed",
+      "sensitivity": "public",
+      "sources": ["executable-probe", "local-files", "user-consensus"],
+      "period": "2026-07-21",
+      "theme": "continuity-preparatory-pilot",
+      "confidence": "high",
+      "evidence_grade": "B",
+      "last_reviewed": "2026-07-21"
+    },
     "docs/qualification/fact-storage-authority.md": {
       "metadata_schema": "kungfu.document-metadata/v1",
       "document_status": "active",

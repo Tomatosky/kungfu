@@ -578,6 +578,7 @@
           "publicOutcome",
           "firstContactRule",
           "profiles",
+          "pilotProtocol",
           "releaseClaimPolicy",
           "evidenceSchema"
         ],
@@ -593,6 +594,34 @@
             "type": "array",
             "minItems": 3,
             "maxItems": 3
+          },
+          "pilotProtocol": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "contract",
+              "fixture",
+              "command",
+              "documentation"
+            ],
+            "properties": {
+              "contract": {
+                "type": "string",
+                "minLength": 1
+              },
+              "fixture": {
+                "type": "string",
+                "minLength": 1
+              },
+              "command": {
+                "type": "string",
+                "minLength": 1
+              },
+              "documentation": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
           },
           "releaseClaimPolicy": {
             "type": "object"
@@ -1872,6 +1901,12 @@
         "claimBoundary": "Projection only, never independent proof. The animation must retain a link to the exact report, method, versions, fixture, copy, and limitations."
       }
     ],
+    "pilotProtocol": {
+      "contract": "framework/agent-work/kungfu-continuity-pilot.contract.json",
+      "fixture": "framework/agent-work/fixtures/continuity-pilot-v1.json",
+      "command": "./shifu qualify:continuity-pilot -- --output <disposable-output>",
+      "documentation": "docs/qualification/continuity-pilot.md"
+    },
     "releaseClaimPolicy": {
       "semanticAuthority": "Kungfu qualification owns fixture, reset, oracle, profile verdict, and claim limitations.",
       "buildchainRole": "Buildchain binds already-produced exact artifacts and copy into the Release Passport; it does not invent benchmark meaning, upgrade a verdict, or infer a stronger claim.",

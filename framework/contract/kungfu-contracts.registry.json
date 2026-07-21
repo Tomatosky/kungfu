@@ -227,7 +227,7 @@
       "surface": "agent-work-state",
       "id": "kungfu-agent-work-state",
       "schema": "kungfu.agent-work-state.contract/v2",
-      "contractSchemaRoot": "sha256:fa6b2aa915e1eefaf88566cd001d515cdf0da44e9d94b050df4a82ab4ddcfc58",
+      "contractSchemaRoot": "sha256:817a756b47cd7a517661d9ff61601d12a0d395fda214c075bb78081fcab44c33",
       "weldedSurface": "agent-work-state-contract",
       "env": "KUNGFU_AGENT_WORK_STATE_CONTRACT",
       "file": "kungfu-agent-work-state.contract.json",

@@ -307,6 +307,7 @@ export function sourceAcceptancePlan(files) {
         'scripts/check-project-cut-history.test.mjs',
         'scripts/check-project-cut-composition.test.mjs',
         'scripts/check-workspace-continuation.test.mjs',
+        'scripts/run-continuity-pilot.test.mjs',
         'scripts/check-episode-admission-contract.test.mjs',
         'framework/agent-session/tests/capsule-host.test.mjs',
         'framework/agent-session/tests/peer-transport.test.mjs',

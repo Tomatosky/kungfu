@@ -257,7 +257,7 @@
       "source": {
         "kind": "file",
         "path": "framework/agent-work/kungfu-agent-work-state.contract.json",
-        "sha256": "552edc7e586f4b2b347421db7e568ada4e5bcf13a22d4492f2d17730429bd10a"
+        "sha256": "788c5c659b0c2decf440d729bea0b7315192cdef817a144ff595520b243ab0f5"
       },
       "evidence": [
         {
@@ -274,7 +274,7 @@
           "pointer": {
             "kind": "file",
             "path": "scripts/check-agent-work-state-contract.test.mjs",
-            "sha256": "6df2a03a2c4effa50ad310ca1b41453c8e08c0cedba809dfaff23437b596235a"
+            "sha256": "30955529ca88d78953dbc2a6ce0c1fe460c88b57ccecd479661cf789f383e237"
           },
           "description": "Source, package, KFD-2, KFD-3, and continuity evidence-boundary checks."
         },

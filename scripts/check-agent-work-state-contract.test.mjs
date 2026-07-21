@@ -297,6 +297,14 @@ test('separates continuity smoke, comparison, and public projection evidence', (
     contract.continuityValidation.releaseClaimPolicy.ordinaryPatchRule,
     /does not repeat the matched long-task comparison/,
   );
+  assert.equal(
+    contract.continuityValidation.pilotProtocol.command,
+    './shifu qualify:continuity-pilot -- --output <disposable-output>',
+  );
+  assert.equal(
+    contract.continuityValidation.pilotProtocol.documentation,
+    'docs/qualification/continuity-pilot.md',
+  );
 });
 
 test('human and agent routes point to the same contract authority', () => {
