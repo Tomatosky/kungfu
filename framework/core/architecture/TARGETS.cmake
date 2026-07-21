@@ -85,6 +85,7 @@ set(KUNGFU_EXTENSION_SERVICES_SOURCE_FILES
   "${PROJECT_SOURCE_DIR}/src/runtime/action/action_canonical_json.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/action/action_contract_registry.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/action/action_geometry.cpp"
+  "${PROJECT_SOURCE_DIR}/src/runtime/action/action_runtime.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/action/domain_profile.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/action/profile_action.cpp"
   "${PROJECT_SOURCE_DIR}/src/runtime/kfx/native_contract.cpp"

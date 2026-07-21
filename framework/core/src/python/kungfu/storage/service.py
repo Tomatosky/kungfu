@@ -977,6 +977,23 @@ def fact_kernel(
     )
 
 
+def action_runtime(
+    runtime_dir: str | Path,
+    action: str,
+    request: dict[str, Any] | None = None,
+) -> Any:
+    """Forward one Action Geometry / Domain Profile / Profile action to native.
+
+    Most actions return a JSON object; ``session_valid_actions`` returns a JSON
+    array, so the wrapper preserves non-object results instead of forcing dict().
+    """
+
+    result = _runtime().run_storage_service_operation(
+        "action_runtime", str(runtime_dir), {"action": action, **(request or {})}
+    )
+    return dict(result) if isinstance(result, dict) else result
+
+
 def fact_profile_shadow_project(
     runtime_dir: str | Path, document: dict[str, Any]
 ) -> dict[str, Any]:

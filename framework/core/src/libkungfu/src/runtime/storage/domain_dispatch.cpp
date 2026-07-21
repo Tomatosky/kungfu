@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <utility>
 
+#include <kungfu/runtime/action/action_runtime.h>
 #include <kungfu/runtime/action_recorder.h>
 #include <kungfu/runtime/facts/fact_admission.h>
 #include <kungfu/runtime/kfx/native_contract.h>
@@ -268,6 +269,10 @@ public:
 
   [[nodiscard]] nlohmann::json fact_kernel(const storage_service_options &options) const {
     return run_fact_kernel_operation(options.runtime_dir, options.operation_options);
+  }
+
+  [[nodiscard]] nlohmann::json action_runtime(const storage_service_options &options) const {
+    return kungfu::runtime::action::run_action_runtime_operation(options.runtime_dir, options.operation_options);
   }
 
   [[nodiscard]] nlohmann::json fact_contract(const storage_service_options &options) const {
@@ -813,6 +818,8 @@ nlohmann::json dispatch_json_edge_operation(storage_operation operation, const s
     return storage_json_edge_service_instance().saved_query_catalog(parsed_options);
   case storage_operation::ProfileLifecycle:
     return storage_json_edge_service_instance().profile_lifecycle(parsed_options);
+  case storage_operation::ActionRuntime:
+    return storage_json_edge_service_instance().action_runtime(parsed_options);
   case storage_operation::KfxRuntime:
     return storage_json_edge_service_instance().kfx_runtime(parsed_options);
   case storage_operation::FactKernel:
