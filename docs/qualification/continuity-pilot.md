@@ -61,6 +61,14 @@ The runner emits:
   selectors, redaction rules, desktop/mobile framing, static fallback, and a
   `How this was tested` payload to the projection root.
 
+The retained v1 pilot keeps the
+[public-safe projection](evidence/continuity-pilot/2026-07-21-preparatory-v1/public-projection.json),
+[raw evidence index](evidence/continuity-pilot/2026-07-21-preparatory-v1/raw-evidence-index.json),
+and [animation production pack](evidence/continuity-pilot/2026-07-21-preparatory-v1/animation-pack.json)
+together under one run identity. Its baseline verdict is `unsupported`; the
+Kungfu fixture path passes the exact oracle from one durable fact. Both remain
+explicitly preparatory.
+
 Animation production must read the projection rather than substitute hand-made
 numbers. If the projection is missing or invalid, production falls back to the
 static truthful statement in the pack. Design annotations remain visibly
