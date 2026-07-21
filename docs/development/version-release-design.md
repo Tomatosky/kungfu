@@ -96,6 +96,16 @@ the "must not make a mistake" pressure from any individual. Developers have more
 unilateral authority — and that constraint deliberately includes the maintainers
 themselves.
 
+**Continuity comparison claims use exact, conditional evidence.** Kungfu
+qualification owns the smoke/comparison/projection semantics and verdict.
+Buildchain only binds the evidence to the exact candidate and public copy. A
+published comparative continuity claim therefore carries its fixture, runner
+and native-baseline identities, reset method, oracle, raw report, projection,
+limitations, and independent review in the Release Passport. A patch with no
+comparative claim does not inherit an expensive matched-comparison obligation;
+its normal release profile still has to satisfy the applicable `FO9` and
+`FO10` correctness gates.
+
 ## The tag itself projects a deeper invariant: the yijinjing schema layout
 
 Point 2 said the `package.json` version is a downstream projection of the git tag. The tag

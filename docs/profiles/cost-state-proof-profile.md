@@ -1,7 +1,9 @@
 # Cost/State/Proof profile
 
-Cost/State/Proof is the first commercial profile of Kungfu Mission Control. It
-gives a new user an immediate answer to a familiar delegated-agent problem:
+Cost/State/Proof is a commercial profile of Kungfu Mission Control. It is not
+the first-contact contract: the first-release entry leads with continuity —
+`Keep the work when the chat ends.` — then exposes this deeper profile when a
+user asks a familiar delegated-agent question:
 
 ```text
 Is this agent work producing a trustworthy result, or only continuing to spend?

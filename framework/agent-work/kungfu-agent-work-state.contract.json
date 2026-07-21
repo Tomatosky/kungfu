@@ -34,6 +34,7 @@
       "coreProfileBoundary",
       "publicSurfaces",
       "qualification",
+      "continuityValidation",
       "guarantees",
       "nonClaims"
     ],
@@ -529,8 +530,8 @@
           },
           "checks": {
             "type": "array",
-            "minItems": 8,
-            "maxItems": 8,
+            "minItems": 10,
+            "maxItems": 10,
             "prefixItems": [
               {
                 "$ref": "#/$defs/fo1"
@@ -555,12 +556,49 @@
               },
               {
                 "$ref": "#/$defs/fo8"
+              },
+              {
+                "$ref": "#/$defs/fo9"
+              },
+              {
+                "$ref": "#/$defs/fo10"
               }
             ],
             "items": false
           },
           "releaseRule": {
             "const": "Contract projection is a qualification starting point and never by itself passes P17."
+          }
+        }
+      },
+      "continuityValidation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "publicOutcome",
+          "firstContactRule",
+          "profiles",
+          "releaseClaimPolicy",
+          "evidenceSchema"
+        ],
+        "properties": {
+          "publicOutcome": {
+            "const": "Keep the work when the chat ends."
+          },
+          "firstContactRule": {
+            "type": "string",
+            "minLength": 1
+          },
+          "profiles": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "releaseClaimPolicy": {
+            "type": "object"
+          },
+          "evidenceSchema": {
+            "type": "object"
           }
         }
       },
@@ -723,6 +761,34 @@
             "properties": {
               "id": {
                 "const": "FO8"
+              }
+            }
+          }
+        ]
+      },
+      "fo9": {
+        "allOf": [
+          {
+            "$ref": "#/$defs/qualificationCheck"
+          },
+          {
+            "properties": {
+              "id": {
+                "const": "FO9"
+              }
+            }
+          }
+        ]
+      },
+      "fo10": {
+        "allOf": [
+          {
+            "$ref": "#/$defs/qualificationCheck"
+          },
+          {
+            "properties": {
+              "id": {
+                "const": "FO10"
               }
             }
           }
@@ -1772,9 +1838,454 @@
         "id": "FO8",
         "status": "partial",
         "evidenceRequired": "Release Passport binding exact contract, build, dogfood, residual risk, and KFD candidate status."
+      },
+      {
+        "id": "FO9",
+        "status": "pending",
+        "evidenceRequired": "An official installed CLI bootstraps a fresh repository and seals the first verified low-risk work loop within ten minutes of measured tool time, excluding only recorded human semantic-decision wait."
+      },
+      {
+        "id": "FO10",
+        "status": "pending",
+        "evidenceRequired": "One real Pursuit continues for at least three calendar days across three fresh Agent contexts and one different Agent process, with daily sealed work, Atlas and Warrant transitions, multiple Episodes, and restart or no-chat recovery."
       }
     ],
     "releaseRule": "Contract projection is a qualification starting point and never by itself passes P17."
+  },
+  "continuityValidation": {
+    "publicOutcome": "Keep the work when the chat ends.",
+    "firstContactRule": "Lead with the continuity outcome. Cost/State/Proof and the four-role model remain inspectable deeper profiles, not first-use ceremony or prerequisite vocabulary.",
+    "profiles": [
+      {
+        "id": "one-minute-smoke",
+        "purpose": "Freeze a bounded fixture, reset method, oracle, report shape, evidence capture, and animation inputs before the release candidate is feature-complete.",
+        "claimBoundary": "Preparatory method evidence only. It cannot pass FO10 or support a multi-hour, multi-day, or comparative superiority claim."
+      },
+      {
+        "id": "matched-long-task-comparison",
+        "purpose": "Test whether a feature-complete Kungfu release candidate materially improves continuation against the latest available native Agent baseline on the same task and oracle.",
+        "claimBoundary": "Phase-level product and market attribution evidence. It is required when a comparative continuity claim is published, not as a permanent gate for every ordinary patch release."
+      },
+      {
+        "id": "public-animation",
+        "purpose": "Project a retained smoke or comparison report into a time-compressed public explanation.",
+        "claimBoundary": "Projection only, never independent proof. The animation must retain a link to the exact report, method, versions, fixture, copy, and limitations."
+      }
+    ],
+    "releaseClaimPolicy": {
+      "semanticAuthority": "Kungfu qualification owns fixture, reset, oracle, profile verdict, and claim limitations.",
+      "buildchainRole": "Buildchain binds already-produced exact artifacts and copy into the Release Passport; it does not invent benchmark meaning, upgrade a verdict, or infer a stronger claim.",
+      "comparativeClaimRequiredBindings": [
+        "exact-release-artifact",
+        "published-copy",
+        "fixture",
+        "provider-agent-version-config",
+        "native-baseline-identity-and-capabilities",
+        "context-and-process-reset-method",
+        "oracle",
+        "raw-report",
+        "public-projection",
+        "limitations",
+        "independent-review"
+      ],
+      "ordinaryPatchRule": "A release that publishes no comparative continuity claim does not repeat the matched long-task comparison solely to satisfy Buildchain. FO9 and FO10 remain independently blocking where the release profile requires them."
+    },
+    "evidenceSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "https://libkungfu.dev/schemas/kungfu-continuity-evidence-v1.schema.json",
+      "title": "Kungfu Continuity Evidence",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "profile",
+        "release",
+        "fixture",
+        "runner",
+        "contextReset",
+        "oracle",
+        "rawReport",
+        "claim",
+        "limitations"
+      ],
+      "properties": {
+        "schema": {
+          "const": "kungfu.continuity-evidence/v1"
+        },
+        "profile": {
+          "enum": [
+            "one-minute-smoke",
+            "matched-long-task-comparison",
+            "public-animation"
+          ]
+        },
+        "release": {
+          "$ref": "#/$defs/release"
+        },
+        "fixture": {
+          "$ref": "#/$defs/pointer"
+        },
+        "runner": {
+          "$ref": "#/$defs/runner"
+        },
+        "contextReset": {
+          "$ref": "#/$defs/contextReset"
+        },
+        "oracle": {
+          "$ref": "#/$defs/pointer"
+        },
+        "rawReport": {
+          "$ref": "#/$defs/pointer"
+        },
+        "claim": {
+          "$ref": "#/$defs/claim"
+        },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "qualificationEffects": {
+          "$ref": "#/$defs/qualificationEffects"
+        },
+        "baseline": {
+          "$ref": "#/$defs/baseline"
+        },
+        "entryConditions": {
+          "$ref": "#/$defs/entryConditions"
+        },
+        "independentReview": {
+          "$ref": "#/$defs/independentReview"
+        },
+        "sourceReport": {
+          "$ref": "#/$defs/pointer"
+        },
+        "animation": {
+          "$ref": "#/$defs/pointer"
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "profile": {
+              "const": "one-minute-smoke"
+            },
+            "claim": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/claim"
+                },
+                {
+                  "properties": {
+                    "comparative": {
+                      "const": false
+                    }
+                  }
+                }
+              ]
+            },
+            "qualificationEffects": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/qualificationEffects"
+                },
+                {
+                  "properties": {
+                    "fo10Pass": {
+                      "const": false
+                    },
+                    "longTermSuperiority": {
+                      "const": false
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "required": [
+            "qualificationEffects"
+          ]
+        },
+        {
+          "properties": {
+            "profile": {
+              "const": "matched-long-task-comparison"
+            },
+            "claim": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/claim"
+                },
+                {
+                  "properties": {
+                    "comparative": {
+                      "const": true
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "required": [
+            "baseline",
+            "entryConditions",
+            "independentReview"
+          ]
+        },
+        {
+          "properties": {
+            "profile": {
+              "const": "public-animation"
+            }
+          },
+          "required": [
+            "sourceReport",
+            "animation"
+          ]
+        }
+      ],
+      "$defs": {
+        "root": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "pointer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "sha256"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "$ref": "#/$defs/root"
+            }
+          }
+        },
+        "release": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sourceCommit",
+            "artifact"
+          ],
+          "properties": {
+            "sourceCommit": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "artifact": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "coordinate",
+                "sha256"
+              ],
+              "properties": {
+                "coordinate": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sha256": {
+                  "$ref": "#/$defs/root"
+                }
+              }
+            }
+          }
+        },
+        "runner": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "provider",
+            "agent",
+            "version",
+            "configRoot"
+          ],
+          "properties": {
+            "provider": {
+              "type": "string",
+              "minLength": 1
+            },
+            "agent": {
+              "type": "string",
+              "minLength": 1
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "configRoot": {
+              "$ref": "#/$defs/root"
+            }
+          }
+        },
+        "contextReset": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "method",
+            "freshContext",
+            "freshProcess",
+            "transcriptShared"
+          ],
+          "properties": {
+            "method": {
+              "type": "string",
+              "minLength": 1
+            },
+            "freshContext": {
+              "const": true
+            },
+            "freshProcess": {
+              "type": "boolean"
+            },
+            "transcriptShared": {
+              "const": false
+            }
+          }
+        },
+        "claim": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "copy",
+            "comparative"
+          ],
+          "properties": {
+            "copy": {
+              "type": "string",
+              "minLength": 1
+            },
+            "comparative": {
+              "type": "boolean"
+            }
+          }
+        },
+        "qualificationEffects": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "fo10Pass",
+            "longTermSuperiority"
+          ],
+          "properties": {
+            "fo10Pass": {
+              "type": "boolean"
+            },
+            "longTermSuperiority": {
+              "type": "boolean"
+            }
+          }
+        },
+        "baseline": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "provider",
+            "agent",
+            "version",
+            "configRoot",
+            "nativeCapabilities",
+            "selectedAt"
+          ],
+          "properties": {
+            "provider": {
+              "type": "string",
+              "minLength": 1
+            },
+            "agent": {
+              "type": "string",
+              "minLength": 1
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "configRoot": {
+              "$ref": "#/$defs/root"
+            },
+            "nativeCapabilities": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "selectedAt": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        },
+        "entryConditions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "featureCompleteReleaseCandidate",
+            "latestNativeBaselineAtRun",
+            "sameTaskAndOracle",
+            "freshContextAndProcessBoundaries",
+            "independentReviewPlanned"
+          ],
+          "properties": {
+            "featureCompleteReleaseCandidate": {
+              "const": true
+            },
+            "latestNativeBaselineAtRun": {
+              "const": true
+            },
+            "sameTaskAndOracle": {
+              "const": true
+            },
+            "freshContextAndProcessBoundaries": {
+              "const": true
+            },
+            "independentReviewPlanned": {
+              "const": true
+            }
+          }
+        },
+        "independentReview": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reviewer",
+            "source",
+            "verdict",
+            "reportRoot"
+          ],
+          "properties": {
+            "reviewer": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source": {
+              "type": "string",
+              "minLength": 1
+            },
+            "verdict": {
+              "enum": [
+                "admit",
+                "reject",
+                "inconclusive"
+              ]
+            },
+            "reportRoot": {
+              "$ref": "#/$defs/root"
+            }
+          }
+        }
+      }
+    }
   },
   "guarantees": [
     "The Fact-Episode ontology bindings and three Action Geometry mappings are named and semantically separable.",

@@ -90,3 +90,21 @@ published binary — how you verify a download's signature and that it matches i
 tag — is tracked separately and waits on the release infrastructure being fully
 operational on this repository; see [`known-limits.md`](../qualification/known-limits.md) and the
 `provenance` row in [`MAP.md`](../MAP.md).
+
+## Continuity claim binding
+
+Buildchain does not decide whether a continuity benchmark is meaningful or
+whether its result supports stronger copy. Kungfu qualification owns the
+one-minute smoke, matched long-task comparison, public projection, and their
+verdicts. Buildchain's release responsibility is narrower: when comparative
+continuity copy is published, the Release Passport binds the exact release
+artifact and copy to the fixture, runner and latest-native-baseline identities,
+reset method, oracle, raw report, projection, limitations, and independent
+review.
+
+A smoke cannot be promoted into `FO10` evidence, and an animation without its
+retained report is non-qualifying. An ordinary patch with no comparative claim
+does not rerun the full comparison merely for Buildchain admission. See the
+[release and promotion gate](../qualification/gates/release-and-promotion.md#continuity-claim-evidence-boundary)
+and the machine contract at
+`framework/agent-work/kungfu-agent-work-state.contract.json`.

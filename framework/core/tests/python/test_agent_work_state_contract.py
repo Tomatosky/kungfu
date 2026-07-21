@@ -82,8 +82,13 @@ def test_agent_work_state_contract_is_registered_and_self_validating():
     ]
     Draft202012Validator.check_schema(value["profileSchema"])
     assert [row["id"] for row in value["qualification"]["checks"]] == [
-        f"FO{index}" for index in range(1, 9)
+        f"FO{index}" for index in range(1, 11)
     ]
+    Draft202012Validator.check_schema(value["continuityValidation"]["evidenceSchema"])
+    assert (
+        value["continuityValidation"]["publicOutcome"]
+        == "Keep the work when the chat ends."
+    )
     assert value["publicSurfaces"]["governance"] == {
         "contract": "kfd-1-generic-query",
         "agent": "kfd-3-collaboration-interface",

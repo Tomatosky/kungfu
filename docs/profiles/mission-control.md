@@ -14,15 +14,17 @@ Is the delegated work still fit for the purpose that matters?
 Who should continue, adjust, stop, approve, or supply evidence next?
 ```
 
-Kungfu Episodes and the Cost/State/Proof experience are the first commercial
-profile of this capability. They provide a low-friction market entry without
-creating a second product model.
+Kungfu Episodes and the Cost/State/Proof experience are a commercial profile
+of this capability. They remain a deeper inspection and governance surface,
+not the first-contact promise or vocabulary. The first-release entry leads
+with continuity — `Keep the work when the chat ends.` — and reaches this
+profile when the user needs to inspect responsibility, cost, state, and proof.
 
 ## The product stack
 
 ```text
 Kungfu Episodes: Cost / State / Proof
-  market-entry profile for delegated agent work
+  deeper inspection profile for delegated agent work
 
 Kungfu Mission Control
   Mission / Go / responsibility / drift / assessment / decision

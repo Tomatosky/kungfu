@@ -62,6 +62,28 @@ The handler executes once in the Linux promotion controller. Its admitted
 payload remains cross-platform: the controller still requires exact Linux,
 macOS, and Windows artifacts before the Gate passes.
 
+### Continuity claim evidence boundary
+
+The Agent Work contract owns three distinct validation profiles: a one-minute
+continuity smoke, a matched long-task comparison, and a public animation.
+Buildchain is a binding authority for evidence already produced by Kungfu
+qualification, not the semantic authority for the benchmark or its verdict.
+
+A smoke is preparatory only and cannot pass `FO10` or support a long-term or
+comparative superiority claim. A public animation is a projection and must
+bind an exact retained report. When release or marketing copy publishes a
+comparative continuity claim, the Release Passport must bind the exact release
+artifact, published copy, fixture, provider/Agent/version/configuration, latest
+native baseline identity and capabilities, reset method, oracle, raw report,
+public projection, limitations, and independent review.
+
+An ordinary patch release that publishes no comparative claim does not rerun
+the matched long-task comparison merely for Buildchain admission. The normal
+release profile still enforces `FO9`, `FO10`, and every other applicable
+blocking obligation. The executable schema and negative fixtures are in
+`framework/agent-work/kungfu-agent-work-state.contract.json` and
+`framework/agent-work/fixtures/continuity-evidence-cases.json`.
+
 <a id="layers-release"></a>
 <!-- gate-doc:layers.release -->
 ## Seven-layer publication verdict (`layers.release`)

@@ -45,6 +45,9 @@ const canonicalPolicy = readJson(
   'framework/contract/kungfu-agent-first-canonical-policy.json',
 );
 const fixtureManifest = readJson('framework/agent-work/fixtures/manifest.json');
+const continuityFixtures = readJson(
+  'framework/agent-work/fixtures/continuity-evidence-cases.json',
+);
 
 test('registers one layered Agent Work contract with bounded claims', () => {
   const entry = registry.contracts.find(
@@ -237,7 +240,7 @@ test('publishes every invalid inference and P17 check', () => {
   );
   assert.deepEqual(
     contract.qualification.checks.map((row) => row.id),
-    Array.from({ length: 8 }, (_, index) => `FO${index + 1}`),
+    Array.from({ length: 10 }, (_, index) => `FO${index + 1}`),
   );
   assert.equal(contract.relations.cardinality, 'many-to-many');
   assert.equal(contract.relations.inheritance, 'none');
@@ -249,6 +252,50 @@ test('publishes every invalid inference and P17 check', () => {
   assert.match(
     contract.roleStateMachines.warrant.rule,
     /cannot amplify action, resource, target, time, or consequence scope/,
+  );
+});
+
+test('separates continuity smoke, comparison, and public projection evidence', () => {
+  const ajv = new Ajv2020({ allErrors: true, strict: false });
+  ajv.addFormat('date-time', {
+    type: 'string',
+    validate: (value) => Number.isFinite(Date.parse(value)),
+  });
+  const validate = ajv.compile(contract.continuityValidation.evidenceSchema);
+  const resolved = new Map();
+
+  for (const fixture of continuityFixtures.cases) {
+    let evidence;
+    if (fixture.evidence) {
+      evidence = structuredClone(fixture.evidence);
+    } else {
+      const source = resolved.get(fixture.copyFrom);
+      assert.ok(source, `${fixture.id} must reference an earlier fixture`);
+      evidence = structuredClone(source);
+      for (const [key, value] of Object.entries(fixture.patch ?? {}))
+        evidence[key] = value;
+      for (const key of fixture.remove ?? []) delete evidence[key];
+    }
+    resolved.set(fixture.id, evidence);
+    assert.equal(
+      validate(evidence),
+      fixture.ok,
+      `${fixture.id}: ${JSON.stringify(validate.errors)}`,
+    );
+  }
+
+  assert.equal(
+    contract.continuityValidation.publicOutcome,
+    'Keep the work when the chat ends.',
+  );
+  assert.match(contract.continuityValidation.firstContactRule, /not first-use/);
+  assert.match(
+    contract.continuityValidation.releaseClaimPolicy.buildchainRole,
+    /does not invent benchmark meaning, upgrade a verdict, or infer a stronger claim/,
+  );
+  assert.match(
+    contract.continuityValidation.releaseClaimPolicy.ordinaryPatchRule,
+    /does not repeat the matched long-task comparison/,
   );
 });
 
@@ -275,4 +322,10 @@ test('human and agent routes point to the same contract authority', () => {
     human,
     /framework\/agent-work\/kungfu-agent-work-state\.contract\.json/,
   );
+  assert.match(human, /Keep the work when the chat ends\./);
+  assert.match(human, /does not pass `FO10`/);
+
+  const releaseGate = read('docs/qualification/gates/release-and-promotion.md');
+  assert.match(releaseGate, /matched long-task comparison/);
+  assert.match(releaseGate, /ordinary patch release/);
 });

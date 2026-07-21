@@ -241,7 +241,7 @@
     {
       "id": "agent-work-state-contract",
       "category": "kfd-2",
-      "statement": "Kungfu releases publish one welded four-role Agent Work contract whose current release state is explicitly not-qualified for P17 and whose FO1-FO8 evidence debt and residual non-claims remain machine-readable.",
+      "statement": "Kungfu releases publish one welded Agent Work contract whose current release state is explicitly not-qualified for P17, whose FO1-FO10 debt remains machine-readable, and whose continuity smoke, comparison, and projection claims are evidence-bounded.",
       "source": {
         "kind": "file",
         "path": "framework/agent-work/kungfu-agent-work-state.contract.json"
@@ -255,7 +255,12 @@
         {
           "type": "file",
           "path": "scripts/check-agent-work-state-contract.test.mjs",
-          "description": "Source, package, KFD-2, and KFD-3 projection checks."
+          "description": "Source, package, KFD-2, KFD-3, and continuity evidence-boundary checks."
+        },
+        {
+          "type": "file",
+          "path": "framework/agent-work/fixtures/continuity-evidence-cases.json",
+          "description": "Positive profiles and fail-closed smoke-as-FO10, missing-baseline, and animation-without-report cases."
         },
         {
           "type": "file",
@@ -283,13 +288,15 @@
         "scope": "The committed four-role contract, its exact packaged projection, the generic KFD-1 query route, the KFD-3 agent route, and the tests listed in this claim.",
         "enumerability": "closed-world",
         "exclusions": [
-          "Runtime P17 fixtures not yet retained by FO1-FO8",
+          "Complete FO9 installed-artifact and FO10 multi-day release-candidate evidence not yet retained",
+          "Matched long-task comparison deferred until a feature-complete release candidate exists",
           "GUI, TUI, Python SDK, and Node SDK conformance not yet complete",
           "Universal applicability to every organization or workflow"
         ]
       },
       "residualRisk": [
-        "P17 remains not-qualified until every FO1-FO8 obligation passes and exact release evidence is bound into the Release Passport."
+        "P17 remains not-qualified until every FO1-FO10 obligation passes and exact release evidence is bound into the Release Passport.",
+        "The one-minute smoke is preparatory only; no long-task comparison result or comparative superiority claim is asserted."
       ],
       "responsibility": {
         "sourceOwner": "kungfu",

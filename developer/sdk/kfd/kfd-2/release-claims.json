@@ -252,12 +252,12 @@
     },
     {
       "id": "agent-work-state-contract",
-      "statement": "Kungfu releases publish one welded four-role Agent Work contract whose current release state is explicitly not-qualified for P17 and whose FO1-FO8 evidence debt and residual non-claims remain machine-readable.",
+      "statement": "Kungfu releases publish one welded Agent Work contract whose current release state is explicitly not-qualified for P17, whose FO1-FO10 debt remains machine-readable, and whose continuity smoke, comparison, and projection claims are evidence-bounded.",
       "category": "kfd-2",
       "source": {
         "kind": "file",
         "path": "framework/agent-work/kungfu-agent-work-state.contract.json",
-        "sha256": "0b3198e529735c3a9e4ddba250d6e7bf3eb532395021a6c2d78e4a66d35588ae"
+        "sha256": "552edc7e586f4b2b347421db7e568ada4e5bcf13a22d4492f2d17730429bd10a"
       },
       "evidence": [
         {
@@ -265,7 +265,7 @@
           "pointer": {
             "kind": "file",
             "path": "docs/adr/ADR-0109-four-object-agent-work-state-contract.md",
-            "sha256": "d71f24686963f8c11d202edb4f5ab2182d5bae81bc10521fb3c6c990f15fff3a"
+            "sha256": "59f24921410b093e1739abc878ecd5eac53639fa04b947351a0c5b935410a3fa"
           },
           "description": "Accepted role-separation decision and bounded P17 qualification boundary."
         },
@@ -274,16 +274,25 @@
           "pointer": {
             "kind": "file",
             "path": "scripts/check-agent-work-state-contract.test.mjs",
-            "sha256": "8258a07a2802f4a4ccdc2e7187720fc26b645b365455572f3e94493734078e03"
+            "sha256": "6df2a03a2c4effa50ad310ca1b41453c8e08c0cedba809dfaff23437b596235a"
           },
-          "description": "Source, package, KFD-2, and KFD-3 projection checks."
+          "description": "Source, package, KFD-2, KFD-3, and continuity evidence-boundary checks."
+        },
+        {
+          "type": "file",
+          "pointer": {
+            "kind": "file",
+            "path": "framework/agent-work/fixtures/continuity-evidence-cases.json",
+            "sha256": "0c8890d688bd2e46389772a486347ca0827a6156cba6501e15ba9a922c9e165e"
+          },
+          "description": "Positive profiles and fail-closed smoke-as-FO10, missing-baseline, and animation-without-report cases."
         },
         {
           "type": "file",
           "pointer": {
             "kind": "file",
             "path": "framework/core/tests/python/test_agent_work_state_contract.py",
-            "sha256": "d82b8219edceb577071c8f2af5ae56676c75e6b8c58275be934d5d7a49ebe961"
+            "sha256": "eb0cb31109bdbb82022626249fd07c9ee7657ebd1a364e7e608fb8d99b2cb700"
           },
           "description": "Runtime CLI parity and fail-closed contract-schema checks."
         },
@@ -305,13 +314,15 @@
         "scope": "The committed four-role contract, its exact packaged projection, the generic KFD-1 query route, the KFD-3 agent route, and the tests listed in this claim.",
         "enumerability": "closed-world",
         "exclusions": [
-          "Runtime P17 fixtures not yet retained by FO1-FO8",
+          "Complete FO9 installed-artifact and FO10 multi-day release-candidate evidence not yet retained",
+          "Matched long-task comparison deferred until a feature-complete release candidate exists",
           "GUI, TUI, Python SDK, and Node SDK conformance not yet complete",
           "Universal applicability to every organization or workflow"
         ]
       },
       "residualRisk": [
-        "P17 remains not-qualified until every FO1-FO8 obligation passes and exact release evidence is bound into the Release Passport."
+        "P17 remains not-qualified until every FO1-FO10 obligation passes and exact release evidence is bound into the Release Passport.",
+        "The one-minute smoke is preparatory only; no long-task comparison result or comparative superiority claim is asserted."
       ],
       "responsibility": {
         "sourceOwner": "kungfu",

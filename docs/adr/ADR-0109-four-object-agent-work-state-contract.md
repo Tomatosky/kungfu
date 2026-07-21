@@ -5,7 +5,7 @@ adr_id: ADR-0109
 decision_status: accepted
 implementation_status: staged
 implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1026, https://github.com/kungfu-systems/kungfu/pull/1079, https://github.com/kungfu-systems/kungfu/pull/1081, https://github.com/kungfu-systems/kungfu/pull/1091, https://github.com/kungfu-systems/kungfu/pull/1132]
-qualification_refs: [framework/agent-work/kungfu-agent-work-state.contract.json, framework/agent-work/validate-profile.mjs, framework/agent-work/fixtures/manifest.json, framework/agent-work/kungfu-kfd-7-action-contract.json, framework/agent-work/kungfu-kfd-7-release-gate.json, framework/agent-work/evidence/kfd-7/, scripts/check-agent-work-state-contract.test.mjs, framework/core/tests/python/test_agent_work_state_contract.py, framework/core/tests/python/test_agent_work_profile_native.py, framework/core/tests/python/test_fact_kernel_dogfood.py, docs/qualification/evidence/fact-kernel-dogfood/generic-fact-kernel-v1/report.json, framework/core/src/python/kungfu/agent/kfd3_api.registry.json]
+qualification_refs: [framework/agent-work/kungfu-agent-work-state.contract.json, framework/agent-work/validate-profile.mjs, framework/agent-work/fixtures/manifest.json, framework/agent-work/fixtures/continuity-evidence-cases.json, framework/agent-work/kungfu-kfd-7-action-contract.json, framework/agent-work/kungfu-kfd-7-release-gate.json, framework/agent-work/evidence/kfd-7/, scripts/check-agent-work-state-contract.test.mjs, framework/core/tests/python/test_agent_work_state_contract.py, framework/core/tests/python/test_agent_work_profile_native.py, framework/core/tests/python/test_fact_kernel_dogfood.py, docs/qualification/evidence/fact-kernel-dogfood/generic-fact-kernel-v1/report.json, framework/core/src/python/kungfu/agent/kfd3_api.registry.json]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -13,7 +13,7 @@ period: 2026-07-17/2026-07-18
 theme: four-object-agent-work-state-contract
 confidence: high
 evidence_grade: B
-last_reviewed: 2026-07-20
+last_reviewed: 2026-07-21
 ---
 
 # ADR-0109: Real-world agent work preserves four independently addressable roles
@@ -115,7 +115,7 @@ kungfu contract show agent-work-state --json
 The KFD-3 registry, command catalog, onboarding brief, and provider skills
 declare the agent entrypoint. Neither prose nor the CLI owns a second role
 definition. The bounded KFD-2 release claim audits only that this exact
-contract preserves its explicit P17 status, exposes all `FO1`-`FO8` evidence
+contract preserves its explicit P17 status, exposes all `FO1`-`FO10` evidence
 debt, and retains its residual non-claims. The separate KFD-7 release-gate
 declaration qualifies the provisional product Action Profile against retained
 runtime evidence; it does not silently upgrade the wider welded contract.
@@ -170,7 +170,11 @@ runtime completion.
 The welded Agent Work contract and the KFD-7 Product Profile have distinct
 qualification boundaries. The v2 contract closes the in-repository object
 schema and negative semantic fixtures while continuing to report its own P17
-status and remaining `FO1`-`FO8` debt.
+status and remaining `FO1`-`FO10` debt. Its continuity evidence schema also
+rejects a one-minute smoke presented as `FO10`, a comparison without an exact
+native baseline, and a public animation without its retained source report.
+These checks define evidence admissibility; they do not claim that the future
+long-task comparison has run.
 
 The retained generic
 Fact kernel dogfood now qualifies `FO1`, `FO2`, and `FO6`: four distinct role

@@ -6,15 +6,15 @@
   "supportLevel": "release",
   "source": {
     "cwd": ".",
-    "sourceSha": "600dcfab17078e096cfb1dff247197ee5bcbf0c8",
+    "sourceSha": "1f3893fae1a7a666d8abe736cd9563128f48549b",
     "registryPath": ".buildchain/kfd/kfd-3/surfaces.json",
-    "registryDigest": "sha256:df2f4b8eaf574862cd44d9ccf13fdfe23b082a204fbb51d3cc472697f75a9fc9"
+    "registryDigest": "sha256:68bb6047981d48a3b349eccd15eaff4f1162d459430cb1ad2f2733711a99d5de"
   },
   "sourceRegistry": {
     "id": "kungfu",
     "path": ".buildchain/kfd/kfd-3/surfaces.json",
-    "sha256": "36b8eb10e9a6687f084eac727fc1fcc880f55880b4762cd58571f23db4961ff7",
-    "digest": "sha256:df2f4b8eaf574862cd44d9ccf13fdfe23b082a204fbb51d3cc472697f75a9fc9"
+    "sha256": "39d769f1bf9976d874ac24a1d73d453020fe6a9835b3790b42d164fb6d7c2b91",
+    "digest": "sha256:68bb6047981d48a3b349eccd15eaff4f1162d459430cb1ad2f2733711a99d5de"
   },
   "upstreamKfd": {
     "aggregatePath": "developer/sdk/kfd/upstream-aggregate.json",
@@ -29,12 +29,12 @@
       "libnode": "22.22.3-kf.3-alpha.16",
       "buildchain": "2.11.14-alpha.0"
     },
-    "digest": "sha256:803d7067385b9acd7d2966b6f99ada5dfc1baaa85a505d94f61e9ef995fa7210"
+    "digest": "sha256:8a15c092533ffd221f1d6399a4f0e93e230f0ed26382df1ec99fd079bd8c874d"
   },
   "expectedArtifactVerification": {
     "command": "node scripts/buildchain-kfd-evidence.mjs --artifact-witness --json"
   },
-  "collaborationInterfaceDigest": "sha256:c3ca52d6345d6bc9b51c6f79faf2d70764b1cb72ae151e04662f93653a116b86",
+  "collaborationInterfaceDigest": "sha256:493df99426e3bb91d413f013c3352e17670465bcc81de5e638957fff28c5a47b",
   "collaborationInterface": {
     "schemaVersion": 1,
     "contract": "kungfu-buildchain-kfd-3-surface-registry",
@@ -57,7 +57,7 @@
         "libnode": "22.22.3-kf.3-alpha.16",
         "buildchain": "2.11.14-alpha.0"
       },
-      "digest": "sha256:803d7067385b9acd7d2966b6f99ada5dfc1baaa85a505d94f61e9ef995fa7210"
+      "digest": "sha256:8a15c092533ffd221f1d6399a4f0e93e230f0ed26382df1ec99fd079bd8c874d"
     },
     "surfaces": [
       {

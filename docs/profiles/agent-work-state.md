@@ -1,5 +1,30 @@
 # Agent Work State
 
+The first-release user outcome is:
+
+```text
+Keep the work when the chat ends.
+```
+
+A new user should see continuity before internal vocabulary. Cost/State/Proof
+and the Pursuit, Atlas, Warrant, and Episode model remain inspectable deeper
+profiles; neither is first-use ceremony. Release validation deliberately keeps
+three artifacts separate:
+
+| Artifact | What it establishes | What it cannot establish |
+| --- | --- | --- |
+| one-minute continuity smoke | the bounded fixture, context reset, oracle, report shape, capture path, and animation inputs work together | it does not pass `FO10` or support multi-hour, multi-day, or comparative superiority claims |
+| matched long-task comparison | a feature-complete release candidate can be compared with the then-current native Agent baseline on the same task and oracle, under fresh context/process boundaries and independent review | it is phase-level attribution evidence, not an automatic permanent gate for every patch |
+| public animation | the retained report can be explained in a time-compressed public projection | it is not independent proof and cannot exist without the exact source report and limitations |
+
+The machine-readable profile, evidence schema, and Release Passport binding
+rules live in
+[`kungfu-agent-work-state.contract.json`](../../framework/agent-work/kungfu-agent-work-state.contract.json).
+Kungfu qualification owns the benchmark semantics. Buildchain may bind the
+exact artifact, copy, fixture, versions, reset method, oracle, raw report,
+projection, limitations, and review; it may not create or strengthen the
+claim.
+
 Agent Work is Kungfu's first **Domain Profile** over the **Fact-Episode
 Ontology** and **Action Geometry** defined by KFD-7, ADR-0123, and ADR-0125.
 Fact and Episode bind admitted state and realized causal occurrence. Action
@@ -207,8 +232,8 @@ and must conserve those identities.
 The generic contract query is the KFD-1 route to the welded fact. The
 agent-specific work-model and capabilities commands are KFD-3 collaboration
 interfaces over that same authority. The associated KFD-2 claim audits the
-published `not-qualified` state and evidence debt; it does not assert that P17
-has passed.
+published `not-qualified` state and `FO1`-`FO10` evidence debt; it does not
+assert that P17 has passed.
 
 ## Qualification status
 
