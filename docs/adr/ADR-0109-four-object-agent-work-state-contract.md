@@ -4,8 +4,8 @@ doc_type: architecture-decision
 adr_id: ADR-0109
 decision_status: accepted
 implementation_status: staged
-implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1026, https://github.com/kungfu-systems/kungfu/pull/1079, https://github.com/kungfu-systems/kungfu/pull/1081, https://github.com/kungfu-systems/kungfu/pull/1091, https://github.com/kungfu-systems/kungfu/pull/1132]
-qualification_refs: [framework/agent-work/kungfu-agent-work-state.contract.json, framework/agent-work/validate-profile.mjs, framework/agent-work/fixtures/manifest.json, framework/agent-work/fixtures/continuity-evidence-cases.json, framework/agent-work/kungfu-kfd-7-action-contract.json, framework/agent-work/kungfu-kfd-7-release-gate.json, framework/agent-work/evidence/kfd-7/, scripts/check-agent-work-state-contract.test.mjs, framework/core/tests/python/test_agent_work_state_contract.py, framework/core/tests/python/test_agent_work_profile_native.py, framework/core/tests/python/test_fact_kernel_dogfood.py, docs/qualification/evidence/fact-kernel-dogfood/generic-fact-kernel-v1/report.json, framework/core/src/python/kungfu/agent/kfd3_api.registry.json]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1026, https://github.com/kungfu-systems/kungfu/pull/1079, https://github.com/kungfu-systems/kungfu/pull/1081, https://github.com/kungfu-systems/kungfu/pull/1091, https://github.com/kungfu-systems/kungfu/pull/1132, https://github.com/kungfu-systems/kungfu/pull/1187]
+qualification_refs: [framework/agent-work/kungfu-agent-work-state.contract.json, framework/agent-work/kungfu-continuity-pilot.contract.json, framework/agent-work/validate-profile.mjs, framework/agent-work/fixtures/manifest.json, framework/agent-work/fixtures/continuity-evidence-cases.json, framework/agent-work/fixtures/continuity-pilot-v1.json, framework/agent-work/kungfu-kfd-7-action-contract.json, framework/agent-work/kungfu-kfd-7-release-gate.json, framework/agent-work/evidence/kfd-7/, scripts/check-agent-work-state-contract.test.mjs, scripts/run-continuity-pilot.test.mjs, framework/core/tests/python/test_agent_work_state_contract.py, framework/core/tests/python/test_agent_work_profile_native.py, framework/core/tests/python/test_fact_kernel_dogfood.py, docs/qualification/evidence/fact-kernel-dogfood/generic-fact-kernel-v1/report.json, docs/qualification/evidence/continuity-pilot/2026-07-21-preparatory-v1/public-projection.json, framework/core/src/python/kungfu/agent/kfd3_api.registry.json]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -175,6 +175,18 @@ rejects a one-minute smoke presented as `FO10`, a comparison without an exact
 native baseline, and a public animation without its retained source report.
 These checks define evidence admissibility; they do not claim that the future
 long-task comparison has run.
+
+The retained `2026-07-21-preparatory-v1` pilot exercises that admissibility
+boundary against one deterministic fixture. Its chat-only baseline has no
+continuation input and returns `unsupported`; its Kungfu path receives one
+durable fact and matches the exact continuation oracle. The public projection,
+raw evidence index, path reports, and 32-second animation production pack bind
+the same run identity at source commit
+`70467db1ad6ba2f61248369523ca91670228e1e8`; Project Cut
+`sha256:2b3097ff74e459a9e9de690c2a06bb1486767d9fe33104453e2b3dc1f487529a`
+seals the delivered source tree. This is preparatory fixture evidence, not a
+native or hosted model-agent comparison, sustained durability result,
+user-retention study, or `FO10` qualification.
 
 The retained generic
 Fact kernel dogfood now qualifies `FO1`, `FO2`, and `FO6`: four distinct role
