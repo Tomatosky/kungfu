@@ -18,9 +18,11 @@ from typing import Any
 from kungfu.agent import domain_profile
 from kungfu.storage import service as storage_service
 
-# Authority for capabilities / apply / inspect / session projection lives in
-# libkungfu ``action_runtime``. Injected ``kernel=`` keeps the local Python path
-# for characterization and contract tests that supply an in-memory Fact kernel.
+# Authority for capabilities / apply / inspect / session projection prefers
+# libkungfu ``action_runtime`` when the binding exposes the storage edge.
+# Injected ``kernel=`` keeps the local Python path for characterization and
+# contract tests that supply an in-memory Fact kernel. Stub bindings without
+# ``run_storage_service_operation`` fall back to the pure-Python reference.
 
 
 ACTION_SCHEMA = "kungfu.kfd7.profile-action/v1"
@@ -112,8 +114,97 @@ _ACTION_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 Kernel = Callable[[str | Path, str, dict[str, Any] | None], dict[str, Any]]
 
 
+def _native_edge_available() -> bool:
+    try:
+        return hasattr(storage_service._runtime(), "run_storage_service_operation")
+    except Exception:  # noqa: BLE001 - binding may be absent or stubbed
+        return False
+
+
+def capabilities_python() -> dict[str, Any]:
+    profile_roots = domain_profile.roots_python()
+    profile_contract = domain_profile.contract()
+    return {
+        "schema": CAPABILITIES_SCHEMA,
+        "profile": "kungfu-kfd-7-action-profile",
+        "roles": list(ROLES),
+        "actionSchema": ACTION_SCHEMA,
+        "receiptSchema": RECEIPT_SCHEMA,
+        "roleBodySchema": ROLE_BODY_SCHEMA,
+        "actionGeometryRoot": profile_roots["actionGeometryRoot"],
+        "domainProfileRoot": profile_roots["domainProfileRoot"],
+        "roleSchemaRoots": profile_roots["roleSchemaRoots"],
+        "roleBodySchemas": {
+            role: profile_contract["roleSchemas"][role]["schema"] for role in ROLES
+        },
+        "compatibility": profile_contract["legacyCompatibility"],
+        "transitions": {
+            role: [
+                {"operation": operation, "from": source, "to": target}
+                for operation, source, target in sorted(TRANSITIONS[role])
+            ]
+            for role in ROLES
+        },
+        "denials": list(DENIALS),
+        "authority": {
+            "profile": "role vocabulary, transition checks, progressive disclosure",
+            "kernel": "identity, immutable versions, relations, Cuts, CAS, receipts",
+            "episode": "causal occurrence and sealed evidence",
+        },
+        "recovery": {
+            "projectionRebuild": {
+                "status": "supported",
+                "source": "native Fact journal and content-addressed bodies",
+                "identity": "preserved",
+            },
+            "exportImport": {
+                "status": "supported",
+                "bundleSchema": AUTHORITY_BUNDLE_SCHEMA,
+                "authority": "native Fact journal replay through the existing kernel",
+                "preserves": [
+                    "logical object ids",
+                    "version and body roots",
+                    "relation and Cut roots",
+                    "named ref roots and revisions",
+                ],
+            },
+            "backendMigration": {
+                "status": "supported-by-storage-backend-switch",
+                "identity": "five-role object, version, Cut, ref, and authority roots remain exact",
+                "rollback": "reverse-sync-and-atomic-binding",
+            },
+            "cleanHome": {
+                "status": "supported-from-qualified-authority-bundle",
+                "requires": AUTHORITY_BUNDLE_SCHEMA,
+                "lossCode": "profile-authority-unavailable",
+            },
+        },
+        "sessionProjection": {
+            "schema": SESSION_SCHEMA,
+            "expand": "kungfu.agent.work_profile.expand_session",
+            "project": "kungfu.agent.work_profile.project_session",
+            "compressibilityPredicate": (
+                "kungfu.agent.work_profile.session_compressibility"
+            ),
+            "semanticDimensions": [
+                "direction",
+                "perspective-boundary",
+                "effective-authority",
+                "causal-process",
+                "admitted-result",
+            ],
+        },
+        "nonClaims": [
+            "A Profile receipt does not adopt KFD-7 or replace KFD authority.",
+            "An accepted action does not prove Pursuit completion or complete reality.",
+        ],
+    }
+
+
 def capabilities() -> dict[str, Any]:
-    return storage_service.action_runtime("", "capabilities")
+    if _native_edge_available():
+        return storage_service.action_runtime("", "capabilities")
+    return capabilities_python()
 
 
 def _require_session_component(
@@ -173,41 +264,186 @@ def _validate_session(session: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return components
 
 
+def session_compressibility_python(session: dict[str, Any]) -> dict[str, Any]:
+    """Return the exact roles that make a familiar session projection lossy."""
+
+    components = _validate_session(session)
+    reasons: list[dict[str, str]] = []
+
+    goal = components["pursuit"]
+    if goal.get("state") != "active" or goal.get("alternatives"):
+        reasons.append(
+            {
+                "role": "pursuit",
+                "code": "multiple-or-terminal-direction",
+            }
+        )
+
+    context = components["atlas"]
+    if (
+        context.get("state") != "current"
+        or context["validThroughRevision"] < context["basisRevision"]
+        or context.get("lossRoots")
+        or len(context.get("perspectives", [])) > 1
+    ):
+        reasons.append({"role": "atlas", "code": "perspective-or-freshness-boundary"})
+
+    permissions = components["warrant"]
+    if (
+        permissions.get("state") != "issued"
+        or permissions["validThroughRevision"] < context["basisRevision"]
+        or permissions.get("delegated") is True
+    ):
+        reasons.append({"role": "warrant", "code": "authority-boundary"})
+
+    run = components["episode"]
+    if (
+        run.get("state") not in {"open", "sealed"}
+        or len(run.get("episodeIds", [run["episodeId"]])) != 1
+    ):
+        reasons.append({"role": "episode", "code": "causal-branch"})
+
+    facts = components["fact"]
+    if facts.get("branchRoots") or len(facts.get("resultRoots", [])) > 1:
+        reasons.append({"role": "fact", "code": "fact-branch"})
+
+    return {
+        "schema": SESSION_COMPRESSIBILITY_SCHEMA,
+        "sessionId": session["sessionId"],
+        "compressible": not reasons,
+        "breakpoints": reasons,
+        "revealedRoles": sorted({reason["role"] for reason in reasons}),
+    }
+
+
+def session_valid_actions_python(session: dict[str, Any]) -> list[str]:
+    """Derive actions only from direction, current context, and authority."""
+
+    components = _validate_session(session)
+    context = components["atlas"]
+    warrant = components["warrant"]
+    pursuit = components["pursuit"]
+    if (
+        pursuit.get("state") != "active"
+        or context.get("state") != "current"
+        or context["validThroughRevision"] < context["basisRevision"]
+        or warrant.get("state") != "issued"
+        or warrant["validThroughRevision"] < context["basisRevision"]
+    ):
+        return []
+    return sorted(set(pursuit["operations"]).intersection(warrant["allowedOperations"]))
+
+
+def expand_session_python(session: dict[str, Any]) -> dict[str, Any]:
+    """Expand one product session into the legacy-compatible five-role shape."""
+
+    components = _validate_session(session)
+    compressibility = session_compressibility_python(session)
+    roles = {
+        role: {
+            "schema": ROLE_BODY_SCHEMA,
+            "role": role,
+            "state": components[role]["state"],
+            "details": json.loads(json.dumps(components[role], sort_keys=True)),
+        }
+        for role in ROLES
+    }
+    return {
+        "schema": SESSION_EXPANSION_SCHEMA,
+        "sessionId": session["sessionId"],
+        "compressibility": compressibility,
+        "roles": roles,
+        "observations": {
+            "direction": roles["pursuit"]["details"],
+            "perspective-boundary": roles["atlas"]["details"],
+            "effective-authority": roles["warrant"]["details"],
+            "causal-process": roles["episode"]["details"],
+            "admitted-result": roles["fact"]["details"],
+        },
+        "validActions": session_valid_actions_python(session),
+    }
+
+
+def project_session_python(expansion: dict[str, Any]) -> dict[str, Any]:
+    """Project a compressible five-role expansion back to one session."""
+
+    if (
+        not isinstance(expansion, dict)
+        or expansion.get("schema") != SESSION_EXPANSION_SCHEMA
+    ):
+        raise ValueError(f"schema must be {SESSION_EXPANSION_SCHEMA}")
+    compressibility = expansion.get("compressibility")
+    if not isinstance(compressibility, dict) or not compressibility.get("compressible"):
+        raise ValueError("session-complexity-breakpoint")
+    roles = expansion.get("roles")
+    if not isinstance(roles, dict) or set(roles) != set(ROLES):
+        raise ValueError("all five expanded roles are required exactly once")
+    for role in ROLES:
+        body = roles[role]
+        try:
+            if not isinstance(body, dict):
+                raise ValueError("role body must be an object")
+            domain_profile.validate_role_body_python(body)
+        except ValueError as error:
+            raise ValueError(f"expanded {role} role is invalid: {error}") from error
+        if body.get("role") != role or not isinstance(body.get("details"), dict):
+            raise ValueError(f"expanded {role} role is invalid")
+    projected = {
+        "schema": SESSION_SCHEMA,
+        "sessionId": expansion.get("sessionId"),
+        "goal": roles["pursuit"]["details"],
+        "context": roles["atlas"]["details"],
+        "permissions": roles["warrant"]["details"],
+        "run": roles["episode"]["details"],
+        "facts": roles["fact"]["details"],
+    }
+    _validate_session(projected)
+    return projected
+
+
 def session_compressibility(session: dict[str, Any]) -> dict[str, Any]:
     """Return the exact roles that make a familiar session projection lossy."""
 
-    return storage_service.action_runtime(
-        "", "session_compressibility", {"session": dict(session)}
-    )
+    if _native_edge_available():
+        return storage_service.action_runtime(
+            "", "session_compressibility", {"session": dict(session)}
+        )
+    return session_compressibility_python(session)
 
 
 def session_valid_actions(session: dict[str, Any]) -> list[str]:
     """Derive actions only from direction, current context, and authority."""
 
-    return list(
-        storage_service.action_runtime(
-            "", "session_valid_actions", {"session": dict(session)}
+    if _native_edge_available():
+        return list(
+            storage_service.action_runtime(
+                "", "session_valid_actions", {"session": dict(session)}
+            )
         )
-    )
+    return session_valid_actions_python(session)
 
 
 def expand_session(session: dict[str, Any]) -> dict[str, Any]:
     """Expand one product session into the legacy-compatible five-role shape."""
 
-    return storage_service.action_runtime(
-        "", "expand_session", {"session": dict(session)}
-    )
+    if _native_edge_available():
+        return storage_service.action_runtime(
+            "", "expand_session", {"session": dict(session)}
+        )
+    return expand_session_python(session)
 
 
 def project_session(expansion: dict[str, Any]) -> dict[str, Any]:
     """Project a compressible five-role expansion back to one session."""
 
-    try:
-        return storage_service.action_runtime(
-            "", "project_session", {"expansion": dict(expansion)}
-        )
-    except Exception as error:  # noqa: BLE001 - preserve ValueError surface
-        raise ValueError(str(error)) from error
+    if _native_edge_available():
+        try:
+            return storage_service.action_runtime(
+                "", "project_session", {"expansion": dict(expansion)}
+            )
+        except Exception as error:  # noqa: BLE001 - preserve ValueError surface
+            raise ValueError(str(error)) from error
+    return project_session_python(expansion)
 
 
 def _kernel(
@@ -348,10 +584,11 @@ def inspect(
     *,
     kernel: Kernel | None = None,
 ) -> dict[str, Any]:
-    if kernel is None:
+    if kernel is None and _native_edge_available():
         return storage_service.action_runtime(
             runtime_dir, "inspect", {"ref_name": ref_name}
         )
+    kernel = kernel or _kernel
     if _REF.fullmatch(ref_name) is None or ".." in ref_name:
         return _denied("inspect", "invalid-request", "refName is not canonical")
     catalog = kernel(runtime_dir, "query", {})
@@ -658,12 +895,13 @@ def apply_action(
 ) -> dict[str, Any]:
     """Validate, plan, and optionally execute one KFD-7 Profile action."""
 
-    if kernel is None:
+    if kernel is None and _native_edge_available():
         return storage_service.action_runtime(
             runtime_dir,
             "apply_action",
             {"request": dict(request), "execute": execute},
         )
+    kernel = kernel or _kernel
     action_id = str(request.get("actionId") or "unknown")
     try:
         _validate_request(request)
