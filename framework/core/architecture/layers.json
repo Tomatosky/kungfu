@@ -106,8 +106,7 @@
         "kungfu_public_headers_stable_versioned_c_abi",
         "kungfu_public_headers_libkungfu_cxx_source_surface",
         "kungfu_public_headers_libyijinjing_source_embedding_surface",
-        "kungfu_public_contract_compatibility_tests",
-        "kungfu_action_geometry_tests"
+        "kungfu_public_contract_compatibility_tests"
       ]
     },
     {
