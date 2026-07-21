@@ -18,6 +18,12 @@ from typing import Any
 from kungfu.agent import domain_profile
 from kungfu.storage import service as storage_service
 
+# Authority for capabilities / apply / inspect / session projection prefers
+# libkungfu ``action_runtime`` when the binding exposes the storage edge.
+# Injected ``kernel=`` keeps the local Python path for characterization and
+# contract tests that supply an in-memory Fact kernel. Stub bindings without
+# ``run_storage_service_operation`` fall back to the pure-Python reference.
+
 
 ACTION_SCHEMA = "kungfu.kfd7.profile-action/v1"
 RECEIPT_SCHEMA = "kungfu.kfd7.profile-action-receipt/v1"
@@ -108,8 +114,15 @@ _ACTION_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 Kernel = Callable[[str | Path, str, dict[str, Any] | None], dict[str, Any]]
 
 
-def capabilities() -> dict[str, Any]:
-    profile_roots = domain_profile.roots()
+def _native_edge_available() -> bool:
+    try:
+        return hasattr(storage_service._runtime(), "run_storage_service_operation")
+    except Exception:  # noqa: BLE001 - binding may be absent or stubbed
+        return False
+
+
+def capabilities_python() -> dict[str, Any]:
+    profile_roots = domain_profile.roots_python()
     profile_contract = domain_profile.contract()
     return {
         "schema": CAPABILITIES_SCHEMA,
@@ -188,6 +201,12 @@ def capabilities() -> dict[str, Any]:
     }
 
 
+def capabilities() -> dict[str, Any]:
+    if _native_edge_available():
+        return storage_service.action_runtime("", "capabilities")
+    return capabilities_python()
+
+
 def _require_session_component(
     session: dict[str, Any], field: str, identity_field: str
 ) -> dict[str, Any]:
@@ -245,7 +264,7 @@ def _validate_session(session: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return components
 
 
-def session_compressibility(session: dict[str, Any]) -> dict[str, Any]:
+def session_compressibility_python(session: dict[str, Any]) -> dict[str, Any]:
     """Return the exact roles that make a familiar session projection lossy."""
 
     components = _validate_session(session)
@@ -297,7 +316,7 @@ def session_compressibility(session: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def session_valid_actions(session: dict[str, Any]) -> list[str]:
+def session_valid_actions_python(session: dict[str, Any]) -> list[str]:
     """Derive actions only from direction, current context, and authority."""
 
     components = _validate_session(session)
@@ -315,11 +334,11 @@ def session_valid_actions(session: dict[str, Any]) -> list[str]:
     return sorted(set(pursuit["operations"]).intersection(warrant["allowedOperations"]))
 
 
-def expand_session(session: dict[str, Any]) -> dict[str, Any]:
+def expand_session_python(session: dict[str, Any]) -> dict[str, Any]:
     """Expand one product session into the legacy-compatible five-role shape."""
 
     components = _validate_session(session)
-    compressibility = session_compressibility(session)
+    compressibility = session_compressibility_python(session)
     roles = {
         role: {
             "schema": ROLE_BODY_SCHEMA,
@@ -341,11 +360,11 @@ def expand_session(session: dict[str, Any]) -> dict[str, Any]:
             "causal-process": roles["episode"]["details"],
             "admitted-result": roles["fact"]["details"],
         },
-        "validActions": session_valid_actions(session),
+        "validActions": session_valid_actions_python(session),
     }
 
 
-def project_session(expansion: dict[str, Any]) -> dict[str, Any]:
+def project_session_python(expansion: dict[str, Any]) -> dict[str, Any]:
     """Project a compressible five-role expansion back to one session."""
 
     if (
@@ -364,7 +383,7 @@ def project_session(expansion: dict[str, Any]) -> dict[str, Any]:
         try:
             if not isinstance(body, dict):
                 raise ValueError("role body must be an object")
-            domain_profile.validate_role_body(body)
+            domain_profile.validate_role_body_python(body)
         except ValueError as error:
             raise ValueError(f"expanded {role} role is invalid: {error}") from error
         if body.get("role") != role or not isinstance(body.get("details"), dict):
@@ -380,6 +399,51 @@ def project_session(expansion: dict[str, Any]) -> dict[str, Any]:
     }
     _validate_session(projected)
     return projected
+
+
+def session_compressibility(session: dict[str, Any]) -> dict[str, Any]:
+    """Return the exact roles that make a familiar session projection lossy."""
+
+    if _native_edge_available():
+        return storage_service.action_runtime(
+            "", "session_compressibility", {"session": dict(session)}
+        )
+    return session_compressibility_python(session)
+
+
+def session_valid_actions(session: dict[str, Any]) -> list[str]:
+    """Derive actions only from direction, current context, and authority."""
+
+    if _native_edge_available():
+        return list(
+            storage_service.action_runtime(
+                "", "session_valid_actions", {"session": dict(session)}
+            )
+        )
+    return session_valid_actions_python(session)
+
+
+def expand_session(session: dict[str, Any]) -> dict[str, Any]:
+    """Expand one product session into the legacy-compatible five-role shape."""
+
+    if _native_edge_available():
+        return storage_service.action_runtime(
+            "", "expand_session", {"session": dict(session)}
+        )
+    return expand_session_python(session)
+
+
+def project_session(expansion: dict[str, Any]) -> dict[str, Any]:
+    """Project a compressible five-role expansion back to one session."""
+
+    if _native_edge_available():
+        try:
+            return storage_service.action_runtime(
+                "", "project_session", {"expansion": dict(expansion)}
+            )
+        except Exception as error:  # noqa: BLE001 - preserve ValueError surface
+            raise ValueError(str(error)) from error
+    return project_session_python(expansion)
 
 
 def _kernel(
@@ -520,6 +584,10 @@ def inspect(
     *,
     kernel: Kernel | None = None,
 ) -> dict[str, Any]:
+    if kernel is None and _native_edge_available():
+        return storage_service.action_runtime(
+            runtime_dir, "inspect", {"ref_name": ref_name}
+        )
     kernel = kernel or _kernel
     if _REF.fullmatch(ref_name) is None or ".." in ref_name:
         return _denied("inspect", "invalid-request", "refName is not canonical")
@@ -827,6 +895,12 @@ def apply_action(
 ) -> dict[str, Any]:
     """Validate, plan, and optionally execute one KFD-7 Profile action."""
 
+    if kernel is None and _native_edge_available():
+        return storage_service.action_runtime(
+            runtime_dir,
+            "apply_action",
+            {"request": dict(request), "execute": execute},
+        )
     kernel = kernel or _kernel
     action_id = str(request.get("actionId") or "unknown")
     try:

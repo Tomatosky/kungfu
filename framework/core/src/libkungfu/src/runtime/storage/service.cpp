@@ -2146,6 +2146,7 @@ std::vector<std::string> storage_operation_names() {
       storage_operation_name(storage_operation::FactChangelog),
       storage_operation_name(storage_operation::SavedQueryCatalog),
       storage_operation_name(storage_operation::ProfileLifecycle),
+      storage_operation_name(storage_operation::ActionRuntime),
       storage_operation_name(storage_operation::KfxRuntime),
       storage_operation_name(storage_operation::FactKernel),
       storage_operation_name(storage_operation::FactContract),
@@ -2232,6 +2233,8 @@ std::string storage_operation_name(storage_operation operation) {
     return "saved_query_catalog";
   case storage_operation::ProfileLifecycle:
     return "profile_lifecycle";
+  case storage_operation::ActionRuntime:
+    return "action_runtime";
   case storage_operation::KfxRuntime:
     return "kfx_runtime";
   case storage_operation::FactKernel:
@@ -2374,6 +2377,9 @@ storage_operation parse_storage_operation(const std::string &operation) {
   }
   if (operation == "profile_lifecycle") {
     return storage_operation::ProfileLifecycle;
+  }
+  if (operation == "action_runtime") {
+    return storage_operation::ActionRuntime;
   }
   if (operation == "kfx_runtime") {
     return storage_operation::KfxRuntime;

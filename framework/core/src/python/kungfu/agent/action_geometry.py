@@ -1,6 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
-"""Versioned KFD-7 Action Geometry without adopter-domain policy."""
+"""Versioned KFD-7 Action Geometry without adopter-domain policy.
+
+Public evaluate* prefer the native ``action_runtime`` edge when the binding
+exposes it; otherwise they keep the pure-Python reference (contract tests that
+stub ``pykungfu`` without storage edge support).
+"""
 
 from __future__ import annotations
 
@@ -8,6 +13,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from kungfu import contract as contract_runtime
+from kungfu.storage import service as storage_service
 
 
 SURFACE = "action-geometry"
@@ -23,12 +29,19 @@ def metadata() -> dict[str, str | int]:
     return contract_runtime.contract_metadata(SURFACE)
 
 
-def evaluate(
+def _native_edge_available() -> bool:
+    try:
+        return hasattr(storage_service._runtime(), "run_storage_service_operation")
+    except Exception:  # noqa: BLE001 - binding may be absent or stubbed
+        return False
+
+
+def evaluate_python(
     responsibility_ids: Mapping[str, str],
     *,
     inference_claims: Sequence[str] = (),
 ) -> dict[str, Any]:
-    """Evaluate responsibility topology and non-substitution invariants."""
+    """Pure-Python geometry evaluate (characterization / stub-binding fallback)."""
 
     geometry = contract()
     required = list(geometry["responsibilities"])
@@ -56,12 +69,11 @@ def evaluate(
         failures.append({"code": "responsibility-identity-alias"})
 
     forbidden = {row["forbids"]: row["id"] for row in geometry["invariants"]}
-    violations = [
+    failures.extend(
         {"code": "non-substitution-invariant", "invariant": forbidden[claim]}
         for claim in inference_claims
         if claim in forbidden
-    ]
-    failures.extend(violations)
+    )
 
     return {
         "schema": EVALUATION_SCHEMA,
@@ -76,11 +88,11 @@ def evaluate(
     }
 
 
-def evaluate_session_refinement(
+def evaluate_session_refinement_python(
     before: Mapping[str, Any],
     after: Mapping[str, Any],
 ) -> dict[str, Any]:
-    """Check the geometry's conservative session round-trip dimensions."""
+    """Pure-Python session refinement check."""
 
     geometry = contract()
     dimensions = list(geometry["sessionRefinement"]["semanticDimensions"])
@@ -97,3 +109,37 @@ def evaluate_session_refinement(
         "missingDimensions": missing,
         "changedDimensions": changed,
     }
+
+
+def evaluate(
+    responsibility_ids: Mapping[str, str],
+    *,
+    inference_claims: Sequence[str] = (),
+) -> dict[str, Any]:
+    """Evaluate responsibility topology and non-substitution invariants."""
+
+    if _native_edge_available():
+        return storage_service.action_runtime(
+            "",
+            "evaluate",
+            {
+                "responsibility_ids": dict(responsibility_ids),
+                "inference_claims": list(inference_claims),
+            },
+        )
+    return evaluate_python(responsibility_ids, inference_claims=inference_claims)
+
+
+def evaluate_session_refinement(
+    before: Mapping[str, Any],
+    after: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Check the geometry's conservative session round-trip dimensions."""
+
+    if _native_edge_available():
+        return storage_service.action_runtime(
+            "",
+            "evaluate_session_refinement",
+            {"before": dict(before), "after": dict(after)},
+        )
+    return evaluate_session_refinement_python(before, after)

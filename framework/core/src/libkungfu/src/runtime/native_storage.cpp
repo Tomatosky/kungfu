@@ -19,7 +19,7 @@ constexpr uint64_t CAPABILITIES = KF_NATIVE_STORAGE_CAP_EPISODE_LIFECYCLE |
                                   KF_NATIVE_STORAGE_CAP_TRUST_ASSESSMENT | KF_NATIVE_STORAGE_CAP_FACT_CUT_KERNEL |
                                   KF_NATIVE_STORAGE_CAP_EPISODE_RECOVERY | KF_NATIVE_STORAGE_CAP_IMPORT_AND_REBUILD |
                                   KF_NATIVE_STORAGE_CAP_BACKEND_LIFECYCLE | KF_NATIVE_STORAGE_CAP_FACT_LIBRARY;
-constexpr std::array<std::string_view, 40> SUPPORTED_OPERATIONS = {
+constexpr std::array<std::string_view, 41> SUPPORTED_OPERATIONS = {
     "episode_begin",
     "episode_heartbeat",
     "episode_end",
@@ -46,6 +46,7 @@ constexpr std::array<std::string_view, 40> SUPPORTED_OPERATIONS = {
     "fact_observe",
     "fact_state",
     "fact_kernel",
+    "action_runtime",
     "fact_library_contract",
     "fact_type_create",
     "fact_type_list",

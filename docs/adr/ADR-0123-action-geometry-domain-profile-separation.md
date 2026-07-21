@@ -4,8 +4,8 @@ doc_type: architecture-decision
 adr_id: ADR-0123
 decision_status: accepted
 implementation_status: staged
-implementation_prs: []
-qualification_refs: [framework/action/action-geometry.contract.json, framework/agent-work/kungfu-agent-work-domain-profile.contract.json, framework/core/tests/python/test_agent_work_state_contract.py, scripts/check-agent-work-state-contract.test.mjs, developer/sdk/kfd/kfd-1/release-gate.json]
+implementation_prs: [https://github.com/kungfu-systems/kungfu/pull/1176]
+qualification_refs: [framework/action/action-geometry.contract.json, framework/agent-work/kungfu-agent-work-domain-profile.contract.json, framework/core/src/libkungfu/src/runtime/action/action_geometry.cpp, framework/core/src/libkungfu/src/runtime/action/domain_profile.cpp, framework/core/src/libkungfu/src/runtime/action/profile_action.cpp, framework/core/src/libkungfu/src/runtime/action/action_runtime.cpp, framework/core/tests/python/test_action_runtime_shadow.py, framework/core/tests/python/test_agent_work_state_contract.py, scripts/check-agent-work-state-contract.test.mjs, developer/sdk/kfd/kfd-1/release-gate.json]
 review_state: self-reviewed
 sensitivity: public
 sources: [local-files, user-consensus]
@@ -13,13 +13,14 @@ period: 2026-07-20
 theme: action-geometry-domain-profile-separation
 confidence: high
 evidence_grade: B
-last_reviewed: 2026-07-20
+last_reviewed: 2026-07-21
 ---
 
 # ADR-0123: Action Geometry and Domain Profiles are separate semantic layers
 
-- Status: accepted boundary; machine separation implemented; compatibility
-  qualification and release evidence remain staged
+- Status: accepted boundary; machine separation and native Action Geometry /
+  Domain Profile / apply_action authority are implemented in libkungfu;
+  compatibility qualification and release evidence remain staged
 - Date: 2026-07-20
 - Category: KFD-7 / action semantics / Profile boundary
 - Related: [ADR-0109](ADR-0109-four-object-agent-work-state-contract.md),

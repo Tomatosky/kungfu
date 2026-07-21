@@ -1,6 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
-"""Agent Work Domain Profile contract, schema roots, and body validation."""
+"""Agent Work Domain Profile contract, schema roots, and body validation.
+
+Public roots / bindings / validate prefer the native ``action_runtime`` edge when
+the binding exposes it; otherwise they keep the pure-Python reference used by
+contract tests that stub ``pykungfu`` without storage edge support.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +18,7 @@ from jsonschema import Draft202012Validator
 
 from kungfu import contract as contract_runtime
 from kungfu.content_hash import compute_content_hash
+from kungfu.storage import service as storage_service
 
 
 SURFACE = "agent-work-domain-profile"
@@ -26,6 +32,20 @@ def contract() -> dict[str, Any]:
 
 def metadata() -> dict[str, str | int]:
     return contract_runtime.contract_metadata(SURFACE)
+
+
+def _native_edge_available() -> bool:
+    try:
+        return hasattr(storage_service._runtime(), "run_storage_service_operation")
+    except Exception:  # noqa: BLE001 - binding may be absent or stubbed
+        return False
+
+
+def _native(action: str, request: dict[str, Any] | None = None) -> Any:
+    try:
+        return storage_service.action_runtime("", action, request)
+    except Exception as error:  # noqa: BLE001 - preserve ValueError surface
+        raise ValueError(str(error)) from error
 
 
 def _role_schema_path(row: Mapping[str, Any]) -> Path:
@@ -60,7 +80,7 @@ def _load_role_schema(role: str) -> tuple[dict[str, Any], str]:
     return schema, actual_root
 
 
-def roots() -> dict[str, Any]:
+def roots_python() -> dict[str, Any]:
     profile = contract()
     profile_metadata = metadata()
     geometry_metadata = contract_runtime.contract_metadata(GEOMETRY_SURFACE)
@@ -78,15 +98,15 @@ def roots() -> dict[str, Any]:
     }
 
 
-def role_schema_id(role: str) -> str:
+def role_schema_id_python(role: str) -> str:
     row = contract()["roleSchemas"].get(role)
     if not isinstance(row, dict):
         raise ValueError(f"Unknown Agent Work role: {role}")
     return str(row["schema"])
 
 
-def role_bindings(role: str) -> dict[str, str]:
-    resolved = roots()
+def role_bindings_python(role: str) -> dict[str, str]:
+    resolved = roots_python()
     return {
         "actionGeometryRoot": str(resolved["actionGeometryRoot"]),
         "domainProfileRoot": str(resolved["domainProfileRoot"]),
@@ -94,7 +114,7 @@ def role_bindings(role: str) -> dict[str, str]:
     }
 
 
-def validate_role_body(
+def validate_role_body_python(
     body: Mapping[str, Any],
     *,
     allow_legacy: bool = True,
@@ -109,7 +129,7 @@ def validate_role_body(
             raise ValueError("Legacy Agent Work role bodies are not accepted here")
         return {"role": role, "legacy": True}
 
-    expected_schema = role_schema_id(str(role))
+    expected_schema = role_schema_id_python(str(role))
     if body.get("schema") != expected_schema:
         raise ValueError(
             f"Agent Work {role} role schema mismatch: expected {expected_schema}"
@@ -127,9 +147,40 @@ def validate_role_body(
             f"Agent Work {role} role body validation failed at {path}: {error.message}"
         )
 
-    expected_bindings = role_bindings(str(role))
+    expected_bindings = role_bindings_python(str(role))
     if body.get("bindings") != expected_bindings:
         raise ValueError(
             f"Agent Work {role} role body does not bind the exact contract roots"
         )
     return {"role": role, "legacy": False, "bindings": expected_bindings}
+
+
+def roots() -> dict[str, Any]:
+    if _native_edge_available():
+        return _native("roots")
+    return roots_python()
+
+
+def role_schema_id(role: str) -> str:
+    if _native_edge_available():
+        return str(_native("role_schema_id", {"role": role})["schema"])
+    return role_schema_id_python(role)
+
+
+def role_bindings(role: str) -> dict[str, str]:
+    if _native_edge_available():
+        return _native("role_bindings", {"role": role})
+    return role_bindings_python(role)
+
+
+def validate_role_body(
+    body: Mapping[str, Any],
+    *,
+    allow_legacy: bool = True,
+) -> dict[str, Any]:
+    if _native_edge_available():
+        return _native(
+            "validate_role_body",
+            {"body": dict(body), "allow_legacy": allow_legacy},
+        )
+    return validate_role_body_python(body, allow_legacy=allow_legacy)

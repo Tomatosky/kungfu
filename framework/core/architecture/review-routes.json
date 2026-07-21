@@ -1,6 +1,6 @@
 {
   "schema": "kungfu.core-review-routes/v1",
-  "authorityRoot": "sha256:0841ab01daa9fffaf1f2ddb33e7bb747084034265b537483336c95f7b87a5efe",
+  "authorityRoot": "sha256:38ffe7c4c514a5af9234587684c7845db82d5aed531c77e141663c6e69a84382",
   "fallbackAccount": "@dongkeren",
   "routes": [
     {
@@ -111,6 +111,7 @@
     {
       "component": "runtime-extension-services",
       "paths": [
+        "src/libkungfu/src/runtime/action/",
         "src/libkungfu/src/runtime/kfx/",
         "src/libkungfu/src/runtime/profile/",
         "src/libkungfu/src/runtime/trust/"
@@ -120,7 +121,11 @@
       "fallbackAccount": "@dongkeren",
       "tests": [
         "kungfu_native_kfx_contract_tests",
-        "kungfu_profile_lifecycle_tests"
+        "kungfu_profile_lifecycle_tests",
+        "kungfu_action_geometry_tests",
+        "kungfu_domain_profile_tests",
+        "kungfu_profile_action_tests",
+        "kungfu_action_runtime_tests"
       ]
     },
     {
