@@ -182,11 +182,11 @@ continuation input and returns `unsupported`; its Kungfu path receives one
 durable fact and matches the exact continuation oracle. The public projection,
 raw evidence index, path reports, and 32-second animation production pack bind
 the same run identity at source commit
-`70467db1ad6ba2f61248369523ca91670228e1e8`; Project Cut
-`sha256:2b3097ff74e459a9e9de690c2a06bb1486767d9fe33104453e2b3dc1f487529a`
-seals the delivered source tree. This is preparatory fixture evidence, not a
-native or hosted model-agent comparison, sustained durability result,
-user-retention study, or `FO10` qualification.
+`70467db1ad6ba2f61248369523ca91670228e1e8`. The delivery's retained Project
+Cut and Completion Claim seal the final source tree without making that Cut
+root part of the source projection itself. This is preparatory fixture
+evidence, not a native or hosted model-agent comparison, sustained durability
+result, user-retention study, or `FO10` qualification.
 
 The retained generic
 Fact kernel dogfood now qualifies `FO1`, `FO2`, and `FO6`: four distinct role
