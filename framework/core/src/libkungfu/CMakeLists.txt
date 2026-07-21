@@ -213,6 +213,38 @@ if(KUNGFU_WITH_CORE_TESTS)
   target_compile_features(kungfu_profile_lifecycle_tests PRIVATE cxx_std_20)
   add_test(NAME kungfu_profile_lifecycle_tests COMMAND kungfu_profile_lifecycle_tests)
 
+  get_filename_component(KUNGFU_REPO_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../.." ABSOLUTE)
+  add_executable(kungfu_action_geometry_tests tests/action_geometry_tests.cpp)
+  target_link_libraries(kungfu_action_geometry_tests PRIVATE ${LIBKUNGFU_NAME} kungfu_compile_contract)
+  target_compile_features(kungfu_action_geometry_tests PRIVATE cxx_std_20)
+  target_compile_definitions(kungfu_action_geometry_tests PRIVATE
+    KUNGFU_REPO_ROOT="${KUNGFU_REPO_ROOT_DIR}"
+    ACTION_GEOMETRY_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/action-geometry")
+  add_test(NAME kungfu_action_geometry_tests COMMAND kungfu_action_geometry_tests)
+
+  add_executable(kungfu_domain_profile_tests tests/domain_profile_tests.cpp)
+  target_link_libraries(kungfu_domain_profile_tests PRIVATE ${LIBKUNGFU_NAME} kungfu_compile_contract)
+  target_compile_features(kungfu_domain_profile_tests PRIVATE cxx_std_20)
+  target_compile_definitions(kungfu_domain_profile_tests PRIVATE
+    KUNGFU_REPO_ROOT="${KUNGFU_REPO_ROOT_DIR}"
+    ACTION_GEOMETRY_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/action-geometry")
+  add_test(NAME kungfu_domain_profile_tests COMMAND kungfu_domain_profile_tests)
+
+  add_executable(kungfu_profile_action_tests tests/profile_action_tests.cpp)
+  target_link_libraries(kungfu_profile_action_tests PRIVATE ${LIBKUNGFU_NAME} kungfu_compile_contract)
+  target_compile_features(kungfu_profile_action_tests PRIVATE cxx_std_20)
+  target_compile_definitions(kungfu_profile_action_tests PRIVATE
+    KUNGFU_REPO_ROOT="${KUNGFU_REPO_ROOT_DIR}"
+    ACTION_GEOMETRY_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/action-geometry")
+  add_test(NAME kungfu_profile_action_tests COMMAND kungfu_profile_action_tests)
+
+  add_executable(kungfu_action_runtime_tests tests/action_runtime_tests.cpp)
+  target_link_libraries(kungfu_action_runtime_tests PRIVATE ${LIBKUNGFU_NAME} kungfu_compile_contract)
+  target_compile_features(kungfu_action_runtime_tests PRIVATE cxx_std_20)
+  target_compile_definitions(kungfu_action_runtime_tests PRIVATE
+    KUNGFU_REPO_ROOT="${KUNGFU_REPO_ROOT_DIR}")
+  add_test(NAME kungfu_action_runtime_tests COMMAND kungfu_action_runtime_tests)
+
   add_executable(kungfu_bounded_sql_parser_tests tests/bounded_sql_parser_tests.cpp)
   target_link_libraries(kungfu_bounded_sql_parser_tests PRIVATE ${LIBKUNGFU_NAME} kungfu_compile_contract)
   target_compile_features(kungfu_bounded_sql_parser_tests PRIVATE cxx_std_20)

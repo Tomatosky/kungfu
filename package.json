@@ -101,6 +101,7 @@
     "check:kfd7-library-boundary": "node scripts/require-shifu.mjs check:kfd7-library-boundary && node scripts/check-kfd7-library-boundary.test.mjs",
     "kfd7:qualify:installed-consumer": "node scripts/require-shifu.mjs kfd7:qualify:installed-consumer && node scripts/qualify-kfd7-installed-consumer.mjs",
     "test:fact-profile-shadow": "node scripts/require-shifu.mjs test:fact-profile-shadow && node scripts/run-fact-profile-shadow-tests.mjs",
+    "test:action-runtime-shadow": "node scripts/require-shifu.mjs test:action-runtime-shadow && node scripts/run-action-runtime-shadow-tests.mjs",
     "test:fact-kernel-integrity": "node scripts/require-shifu.mjs test:fact-kernel-integrity && node scripts/run-fact-kernel-integrity-tests.mjs",
     "test:fact-kernel-dogfood": "node scripts/require-shifu.mjs test:fact-kernel-dogfood && node scripts/run-fact-kernel-dogfood-tests.mjs",
     "test:fact-kernel-fold-performance": "node scripts/require-shifu.mjs test:fact-kernel-fold-performance && node scripts/run-fact-kernel-fold-performance.mjs",
