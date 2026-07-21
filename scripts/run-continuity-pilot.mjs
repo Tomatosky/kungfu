@@ -145,6 +145,7 @@ function parseArgs(argv) {
   const result = { output: '', sourceHead: '', runId: '' };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
+    if (arg === '--') continue;
     if (arg === '--output') result.output = argv[++index] || '';
     else if (arg === '--source-head') result.sourceHead = argv[++index] || '';
     else if (arg === '--run-id') result.runId = argv[++index] || '';
